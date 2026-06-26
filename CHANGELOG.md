@@ -7,6 +7,25 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.13] — 2026-06-26 — Production Hardening
+
+### Added
+- `.github/workflows/ci.yml`: GitHub Actions CI — install, TypeScript, ESLint, build on every push and PR to `main`
+- `src/app/global-error.tsx`: root-level production error boundary (replaces root layout on unhandled errors)
+- `next.config.ts`: `headers()` — security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-DNS-Prefetch-Control) at Next.js level for defense-in-depth
+- `next.config.ts`: `experimental.inlineCss: true` — inlines Tailwind CSS into HTML, eliminates render-blocking stylesheet request for first-time visitors
+- `src/app/sitemap.ts`: 7 missing English pages added (`/en/swap`, `/en/business`, `/en/careers`, `/en/compare-exchanges`, `/en/listing`, `/en/media`, `/en/partners`)
+
+### Changed
+- `next.config.ts`: `poweredByHeader: false` — removes `X-Powered-By: Next.js` fingerprinting header
+- `next.config.ts`: removed stale `experimental.cpus: 4` (undocumented in Next.js 16)
+- `docs/Deployment.md`: updated Node.js version to 22.x; added CI/CD section
+- `docs/Roadmap.md`: Phase 13 moved to Completed; Phase 14 promoted to next planned
+
+**Tag:** `v0.13-production-hardening`
+
+---
+
 ## [v0.12] — 2026-06-26 — Enterprise GitHub Foundation
 
 ### Added

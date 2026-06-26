@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: ESLint
+        run: ./node_modules/.bin/eslint . --max-warnings 130
+
+      - name: Build
+        run: npm run build

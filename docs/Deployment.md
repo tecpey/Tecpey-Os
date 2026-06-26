@@ -5,11 +5,40 @@
 | Component | Specification |
 |-----------|--------------|
 | OS | Ubuntu 24.04 LTS |
-| Node.js | 20.x LTS |
+| Node.js | 22.x LTS (minimum 20.9.0 per Next.js 16 requirement) |
 | Database | PostgreSQL 15+ |
 | Process Manager | PM2 or Docker |
 | Reverse Proxy | Nginx |
 | SSL | Let's Encrypt (Certbot) |
+
+---
+
+## CI / CD Pipeline
+
+TecPey uses GitHub Actions for automated quality checks on every push to `main` and every pull request.
+
+### Workflow: `.github/workflows/ci.yml`
+
+| Step | Command | Failure condition |
+|------|---------|-------------------|
+| Install | `npm ci` | missing or conflicting deps |
+| TypeScript | `tsc --noEmit` | any type error |
+| ESLint | `eslint . --max-warnings 130` | any new error or warnings exceeding threshold |
+| Build | `npm run build` | any build error |
+
+### Adding CI secrets (GitHub repository → Settings → Secrets → Actions)
+
+For sensitive production variables that the build-time CI needs as real values (e.g. when you add server-side checks at build time), add them as **repository secrets**:
+
+```
+TECPEY_SESSION_SECRET
+CERTIFICATE_SIGNING_SECRET
+DATABASE_URL
+NEXT_PUBLIC_API_BACKEND_URL
+NEXT_PUBLIC_API_SOCKET_URL
+```
+
+The CI workflow currently uses placeholder values for all env vars since `next build` does not call `env:check`. Once real secrets are added as GitHub Actions secrets, replace the inline `env:` block in `ci.yml` with `${{ secrets.SECRET_NAME }}` references.
 
 ---
 

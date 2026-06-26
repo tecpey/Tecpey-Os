@@ -65,20 +65,22 @@ TecPey aims to be the most trusted Persian-language crypto education and trading
 - GitHub issue and PR templates
 - Repository pushed to GitHub with tags
 
+### Phase 13: Production Hardening (Complete)
+- GitHub Actions CI (install → TypeScript → ESLint → build)
+- `poweredByHeader: false` — removes fingerprinting header
+- Security headers at Next.js level (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-DNS-Prefetch-Control)
+- `experimental.inlineCss: true` — eliminates render-blocking CSS for first-time visitors
+- Removed stale `experimental.cpus: 4` config option
+- 7 missing English pages added to sitemap
+- `global-error.tsx` — root production error boundary
+- Documentation: Deployment guide updated for Node 22 and CI/CD
+
 ---
 
 ## Planned Phases
 
-### Phase 13: Performance Audit
-**Goal:** Achieve Core Web Vitals green across all key pages.
-
-- LCP < 2.5s on landing and markets
-- CLS < 0.1 on all pages
-- FID < 100ms
-- Image optimization audit (`<Image>` replacements for `<img>`)
-- Bundle size analysis and code splitting
-- Font preload optimization
-- Critical CSS extraction
+### Phase 14: Advanced Community
+**Goal:** Deepen community engagement and social learning.
 
 ### Phase 14: Advanced Community
 **Goal:** Deepen community engagement and social learning.
@@ -89,6 +91,8 @@ TecPey aims to be the most trusted Persian-language crypto education and trading
 - Mentor endorsement system
 - Learning streak rewards
 - Academy graduation ceremony page
+
+### Phase 15: Mobile Application
 
 ### Phase 15: Mobile Application
 **Goal:** Native mobile experience for Persian-speaking crypto learners.
@@ -129,6 +133,7 @@ TecPey aims to be the most trusted Persian-language crypto education and trading
 | Persian `contact-us/page.tsx` legacy classes | Low | Uses old CSS vars |
 | Community pages legacy CSS | Low | Pre-enterprise styling |
 | Dead CSS vars in `globals.css` | Cosmetic | `.about-*` classes unused |
+| `middleware.ts` → `proxy.ts` rename | Low | Next.js 16 deprecated `middleware` file convention; rename to `proxy.ts` |
 
 ---
 
@@ -139,6 +144,7 @@ TecPey aims to be the most trusted Persian-language crypto education and trading
 | `v0.10-enterprise-ui` | Enterprise UI/UX redesign complete |
 | `v0.11-enterprise-polish` | Visual polish and accessibility |
 | `v0.12-enterprise-foundation` | GitHub and documentation foundation |
+| `v0.13-production-hardening` | CI pipeline, security headers, SEO, performance config |
 
 ---
 

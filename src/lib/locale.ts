@@ -1,5 +1,3 @@
-'use server'
-
 import { cookies } from 'next/headers';
 import { type ActiveLocale, defaultLocale, isActiveLocale } from '@/i18n/config';
 
