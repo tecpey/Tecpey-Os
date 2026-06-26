@@ -1,23 +1,17 @@
-
 export default function PriceCardSkeleton() {
   return (
-    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
-      {/* Header - Coin name */}
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-md">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gray-600/50 rounded-full animate-pulse" />
-          <div className="h-4 w-16 bg-gray-600/50 rounded animate-pulse" />
+          <div className="skeleton h-8 w-8 rounded-full" />
+          <div className="skeleton h-4 w-16 rounded-lg" />
         </div>
-        <div className="h-6 w-14 bg-gray-600/50 rounded-full animate-pulse" />
+        <div className="skeleton h-6 w-14 rounded-full" />
       </div>
-
-      {/* Price */}
       <div className="mb-2">
-        <div className="h-7 w-24 bg-gray-600/50 rounded animate-pulse" />
+        <div className="skeleton h-7 w-24 rounded-lg" />
       </div>
-
-      {/* Change percentage */}
-      <div className="h-4 w-12 bg-gray-600/50 rounded animate-pulse" />
+      <div className="skeleton h-4 w-12 rounded-lg" />
     </div>
   );
 }

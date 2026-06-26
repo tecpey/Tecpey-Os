@@ -628,7 +628,7 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
       </section>
 
       {/* Mobile sticky CTA — two equal buttons, always visible on mobile */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-cyan-300/20 bg-slate-950/92 px-3 py-3 shadow-[0_-18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl lg:hidden">
+      <div className="sticky-cta-bar fixed inset-x-0 bottom-0 z-50 border-t border-cyan-300/20 bg-slate-950/92 px-3 pt-3 shadow-[0_-18px_50px_rgba(0,0,0,.35)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-md gap-2">
           <Link href="https://my.tecpey.ir" className="flex flex-1 items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400">
             Enter Exchange

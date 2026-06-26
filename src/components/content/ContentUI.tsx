@@ -5,7 +5,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, Clock3, Search, ShieldCheck, Sparkle
 
 export function ContentShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[color:var(--tp-bg,#f7fbff)] pt-24 text-[color:var(--tp-text,#06111f)] dark:bg-[#06111f] dark:text-white">
+    <main className="min-h-screen bg-slate-50 pt-24 text-slate-950 dark:bg-slate-950 dark:text-white">
       {children}
     </main>
   );
@@ -90,7 +90,7 @@ export function ArticleCard({
   meta?: string;
 }) {
   return (
-    <Link href={href} className="group block h-full rounded-3xl border border-slate-200 bg-white/82 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-white/5">
+    <Link href={href} className="group block h-full rounded-3xl border border-slate-200 bg-white/80 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-white/5">
       {meta && <p className="text-xs font-black text-cyan-500">{meta}</p>}
       <h3 className="mt-3 text-xl font-black leading-8 text-slate-950 dark:text-white">{title}</h3>
       <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{description}</p>
@@ -106,7 +106,7 @@ export function FaqList({ faqs }: { faqs: { q: string; a: string }[] }) {
   return (
     <div className="space-y-3">
       {faqs.map((item) => (
-        <div key={item.q} className="rounded-3xl border border-slate-200 bg-white/82 p-5 dark:border-white/10 dark:bg-white/5">
+        <div key={item.q} className="rounded-3xl border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-white/5">
           <h3 className="flex items-start gap-2 text-base font-black">
             <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-emerald-500" />
             {item.q}

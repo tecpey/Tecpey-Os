@@ -1,75 +1,47 @@
-
 interface PriceTableSkeletonProps {
   rows?: number;
   hasIRT?: boolean;
 }
 
 export default function PriceTableSkeleton({ rows = 6, hasIRT = false }: PriceTableSkeletonProps) {
+  const cols = hasIRT ? 7 : 6;
   return (
-    <div className="max-w-7xl mx-auto px-6">
-      {/* Title */}
-      <div className="h-8 w-48 bg-gray-100 rounded-lg mx-auto mb-10 animate-pulse" />
+    <div className="mx-auto max-w-7xl px-6">
+      <div className="skeleton mx-auto mb-10 h-8 w-48 rounded-lg" />
 
-      <div className="border border-gray-100  rounded-2xl p-4 md:p-6">
+      <div className="rounded-2xl border border-slate-100 p-4 dark:border-white/[0.08] md:p-6">
         <div className="overflow-x-auto">
           <div className="min-w-[900px]">
-            {/* Header */}
-            <div
-              className={`grid ${
-                hasIRT ? "grid-cols-7" : "grid-cols-6"
-              } gap-4 py-3 px-6 border-b border-gray-100 `}
-            >
-              {Array.from({ length: hasIRT ? 7 : 6 }).map((_, i) => (
-                <div key={i} className="h-3 w-full bg-gray-100  rounded animate-pulse" />
+            <div className={`grid grid-cols-${cols} gap-4 border-b border-slate-100 px-6 py-3 dark:border-white/[0.08]`}>
+              {Array.from({ length: cols }).map((_, i) => (
+                <div key={i} className="skeleton h-3 w-full rounded" />
               ))}
             </div>
 
-            {/* Rows */}
             <div className="px-6">
               {Array.from({ length: rows }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`grid ${
-                    hasIRT ? "grid-cols-7" : "grid-cols-6"
-                  } gap-4 py-4 px-2 items-center border-b border-gray-50  last:border-0`}
-                >
-                  {/* Coin */}
+                <div key={index} className={`grid grid-cols-${cols} items-center gap-4 border-b border-slate-50 px-2 py-4 last:border-0 dark:border-white/[0.04]`}>
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-100  rounded-full animate-pulse" />
+                    <div className="skeleton h-8 w-8 rounded-full" />
                     <div className="space-y-1.5">
-                      <div className="h-3 w-14 bg-gray-100  rounded animate-pulse" />
-                      <div className="h-2 w-10 bg-gray-50  rounded animate-pulse" />
+                      <div className="skeleton h-3 w-14 rounded" />
+                      <div className="skeleton h-2 w-10 rounded" />
                     </div>
                   </div>
-
-                  {/* Price */}
-                  <div className="h-4 w-20 bg-gray-100  rounded animate-pulse" />
-
-                  {/* IRT Price */}
-                  {hasIRT && (
-                    <div className="h-4 w-24 bg-gray-100  rounded animate-pulse" />
-                  )}
-
-                  {/* Volume */}
-                  <div className="h-4 w-16 bg-gray-100  rounded animate-pulse" />
-
-                  {/* Change */}
-                  <div className="h-4 w-14 bg-gray-100  rounded animate-pulse" />
-
-                  {/* Chart */}
-                  <div className="h-8 w-20 bg-gray-100  rounded animate-pulse" />
-
-                  {/* Button */}
-                  <div className="h-8 w-[100px] bg-gray-100  rounded-full animate-pulse" />
+                  <div className="skeleton h-4 w-20 rounded" />
+                  {hasIRT && <div className="skeleton h-4 w-24 rounded" />}
+                  <div className="skeleton h-4 w-16 rounded" />
+                  <div className="skeleton h-4 w-14 rounded" />
+                  <div className="skeleton h-8 w-20 rounded" />
+                  <div className="skeleton h-8 w-[100px] rounded-full" />
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* View More */}
-        <div className="text-center mt-6 pt-4 border-t border-gray-100 ">
-          <div className="h-4 w-24 bg-gray-100  rounded animate-pulse mx-auto" />
+        <div className="mt-6 border-t border-slate-100 pt-4 text-center dark:border-white/[0.08]">
+          <div className="skeleton mx-auto h-4 w-24 rounded" />
         </div>
       </div>
     </div>

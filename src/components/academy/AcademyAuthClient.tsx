@@ -50,11 +50,11 @@ export function AcademyAuthClient({
       setError(isFa ? "ایمیل معتبر وارد کن." : "Enter a valid email.");
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 10) {
       setError(
         isFa
-          ? "رمز عبور باید حداقل ۶ کاراکتر باشد."
-          : "Password must be at least 6 characters.",
+          ? "رمز عبور باید حداقل ۱۰ کاراکتر باشد."
+          : "Password must be at least 10 characters.",
       );
       return;
     }
@@ -104,7 +104,7 @@ export function AcademyAuthClient({
         username_taken: "این نام کاربری قبلاً ثبت شده است.",
         invalid_credentials: "ایمیل یا رمز عبور درست نیست.",
         invalid_email: "ایمیل معتبر وارد کن.",
-        weak_password: "رمز عبور باید حداقل ۶ کاراکتر باشد.",
+        weak_password: "رمز عبور باید حداقل ۱۰ کاراکتر باشد.",
         invalid_username: "نام کاربری باید حداقل ۳ کاراکتر انگلیسی باشد.",
         academy_auth_storage_unavailable: "ذخیره‌سازی حساب آکادمی در این محیط فعال نیست. در لوکال از localhost استفاده کن یا TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE=true را در env بگذار.",
         academy_auth_service_not_configured: "کلید امنیتی آکادمی تنظیم نشده است.",
@@ -114,7 +114,7 @@ export function AcademyAuthClient({
         username_taken: "This username is already taken.",
         invalid_credentials: "Email or password is incorrect.",
         invalid_email: "Enter a valid email.",
-        weak_password: "Password must be at least 6 characters.",
+        weak_password: "Password must be at least 10 characters.",
         invalid_username: "Username must be at least 3 English characters.",
         academy_auth_storage_unavailable: "Academy account storage is not enabled in this environment. Use localhost or set TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE=true.",
         academy_auth_service_not_configured: "Academy security secret is not configured.",
