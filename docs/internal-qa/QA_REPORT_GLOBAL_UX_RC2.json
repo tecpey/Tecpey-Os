@@ -1,0 +1,13 @@
+{
+  "global_ux_fa_metrics": true,
+  "global_ux_fa_ecosystem": true,
+  "global_ux_fa_trust_stack": true,
+  "global_ux_en_metrics": true,
+  "global_ux_en_ecosystem": true,
+  "global_ux_en_trust_stack": true,
+  "academy_two_videos": true,
+  "academy_quiz_count": 49,
+  "crypto_10_10": true,
+  "toolbox_present": true,
+  "package_lock_removed": true
+}

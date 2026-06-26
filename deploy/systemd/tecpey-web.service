@@ -1,0 +1,17 @@
+[Unit]
+Description=TecPey Next.js Web App
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/tecpey
+Environment=NODE_ENV=production
+EnvironmentFile=/var/www/tecpey/.env.production
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=10
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

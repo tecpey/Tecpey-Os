@@ -1,0 +1,39 @@
+services:
+  tecpey-web:
+    build: .
+    container_name: tecpey-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tecpey-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tecpey
+      POSTGRES_USER: tecpey
+      POSTGRES_PASSWORD: change_me_strong_password
+    volumes:
+      - tecpey_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: tecpey-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - tecpey_redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+
+volumes:
+  tecpey_postgres_data:
+  tecpey_redis_data:
