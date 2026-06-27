@@ -7,6 +7,45 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.15] — 2026-06-27 — Academy V2: World-Class Learning Experience
+
+### Added — Learning Engine Libraries
+- `src/lib/spaced-repetition.ts`: Complete SM-2 algorithm implementation (SuperMemo 1987 — Peter Wozniak). Types: `CardState`, `ReviewGrade`. Core functions: `createCard()`, `reviewCard()`, `isDue()`, `getDueCards()`, `daysUntilReview()`. Deck persistence: `loadDeck()`, `saveDeck()`, `upsertCard()`, `ensureCards()`. Storage key: `"tecpey-sr-deck"`.
+- `src/lib/academy-progress.ts`: Progress Engine — XP, streak, level (12 levels, 0–39,000 XP), lesson completion, module scores, term status, badges. Functions: `awardXp()`, `recordLessonComplete()`, `recordModuleScore()`, `passTerm()`, `awardBadge()`, `isLessonUnlocked()`, `onProgressChange()`. Custom event `"tecpey-academy-progress-updated"` for reactive UI. Storage key: `"tecpey-academy-progress-v2"`.
+
+### Added — Curriculum Data
+- `src/data/academy/term1Curriculum.ts`: Enriched Term 1 data with full TypeScript types (`Term`, `Module`, `Lesson`, `QuizQuestion`, `Flashcard`, `LessonSection`, `PracticeExercise`). 1 module, 3 fully authored lessons (درس ۱: پول و اعتماد; درس ۲: بیت‌کوین؛ درس ۳: بلاکچین). Each lesson contains: learning objectives, content sections with callouts, in-lesson knowledge checks (SM-2-graded), flashcards with front/back/example/relatedTerms, key takeaways, mentor note, practice exercise (checklist/reflection/scenario), reflection prompt, responsible trading insert, next lesson teaser. 10-question module quiz with multi-type questions. Helper functions: `extractFlashcardIds()`, `getLessonById()`, `isLessonAccessible()`.
+
+### Added — Academy V2 Components
+- `src/components/academy/v2/QuizEngineV2.tsx`: Multi-type quiz engine with mastery gate. Supported types: `single`, `multi`, `ordering` (drag-and-drop), `matching`, `fillblank`, `scenario`. Features: immediate post-answer feedback with explanation, progress bar with live %, timer, difficulty labels, ARIA labels throughout. Grading: `gradeAnswer()` handles all types including partial credit for matching. State managed via `useReducer`. Configurable pass threshold (default: 80% knowledge-check, 75% module, 70% term exam), retake cooldown, review CTA. Result screen shows pass/fail with elapsed time.
+- `src/components/academy/v2/FlashcardDeck.tsx`: SM-2 flashcard component. Card flip animation with front (question) / back (answer + example). Touch swipe support (right = easy grade 5, left = hard grade 1). Grade buttons: 4 levels (نمی‌دانستم/سخت/خوب/آسان → SM-2 grades 1/3/4/5). Due-only mode and study-all mode. Session stats (reviewed, easy, medium, hard, again). Awards `XP_TABLE.FLASHCARD_SESSION` XP once per day. Session complete screen with stats. Empty state when no cards due. Related terms display. Full ARIA accessibility.
+- `src/components/academy/v2/LessonPlayerV2.tsx`: Full production lesson player. 4-phase flow: `reading → knowledge-check → flashcards → quiz → complete`. Reading phase: lesson header (title, objectives, meta tags), scrollable content with live scroll progress bar, section content renderer, callout component (warning/tip/important/responsible), key takeaways, collapsible mentor note, practice exercise panel (checklist with completion feedback), reflection journal (localStorage saved), responsible trading card. XP progress widget (reactive to progress events). Knowledge-check phase: QuizEngineV2 at 80% threshold. Flashcard phase: FlashcardDeck in study-all mode. Quiz phase (mastery gate): 80% required. Complete phase: trophy screen, XP display, next-lesson CTA, reflection prompt, responsible trading reminder.
+- `src/components/academy/v2/LessonPlayerV2Client.tsx`: Thin client wrapper — wires `useRouter` for next-lesson navigation.
+- `src/components/academy/v2/FlashcardsPageClient.tsx`: Daily flashcard hub with due-count/total stats, two modes (mрови امروز / مرور همه), counts from live SM-2 deck.
+
+### Added — Routes
+- `src/app/academy/learn/[termSlug]/[lessonIndex]/page.tsx`: Individual lesson page with `generateStaticParams()` (pre-generates all Term 1 lessons), `generateMetadata()`, notFound() on invalid slugs.
+- `src/app/academy/flashcards/page.tsx`: Daily flashcard review page with canonical metadata.
+
+### Learning Science Implemented
+- **Active Recall**: Every lesson ends with mastery-gated quiz
+- **Spaced Repetition**: SM-2 algorithm with exact SuperMemo 1987 EF formula
+- **Immediate Feedback**: Explanation shown after every answer
+- **Mastery Learning**: 80% gate — lesson locked until passed
+- **Retrieval Practice**: Knowledge checks mid-lesson before quiz
+- **Micro Learning**: 8–10 min lessons, single concept focus
+- **Reflection**: Per-lesson reflection journal saved to localStorage
+- **Responsible Trading**: Insert in every lesson and completion screen
+
+### QA Results
+- TypeScript: ✓ 0 errors
+- ESLint: ✓ 0 errors, 0 warnings
+- Build: ✓ PASS (282 pages generated)
+
+**Tag:** `v0.15-academy-v2`
+
+---
+
 ## [v0.14] — 2026-06-27 — Global Academy Strategy & Educational Constitution
 
 ### Added — Strategic Documents (10 documents, 4,247 lines)
