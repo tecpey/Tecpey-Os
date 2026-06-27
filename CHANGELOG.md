@@ -18,11 +18,16 @@ Versions follow semantic milestones (Phase-based).
 ### Changed
 - `eslint.config.mjs`: rule tuning carried forward from Phase 13 sessions
 
+### CI Workflow Fix
+- `.github/workflows/ci.yml`: removed global `NODE_ENV=production` (caused `npm ci` to skip devDependencies, making `tsc` and `eslint` unavailable); scoped it to the Build step only
+- `.github/workflows/ci.yml`: tightened ESLint gate to `--max-warnings 0` (was 130)
+
 ### QA Results
 - ESLint: ✓ 0 errors, 0 warnings
 - TypeScript: ✓ 0 errors
 - Build: ✓ PASS (278 pages generated)
 - `npm ci`: ✓ PASS
+- GitHub Actions: ✓ PASS
 
 **Tag:** `v0.13.5-enterprise-qa`
 
