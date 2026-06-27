@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, WifiOff, BrainCircuit, Target } from "lucide-react";
+import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, BrainCircuit, Target } from "lucide-react";
 
 type Mode = "concept" | "security" | "risk" | "trading" | "project" | "psychology";
 type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?: Mode; confidence: number };
@@ -169,7 +169,6 @@ export function AiMentorExperience() {
   const [lastQuestion, setLastQuestion] = useState(quickQuestions[0]);
   const [mentorProgress, setMentorProgress] = useState<MentorProgress>({ completedTerms: [], weakAreas: [], confidence: 0 });
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const mode = useMemo(() => detectMode(lastQuestion), [lastQuestion]);
 
   useEffect(() => {
     setMentorProgress(readMentorProgress());

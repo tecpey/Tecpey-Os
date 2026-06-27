@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import PriceCard from "./PriceCard";
 import PriceCardSkeleton from "@/components/skeletons/PriceCardSkeletone";
 import { useTranslations } from "next-intl";

@@ -1,6 +1,5 @@
 "use client";
 
-import Navbar, { User } from "@/components/navbar/Navbar";
 import Image from "next/image";
 import SwapPanel from "@/components/crypto/SwapPanel";
 import MarketTabs from "@/components/crypto/MarketTabs";

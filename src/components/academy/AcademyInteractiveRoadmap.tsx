@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Bot, CheckCircle2, ClipboardCheck, GraduationCap, Lock, Route, Sparkles, Trophy } from "lucide-react";
+import { Bot, CheckCircle2, ClipboardCheck, GraduationCap, Lock, Route, Trophy } from "lucide-react";
 
 const terms = [
   { slug: "term-1", title: "مبانی بازار", badge: "Crypto Explorer", mentor: "مربی مفاهیم پایه", focus: "فهم بازار قبل از خرید" },

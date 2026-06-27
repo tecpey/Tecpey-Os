@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowRight, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import useScrollReveal from "@/hooks/useScrollReveal";
-import { useRouter } from "next/navigation";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import Chart from "@/components/charts/chart";
 import PriceTableSkeleton from "@/components/skeletons/PriceTableSkeletone";
@@ -13,7 +12,6 @@ import { handleDecimal } from "@/utils/handleDecimal";
 
 export default function PriceListSection() {
   const t = useTranslations("PriceList");
-  const router = useRouter();
 
   const { ref, isVisible } = useScrollReveal({
     threshold: 0.2,

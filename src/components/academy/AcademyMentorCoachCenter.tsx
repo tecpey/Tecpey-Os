@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, CheckCircle2, ClipboardCheck, Compass, GraduationCap, MessageCircleQuestion, ShieldCheck, Sparkles, Target, UserRoundCheck } from "lucide-react";
+import { BrainCircuit, CheckCircle2, Compass, GraduationCap, ShieldCheck, Sparkles, Target, UserRoundCheck } from "lucide-react";
 import { mentorProfiles, mentorRoadmapSteps, mentorWeaknessRules } from "@/data/academyMentorIntelligence";
 
 type Locale = "fa" | "en";

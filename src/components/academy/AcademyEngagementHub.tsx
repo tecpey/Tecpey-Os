@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { academyAchievements, academyMissions, tecpeyLearningMethodEn, tecpeyLearningMethodFa } from "@/data/academyEngagement";
-import { Award, CheckCircle2, Flame, Lock, PlayCircle, Sparkles, Target, Trophy } from "lucide-react";
+import { Award, CheckCircle2, Flame, Lock, Sparkles, Target, Trophy } from "lucide-react";
 
 type Locale = "fa" | "en";
 type State = { xp: number; streak: number; completed: Record<string, boolean>; lastDay?: string };

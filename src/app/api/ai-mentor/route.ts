@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     const termNumber = detectTerm(question, Number.isFinite(requestedTerm) ? requestedTerm : undefined);
     const lessonNumber = Number.isFinite(requestedLesson) && requestedLesson > 0 ? requestedLesson : undefined;
     const locale = clean(body.locale || "fa", 8) || "fa";
-    const progress = body.progress || {};
+    const _progress = body.progress || {};
     const mentorMode = clean(body.mentorMode || "", 40);
     const knowledge = termKnowledge(termNumber, lessonNumber);
     const fallback = localFallback(question, termNumber, lessonNumber);

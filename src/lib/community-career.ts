@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getAcademyAuthFromRequest } from "@/lib/academy-auth";
 import { cleanText, ensureStudentCartaxTables } from "@/lib/student-cartax";
-import { ensurePhase5Tables, getAchievementSnapshot } from "@/lib/phase5-achievement-engine";
+import { ensurePhase5Tables } from "@/lib/phase5-achievement-engine";
 
 export type PublicLearnerProfile = {
   studentId: string;

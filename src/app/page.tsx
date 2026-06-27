@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import TecpeyEnterpriseLanding from "@/app/home/enterprise/TecpeyEnterpriseLanding";
-import { StructuredData, webSiteSchema } from "@/components/seo/StructuredData";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tecpey.ir"),

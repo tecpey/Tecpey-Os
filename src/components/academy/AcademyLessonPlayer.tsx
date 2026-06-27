@@ -232,6 +232,7 @@ function videoCard(video: AcademyVideo, role: "primary" | "secondary", isFa: boo
   return (
     <article className="overflow-hidden rounded-3xl border border-cyan-300/20 bg-cyan-500/10 shadow-sm">
       <button type="button" onClick={() => onOpen(video)} className="group relative block aspect-video w-full overflow-hidden bg-slate-950 text-right">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={video.thumbnailUrl} alt={video.title} className="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-105 group-hover:opacity-100" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow-xl transition group-hover:scale-110"><PlayCircle className="h-8 w-8" /></span></div>
@@ -289,10 +290,6 @@ function genericLessonOptions(isFa: boolean, heading: string) {
 function termNumberFromSlug(slug: string) {
   const match = slug.match(/term-(\d+)/);
   return match ? Number(match[1]) : 1;
-}
-
-function termLessonKey(slug: string, lessonIndex: number) {
-  return `term-${termNumberFromSlug(slug)}-lesson-${lessonIndex + 1}`;
 }
 
 function questionFor(slug: string, lessonIndex: number, section: Section, locale: "fa" | "en"): LessonPracticeQuestion {

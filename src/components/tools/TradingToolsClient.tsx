@@ -59,6 +59,7 @@ export default function TradingToolsClient({
             >
               <div className="flex items-center gap-3">
                 <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-2xl border border-cyan-300/30 bg-cyan-400/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={tool.logoUrl}
                     alt=""

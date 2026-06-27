@@ -81,9 +81,6 @@ export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
     [coins],
   );
 
-  const userSelectedSell = useRef(false);
-  const userSelectedBuy = useRef(false);
-
   const initializedRef = useRef(false);
 
   useEffect(() => {

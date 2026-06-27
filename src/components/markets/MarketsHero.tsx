@@ -4,7 +4,7 @@ import React from "react";
 type Props = {
   t: (key: string) => string;
 };
-export default function MarketsHero({ t }: Props) {
+export default function MarketsHero({ t: _t }: Props) {
   return (
     <section className="w-full pt-36 pb-6 px-4 md:pt-40">
       <div className="max-w-7xl mx-auto text-center">

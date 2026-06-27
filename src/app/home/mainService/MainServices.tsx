@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import useScrollReveal from "@/hooks/useScrollReveal";
-import { TrendingUp, RefreshCw, BarChart3, Coins, Wallet } from "lucide-react"; // آیکون‌های حرفه‌ای
+import { TrendingUp, RefreshCw, BarChart3, Coins } from "lucide-react";
 
 export default function MainServices() {
   const t = useTranslations("Services");

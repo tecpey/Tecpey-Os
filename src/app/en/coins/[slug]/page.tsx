@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EnglishShell, EnglishHero } from "../../components/EnglishUI";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
-import { BookOpen, ShieldCheck, AlertTriangle } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 const coins = [
   { slug: "bitcoin", symbol: "BTC", name: "Bitcoin" },

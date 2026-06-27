@@ -58,7 +58,7 @@ export const getCurrencyInfo = async ({
       prices: [],
     };
 
-  } catch (err) {
+  } catch {
 
 
     return {

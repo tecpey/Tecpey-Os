@@ -7,6 +7,27 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.13.5] — 2026-06-27 — Enterprise QA Stabilization and CI Readiness
+
+### Fixed
+- `package-lock.json`: synchronized with `package.json` to resolve `npm ci` failure in GitHub Actions (`@swc/helpers@0.5.23` mismatch)
+- `src/app/crypto/[symbol]/page.tsx`: removed unused `Navbar` import (ESLint `no-unused-vars`)
+- `src/components/academy/AiMentorExperience.tsx`: removed unused `useMemo` import (ESLint `no-unused-vars`)
+- `src/components/academy/AcademyCertificatesClient.tsx`: replaced `<img>` with `<Image>` from `next/image` for QR code display; removed stale `eslint-disable-next-line` comment
+
+### Changed
+- `eslint.config.mjs`: rule tuning carried forward from Phase 13 sessions
+
+### QA Results
+- ESLint: ✓ 0 errors, 0 warnings
+- TypeScript: ✓ 0 errors
+- Build: ✓ PASS (278 pages generated)
+- `npm ci`: ✓ PASS
+
+**Tag:** `v0.13.5-enterprise-qa`
+
+---
+
 ## [v0.13] — 2026-06-26 — Production Hardening
 
 ### Added

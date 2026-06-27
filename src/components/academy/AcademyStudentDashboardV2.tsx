@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Link from "next/link";
-import { Award, Bell, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, Target, TrendingUp, UserRoundCheck } from "lucide-react";
+import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 

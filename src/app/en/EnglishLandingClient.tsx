@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Award, BadgeCheck, BookOpen, ClipboardCheck, Gift, GraduationCap, LineChart, ShieldCheck, TrendingUp, WalletCards, Medal, Building2, UsersRound, BarChart4, FileCheck2, Landmark, Star, Crown, Route, Brain, Lightbulb, MousePointerClick, MessagesSquare, TimerReset, AlertTriangle, HeartHandshake, TrendingDown, Compass, BriefcaseBusiness, BookMarked, PenLine, ShieldAlert, PlayCircle, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Award, BadgeCheck, BookOpen, ClipboardCheck, Gift, GraduationCap, LineChart, ShieldCheck, TrendingUp, WalletCards, Building2, MousePointerClick, HeartHandshake, TrendingDown, BookMarked, PenLine, ShieldAlert, PlayCircle, CheckCircle2 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { EnglishShell } from "./components/EnglishUI";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";

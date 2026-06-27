@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Chart from "@/components/charts/chart";
 import { handleDecimal } from "@/utils/handleDecimal";

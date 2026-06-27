@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Award, CheckCircle2, Lock, Sparkles, Trophy } from "lucide-react";
+import { CheckCircle2, Lock, Sparkles, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type Locale = "fa" | "en";

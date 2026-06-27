@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -87,7 +88,7 @@ export default function Navbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [academyProfileReady, setAcademyProfileReady] = useState(false);
   const [academyAuthReady, setAcademyAuthReady] = useState(false);
-  const [academyProfileChecked, setAcademyProfileChecked] = useState(false);
+  const [_academyProfileChecked, setAcademyProfileChecked] = useState(false);
   const loggedIn = !!user;
   const menuRef = useRef<HTMLLIElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -219,9 +220,11 @@ export default function Navbar({
             className="flex items-center"
             aria-label="TecPey Home"
           >
-            <img
+            <Image
               src={officialLogo}
               alt="TecPey"
+              width={120}
+              height={48}
               className="h-10 w-auto object-contain md:h-11 lg:h-12"
             />
           </Link>
@@ -303,6 +306,7 @@ export default function Navbar({
                   >
                     <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/20 transition hover:border-primary/60">
                       {user?.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={user.avatar}
                           alt={user.name}

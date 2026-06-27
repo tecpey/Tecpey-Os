@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import useScrollReveal from "@/hooks/useScrollReveal";
 import { useEffect, useState } from "react";
@@ -44,11 +45,12 @@ export default function About() {
             }}
           >
             <div className="w-full max-w-[420px] sm:max-w-[480px] md:max-w-[520px] rounded-2xl overflow-hidden shadow-lg">
-              <img
+              <Image
                 src="/images/About.png"
                 alt="About TecPey"
+                width={520}
+                height={390}
                 className="w-full h-auto object-cover"
-                loading="lazy"
               />
             </div>
           </div>

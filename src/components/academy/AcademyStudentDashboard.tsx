@@ -185,7 +185,7 @@ export function AcademyStudentDashboard({ locale = "fa" }: { locale?: Locale }) 
   const officialStreak = Math.max(0, Number(cloudProfile?.streak_days || 0));
   const identityScore = Math.max(0, Math.min(100, Number(cloudProfile?.identity_score || 25 + completedTerms * 8)));
   const retentionScore = Math.max(0, Math.min(100, Number(cloudProfile?.retention_score || officialStreak * 10)));
-  const communityScore = Math.max(0, Math.min(100, Number(cloudProfile?.community_score || completedTerms * 10)));
+  const _communityScore = Math.max(0, Math.min(100, Number(cloudProfile?.community_score || completedTerms * 10)));
 
   useEffect(() => {
     if (!loaded) return;

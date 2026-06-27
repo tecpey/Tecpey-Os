@@ -107,7 +107,8 @@ export default function TradingViewChart({ symbol }: { symbol: string }) {
     return () => {
       isActive = false;
     };
-  }, [symbolCoin, locale, mounted]); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolCoin, locale, mounted]);
 
   return (
   <div className="w-full h-[600px] sm:h-[450px] lg:h-[600px] rounded-3xl overflow-hidden">

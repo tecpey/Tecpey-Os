@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import MarketsHero from "../../components/markets/MarketsHero";
 import MarketsSearchBar from "../../components/markets/MarketsSearchBar";
-import MarketsFilters from "../../components/markets/MarketsFilters";
 import MarketsTable from "../../components/markets/MarketsTable";
 
 import { useQuery } from "@tanstack/react-query";
@@ -19,7 +18,6 @@ import {
 
 const getPageNumbers = (current: number, total: number) => {
   const pages: (number | string)[] = [];
-  const showMax = 5;
 
   if (total <= 7) {
     for (let i = 1; i <= total; i++) pages.push(i);
@@ -51,7 +49,7 @@ function useDebouncedValue<T>(value: T, delay = 400) {
 
 export default function MarketsPage() {
   const t = useTranslations("Markets");
-  const { ref, isVisible } = useScrollReveal({ threshold: 0.2 });
+  useScrollReveal({ threshold: 0.2 });
 
   const initialPairs = [
     "BTCUSDT",
@@ -64,19 +62,15 @@ export default function MarketsPage() {
     "ADAUSDT",
   ];
 
-  const {
-    currencies: baseCurrencies,
-    isLoading: baseLoading,
-    USDT_IRT,
-  } = useBaseCurrenciesPrice(initialPairs);
+  const { USDT_IRT } = useBaseCurrenciesPrice(initialPairs);
 
   const isIRTenabled = Boolean(USDT_IRT);
 
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, _setFilter] = useState<string>("all");
 
-  const [sortBy, setSortBy] = useState<"volume" | "change">("volume");
-  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [_sortBy, _setSortBy] = useState<"volume" | "change">("volume");
+  const [_sortDir, _setSortDir] = useState<"desc" | "asc">("desc");
 
   const LIMIT = 10;
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,7 +81,7 @@ export default function MarketsPage() {
     setCurrentPage(1);
   }, [debouncedQuery]);
 
-  const { data, isPending, isFetching } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ["market-currencies", currentPage, LIMIT, debouncedQuery, filter],
     queryFn: () => getCurrencies(currentPage, LIMIT, debouncedQuery),
     staleTime: 15_000,
@@ -141,7 +135,7 @@ export default function MarketsPage() {
     });
 
     return list;
-  }, [pageCurrencies, debouncedQuery, filter, sortBy, sortDir]);
+  }, [pageCurrencies, debouncedQuery, filter]);
 
   const totalPages = Math.max(1, Number(data?.meta?.last_page ?? 1));
 

@@ -1,6 +1,5 @@
 
 import Link from "next/link";
-import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowLeft, BookOpen, CheckCircle2, Clock3, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 export function ContentShell({ children }: { children: React.ReactNode }) {

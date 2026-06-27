@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Award, BadgeCheck, Download, ExternalLink, GraduationCap, QrCode, Share2, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -35,9 +36,10 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
     } finally { setLoading(false); }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
-  const issue = async (term: number, score: number) => {
+  const issue = async (term: number, _score: number) => {
     setIssuing(term);
     setMessage("");
     try {
@@ -114,7 +116,7 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
                     <div className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-bold text-[color:var(--tp-muted)]">{isFa ? "امتیاز" : "Score"}</p><p className="mt-1 text-lg font-black">{cert.score}/100</p></div><div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5"><p className="text-xs font-bold text-[color:var(--tp-muted)]">TecPey ID</p><p className="mt-1 text-sm font-black">{cert.public_student_id}</p></div></div>
                     <div className="flex flex-wrap gap-2 pt-2"><Link href={`/verify/${cert.id}`} className="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 text-xs font-black text-white"><ExternalLink className="h-4 w-4" /> {isFa ? "استعلام" : "Verify"}</Link><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/30 px-4 py-3 text-xs font-black"><Download className="h-4 w-4" /> {isFa ? "چاپ / PDF" : "Print / PDF"}</button><button onClick={() => navigator.share?.({ title: cert.course_title, url: `${location.origin}/verify/${cert.id}` })} className="inline-flex items-center gap-2 rounded-2xl border border-violet-300/30 px-4 py-3 text-xs font-black"><Share2 className="h-4 w-4" /> {isFa ? "اشتراک" : "Share"}</button></div>
                   </div>
-                  <div className="rounded-[24px] border border-slate-200 bg-white p-3 text-center dark:border-white/10 dark:bg-white/90"><img src={`/api/academy-certificates/qr/${cert.id}`} alt="certificate verification QR" className="mx-auto h-36 w-36" /><p className="mt-2 flex items-center justify-center gap-1 text-[10px] font-black text-slate-700"><QrCode className="h-3 w-3" /> QR Verification</p></div>
+                  <div className="rounded-[24px] border border-slate-200 bg-white p-3 text-center dark:border-white/10 dark:bg-white/90"><Image src={`/api/academy-certificates/qr/${cert.id}`} alt="certificate verification QR" className="mx-auto h-36 w-36" width={144} height={144} unoptimized /><p className="mt-2 flex items-center justify-center gap-1 text-[10px] font-black text-slate-700"><QrCode className="h-3 w-3" /> QR Verification</p></div>
                 </div>
               </article>
             ))}

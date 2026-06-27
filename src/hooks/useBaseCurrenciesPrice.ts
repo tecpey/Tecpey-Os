@@ -6,7 +6,7 @@ import { usdPrice } from "@/helper/spot/usdPrice";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export const useBaseCurrenciesPrice = (pair: string[]) => {
+export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
   const USDT_IRT = usdPrice();
 

@@ -11,7 +11,6 @@ export type RateLimitResult = {
 type MemoryBucket = { count: number; resetAt: number };
 
 declare global {
-  // eslint-disable-next-line no-var
   var tecpeyRateLimitBuckets: Map<string, MemoryBucket> | undefined;
 }
 

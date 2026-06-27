@@ -64,8 +64,6 @@ export default function Chart({ symbol, change, height = 60 }: ChartProps) {
       return [];
     }
 
-    const isStaticCoin = formattedSymbol ==="USDT"
-
     return data.labels.map((label: string, index: number) => ({
       time: label,
       value: Number(data.prices[index] ?? 0),

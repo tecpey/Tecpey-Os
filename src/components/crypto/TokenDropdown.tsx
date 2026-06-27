@@ -57,6 +57,7 @@ export default function TokenDropdown({
         }}
         className="flex items-center gap-2 bg-[#1e293b] text-white px-4 py-2 rounded-full"
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={selectedCoin.icon} className="w-5 h-5" alt="coin" />
         {selectedCoin.symbol}
 
@@ -135,6 +136,7 @@ export default function TokenDropdown({
               ${hoverClass}
             `}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={coin.icon}
                     className="w-5 h-5 rounded-full"

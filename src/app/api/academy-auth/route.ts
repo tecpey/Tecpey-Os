@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(_req: NextRequest) {
   const response = NextResponse.json({ ok: true });
   clearAcademyAuthCookie(response);
   return response;

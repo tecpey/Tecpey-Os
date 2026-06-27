@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Award, BadgeCheck, BriefcaseBusiness, Crown, Eye, Lock, Medal, ShieldCheck, Sparkles, Target, Trophy, UserRound } from "lucide-react";
+import { Award, BriefcaseBusiness, Crown, Eye, Lock, Medal, ShieldCheck, Sparkles, Target, Trophy, UserRound } from "lucide-react";
 
 type Profile = {
   publicStudentId: string;
