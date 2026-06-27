@@ -1,9 +1,62 @@
 # TecPey Academy — Trading Simulator Specification
 
-**Phase 14 Strategic Document**
-**Version:** 1.0
+**Phase 14 Strategic Document → Phase 17 Implementation Complete**
+**Version:** 2.0
 **Date:** 2026-06-27
-**Status:** Implementation-Ready
+**Status:** Production (Phase 17 shipped)
+
+---
+
+## Phase 17 Implementation Summary
+
+### What was built
+
+| File | Purpose |
+|---|---|
+| `src/lib/trading-arena.ts` | Core paper-trading engine — wallet, orders, positions, PnL, fees, slippage, SL/TP |
+| `src/lib/trading-scenarios.ts` | 6 deterministic guided scenarios (FOMO, Revenge, Volatility, Risk Management, News Reaction, Beginner) |
+| `src/lib/trading-journal.ts` | Trade journal — pre-entry plan, post-trade reflection, mistake tags |
+| `src/lib/trading-dna.ts` | Trading DNA signal extraction and blending with behavioral engine |
+| `src/lib/behavioral-engine.ts` | Updated — now consumes trading DNA signals in 7 dimension scorers |
+| `src/components/academy/trading-arena/TradingArenaDashboard.tsx` | Main arena — balance, portfolio, buy/sell panel, positions, history, mentor flags |
+| `src/components/academy/trading-arena/ScenarioPlayer.tsx` | Full scenario experience — briefing → trading → result with mentor feedback |
+| `src/components/academy/trading-arena/JournalView.tsx` | Journal UI — pre/post forms, mistake tag pattern analysis |
+| `src/app/academy/trading-arena/page.tsx` | Route: `/academy/trading-arena` |
+| `src/app/academy/trading-arena/scenarios/page.tsx` | Route: `/academy/trading-arena/scenarios` |
+| `src/app/academy/trading-arena/journal/page.tsx` | Route: `/academy/trading-arena/journal` |
+
+### Technical decisions
+
+- **Client-side only** — no database, no API calls. Works offline from day one.
+- **Fees:** 0.1% per side (maker + taker, Binance-standard simplification)
+- **Slippage:** 0–0.05% random on market orders only
+- **Simulated prices:** Random walk ±0.12%/tick (2s interval) in main arena; deterministic LCG sequences in scenarios
+- **Limit orders:** Checked against each price tick, filled immediately on cross
+- **SL/TP:** Checked on every price tick via `processPriceTick()`
+- **localStorage keys:** `tecpey-trading-arena`, `tecpey-trading-journal`
+- **Safety gate:** Max risk 20% hard reject; 5% threshold triggers warning
+
+### Scenario system
+
+6 scenarios, ordered by difficulty (2 beginner, 3 intermediate, 1 advanced):
+
+| ID | Concept | Success Criteria |
+|---|---|---|
+| `beginner-btc` | Interface basics + stop loss | Any profitable trade with SL |
+| `volatility` | Patience through swings | Hold through a dip with SL |
+| `fomo-scenario` | FOMO resistance | Make zero trades (best outcome: watch and wait) |
+| `revenge-trading` | Revenge trading control | Avoid revenge trade after initial loss |
+| `risk-management` | Stop-loss discipline | Every trade has SL set |
+| `news-reaction` | News awareness | Stay above -8% after news event |
+
+### Mentor flags
+
+Every trade gets behavioral flags at open time: `no-stop-loss`, `over-risk`, `impulse-entry`, `revenge-trade`, `good-discipline`, `proper-sizing`, `target-hit`, `fomo-entry`
+
+These flags:
+1. Show in the arena dashboard as mentor warnings
+2. Feed into `computeArenaStats()` to produce rates
+3. Flow into `trading-dna.ts` which feeds `behavioral-engine.ts`
 
 ---
 

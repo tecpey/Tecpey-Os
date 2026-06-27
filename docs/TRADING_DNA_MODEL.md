@@ -1,9 +1,52 @@
 # TecPey Academy — Trading DNA Model
 
-**Phase 14 Strategic Document**
-**Version:** 1.0
+**Phase 14 Strategic Document → Phase 17 Implementation Complete**
+**Version:** 2.0
 **Date:** 2026-06-27
-**Status:** Implementation-Ready
+**Status:** Production (Phase 17 shipped)
+
+---
+
+## Phase 17 Trading DNA Implementation
+
+### Signal collection (`src/lib/trading-dna.ts`)
+
+`collectTradingDNASignals()` reads `tecpey-trading-arena` and `tecpey-trading-journal` from localStorage and returns:
+
+| Signal | Computed from |
+|---|---|
+| `stopLossRate` | % of closed trades with stop loss set |
+| `overRiskRate` | % of trades exceeding 5% balance risk |
+| `revengeTradeRate` | % of trades opened within 5min of a loss |
+| `impulseRate` | % of trades opened within 60s of previous trade |
+| `journalCompletionRate` | % of journal entries with post-trade reflection |
+| `winRate` | % of profitable closed trades |
+| `targetHitRate` | % of trades closed at take-profit |
+| `scenariosCompleted` | # of scenarios with pass/fail result |
+| `scenariosPassed` | # of scenarios passed |
+
+### Blending into Behavioral Engine
+
+`blendWithTrading(learningScore, tradingScore, totalTrades)` blends the two sources:
+- 0 trades: 100% learning signal
+- 3 trades: ~88% learning, 12% trading
+- 10+ trades: 60% learning, 40% trading
+
+Seven behavioral dimensions are now blended:
+
+| Dimension | Trading signal used |
+|---|---|
+| `discipline` | `tradingRiskScore()` — stop loss adherence |
+| `patience` | `tradingPatienceScore()` — impulse control + scenario bonus |
+| `risk_management` | `tradingRiskScore()` — SL rate + over-risk penalty |
+| `reflection` | `tradingReflectionScore()` — journal completion rate |
+| `fomo_risk` | `tradingFOMOScore()` — 1 − impulse rate |
+| `revenge_risk` | `tradingRevengeScore()` — 1 − revenge trade rate |
+| `decision_quality` | `tradingDecisionScore()` — win rate + SL rate + scenario bonus |
+
+### Data quality
+
+When no trading data exists (new user), all trading signals default to zero and have zero weight. Behavioral engine remains fully functional with learning data only.
 
 ---
 

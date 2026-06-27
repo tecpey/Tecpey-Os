@@ -7,6 +7,60 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.17] — 2026-06-27 — Trading Arena V2: Behavioral Trading Simulator
+
+### Added — Core Library
+
+- `src/lib/trading-arena.ts`: Complete paper-trading engine. Types: `OpenPosition`, `ClosedTrade`, `PendingOrder`, `TradingArenaState`, `MentorFlag`. Functions: `createFreshArenaState()`, `loadArenaState()`, `saveArenaState()`, `executeMarketBuy()` (with slippage ±0.05%), `closePosition()`, `addLimitOrder()`, `cancelLimitOrder()`, `processPriceTick()` (fills limit orders + checks SL/TP), `computeUnrealizedPnl()`, `computeNetEquity()`, `computeArenaStats()`, `resetArenaState()`. Mentor flag detection at trade open: `no-stop-loss`, `over-risk`, `impulse-entry`, `revenge-trade`, `good-discipline`, `proper-sizing`, `target-hit`, `fomo-entry`. Fee: 0.1% per side. Max positions: 5. Storage: `tecpey-trading-arena`.
+
+- `src/lib/trading-scenarios.ts`: 6 production scenarios with deterministic LCG/custom price sequences. Each scenario includes: objective, marketContext, concept, allowedActions, initialBalance, priceSequence, successCriteria, failureCriteria, mentorFeedback (pass/fail headline + body + keyLesson), dnaImpact (6 behavioral dimensions). Scenarios: `beginner-btc` (interface basics), `volatility` (patience under swings), `fomo-scenario` (FOMO resistance — success = zero trades), `revenge-trading` (revenge control), `risk-management` (stop-loss discipline), `news-reaction` (event-driven decision quality).
+
+- `src/lib/trading-journal.ts`: Trade journal storage. Types: `EmotionalState` (6 states), `MistakeTag` (10 tags), `JournalEntry`. Functions: `createJournalEntry()`, `loadJournal()`, `saveJournalEntry()`, `completeJournalEntry()`, `getJournalCompletionRate()`. Persian label tables: `EMOTIONAL_STATE_LABEL`, `MISTAKE_TAG_LABEL`. Storage: `tecpey-trading-journal`.
+
+- `src/lib/trading-dna.ts`: Trading DNA behavioral signal extraction. `collectTradingDNASignals()` reads arena state + journal and produces: stopLossRate, overRiskRate, revengeTradeRate, impulseRate, journalCompletionRate, winRate, targetHitRate, scenariosCompleted, scenariosPassed, avgPnlPct. Scorer functions: `tradingRiskScore()`, `tradingPatienceScore()`, `tradingFOMOScore()`, `tradingRevengeScore()`, `tradingReflectionScore()`, `tradingDecisionScore()`. `blendWithTrading()` weights trading data 0%→40% as trades accumulate (0→10+ trades).
+
+### Updated — Behavioral Engine
+
+- `src/lib/behavioral-engine.ts`: Added `trading: TradingDNASignals` to `RawInputs`. `collectInputs()` now calls `collectTradingDNASignals()`. 7 dimension scorers now blend learning + trading signals: `scoreDisipline`, `scorePatience`, `scoreRiskManagement`, `scoreReflection`, `scoreFomoRisk`, `scoreRevengeRisk`, `scoreDecisionQuality`. Zero-safe: when no trading data exists, blend weight is 0% (full backward compatibility with Phase 16 behavior).
+
+### Added — Components
+
+- `src/components/academy/trading-arena/TradingArenaDashboard.tsx`: Main arena UI. Sub-components: `useSimulatedPrices` (±0.12%/2s random walk, BTC seed $65k, ETH seed $3.5k), `JournalModal` (pre-trade plan + emotional state modal), `TradeForm` (asset + order type + amount + SL/TP), `PositionRow` (live P&L, close button, SL warning), `TradeRow` (closed trade history), `MentorFlagBadge` (colored flag display), `TradingArenaDashboard` (main). Safety disclaimer always visible. Mentor flag analysis box with warning messages. Balance / equity / stats row. Reset with confirm gate.
+
+- `src/components/academy/trading-arena/ScenarioPlayer.tsx`: Complete scenario experience. Sub-components: `PriceSparkline` (SVG line chart of scenario price history), `ScenarioCard` (list item with pass/fail badge + start button), `ActiveScenario` (briefing → trading → result phases with timer, SL/TP checking, success/failure evaluation, mentor feedback, DNA impact grid), `ScenarioList` (main with progress bar). All 6 success/failure evaluation modes implemented.
+
+- `src/components/academy/trading-arena/JournalView.tsx`: Trade journal UI. Sub-components: `PostTradeForm` (reflection + mistake tags + lesson learned), `JournalEntryDetail` (expandable entry with pre/post sections), `MistakePatternSummary` (horizontal bar chart of most frequent mistakes), `JournalView` (main with stats row, pending reflections first, completed entries). Education note footer.
+
+### Added — Routes
+
+- `src/app/academy/trading-arena/page.tsx` — `/academy/trading-arena`
+- `src/app/academy/trading-arena/scenarios/page.tsx` — `/academy/trading-arena/scenarios`
+- `src/app/academy/trading-arena/journal/page.tsx` — `/academy/trading-arena/journal`
+
+### Updated — Documentation
+
+- `docs/TRADING_SIMULATOR_SPECIFICATION.md` — v2.0, Phase 17 implementation summary
+- `docs/TRADING_DNA_MODEL.md` — v2.0, signal collection and blending implementation details
+
+### Safety and Responsible Trading
+
+- "Simulated trading" banner on every route (cannot be dismissed)
+- No profit guarantees anywhere in the UI
+- Mentor feedback always educational, never financial advice
+- Security disclaimer in JournalView footer
+- Mentor flag system warns on over-risk, no-stop-loss, revenge trades, FOMO entries
+- FOMO scenario's correct answer is "zero trades" — explicitly anti-gambling
+
+### QA Results
+
+- TypeScript: ✓ 0 errors
+- ESLint: ✓ 0 errors, 0 warnings
+- Build: ✓ PASS (287 pages generated, +3 new routes)
+
+**Tag:** `v0.17-trading-arena-v2`
+
+---
+
 ## [v0.16] — 2026-06-27 — AI Mentor V2: Behavioral Intelligence Engine
 
 ### Added — Behavioral Engine Libraries

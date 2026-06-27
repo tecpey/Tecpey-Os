@@ -8,6 +8,17 @@
 
 import { loadProgress } from "@/lib/academy-progress";
 import { loadDeck } from "@/lib/spaced-repetition";
+import {
+  collectTradingDNASignals,
+  blendWithTrading,
+  tradingRiskScore,
+  tradingPatienceScore,
+  tradingFOMOScore,
+  tradingRevengeScore,
+  tradingReflectionScore,
+  tradingDecisionScore,
+  type TradingDNASignals,
+} from "@/lib/trading-dna";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,17 +66,25 @@ type RawInputs = {
   completedLessonCount: number;
   avgLessonScore: number;
   totalBadges: number;
-  flashcardReviewed: number;     // cards that have been reviewed at least once
-  flashcardAvgEF: number;        // average ease factor
-  flashcardAvgGrade: number;     // average last grade (0–5)
+  flashcardReviewed: number;
+  flashcardAvgEF: number;
+  flashcardAvgGrade: number;
   reflectionCount: number;
   modulePassCount: number;
-  masteryAttempts: number;       // lessons completed (proxy for mastery attempts)
+  masteryAttempts: number;
   daysActiveLast7: number;
-  scoreVariance: number;         // high variance = inconsistent
+  scoreVariance: number;
+  trading: TradingDNASignals;    // Phase 17: trading arena signals (zero-safe)
 };
 
 // ─── Data collection ──────────────────────────────────────────────────────────
+
+const EMPTY_TRADING: TradingDNASignals = {
+  hasData: false, totalTrades: 0, stopLossRate: 0, overRiskRate: 0,
+  revengeTradeRate: 0, impulseRate: 0, journalCompletionRate: 0,
+  winRate: 0, targetHitRate: 0, scenariosCompleted: 0, scenariosPassed: 0,
+  avgPnlPct: 0,
+};
 
 function collectInputs(): RawInputs {
   if (typeof window === "undefined") {
@@ -73,7 +92,7 @@ function collectInputs(): RawInputs {
       streak: 0, xp: 0, level: 1, lastStudyDate: null, completedLessonCount: 0,
       avgLessonScore: 0, totalBadges: 0, flashcardReviewed: 0, flashcardAvgEF: 2.5,
       flashcardAvgGrade: 0, reflectionCount: 0, modulePassCount: 0, masteryAttempts: 0,
-      daysActiveLast7: 0, scoreVariance: 0,
+      daysActiveLast7: 0, scoreVariance: 0, trading: EMPTY_TRADING,
     };
   }
 
@@ -129,6 +148,8 @@ function collectInputs(): RawInputs {
   );
   const daysActiveLast7 = activeDays.size;
 
+  const trading = collectTradingDNASignals();
+
   return {
     streak: progress.streak,
     xp: progress.xp,
@@ -145,6 +166,7 @@ function collectInputs(): RawInputs {
     masteryAttempts: completedLessonCount,
     daysActiveLast7,
     scoreVariance,
+    trading,
   };
 }
 
@@ -162,7 +184,9 @@ function scoreDisipline(inp: RawInputs): BehavioralScore {
   const streakScore = interp(inp.streak, 0, 14);
   const flashScore = inp.flashcardReviewed > 0 ? interp(inp.flashcardReviewed, 0, 10) : 0;
   const lessonScore = interp(inp.completedLessonCount, 0, 3);
-  const score = clamp(streakScore * 0.4 + flashScore * 0.3 + lessonScore * 0.3);
+  const learningScore = clamp(streakScore * 0.4 + flashScore * 0.3 + lessonScore * 0.3);
+  const tradingScore = tradingRiskScore(inp.trading); // stop-loss discipline
+  const score = blendWithTrading(learningScore, tradingScore, inp.trading.totalTrades);
   const evidence: string[] = [];
   if (inp.streak > 0) evidence.push(`${inp.streak} روز پیاپی مطالعه`);
   if (inp.flashcardReviewed > 0) evidence.push(`${inp.flashcardReviewed} کارت مرور شده`);
@@ -178,10 +202,10 @@ function scoreDisipline(inp: RawInputs): BehavioralScore {
 }
 
 function scorePatience(inp: RawInputs): BehavioralScore {
-  // High score variance = rushing. Low variance = patient learning.
   const variancePenalty = interp(inp.scoreVariance, 0, 40);
   const flashDepth = inp.flashcardReviewed > 0 ? interp(inp.flashcardAvgGrade, 2, 4.5) : 50;
-  const score = clamp(100 - variancePenalty * 0.5 + flashDepth * 0.5);
+  const learningScore = clamp(100 - variancePenalty * 0.5 + flashDepth * 0.5);
+  const score = blendWithTrading(learningScore, tradingPatienceScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "patience",
     score,
@@ -193,10 +217,10 @@ function scorePatience(inp: RawInputs): BehavioralScore {
 }
 
 function scoreRiskManagement(inp: RawInputs): BehavioralScore {
-  // In the learning context: not rushing mastery gates, completing all phases
   const masteryRespect = inp.completedLessonCount > 0 ? interp(inp.avgLessonScore, 60, 100) : 50;
   const moduleScore = interp(inp.modulePassCount, 0, 2) * 0.3;
-  const score = clamp(masteryRespect * 0.7 + moduleScore);
+  const learningScore = clamp(masteryRespect * 0.7 + moduleScore);
+  const score = blendWithTrading(learningScore, tradingRiskScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "risk_management",
     score,
@@ -227,7 +251,8 @@ function scoreConsistency(inp: RawInputs): BehavioralScore {
 function scoreReflection(inp: RawInputs): BehavioralScore {
   const expectedReflections = Math.max(1, inp.completedLessonCount);
   const reflectionRate = Math.min(1, inp.reflectionCount / expectedReflections);
-  const score = clamp(reflectionRate * 100);
+  const learningScore = clamp(reflectionRate * 100);
+  const score = blendWithTrading(learningScore, tradingReflectionScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "reflection",
     score,
@@ -256,17 +281,18 @@ function scoreConfidence(inp: RawInputs): BehavioralScore {
 }
 
 function scoreFomoRisk(inp: RawInputs): BehavioralScore {
-  // Fomo risk = rushing (high variance, low reflection, quick completions)
   const reflectionDeficit = inp.completedLessonCount > 0
     ? Math.max(0, inp.completedLessonCount - inp.reflectionCount) / inp.completedLessonCount
     : 0;
   const varianceRisk = inp.scoreVariance > 20 ? 0.4 : 0;
-  const fomoScore = clamp((reflectionDeficit * 0.6 + varianceRisk) * 100);
+  const fomoLearning = clamp((reflectionDeficit * 0.6 + varianceRisk) * 100);
+  const learningScore = 100 - fomoLearning;
+  const score = blendWithTrading(learningScore, tradingFOMOScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "fomo_risk",
-    score: 100 - fomoScore,   // inverted: 100 = no FOMO risk
+    score,   // 100 = no FOMO risk
     trend: reflectionDeficit > 0.5 ? "down" : "up",
-    explanation: fomoScore < 30 ? "ریسک FOMO پایین است — یادگیری آگاهانه دارید." : "درس‌ها را بدون بازتاب رد کردن نشانه‌ای از شتاب است.",
+    explanation: fomoLearning < 30 ? "ریسک FOMO پایین است — یادگیری آگاهانه دارید." : "درس‌ها را بدون بازتاب رد کردن نشانه‌ای از شتاب است.",
     evidenceItems: [
       `${inp.reflectionCount} از ${inp.completedLessonCount} درس با بازتاب`,
     ],
@@ -275,10 +301,9 @@ function scoreFomoRisk(inp: RawInputs): BehavioralScore {
 }
 
 function scoreRevengeRisk(inp: RawInputs): BehavioralScore {
-  // Revenge risk in learning = repeatedly retrying immediately after fails
-  // Proxy: low avg score but many completions suggests retry-quit patterns
   const retryRisk = inp.avgLessonScore < 70 && inp.completedLessonCount >= 2 ? 50 : 0;
-  const score = clamp(100 - retryRisk);
+  const learningScore = clamp(100 - retryRisk);
+  const score = blendWithTrading(learningScore, tradingRevengeScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "revenge_risk",
     score,
@@ -325,7 +350,8 @@ function scoreKnowledgeDepth(inp: RawInputs): BehavioralScore {
 function scoreDecisionQuality(inp: RawInputs): BehavioralScore {
   const firstPassRate = inp.avgLessonScore >= 80 ? 80 : inp.avgLessonScore;
   const improvementSign = inp.streak >= 3 ? 10 : 0;
-  const score = clamp(firstPassRate * 0.7 + improvementSign);
+  const learningScore = clamp(firstPassRate * 0.7 + improvementSign);
+  const score = blendWithTrading(learningScore, tradingDecisionScore(inp.trading), inp.trading.totalTrades);
   return {
     dimension: "decision_quality",
     score,
