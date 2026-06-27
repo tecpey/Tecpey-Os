@@ -7,6 +7,55 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.16] — 2026-06-27 — AI Mentor V2: Behavioral Intelligence Engine
+
+### Added — Behavioral Engine Libraries
+
+- `src/lib/behavioral-engine.ts`: Client-side behavioral intelligence. Computes 12 behavioral dimensions from localStorage (academy-progress + spaced-repetition + reflection entries): Discipline, Patience, Risk Management, Consistency, Reflection, Confidence, FOMO Risk, Revenge Risk, Preparation, Knowledge Depth, Decision Quality, Execution Quality. Each score includes: value 0–100, trend (up/down/stable/new), Persian explanation, evidence items, action suggestion. `loadOrComputeSnapshot()` with 5-minute localStorage cache. `DIMENSION_LABELS` and `DIMENSION_DESCRIPTIONS` lookup maps. No network calls — pure computation.
+
+- `src/lib/knowledge-graph.ts`: Static topic prerequisite graph for Term 1 concepts (13 concept nodes, 14 prerequisite edges). Functions: `findAllPrerequisites()` (BFS traversal), `getConceptRecommendations()` (returns prioritized review recommendations when a student fails), `getConceptStatusMap()` (mastered vs. weak based on lesson scores). If student fails `scarcity-vs-price`, automatically recommends reviewing `bitcoin-supply` first.
+
+- `src/lib/smart-review.ts`: Adaptive review scheduler combining SM-2 due cards + low-score lesson retries + knowledge graph prerequisite recommendations + missing reflections + next unstarted lesson. Returns `SmartReviewQueue` with priority-sorted items, estimated minutes, due flashcard count. Deduplicates by item ID. `buildSmartReviewQueue()` operates purely from localStorage.
+
+- `src/lib/coaching-engine.ts`: Deterministic coaching generation — no AI API calls. Generates daily, weekly, and monthly coaching cards from behavioral snapshots. Each card includes: headline, body, why, evidence, suggestedAction, expectedImprovement, focusDimension, tone (celebrate/encourage/challenge/warn). Also generates: `generateWarnings()` (critical/important/advisory), `generateEncouragements()` (positive reinforcement), `generateReviewReminder()`. All output in Persian. Full content table for all 12 dimensions (`DIMENSION_COACHING`).
+
+### Added — AI Mentor V2 API
+
+- `src/app/api/ai-mentor-v2/route.ts`: Anthropic Claude API integration for behavioral coaching. CSRF-protected, rate-limited (10 req/min). Injects full behavioral context (overall score, weakest/strongest dimension, learning velocity, style, top warnings) into Claude system prompt. Sensitive data filter (Seed Phrase, private keys). Falls back to local message gracefully when `ANTHROPIC_API_KEY` is absent. Supports `claude-haiku-4-5-20251001` as default model (configurable via `ANTHROPIC_MENTOR_MODEL`). No streaming required — synchronous JSON response.
+
+### Added — Academy V2 Components
+
+- `src/components/academy/v2/LearningInsightsDashboard.tsx`: Premium learning insights dashboard. Components: `RadarChart` (SVG polygon, 8 behavioral dimensions), `XpProgressBar` (animated gradient progress bar), `StudyCalendar` (30-day activity heatmap), `KnowledgeMapViz` (concept nodes by lesson, color-coded mastered/weak/pending), `ProjectionCard` (completion %, graduation ETA, scholarship probability, prop qualification probability), `DimensionBar` (all 12 dimensions with trend arrows), `ReviewQueueWidget` (smart review queue with type icons). Full daily coaching card. 5-minute client-side initialization via `useRef(initialized)`. RTL layout, ARIA labels, responsive grid.
+
+- `src/components/academy/v2/MentorV2.tsx`: Behavioral coaching interface. NOT a chatbot. Shows: overall behavioral score with strongest/weakest dimensions, daily/weekly/monthly coaching tabs (expandable with why/evidence/action/improvement), behavioral score grid (12 score pills with trend icons), weakest-dimension focus card with action, smart review queue (prioritized items with type icons), warnings (critical/important), encouragements, and "Ask Mentor" section (calls `/api/ai-mentor-v2` with full behavioral context injection, handles errors gracefully, security disclaimer). No chatbot scroll, no history list — focus on behavioral coaching.
+
+### Added — Routes
+
+- `src/app/academy/mentor-v2/page.tsx` — `/academy/mentor-v2` with canonical metadata
+- `src/app/academy/insights/page.tsx` — `/academy/insights` with canonical metadata
+
+### Updated
+
+- `.env.example`: Added `ANTHROPIC_API_KEY` and `ANTHROPIC_MENTOR_MODEL` entries
+
+### Architecture
+
+- Behavioral engine: fully client-side (no DB, no API). Works immediately for all users.
+- Knowledge graph: static (no DB). Enables automatic prerequisite recommendations.
+- Coaching engine: deterministic (no AI). Generates consistent, evidence-based coaching.
+- AI API: used only when student explicitly asks a question. Falls back gracefully.
+- All new components: RTL, keyboard-accessible, ARIA-labeled, responsive.
+
+### QA Results
+
+- TypeScript: ✓ 0 errors
+- ESLint: ✓ 0 errors, 0 warnings
+- Build: ✓ PASS (284 pages generated, +2 new routes)
+
+**Tag:** `v0.16-ai-mentor-v2`
+
+---
+
 ## [v0.15] — 2026-06-27 — Academy V2: World-Class Learning Experience
 
 ### Added — Learning Engine Libraries
