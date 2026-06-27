@@ -7,6 +7,27 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.14] — 2026-06-27 — Global Academy Strategy & Educational Constitution
+
+### Added — Strategic Documents (10 documents, 4,247 lines)
+- `docs/ACADEMY_COMPETITIVE_BENCHMARK.md`: Benchmarks 17 global/Iranian competitors; extracts principles; defines TecPey's gap
+- `docs/ACADEMY_EDUCATIONAL_STANDARD.md`: Binding educational constitution — learning science, content standards, assessment rubrics, certification criteria, ethics, privacy
+- `docs/ACADEMY_CURRICULUM_BLUEPRINT.md`: Complete 7-term curriculum + 3 advanced tracks + TCP/TCM professional track
+- `docs/LEARNING_EXPERIENCE_GUIDE.md`: Lesson design, flashcard SM-2, spaced repetition, revision mode, streak, motivation architecture
+- `docs/TRADING_SIMULATOR_SPECIFICATION.md`: Trading Arena full spec — real feeds, journal, scenario training, discipline-weighted leaderboard, replay mode
+- `docs/MENTOR_AI_MODEL.md`: AI Mentor architecture — behavioral analysis, Socratic coaching, emotional detection, weekly/monthly reports
+- `docs/TRADING_DNA_MODEL.md`: Proprietary 12-dimension behavioral competence framework with weighted composite scoring
+- `docs/REWARD_SYSTEM.md`: XP, levels, badges, scholarships, prop qualification pathway, fraud prevention
+- `docs/GLOBAL_STRATEGY.md`: 3-phase expansion (Iran → Middle East → Global) with language, localization, and compliance frameworks
+- `docs/TECPEY_UNFAIR_ADVANTAGE.md`: Product differentiation — why TecPey exists and what no competitor provides
+
+### Changed
+- `README.md`: Bilingual (fa/en), Academy structure table, complete strategic docs index, updated roadmap through Phase 20, CI badge added
+
+**Tag:** `v0.14-academy-strategy`
+
+---
+
 ## [v0.13.5] — 2026-06-27 — Enterprise QA Stabilization and CI Readiness
 
 ### Fixed
