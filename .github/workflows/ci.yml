@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      NODE_ENV: production
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
       NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
@@ -39,7 +38,9 @@ jobs:
         run: ./node_modules/.bin/tsc --noEmit
 
       - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 130
+        run: ./node_modules/.bin/eslint . --max-warnings 0
 
       - name: Build
+        env:
+          NODE_ENV: production
         run: npm run build
