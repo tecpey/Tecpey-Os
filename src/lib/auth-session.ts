@@ -1,22 +1,16 @@
 // Canonical session helper — edge-compatible (no "use server", no "next/headers").
 // Reads all active auth cookies and returns one normalized CanonicalSession.
 //
-// TODO(cookie-migration): Three cookies coexist during this migration period:
-//   - tecpey_academy_auth   (academy login JWT, role=academy_user)
-//   - tecpey_student_session (student profile JWT, role=student)
-//   - user_session           (market/platform user JWT)
-// Once all legacy cookies are retired, collapse into a single unified JWT.
+// Phase 23: Legacy cookies (tecpey_academy_auth, tecpey_student_session, user_session)
+// are no longer issued on new logins. They are still read here as a fallback so that
+// existing browser sessions continue to work until their 30-day JWT expires.
+// Phase 24: Cookie names centralized in platform-config.ts.
 
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { logger } from "./logger";
+import { COOKIES } from "./platform-config";
 import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
-
-// ── Cookie names ─────────────────────────────────────────────────────────────
-
-export const COOKIE_ACADEMY_AUTH = "tecpey_academy_auth";
-export const COOKIE_STUDENT_SESSION = "tecpey_student_session";
-export const COOKIE_USER_SESSION = "user_session";
 
 // ── Normalized session type ───────────────────────────────────────────────────
 
@@ -72,9 +66,7 @@ type AcademyAuthResult = {
   username: string;
 };
 
-async function verifyAcademyAuth(
-  token: string | undefined,
-): Promise<AcademyAuthResult | null> {
+async function verifyAcademyAuth(token: string | undefined): Promise<AcademyAuthResult | null> {
   if (!token) return null;
   const key = academyAuthKey();
   if (!key) return null;
@@ -84,40 +76,32 @@ async function verifyAcademyAuth(
       payload.role !== "academy_user" ||
       typeof payload.sub !== "string" ||
       typeof payload.email !== "string"
-    )
-      return null;
+    ) return null;
     return {
       accountId: payload.sub,
       email: payload.email,
-      displayName:
-        typeof payload.displayName === "string" ? payload.displayName : "",
-      username:
-        typeof payload.username === "string" ? payload.username : "",
+      displayName: typeof payload.displayName === "string" ? payload.displayName : "",
+      username: typeof payload.username === "string" ? payload.username : "",
     };
   } catch {
     return null;
   }
 }
 
-async function verifyStudentSession(
-  token: string | undefined,
-): Promise<{ studentId: string } | null> {
+async function verifyStudentSession(token: string | undefined): Promise<{ studentId: string } | null> {
   if (!token) return null;
   const key = sessionKey();
   if (!key) return null;
   try {
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
-    if (payload.role !== "student" || typeof payload.sub !== "string")
-      return null;
+    if (payload.role !== "student" || typeof payload.sub !== "string") return null;
     return { studentId: payload.sub };
   } catch {
     return null;
   }
 }
 
-async function verifyUserSession(
-  token: string | undefined,
-): Promise<{ userId: string } | null> {
+async function verifyUserSession(token: string | undefined): Promise<{ userId: string } | null> {
   if (!token) return null;
   const key = sessionKey();
   if (!key) return null;
@@ -125,8 +109,7 @@ async function verifyUserSession(
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
     // Guard against cross-cookie token reuse — academy/student JWTs share the
     // same signing key but carry a distinct role claim.
-    if (payload.role === "student" || payload.role === "academy_user")
-      return null;
+    if (payload.role === "student" || payload.role === "academy_user") return null;
     if (typeof payload.sub !== "string") return null;
     return { userId: payload.sub };
   } catch {
@@ -143,9 +126,7 @@ function checkAdminAccess(req: NextRequest): boolean {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function getCanonicalSession(
-  req: NextRequest,
-): Promise<CanonicalSession> {
+export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSession> {
   // Prefer unified cookie — set by Phase 22+ login flows.
   const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
   if (unified) {
@@ -162,11 +143,11 @@ export async function getCanonicalSession(
     };
   }
 
-  // Fall back to legacy per-cookie reads (Phase 21 and earlier sessions).
+  // Fall back to legacy per-cookie reads for sessions created before Phase 22.
   const [academyAuth, studentSession, userSession] = await Promise.all([
-    verifyAcademyAuth(req.cookies.get(COOKIE_ACADEMY_AUTH)?.value),
-    verifyStudentSession(req.cookies.get(COOKIE_STUDENT_SESSION)?.value),
-    verifyUserSession(req.cookies.get(COOKIE_USER_SESSION)?.value),
+    verifyAcademyAuth(req.cookies.get(COOKIES.ACADEMY_AUTH)?.value),
+    verifyStudentSession(req.cookies.get(COOKIES.STUDENT_SESSION)?.value),
+    verifyUserSession(req.cookies.get(COOKIES.USER_SESSION)?.value),
   ]);
 
   const role = academyAuth
@@ -188,9 +169,4 @@ export async function getCanonicalSession(
     isAcademyUser: Boolean(academyAuth),
     isAdmin: checkAdminAccess(req),
   };
-}
-
-/** True when either an academy auth or a student session cookie is present. */
-export function isAnyAcademySession(session: CanonicalSession): boolean {
-  return session.isAcademyUser || Boolean(session.studentId);
 }

@@ -1,19 +1,21 @@
 /**
- * Unified session — single JWT cookie that replaces the legacy multi-cookie system.
+ * Unified session — single JWT cookie replacing the legacy multi-cookie system.
  *
- * Phase 22: Issues a single `tecpey_session` cookie alongside the legacy
- * cookies for backward compatibility. Phase 23 will stop issuing legacy cookies.
- *
- * Cookie: tecpey_session
- * Secret: TECPEY_SESSION_SECRET (same key used by legacy student session)
+ * Cookie: tecpey_session (COOKIES.SESSION)
+ * Secret: TECPEY_SESSION_SECRET
  * Role claim: "unified" — distinguishes from legacy "student" / "academy_user" tokens
+ *
+ * Phase 22: Introduced alongside legacy cookies.
+ * Phase 23: Legacy cookies retired — only tecpey_session is issued on new logins.
  */
 
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
+import { COOKIES, shouldUseSecureCookie, sessionMaxAge, sessionMaxAgeSeconds } from "./platform-config";
 
-export const UNIFIED_SESSION_COOKIE = "tecpey_session";
+/** Cookie name for the unified session. Re-exported for backward compatibility. */
+export const UNIFIED_SESSION_COOKIE = COOKIES.SESSION;
 
 export type UnifiedSessionData = {
   accountId: string | null;
@@ -41,18 +43,6 @@ function unifiedSecret(): Uint8Array | null {
   return null;
 }
 
-function cookieMaxAge(): number {
-  return Number(process.env.TECPEY_SESSION_MAX_AGE_SECONDS || 60 * 60 * 24 * 30);
-}
-
-function shouldUseSecureCookie(): boolean {
-  if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
-  if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
-  if (siteUrl.startsWith("https://")) return true;
-  return false;
-}
-
 export async function signUnifiedSession(data: UnifiedSessionData): Promise<string> {
   const key = unifiedSecret();
   if (!key) throw new Error("unified_session_secret_missing");
@@ -68,7 +58,7 @@ export async function signUnifiedSession(data: UnifiedSessionData): Promise<stri
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(data.studentId ?? data.accountId ?? "anon")
     .setIssuedAt()
-    .setExpirationTime(process.env.TECPEY_SESSION_MAX_AGE || "30d")
+    .setExpirationTime(sessionMaxAge())
     .sign(key);
 }
 
@@ -108,7 +98,7 @@ export function setUnifiedSessionCookie(response: NextResponse, data: UnifiedSes
       httpOnly: true,
       secure: shouldUseSecureCookie(),
       sameSite: "lax",
-      maxAge: cookieMaxAge(),
+      maxAge: sessionMaxAgeSeconds(),
     });
   }).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err);
@@ -116,10 +106,7 @@ export function setUnifiedSessionCookie(response: NextResponse, data: UnifiedSes
   });
 }
 
-/**
- * Async version — use this when you can await in a route handler.
- * Prefer this over setUnifiedSessionCookie for reliability.
- */
+/** Async version — prefer this over setUnifiedSessionCookie in route handlers. */
 export async function setUnifiedSessionCookieAsync(
   response: NextResponse,
   data: UnifiedSessionData,
@@ -130,7 +117,7 @@ export async function setUnifiedSessionCookieAsync(
     httpOnly: true,
     secure: shouldUseSecureCookie(),
     sameSite: "lax",
-    maxAge: cookieMaxAge(),
+    maxAge: sessionMaxAgeSeconds(),
   });
 }
 
