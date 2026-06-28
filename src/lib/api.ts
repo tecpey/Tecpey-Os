@@ -3,6 +3,7 @@
 import { ApiError } from "./api-error";
 import { getSession } from "./session";
 import { getLocale } from "next-intl/server";
+import { logger } from "./logger";
 
 
 
@@ -154,9 +155,7 @@ export const apiFetch = async (
       const delay = 1000 * Math.pow(2, attempt);
       attempt++;
 
-      console.warn(
-        `[apiFetch] attempt ${attempt}/${retries} failed (${error.type}). Retrying in ${delay}ms…`
-      );
+      logger.warn("[apiFetch] retrying after failure", { attempt, retries, errorType: error.type, delayMs: delay });
 
       await sleep(delay);
     }

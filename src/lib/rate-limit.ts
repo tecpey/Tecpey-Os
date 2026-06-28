@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { logger } from "./logger";
 
 export type RateLimitResult = {
   ok: boolean;
@@ -89,8 +90,9 @@ export async function rateLimit(request: NextRequest, options: { namespace: stri
   try {
     const redis = await redisRestRateLimit(key, options.limit, options.windowMs);
     if (redis) return redis;
-  } catch {
-    // Production-safe fallback: never take the endpoint down because Redis is temporarily unavailable.
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn("[rate-limit] Redis unavailable, falling back to in-memory limiter", { key, message: msg });
   }
   return memoryRateLimit(key, options.limit, options.windowMs);
 }

@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { logger } from "./logger";
 
 /**
  * Verifies that a state-changing request originates from the same site.
@@ -27,9 +28,8 @@ export function verifyCsrfOrigin(req: NextRequest): boolean {
     // Fail-closed in production: a missing NEXT_PUBLIC_SITE_URL is a misconfiguration,
     // not a reason to allow all cross-origin requests.
     if (process.env.NODE_ENV === "production") {
-      console.error(
-        "[csrf] NEXT_PUBLIC_SITE_URL is not set — blocking request as a safety measure. " +
-          "Set this variable to the production URL (e.g. https://tecpey.ir).",
+      logger.error(
+        "[csrf] NEXT_PUBLIC_SITE_URL is not set — blocking request as a safety measure. Set NEXT_PUBLIC_SITE_URL to the production URL.",
       );
       return false;
     }

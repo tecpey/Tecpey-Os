@@ -9,6 +9,7 @@
 
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
+import { logger } from "./logger";
 
 // ── Cookie names ─────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function academyAuthKey(): Uint8Array | null {
   const raw = process.env.TECPEY_ACADEMY_AUTH_SECRET;
   if (raw && raw.length >= 24) return new TextEncoder().encode(raw);
   if (process.env.NODE_ENV === "production") {
-    console.error("[auth] TECPEY_ACADEMY_AUTH_SECRET missing or too short — academy auth disabled.");
+    logger.error("[auth] TECPEY_ACADEMY_AUTH_SECRET missing or too short — academy auth disabled.");
     return null;
   }
   return new TextEncoder().encode("tecpey-local-academy-auth-dev-secret-please-set-env");
@@ -55,7 +56,7 @@ function sessionKey(): Uint8Array | null {
   const raw = process.env.TECPEY_SESSION_SECRET;
   if (raw && raw.length >= 24) return new TextEncoder().encode(raw);
   if (process.env.NODE_ENV === "production") {
-    console.error("[auth] TECPEY_SESSION_SECRET missing or too short — student session auth disabled.");
+    logger.error("[auth] TECPEY_SESSION_SECRET missing or too short — student session auth disabled.");
     return null;
   }
   return new TextEncoder().encode("tecpey-local-student-session-dev-secret-please-set-env");

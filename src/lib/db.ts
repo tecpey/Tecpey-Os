@@ -1,5 +1,6 @@
 import { Pool, type PoolClient } from "pg";
 import { initSchema } from "./db-schema";
+import { logger } from "./logger";
 
 let pool: Pool | null = null;
 let schemaInit: Promise<void> | null = null;
@@ -8,7 +9,7 @@ function getPool(): Pool | null {
   const url = process.env.DATABASE_URL;
   if (!url || url.includes("CHANGE_ME")) {
     if (process.env.NODE_ENV === "production") {
-      console.error("[db] DATABASE_URL is not set or is a placeholder. All DB operations will fail.");
+      logger.error("[db] DATABASE_URL is not set or is a placeholder. All DB operations will fail.");
     }
     return null;
   }
@@ -20,7 +21,7 @@ function getPool(): Pool | null {
       connectionTimeoutMillis: 5_000,
     });
     pool.on("error", (err) => {
-      console.error("[db] pool error:", err.message);
+      logger.error("[db] pool error", { message: err.message });
     });
   }
   return pool;

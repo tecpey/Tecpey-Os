@@ -10,6 +10,7 @@
 //   scheduleMentorProfileUpdate(studentId, reason) → enqueue({ studentId, reason })
 
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
+import { logger } from "@/lib/logger";
 
 // ── Event reasons ─────────────────────────────────────────────────────────────
 
@@ -31,13 +32,10 @@ export async function runMentorProfileUpdateSafely(
 ): Promise<void> {
   try {
     await applyMentorProfileUpdate(studentId);
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`[mentor-profile] updated | studentId=${studentId} reason=${reason}`);
-    }
+    logger.info("[mentor-profile] updated", { studentId, reason });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    // Log failure without exposing DB internals or user content.
-    console.error(`[mentor-profile] update failed | studentId=${studentId} reason=${reason} err=${msg.slice(0, 120)}`);
+    logger.error("[mentor-profile] update failed", { studentId, reason, err: msg.slice(0, 120) });
   }
 }
 
