@@ -1,5 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { getCanonicalSession } from "@/lib/auth-session";
@@ -10,6 +10,7 @@ import { cleanText } from "@/lib/student-cartax";
 import { recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { normalizeOfflineSyncItem, offlineManifest, type OfflineSyncItem, type OfflineSyncResult } from "@/lib/offline-sync";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 function canUseLocal() {
   return process.env.NODE_ENV !== "production" || process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true";
@@ -35,28 +36,27 @@ async function writeLocal(store: Record<string, OfflineSyncItem[]>) {
   await writeFile(localPath(), JSON.stringify(store, null, 2), "utf8");
 }
 
-
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const locale = cleanText(url.searchParams.get("locale") || "fa", 8) === "en" ? "en" : "fa";
-  return NextResponse.json({ ok: true, manifest: offlineManifest(locale) });
+  return apiOk({ manifest: offlineManifest(locale) });
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "offline-sync", limit: 30, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   try {
     const raw = await req.text();
-    if (raw.length > 80_000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 80_000) return apiError("payload_too_large", 413);
     const body = JSON.parse(raw || "{}");
     const items = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
-    if (!items.length) return NextResponse.json({ ok: true, accepted: 0, rejected: 0, results: [] });
+    if (!items.length) return apiOk({ accepted: 0, rejected: 0, results: [] });
 
     const normalized: OfflineSyncItem[] = [];
     const results: OfflineSyncResult[] = [];
@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
       await writeLocal(store);
     }
 
-    return NextResponse.json({ ok: true, accepted: normalized.length, rejected: results.filter((r) => r.status === "rejected").length, results });
+    return apiOk({ accepted: normalized.length, rejected: results.filter((r) => r.status === "rejected").length, results });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

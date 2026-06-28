@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +30,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 //   - Raw DB errors are never forwarded to the client
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "mentor-conversations-read", limit: 60, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   const url = new URL(req.url);
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!result.enabled) {
-    return NextResponse.json({ ok: true, conversations: [], nextCursor: null, storage: "unavailable" });
+    return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
   }
 
   return NextResponse.json({

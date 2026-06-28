@@ -11,6 +11,7 @@ import {
   saveMentorConversation,
 } from "@/lib/mentor-memory";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { apiError } from "@/lib/api-validation";
 
 type MentorRequest = {
   question?: string;
@@ -141,11 +142,11 @@ function extractOutputText(data: any) {
 
 export async function POST(request: NextRequest) {
   if (!verifyCsrfOrigin(request))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
 
   const session = await getCanonicalSession(request);
   if (!session.isAcademyUser && !session.studentId) {
-    return NextResponse.json({ ok: false, error: "academy_login_required" }, { status: 401 });
+    return apiError("academy_login_required", 401);
   }
 
   const limit = await rateLimit(request, { namespace: "ai-mentor", limit: MAX_REQUESTS_PER_WINDOW, windowMs: WINDOW_MS });
@@ -161,11 +162,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const raw = await request.text();
-    if (raw.length > 6000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 6000) return apiError("payload_too_large", 413);
 
     const body = JSON.parse(raw) as MentorRequest;
     const question = clean(body.question, MAX_QUESTION_LENGTH);
-    if (question.length < 2) return NextResponse.json({ ok: false, error: "empty_question" }, { status: 400 });
+    if (question.length < 2) return apiError("empty_question", 400);
 
     const requestedTerm = Number(body.term || 0);
     const requestedLesson = Number(body.lesson || 0);

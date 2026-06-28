@@ -1,37 +1,38 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { issueCertificate } from "@/lib/academy-certificates";
 import { awardMilestonesAfterCertificate } from "@/lib/phase5-achievement-engine";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "academy-certificates-read", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
   const studentId = cleanText(session?.studentId, 80);
-  if (!studentId) return NextResponse.json({ ok: true, certificates: [] });
+  if (!studentId) return apiOk({ certificates: [] });
   try {
     const result = await withDb(async (client) => {
       const rows = await client.query(`SELECT * FROM academy_certificates WHERE student_id = $1::uuid ORDER BY term_number ASC`, [studentId]);
       return rows.rows;
     });
-    return NextResponse.json({ ok: true, certificates: result.value || [] });
+    return apiOk({ certificates: result.value || [] });
   } catch {
-    return NextResponse.json({ ok: true, certificates: [] });
+    return apiOk({ certificates: [] });
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "academy-certificates-issue", limit: 12, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
   const studentId = cleanText(session?.studentId, 80);
-  if (!studentId) return NextResponse.json({ ok: false, error: "complete_account_required" }, { status: 401 });
+  if (!studentId) return apiError("complete_account_required", 401);
   try {
     const body = await req.json().catch(() => ({}));
     const termNumber = Number(body.termNumber || 1);
@@ -44,12 +45,12 @@ export async function POST(req: NextRequest) {
       await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id));
       return certificate;
     });
-    if (!result.enabled) return NextResponse.json({ ok: false, error: "certificate_service_unavailable" }, { status: 503 });
-    return NextResponse.json({ ok: true, certificate: result.value });
+    if (!result.enabled) return apiError("certificate_service_unavailable", 503);
+    return apiOk({ certificate: result.value });
   } catch (error) {
     const message = error instanceof Error ? error.message : "server_error";
-    if (message === "term_not_verified") return NextResponse.json({ ok: false, error: "term_not_verified" }, { status: 403 });
-    if (message === "certificate_signing_secret_missing") return NextResponse.json({ ok: false, error: "certificate_service_not_configured" }, { status: 503 });
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    if (message === "term_not_verified") return apiError("term_not_verified", 403);
+    if (message === "certificate_signing_secret_missing") return apiError("certificate_service_not_configured", 503);
+    return apiError("server_error", 500);
   }
 }

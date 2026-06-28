@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from "pg";
-import { initSchema } from "./db-schema";
+import { runMigrations } from "./db-migrate";
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
@@ -37,7 +37,7 @@ export async function withDb<T>(
     schemaInit = (async () => {
       const c = await p.connect();
       try {
-        await initSchema(c);
+        await runMigrations(c);
       } catch (err) {
         schemaInit = null;
         throw err;

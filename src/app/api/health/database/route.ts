@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +12,8 @@ export async function GET() {
   const latencyMs = Date.now() - start;
 
   if (!result.enabled) {
-    return NextResponse.json(
-      { ok: false, database: "not_configured", latencyMs },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
+    return apiError("database_not_configured", 503, { database: "not_configured", latencyMs }, { "Cache-Control": "no-store" });
   }
 
-  return NextResponse.json(
-    { ok: true, database: "connected", latencyMs },
-    { status: 200, headers: { "Cache-Control": "no-store" } },
-  );
+  return apiOk({ database: "connected", latencyMs }, 200, { "Cache-Control": "no-store" });
 }

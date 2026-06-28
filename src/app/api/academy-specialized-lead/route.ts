@@ -3,6 +3,7 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type LeadPayload = {
   name?: string;
@@ -30,7 +31,7 @@ const MAX_PAYLOAD_BYTES = 5_000;
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const rate = await rateLimit(req, { namespace: "academy-specialized-lead", limit: RATE_LIMIT, windowMs: RATE_WINDOW_MS });
   if (!rate.ok) {
     return NextResponse.json(
@@ -42,14 +43,14 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await req.text();
     if (raw.length > MAX_PAYLOAD_BYTES) {
-      return NextResponse.json({ ok: false, error: "payload-too-large" }, { status: 413 });
+      return apiError("payload-too-large", 413);
     }
 
     let body: LeadPayload;
     try {
       body = JSON.parse(raw) as LeadPayload;
     } catch {
-      return NextResponse.json({ ok: false, error: "invalid-json" }, { status: 400 });
+      return apiError("invalid-json", 400);
     }
     const name = clean(body.name, 120);
     const phone = clean(body.phone, 40);
@@ -61,10 +62,10 @@ export async function POST(req: NextRequest) {
     const locale = clean(body.locale, 12) || "fa";
 
     if (!name || !phone || !phonePattern.test(phone)) {
-      return NextResponse.json({ ok: false, error: "invalid-name-or-phone" }, { status: 400 });
+      return apiError("invalid-name-or-phone", 400);
     }
     if (email && !emailPattern.test(email)) {
-      return NextResponse.json({ ok: false, error: "invalid-email" }, { status: 400 });
+      return apiError("invalid-email", 400);
     }
 
     const record = {
@@ -86,8 +87,8 @@ export async function POST(req: NextRequest) {
     const dir = path.join(process.cwd(), "storage");
     await mkdir(dir, { recursive: true });
     await appendFile(path.join(dir, "academy-specialized-leads.jsonl"), `${JSON.stringify(record)}\n`, "utf8");
-    return NextResponse.json({ ok: true, id: record.id });
+    return apiOk({ id: record.id });
   } catch {
-    return NextResponse.json({ ok: false, error: "server-error" }, { status: 500 });
+    return apiError("server-error", 500);
   }
 }

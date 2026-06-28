@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { apiOk } from "@/lib/api-validation";
 
 export const dynamic = 'force-dynamic';
 
@@ -29,21 +29,14 @@ export async function GET() {
 
   const overall = redis === "unavailable" ? "degraded" : "ok";
 
-  return NextResponse.json(
-    {
-      ok: overall === "ok",
-      status: overall,
-      service: 'tecpey-web',
-      version: process.env.npm_package_version ?? "unknown",
-      environment: process.env.NODE_ENV ?? "unknown",
-      timestamp: new Date().toISOString(),
-      uptimeSeconds: Math.floor(process.uptime()),
-      node: process.version,
-      checks,
-    },
-    {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store, max-age=0' },
-    },
-  );
+  return apiOk({
+    health: overall,
+    service: "tecpey-web",
+    version: process.env.npm_package_version ?? "unknown",
+    environment: process.env.NODE_ENV ?? "unknown",
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    node: process.version,
+    checks,
+  }, 200, { "Cache-Control": "no-store, max-age=0" });
 }

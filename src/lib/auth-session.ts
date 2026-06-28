@@ -10,6 +10,7 @@
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
 import { logger } from "./logger";
+import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
 
 // ── Cookie names ─────────────────────────────────────────────────────────────
 
@@ -145,6 +146,23 @@ function checkAdminAccess(req: NextRequest): boolean {
 export async function getCanonicalSession(
   req: NextRequest,
 ): Promise<CanonicalSession> {
+  // Prefer unified cookie — set by Phase 22+ login flows.
+  const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
+  if (unified) {
+    return {
+      userId: null,
+      studentId: unified.studentId,
+      academyAccountId: unified.accountId,
+      role: unified.studentId ? "student" : "academy_user",
+      email: unified.email,
+      displayName: unified.displayName,
+      username: unified.username,
+      isAcademyUser: Boolean(unified.accountId),
+      isAdmin: checkAdminAccess(req),
+    };
+  }
+
+  // Fall back to legacy per-cookie reads (Phase 21 and earlier sessions).
   const [academyAuth, studentSession, userSession] = await Promise.all([
     verifyAcademyAuth(req.cookies.get(COOKIE_ACADEMY_AUTH)?.value),
     verifyStudentSession(req.cookies.get(COOKIE_STUDENT_SESSION)?.value),

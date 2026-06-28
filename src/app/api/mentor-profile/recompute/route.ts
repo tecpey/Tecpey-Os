@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
+import { apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 // Rate-limited to 6 requests/min to prevent abuse (full DB scan per call).
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-profile-recompute", limit: 6, windowMs: 60_000 });
   if (!limit.ok) {
     return NextResponse.json(
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   const session = await getCanonicalSession(req);
   if (!session.studentId) {
-    return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+    return apiError("academy_profile_required", 401);
   }
 
   // studentId comes exclusively from the verified session — callers cannot target other students.
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
   const updated = await applyMentorProfileUpdate(studentId);
 
   if (!updated) {
-    return NextResponse.json({ ok: false, error: "storage_unavailable" }, { status: 503 });
+    return apiError("storage_unavailable", 503);
   }
 
   return NextResponse.json({

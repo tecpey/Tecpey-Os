@@ -1,5 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -11,6 +11,7 @@ import { cleanText, numeric } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type ArenaTrade = {
   id: string;
@@ -54,7 +55,6 @@ async function writeLocal(store: LocalStore) {
   await mkdir(path.dirname(localPath()), { recursive: true });
   await writeFile(localPath(), JSON.stringify(store, null, 2), "utf8");
 }
-
 
 function mentorNote(input: { risk: number; emotion: string; entryReason: string; plan: string; locale: string }) {
   const isFa = input.locale !== "en";
@@ -149,36 +149,36 @@ async function getDbTrades(client: AnyQueryable, studentId: string) {
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "trading-arena-read", limit: 100, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   try {
     const result = await withDb((client) => getDbTrades(client, studentId));
     const trades = result.enabled && result.value ? result.value : (await readLocal())[studentId] || [];
-    return NextResponse.json({ ok: true, trades, summary: summarize(trades) });
+    return apiOk({ trades, summary: summarize(trades) });
   } catch {
     const store = await readLocal();
     const trades = store[studentId] || [];
-    return NextResponse.json({ ok: true, trades, summary: summarize(trades) });
+    return apiOk({ trades, summary: summarize(trades) });
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "trading-arena-write", limit: 40, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   try {
     const raw = await req.text();
-    if (raw.length > 8_000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 8_000) return apiError("payload_too_large", 413);
     const trade = normalizeTrade(JSON.parse(raw || "{}"), studentId);
-    if (trade.entryReason.length < 8 || trade.plan.length < 8) return NextResponse.json({ ok: false, error: "journal_required" }, { status: 400 });
+    if (trade.entryReason.length < 8 || trade.plan.length < 8) return apiError("journal_required", 400);
 
     const result = await withDb(async (client) => {
       await client.query(
@@ -200,17 +200,17 @@ export async function POST(req: NextRequest) {
 
     if (result.enabled && result.value) {
       scheduleMentorProfileUpdate(studentId, "trading_trade_created");
-      return NextResponse.json({ ok: true, trade, ...result.value });
+      return apiOk({ trade, ...result.value });
     }
 
-    if (!canUseLocalArena()) return NextResponse.json({ ok: false, error: "trading_arena_unavailable" }, { status: 503 });
+    if (!canUseLocalArena()) return apiError("trading_arena_unavailable", 503);
     const store = await readLocal();
     const trades = [trade, ...(store[studentId] || []).filter((item) => item.id !== trade.id)].slice(0, 50);
     store[studentId] = trades;
     await writeLocal(store);
     scheduleMentorProfileUpdate(studentId, "trading_trade_created");
-    return NextResponse.json({ ok: true, trade, trades, summary: summarize(trades) });
+    return apiOk({ trade, trades, summary: summarize(trades) });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

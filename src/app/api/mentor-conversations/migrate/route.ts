@@ -1,9 +1,10 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { cleanText } from "@/lib/student-cartax";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -24,24 +25,24 @@ export const dynamic = "force-dynamic";
 //   - No duplicate-detection: the widget's migration flag (localStorage) prevents re-calls
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-conversations-migrate", limit: 3, windowMs: 60 * 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_body" }, { status: 400 });
+    return apiError("invalid_body", 400);
   }
 
   const rawMessages = (body as { messages?: unknown[] })?.messages;
   if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
-    return NextResponse.json({ ok: true, imported: 0 });
+    return apiOk({ imported: 0 });
   }
 
   // Validate and sanitize each message from localStorage.
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (messages.length === 0) {
-    return NextResponse.json({ ok: true, imported: 0 });
+    return apiOk({ imported: 0 });
   }
 
   const result = await withDb(async (client) => {
@@ -82,8 +83,8 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.enabled) {
-    return NextResponse.json({ ok: true, imported: 0, storage: "unavailable" });
+    return apiOk({ imported: 0, storage: "unavailable" });
   }
 
-  return NextResponse.json({ ok: true, imported: result.value?.imported ?? 0 });
+  return apiOk({ imported: result.value?.imported ?? 0 });
 }

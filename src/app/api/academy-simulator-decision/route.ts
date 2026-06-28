@@ -1,11 +1,12 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { academySimulations } from "@/data/academySimulationWorld";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 
@@ -30,29 +31,29 @@ async function summarize(client: Queryable, studentId: string) {
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "academy-simulator-read", limit: 120, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
-  if (!session?.studentId) return NextResponse.json({ ok: true, completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
+  if (!session?.studentId) return apiOk({ completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
   try {
     const result = await withDb((client) => summarize(client, session.studentId));
-    if (!result.enabled) return NextResponse.json({ ok: true, completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
-    return NextResponse.json({ ok: true, ...result.value });
+    if (!result.enabled) return apiOk({ completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
+    return apiOk({ ...result.value });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "academy-simulator-write", limit: 40, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
-  if (!session?.studentId) return NextResponse.json({ ok: false, error: "complete_account_required" }, { status: 401 });
+  if (!session?.studentId) return apiError("complete_account_required", 401);
 
   try {
     const raw = await req.text();
-    if (raw.length > 5000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 5000) return apiError("payload_too_large", 413);
     const body = JSON.parse(raw || "{}");
     const locale = cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa";
     const scenarioId = cleanText(body.scenarioId, 120);
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     const riskPlan = cleanText(body.riskPlan, 420);
     const scenario = findScenario(scenarioId);
     const choice = scenario?.choices.find((item) => item.id === choiceId);
-    if (!scenario || !choice) return NextResponse.json({ ok: false, error: "scenario_not_found" }, { status: 404 });
+    if (!scenario || !choice) return apiError("scenario_not_found", 404);
 
     const score = Math.max(0, Math.min(100, Number(choice.score || 0)));
     const xp = Math.max(0, Math.min(500, Number(scenario.xp || 0)));
@@ -97,9 +98,9 @@ export async function POST(req: NextRequest) {
       return summarize(client, session.studentId);
     });
 
-    if (!result.enabled) return NextResponse.json({ ok: false, error: "simulator_service_not_configured" }, { status: 503 });
-    return NextResponse.json({ ok: true, score, xp, feedback, ...result.value });
+    if (!result.enabled) return apiError("simulator_service_not_configured", 503);
+    return apiOk({ score, xp, feedback, ...result.value });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

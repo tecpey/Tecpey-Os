@@ -1,5 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -12,6 +12,8 @@ import {
   signStudentSession,
 } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 // TODO(cookie-migration): remove getStudentSessionFromRequest / getAcademyAuthFromRequest
 //   imports once canonical session replaces all per-cookie reads.
 
@@ -43,7 +45,6 @@ type LocalStore = {
   byAccount: Record<string, string>;
   profiles: Record<string, LocalProfile>;
 };
-
 
 function publicIdFromUuid(id: string) {
   return `TP-STD-${id.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
@@ -152,13 +153,7 @@ export async function GET(req: NextRequest) {
     windowMs: 60_000,
   });
   if (!limit.ok)
-    return NextResponse.json(
-      { ok: false, error: "rate_limited" },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return apiRateLimited(limit.retryAfterSeconds);
 
   const session = await getCanonicalSession(req);
   const authenticated = session.isAcademyUser || Boolean(session.studentId);
@@ -190,57 +185,38 @@ export async function GET(req: NextRequest) {
       return query.rows[0] || null;
     });
     if (result.enabled)
-      return NextResponse.json({
-        ok: true,
-        authenticated,
-        profile: result.value,
-      });
+      return apiOk({ authenticated, profile: result.value });
 
     const local = await getLocalProfile(studentId, session.academyAccountId);
-    return NextResponse.json({ ok: true, authenticated, profile: local });
+    return apiOk({ authenticated, profile: local });
   } catch {
     const local = await getLocalProfile(studentId, session.academyAccountId);
-    return NextResponse.json({ ok: true, authenticated, profile: local });
+    return apiOk({ authenticated, profile: local });
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, {
     namespace: "academy-student-profile-write",
     limit: 30,
     windowMs: 60_000,
   });
   if (!limit.ok)
-    return NextResponse.json(
-      { ok: false, error: "rate_limited" },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return apiRateLimited(limit.retryAfterSeconds);
 
   try {
     const raw = await req.text();
     if (raw.length > 20_000)
-      return NextResponse.json(
-        { ok: false, error: "payload_too_large" },
-        { status: 413 },
-      );
+      return apiError("payload_too_large", 413);
     const body = JSON.parse(raw);
     if (!isSessionConfigured())
-      return NextResponse.json(
-        { ok: false, error: "session_service_not_configured" },
-        { status: 503 },
-      );
+      return apiError("session_service_not_configured", 503);
 
     const session = await getCanonicalSession(req);
     if (!session.studentId && !session.isAcademyUser) {
-      return NextResponse.json(
-        { ok: false, error: "academy_login_required" },
-        { status: 401 },
-      );
+      return apiError("academy_login_required", 401);
     }
 
     const email = body.email || session.email;
@@ -266,22 +242,21 @@ export async function POST(req: NextRequest) {
     );
 
     if (result.enabled && result.value) {
-      const response = NextResponse.json({
-        ok: true,
-        storage: "cloud",
-        authenticated: true,
-        ...result.value,
-      });
+      const response = apiOk({ storage: "cloud" as const, authenticated: true as const, ...result.value as Record<string, unknown> });
       const token = await signStudentSession(result.value.studentId);
       setStudentSessionCookie(response, token);
+      await setUnifiedSessionCookieAsync(response, {
+        accountId: session.academyAccountId,
+        studentId: result.value.studentId,
+        email: session.email,
+        displayName: session.displayName,
+        username: session.username,
+      });
       return response;
     }
 
     if (!canUseLocalProfileStorage())
-      return NextResponse.json(
-        { ok: false, error: "academy_profile_service_unavailable" },
-        { status: 503 },
-      );
+      return apiError("academy_profile_service_unavailable", 503);
     const local = await upsertLocalProfile({
       accountKey: session.academyAccountId || null,
       studentId: session.studentId || null,
@@ -293,21 +268,18 @@ export async function POST(req: NextRequest) {
       learningGoal: body.learningGoal,
       locale: body.locale,
     });
-    const response = NextResponse.json({
-      ok: true,
-      storage: "local-dev",
-      authenticated: true,
-      studentId: local.studentId,
-      publicStudentId: local.publicStudentId,
-      profile: local.profile,
-    });
+    const response = apiOk({ storage: "local-dev" as const, authenticated: true as const, studentId: local.studentId, publicStudentId: local.publicStudentId, profile: local.profile });
     const token = await signStudentSession(local.studentId);
     setStudentSessionCookie(response, token);
+    await setUnifiedSessionCookieAsync(response, {
+      accountId: session.academyAccountId,
+      studentId: local.studentId,
+      email: session.email,
+      displayName: session.displayName,
+      username: session.username,
+    });
     return response;
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "server_error" },
-      { status: 500 },
-    );
+    return apiError("server_error", 500);
   }
 }

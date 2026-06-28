@@ -11,6 +11,7 @@ import {
   type ImportanceLevel,
 } from "@/lib/mentor-memory";
 import { cleanText } from "@/lib/student-cartax";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,10 @@ export const dynamic = "force-dynamic";
 // Supports ?category=<cat> and ?minImportance=<1|5|10|100> filters.
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "mentor-memory-read", limit: 60, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   const url = new URL(req.url);
@@ -55,10 +56,10 @@ export async function GET(req: NextRequest) {
   });
 
   if (!result.enabled) {
-    return NextResponse.json({ ok: true, memories: [], storage: "unavailable" });
+    return apiOk({ memories: [], storage: "unavailable" });
   }
 
-  return NextResponse.json({ ok: true, memories: result.value ?? [] });
+  return apiOk({ memories: result.value ?? [] });
 }
 
 // POST /api/mentor-memory
@@ -66,21 +67,21 @@ export async function GET(req: NextRequest) {
 // Body: { category, content, importance? }
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-memory-write", limit: 20, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   let body: Record<string, unknown>;
   try {
     const raw = await req.text();
-    if (raw.length > 4_000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 4_000) return apiError("payload_too_large", 413);
     body = JSON.parse(raw || "{}");
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return apiError("invalid_json", 400);
   }
 
   const category = cleanText(body.category, 40).toLowerCase();
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
   const content = cleanText(body.content, 2000);
   if (content.length < 4) {
-    return NextResponse.json({ ok: false, error: "content_too_short" }, { status: 400 });
+    return apiError("content_too_short", 400);
   }
 
   const rawImportance = Number(body.importance ?? 5);
@@ -103,27 +104,27 @@ export async function POST(req: NextRequest) {
 
   const saved = await saveMentorMemory(studentId, category as MemoryCategory, content, importance);
   if (!saved) {
-    return NextResponse.json({ ok: false, error: "storage_unavailable" }, { status: 503 });
+    return apiError("storage_unavailable", 503);
   }
 
-  return NextResponse.json({ ok: true, id: saved.id, category, importance });
+  return apiOk({ id: saved.id, category, importance });
 }
 
 // DELETE /api/mentor-memory?id=<uuid>
 // Students may delete their own memory entries.
 export async function DELETE(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-memory-delete", limit: 20, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
-    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+    return apiError("invalid_id", 400);
   }
 
   const result = await withDb(async (client) => {
@@ -134,8 +135,8 @@ export async function DELETE(req: NextRequest) {
     return res.rows.length > 0;
   });
 
-  if (!result.enabled) return NextResponse.json({ ok: false, error: "storage_unavailable" }, { status: 503 });
-  if (!result.value) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (!result.enabled) return apiError("storage_unavailable", 503);
+  if (!result.value) return apiError("not_found", 404);
 
-  return NextResponse.json({ ok: true, deleted: id });
+  return apiOk({ deleted: id });
 }

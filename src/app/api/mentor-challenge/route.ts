@@ -1,10 +1,11 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification, maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type QuestionRow = {
   id: string;
@@ -42,7 +43,7 @@ function fallbackQuestion(locale: string, termNumber: number, lessonSlug: string
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "mentor-challenge-read", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
   const url = new URL(req.url);
   const locale = cleanText(url.searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
@@ -74,27 +75,27 @@ export async function GET(req: NextRequest) {
       if (question) await client.query(`UPDATE academy_question_bank SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, [question.id]);
       return question ? publicQuestion(question) : fallbackQuestion(locale, termNumber, lessonSlug);
     });
-    if (!result.enabled) return NextResponse.json({ ok: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
-    return NextResponse.json({ ok: true, question: result.value });
+    if (!result.enabled) return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    return apiOk({ question: result.value });
   } catch {
-    return NextResponse.json({ ok: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-challenge-submit", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
-  if (!session?.studentId) return NextResponse.json({ ok: false, error: "complete_account_required" }, { status: 401 });
+  if (!session?.studentId) return apiError("complete_account_required", 401);
   try {
     const raw = await req.text();
-    if (raw.length > 10_000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 10_000) return apiError("payload_too_large", 413);
     const body = JSON.parse(raw || "{}");
     const questionId = cleanText(body.questionId, 120);
     const selectedOption = cleanText(body.selectedOption, 5).toUpperCase();
-    if (!questionId || !["A","B","C","D"].includes(selectedOption)) return NextResponse.json({ ok: false, error: "invalid_answer" }, { status: 400 });
+    if (!questionId || !["A","B","C","D"].includes(selectedOption)) return apiError("invalid_answer", 400);
     const responseTimeMs = Math.max(0, Math.min(600_000, Math.round(Number(body.responseTimeMs) || 0)));
     const confidence = cleanText(body.confidence || "medium", 20);
     const result = await withDb(async (client) => {
@@ -127,10 +128,10 @@ export async function POST(req: NextRequest) {
       });
       return { accepted: true, isCorrect, attemptNumber, firstAnswer, topic: row.topic, explanation: isCorrect ? row.explanation : null };
     });
-    if (!result.enabled) return NextResponse.json({ ok: false, error: "mentor_challenge_not_configured" }, { status: 503 });
-    if (!result.value?.accepted) return NextResponse.json({ ok: false, error: result.value?.error || "not_accepted" }, { status: 404 });
-    return NextResponse.json({ ok: true, result: result.value });
+    if (!result.enabled) return apiError("mentor_challenge_not_configured", 503);
+    if (!result.value?.accepted) return apiError(result.value?.error || "not_accepted", 404);
+    return apiOk({ result: result.value });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

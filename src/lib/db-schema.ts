@@ -1,3 +1,9 @@
+/**
+ * @deprecated Phase 22 — No longer called by db.ts.
+ * db.ts now uses runMigrations() from db-migrate.ts instead of initSchema().
+ * This file is retained as reference; do NOT add new tables here.
+ * Add new tables as numbered migrations in src/lib/db-migrate.ts.
+ */
 import type { PoolClient } from "pg";
 import { ensureStudentCartaxTables } from "./student-cartax";
 import { ensurePhase5Tables } from "./phase5-achievement-engine";

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
@@ -15,6 +15,9 @@ import {
   setAcademyAuthCookie,
   signAcademyAuthSession,
 } from "@/lib/academy-auth";
+import { clearStudentSessionCookie } from "@/lib/academy-session";
+import { clearUnifiedSessionCookie, setUnifiedSessionCookieAsync } from "@/lib/unified-session";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 
 type AcademyAccount = {
   accountId: string;
@@ -84,7 +87,6 @@ async function writeLocalAuthStore(store: LocalAuthStore) {
   await writeFile(authStorePath(), JSON.stringify(store, null, 2), "utf8");
 }
 
-
 type Queryable = { query: (text: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 
 async function loadDbAccount(client: Queryable, email: string, username?: string) {
@@ -103,8 +105,7 @@ async function loadDbAccount(client: Queryable, email: string, username?: string
 
 export async function GET(req: NextRequest) {
   const session = await getAcademyAuthFromRequest(req);
-  return NextResponse.json({
-    ok: true,
+  return apiOk({
     authenticated: Boolean(session),
     account: session
       ? {
@@ -118,7 +119,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
 
   const limit = await rateLimit(req, {
     namespace: "academy-auth",
@@ -126,19 +127,10 @@ export async function POST(req: NextRequest) {
     windowMs: 60_000,
   });
   if (!limit.ok)
-    return NextResponse.json(
-      { ok: false, error: "rate_limited" },
-      {
-        status: 429,
-        headers: { "Retry-After": String(limit.retryAfterSeconds) },
-      },
-    );
+    return apiRateLimited(limit.retryAfterSeconds);
 
   if (!isAcademyAuthConfigured()) {
-    return NextResponse.json(
-      { ok: false, error: "academy_auth_service_not_configured" },
-      { status: 503 },
-    );
+    return apiError("academy_auth_service_not_configured", 503);
   }
 
   try {
@@ -154,25 +146,13 @@ export async function POST(req: NextRequest) {
     );
 
     if (!/^\S+@\S+\.\S+$/.test(email))
-      return NextResponse.json(
-        { ok: false, error: "invalid_email" },
-        { status: 400 },
-      );
+      return apiError("invalid_email", 400);
     if (password.length < 10)
-      return NextResponse.json(
-        { ok: false, error: "weak_password" },
-        { status: 400 },
-      );
+      return apiError("weak_password", 400);
     if (displayName.length < 2)
-      return NextResponse.json(
-        { ok: false, error: "invalid_display_name" },
-        { status: 400 },
-      );
+      return apiError("invalid_display_name", 400);
     if (username.length < 3)
-      return NextResponse.json(
-        { ok: false, error: "invalid_username" },
-        { status: 400 },
-      );
+      return apiError("invalid_username", 400);
 
     const accountId = academyAccountIdFromEmail(email);
     const dbResult = await withDb(async (client) => {
@@ -215,34 +195,22 @@ export async function POST(req: NextRequest) {
     let account: AcademyAccount | { accountId: string; email: string; username: string; displayName: string } | null = null;
     if (dbResult.enabled) {
       if (!dbResult.value?.ok) {
-        return NextResponse.json(
-          { ok: false, error: dbResult.value?.error || "auth_failed" },
-          { status: dbResult.value?.status || 400 },
-        );
+        return apiError(dbResult.value?.error || "auth_failed", dbResult.value?.status || 400);
       }
       account = dbResult.value.account;
     } else {
       if (!canUseLocalAuthStorage()) {
-        return NextResponse.json(
-          { ok: false, error: "academy_auth_storage_unavailable" },
-          { status: 503 },
-        );
+        return apiError("academy_auth_storage_unavailable", 503);
       }
       const store = await readLocalAuthStore();
       const existing = store.accountsByEmail[email];
       const ownerEmail = store.emailByUsername[username];
       if (ownerEmail && ownerEmail !== email) {
-        return NextResponse.json(
-          { ok: false, error: "username_taken" },
-          { status: 409 },
-        );
+        return apiError("username_taken", 409);
       }
       if (existing) {
         if (!verifyPassword(password, existing.passwordHash)) {
-          return NextResponse.json(
-            { ok: false, error: "invalid_credentials" },
-            { status: 401 },
-          );
+          return apiError("invalid_credentials", 401);
         }
         existing.displayName = displayName || existing.displayName;
         existing.updatedAt = new Date().toISOString();
@@ -251,10 +219,7 @@ export async function POST(req: NextRequest) {
         account = existing;
       } else {
         if (mode === "login") {
-          return NextResponse.json(
-            { ok: false, error: "invalid_credentials" },
-            { status: 401 },
-          );
+          return apiError("invalid_credentials", 401);
         }
         const created: AcademyAccount = {
           accountId,
@@ -278,8 +243,7 @@ export async function POST(req: NextRequest) {
       displayName: account.displayName,
       username: account.username,
     });
-    const response = NextResponse.json({
-      ok: true,
+    const response = apiOk({
       authenticated: true,
       account: {
         email: account.email,
@@ -288,17 +252,23 @@ export async function POST(req: NextRequest) {
       },
     });
     setAcademyAuthCookie(response, token);
+    await setUnifiedSessionCookieAsync(response, {
+      accountId: account.accountId,
+      studentId: null,
+      email: account.email,
+      displayName: account.displayName,
+      username: account.username,
+    });
     return response;
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "server_error" },
-      { status: 500 },
-    );
+    return apiError("server_error", 500);
   }
 }
 
 export async function DELETE(_req: NextRequest) {
-  const response = NextResponse.json({ ok: true });
+  const response = apiOk({});
   clearAcademyAuthCookie(response);
+  clearStudentSessionCookie(response);
+  clearUnifiedSessionCookie(response);
   return response;
 }

@@ -1,39 +1,40 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { buildNotificationBrain, createBrainNotification, fallbackNotificationBrain } from "@/lib/phase5-achievement-engine";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "notification-brain-read", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
   const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
-  if (!session?.studentId) return NextResponse.json({ ok: true, authenticated: false, brain: fallbackNotificationBrain(locale) });
+  if (!session?.studentId) return apiOk({ authenticated: false, brain: fallbackNotificationBrain(locale) });
   try {
     const result = await withDb((client) => buildNotificationBrain(client, session.studentId, locale));
-    if (!result.enabled) return NextResponse.json({ ok: true, authenticated: true, brain: fallbackNotificationBrain(locale) });
-    return NextResponse.json({ ok: true, authenticated: true, brain: result.value });
+    if (!result.enabled) return apiOk({ authenticated: true, brain: fallbackNotificationBrain(locale) });
+    return apiOk({ authenticated: true, brain: result.value });
   } catch {
-    return NextResponse.json({ ok: true, authenticated: true, brain: fallbackNotificationBrain(locale) });
+    return apiOk({ authenticated: true, brain: fallbackNotificationBrain(locale) });
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "notification-brain-generate", limit: 20, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
-  if (!session?.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session?.studentId) return apiError("academy_profile_required", 401);
   const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
   try {
     const result = await withDb((client) => createBrainNotification(client, session.studentId, locale));
-    if (!result.enabled) return NextResponse.json({ ok: true, brain: fallbackNotificationBrain(locale) });
-    return NextResponse.json({ ok: true, brain: result.value });
+    if (!result.enabled) return apiOk({ brain: fallbackNotificationBrain(locale) });
+    return apiOk({ brain: result.value });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

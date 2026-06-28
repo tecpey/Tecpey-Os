@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { normalizeAcademyUsername } from "@/lib/academy-auth";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 async function readLocalUsernameStore() {
   try {
@@ -17,9 +18,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const username = normalizeAcademyUsername(searchParams.get("username"));
   if (username.length < 3) {
-    return NextResponse.json({ ok: false, available: false, error: "invalid_username" }, { status: 400 });
+    return apiError("invalid_username", 400, { available: false });
   }
   // Local-first check for localhost/dev. Production should also enforce uniqueness in DB at register time.
   const local = await readLocalUsernameStore();
-  return NextResponse.json({ ok: true, username, available: !local[username] });
+  return apiOk({ username, available: !local[username] });
 }

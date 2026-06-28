@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { generateMentorInsights } from "@/lib/mentor-memory";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,10 @@ export const dynamic = "force-dynamic";
 // ?generate=0  — (default) return existing data only; no writes.
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "mentor-insights", limit: 30, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   const shouldGenerate = new URL(req.url).searchParams.get("generate") === "1";
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!result.enabled) {
-    return NextResponse.json({ ok: true, insights: [], profile: updatedProfile, storage: "unavailable" });
+    return apiOk({ insights: [], profile: updatedProfile, storage: "unavailable" });
   }
 
   return NextResponse.json({

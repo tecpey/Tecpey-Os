@@ -1,5 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { academyPathTerms } from "@/data/academyPath";
@@ -12,6 +12,7 @@ import { cleanText } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 type LocalTermRow = {
@@ -46,8 +47,6 @@ async function writeLocalProgress(store: LocalTermStore) {
   await writeFile(localProgressPath(), JSON.stringify(store, null, 2), "utf8");
 }
 
-
-
 function getTerm(locale: string, termNumber: number) {
   const list = locale === "en" ? academyPathTermsEn : academyPathTerms;
   return list.find((term) => term.number === termNumber);
@@ -77,9 +76,9 @@ async function hasPreviousTermPassed(client: Queryable, studentId: string, termN
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "academy-term-progress-read", limit: 120, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: true, terms: [] });
+  if (!session.studentId) return apiOk({ terms: [] });
   const studentId = session.studentId;
   const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
   try {
@@ -93,35 +92,35 @@ export async function GET(req: NextRequest) {
       );
       return rows.rows;
     });
-    if (result.enabled) return NextResponse.json({ ok: true, terms: result.value || [] });
+    if (result.enabled) return apiOk({ terms: result.value || [] });
     const store = await readLocalProgress();
-    return NextResponse.json({ ok: true, terms: (store[studentId] || []).filter((row) => row.locale === locale).sort((a,b) => a.term_number - b.term_number) });
+    return apiOk({ terms: (store[studentId] || []).filter((row) => row.locale === locale).sort((a,b) => a.term_number - b.term_number) });
   } catch {
     if (canUseLocalProgress()) {
       const store = await readLocalProgress();
-      return NextResponse.json({ ok: true, terms: (store[studentId] || []).filter((row) => row.locale === locale).sort((a,b) => a.term_number - b.term_number) });
+      return apiOk({ terms: (store[studentId] || []).filter((row) => row.locale === locale).sort((a,b) => a.term_number - b.term_number) });
     }
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "academy-term-progress-submit", limit: 30, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "complete_account_required" }, { status: 401 });
+  if (!session.studentId) return apiError("complete_account_required", 401);
   const studentId = session.studentId;
 
   try {
     const raw = await req.text();
-    if (raw.length > 20_000) return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+    if (raw.length > 20_000) return apiError("payload_too_large", 413);
     const body = JSON.parse(raw || "{}");
     const termNumber = Math.max(1, Math.min(7, Math.round(Number(body.termNumber) || 1)));
     const locale = cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa";
     const term = getTerm(locale, termNumber);
-    if (!term) return NextResponse.json({ ok: false, error: "term_not_found" }, { status: 404 });
+    if (!term) return apiError("term_not_found", 404);
     const submitted = normalizeAnswers(body.answers);
     const attemptLog = normalizeAttemptLog(body.attemptLog);
     const total = term.questions.length;
@@ -175,11 +174,11 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.enabled) {
-      if (!canUseLocalProgress()) return NextResponse.json({ ok: false, error: "progress_service_not_configured" }, { status: 503 });
+      if (!canUseLocalProgress()) return apiError("progress_service_not_configured", 503);
       const store = await readLocalProgress();
       const rows = store[studentId] || [];
       const previousPassed = termNumber <= 1 || rows.some((row) => row.locale === locale && row.term_number === termNumber - 1 && row.status === "passed");
-      if (!previousPassed) return NextResponse.json({ ok: false, error: "previous_term_required", score, percent, passed: false, termNumber }, { status: 403 });
+      if (!previousPassed) return apiError("previous_term_required", 403, { score, percent, passed: false, termNumber });
       const now = new Date().toISOString();
       const existingIndex = rows.findIndex((row) => row.locale === locale && row.term_number === termNumber);
       const previous = existingIndex >= 0 ? rows[existingIndex] : null;
@@ -199,12 +198,12 @@ export async function POST(req: NextRequest) {
       store[studentId] = rows;
       await writeLocalProgress(store);
       scheduleMentorProfileUpdate(studentId, "academy_progress_updated");
-      return NextResponse.json({ ok: true, score: row.score, percent: row.percent, passed: row.status === "passed", termNumber });
+      return apiOk({ score: row.score, percent: row.percent, passed: row.status === "passed", termNumber });
     }
-    if (result.value?.blocked) return NextResponse.json({ ok: false, error: "previous_term_required", ...result.value }, { status: 403 });
+    if (result.value?.blocked) return apiError("previous_term_required", 403, result.value ?? undefined);
     scheduleMentorProfileUpdate(studentId, "quiz_submitted");
-    return NextResponse.json({ ok: true, ...result.value });
+    return apiOk({ ...result.value });
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

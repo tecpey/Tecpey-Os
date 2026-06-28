@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 
 type AcademyLead = {
   name?: string;
@@ -35,16 +36,16 @@ async function saveToPostgres(lead: Record<string, string | number>) {
 
 export async function POST(request: NextRequest) {
   if (!verifyCsrfOrigin(request))
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    return apiError("forbidden", 403);
   const limit = await rateLimit(request, { namespace: "academy-lead", limit: 10, windowMs: 60_000 });
   if (!limit.ok) {
-    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
+    return apiRateLimited(limit.retryAfterSeconds);
   }
 
   try {
     const raw = await request.text();
     if (raw.length > 2000) {
-      return NextResponse.json({ ok: false, error: "payload_too_large" }, { status: 413 });
+      return apiError("payload_too_large", 413);
     }
 
     const body = JSON.parse(raw) as AcademyLead;
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (lead.name.length < 2 || !validPhone(lead.phone)) {
-      return NextResponse.json({ ok: false, error: "invalid_lead" }, { status: 400 });
+      return apiError("invalid_lead", 400);
     }
 
     try {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const response = NextResponse.json({ ok: true });
+    const response = apiOk({});
     response.cookies.set("tecpey_academy_lead_saved", "1", {
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
@@ -95,6 +96,6 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch {
-    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
+    return apiError("server_error", 500);
   }
 }

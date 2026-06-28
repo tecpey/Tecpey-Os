@@ -75,3 +75,8 @@ export function setStudentSessionCookie(response: NextResponse, token: string) {
   });
   response.cookies.delete(LEGACY_STUDENT_COOKIE);
 }
+
+export function clearStudentSessionCookie(response: NextResponse) {
+  response.cookies.delete(STUDENT_SESSION_COOKIE);
+  response.cookies.delete(LEGACY_STUDENT_COOKIE);
+}

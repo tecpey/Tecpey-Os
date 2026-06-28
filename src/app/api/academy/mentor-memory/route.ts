@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { getCanonicalSession } from "@/lib/auth-session";
 // TODO(cookie-migration): getStudentSessionFromRequest replaced with getCanonicalSession.
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
+import { apiOk, apiError } from "@/lib/api-validation";
 
 type ArenaTrade = {
   risk?: number;
@@ -39,7 +40,6 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
     return fallback;
   }
 }
-
 
 function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
   const completedTerms = terms.filter((item) => item.status === "passed").length;
@@ -90,9 +90,9 @@ function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "academy-mentor-memory", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+  if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
-  if (!session.studentId) return NextResponse.json({ ok: false, error: "academy_profile_required" }, { status: 401 });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
 
   const dbResult = await withDb(async (client) => {
@@ -120,10 +120,10 @@ export async function GET(req: NextRequest) {
     return summarizeMemory(termRows.rows, trades);
   });
 
-  if (dbResult.enabled && dbResult.value) return NextResponse.json({ ok: true, memory: dbResult.value });
+  if (dbResult.enabled && dbResult.value) return apiOk({ memory: dbResult.value });
 
   const progressStore = await readJson<Record<string, TermRow[]>>(localProgressPath(), {});
   const arenaStore = await readJson<Record<string, ArenaTrade[]>>(localArenaPath(), {});
   const memory = summarizeMemory(progressStore[studentId] || [], arenaStore[studentId] || []);
-  return NextResponse.json({ ok: true, memory });
+  return apiOk({ memory });
 }
