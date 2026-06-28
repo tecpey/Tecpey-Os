@@ -6,11 +6,7 @@ import { randomUUID } from "crypto";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText, upsertStudentCartax } from "@/lib/student-cartax";
 import { withDb } from "@/lib/db";
-import {
-  isSessionConfigured,
-  setStudentSessionCookie,
-  signStudentSession,
-} from "@/lib/academy-session";
+import { isSessionConfigured } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
@@ -243,8 +239,6 @@ export async function POST(req: NextRequest) {
 
     if (result.enabled && result.value) {
       const response = apiOk({ storage: "cloud" as const, authenticated: true as const, ...result.value as Record<string, unknown> });
-      const token = await signStudentSession(result.value.studentId);
-      setStudentSessionCookie(response, token);
       await setUnifiedSessionCookieAsync(response, {
         accountId: session.academyAccountId,
         studentId: result.value.studentId,
@@ -269,8 +263,6 @@ export async function POST(req: NextRequest) {
       locale: body.locale,
     });
     const response = apiOk({ storage: "local-dev" as const, authenticated: true as const, studentId: local.studentId, publicStudentId: local.publicStudentId, profile: local.profile });
-    const token = await signStudentSession(local.studentId);
-    setStudentSessionCookie(response, token);
     await setUnifiedSessionCookieAsync(response, {
       accountId: session.academyAccountId,
       studentId: local.studentId,

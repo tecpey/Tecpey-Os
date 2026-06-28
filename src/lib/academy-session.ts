@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
 
 export const STUDENT_SESSION_COOKIE = "tecpey_student_session";
 export const LEGACY_STUDENT_COOKIE = "tecpey_student_id";
@@ -48,7 +49,12 @@ export async function verifyStudentSessionToken(token?: string | null) {
 }
 
 export async function getStudentSessionFromRequest(req: NextRequest) {
-  return verifyStudentSessionToken(req.cookies.get(STUDENT_SESSION_COOKIE)?.value);
+  const legacy = await verifyStudentSessionToken(req.cookies.get(STUDENT_SESSION_COOKIE)?.value);
+  if (legacy) return legacy;
+  // Phase 23: legacy cookie retired — fall back to unified cookie for new sessions
+  const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
+  if (unified?.studentId) return { studentId: unified.studentId };
+  return null;
 }
 
 export async function getStudentSessionFromServerCookies() {

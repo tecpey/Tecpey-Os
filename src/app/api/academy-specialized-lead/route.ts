@@ -1,9 +1,9 @@
 import { mkdir, appendFile } from "fs/promises";
 import path from "path";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { apiOk, apiError } from "@/lib/api-validation";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 
 type LeadPayload = {
   name?: string;
@@ -34,10 +34,7 @@ export async function POST(req: NextRequest) {
     return apiError("forbidden", 403);
   const rate = await rateLimit(req, { namespace: "academy-specialized-lead", limit: RATE_LIMIT, windowMs: RATE_WINDOW_MS });
   if (!rate.ok) {
-    return NextResponse.json(
-      { ok: false, error: "too-many-requests" },
-      { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } },
-    );
+    return apiRateLimited(rate.retryAfterSeconds);
   }
 
   try {

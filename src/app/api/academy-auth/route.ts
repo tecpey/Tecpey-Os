@@ -12,8 +12,6 @@ import {
   isAcademyAuthConfigured,
   normalizeAcademyEmail,
   normalizeAcademyUsername,
-  setAcademyAuthCookie,
-  signAcademyAuthSession,
 } from "@/lib/academy-auth";
 import { clearStudentSessionCookie } from "@/lib/academy-session";
 import { clearUnifiedSessionCookie, setUnifiedSessionCookieAsync } from "@/lib/unified-session";
@@ -237,12 +235,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const token = await signAcademyAuthSession({
-      accountId: account.accountId,
-      email: account.email,
-      displayName: account.displayName,
-      username: account.username,
-    });
     const response = apiOk({
       authenticated: true,
       account: {
@@ -251,7 +243,6 @@ export async function POST(req: NextRequest) {
         username: account.username,
       },
     });
-    setAcademyAuthCookie(response, token);
     await setUnifiedSessionCookieAsync(response, {
       accountId: account.accountId,
       studentId: null,

@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
+import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
 
 export const ACADEMY_AUTH_COOKIE = "tecpey_academy_auth";
 
@@ -73,7 +74,19 @@ export async function verifyAcademyAuthToken(token?: string | null): Promise<Aca
 }
 
 export async function getAcademyAuthFromRequest(req: NextRequest) {
-  return verifyAcademyAuthToken(req.cookies.get(ACADEMY_AUTH_COOKIE)?.value);
+  const legacy = await verifyAcademyAuthToken(req.cookies.get(ACADEMY_AUTH_COOKIE)?.value);
+  if (legacy) return legacy;
+  // Phase 23: legacy cookie retired — fall back to unified cookie for new sessions
+  const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
+  if (unified?.accountId) {
+    return {
+      accountId: unified.accountId,
+      email: unified.email ?? "",
+      displayName: unified.displayName ?? undefined,
+      username: unified.username ?? undefined,
+    };
+  }
+  return null;
 }
 
 function shouldUseSecureCookie() {

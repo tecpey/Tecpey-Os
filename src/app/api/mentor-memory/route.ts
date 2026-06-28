@@ -1,5 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
@@ -86,10 +86,7 @@ export async function POST(req: NextRequest) {
 
   const category = cleanText(body.category, 40).toLowerCase();
   if (!(MEMORY_CATEGORIES as readonly string[]).includes(category)) {
-    return NextResponse.json(
-      { ok: false, error: "invalid_category", valid: MEMORY_CATEGORIES },
-      { status: 400 },
-    );
+    return apiError("invalid_category", 400, { valid: MEMORY_CATEGORIES });
   }
 
   const content = cleanText(body.content, 2000);

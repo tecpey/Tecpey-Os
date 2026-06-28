@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { apiOk } from "@/lib/api-validation";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -261,8 +262,8 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
       .slice(0, limit);
     const responseItems = unique.length ? unique : fallback;
-    return NextResponse.json({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback", marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems });
+    return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems });
   } catch {
-    return NextResponse.json({ locale, updatedAt: new Date().toISOString(), mode: "fallback", marketIntelligence: marketIntelligence(locale, fallback), items: fallback });
+    return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback });
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
@@ -83,9 +83,5 @@ export async function GET(req: NextRequest) {
     return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
   }
 
-  return NextResponse.json({
-    ok: true,
-    conversations: result.value?.conversations ?? [],
-    nextCursor: result.value?.nextCursor ?? null,
-  });
+  return apiOk({ conversations: result.value?.conversations ?? [], nextCursor: result.value?.nextCursor ?? null });
 }

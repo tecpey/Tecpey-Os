@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { academyPathTerms } from "@/data/academyPath";
 import { caseStudiesForTerm } from "@/data/academyCaseStudies";
 import { rateLimit } from "@/lib/rate-limit";
@@ -11,7 +11,7 @@ import {
   saveMentorConversation,
 } from "@/lib/mentor-memory";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
-import { apiError } from "@/lib/api-validation";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 
 type MentorRequest = {
   question?: string;
@@ -151,10 +151,7 @@ export async function POST(request: NextRequest) {
 
   const limit = await rateLimit(request, { namespace: "ai-mentor", limit: MAX_REQUESTS_PER_WINDOW, windowMs: WINDOW_MS });
   if (!limit.ok) {
-    return NextResponse.json(
-      { ok: false, error: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
-    );
+    return apiRateLimited(limit.retryAfterSeconds);
   }
 
   // studentId drives all memory operations; may be null for academy-auth-only sessions.
@@ -198,13 +195,7 @@ export async function POST(request: NextRequest) {
     ];
     if (process.env.AI_MENTOR_COST_GUARD !== "off" && lowCostPatterns.some((pattern) => pattern.test(normalizedQuestion))) {
       if (studentId) void saveMentorConversation(studentId, "assistant", fallback.answer, locale, termNumber);
-      return NextResponse.json({
-        ok: true,
-        ...fallback,
-        mentorStatus: "guided_from_academy",
-        source: "academy_knowledge",
-        rateLimit: { remaining: limit.remaining },
-      });
+      return apiOk({ ...fallback, mentorStatus: "guided_from_academy", source: "academy_knowledge", rateLimit: { remaining: limit.remaining } });
     }
 
     const apiKey = [
@@ -215,11 +206,7 @@ export async function POST(request: NextRequest) {
 
     if (!apiKey) {
       if (studentId) void saveMentorConversation(studentId, "assistant", fallback.answer, locale, termNumber);
-      return NextResponse.json({
-        ok: true,
-        ...fallback,
-        mentorStatus: "available",
-      });
+      return apiOk({ ...fallback, mentorStatus: "available" });
     }
 
     // Client-sent history is kept as a lightweight UI fallback while the DB
@@ -280,13 +267,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
       if (studentId) void saveMentorConversation(studentId, "assistant", fallback.answer, locale, termNumber);
-      return NextResponse.json({
-        ok: true,
-        ...fallback,
-        mentorStatus: "safe_guidance",
-        ...(process.env.NODE_ENV === "development" ? { aiError: `openai_${response.status}`, debug: errorText.slice(0, 240) } : {}),
-        rateLimit: { remaining: limit.remaining },
-      });
+      return apiOk({ ...fallback, mentorStatus: "safe_guidance", ...(process.env.NODE_ENV === "development" ? { aiError: `openai_${response.status}`, debug: errorText.slice(0, 240) } : {}), rateLimit: { remaining: limit.remaining } });
     }
 
     const data = await response.json();
@@ -298,26 +279,9 @@ export async function POST(request: NextRequest) {
       scheduleMentorProfileUpdate(studentId, "mentor_conversation_saved");
     }
 
-    return NextResponse.json({
-      ok: true,
-      mentorStatus: "active",
-      answer,
-      relatedTerm: fallback.relatedTerm,
-      sourceLessons: knowledge.sourceLessons,
-      suggestedQuestions: suggestedQuestions(knowledge.term.number),
-      checklist: fallback.checklist,
-      rateLimit: { remaining: limit.remaining },
-    });
+    return apiOk({ mentorStatus: "active", answer, relatedTerm: fallback.relatedTerm, sourceLessons: knowledge.sourceLessons, suggestedQuestions: suggestedQuestions(knowledge.term.number), checklist: fallback.checklist, rateLimit: { remaining: limit.remaining } });
   } catch {
     const fallback = localFallback("سؤال آموزشی", 1);
-    return NextResponse.json({
-      ok: true,
-      mentorStatus: "safe_guidance",
-      answer: fallback.answer,
-      relatedTerm: fallback.relatedTerm,
-      sourceLessons: fallback.sourceLessons,
-      suggestedQuestions: fallback.suggestedQuestions,
-      checklist: fallback.checklist,
-    });
+    return apiOk({ mentorStatus: "safe_guidance", answer: fallback.answer, relatedTerm: fallback.relatedTerm, sourceLessons: fallback.sourceLessons, suggestedQuestions: fallback.suggestedQuestions, checklist: fallback.checklist });
   }
 }

@@ -1,9 +1,9 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
-import { apiError } from "@/lib/api-validation";
+import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +16,7 @@ export async function POST(req: NextRequest) {
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-profile-recompute", limit: 6, windowMs: 60_000 });
   if (!limit.ok) {
-    return NextResponse.json(
-      { ok: false, error: "rate_limited", retryAfterSeconds: limit.retryAfterSeconds },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
-    );
+    return apiRateLimited(limit.retryAfterSeconds);
   }
 
   const session = await getCanonicalSession(req);
@@ -36,17 +33,5 @@ export async function POST(req: NextRequest) {
     return apiError("storage_unavailable", 503);
   }
 
-  return NextResponse.json({
-    ok: true,
-    profile: {
-      level: updated.level,
-      riskProfile: updated.riskProfile,
-      primaryGoal: updated.primaryGoal,
-      weakAreas: updated.weakAreas,
-      strongAreas: updated.strongAreas,
-      confidenceScore: updated.confidenceScore,
-      disciplineScore: updated.disciplineScore,
-      learningStyle: updated.learningStyle,
-    },
-  });
+  return apiOk({ profile: { level: updated.level, riskProfile: updated.riskProfile, primaryGoal: updated.primaryGoal, weakAreas: updated.weakAreas, strongAreas: updated.strongAreas, confidenceScore: updated.confidenceScore, disciplineScore: updated.disciplineScore, learningStyle: updated.learningStyle } });
 }

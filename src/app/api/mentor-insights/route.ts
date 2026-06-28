@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
@@ -78,9 +78,5 @@ export async function GET(req: NextRequest) {
     return apiOk({ insights: [], profile: updatedProfile, storage: "unavailable" });
   }
 
-  return NextResponse.json({
-    ok: true,
-    insights: result.value?.insights ?? [],
-    profile: result.value?.profile ?? updatedProfile,
-  });
+  return apiOk({ insights: result.value?.insights ?? [], profile: result.value?.profile ?? updatedProfile });
 }
