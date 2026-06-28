@@ -1,11 +1,10 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { Client } from "pg";
 import type { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getAcademyAuthFromRequest } from "@/lib/academy-auth";
-import { cleanText, ensureStudentCartaxTables } from "@/lib/student-cartax";
-import { ensurePhase5Tables } from "@/lib/phase5-achievement-engine";
+import { cleanText } from "@/lib/student-cartax";
+import { withDb } from "@/lib/db";
 
 export type PublicLearnerProfile = {
   studentId: string;
@@ -174,22 +173,9 @@ export async function getCurrentAcademyStudentId(req: NextRequest) {
   return store.byAccount?.[auth.accountId] || null;
 }
 
-async function withClient<T>(handler: (client: Client) => Promise<T>) {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl || databaseUrl.includes("CHANGE_ME")) return { enabled: false as const, value: null };
-  const client = new Client({ connectionString: databaseUrl });
-  try {
-    await client.connect();
-    await ensureStudentCartaxTables(client);
-    await ensurePhase5Tables(client);
-    await ensureCommunityTables(client);
-    return { enabled: true as const, value: await handler(client) };
-  } finally {
-    await client.end().catch(() => null);
-  }
-}
+type Queryable = { query: (text: string, values?: unknown[]) => Promise<{ rows: unknown[] }> };
 
-export async function ensureCommunityTables(client: Client) {
+export async function ensureCommunityTables(client: Queryable) {
   await client.query(`CREATE TABLE IF NOT EXISTS academy_public_profiles (
     student_id uuid PRIMARY KEY,
     visibility text NOT NULL DEFAULT 'public',
@@ -219,7 +205,7 @@ export async function ensureCommunityTables(client: Client) {
 export async function getCurrentPublicProfile(req: NextRequest): Promise<PublicLearnerProfile | null> {
   const studentId = await getCurrentAcademyStudentId(req);
   if (!studentId) return null;
-  const result = await withClient(async (client) => {
+  const result = await withDb(async (client) => {
     const q = await client.query(
       `SELECT s.id, s.public_student_id, s.display_name, s.username, s.avatar, s.streak_days,
               c.total_xp, c.completed_terms, c.overall_progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
@@ -243,7 +229,7 @@ export async function getCurrentPublicProfile(req: NextRequest): Promise<PublicL
 
 export async function getPublicProfile(identifier: string): Promise<PublicLearnerProfile | null> {
   const safe = normalizePublicId(identifier).replace(/^@/, "");
-  const result = await withClient(async (client) => {
+  const result = await withDb(async (client) => {
     const q = await client.query(
       `SELECT s.id, s.public_student_id, s.display_name, s.username, s.avatar, s.streak_days,
               c.total_xp, c.completed_terms, c.overall_progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
@@ -271,7 +257,7 @@ export async function getPublicProfile(identifier: string): Promise<PublicLearne
 export async function setCurrentPublicVisibility(req: NextRequest, visibility: "public" | "private") {
   const studentId = await getCurrentAcademyStudentId(req);
   if (!studentId) return null;
-  const result = await withClient(async (client) => {
+  const result = await withDb(async (client) => {
     await client.query(
       `INSERT INTO academy_public_profiles(student_id, visibility, updated_at)
        VALUES($1::uuid, $2, now())
@@ -288,7 +274,7 @@ export async function setCurrentPublicVisibility(req: NextRequest, visibility: "
 }
 
 export async function getHallOfFame(): Promise<PublicLearnerProfile[]> {
-  const result = await withClient(async (client) => {
+  const result = await withDb(async (client) => {
     const q = await client.query(
       `SELECT s.id, s.public_student_id, s.display_name, s.username, s.avatar, s.streak_days,
               c.total_xp, c.completed_terms, c.overall_progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,

@@ -8,6 +8,8 @@ export async function GET() {
       ok: true,
       service: 'tecpey-web',
       timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.floor(process.uptime()),
+      node: process.version,
       checks: { app: 'ok' },
     },
     {

@@ -133,4 +133,41 @@ export async function initSchema(client: PoolClient): Promise<void> {
     CREATE INDEX IF NOT EXISTS mentor_insights_student_idx
     ON mentor_insights(student_id, generated_at DESC)
   `);
+
+  // ── Community career tables (Phase 9) ───────────────────────────────────────
+  // These were previously created inside community-career.ts withClient(), which
+  // opened a raw pg.Client on every call. Moving DDL here eliminates that pattern.
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS academy_public_profiles (
+      student_id uuid PRIMARY KEY,
+      visibility text NOT NULL DEFAULT 'public',
+      mentor_endorsement text,
+      career_track text,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS academy_professional_challenges (
+      id text PRIMARY KEY,
+      title text NOT NULL,
+      description text NOT NULL,
+      reward text NOT NULL,
+      requirements jsonb NOT NULL DEFAULT '[]'::jsonb,
+      min_career_score int NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS academy_challenge_progress (
+      challenge_id text NOT NULL REFERENCES academy_professional_challenges(id) ON DELETE CASCADE,
+      student_id uuid NOT NULL,
+      status text NOT NULL DEFAULT 'available',
+      progress int NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY(challenge_id, student_id)
+    )
+  `);
 }

@@ -31,6 +31,15 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+          echo "npm $(npm --version) OK"
+
       - name: Install dependencies
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
