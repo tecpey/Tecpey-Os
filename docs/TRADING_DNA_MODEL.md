@@ -420,4 +420,27 @@ Students can opt-in to see their Trading DNA percentile compared to all Academy 
 
 ---
 
-*Document Version 1.0 — Phase 14*
+---
+
+## Phase 18 Update — Community Leaderboard Integration
+
+Trading DNA signals now flow into the community leaderboard scoring system through `computeMyLeaderboardScores()` in `src/lib/community-leaderboard.ts`:
+
+| Leaderboard Category | DNA Signals Used |
+|---|---|
+| Discipline | `stopLossRate`, `streak` |
+| Risk Management | `stopLossRate`, `overRiskRate` |
+| Scenario Mastery | `scenariosPassed` / 6 |
+| Journal Quality | `journalCompletionRate` |
+| Consistency | active days, streak |
+| Overall | weighted average |
+
+**Key constraint:** `winRate`, `avgPnlPct`, and `totalPnl` are intentionally excluded from all community scoring. Profit-based ranking is forbidden.
+
+### Community Leaderboard Visibility
+
+By default, Trading DNA-derived leaderboard scores are computed locally but not visible to others (`leaderboardVisible: false`). Students must explicitly opt in via community profile settings.
+
+---
+
+*Document Version 2.1 — Phase 18 (Community Integration)*

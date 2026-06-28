@@ -7,6 +7,56 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.18] — 2026-06-28 — Community & Social Learning Layer
+
+### Added — Core Library
+
+- `src/lib/community-profile.ts`: Privacy-first community profile. Interface: `CommunityPrivacySettings` (all defaults private/false), `CommunityProfile` (displayName, anonymousId, avatarInitials, privacy, groupInterests). Functions: `loadCommunityProfile()`, `saveCommunityProfile()`, `createCommunityProfile()` (generates anonymous ID `T-XXXXXX`), `updatePrivacy()`, `addGroupInterest()`, `removeGroupInterest()`, `sanitizeDisplayName()` (strips PII patterns). Storage: `tecpey-community-profile`.
+
+- `src/lib/community-challenges.ts`: 5 weekly challenges cycling via `getCurrentWeekNumber() % 5`. Types: `ChallengeDifficulty`, `ChallengeFocus`, `Challenge`, `ChallengeParticipation`, `ChallengeCompletionCriteria` (union of 4 types). Functions: `getCurrentChallenge()`, `getNextChallenge()`, `loadParticipation()`, `joinChallenge()`, `markChallengeComplete()`. Label tables: `DIFFICULTY_LABEL`, `FOCUS_LABEL`. Storage: `tecpey-challenge-participation`.
+
+- `src/lib/community-leaderboard.ts`: Behavioral-only leaderboard (profit ranking forbidden). Type: `LeaderboardCategory` (6 categories), `LeaderboardEntry`, `MyLeaderboardScores`. Functions: `computeMyLeaderboardScores()` (reads arena + behavioral engine, never uses P&L), `getLeaderboard()` (blends real score with 12 deterministic LCG demo peers), `generateDemoPeers()` (stable per category, seeded by name). Exports: `CATEGORY_LABEL`, `CATEGORY_DESCRIPTION`, `COMMUNITY_SAFETY_RULES` (7 rules).
+
+- `src/lib/community-groups.ts`: 5 static demo study groups. Interface: `StudyGroup` (name, level, focusTopic, memberCount, weeklyGoal, progressSummary, groupChallenge, disciplineScore, isDemo). Groups: bitcoin-basics, risk-masters, psychology, behavioral-discipline, advanced-analysis. Labels: `LEVEL_LABEL`.
+
+### Added — Components
+
+- `src/components/academy/community/CommunityHub.tsx`: Main community hub. Sub-components: `ProfileSetup` (name input + privacy explanation), `MyScoreWidget` (5 dimension mini-scores), `ActiveChallengeCard` (current week challenge + join button), `NavTile` (route cards for 5 sub-sections), `SafetyRules` (expandable 7-rule list). Default-private messaging throughout.
+
+- `src/components/academy/community/LeaderboardView.tsx`: Anti-profit leaderboard. Sub-components: `ScoreBar` (gradient for self, muted for others), `LeaderboardRow` (rank, avatar, name, demo badge, score bar), `MyScoreBreakdown` (5 dimension breakdown with weights), `LeaderboardView` (6 category tabs, anti-profit disclaimer, skeleton when no profile, safety rules footer). Demo peers labeled `نمایشی`.
+
+- `src/components/academy/community/ChallengeCenter.tsx`: Weekly challenge UI. Sub-components: `checkChallengeCompletion()` (reads arena state + journal rate), `ActiveChallengePanel` (rules, scoring, reward, responsible trading note, join/check/complete buttons), `ChallengeHistoryCard` (past challenge status), `ChallengeCenter` (progress bar, active challenge, next week preview, history).
+
+- `src/components/academy/community/StudyGroups.tsx`: Study group interest system. Sub-components: `GroupCard` (name, level, members, discipline score, focus/goal/challenge fields, interest button), `PrivacyGate` (opt-in gate for studyGroupInterest), `StudyGroups` (privacy gate → interest management → group cards). No chat, no DMs.
+
+- `src/components/academy/community/PeerJournals.tsx`: Opt-in journal sharing. Functions: `sanitizeForSharing()` (strips PII, truncates, adds mentor note), `buildMentorNote()` (behavioral flag → coaching message). Sub-components: `SharedEntryCard` (asset, setup, mistake tags, lesson, mentor note), `SharingToggle` (opt-in/out with aria role=switch), `PeerJournals` (toggle + sanitized entries + 3 demo entries). Default off.
+
+- `src/components/academy/community/InstructorDashboard.tsx`: Consent-gated instructor view. Sub-components: `ConsentGate` (explicit list of shared/not-shared data), `MetricBlock`, `WeakTopicsList` (knowledge-graph nodes not yet completed), `RiskPatternBar`, `InstructorDashboard` (profile → consent → `ConsentedView`), `ConsentedView` (6-metric grid, weakest/strongest dims, risk pattern bars, weak topics).
+
+### Added — Routes
+
+- `src/app/academy/community/page.tsx` — Updated: adds `CommunityHub` below existing `CommunityCareerPanel`
+- `src/app/academy/community/leaderboards/page.tsx` — `LeaderboardView`
+- `src/app/academy/community/challenges/page.tsx` — `ChallengeCenter`
+- `src/app/academy/community/groups/page.tsx` — `StudyGroups`
+- `src/app/academy/community/journals/page.tsx` — `PeerJournals`
+- `src/app/academy/community/instructor/page.tsx` — `InstructorDashboard`
+
+### Added — Documentation
+
+- `docs/COMMUNITY_LEARNING_LAYER.md`: Full spec — privacy model, leaderboard anti-profit formulas, challenge criteria, study group architecture, journal sanitization, instructor consent flow, Phase 19 migration path.
+- `docs/REWARD_SYSTEM.md`: Phase 18 section — community challenge XP bonuses, anti-gaming rules.
+- `docs/TRADING_DNA_MODEL.md`: Phase 18 section — community leaderboard integration, excluded signals (winRate, avgPnlPct, totalPnl).
+- `docs/MENTOR_AI_MODEL.md`: Phase 18 section — Instructor Dashboard architecture, consent stages, shared vs. not-shared data table, privacy boundaries.
+
+### QA
+
+- `npx tsc --noEmit`: 0 errors
+- `npm run lint`: 0 errors, 0 warnings
+- `npm run build`: Pass — all 6 community routes build as dynamic server routes
+
+---
+
 ## [v0.17] — 2026-06-27 — Trading Arena V2: Behavioral Trading Simulator
 
 ### Added — Core Library

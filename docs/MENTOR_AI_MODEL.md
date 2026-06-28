@@ -436,4 +436,45 @@ For out-of-scope requests, the AI Mentor uses this structure:
 
 ---
 
-*Document Version 1.0 — Phase 14*
+---
+
+## Phase 18 Update — Instructor Dashboard
+
+The Instructor Dashboard (`/academy/community/instructor`) extends the AI Mentor model by exposing a consent-gated behavioral summary to instructors and mentors.
+
+### Consent Architecture
+
+Three-stage access:
+1. Community profile required
+2. Explicit `mentorReviewConsent: true` in privacy settings
+3. Consent gate shows exactly what is shared before activation
+
+### Data Shared with Instructors
+
+| Visible | Not Visible |
+|---|---|
+| Overall behavioral score | Exact wallet balance |
+| 3 weakest behavioral dimensions | Private journal notes |
+| 3 strongest behavioral dimensions | Real name / personal identity |
+| Risk pattern rates (SL, over-risk, revenge, impulse) | P&L figures |
+| Scenario pass/fail counts | Trading timestamps |
+| Weak knowledge map nodes | Financial decisions |
+
+### Instructor Use Cases
+
+1. **Targeted coaching** — weak dimensions surfaced so instructors focus time
+2. **Risk intervention** — high `revengeTradeRate` or `impulseRate` triggers 1:1 outreach
+3. **Curriculum gap analysis** — aggregate weak topics identify course improvements
+4. **Completion tracking** — journal rate + scenario progress at a glance
+
+### Privacy Boundaries
+
+The Instructor Dashboard is read-only and local (Phase 18). In Phase 19+, instructor access will require:
+- Student explicit consent (renewed annually)
+- Instructor identity verification
+- Audit log of all instructor data accesses
+- Student right to withdraw consent at any time
+
+---
+
+*Document Version 1.1 — Phase 18 (Instructor Dashboard)*

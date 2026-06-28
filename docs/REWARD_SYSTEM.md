@@ -405,4 +405,30 @@ Manual review is triggered for:
 
 ---
 
-*Document Version 1.0 — Phase 14*
+---
+
+## Phase 18 Update — Community Challenge Rewards
+
+Weekly challenges issue bonus XP on completion:
+
+| Challenge | XP Bonus |
+|---|---|
+| چالش حد ضرر هفته | +75 XP |
+| چالش صبر و پرهیز از FOMO | +60 XP |
+| چالش ژورنال‌نویسی | +50 XP |
+| چالش ثبات هفتگی | +80 XP |
+| چالش تسلط سناریو | +65 XP |
+
+**Anti-gaming rules for community challenges:**
+- Completion is verified against live localStorage state (stopLossRate, journalCompletionRate, scenarioProgress)
+- No retroactive credit — must be active after joining the challenge
+- One challenge per week is active; participation resets weekly
+
+**No XP is ever awarded for:**
+- Profit/P&L in the simulator
+- Ranking above other users
+- Volume of trades
+
+---
+
+*Document Version 1.1 — Phase 18 (Community Layer)*
