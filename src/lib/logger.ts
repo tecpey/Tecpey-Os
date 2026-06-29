@@ -1,10 +1,14 @@
 type LogLevel = "debug" | "info" | "warn" | "error";
-type LogContext = Record<string, unknown>;
+export type LogContext = Record<string, unknown>;
+
+const SERVICE = "tecpey-web";
 
 function emit(level: LogLevel, message: string, context?: LogContext) {
   const entry: Record<string, unknown> = {
     ts: new Date().toISOString(),
     level,
+    service: SERVICE,
+    environment: process.env.NODE_ENV ?? "unknown",
     msg: message,
     ...(context ?? {}),
   };
@@ -14,9 +18,23 @@ function emit(level: LogLevel, message: string, context?: LogContext) {
   else console.log(line);
 }
 
-export const logger = {
-  debug: (msg: string, ctx?: LogContext) => emit("debug", msg, ctx),
-  info:  (msg: string, ctx?: LogContext) => emit("info",  msg, ctx),
-  warn:  (msg: string, ctx?: LogContext) => emit("warn",  msg, ctx),
-  error: (msg: string, ctx?: LogContext) => emit("error", msg, ctx),
+type Logger = {
+  debug: (msg: string, ctx?: LogContext) => void;
+  info: (msg: string, ctx?: LogContext) => void;
+  warn: (msg: string, ctx?: LogContext) => void;
+  error: (msg: string, ctx?: LogContext) => void;
+  /** Returns a child logger with pre-bound context fields merged into every entry. */
+  child: (ctx: LogContext) => Logger;
 };
+
+function createLogger(bound?: LogContext): Logger {
+  return {
+    debug: (msg, ctx) => emit("debug", msg, { ...bound, ...ctx }),
+    info:  (msg, ctx) => emit("info",  msg, { ...bound, ...ctx }),
+    warn:  (msg, ctx) => emit("warn",  msg, { ...bound, ...ctx }),
+    error: (msg, ctx) => emit("error", msg, { ...bound, ...ctx }),
+    child: (ctx: LogContext) => createLogger({ ...bound, ...ctx }),
+  };
+}
+
+export const logger = createLogger();

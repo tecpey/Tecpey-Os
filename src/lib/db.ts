@@ -27,6 +27,40 @@ function getPool(): Pool | null {
   return pool;
 }
 
+export type DbHealthResult = {
+  status: "ok" | "unavailable" | "unconfigured";
+  latencyMs: number;
+  migrations?: number;
+};
+
+/**
+ * Lightweight DB health probe — bypasses the migration runner so the health
+ * endpoint remains fast and side-effect-free. Runs SELECT 1 plus an optional
+ * migration count query.
+ */
+export async function checkDbHealth(): Promise<DbHealthResult> {
+  const start = Date.now();
+  const p = getPool();
+  if (!p) return { status: "unconfigured", latencyMs: 0 };
+  let client;
+  try {
+    client = await p.connect();
+    await client.query("SELECT 1");
+    let migrations: number | undefined;
+    try {
+      const r = await client.query("SELECT COUNT(*)::int AS count FROM _migrations");
+      migrations = r.rows[0]?.count ?? 0;
+    } catch {
+      // _migrations may not exist on a fresh DB before first migration run.
+    }
+    return { status: "ok", latencyMs: Date.now() - start, migrations };
+  } catch {
+    return { status: "unavailable", latencyMs: Date.now() - start };
+  } finally {
+    client?.release();
+  }
+}
+
 export async function withDb<T>(
   handler: (client: PoolClient) => Promise<T>,
 ): Promise<{ enabled: true; value: T } | { enabled: false; value: null }> {

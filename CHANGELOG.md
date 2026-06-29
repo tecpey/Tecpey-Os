@@ -7,6 +7,93 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.26] — 2026-06-30 — Production Observability and Operations Foundation
+
+### Added — Request ID / Trace ID Propagation
+
+- `src/lib/trace.ts` (new): `generateRequestId()`, `getRequestId(req)`, `attachRequestId(response, id)`
+  - Header `x-tecpey-request-id` set by proxy on forwarded request headers
+  - Header `x-request-id` returned to clients on every page response
+  - API routes use `getRequestId(req)` to extract or generate a per-request UUID
+- `src/proxy.ts`: generates `requestId` alongside nonce; sets `x-tecpey-request-id` on forwarded request and `x-request-id` on response
+
+### Added — Structured Logging Improvements
+
+- `src/lib/logger.ts`: added `service` and `environment` fields to every log entry;
+  added `logger.child(context)` — returns a child logger with pre-bound context fields
+  merged into every call; backward-compatible with existing `logger.info/warn/error/debug` usage
+- Log format: `{ ts, level, service, environment, msg, ...context }` — all entries are NDJSON
+
+### Added — API Observability Wrapper
+
+- `src/lib/observe.ts` (new): `withObservability(req, options, handler)` — wraps any API handler body with:
+  - Request ID extraction and `x-request-id` response header
+  - Structured `[api] request` log on completion (route, method, status, latencyMs)
+  - In-memory metrics recording via `metrics.recordRequest()`
+  - Error capture via `captureError()` on unhandled rejections
+- Used on `GET /api/admin/metrics` as the adoption example
+
+### Added — Enterprise Health Center
+
+- `src/app/api/health/route.ts` rewritten with full enterprise health fields:
+  - `checks.database`: `ok | unavailable | unconfigured` with `latencyMs`
+  - `checks.redis`: existing check + latency tracking
+  - `checks.email`: existing (Phase 25)
+  - `migrations.applied`: count from `_migrations` table (fast, bypasses migration runner)
+  - `tenantSystem.status`: reflects DB availability
+  - `build`: `version`, `commit`, `node` from env vars / process
+  - `memory`: RSS, heapUsed, heapTotal, external (all in MB)
+  - `featureFlags`: snapshot from `getAllFlags()`
+  - `observability`: error tracking and alert webhook status
+  - `healthCheckLatencyMs`: total time to assemble response
+  - `warnings[]`: production misconfiguration notices
+  - Emits `DB_DOWN` / `REDIS_DOWN` / `EMAIL_NOT_CONFIGURED` alerts on degraded state
+- `src/lib/db.ts`: added `checkDbHealth()` — direct pool connection (`SELECT 1`) without triggering the migration runner; also queries `_migrations` count
+
+### Added — Metrics Foundation
+
+- `src/lib/metrics.ts` (new): in-memory metrics store backed by `globalThis`
+  - `metrics.recordRequest(route, status, latencyMs)` — per-route request count + latency tracker
+  - `metrics.recordError(route, code)` — per-route error counter
+  - `metrics.increment(name)` — named counter
+  - `metrics.getSnapshot()` — totals, per-route breakdown, error rate
+- `src/app/api/admin/metrics/route.ts` (new): `GET /api/admin/metrics` — admin-protected metrics endpoint
+
+### Added — Error Tracking Adapter
+
+- `src/lib/error-tracking.ts` (new): provider-agnostic error capture
+  - `captureError(error, context?)` — never throws; safe to call anywhere
+  - `ERROR_TRACKING_PROVIDER=betterstack`: push to Logtail via `fetch` (no new package)
+  - `ERROR_TRACKING_PROVIDER=sentry`: stub ready for `@sentry/nextjs` (see TODO comment)
+  - Default (`none`): structured `error` log to stdout
+  - `isErrorTrackingConfigured()` — used by health endpoint
+
+### Added — Alerting Foundation
+
+- `src/lib/alerts.ts` (new): typed alert emitter
+  - 7 alert types: `DB_DOWN`, `REDIS_DOWN`, `EMAIL_NOT_CONFIGURED`, `EMAIL_SEND_FAILED`,
+    `API_ERROR_SPIKE`, `PRICE_FEED_DOWN`, `MIGRATION_FAILED`
+  - Severity: `critical` (logged at error) or `warning` (logged at warn)
+  - Deduplication: same alert type fires at most once per 60 seconds
+  - Webhook delivery: `ALERT_WEBHOOK_URL` receives POST with `AlertEvent` JSON payload
+  - Non-blocking: webhook failure is swallowed and logged as a warning
+
+### Added — Environment Documentation
+
+- `.env.example`: `ERROR_TRACKING_PROVIDER`, `BETTERSTACK_SOURCE_TOKEN`, `NEXT_PUBLIC_SENTRY_DSN`,
+  `ALERT_WEBHOOK_URL`, `NEXT_PUBLIC_GIT_COMMIT`, `NEXT_PUBLIC_BUILD_VERSION`
+
+### Added — Operational Documentation
+
+- `docs/OPERATIONS_RUNBOOK.md` (new): incident runbooks for DB down, Redis down, email missing,
+  migration failure, API error spike, price feed outage, CI failure, deployment rollback;
+  environment variable checklist; production launch checklist
+- `docs/OBSERVABILITY.md` (new): logging format reference, request ID usage guide, child logger,
+  API wrapper adoption guide, health endpoint schema, metrics plan, alerting plan,
+  recommended production stack
+
+---
+
 ## [v0.25] — 2026-06-30 — Tenant Membership and Production Services Foundation
 
 ### Added — DB-backed Tenant and Membership Storage

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { TRACE_REQUEST_HEADER, TRACE_RESPONSE_HEADER, generateRequestId } from "@/lib/trace";
 
 const PUBLIC_ACADEMY_PATHS = new Set([
   "/academy/login",
@@ -41,10 +42,12 @@ function buildCsp(nonce: string): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const requestId = generateRequestId();
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildCsp(nonce);
 
   const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(TRACE_REQUEST_HEADER, requestId);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
 
@@ -67,6 +70,7 @@ export async function proxy(request: NextRequest) {
     request: { headers: requestHeaders },
   });
   response.headers.set("Content-Security-Policy", csp);
+  response.headers.set(TRACE_RESPONSE_HEADER, requestId);
   return response;
 }
 
