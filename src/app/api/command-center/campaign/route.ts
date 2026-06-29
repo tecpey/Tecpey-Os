@@ -3,9 +3,8 @@ import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification } from "@/lib/learning-os";
-import { adminNotConfiguredResponse, adminUnauthorizedResponse, hasAdminAccess, isAdminConfigured, setAdminSessionCookie } from "@/lib/admin-auth";
-// TODO(cookie-migration): replace hasAdminAccess(req) with
-//   (await getCanonicalSession(req)).isAdmin once canonical session is used sitewide.
+import { adminNotConfiguredResponse, isAdminConfigured, setAdminSessionCookie } from "@/lib/admin-auth";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 
@@ -15,7 +14,8 @@ export async function POST(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "command-center-campaign", limit: 10, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   if (!isAdminConfigured()) return adminNotConfiguredResponse();
-  if (!hasAdminAccess(req)) return adminUnauthorizedResponse();
+  const session = await getCanonicalSession(req);
+  if (!session.isAdmin) return apiError("unauthorized", 401);
   try {
     const body = await req.json().catch(() => ({}));
     const title = cleanText(body.title, 160);

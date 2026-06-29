@@ -7,6 +7,56 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.25] — 2026-06-30 — Tenant Membership and Production Services Foundation
+
+### Added — DB-backed Tenant and Membership Storage
+
+- `src/lib/db-migrate.ts`: Added migration `0003_tenant_membership.sql`
+  - `platform_tenants` table: `id`, `slug`, `display_name`, `plan`, `owner_id`, `products`, timestamps
+  - `platform_workspaces` table: `id`, `tenant_id`, `slug`, `display_name`, `products`, `settings`, `created_at`
+  - `platform_memberships` table: `id`, `user_id`, `tenant_id`, `workspace_id`, `roles`, `joined_at`, `expires_at` + indexes
+  - Seeds default `tecpey` tenant and `main` workspace via `INSERT … ON CONFLICT DO NOTHING`
+- `src/lib/tenant-service.ts` (new): DB query layer for tenant/membership data
+  - `getTenant(tenantId)` — fetch tenant row
+  - `getDefaultTenant()` — convenience wrapper for `PLATFORM.DEFAULT_TENANT_ID`
+  - `getWorkspace(workspaceId)` — fetch workspace row
+  - `getMembership(userId, tenantId)` — fetch user membership
+  - `upsertMembership(userId, tenantId, roles, workspaceId?)` — create or update membership (idempotent)
+  - `resolvePlatformContext(session)` — derives `PlatformContext` from canonical session; falls back to `["guest"]` when DB unavailable
+
+### Added — Email Delivery Foundation
+
+- `src/lib/email.ts` (new): Provider-agnostic email service; no new npm packages (fetch-based)
+  - `sendEmail(message)` → `EmailResult` — routes to configured provider or logs in dev
+  - Provider selection via `EMAIL_PROVIDER` env var: `resend` | `sendgrid` | `dev` | `none`
+  - Resend provider: POST to `https://api.resend.com/emails` with `RESEND_API_KEY`
+  - SendGrid provider: POST to `https://api.sendgrid.com/v3/mail/send` with `SENDGRID_API_KEY`
+  - `isEmailConfigured()` — used by health endpoint
+  - In production with no `EMAIL_PROVIDER` set, logs an error and returns failure instead of silently discarding emails
+
+### Improved — Production Rate-Limit Enforcement
+
+- `src/lib/rate-limit.ts`: Added `warnRedisUnconfigured()` — logs at ERROR level (once per process) when falling back to in-memory limiting in `NODE_ENV=production`
+  - In development/test: silent fallback unchanged
+  - In production: operators are alerted on first rate-limit call when Redis is missing
+
+### Improved — Health Endpoint
+
+- `src/app/api/health/route.ts`: Added `email` check (`configured` | `unconfigured`) to `/api/health` response
+  - Added `warnings[]` array surfacing production misconfiguration (Redis unconfigured, email unconfigured)
+
+### Fixed — TODO(cookie-migration) Cleanup
+
+- `src/app/api/command-center/campaign/route.ts`: Replaced `hasAdminAccess(req)` → `(await getCanonicalSession(req)).isAdmin`. Removed `adminUnauthorizedResponse` and `hasAdminAccess` imports.
+- `src/app/api/command-center/summary/route.ts`: Same migration — now uses canonical session for admin check.
+- `src/app/api/academy/mentor-memory/route.ts`: Removed stale `TODO(cookie-migration)` comment (already resolved in Phase 23).
+
+### Added — Environment Documentation
+
+- `.env.example`: Added `EMAIL_PROVIDER`, `EMAIL_FROM`, `RESEND_API_KEY`, `SENDGRID_API_KEY` with provider descriptions and production behavior notes.
+
+---
+
 ## [v0.24.6] — 2026-06-30 — Enterprise Integrity Repair
 
 ### Fixed — Database Migration (CRITICAL)

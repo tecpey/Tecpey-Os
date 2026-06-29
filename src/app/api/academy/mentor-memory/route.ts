@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { getCanonicalSession } from "@/lib/auth-session";
-// TODO(cookie-migration): getStudentSessionFromRequest replaced with getCanonicalSession.
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";

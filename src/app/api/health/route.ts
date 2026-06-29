@@ -1,4 +1,5 @@
 import { apiOk } from "@/lib/api-validation";
+import { isEmailConfigured } from "@/lib/email";
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,22 @@ async function checkRedis(): Promise<"ok" | "unavailable" | "unconfigured"> {
 
 export async function GET() {
   const redis = await checkRedis();
+  const email = isEmailConfigured() ? "configured" : "unconfigured";
 
   const checks = {
     app: "ok" as const,
     redis,
+    email,
   };
+
+  const isProduction = process.env.NODE_ENV === "production";
+  const warnings: string[] = [];
+  if (redis === "unconfigured" && isProduction) {
+    warnings.push("redis_not_configured: rate limiting is per-instance only");
+  }
+  if (email === "unconfigured" && isProduction) {
+    warnings.push("email_not_configured: transactional emails will not be delivered");
+  }
 
   const overall = redis === "unavailable" ? "degraded" : "ok";
 
@@ -38,5 +50,6 @@ export async function GET() {
     uptimeSeconds: Math.floor(process.uptime()),
     node: process.version,
     checks,
+    ...(warnings.length > 0 ? { warnings } : {}),
   }, 200, { "Cache-Control": "no-store, max-age=0" });
 }

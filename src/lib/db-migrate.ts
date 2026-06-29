@@ -408,6 +408,66 @@ ALTER TABLE learning_brain_profiles ADD COLUMN IF NOT EXISTS confidence_score IN
 ALTER TABLE learning_brain_profiles ADD COLUMN IF NOT EXISTS weak_topics TEXT[] NOT NULL DEFAULT '{}';
 `,
   },
+
+  // ── 0003: Tenant and membership foundation (Phase 25) ───────────────────────
+  {
+    filename: "0003_tenant_membership.sql",
+    sql: `
+-- Tenant registry — top-level organizational units.
+-- In single-tenant mode the default 'tecpey' row is seeded below.
+CREATE TABLE IF NOT EXISTS platform_tenants (
+  id TEXT PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  display_name TEXT NOT NULL,
+  plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free','pro','enterprise')),
+  owner_id TEXT,
+  products TEXT[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Workspace — sub-unit inside a tenant.
+CREATE TABLE IF NOT EXISTS platform_workspaces (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  products TEXT[] NOT NULL DEFAULT '{}',
+  settings JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(tenant_id, slug)
+);
+
+-- Membership — links a user to a tenant and defines their roles within it.
+CREATE TABLE IF NOT EXISTS platform_memberships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE CASCADE,
+  workspace_id TEXT REFERENCES platform_workspaces(id) ON DELETE SET NULL,
+  roles TEXT[] NOT NULL DEFAULT '{}',
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  UNIQUE(user_id, tenant_id)
+);
+
+CREATE INDEX IF NOT EXISTS platform_memberships_user_idx ON platform_memberships(user_id);
+CREATE INDEX IF NOT EXISTS platform_memberships_tenant_idx ON platform_memberships(tenant_id);
+
+-- Seed the default single-tenant record.
+-- ON CONFLICT DO NOTHING ensures idempotency against existing rows.
+INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+VALUES (
+  'tecpey', 'tecpey', 'TecPey', 'enterprise',
+  ARRAY['exchange','academy','social','mentor','knowledge']
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products)
+VALUES (
+  'main', 'tecpey', 'main', 'Main',
+  ARRAY['exchange','academy','social','mentor','knowledge']
+) ON CONFLICT (id) DO NOTHING;
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

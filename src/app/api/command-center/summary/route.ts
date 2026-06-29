@@ -1,16 +1,16 @@
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
-import { adminNotConfiguredResponse, adminUnauthorizedResponse, hasAdminAccess, isAdminConfigured, setAdminSessionCookie } from "@/lib/admin-auth";
+import { adminNotConfiguredResponse, isAdminConfigured, setAdminSessionCookie } from "@/lib/admin-auth";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
-// TODO(cookie-migration): replace hasAdminAccess(req) with
-//   (await getCanonicalSession(req)).isAdmin once canonical session is used sitewide.
 
 export async function GET(req: NextRequest) {
   const limit = await rateLimit(req, { namespace: "command-center-summary", limit: 60, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   if (!isAdminConfigured()) return adminNotConfiguredResponse();
-  if (!hasAdminAccess(req)) return adminUnauthorizedResponse();
+  const session = await getCanonicalSession(req);
+  if (!session.isAdmin) return apiError("unauthorized", 401);
   try {
     const result = await withDb(async (client) => {
       const [students, events, notifications, certificates, challenges] = await Promise.all([

@@ -1,6 +1,19 @@
 import { NextRequest } from "next/server";
 import { logger } from "./logger";
 
+// Logged at most once per process lifetime to avoid flooding logs.
+let _redisUnconfiguredWarned = false;
+
+function warnRedisUnconfigured() {
+  if (_redisUnconfiguredWarned) return;
+  _redisUnconfiguredWarned = true;
+  logger.error(
+    "[rate-limit] Redis is not configured in production. Rate limits are per-instance only " +
+    "and will not coordinate across multiple server instances. Set UPSTASH_REDIS_REST_URL " +
+    "and UPSTASH_REDIS_REST_TOKEN before deploying.",
+  );
+}
+
 export type RateLimitResult = {
   ok: boolean;
   remaining: number;
@@ -94,5 +107,7 @@ export async function rateLimit(request: NextRequest, options: { namespace: stri
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn("[rate-limit] Redis unavailable, falling back to in-memory limiter", { key, message: msg });
   }
+  // In production, log an error the first time we fall back to memory-only limiting.
+  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
   return memoryRateLimit(key, options.limit, options.windowMs);
 }
