@@ -7,6 +7,50 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.24.6] — 2026-06-30 — Enterprise Integrity Repair
+
+### Fixed — Database Migration (CRITICAL)
+
+- `src/lib/db-migrate.ts`: Added migration `0002_extended_schema.sql` that closes the
+  schema drift gap between the committed `0001` migration and the columns referenced
+  by production API routes. All changes use `ADD COLUMN IF NOT EXISTS` — idempotent
+  and safe against already-extended databases.
+  - `notification_center` +5 columns: `action_url`, `priority`, `channels`, `metadata`, `scheduled_for`
+  - `admin_audit_log` +1 column: `actor` (alongside existing `admin_id`)
+  - `academy_question_bank` +9 columns: `lesson_slug`, `topic`, `cognitive_skill`, `correct_option`,
+    `explanation`, `usage_count`, `success_count`, `approved`, `updated_at` + 2 indexes
+  - `mentor_challenge_attempts` +3 columns: `question_id`, `selected_option`, `is_correct` + index
+  - `academy_students` +1 column: `last_seen_at`
+  - `learning_brain_profiles` +3 columns: `decision_score`, `confidence_score`, `weak_topics`
+
+### Fixed — Security Header Conflict
+
+- `next.config.ts`: Changed `X-Frame-Options` from `SAMEORIGIN` to `DENY`.
+  Resolves contradiction with `frame-ancestors 'none'` in `proxy.ts`. Both headers
+  now enforce the same no-framing policy across legacy and modern browsers.
+
+### Updated — Environment Documentation
+
+- `.env.example`: Added `OPENAI_PROJECT_API_KEY`, all 5 `FEATURE_*` flags,
+  `TECPEY_COOKIE_SECURE`, session max-age vars. Added explicit warning that
+  **Redis is required in production** for rate limiting to coordinate across instances.
+
+### Fixed — Low-Priority Code Cleanup
+
+- `src/lib/admin-auth.ts`: Removed local `shouldUseSecureCookie()` (now imports from
+  `platform-config`); `adminNotConfiguredResponse()` and `adminUnauthorizedResponse()`
+  now use `apiError()` instead of bare `Response.json()`.
+- `src/lib/session.ts`: Replaced hardcoded `"user_session"` string with `COOKIES.USER_SESSION`.
+- `src/app/api/academy-auth/route.ts`: Auth rate limit tightened from 20 to 10 req/min.
+
+### QA
+
+- `npm run typecheck`: 0 errors
+- `npm run lint`: 0 warnings, 0 errors
+- `npm run build`: ✓ 292 pages, 7.0s, Proxy (Middleware) registered
+
+---
+
 ## [v0.24] — 2026-06-30 — Enterprise Platform Foundation (Multi-Tenant Architecture)
 
 ### Added — Platform Libraries
@@ -130,6 +174,151 @@ Versions follow semantic milestones (Phase-based).
 - `npm run typecheck`: 0 errors
 - `npm run lint`: 0 warnings, 0 errors
 - `npm run build`: ✓ 292 pages, Proxy (Middleware) registered
+
+---
+
+## [v0.22] — 2026-06-28 — Enterprise Identity and Migration Foundation
+
+### Added — Unified Authentication
+
+- `src/lib/unified-session.ts`: Single JWT cookie (`tecpey_session`) signed with
+  `TECPEY_SESSION_SECRET`. Carries `accountId`, `studentId`, `email`, `displayName`,
+  `username` in one `HttpOnly`, `SameSite=lax` cookie. Replaces the 3-cookie split.
+- `src/lib/auth-session.ts`: `getCanonicalSession()` — reads unified cookie first,
+  falls back to legacy 3-cookie system for backward compatibility with existing sessions.
+- `academy-auth/route.ts`: Login issues unified cookie alongside legacy cookies.
+  Logout clears all 4 cookies (`tecpey_academy_auth`, `tecpey_student_session`,
+  `tecpey_session`, legacy `tecpey_student_id`).
+- `academy-student-profile/route.ts`: Unified cookie re-issued to include `studentId`
+  when a student profile is created or loaded.
+
+### Added — Migration Runner
+
+- `src/lib/db-migrate.ts`: Inline migration runner. Replaces ad-hoc `initSchema()`.
+  Tracks applied migrations in `_migrations` table with SHA-256 checksums.
+  Transaction-wrapped with ROLLBACK on failure. Idempotent via `CREATE TABLE IF NOT EXISTS`.
+  Safe for serverless deployments (no filesystem access at runtime).
+
+### Updated — API Standardization (Phase 22 batch)
+
+- 20+ API routes converted from raw `NextResponse.json()` to `apiOk()` / `apiError()` /
+  `apiRateLimited()`: `ai-mentor`, `career`, `challenges`, `command-center/*`,
+  `community/*`, `device-token`, `health/*`, `learning-events`, `mentor-*`,
+  `notification-brain`, `notifications/*`, `offline-sync`, `trading-arena`.
+
+### QA
+
+- `tsc --noEmit`: 0 errors
+- `eslint`: 0 warnings
+- Build: 292 pages pass
+
+---
+
+## [v0.21] — 2026-06-28 — Enterprise Security and API Hardening
+
+### Added — CSRF Defense-in-Depth
+
+- `academy/auth/login/route.ts`: Added `verifyCsrfOrigin()` check at the wrapper level
+  (defense-in-depth — previously checked only inside the canonical handler).
+- `academy/auth/register/route.ts`: Same CSRF guard added.
+
+### Updated — Structured Logging Migration
+
+- `src/lib/db.ts`: All `console.error` calls replaced with `logger.error`.
+- `src/lib/auth-session.ts`: `console.error` → `logger.error` (2 calls).
+- `src/lib/csrf.ts`: `console.error` → `logger.error`.
+- `src/lib/mentor-events.ts`: Console calls replaced with structured logger.
+- `src/lib/rate-limit.ts`: Warning logging migrated to `logger.warn`.
+- `src/lib/api.ts`: Console calls migrated to `logger`.
+- Zero production `console.*` remaining in `src/lib/` after this phase.
+
+### Added — Security Headers
+
+- `next.config.ts`: Added security header suite: `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options`, `X-DNS-Prefetch-Control`, `Referrer-Policy`,
+  `Permissions-Policy`, `Strict-Transport-Security` (2-year HSTS with preload),
+  `X-XSS-Protection: 0` (disables legacy auditor per OWASP).
+
+### Updated — Health Endpoint
+
+- `/api/health`: Added Redis ping check (ok / unavailable / unconfigured),
+  `version` (npm package version), `environment` (NODE_ENV), structured `checks` object.
+  Status becomes `"degraded"` when Redis is unavailable.
+
+### Updated — QA Infrastructure
+
+- `package.json`: Added `"typecheck": "tsc --noEmit"` script for CI and local use.
+
+### QA
+
+- `tsc --noEmit`: 0 errors
+- `eslint`: 0 warnings
+- Build: 292 pages pass
+
+---
+
+## [v0.20] — 2026-06-28 — Production Readiness and Engineering Foundation
+
+### Added — Database Migration Reference
+
+- `migrations/0001_initial_schema.sql`: Complete schema snapshot for reference.
+  Documents all tables created by the Phase 1–18 `initSchema()` calls.
+- `migrations/README.md`: Migration rules, numbering convention, and runner plan.
+
+### Added — Observability
+
+- `src/lib/logger.ts`: Structured JSON logger. Fields: `ts` (ISO timestamp),
+  `level`, `msg`, plus arbitrary context fields. Server-side only.
+
+### Added — API Validation Helpers
+
+- `src/lib/api-validation.ts`: `apiOk()`, `apiError()`, `apiRateLimited()`,
+  `Validate.*`, `checkBodySize()` — shared response builders for API routes.
+
+### Added — Community Career Tables
+
+- `src/lib/db-schema.ts`: Added `academy_public_profiles`,
+  `academy_professional_challenges`, `academy_challenge_progress` tables.
+
+### Updated — CI and Engineering Constraints
+
+- `.github/workflows/ci.yml`: Added npm version gate (major version must be 10).
+- `package.json`: Set `engines.npm` to `>=10.0.0 <11.0.0` to prevent npm 11
+  regenerating the lockfile with incompatible `libc` fields.
+
+### QA
+
+- `tsc --noEmit`: 0 errors
+- `eslint`: 0 warnings
+- Build: 292 pages pass
+
+---
+
+## [v0.19] — 2026-06-28 — Architecture Vision Refactor and Enterprise Planning
+
+Architecture-only phase. Zero feature changes. Zero UI changes.
+
+### Added — Strategic Documentation
+
+Full audit of Phases 0–18 produced 9 planning documents:
+
+- `docs/ARCHITECTURE_REVIEW.md`: 10-domain audit, 30+ findings, scorecard.
+  Identified 5 critical gaps: localStorage as source of truth, no migration system,
+  3-cookie auth split, no tenant model, zero observability.
+- `docs/TECHNICAL_DEBT_REPORT.md`: Complete debt inventory with fix strategies.
+- `docs/VISION_v2.md`: 12-pillar platform vision superseding v1.
+- `docs/MASTER_ROADMAP_v2.md`: Phases 0–40 with dependencies, QA gates, rollback plans.
+- `docs/PLATFORM_BLUEPRINT_v2.md`: Target identity, tenant, API, DB, and AI design.
+- `docs/WHITEPAPER_STRUCTURE_v2.md`: Platform architecture and strategy whitepaper outline.
+- `docs/DEPENDENCY_MAP.md`: Module graph, circular dependency analysis, localStorage chains.
+- `docs/FUTURE_MODULES.md`: 18 future modules with data models and APIs.
+- `docs/PHASE19_REPORT.md`: Final audit report with migration plan and risk matrix.
+
+### QA
+
+- `tsc --noEmit`: 0 errors
+- `eslint`: 0 warnings
+- Build: 292 pages pass
 
 ---
 
