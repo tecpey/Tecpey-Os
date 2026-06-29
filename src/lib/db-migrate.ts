@@ -18,6 +18,7 @@
  */
 
 import { createHash } from "crypto";
+import { emitAlert } from "./alerts";
 import type { PoolClient } from "pg";
 import { logger } from "./logger";
 
@@ -530,6 +531,11 @@ export async function runMigrations(client: PoolClient): Promise<void> {
       logger.error("[db-migrate] migration failed, transaction rolled back", {
         filename: migration.filename,
         error: msg,
+      });
+      emitAlert("MIGRATION_FAILED", `Migration ${migration.filename} failed: ${msg}`, {
+        filename: migration.filename,
+        error: msg,
+        environment: process.env.NODE_ENV,
       });
       throw err;
     }

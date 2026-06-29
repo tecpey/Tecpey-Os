@@ -13,6 +13,7 @@ import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 type LocalTermRow = {
@@ -75,6 +76,7 @@ async function hasPreviousTermPassed(client: Queryable, studentId: string, termN
 }
 
 export async function GET(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-term-progress" }, async () => {
   const limit = await rateLimit(req, { namespace: "academy-term-progress-read", limit: 120, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getCanonicalSession(req);
@@ -102,9 +104,11 @@ export async function GET(req: NextRequest) {
     }
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-term-progress" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "academy-term-progress-submit", limit: 30, windowMs: 60_000 });
@@ -206,4 +210,5 @@ export async function POST(req: NextRequest) {
   } catch {
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }

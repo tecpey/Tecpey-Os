@@ -6,6 +6,7 @@ import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification, maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type QuestionRow = {
   id: string;
@@ -42,6 +43,7 @@ function fallbackQuestion(locale: string, termNumber: number, lessonSlug: string
 }
 
 export async function GET(req: NextRequest) {
+  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
   const limit = await rateLimit(req, { namespace: "mentor-challenge-read", limit: 80, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
@@ -80,9 +82,11 @@ export async function GET(req: NextRequest) {
   } catch {
     return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
   }
+  }); // end withObservability
 }
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-challenge-submit", limit: 80, windowMs: 60_000 });
@@ -134,4 +138,5 @@ export async function POST(req: NextRequest) {
   } catch {
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }

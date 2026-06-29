@@ -5,6 +5,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type ArenaTrade = {
   risk?: number;
@@ -88,41 +89,43 @@ function summarizeMemory(terms: TermRow[], trades: ArenaTrade[]) {
 }
 
 export async function GET(req: NextRequest) {
-  const limit = await rateLimit(req, { namespace: "academy-mentor-memory", limit: 80, windowMs: 60_000 });
-  if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getCanonicalSession(req);
-  if (!session.studentId) return apiError("academy_profile_required", 401);
-  const studentId = session.studentId;
+  return withObservability(req, { route: "/api/academy/mentor-memory" }, async () => {
+    const limit = await rateLimit(req, { namespace: "academy-mentor-memory", limit: 80, windowMs: 60_000 });
+    if (!limit.ok) return apiError("rate_limited", 429);
+    const session = await getCanonicalSession(req);
+    if (!session.studentId) return apiError("academy_profile_required", 401);
+    const studentId = session.studentId;
 
-  const dbResult = await withDb(async (client) => {
-    const termRows = await client.query(
-      `SELECT term_number, score, percent, status FROM academy_term_progress WHERE student_id = $1::uuid ORDER BY term_number ASC`,
-      [studentId],
-    );
-    const tradeRows = await client.query(
-      `SELECT risk_percent, risk_flag, discipline_score, emotion, entry_reason, risk_plan, created_at
-       FROM academy_trading_arena_trades
-       WHERE student_id = $1::uuid
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      [studentId],
-    ).catch(() => ({ rows: [] }));
-    const trades = tradeRows.rows.map((item) => ({
-      risk: Number(item.risk_percent || 0),
-      riskFlag: Boolean(item.risk_flag),
-      disciplineScore: Number(item.discipline_score || 0),
-      emotion: String(item.emotion || ""),
-      entryReason: String(item.entry_reason || ""),
-      plan: String(item.risk_plan || ""),
-      createdAt: item.created_at ? new Date(item.created_at).toISOString() : undefined,
-    }));
-    return summarizeMemory(termRows.rows, trades);
+    const dbResult = await withDb(async (client) => {
+      const termRows = await client.query(
+        `SELECT term_number, score, percent, status FROM academy_term_progress WHERE student_id = $1::uuid ORDER BY term_number ASC`,
+        [studentId],
+      );
+      const tradeRows = await client.query(
+        `SELECT risk_percent, risk_flag, discipline_score, emotion, entry_reason, risk_plan, created_at
+         FROM academy_trading_arena_trades
+         WHERE student_id = $1::uuid
+         ORDER BY created_at DESC
+         LIMIT 100`,
+        [studentId],
+      ).catch(() => ({ rows: [] }));
+      const trades = tradeRows.rows.map((item) => ({
+        risk: Number(item.risk_percent || 0),
+        riskFlag: Boolean(item.risk_flag),
+        disciplineScore: Number(item.discipline_score || 0),
+        emotion: String(item.emotion || ""),
+        entryReason: String(item.entry_reason || ""),
+        plan: String(item.risk_plan || ""),
+        createdAt: item.created_at ? new Date(item.created_at).toISOString() : undefined,
+      }));
+      return summarizeMemory(termRows.rows, trades);
+    });
+
+    if (dbResult.enabled && dbResult.value) return apiOk({ memory: dbResult.value });
+
+    const progressStore = await readJson<Record<string, TermRow[]>>(localProgressPath(), {});
+    const arenaStore = await readJson<Record<string, ArenaTrade[]>>(localArenaPath(), {});
+    const memory = summarizeMemory(progressStore[studentId] || [], arenaStore[studentId] || []);
+    return apiOk({ memory });
   });
-
-  if (dbResult.enabled && dbResult.value) return apiOk({ memory: dbResult.value });
-
-  const progressStore = await readJson<Record<string, TermRow[]>>(localProgressPath(), {});
-  const arenaStore = await readJson<Record<string, ArenaTrade[]>>(localArenaPath(), {});
-  const memory = summarizeMemory(progressStore[studentId] || [], arenaStore[studentId] || []);
-  return apiOk({ memory });
 }

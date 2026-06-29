@@ -16,6 +16,7 @@ import {
 import { clearStudentSessionCookie } from "@/lib/academy-session";
 import { clearUnifiedSessionCookie, setUnifiedSessionCookieAsync } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type AcademyAccount = {
   accountId: string;
@@ -102,20 +103,23 @@ async function loadDbAccount(client: Queryable, email: string, username?: string
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getAcademyAuthFromRequest(req);
-  return apiOk({
-    authenticated: Boolean(session),
-    account: session
-      ? {
-          email: session.email,
-          displayName: session.displayName || "",
-          username: session.username || "",
-        }
-      : null,
+  return withObservability(req, { route: "/api/academy-auth" }, async () => {
+    const session = await getAcademyAuthFromRequest(req);
+    return apiOk({
+      authenticated: Boolean(session),
+      account: session
+        ? {
+            email: session.email,
+            displayName: session.displayName || "",
+            username: session.username || "",
+          }
+        : null,
+    });
   });
 }
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-auth" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
 
@@ -254,12 +258,15 @@ export async function POST(req: NextRequest) {
   } catch {
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }
 
-export async function DELETE(_req: NextRequest) {
-  const response = apiOk({});
-  clearAcademyAuthCookie(response);
-  clearStudentSessionCookie(response);
-  clearUnifiedSessionCookie(response);
-  return response;
+export async function DELETE(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-auth" }, async () => {
+    const response = apiOk({});
+    clearAcademyAuthCookie(response);
+    clearStudentSessionCookie(response);
+    clearUnifiedSessionCookie(response);
+    return response;
+  });
 }

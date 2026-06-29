@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 function fallbackNotifications(locale: string) {
   const isFa = locale !== "en";
@@ -14,29 +15,31 @@ function fallbackNotifications(locale: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const limit = await rateLimit(req, { namespace: "notifications-read", limit: 120, windowMs: 60_000 });
-  if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getStudentSessionFromRequest(req);
-  const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
-  if (!session?.studentId) return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
-  try {
-    const result = await withDb(async (client) => {
-      const rows = await client.query(
-        `SELECT id, type, title, body, action_url, priority, channels, read_at, created_at, metadata
-         FROM notification_center
-         WHERE (student_id = $1::uuid OR student_id IS NULL) AND scheduled_for <= NOW()
-         ORDER BY read_at NULLS FIRST, priority DESC, created_at DESC
-         LIMIT 40`,
-        [session.studentId],
-      );
-      const unread = rows.rows.filter((item) => !item.read_at).length;
-      return { notifications: rows.rows, unread };
-    });
-    if (!result.enabled) return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
-    return apiOk({ ...result.value });
-  } catch {
-    return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
-  }
+  return withObservability(req, { route: "/api/notifications" }, async () => {
+    const limit = await rateLimit(req, { namespace: "notifications-read", limit: 120, windowMs: 60_000 });
+    if (!limit.ok) return apiError("rate_limited", 429);
+    const session = await getStudentSessionFromRequest(req);
+    const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
+    if (!session?.studentId) return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
+    try {
+      const result = await withDb(async (client) => {
+        const rows = await client.query(
+          `SELECT id, type, title, body, action_url, priority, channels, read_at, created_at, metadata
+           FROM notification_center
+           WHERE (student_id = $1::uuid OR student_id IS NULL) AND scheduled_for <= NOW()
+           ORDER BY read_at NULLS FIRST, priority DESC, created_at DESC
+           LIMIT 40`,
+          [session.studentId],
+        );
+        const unread = rows.rows.filter((item) => !item.read_at).length;
+        return { notifications: rows.rows, unread };
+      });
+      if (!result.enabled) return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
+      return apiOk({ ...result.value });
+    } catch {
+      return apiOk({ notifications: fallbackNotifications(locale), unread: 2 });
+    }
+  });
 }
 
 export async function POST() {

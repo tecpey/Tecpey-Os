@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiOk } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -250,20 +251,22 @@ function marketIntelligence(locale: string, items: NewsItem[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
-  const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 8);
-  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 24) : 8;
-  const fallback = locale === "fa" ? fallbackFa : fallbackEn;
-  const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
-  try {
-    const settled = await Promise.allSettled(sourceList.map((source) => readSource(source, locale)));
-    const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-    const unique = Array.from(new Map(items.map((item) => [item.title.toLowerCase(), item])).values())
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, limit);
-    const responseItems = unique.length ? unique : fallback;
-    return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems });
-  } catch {
-    return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback });
-  }
+  return withObservability(request, { route: "/api/crypto-news" }, async () => {
+    const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
+    const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 8);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 24) : 8;
+    const fallback = locale === "fa" ? fallbackFa : fallbackEn;
+    const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
+    try {
+      const settled = await Promise.allSettled(sourceList.map((source) => readSource(source, locale)));
+      const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+      const unique = Array.from(new Map(items.map((item) => [item.title.toLowerCase(), item])).values())
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+        .slice(0, limit);
+      const responseItems = unique.length ? unique : fallback;
+      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems });
+    } catch {
+      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback });
+    }
+  });
 }

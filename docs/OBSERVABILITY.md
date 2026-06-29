@@ -128,6 +128,49 @@ export async function POST(req: NextRequest) {
 
 The wrapper does not alter response bodies or status codes.
 
+### Routes Instrumented (Phase 27)
+
+All high-traffic and security-sensitive routes are wrapped:
+
+| Route | Methods |
+|---|---|
+| `/api/academy-auth` | GET, POST, DELETE |
+| `/api/ai-mentor` | POST |
+| `/api/ai-mentor-v2` | POST |
+| `/api/notifications` | GET |
+| `/api/notifications/read` | POST |
+| `/api/learning-events` | POST |
+| `/api/mentor-challenge` | GET, POST |
+| `/api/trading-arena` | GET, POST |
+| `/api/academy/mentor-memory` | GET |
+| `/api/mentor-memory` | GET, POST, DELETE |
+| `/api/mentor-conversations` | GET |
+| `/api/mentor-insights` | GET |
+| `/api/achievements` | GET |
+| `/api/challenges` | GET |
+| `/api/career` | GET |
+| `/api/community/hall-of-fame` | GET |
+| `/api/community/profile` | GET, PATCH |
+| `/api/crypto-news` | GET |
+| `/api/command-center/campaign` | POST |
+| `/api/command-center/summary` | GET |
+| `/api/academy-student-profile` | GET, POST |
+| `/api/academy-term-progress` | GET, POST |
+| `/api/academy-certificates` | GET, POST |
+| `/api/academy-lead` | POST |
+| `/api/academy-simulator-decision` | GET, POST |
+| `/api/notification-brain` | GET, POST |
+| `/api/offline-sync` | GET, POST |
+| `/api/admin/metrics` | GET |
+
+**Skipped** (thin delegates or low-traffic admin utilities):
+- `/api/academy/auth/*` — delegate to `/api/academy-auth`
+- `/api/mentor-conversations/migrate` — one-shot admin
+- `/api/mentor-profile/recompute` — one-shot admin
+- `/api/academy-certificates/qr/[id]` — static QR redirect
+- `/api/health` and `/api/health/database` — health checks (self-monitoring)
+- `/api/internal/price-feed-status` — intentionally outside main traffic path
+
 ---
 
 ## Health Endpoint

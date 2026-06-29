@@ -12,6 +12,7 @@ import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type ArenaTrade = {
   id: string;
@@ -148,24 +149,27 @@ async function getDbTrades(client: AnyQueryable, studentId: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const limit = await rateLimit(req, { namespace: "trading-arena-read", limit: 100, windowMs: 60_000 });
-  if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getCanonicalSession(req);
-  if (!session.studentId) return apiError("academy_profile_required", 401);
-  const studentId = session.studentId;
+  return withObservability(req, { route: "/api/trading-arena" }, async () => {
+    const limit = await rateLimit(req, { namespace: "trading-arena-read", limit: 100, windowMs: 60_000 });
+    if (!limit.ok) return apiError("rate_limited", 429);
+    const session = await getCanonicalSession(req);
+    if (!session.studentId) return apiError("academy_profile_required", 401);
+    const studentId = session.studentId;
 
-  try {
-    const result = await withDb((client) => getDbTrades(client, studentId));
-    const trades = result.enabled && result.value ? result.value : (await readLocal())[studentId] || [];
-    return apiOk({ trades, summary: summarize(trades) });
-  } catch {
-    const store = await readLocal();
-    const trades = store[studentId] || [];
-    return apiOk({ trades, summary: summarize(trades) });
-  }
+    try {
+      const result = await withDb((client) => getDbTrades(client, studentId));
+      const trades = result.enabled && result.value ? result.value : (await readLocal())[studentId] || [];
+      return apiOk({ trades, summary: summarize(trades) });
+    } catch {
+      const store = await readLocal();
+      const trades = store[studentId] || [];
+      return apiOk({ trades, summary: summarize(trades) });
+    }
+  });
 }
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/trading-arena" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "trading-arena-write", limit: 40, windowMs: 60_000 });
@@ -213,4 +217,5 @@ export async function POST(req: NextRequest) {
   } catch {
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }

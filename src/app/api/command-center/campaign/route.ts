@@ -7,8 +7,10 @@ import { adminNotConfiguredResponse, isAdminConfigured, setAdminSessionCookie } 
 import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/command-center/campaign" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "command-center-campaign", limit: 10, windowMs: 60_000 });
@@ -38,4 +40,5 @@ export async function POST(req: NextRequest) {
     if (adminToken) setAdminSessionCookie(resp, adminToken);
     return resp;
   } catch { return apiError("server_error", 500); }
+  }); // end withObservability
 }

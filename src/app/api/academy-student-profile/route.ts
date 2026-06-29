@@ -10,6 +10,7 @@ import { isSessionConfigured } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 // TODO(cookie-migration): remove getStudentSessionFromRequest / getAcademyAuthFromRequest
 //   imports once canonical session replaces all per-cookie reads.
 
@@ -143,6 +144,7 @@ async function upsertLocalProfile(input: {
 }
 
 export async function GET(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-student-profile" }, async () => {
   const limit = await rateLimit(req, {
     namespace: "academy-student-profile-read",
     limit: 60,
@@ -189,9 +191,11 @@ export async function GET(req: NextRequest) {
     const local = await getLocalProfile(studentId, session.academyAccountId);
     return apiOk({ authenticated, profile: local });
   }
+  }); // end withObservability
 }
 
 export async function POST(req: NextRequest) {
+  return withObservability(req, { route: "/api/academy-student-profile" }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, {
@@ -274,4 +278,5 @@ export async function POST(req: NextRequest) {
   } catch {
     return apiError("server_error", 500);
   }
+  }); // end withObservability
 }

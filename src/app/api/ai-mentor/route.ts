@@ -12,6 +12,7 @@ import {
 } from "@/lib/mentor-memory";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
+import { withObservability } from "@/lib/observe";
 
 type MentorRequest = {
   question?: string;
@@ -141,6 +142,7 @@ function extractOutputText(data: any) {
 }
 
 export async function POST(request: NextRequest) {
+  return withObservability(request, { route: "/api/ai-mentor" }, async () => {
   if (!verifyCsrfOrigin(request))
     return apiError("forbidden", 403);
 
@@ -284,4 +286,5 @@ export async function POST(request: NextRequest) {
     const fallback = localFallback("سؤال آموزشی", 1);
     return apiOk({ mentorStatus: "safe_guidance", answer: fallback.answer, relatedTerm: fallback.relatedTerm, sourceLessons: fallback.sourceLessons, suggestedQuestions: fallback.suggestedQuestions, checklist: fallback.checklist });
   }
+  }); // end withObservability
 }

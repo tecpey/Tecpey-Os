@@ -7,6 +7,46 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.27] — 2026-06-30 — API Observability Rollout & Security Hardening
+
+### Added — `withObservability()` Rollout
+
+- Wrapped 28 high-traffic routes (auth, academy, AI mentor, market data, community, admin) with `withObservability()` from `src/lib/observe.ts`
+- Every wrapped route now emits: request ID, structured log entry, in-memory metrics, error capture, and API error-spike detection
+- Metrics store tracks per-route request count, latency, and error rate in `globalThis.tecpeyMetrics`
+
+### Added — API Error Spike Detection
+
+- `src/lib/observe.ts`: `checkErrorSpike()` fires after each request; emits `API_ERROR_SPIKE` alert when global error rate ≥ 40% over ≥ 50 requests (production only)
+
+### Added — Price Feed Alerting Adapter
+
+- `src/app/api/internal/price-feed-status/route.ts` (new): POST endpoint; rate-limited (5/min); accepts `{ status: "down", reason, attempts }` from client-side WebSocket failure; emits `PRICE_FEED_DOWN` alert via `emitAlert()`
+
+### Added — Migration Failure Alerting
+
+- `src/lib/db-migrate.ts`: catch block now calls `emitAlert("MIGRATION_FAILED", ...)` with filename, error message, and environment
+
+### Added — Session Refresh Foundation
+
+- `src/lib/session-refresh.ts` (new): `shouldRefreshSession()` (threshold: 25% of lifetime remaining), `refreshSessionCookie()`, `maxRefreshableSessionAge()`; full refresh-token rotation (DB-backed, single-use) deferred to a future phase
+
+### Hardened — CSP connect-src
+
+- `src/proxy.ts`: `buildConnectSrc()` now derives allowed origins from `NEXT_PUBLIC_API_BACKEND_URL` and `NEXT_PUBLIC_API_SOCKET_URL`; falls back to `https: wss: ws:` when not configured
+- New escape hatch: `NEXT_PUBLIC_EXTRA_CONNECT_SRC` (space-separated additional origins)
+
+### Hardened — Permissions-Policy
+
+- `next.config.ts`: expanded Permissions-Policy to deny `usb=(), bluetooth=(), interest-cohort=()` in addition to existing camera/mic/geolocation/payment restrictions
+
+### Documented
+
+- `docs/OBSERVABILITY.md`: added "Routes Instrumented" table listing all 28 wrapped routes and skip-list rationale
+- `.env.example`: added `NEXT_PUBLIC_EXTRA_CONNECT_SRC`
+
+---
+
 ## [v0.26] — 2026-06-30 — Production Observability and Operations Foundation
 
 ### Added — Request ID / Trace ID Propagation
