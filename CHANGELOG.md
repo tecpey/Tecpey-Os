@@ -7,6 +7,132 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.24] — 2026-06-30 — Enterprise Platform Foundation (Multi-Tenant Architecture)
+
+### Added — Platform Libraries
+
+- `src/lib/platform-config.ts`: Single source of truth for all platform configuration.
+  Exports `COOKIES` record (SESSION, ACADEMY_AUTH, STUDENT_SESSION, STUDENT_ID, USER_SESSION),
+  `shouldUseSecureCookie()` (reads `TECPEY_COOKIE_SECURE` env var or infers from `NEXT_PUBLIC_SITE_URL`),
+  `sessionMaxAge()` (JWT duration string), `sessionMaxAgeSeconds()` (cookie maxAge integer),
+  and `PLATFORM` metadata object (NAME, SITE_URL, API_BACKEND_URL, DEFAULT_TENANT_ID, DEFAULT_WORKSPACE_ID).
+  Eliminates three separate `shouldUseSecureCookie()` implementations that existed in unified-session.ts,
+  academy-auth.ts, and academy-session.ts.
+
+- `src/lib/platform-types.ts`: Core type definitions for the multi-tenant model.
+  Branded types: `TenantId`, `WorkspaceId`, `UserId`. Role union: `admin | moderator | teacher |
+  student | trader | support | guest`. Product union: `exchange | academy | social | mentor |
+  knowledge | marketplace`. Composite types: `TenantPlan`, `Tenant`, `Workspace`, `Membership`,
+  `PlatformContext`. Pure types, zero runtime code.
+
+- `src/lib/feature-flags.ts`: Runtime feature flag system driven entirely by environment variables.
+  `FeatureFlag` union type (5 flags: academy.enabled, exchange.enabled, social.enabled,
+  mentor.enabled, future.marketplace.enabled). `FLAG_CONFIG` record maps each flag to its env var
+  and production-safe default. `isFeatureEnabled(flag)`: reads env var, falls back to default.
+  `getAllFlags()`: snapshot of all current values for health/debug endpoints. No hardcoded booleans.
+
+- `src/lib/product-registry.ts`: Central registry for all TecPey products.
+  `Product` type (id, slug, displayName, description, requiredPermission, featureFlag, isEnabled()).
+  `PRODUCTS` record with 6 entries: exchange, academy, social, mentor, knowledge, marketplace.
+  `getEnabledProducts()`: filters by live feature flag. `getProductBySlug()`: reverse-lookup by URL slug.
+
+- `src/lib/permission.ts`: Unified permission layer replacing scattered ad-hoc checks.
+  `ROLE_PERMISSIONS` map: admin→`["*"]`, moderator→social+academy, teacher→academy+mentor,
+  student→academy+mentor+social, trader→exchange+academy, support→admin view+academy+social,
+  guest→view-only. `resolveRoles(session)`: derives Role[] from CanonicalSession claims.
+  `matchesGrant()`: supports wildcard (`*`), product-wildcard (`product.*`), and exact match.
+  `permission(session)` factory returns `PermissionContext`: `can(action)`, `require(action)`,
+  `hasRole(role)`, `hasFeature(flag)`, `roles`. `require()` returns `null | NextResponse` for
+  guard-return pattern.
+
+- `src/lib/route-guards.ts`: Unified guard functions for route protection.
+  `requireTenant(session)`: 401 for fully unauthenticated, null otherwise (forward-compatible hook).
+  `requireRole(session, role)`: 403 if session lacks role.
+  `requirePermission(session, action)`: 403 if action not in role grants.
+  `requireFeature(flag)`: 403 with `feature_disabled` code if flag is off.
+  All return `NextResponse | null` for the guard-return pattern.
+
+### Updated — Existing Libraries
+
+- `src/lib/unified-session.ts`: Removed local `shouldUseSecureCookie()` and `cookieMaxAge()`.
+  Now imports from `platform-config`. Re-exports `UNIFIED_SESSION_COOKIE = COOKIES.SESSION`
+  for backward compatibility with all existing importers.
+
+- `src/lib/academy-session.ts`: Imports `COOKIES` from `platform-config`.
+  Removed dead exports: `signStudentSession`, `setStudentSessionCookie`,
+  `getStudentSessionFromServerCookies`, local `shouldUseSecureCookie`.
+  Retained: `isSessionConfigured`, `verifyStudentSessionToken`, `getStudentSessionFromRequest`,
+  `clearStudentSessionCookie` (used by logout handler).
+
+- `src/lib/academy-auth.ts`: Imports `COOKIES` from `platform-config`.
+  Removed dead exports: `signAcademyAuthSession`, `setAcademyAuthCookie`,
+  local `shouldUseSecureCookie`.
+  Retained: `isAcademyAuthConfigured`, `verifyAcademyAuthToken`, `getAcademyAuthFromRequest`,
+  `clearAcademyAuthCookie`, helper normalizers (`normalizeAcademyEmail`, `normalizeAcademyUsername`,
+  `academyAccountIdFromEmail`).
+
+- `src/lib/auth-session.ts`: Imports `COOKIES` from `platform-config`.
+  Removed local `COOKIE_ACADEMY_AUTH`, `COOKIE_STUDENT_SESSION`, `COOKIE_USER_SESSION` constants
+  (were only used internally — no external callers confirmed by grep).
+  Removed dead `isAnyAcademySession` export (zero external callers).
+  Retained: `CanonicalSession` type, `getCanonicalSession()`.
+
+### Deleted
+
+- `src/lib/db-schema.ts`: Entirely `@deprecated` file with zero external callers (confirmed by grep).
+  Contained `initSchema()` which imported `ensureStudentCartaxTables`, `ensurePhase5Tables`,
+  `ensureCertificateTables` — all superseded by the Phase 22 migration runner. 334 lines removed.
+
+### QA
+
+- `npm run typecheck`: 0 errors
+- `npm run lint`: 0 warnings, 0 errors
+- `npm run build`: ✓ 292 pages, 7.0s, Proxy (Middleware) registered
+
+---
+
+## [v0.23] — 2026-06-28 — Legacy Cookie Retirement, API Standardization & CSP
+
+### Security — Cookie Retirement
+
+- Stopped issuing `tecpey_academy_auth` and `tecpey_student_session` legacy cookies on new logins.
+  Only `tecpey_session` (unified JWT) is set on login/register since Phase 23.
+- `getStudentSessionFromRequest()` and `getAcademyAuthFromRequest()` retain read-only fallback:
+  check legacy cookie first, then fall back to unified cookie — existing browser sessions continue
+  to work until their 30-day JWT expires.
+- Logout still clears all three cookies (`clearStudentSessionCookie`, `clearAcademyAuthCookie`,
+  `clearUnifiedSessionCookie`) to clean browsers holding legacy cookies.
+- `academy-student-profile/route.ts`: removed `signStudentSession` + `setStudentSessionCookie` calls.
+- `academy-auth/route.ts`: removed `signAcademyAuthSession` + `setAcademyAuthCookie` calls.
+
+### Security — Content Security Policy
+
+- Deleted `src/middleware.ts` (deprecated in Next.js 16).
+- Created `src/proxy.ts` (Next.js 16 proxy convention, `export async function proxy(request)`).
+- Per-request nonce via `Buffer.from(crypto.randomUUID()).toString("base64")`.
+- CSP set on both request (`x-nonce` header) and response (`Content-Security-Policy` header).
+- Directives: `default-src 'self'`, `script-src 'self' 'nonce-{n}' 'strict-dynamic'`,
+  `style-src 'self' 'unsafe-inline'` (required: inlineCss + React SSR style attrs),
+  `img-src 'self' data: blob: https:`, `font-src 'self' data:`,
+  `connect-src 'self' https: wss: ws:`, `media-src 'none'`, `object-src 'none'`,
+  `frame-src 'self'`, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`,
+  `upgrade-insecure-requests`. Dev adds `'unsafe-eval'` for React DevTools only.
+
+### API Standardization
+
+- Converted all remaining 14 `NextResponse.json()` calls to `apiOk()` / `apiError()` / `apiRateLimited()`.
+  Routes: `ai-mentor` (6 calls), `crypto-news` (2), `mentor-conversations` (1), `mentor-insights` (1),
+  `mentor-memory` (1), `mentor-profile/recompute` (2), `academy-specialized-lead` (1).
+- Final remaining `NextResponse.json` count in API routes: **0**.
+
+### QA
+
+- `npm run typecheck`: 0 errors
+- `npm run lint`: 0 warnings, 0 errors
+- `npm run build`: ✓ 292 pages, Proxy (Middleware) registered
+
+---
+
 ## [v0.18] — 2026-06-28 — Community & Social Learning Layer
 
 ### Added — Core Library
