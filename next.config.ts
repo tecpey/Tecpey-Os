@@ -5,7 +5,9 @@ const withNextIntl = createNextIntlPlugin();
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  // DENY aligns with CSP frame-ancestors 'none' in proxy.ts — consistent policy across legacy
+  // and modern browsers. SAMEORIGIN contradicted the stricter CSP directive.
+  { key: "X-Frame-Options", value: "DENY" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },

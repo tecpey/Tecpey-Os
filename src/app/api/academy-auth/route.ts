@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
   const limit = await rateLimit(req, {
     namespace: "academy-auth",
-    limit: 20,
+    limit: 10,
     windowMs: 60_000,
   });
   if (!limit.ok)

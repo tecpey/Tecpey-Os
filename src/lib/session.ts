@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { COOKIES } from "./platform-config";
 
 function sessionKey() {
   const secret = process.env.JWT_SECRET || process.env.TECPEY_SESSION_SECRET || process.env.NEXTAUTH_SECRET;
@@ -21,7 +22,7 @@ export async function decrypt(token: string) {
 }
 
 export async function getSession() {
-  const session = (await cookies()).get("user_session")?.value;
+  const session = (await cookies()).get(COOKIES.USER_SESSION)?.value;
   if (!session) return null;
   return await decrypt(session);
 }

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { shouldUseSecureCookie } from "./platform-config";
+import { apiError } from "./api-validation";
 
 const ADMIN_HEADER = "x-tecpey-admin-token";
 export const ADMIN_SESSION_COOKIE = "tecpey_admin_session";
@@ -15,12 +17,6 @@ export function hasAdminAccess(req: NextRequest) {
   // httpOnly session cookie set by a previous successful authentication.
   if (req.headers.get(ADMIN_HEADER) === token) return true;
   return req.cookies.get(ADMIN_SESSION_COOKIE)?.value === token;
-}
-
-function shouldUseSecureCookie() {
-  if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
-  if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
-  return (process.env.NEXT_PUBLIC_SITE_URL || "").startsWith("https://");
 }
 
 /**
@@ -42,9 +38,9 @@ export function clearAdminSessionCookie(response: NextResponse) {
 }
 
 export function adminNotConfiguredResponse() {
-  return Response.json({ ok: false, error: "admin_locked" }, { status: 503 });
+  return apiError("admin_locked", 503);
 }
 
 export function adminUnauthorizedResponse() {
-  return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  return apiError("unauthorized", 401);
 }

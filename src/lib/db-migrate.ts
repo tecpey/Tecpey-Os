@@ -356,6 +356,58 @@ CREATE TABLE IF NOT EXISTS academy_challenge_progress (
 );
 `,
   },
+
+  // ── 0002: Extended schema (Phase 24.6) ──────────────────────────────────────
+  // Adds columns referenced by API routes that were absent from the initial
+  // migration. Uses ADD COLUMN IF NOT EXISTS throughout so it is safe to run
+  // against an already-extended production database.
+  {
+    filename: "0002_extended_schema.sql",
+    sql: `
+-- notification_center: operational columns required by /api/notifications
+ALTER TABLE notification_center ADD COLUMN IF NOT EXISTS action_url TEXT;
+ALTER TABLE notification_center ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE notification_center ADD COLUMN IF NOT EXISTS channels TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE notification_center ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE notification_center ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- admin_audit_log: 'actor' used in INSERT; initial migration defined 'admin_id'.
+-- Both columns kept to preserve any existing admin_id data.
+ALTER TABLE admin_audit_log ADD COLUMN IF NOT EXISTS actor TEXT;
+
+-- academy_question_bank: enriched columns used by /api/mentor-challenge
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS lesson_slug TEXT NOT NULL DEFAULT '';
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS topic TEXT NOT NULL DEFAULT '';
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS cognitive_skill TEXT NOT NULL DEFAULT 'recall';
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS correct_option TEXT NOT NULL DEFAULT '';
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS explanation TEXT NOT NULL DEFAULT '';
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS usage_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS success_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE academy_question_bank ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS academy_question_bank_lesson_idx
+  ON academy_question_bank(lesson_slug, topic, approved, difficulty);
+
+-- mentor_challenge_attempts: question-level tracking columns
+ALTER TABLE mentor_challenge_attempts ADD COLUMN IF NOT EXISTS question_id UUID;
+ALTER TABLE mentor_challenge_attempts ADD COLUMN IF NOT EXISTS selected_option TEXT;
+ALTER TABLE mentor_challenge_attempts ADD COLUMN IF NOT EXISTS is_correct BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS mentor_challenge_attempts_question_idx
+  ON mentor_challenge_attempts(student_id, question_id);
+
+-- academy_students: last_seen_at for activity-based queries in /api/command-center
+ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- learning_brain_profiles: denormalized scalar fields for fast querying
+-- Previously stored only inside the JSONB 'profile' column; now promoted to
+-- first-class columns so queries don't need to navigate into JSONB.
+ALTER TABLE learning_brain_profiles ADD COLUMN IF NOT EXISTS decision_score INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE learning_brain_profiles ADD COLUMN IF NOT EXISTS confidence_score INTEGER NOT NULL DEFAULT 45;
+ALTER TABLE learning_brain_profiles ADD COLUMN IF NOT EXISTS weak_topics TEXT[] NOT NULL DEFAULT '{}';
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────
