@@ -5,6 +5,8 @@ import { randomUUID } from "crypto";
 export type TradingEventType =
   | "OrderCreated"
   | "OrderAccepted"
+  | "OrderPartiallyFilled"
+  | "OrderFilled"
   | "OrderRejected"
   | "OrderCancelled"
   | "TradeExecuted"
@@ -27,6 +29,21 @@ type OrderCreatedPayload = {
 type OrderAcceptedPayload = {
   orderId: string;
   market: string;
+};
+
+type OrderPartiallyFilledPayload = {
+  orderId: string;
+  market: string;
+  filledQty: string;
+  remainingQty: string;
+  avgFillPrice: string;
+};
+
+type OrderFilledPayload = {
+  orderId: string;
+  market: string;
+  filledQty: string;
+  avgFillPrice: string;
 };
 
 type OrderRejectedPayload = {
@@ -68,6 +85,8 @@ type LedgerPostedPayload = {
 type TradingEventPayloadMap = {
   OrderCreated: OrderCreatedPayload;
   OrderAccepted: OrderAcceptedPayload;
+  OrderPartiallyFilled: OrderPartiallyFilledPayload;
+  OrderFilled: OrderFilledPayload;
   OrderRejected: OrderRejectedPayload;
   OrderCancelled: OrderCancelledPayload;
   TradeExecuted: TradeExecutedPayload;

@@ -7,6 +7,55 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.31] — 2026-06-30 — Spot Trading Complete
+
+### Added — Market Statistics
+
+- `src/lib/trading/market-stats-service.ts` — single-query 24h aggregation: last price, open, high, low, base/quote volume, VWAP, price change, price change %
+- `GET /api/markets/[market]/summary` — returns 24h stats + order book top-of-book + market config
+
+### Added — Open Orders endpoint
+
+- `GET /api/orders/open` — returns orders in `NEW` or `PARTIALLY_FILLED` status for authenticated user; optional `?market=` filter
+- `listOpenOrders(userId, market?)` in `order-service.ts`
+
+### Enhanced — Order filtering and pagination
+
+- `GET /api/orders` — added `side`, `type`, `from`, `to`, `cursor` query params
+- Response now includes `nextCursor` for cursor-based pagination
+- `listOrders()` extended with all new filter options
+
+### Enhanced — Trade history pagination
+
+- `GET /api/trades` — added `before`, `from`, `to` params for date range and cursor pagination
+- Response now includes `nextCursor`
+- `listTrades()` extended with cursor/range options
+- `listUserTrades()` rewritten with UNION approach (replaces OR-JOIN with DISTINCT — index-friendly)
+
+### Enhanced — Orderbook aggregation
+
+- `GET /api/orderbook?aggregate=N` — groups price levels by N decimal places; bids floor, asks ceil
+
+### Fixed — Audit events
+
+- `OrderFilled` event type added — emitted when order completely fills (was incorrectly `OrderAccepted`)
+- `OrderPartiallyFilled` event type added — emitted when GTC order partially fills
+- Both added to `TradingEventType` union in `events.ts` with typed payload shapes
+
+### Added — Database indexes (migration 0006)
+
+- `idx_orders_user_status` — covers open orders query by (user_id, status, created_at)
+- `idx_trades_buyer` / `idx_trades_seller` — covers UNION-based user trade history
+- `idx_trades_market_time` — covers 24h market stats window
+
+### Documentation
+
+- `docs/SPOT_ENGINE.md` — NEW: spot engine reference, event catalogue, API reference
+- `docs/TRADING_CORE.md` — Phase 31 section added
+- `docs/API.md` — complete trading API reference added
+
+---
+
 ## [v0.30] — 2026-06-30 — Transactional Matching, Wallet Balances, Redis Order Book Foundation
 
 ### Added — wallet_balances table (migration 0005)

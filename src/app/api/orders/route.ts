@@ -13,7 +13,7 @@ import { getAvailableBalance } from "@/lib/trading/wallet-service";
 import { holdFundsTx } from "@/lib/trading/wallet-balance-service";
 import { getOrderBook } from "@/lib/trading/order-book";
 import { getMatchingEngine } from "@/lib/trading/engine";
-import type { Order, OrderStatus, PlaceOrderRequest, TimeInForce } from "@/lib/trading/types";
+import type { Order, OrderSide, OrderStatus, OrderType, PlaceOrderRequest, TimeInForce } from "@/lib/trading/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +31,17 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const market = url.searchParams.get("market") ?? undefined;
     const status = url.searchParams.get("status") as OrderStatus | undefined;
+    const side = url.searchParams.get("side") as OrderSide | undefined;
+    const type = url.searchParams.get("type") as OrderType | undefined;
+    const from = url.searchParams.get("from") ?? undefined;
+    const to = url.searchParams.get("to") ?? undefined;
+    const cursor = url.searchParams.get("cursor") ?? undefined;
     const rawLimit = Number(url.searchParams.get("limit") ?? 50);
     const queryLimit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 200) : 50;
 
-    const orders = await listOrders({ userId, market, status, limit: queryLimit });
-    return apiOk({ orders, count: orders.length });
+    const orders = await listOrders({ userId, market, status, side, type, from, to, cursor, limit: queryLimit });
+    const nextCursor = orders.length === queryLimit ? orders[orders.length - 1]?.createdAt : null;
+    return apiOk({ orders, count: orders.length, nextCursor });
   });
 }
 

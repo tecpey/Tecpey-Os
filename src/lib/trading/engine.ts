@@ -318,7 +318,10 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
         // Finalise incoming order
         if (fullyFilled) {
           await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, "FILLED");
-          await appendOrderEventTx(client, order.id, "OrderAccepted", { orderId: order.id, market: order.market });
+          await appendOrderEventTx(client, order.id, "OrderFilled", {
+            orderId: order.id, market: order.market,
+            filledQty: fills.totalFilled.toFixed(10), avgFillPrice: avgPrice.toFixed(10),
+          });
           return { tradeIds: ids, accepted: true };
 
         } else if (fills.totalFilled > 0) {
@@ -335,7 +338,12 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
             if (rem > 0) await releaseFundsTx(client, order.userId, holdAsset, rem, order.id);
             await appendOrderEventTx(client, order.id, "OrderExpired", { orderId: order.id, reason: "ioc_remainder" });
           } else {
-            await appendOrderEventTx(client, order.id, "OrderAccepted", { orderId: order.id, remainingQty: fills.remaining });
+            await appendOrderEventTx(client, order.id, "OrderPartiallyFilled", {
+              orderId: order.id, market: order.market,
+              filledQty: fills.totalFilled.toFixed(10),
+              remainingQty: fills.remaining.toFixed(10),
+              avgFillPrice: avgPrice.toFixed(10),
+            });
           }
           return { tradeIds: ids, accepted: true };
 

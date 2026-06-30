@@ -274,6 +274,146 @@ Submit a practice trade decision.
 
 ---
 
+## Trading API (Spot)
+
+See `docs/SPOT_ENGINE.md` for engine architecture and `docs/TRADING_CORE.md` for data models.
+
+### GET /api/markets
+
+Returns active markets. Optional `?symbol=BTCUSDT` for single market.
+
+Rate limit: 240 req/min.
+
+### GET /api/markets/[market]/summary
+
+Returns 24h statistics, order book top-of-book, and market configuration.
+
+Rate limit: 120 req/min.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "market": { "symbol": "BTCUSDT", "status": "active", "makerFee": "0.001", ... },
+  "stats": {
+    "lastPrice": "65000.00", "openPrice24h": "63000.00", "highPrice24h": "66000.00",
+    "lowPrice24h": "62500.00", "baseVolume24h": "12.5", "quoteVolume24h": "812500.00",
+    "vwap24h": "65000.00", "priceChange24h": "2000.00", "priceChangePct24h": "3.1746",
+    "tradeCount24h": 42, "updatedAt": "2026-06-30T..."
+  },
+  "orderBook": { "bestBid": {...}, "bestAsk": {...}, "bidCount": 5, "askCount": 5 }
+}
+```
+
+---
+
+### GET /api/orderbook
+
+Returns depth snapshot. Query params: `symbol` (required), `depth` (1–100, default 20), `aggregate=N` (group by N decimal places).
+
+Rate limit: 480 req/min.
+
+---
+
+### GET /api/trades
+
+Returns trade history.
+
+| Param | Description |
+|-------|-------------|
+| `market=BTCUSDT` | Public trade history for a market (no auth) |
+| `mine=1` | User's own trades (auth required) |
+| `limit` | Page size 1–200 |
+| `before=<ISO>` | Cursor: trades before this timestamp |
+| `from=<ISO>` | Date lower bound |
+| `to=<ISO>` | Date upper bound |
+
+Response includes `nextCursor` for pagination.
+
+Rate limit: 120 req/min.
+
+---
+
+### GET /api/orders
+
+Auth required. Returns the user's order history.
+
+| Param | Description |
+|-------|-------------|
+| `market` | Filter by market |
+| `status` | Filter by status |
+| `side` | `buy` or `sell` |
+| `type` | `limit`, `market`, etc. |
+| `from=<ISO>` | Date lower bound |
+| `to=<ISO>` | Date upper bound |
+| `cursor=<ISO>` | Pagination cursor |
+| `limit` | Page size 1–200 |
+
+Response includes `nextCursor`.
+
+Rate limit: 120 req/min.
+
+---
+
+### GET /api/orders/open
+
+Auth required. Returns orders in `NEW` or `PARTIALLY_FILLED` status.
+
+Optional: `?market=BTCUSDT`.
+
+Rate limit: 120 req/min.
+
+---
+
+### POST /api/orders
+
+Auth required. CSRF required. Place a new spot order.
+
+```json
+{
+  "market": "BTCUSDT",
+  "side": "buy",
+  "type": "limit",
+  "quantity": "0.001",
+  "price": "65000",
+  "timeInForce": "GTC"
+}
+```
+
+Returns `201` with `{ order, tradeIds }` on success.
+
+Order types: `limit`, `market`, `ioc`, `fok`, `gtc`. (`stop_limit` accepted but trigger not implemented.)
+
+Rate limit: 30 req/min.
+
+---
+
+### DELETE /api/orders/[id]
+
+Auth required. CSRF required. Cancel an open order.
+
+Rate limit: 30 req/min.
+
+---
+
+### Trading Error Codes
+
+| Code | HTTP | Meaning |
+|------|------|---------|
+| `market_not_found` | 404 | Market symbol not found |
+| `market_not_active` | 503 | Market is suspended |
+| `invalid_quantity` | 422 | Quantity <= 0 or invalid |
+| `quantity_step_size_violation` | 422 | Quantity not a multiple of stepSize |
+| `price_required` | 400 | Price missing for limit order |
+| `price_tick_size_violation` | 422 | Price not a multiple of tickSize |
+| `order_value_too_small` | 422 | Order value below minimum |
+| `order_value_too_large` | 422 | Order value above maximum |
+| `insufficient_balance` | 422 | Not enough available balance |
+| `order_not_accepted` | 422 | FOK failure or no liquidity |
+| `order_not_found` | 404 | Order ID not found |
+
+---
+
 ## Admin
 
 All admin routes require `x-tecpey-admin-token` or an active admin session cookie.

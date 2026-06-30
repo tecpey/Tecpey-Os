@@ -310,6 +310,11 @@ export type OrderQueryOptions = {
   userId: string;
   market?: string;
   status?: OrderStatus;
+  side?: OrderSide;
+  type?: OrderType;
+  from?: string;
+  to?: string;
+  cursor?: string;
   limit?: number;
 };
 
@@ -326,6 +331,26 @@ export async function listOrders(options: OrderQueryOptions): Promise<Order[]> {
       params.push(options.status);
       conditions.push(`status = $${params.length}`);
     }
+    if (options.side) {
+      params.push(options.side);
+      conditions.push(`side = $${params.length}`);
+    }
+    if (options.type) {
+      params.push(options.type);
+      conditions.push(`type = $${params.length}`);
+    }
+    if (options.from) {
+      params.push(options.from);
+      conditions.push(`created_at >= $${params.length}`);
+    }
+    if (options.to) {
+      params.push(options.to);
+      conditions.push(`created_at <= $${params.length}`);
+    }
+    if (options.cursor) {
+      params.push(options.cursor);
+      conditions.push(`created_at < $${params.length}`);
+    }
 
     const limit = Math.min(options.limit ?? 50, 200);
     params.push(limit);
@@ -340,6 +365,24 @@ export async function listOrders(options: OrderQueryOptions): Promise<Order[]> {
     return rows.rows.map(rowToOrder);
   });
 
+  if (!result.enabled) return [];
+  return result.value ?? [];
+}
+
+export async function listOpenOrders(userId: string, market?: string): Promise<Order[]> {
+  const result = await withDb(async (client) => {
+    const params: unknown[] = [userId];
+    const conditions: string[] = ["user_id = $1", "status IN ('NEW', 'PARTIALLY_FILLED')"];
+    if (market) {
+      params.push(market.toUpperCase());
+      conditions.push(`market = $${params.length}`);
+    }
+    const rows = await client.query(
+      `SELECT * FROM orders WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC`,
+      params,
+    );
+    return rows.rows.map(rowToOrder);
+  });
   if (!result.enabled) return [];
   return result.value ?? [];
 }

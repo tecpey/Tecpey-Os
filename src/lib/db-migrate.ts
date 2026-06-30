@@ -621,6 +621,23 @@ CREATE TABLE IF NOT EXISTS wallet_balances (
 CREATE INDEX IF NOT EXISTS idx_wb_user_asset ON wallet_balances(user_id, asset);
 `,
   },
+  {
+    filename: "0006_spot_trading_indexes.sql",
+    sql: `
+-- Phase 31: indexes for spot trading read paths.
+-- open orders by user: covering (user_id, status, created_at)
+CREATE INDEX IF NOT EXISTS idx_orders_user_status
+  ON orders(user_id, status, created_at DESC);
+-- buyer/seller lookups for user trade history (UNION approach)
+CREATE INDEX IF NOT EXISTS idx_trades_buyer
+  ON trades(buyer_order_id, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_seller
+  ON trades(seller_order_id, executed_at DESC);
+-- market stats 24h window
+CREATE INDEX IF NOT EXISTS idx_trades_market_time
+  ON trades(market, executed_at DESC);
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

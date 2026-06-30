@@ -478,5 +478,53 @@ See `docs/REDIS_ORDER_BOOK.md` for the full key schema and activation guide.
 | WebSocket order book feed | Deferred |
 | Real deposit / withdrawal rails | Out of scope |
 | KYC integration | Out of scope |
-| Stop-limit, Margin, Futures | Out of scope |
+| Stop-limit trigger logic, Margin, Futures | Out of scope |
 | KYC limits | External compliance check, not in core |
+
+---
+
+## Phase 31 — Spot Trading Complete
+
+### New endpoints
+
+| Route | Description |
+|-------|-------------|
+| `GET /api/markets/[market]/summary` | 24h statistics + order book snapshot |
+| `GET /api/orders/open` | Open orders only (NEW/PARTIALLY_FILLED) |
+
+### Enhanced endpoints
+
+| Route | Added |
+|-------|-------|
+| `GET /api/orders` | `side`, `type`, `from`, `to`, `cursor` params; `nextCursor` in response |
+| `GET /api/trades` | `before`, `from`, `to` cursor/range; `nextCursor` in response |
+| `GET /api/orderbook` | `aggregate=N` — price bucket aggregation |
+
+### New files
+
+| File | Description |
+|------|-------------|
+| `src/lib/trading/market-stats-service.ts` | Single-query 24h market statistics |
+| `src/app/api/markets/[market]/summary/route.ts` | Market summary route |
+| `src/app/api/orders/open/route.ts` | Open orders route |
+| `docs/SPOT_ENGINE.md` | Spot engine reference |
+
+### Audit events
+
+`OrderFilled` and `OrderPartiallyFilled` added to `TradingEventType`. Engine now emits:
+- `OrderFilled` — when incoming order completely fills
+- `OrderPartiallyFilled` — when GTC order partially fills and remains in book
+- `OrderAccepted` — when GTC order has zero fills and rests in book (unchanged)
+
+### Database
+
+Migration 0006 adds indexes for open orders, user trade history (UNION path), and 24h market stats window. See `docs/SPOT_ENGINE.md` for full index table.
+
+### Open gaps (Phase 32+)
+
+| Gap | Notes |
+|-----|-------|
+| Full single transaction (order+hold+match) | Two-transaction gap from Phase 30 remains |
+| Redis-backed order book | Stub; requires `npm install ioredis` |
+| WebSocket / SSE feeds | Out of scope |
+| Stop-limit trigger | Type accepted; trigger not implemented |

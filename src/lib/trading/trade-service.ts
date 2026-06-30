@@ -98,19 +98,39 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade | null
 }
 
 // ── Public trade history ───────────────────────────────────────────────────────
-// Returns recent trades for a market — public, no auth required.
 
 export type TradeQueryOptions = {
   market: string;
   limit?: number;
+  before?: string;
+  from?: string;
+  to?: string;
 };
 
 export async function listTrades(options: TradeQueryOptions): Promise<Trade[]> {
   const result = await withDb(async (client) => {
+    const params: unknown[] = [options.market.toUpperCase()];
+    const conditions: string[] = ["market = $1"];
+
+    if (options.before) {
+      params.push(options.before);
+      conditions.push(`executed_at < $${params.length}`);
+    }
+    if (options.from) {
+      params.push(options.from);
+      conditions.push(`executed_at >= $${params.length}`);
+    }
+    if (options.to) {
+      params.push(options.to);
+      conditions.push(`executed_at <= $${params.length}`);
+    }
+
     const limit = Math.min(options.limit ?? 50, 500);
+    params.push(limit);
+
     const rows = await client.query(
-      `SELECT * FROM trades WHERE market = $1 ORDER BY executed_at DESC LIMIT $2`,
-      [options.market.toUpperCase(), limit],
+      `SELECT * FROM trades WHERE ${conditions.join(" AND ")} ORDER BY executed_at DESC LIMIT $${params.length}`,
+      params,
     );
     return rows.rows.map(rowToTrade);
   });
@@ -123,22 +143,28 @@ export async function listTrades(options: TradeQueryOptions): Promise<Trade[]> {
 }
 
 // ── User trade history ─────────────────────────────────────────────────────────
-// Returns trades where the given user was either buyer or seller.
-// Requires knowing which order IDs belong to the user (join via orders table).
+// Uses UNION of buyer/seller subqueries for index-friendly execution.
 
-export async function listUserTrades(userId: string, market?: string, limit = 50): Promise<Trade[]> {
+export async function listUserTrades(userId: string, market?: string, limit = 50, before?: string): Promise<Trade[]> {
   const result = await withDb(async (client) => {
     const safeLimit = Math.min(limit, 200);
-    const params: unknown[] = [userId, safeLimit];
-    const marketClause = market ? `AND t.market = $${params.push(market.toUpperCase())}` : "";
+    const marketFilter = market ? `AND market = '${market.toUpperCase().replace(/'/g, "''")}'` : "";
+    const beforeFilter = before ? `AND executed_at < $2` : "";
+    const params: unknown[] = [userId];
+    if (before) params.push(before);
 
     const rows = await client.query(
-      `SELECT DISTINCT t.*
-       FROM trades t
-       JOIN orders o ON (o.id = t.buyer_order_id OR o.id = t.seller_order_id)
-       WHERE o.user_id = $1 ${marketClause}
-       ORDER BY t.executed_at DESC
-       LIMIT $2`,
+      `SELECT * FROM (
+         SELECT t.* FROM trades t
+         WHERE t.buyer_order_id IN (SELECT id FROM orders WHERE user_id = $1)
+         ${marketFilter} ${beforeFilter}
+         UNION
+         SELECT t.* FROM trades t
+         WHERE t.seller_order_id IN (SELECT id FROM orders WHERE user_id = $1)
+         ${marketFilter} ${beforeFilter}
+       ) combined
+       ORDER BY executed_at DESC
+       LIMIT ${safeLimit}`,
       params,
     );
     return rows.rows.map(rowToTrade);
