@@ -11,6 +11,7 @@
 import { createHash, randomBytes } from "crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { ipInWhitelist } from "./cidr";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -161,7 +162,7 @@ export async function validateApiKey(
     if (!permissions.includes(requiredPermission)) {
       return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "insufficient_permissions" };
     }
-    if (k.ip_whitelist && callerIp && !k.ip_whitelist.includes(callerIp)) {
+    if (k.ip_whitelist && k.ip_whitelist.length > 0 && callerIp && !ipInWhitelist(callerIp, k.ip_whitelist)) {
       return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "ip_not_whitelisted" };
     }
 

@@ -7,6 +7,101 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.35] — 2026-07-01 — Enterprise Authentication Hardening and API Security
+
+### Added — Migration 0008 (`src/lib/db-migrate.ts`)
+
+- `refresh_tokens` — long-lived refresh token table with `family_id` for reuse detection; indexed by family and user
+- `user_2fa` — TOTP 2FA configuration with AES-256-GCM encrypted secrets and HMAC-SHA256 hashed backup codes
+
+### Added — CIDR IP Whitelist (`src/lib/security/cidr.ts`)
+
+- `ipMatchesCidr(ip, cidrOrIp)` — IPv4 and IPv6 CIDR matching, zero dependencies
+- `ipInWhitelist(ip, whitelist)` — check against an array of IPs/CIDRs
+- Replaces exact-match IP whitelist in API key validation
+
+### Added — TOTP 2FA (`src/lib/security/totp.ts`)
+
+- `generateTotpSecret()` — 20-byte base32-encoded TOTP secret
+- `encryptTotpSecret(raw)` / `decryptTotpSecret(stored)` — AES-256-GCM with `TECPEY_2FA_SECRET`
+- `verifyTotp(secret, code)` — RFC 6238 HOTP/TOTP, ±1 window tolerance
+- `generateBackupCodes()` — 10 × 8-char alphanumeric codes
+- `hashBackupCode(code)` / `findBackupCode(code, hashes)` — HMAC-SHA256 with timing-safe comparison
+- `buildOtpAuthUri(opts)` — `otpauth://totp/...` compatible with all major authenticator apps
+- `storePreAuthToken(token, userId)` / `consumePreAuthToken(token)` — Redis-backed pre-auth flow (5-min TTL)
+
+### Added — Refresh Token Rotation (`src/lib/security/refresh-tokens.ts`)
+
+- `issueRefreshToken(opts)` — 30-day JWT signed with `TECPEY_REFRESH_SECRET`; persisted to `refresh_tokens` table
+- `verifyRefreshToken(token)` — DB-backed verification with reuse detection: reused token triggers family revocation
+- `revokeRefreshToken(jti)` / `revokeFamily(familyId)` — single and family-wide revocation
+- `setRefreshCookie(res, token)` / `clearRefreshCookie(res)` — `Path=/api/auth/refresh`, `SameSite=Strict`
+- New cookie: `tecpey_refresh` (30 days, HttpOnly, Strict, path-restricted)
+
+### Added — HMAC-Signed API Key Auth (`src/lib/security/api-key-auth.ts`)
+
+- `validateSignedApiKeyRequest(req, permission, rawBody)` — full Binance-style HMAC validation
+- Canonical string: `METHOD\nPATH\nTIMESTAMP_MS\nSHA256(body)`
+- 5-minute timestamp window + Redis nonce tracking (replay prevention)
+- Timing-safe signature comparison
+- `hasApiKeyHeaders(req)` — detect API key auth mode
+
+### Added — Risk Enforcement (`src/lib/security/risk-enforcement.ts`)
+
+- `setRiskLevel(userId, level, ttlSeconds)` — sets Redis `tecpey:risk:level:{userId}`
+- `clearRiskLevel(userId)` — admin or auto-release
+- `getRiskLevel(userId)` — read enforcement level
+- `enforceTradeAllowed(userId)` — synchronous trade gate (returns error code or null)
+- `enforceWithdrawAllowed(userId)` — synchronous withdrawal gate
+- Levels: `trade_blocked` | `withdraw_blocked` | `all_blocked` | `review`
+
+### Added — 2FA API Routes
+
+- `GET  /api/auth/2fa/enroll` — generate TOTP secret + QR URI + backup codes
+- `POST /api/auth/2fa/enroll` — confirm enrollment with first TOTP code
+- `POST /api/auth/2fa/verify` — verify TOTP (re-prompt or pre-auth flow)
+- `POST /api/auth/2fa/disable` — disable 2FA (requires current code or admin override)
+- `POST /api/auth/2fa/backup` — use a one-time backup code
+
+### Added — Token Refresh Route
+
+- `POST /api/auth/refresh` — exchange refresh token for new access + refresh pair; writes audit
+
+### Modified — jti Revocation in Every Authenticated Request (`src/lib/auth-session.ts`)
+
+- `getCanonicalSession()` now calls `isJtiRevoked(jti)` after signature verification
+- 30-second in-memory cache (max 2,000 entries) avoids Redis hammering
+- Graceful degrade: Redis unavailable → allow
+
+### Modified — Login/Logout Wiring (`src/app/api/academy-auth/route.ts`)
+
+- `POST` (login): issues 4-hour access token + 30-day refresh token, calls `registerSession`, writes `login` audit
+- `DELETE` (logout): calls `revokeJti`, `revokeSession`, `revokeRefreshToken`, writes `logout` audit
+
+### Modified — Risk Enforcement in Order Placement (`src/app/api/orders/route.ts`)
+
+- Added `enforceTradeAllowed(userId)` synchronous check before order creation
+- Returns HTTP 403 `account_trade_restricted` if user is trade-blocked
+
+### Modified — Risk Engine Enforcement (`src/lib/security/risk-engine.ts`)
+
+- `emit()` now calls `setRiskLevel()` on high-severity events: `trade_blocked` (1-hour) or `review` (5-min)
+
+### Modified — API Key CIDR Whitelist (`src/lib/security/api-keys.ts`)
+
+- `validateApiKey()` now uses `ipInWhitelist(ip, whitelist)` instead of `Array.includes()`
+- Supports full CIDR notation for IP whitelists
+
+### Added — Documentation
+
+- `docs/AUTH.md` — complete authentication architecture, token model, session lifecycle
+- `docs/2FA.md` — 2FA enrollment, backup codes, pre-auth flow
+- Updated `docs/SECURITY.md` — refresh tokens, HMAC API keys, CIDR whitelists, risk enforcement
+- Updated `docs/API_KEYS.md` — HMAC signing, CIDR whitelist, example code
+- Updated `docs/RISK_ENGINE.md` — enforcement levels, Phase 35 architecture
+
+---
+
 ## [v0.34] — 2026-07-01 — Enterprise Security and Compliance Foundation
 
 ### Added — Migration 0007 (`src/lib/db-migrate.ts`)

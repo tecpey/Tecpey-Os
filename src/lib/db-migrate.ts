@@ -719,6 +719,43 @@ CREATE INDEX IF NOT EXISTS idx_risk_type
   ON risk_events(event_type, created_at DESC);
 `,
   },
+
+  // ── 0008: Refresh Tokens + TOTP 2FA (Phase 35) ───────────────────────────────
+  {
+    filename: "0008_auth_hardening.sql",
+    sql: `
+-- refresh_tokens: long-lived refresh tokens for access token rotation.
+-- family_id enables reuse detection: any reuse of a superseded token
+-- revokes all tokens in the family (session hijacking protection).
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id          TEXT        PRIMARY KEY,  -- jti of this token (UUID)
+  family_id   TEXT        NOT NULL,     -- shared by all rotated tokens in chain
+  user_id     TEXT        NOT NULL,
+  parent_id   TEXT,                     -- jti of the token being rotated (NULL = first)
+  is_revoked  BOOLEAN     NOT NULL DEFAULT FALSE,
+  revoked_at  TIMESTAMPTZ,
+  device_info TEXT        NOT NULL DEFAULT '',
+  ip          TEXT        NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_family  ON refresh_tokens(family_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_user    ON refresh_tokens(user_id, is_revoked, expires_at DESC);
+
+-- user_2fa: TOTP second-factor configuration.
+-- encrypted_secret is AES-256-GCM(raw_base32_secret).
+-- backup_code_hashes are HMAC-SHA256 of each backup code (consumed on use).
+CREATE TABLE IF NOT EXISTS user_2fa (
+  user_id              TEXT        PRIMARY KEY,
+  encrypted_secret     TEXT        NOT NULL,
+  backup_code_hashes   TEXT[]      NOT NULL DEFAULT '{}',
+  enabled              BOOLEAN     NOT NULL DEFAULT FALSE,
+  enabled_at           TIMESTAMPTZ,
+  last_used_at         TIMESTAMPTZ
+);
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

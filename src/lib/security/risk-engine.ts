@@ -13,6 +13,7 @@
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { writeAudit } from "./audit-log";
+import { setRiskLevel } from "./risk-enforcement";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,13 @@ async function emit(ev: RiskEvent): Promise<void> {
     logger.warn("[risk-engine] event", {
       userId: ev.userId, type: ev.eventType, severity: ev.severity,
     });
+
+    // Phase 35: enforcement — set block level on high-severity repeated events
+    if (ev.severity === "high") {
+      void setRiskLevel(ev.userId, "trade_blocked", 3_600); // 1-hour auto-release
+    } else if (ev.eventType === "duplicate_request" && ev.severity === "medium") {
+      void setRiskLevel(ev.userId, "review", 300); // 5-min review flag
+    }
   } catch (err) {
     logger.error("[risk-engine] persist failed", { err: String(err) });
   }

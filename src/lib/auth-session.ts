@@ -11,6 +11,37 @@ import type { NextRequest } from "next/server";
 import { logger } from "./logger";
 import { COOKIES } from "./platform-config";
 import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
+import { isJtiRevoked } from "./security/jti-store";
+
+// ── jti revocation cache ──────────────────────────────────────────────────────
+// 30-second in-memory cache per jti to avoid a Redis round-trip on every request.
+// Revoked tokens remain cached as "revoked" for the TTL; allowed tokens as "allowed".
+// Cache is intentionally small — only the last N jtis seen on this instance.
+
+const JTI_CACHE_TTL_MS = 30_000;
+const JTI_CACHE_MAX = 2_000;
+type JtiCacheEntry = { revoked: boolean; ts: number };
+const jtiCache = new Map<string, JtiCacheEntry>();
+
+function pruneJtiCache(): void {
+  if (jtiCache.size <= JTI_CACHE_MAX) return;
+  const cutoff = Date.now() - JTI_CACHE_TTL_MS;
+  for (const [k, v] of jtiCache) {
+    if (v.ts < cutoff) jtiCache.delete(k);
+    if (jtiCache.size <= JTI_CACHE_MAX) break;
+  }
+}
+
+async function checkJtiRevoked(jti: string): Promise<boolean> {
+  const cached = jtiCache.get(jti);
+  if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) {
+    return cached.revoked;
+  }
+  const revoked = await isJtiRevoked(jti);
+  pruneJtiCache();
+  jtiCache.set(jti, { revoked, ts: Date.now() });
+  return revoked;
+}
 
 // ── Normalized session type ───────────────────────────────────────────────────
 
@@ -130,6 +161,23 @@ export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSe
   // Prefer unified cookie — set by Phase 22+ login flows.
   const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
   if (unified) {
+    // Phase 35: jti revocation check (30-second in-memory cache)
+    if (unified.jti) {
+      try {
+        const revoked = await checkJtiRevoked(unified.jti);
+        if (revoked) {
+          logger.info("[auth-session] jti revoked — rejecting session", { jti: unified.jti });
+          return {
+            userId: null, studentId: null, academyAccountId: null,
+            role: "guest", email: null, displayName: null, username: null,
+            isAcademyUser: false, isAdmin: false,
+          };
+        }
+      } catch (err) {
+        // Redis unavailable — allow (graceful degrade)
+        logger.warn("[auth-session] jti check failed — allowing", { err: String(err) });
+      }
+    }
     return {
       userId: null,
       studentId: unified.studentId,

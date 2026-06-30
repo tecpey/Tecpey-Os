@@ -1,6 +1,6 @@
-# Risk Engine — Phase 34
+# Risk Engine — Phase 35
 
-> Lightweight real-time risk detection. Emit events only — no enforcement in Phase 34.
+> Lightweight real-time risk detection with enforcement. Emit events + set enforcement levels.
 
 ---
 
@@ -9,19 +9,23 @@
 ```
 Order placement request
   │
+  ├── [SYNC] enforceTradeAllowed(userId)       ← NEW Phase 35
+  │       └── Redis GET tecpey:risk:level:{userId}
+  │             → if trade_blocked / all_blocked: return 403
+  │
   ├── [ASYNC, fire-and-forget] checkOrderRisk()
-  │     │
-  │     ├── Redis INCR — frequency counter
-  │     ├── Redis INCR — burst counter
-  │     ├── Redis GET  — last known IP
-  │     └── Redis GET  — dedup fingerprint
-  │           │
-  │           └── (if threshold exceeded) → INSERT risk_events + writeAudit()
+  │       │
+  │       ├── Redis INCR — frequency counter
+  │       ├── Redis INCR — burst counter
+  │       ├── Redis GET  — last known IP
+  │       └── Redis GET  — dedup fingerprint
+  │               │
+  │               └── (if threshold exceeded) → INSERT risk_events
+  │                     + writeAudit()
+  │                     + setRiskLevel() if high severity ← NEW Phase 35
   │
   └── [MAIN PATH] engine.placeOrder() — unaffected by risk engine
 ```
-
-The risk engine runs entirely on the async path. It **never blocks or delays** order execution. Phase 35+ adds enforcement: on high-severity events, orders can be blocked or accounts flagged for review.
 
 ---
 
@@ -31,51 +35,64 @@ The risk engine runs entirely on the async path. It **never blocks or delays** o
 
 **Threshold:** > 10 orders per minute per user per market.
 
-**Detection:** Redis INCR key `tecpey:risk:freq:{userId}:{market}:{minBucket}` with TTL=70s. Bucket rotates each minute.
-
-**Rationale:** Aggressive order placement typically indicates wash trading, spoofing, or a runaway bot. 10/min is generous for human traders and tight enough to catch automated abuse.
-
----
+**Redis key:** `tecpey:risk:freq:{userId}:{market}:{minBucket}` TTL=70s
 
 ### 2. order_burst (severity: low)
 
 **Threshold:** > 3 orders within 5 seconds per user.
 
-**Detection:** Redis INCR key `tecpey:risk:burst:{userId}` with TTL=5s.
-
-**Rationale:** Human traders rarely place 4 orders in 5 seconds. A bot that ignores the order frequency limit (e.g. across markets) would still be caught here.
-
----
+**Redis key:** `tecpey:risk:burst:{userId}` TTL=5s
 
 ### 3. ip_switch_detected (severity: low)
 
 **Threshold:** IP changes within a 5-minute window.
 
-**Detection:** Redis GET previous IP from `tecpey:risk:ip:{userId}` (TTL=300s), compare with current IP.
-
-**Rationale:** IP switching during an active session can indicate session hijacking. Low severity alone; combine with other signals in Phase 35.
-
----
+**Redis key:** `tecpey:risk:ip:{userId}` TTL=300s
 
 ### 4. duplicate_request (severity: medium)
 
-**Threshold:** Same order fingerprint submitted within 5 seconds.
+**Threshold:** Same order fingerprint within 5 seconds.
 
-**Fingerprint:** `{market}:{side}:{quantity}:{price}:{userId}` (SHA-256 in future; plain string in Phase 34)
+**Redis key:** `tecpey:risk:dedup:{fingerprint}` TTL=5s
 
-**Detection:** Redis GET `tecpey:risk:dedup:{fingerprint}` (TTL=5s). On first submission, key is set.
-
-**Rationale:** Prevents accidental double-click orders and detects replay attacks. Medium severity because legitimate users occasionally double-submit.
-
----
+**Phase 35 enforcement:** Sets `review` level for 5 minutes.
 
 ### 5. suspicious_api_behavior (severity: medium)
 
 **Threshold:** > 50 API calls per minute per API key.
 
-**Detection:** Redis INCR `tecpey:risk:apicall:{keyId}:{minBucket}` with TTL=70s.
+**Redis key:** `tecpey:risk:apicall:{keyId}:{minBucket}` TTL=70s
 
-**Rationale:** Legitimate trading bots rarely exceed 50 calls/min per key. Consistent over-calling suggests rate limit bypass attempts or a misconfigured bot.
+---
+
+## Enforcement Levels (Phase 35)
+
+Risk enforcement levels are stored in Redis `tecpey:risk:level:{userId}`.
+
+| Level | Effect | Auto-release |
+|-------|--------|-------------|
+| `review` | Flag only — actions allowed, warning may be returned | 5 minutes |
+| `trade_blocked` | Order placement rejected (HTTP 403 `account_trade_restricted`) | 1 hour |
+| `withdraw_blocked` | Withdrawal rejected | 24 hours |
+| `all_blocked` | All authenticated actions rejected | Manual |
+
+### Who sets enforcement levels?
+
+- **Risk engine:** `high` severity events → `trade_blocked` (1-hour TTL)
+- **Risk engine:** `duplicate_request` medium → `review` (5-min TTL)
+- **Admin:** Can set any level manually via `setRiskLevel(userId, level, ttl)`
+- **Auto-release:** Redis TTL — no manual intervention needed for timed blocks
+
+### Who checks enforcement levels?
+
+- `POST /api/orders` → `enforceTradeAllowed(userId)` (synchronous, Redis-only)
+- Future: `POST /api/withdrawals` → `enforceWithdrawAllowed(userId)`
+
+### Performance
+
+The enforcement check is a single Redis GET on the hot path. No DB round-trip. Adds < 1ms under normal load.
+
+**Graceful degrade:** Redis unavailable → allow (risk engine is advisory, not the last line of defense).
 
 ---
 
@@ -85,28 +102,34 @@ The risk engine runs entirely on the async path. It **never blocks or delays** o
 risk_events (
   id          UUID PRIMARY KEY,
   user_id     TEXT NOT NULL,
-  event_type  TEXT NOT NULL,     -- one of the 5 types above
-  severity    TEXT NOT NULL,     -- low | medium | high
-  market      TEXT,              -- relevant market if applicable
-  ip          TEXT,              -- client IP at time of event
-  metadata    JSONB,             -- event-specific context
+  event_type  TEXT NOT NULL,
+  severity    TEXT NOT NULL CHECK (severity IN ('low','medium','high')),
+  market      TEXT,
+  ip          TEXT,
+  metadata    JSONB,
   created_at  TIMESTAMPTZ
 )
 ```
 
-Indexed by `(user_id, created_at DESC)` and `(event_type, created_at DESC)` for efficient queries.
-
 ---
 
-## API
+## Admin API
 
-### Get recent risk events (admin)
+```typescript
+import { setRiskLevel, clearRiskLevel, getRiskLevel } from "@/lib/security/risk-enforcement";
 
+// Flag a user for manual review
+await setRiskLevel(userId, "review", 86400); // 24-hour
+
+// Block trading
+await setRiskLevel(userId, "trade_blocked", 3600); // 1-hour
+
+// Release a block
+await clearRiskLevel(userId);
+
+// Get current level
+const level = await getRiskLevel(userId); // "trade_blocked" | null
 ```
-GET /api/ws/metrics → pubSub.metrics (connected nodes, event counts)
-```
-
-Direct query via `getRecentRiskEvents(userId, limit)` in admin tooling.
 
 ---
 
@@ -114,20 +137,17 @@ Direct query via `getRecentRiskEvents(userId, limit)` in admin tooling.
 
 | Scenario | Behaviour |
 |----------|-----------|
-| Redis unavailable | All counters return 0 — no risk events emitted. Orders proceed normally. |
-| PostgreSQL unavailable | Risk events lost for that window. Logged as error. Orders proceed. |
-| Risk engine throws | Caught internally — order execution is unaffected. |
+| Redis unavailable | All risk counters return 0 — no events. Enforcement checks return null (allow). |
+| PostgreSQL unavailable | Risk events lost for that window. Logged. Orders proceed. |
+| Risk engine throws | Caught internally — order execution unaffected. |
 
 ---
 
-## Phase 35 Enforcement Roadmap
+## Phase 36 Roadmap
 
-In Phase 35, the risk engine will grow enforcement capabilities:
-
-| Severity | Action |
-|----------|--------|
-| `low` | Alert only (current Phase 34 behavior) |
-| `medium` | Temporary order rate reduction for user |
-| `high` | Account flagged for manual review; optional 2FA re-prompt |
-
-Implementation: the engine checks a "user_risk_level" Redis key set by the risk engine. If level is `frozen`, order placement returns `account_under_review`.
+| Feature | Description |
+|---------|-------------|
+| ML-based anomaly detection | Baseline order pattern per user; flag deviations |
+| Cross-market wash trade detection | Coordinated self-trade across markets |
+| Velocity checks | Net position movement rate limits |
+| Admin dashboard | Real-time risk event feed + enforcement controls |

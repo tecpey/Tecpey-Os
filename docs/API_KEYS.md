@@ -1,18 +1,18 @@
-# API Key Management — Phase 34
+# API Key Management — Phase 35
 
-> Production-grade API key system for programmatic trading access.
+> Production-grade API key system with Binance/Kraken-style HMAC-SHA256 request signing and CIDR IP whitelists.
 
 ---
 
 ## Overview
 
-TecPey API keys allow programmatic access without sharing your session credentials. They follow the same security model as Binance and GitHub PATs:
+TecPey API keys allow programmatic access without sharing your session credentials:
 
-- Keys are generated once and only displayed once
-- Only a SHA-256 hash is stored in the database
+- Keys are SHA-256 hashed — plaintext is returned once and never stored
 - Keys can be scoped to specific permissions
-- Optional IP whitelist restricts usage to known IPs
+- Optional CIDR IP whitelist restricts usage to known IPs/ranges
 - Optional expiration date
+- HMAC-SHA256 request signing (Phase 35)
 
 ---
 
@@ -22,7 +22,7 @@ TecPey API keys allow programmatic access without sharing your session credentia
 tecpey_{8-char-prefix}_{48-char-random-body}
 ```
 
-The prefix is also stored in the database for display/identification. The full plaintext is **never stored** — only `SHA-256(plaintext)`.
+The prefix is also stored in the database for display/identification.
 
 ---
 
@@ -32,7 +32,7 @@ The prefix is also stored in the database for display/identification. The full p
 |------------|--------|
 | `read` | GET endpoints: markets, orders, trades, wallet balances, order book |
 | `trade` | POST /api/orders, DELETE /api/orders/[id] |
-| `withdraw` | POST /api/withdrawals (Phase 35+) |
+| `withdraw` | POST /api/withdrawals (Phase 36+) |
 
 Permissions are additive. Assign only what is needed.
 
@@ -47,31 +47,6 @@ GET /api/api-keys
 Authorization: session cookie required
 ```
 
-Returns all API keys (active and inactive). **Does not return key plaintext** — only prefix and metadata.
-
-**Response:**
-```json
-{
-  "ok": true,
-  "keys": [
-    {
-      "id": "uuid",
-      "name": "Trading Bot",
-      "keyPrefix": "aB3xYz7q",
-      "permissions": ["read", "trade"],
-      "ipWhitelist": ["1.2.3.4"],
-      "expiresAt": null,
-      "lastUsedAt": "2026-06-30T...",
-      "isActive": true,
-      "createdAt": "2026-06-01T...",
-      "updatedAt": "2026-06-30T..."
-    }
-  ]
-}
-```
-
----
-
 ### Create API Key
 
 ```
@@ -84,12 +59,10 @@ Authorization: session cookie required
 {
   "name": "Trading Bot",
   "permissions": ["read", "trade"],
-  "ipWhitelist": ["1.2.3.4", "5.6.7.8"],
+  "ipWhitelist": ["1.2.3.4", "192.168.0.0/24"],
   "expiresAt": "2027-01-01T00:00:00Z"
 }
 ```
-
-`ipWhitelist` and `expiresAt` are optional.
 
 **Response (201):**
 ```json
@@ -100,68 +73,106 @@ Authorization: session cookie required
 }
 ```
 
-**Save the `plaintext` immediately — it will not be shown again.**
+Save the `plaintext` immediately — it will not be shown again.
 
----
-
-### Update API Key
+### Update / Rotate API Key
 
 ```
 PATCH /api/api-keys/{id}
-Authorization: session cookie required
 ```
 
-**Disable:**
-```json
-{ "action": "disable" }
-```
-
-**Enable:**
-```json
-{ "action": "enable" }
-```
-
-**Rotate (generates a new key):**
-```json
-{ "action": "rotate" }
-```
-Returns `{ "ok": true, "plaintext": "tecpey_..." }` — save the new plaintext immediately.
-
----
+Actions: `disable`, `enable`, `rotate`
 
 ### Delete API Key
 
 ```
 DELETE /api/api-keys/{id}
-Authorization: session cookie required
 ```
-
-Permanently removes the key. Cannot be undone.
 
 ---
 
-## Using an API Key
+## Signed Request Authentication (Phase 35)
 
-Include the API key in the `X-API-Key` header:
+Every API key request must be signed with HMAC-SHA256.
+
+### Required headers
 
 ```
-GET /api/orders
-X-API-Key: tecpey_aB3xYz7q_...
+X-TECPEY-APIKEY:    tecpey_{prefix}_{body}
+X-TECPEY-TIMESTAMP: {epoch_milliseconds}
+X-TECPEY-SIGNATURE: {hex_signature}
 ```
 
-API key authentication is processed before session cookie authentication. If both are present, API key takes precedence.
+### Canonical string
 
-**Phase 35 implementation:** Route handlers will call `validateApiKey(rawKey, requiredPermission, callerIp)` from `@/lib/security/api-keys`. For Phase 34, the validation function is implemented but not wired into route middleware.
+```
+{METHOD}\n{PATH}\n{TIMESTAMP_MS}\n{SHA256(body)}
+```
+
+For requests with no body (GET, DELETE), use `SHA256("")`.
+
+### Signature
+
+```
+HMAC-SHA256(apiKeyPlaintext, canonicalString).toHex()
+```
+
+**The signing key is the API key plaintext itself.** Never store it — use it only to compute signatures.
+
+### Example (Node.js)
+
+```javascript
+const crypto = require("crypto");
+
+const method = "POST";
+const path = "/api/orders";
+const timestamp = Date.now().toString();
+const body = JSON.stringify({ market: "BTCUSDT", side: "buy", type: "limit", quantity: "0.01", price: "65000" });
+
+const bodyHash = crypto.createHash("sha256").update(body).digest("hex");
+const canonical = `${method}\n${path}\n${timestamp}\n${bodyHash}`;
+const signature = crypto.createHmac("sha256", API_KEY_PLAINTEXT).update(canonical).digest("hex");
+
+fetch("https://api.tecpey.com/api/orders", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-TECPEY-APIKEY": API_KEY_PLAINTEXT,
+    "X-TECPEY-TIMESTAMP": timestamp,
+    "X-TECPEY-SIGNATURE": signature,
+  },
+  body,
+});
+```
+
+### Validation rules
+
+| Rule | Value |
+|------|-------|
+| Timestamp window | ±5 minutes |
+| Replay protection | Redis nonce (5-min TTL) |
+| Signature comparison | Timing-safe |
 
 ---
 
-## Security Recommendations
+## CIDR IP Whitelist
 
-1. **Rotate keys periodically** — use the rotate endpoint
-2. **Set IP whitelist** — restrict to your server IPs
-3. **Set expiration** — don't create permanent keys for bots
-4. **Minimal permissions** — read-only bots don't need `trade` permission
-5. **One key per application** — makes rotation and revocation clean
+`ipWhitelist` supports:
+
+| Format | Example |
+|--------|---------|
+| Single IPv4 | `"1.2.3.4"` |
+| IPv4 CIDR | `"192.168.0.0/24"` |
+| Single IPv6 | `"::1"` |
+| IPv6 CIDR | `"2001:db8::/32"` |
+
+---
+
+## Limits
+
+- Max 20 active keys per user
+- Key name: 100 chars max
+- Expiration: optional ISO 8601 date
 
 ---
 
@@ -169,10 +180,25 @@ API key authentication is processed before session cookie authentication. If bot
 
 | Code | Meaning |
 |------|---------|
+| `missing_headers` | One or more required headers absent |
+| `timestamp_expired` | `|now - X-TECPEY-TIMESTAMP| > 5 minutes` |
+| `invalid_signature` | HMAC mismatch |
+| `replayed_request` | Nonce already used within 5-minute window |
 | `invalid_format` | Key doesn't start with `tecpey_` |
 | `key_not_found` | Hash not in database |
 | `key_disabled` | Key is disabled |
 | `key_expired` | Past expiration date |
 | `insufficient_permissions` | Key lacks required permission |
-| `ip_not_whitelisted` | Caller IP not in whitelist |
+| `ip_not_whitelisted` | Caller IP not in CIDR whitelist |
 | `api_key_limit_reached` | Max 20 active keys per user |
+
+---
+
+## Security Recommendations
+
+1. **Sign every request** — use the HMAC-SHA256 signing flow
+2. **Set IP whitelist** — restrict to your server IPs or CIDRs
+3. **Set expiration** — don't create permanent keys for bots
+4. **Minimal permissions** — read-only bots don't need `trade`
+5. **One key per application** — makes rotation and revocation clean
+6. **Rotate periodically** — use the rotate endpoint quarterly

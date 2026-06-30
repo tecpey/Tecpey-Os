@@ -1,6 +1,6 @@
-# Security Architecture — Phase 34
+# Security Architecture — Phase 35
 
-> Enterprise security foundation: JWT hardening, session management, API keys, risk engine, audit trail.
+> Enterprise security: JWT hardening, refresh token rotation, TOTP 2FA, HMAC API keys, CIDR whitelists, risk enforcement.
 
 ---
 
@@ -8,30 +8,113 @@
 
 ### jti (JWT ID)
 
-Every new session token includes a `jti` claim (UUID v4). This enables individual token revocation without rotating the signing secret.
+Every new session token includes a `jti` claim (UUID v4). Enables individual token revocation.
 
-- **Before Phase 34:** No jti — tokens could not be individually revoked
-- **Phase 34+:** jti generated on every `signUnifiedSession()` call; stored in Redis on revocation
+**Phase 34:** jti generated, stored in Redis on revocation.
+**Phase 35:** jti checked on **every authenticated request** via `getCanonicalSession()`.
 
-### Revocation
+### Revocation check
 
-**Revocation list:** `tecpey:revoked:jti:{jti}` → Redis key with TTL = remaining token lifetime
+```
+getCanonicalSession(req)
+  └── verifyUnifiedSession(token)       // HS256 signature + expiry
+        └── isJtiRevoked(jti)           // Redis O(1) lookup
+              └── 30s in-memory cache   // avoids Redis hammering
+```
 
-On revocation (logout, logout-all, admin kick):
-1. Write jti to Redis with TTL
-2. Mark `user_sessions` row as revoked in PostgreSQL
-
-On session verification (route handlers that call `isJtiRevoked`):
-1. `verifyUnifiedSession()` — validates signature + expiry (unchanged, edge-compatible)
-2. `isJtiRevoked(jti)` — checks Redis revocation list
-
-**Failure mode:** If Redis is unavailable, `isJtiRevoked` returns `false` (allow). The PostgreSQL session table provides a durable audit trail and can be replayed into Redis on recovery.
+**Cache:** per-jti, 30-second TTL, max 2,000 entries. Protects against burst Redis round-trips.
+**Failure mode:** Redis unavailable → allow (graceful degrade).
 
 ### Token extraction without verification
 
-`extractJtiFromToken(token)` — base64url-decodes the JWT payload without signature verification. Used on logout path to extract jti without needing the signing key.
+`extractJtiFromToken(token)` — base64url-decode without verification. Used on logout.
+`extractExpFromToken(token)` — same, for TTL calculation.
 
-`extractExpFromToken(token)` — same pattern for expiration time.
+---
+
+## Token Model
+
+| Cookie | TTL | Path | SameSite |
+|--------|-----|------|----------|
+| `tecpey_session` (access) | 4h (new logins) | `/` | `Lax` |
+| `tecpey_refresh` | 30d | `/api/auth/refresh` | `Strict` |
+
+Existing 30-day `tecpey_session` cookies continue to work (backward compat).
+
+---
+
+## Refresh Token Rotation
+
+See `docs/AUTH.md` for full lifecycle. Key security properties:
+
+- **Family-based reuse detection** — stolen + replayed token triggers full session invalidation
+- **PostgreSQL-backed** — multi-instance consistency without Redis dependency
+- **Path-restricted cookie** — refresh cookie only sent to `/api/auth/refresh`
+- **Atomic revocation** — old token revoked before new tokens are issued
+
+---
+
+## TOTP 2FA
+
+See `docs/2FA.md`. Security properties:
+
+- **AES-256-GCM** encrypted secret at rest
+- **HMAC-SHA256** hashed backup codes (one-time use)
+- **Pre-auth token pattern** for 2FA-required login flow (Redis, 5-min TTL)
+- **Admin override** with audit trail
+
+---
+
+## HMAC-Signed API Key Requests
+
+### Headers required
+
+```
+X-TECPEY-APIKEY:    tecpey_{prefix}_{body}
+X-TECPEY-TIMESTAMP: 1735689600000          (epoch ms)
+X-TECPEY-SIGNATURE: {hex}                  (HMAC-SHA256)
+```
+
+### Canonical string
+
+```
+METHOD\n
+/path/to/endpoint\n
+TIMESTAMP_MS\n
+SHA256(requestBody or "")
+```
+
+### Signing key
+
+The API key plaintext itself is the HMAC key — it is never stored server-side (only SHA-256 hash is stored). This means only the holder of the plaintext can produce valid signatures.
+
+### Validation chain
+
+1. **Timestamp window** — reject if `|now - timestamp| > 5 minutes`
+2. **Signature** — HMAC-SHA256(rawKey, canonical) with timing-safe comparison
+3. **Nonce** — Redis `tecpey:sig:nonce:{signature}` SET NX, TTL=5m (prevents replay)
+4. **Key lookup** — SHA-256 hash lookup in `api_keys` table
+5. **Permission** — required permission in key's permission set
+6. **IP whitelist** — CIDR matching (if whitelist configured)
+
+### Backward compatibility
+
+Cookie session auth remains unchanged. API key auth is an alternative path — existing clients are unaffected.
+
+---
+
+## CIDR IP Whitelist
+
+API keys support CIDR notation in `ip_whitelist`:
+
+| Format | Example |
+|--------|---------|
+| Single IPv4 | `"1.2.3.4"` |
+| IPv4 CIDR | `"192.168.0.0/24"` |
+| Single IPv6 | `"::1"` |
+| IPv6 CIDR | `"2001:db8::/32"` |
+
+Implementation: `src/lib/security/cidr.ts` — zero dependencies, pure bitwise arithmetic.
 
 ---
 
@@ -58,145 +141,94 @@ On session verification (route handlers that call `isJtiRevoked`):
 | GET | `/api/auth/sessions` | List active sessions (last 50) |
 | DELETE | `/api/auth/sessions` | Logout all devices (keeps current session) |
 | DELETE | `/api/auth/sessions/[id]` | Revoke a specific session |
-
-Rate limits: 30/min for list; 5/min for logout-all; 20/min for single revoke.
-
-### Session registration
-
-Call `registerSession({ jti, userId, deviceInfo, ip, expiresAt })` after a successful login that calls `signUnifiedSession()`.
+| POST | `/api/auth/refresh` | Exchange refresh token for new access + refresh pair |
 
 ---
 
 ## API Key Management
 
-### Key format
-
-```
-tecpey_{8-char-prefix}_{48-char-random}
-```
-
-Example: `tecpey_aB3xYz7q_dGhJkLmNoPqRsTuVwXyZa1B2c3D4e5F6g7H8i9J0k1L2m3N4`
-
-### Storage
-
-| Field | Value |
-|-------|-------|
-| key_prefix | First 8 chars (display only) |
-| key_hash | SHA-256(plaintext_key) |
-
-**Plaintext is returned once** (on creation or rotation) and **never stored**. This matches the GitHub PAT / Binance API key pattern.
-
-### Permissions
-
-| Permission | Description |
-|------------|-------------|
-| `read` | Market data, order history, wallet balance |
-| `trade` | Place and cancel orders |
-| `withdraw` | Initiate withdrawals (Phase 35+) |
-
-Permissions are additive. A key with `["read", "trade"]` can do both.
-
-### Lifecycle
-
-| Action | Endpoint |
-|--------|----------|
-| Create | `POST /api/api-keys` |
-| List | `GET /api/api-keys` |
-| Disable | `PATCH /api/api-keys/[id]` `{ action: "disable" }` |
-| Enable | `PATCH /api/api-keys/[id]` `{ action: "enable" }` |
-| Rotate | `PATCH /api/api-keys/[id]` `{ action: "rotate" }` |
-| Delete | `DELETE /api/api-keys/[id]` |
-
-### IP whitelist
-
-Optional `ipWhitelist: string[]` restricts key usage to listed IPs. `null` = allow all.
-
-### Limits
-
-- Max 20 active keys per user
-- Key name: 100 chars max
-- Expiration: optional ISO 8601 date
+See `docs/API_KEYS.md`.
 
 ---
 
-## Rate Limiting (Extended)
+## Risk Engine & Enforcement
 
-| Scope | Function | Use case |
-|-------|----------|----------|
-| Per-IP | `rateLimit(req, opts)` | Public endpoints, unauthenticated |
-| Per-User | `rateLimitUser(req, { userId, ... })` | Authenticated private endpoints |
-| Per-API-Key | `rateLimitApiKey({ keyId, ... })` | API key authenticated calls |
+### Risk levels (Phase 35)
 
-### Limits by endpoint category
+| Level | Effect |
+|-------|--------|
+| `review` | Flag only — user can still trade (5-min auto-release) |
+| `trade_blocked` | Order placement rejected (1-hour auto-release on high-severity) |
+| `withdraw_blocked` | Withdrawal rejected |
+| `all_blocked` | All authenticated actions rejected |
+
+Stored in Redis `tecpey:risk:level:{userId}`. Auto-expiring (no manual intervention required for timed blocks).
+
+**Enforcement is synchronous in the request path** but Redis-only — never adds a DB round-trip.
+**Graceful degrade:** Redis unavailable → allow.
+
+See `docs/RISK_ENGINE.md`.
+
+---
+
+## Security Headers
+
+All responses include:
+
+| Header | Value |
+|--------|-------|
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` |
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | camera, microphone, geolocation, payment disabled |
+| `X-XSS-Protection` | `0` (browser auditor disabled per OWASP) |
+
+CSP is applied via `proxy.ts` (nonce-based, per-request).
+
+Cookies: `HttpOnly`, `Secure` (production), `SameSite=Lax` (access), `SameSite=Strict` (refresh).
+
+---
+
+## Rate Limiting
 
 | Category | Limit | Window |
 |----------|-------|--------|
-| Public REST (read) | 480/min | 60s |
-| Private REST (orders) | 120/min | 60s |
+| Login / signup | 10/min | 60s |
+| Token refresh | 30/min | 60s |
+| 2FA enroll | 10/min | 60s |
+| 2FA verify | 10/min | 60s |
+| 2FA disable | 5/min | 60s |
+| 2FA backup code | 5/min | 60s |
+| Session list | 30/min | 60s |
+| Session revoke all | 5/min | 60s |
 | Order placement | 30/min | 60s |
-| Order cancel | 30/min | 60s |
-| Auth endpoints | 10/min | 60s |
-| Session management | 30/min | 60s |
-| Logout all | 5/min | 60s |
 | API key create | 10/min | 60s |
-| Admin | 30/min | 60s |
-| WebSocket (subscriptions) | 100 max per connection | — |
 
 ---
 
 ## Audit Trail
 
-### Design
-
-- Append-only — no UPDATE/DELETE ever run against `audit_events`
-- Fire-and-forget — `writeAudit()` is non-blocking; failures logged, not propagated
-- All sensitive actions write an audit event
-
-### Schema
-
-```sql
-audit_events (
-  id            UUID PRIMARY KEY,
-  actor_id      TEXT NOT NULL,        -- user/admin performing the action
-  action        TEXT NOT NULL,        -- action type (see list below)
-  resource_type TEXT,                 -- "order", "session", "api_key", etc.
-  resource_id   TEXT,                 -- UUID of the affected resource
-  ip            TEXT,                 -- client IP
-  user_agent    TEXT,                 -- browser/client info
-  metadata      JSONB,               -- action-specific context
-  created_at    TIMESTAMPTZ
-)
-```
-
-### Audited actions
+All security events are written to `audit_events` (append-only, fire-and-forget).
 
 | Action | Trigger |
 |--------|---------|
-| `login` | Successful login |
-| `logout` | Single logout |
+| `login` | Successful login, token refresh |
+| `logout` | Single logout, failed refresh |
 | `logout_all` | Revoke all sessions |
 | `session_revoked` | Individual session revoke |
-| `api_key_created` | New API key created |
+| `2fa_enabled` | 2FA enrolled |
+| `2fa_disabled` | 2FA disabled |
+| `api_key_created` | New API key |
 | `api_key_rotated` | API key rotated |
 | `api_key_disabled` | API key disabled |
 | `api_key_deleted` | API key deleted |
-| `order_placed` | Order submitted to engine |
+| `order_placed` | Order submitted |
 | `order_cancelled` | Order cancelled |
-| `wallet_deposit` | Deposit credited (Phase 35+) |
-| `wallet_withdrawal` | Withdrawal initiated (Phase 35+) |
-| `admin_action` | Admin performed action |
 | `risk_event` | Risk engine signal |
-| `password_changed` | Password update (Phase 35+) |
-| `2fa_enabled` / `2fa_disabled` | 2FA state change (Phase 35+) |
-
----
-
-## Risk Engine
-
-See `docs/RISK_ENGINE.md` for full documentation.
 
 ---
 
 ## Compliance Interfaces
 
-See `docs/COMPLIANCE.md` for provider interface specifications.
+See `docs/COMPLIANCE.md`.

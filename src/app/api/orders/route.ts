@@ -9,6 +9,7 @@ import { withTx } from "@/lib/db";
 import { checkOrderRisk } from "@/lib/security/risk-engine";
 import { writeAudit } from "@/lib/security/audit-log";
 import { getClientIp } from "@/lib/rate-limit";
+import { enforceTradeAllowed } from "@/lib/security/risk-enforcement";
 import { getMarket } from "@/lib/trading/market-service";
 import { createOrderTx, listOrders, getOrder } from "@/lib/trading/order-service";
 import { validatePlaceOrderRequest, isValidOrderSide, isValidOrderType } from "@/lib/trading/validation";
@@ -104,8 +105,13 @@ export async function POST(req: NextRequest) {
     const marketDef = await getMarket(market);
     if (!marketDef) return apiError("market_not_found", 404);
 
-    // Risk engine check — fire-and-forget; does NOT block the order
     const ip = getClientIp(req);
+
+    // Risk enforcement — synchronous; blocks if user is trade-restricted
+    const tradeBlock = await enforceTradeAllowed(userId);
+    if (tradeBlock) return apiError(tradeBlock, 403);
+
+    // Risk engine check — fire-and-forget; does NOT block the order
     const fingerprint = `${market}:${side}:${quantity}:${price ?? "mkt"}:${userId}`;
     checkOrderRisk({ userId, market, ip, orderFingerprint: fingerprint });
 

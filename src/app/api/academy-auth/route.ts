@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withDb } from "@/lib/db";
 import {
@@ -14,9 +14,27 @@ import {
   normalizeAcademyUsername,
 } from "@/lib/academy-auth";
 import { clearStudentSessionCookie } from "@/lib/academy-session";
-import { clearUnifiedSessionCookie, setUnifiedSessionCookieAsync } from "@/lib/unified-session";
+import {
+  clearUnifiedSessionCookie,
+  extractJtiFromToken,
+  extractExpFromToken,
+  UNIFIED_SESSION_COOKIE,
+} from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { registerSession, revokeSession } from "@/lib/security/session-store";
+import { revokeJti } from "@/lib/security/jti-store";
+import { writeAudit } from "@/lib/security/audit-log";
+import {
+  issueRefreshToken,
+  setRefreshCookie,
+  clearRefreshCookie,
+  revokeRefreshToken,
+  getRefreshTokenFromRequest,
+  verifyRefreshToken,
+  ACCESS_COOKIE_TTL_S,
+} from "@/lib/security/refresh-tokens";
+import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 
 type AcademyAccount = {
   accountId: string;
@@ -247,13 +265,60 @@ export async function POST(req: NextRequest) {
         username: account.username,
       },
     });
-    await setUnifiedSessionCookieAsync(response, {
+
+    // Issue access token (short-lived for new logins)
+    const { signUnifiedSession } = await import("@/lib/unified-session");
+    const accessToken = await signUnifiedSession({
       accountId: account.accountId,
       studentId: null,
       email: account.email,
       displayName: account.displayName,
       username: account.username,
     });
+
+    response.cookies.set(COOKIES.SESSION, accessToken, {
+      path: "/",
+      httpOnly: true,
+      secure: shouldUseSecureCookie(),
+      sameSite: "lax",
+      maxAge: ACCESS_COOKIE_TTL_S,
+    });
+
+    // Issue refresh token and persist session
+    const ip = getClientIp(req);
+    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    const jti = extractJtiFromToken(accessToken);
+    const exp = extractExpFromToken(accessToken);
+
+    const familyId = crypto.randomUUID();
+    const refreshToken = await issueRefreshToken({
+      userId: account.accountId,
+      familyId,
+      deviceInfo,
+      ip,
+    });
+    if (refreshToken) setRefreshCookie(response, refreshToken);
+
+    // Register session in DB (fire-and-forget — never block login)
+    if (jti && exp) {
+      void registerSession({
+        jti,
+        userId: account.accountId,
+        deviceInfo,
+        ip,
+        expiresAt: new Date(exp * 1000),
+      });
+    }
+
+    // Audit login
+    writeAudit({
+      actorId: account.accountId,
+      action: "login",
+      ip,
+      userAgent: deviceInfo,
+      metadata: { mode, email: account.email },
+    });
+
     return response;
   } catch {
     return apiError("server_error", 500);
@@ -264,9 +329,45 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
     const response = apiOk({});
+
+    // Revoke current session jti before clearing cookie
+    const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
+    const ip = getClientIp(req);
+    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    let actorId = "unknown";
+
+    if (sessionToken) {
+      const jti = extractJtiFromToken(sessionToken);
+      const exp = extractExpFromToken(sessionToken);
+      if (jti && exp) {
+        actorId = jti; // best we have without re-verifying
+        void revokeJti(jti, exp);
+        void revokeSession(jti, jti); // userId=jti is a fallback; session-store uses jti as PK
+      }
+    }
+
+    // Revoke refresh token if present
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (refreshToken) {
+      const verified = await verifyRefreshToken(refreshToken);
+      if (verified.ok) {
+        actorId = verified.userId;
+        void revokeRefreshToken(verified.jti);
+      }
+    }
+
     clearAcademyAuthCookie(response);
     clearStudentSessionCookie(response);
     clearUnifiedSessionCookie(response);
+    clearRefreshCookie(response);
+
+    writeAudit({
+      actorId,
+      action: "logout",
+      ip,
+      userAgent: deviceInfo,
+    });
+
     return response;
   });
 }
