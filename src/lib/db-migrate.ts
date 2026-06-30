@@ -598,6 +598,29 @@ VALUES
 ON CONFLICT (symbol) DO NOTHING;
 `,
   },
+
+  // ── 0005: Wallet Balances (Phase 30) ─────────────────────────────────────────
+  {
+    filename: "0005_wallet_balances.sql",
+    sql: `
+-- wallet_balances: fast O(1) balance snapshot per (user, asset).
+-- Available balance is the spendable amount; held balance is earmarked for open orders.
+-- All mutations are atomic single-UPDATE statements — no separate read-then-write.
+-- The wallet_ledger table remains the immutable audit trail; this table is the
+-- derived summary rebuilt from it (or kept in sync via service-layer operations).
+CREATE TABLE IF NOT EXISTS wallet_balances (
+  user_id           TEXT           NOT NULL,
+  asset             TEXT           NOT NULL,
+  available_balance NUMERIC(30,10) NOT NULL DEFAULT 0,
+  held_balance      NUMERIC(30,10) NOT NULL DEFAULT 0,
+  updated_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  CONSTRAINT pk_wallet_balances          PRIMARY KEY (user_id, asset),
+  CONSTRAINT chk_wb_available_nonneg CHECK (available_balance >= 0),
+  CONSTRAINT chk_wb_held_nonneg      CHECK (held_balance      >= 0)
+);
+CREATE INDEX IF NOT EXISTS idx_wb_user_asset ON wallet_balances(user_id, asset);
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

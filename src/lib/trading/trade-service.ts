@@ -34,6 +34,38 @@ export type CreateTradeInput = {
   makerSide: MakerSide;
 };
 
+// Transaction-aware variant — uses caller-provided PoolClient.
+export async function createTradeTx(
+  client: import("pg").PoolClient,
+  input: CreateTradeInput,
+): Promise<Trade | null> {
+  const id = input.id || randomUUID();
+  try {
+    const rows = await client.query(
+      `INSERT INTO trades
+         (id, market, buyer_order_id, seller_order_id, price, quantity,
+          fee_buyer, fee_seller, maker_side)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [
+        id,
+        input.market.toUpperCase(),
+        input.buyerOrderId,
+        input.sellerOrderId,
+        input.price.toFixed(10),
+        input.quantity.toFixed(10),
+        input.feeBuyer.toFixed(10),
+        input.feeSeller.toFixed(10),
+        input.makerSide,
+      ],
+    );
+    return rows.rows[0] ? rowToTrade(rows.rows[0]) : null;
+  } catch (err) {
+    logger.error("[trade-service] createTradeTx failed", { input, err });
+    return null;
+  }
+}
+
 export async function createTrade(input: CreateTradeInput): Promise<Trade | null> {
   const id = input.id || randomUUID();
   const result = await withDb(async (client) => {

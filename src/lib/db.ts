@@ -94,3 +94,47 @@ export async function withDb<T>(
     client.release();
   }
 }
+
+// Wraps a handler in a single Postgres transaction (BEGIN / COMMIT / ROLLBACK).
+// On handler success: commits and returns { enabled: true, value }.
+// On pool unavailable: returns { enabled: false, value: null } without connecting.
+// On handler throw: rolls back then re-throws — callers must catch specific errors.
+export async function withTx<T>(
+  handler: (client: PoolClient) => Promise<T>,
+): Promise<{ enabled: true; value: T } | { enabled: false; value: null }> {
+  const p = getPool();
+  if (!p) return { enabled: false, value: null };
+
+  if (!schemaInit) {
+    schemaInit = (async () => {
+      const c = await p.connect();
+      try {
+        await runMigrations(c);
+      } catch (err) {
+        schemaInit = null;
+        throw err;
+      } finally {
+        c.release();
+      }
+    })();
+  }
+
+  try {
+    await schemaInit;
+  } catch {
+    return { enabled: false, value: null };
+  }
+
+  const client = await p.connect();
+  try {
+    await client.query("BEGIN");
+    const value = await handler(client);
+    await client.query("COMMIT");
+    return { enabled: true, value };
+  } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore rollback error */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}

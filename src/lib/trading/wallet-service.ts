@@ -1,81 +1,27 @@
 import { withDb } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { postLedgerEntry } from "./ledger-service";
-
-// Phase 29 convention: walletId === userId.
-// A dedicated wallets table with proper foreign keys belongs in a future phase.
+import { holdFunds, releaseFunds } from "./wallet-balance-service";
 
 // ── Available balance ─────────────────────────────────────────────────────────
 //
-// Available balance = sum of all credits/returns − sum of all debits/locks.
-// `hold` reduces available (funds earmarked for an open order).
-// `release` restores available (order cancelled or partially expired).
-// `trade_debit` is the actual financial deduction when a fill executes.
-// `adjustment` is treated as additive (admin top-up); negative adjustments
-// are not supported in Phase 29 — document as a gap.
+// Phase 30: O(1) read from wallet_balances — no longer a full ledger aggregate.
+// Returns 0 if no balance row exists (new user, untouched asset).
 
 export async function getAvailableBalance(userId: string, asset: string): Promise<number> {
   const result = await withDb(async (client) => {
-    const rows = await client.query<{ available: string }>(
-      `SELECT COALESCE(SUM(
-         CASE
-           WHEN type IN ('deposit', 'trade_credit', 'release', 'adjustment') THEN  amount
-           WHEN type IN ('withdraw', 'trade_debit', 'fee', 'hold')           THEN -amount
-           ELSE 0
-         END
-       ), 0)::TEXT AS available
-       FROM wallet_ledger
-       WHERE wallet_id = $1 AND asset = $2`,
+    const rows = await client.query<{ available_balance: string }>(
+      `SELECT available_balance FROM wallet_balances WHERE user_id = $1 AND asset = $2`,
       [userId, asset.toUpperCase()],
     );
-    return rows.rows[0]?.available ?? "0";
+    return rows.rows[0]?.available_balance ?? "0";
   });
   if (!result.enabled) return 0;
   return parseFloat(result.value ?? "0");
 }
 
-// ── Internal helper ───────────────────────────────────────────────────────────
+// ── Hold / release ────────────────────────────────────────────────────────────
 //
-// Fetches current available balance then appends the ledger entry with the
-// computed balance_after. Not perfectly atomic at high concurrency — the
-// in-process engine serialises calls so this is safe for Phase 29.
-
-async function appendEntry(
-  userId: string,
-  asset: string,
-  type: "hold" | "release" | "trade_debit" | "trade_credit" | "fee",
-  amount: number,
-  referenceId: string,
-  referenceType: string,
-): Promise<boolean> {
-  if (amount <= 0) return true; // no-op for zero amounts
-
-  const current = await getAvailableBalance(userId, asset);
-  const balanceAfter =
-    type === "trade_credit" || type === "release"
-      ? current + amount
-      : current - amount;
-
-  const entry = await postLedgerEntry({
-    walletId: userId,
-    asset: asset.toUpperCase(),
-    type,
-    amount: amount.toFixed(10),
-    balanceAfter: balanceAfter.toFixed(10),
-    referenceId,
-    referenceType,
-  });
-
-  if (!entry) {
-    logger.error("[wallet-service] failed to post ledger entry", {
-      userId, asset, type, amount, referenceId,
-    });
-    return false;
-  }
-  return true;
-}
-
-// ── Public functions ──────────────────────────────────────────────────────────
+// Delegates to wallet-balance-service for atomic single-SQL operations.
+// Kept here so existing call sites (e.g. orders/route.ts) need no import changes.
 
 export async function postHold(
   userId: string,
@@ -83,7 +29,7 @@ export async function postHold(
   amount: number,
   orderId: string,
 ): Promise<boolean> {
-  return appendEntry(userId, asset, "hold", amount, orderId, "order");
+  return holdFunds(userId, asset, amount, orderId);
 }
 
 export async function postRelease(
@@ -92,32 +38,5 @@ export async function postRelease(
   amount: number,
   orderId: string,
 ): Promise<boolean> {
-  return appendEntry(userId, asset, "release", amount, orderId, "order");
-}
-
-export async function postTradeDebit(
-  userId: string,
-  asset: string,
-  amount: number,
-  tradeId: string,
-): Promise<boolean> {
-  return appendEntry(userId, asset, "trade_debit", amount, tradeId, "trade");
-}
-
-export async function postTradeCredit(
-  userId: string,
-  asset: string,
-  amount: number,
-  tradeId: string,
-): Promise<boolean> {
-  return appendEntry(userId, asset, "trade_credit", amount, tradeId, "trade");
-}
-
-export async function postFee(
-  userId: string,
-  asset: string,
-  amount: number,
-  tradeId: string,
-): Promise<boolean> {
-  return appendEntry(userId, asset, "fee", amount, tradeId, "trade");
+  return releaseFunds(userId, asset, amount, orderId);
 }

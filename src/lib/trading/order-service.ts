@@ -147,6 +147,105 @@ export async function cancelOrder(
   return { cancelled: true, order };
 }
 
+// ── Transaction-aware variants (engine-internal) ──────────────────────────────
+//
+// These accept a caller-provided PoolClient so all calls can participate in a
+// single BEGIN/COMMIT block managed by the matching engine.
+
+export async function createOrderTx(
+  client: import("pg").PoolClient,
+  input: CreateOrderInput,
+): Promise<Order | null> {
+  const id = randomUUID();
+  const timeInForce: TimeInForce = input.timeInForce ?? "GTC";
+  try {
+    const rows = await client.query(
+      `INSERT INTO orders
+         (id, user_id, market, side, type, status, price, stop_price,
+          quantity, filled_quantity, remaining_quantity, client_order_id, time_in_force)
+       VALUES ($1,$2,$3,$4,$5,'NEW',$6,$7,$8,0,$8,$9,$10)
+       RETURNING *`,
+      [
+        id,
+        input.userId,
+        input.market.toUpperCase(),
+        input.side,
+        input.type,
+        input.price ?? null,
+        input.stopPrice ?? null,
+        input.quantity,
+        input.clientOrderId ?? null,
+        timeInForce,
+      ],
+    );
+    return rows.rows[0] ? rowToOrder(rows.rows[0]) : null;
+  } catch (err) {
+    logger.error("[order-service] createOrderTx failed", { input, err });
+    return null;
+  }
+}
+
+export async function getOrderByIdTx(
+  client: import("pg").PoolClient,
+  orderId: string,
+): Promise<Order | null> {
+  try {
+    const rows = await client.query(
+      `SELECT * FROM orders WHERE id = $1::uuid LIMIT 1`,
+      [orderId],
+    );
+    return rows.rows[0] ? rowToOrder(rows.rows[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateOrderFillTx(
+  client: import("pg").PoolClient,
+  orderId: string,
+  fillQty: number,
+  fillPrice: number,
+  newStatus: OrderStatus,
+): Promise<Order | null> {
+  try {
+    const rows = await client.query(
+      `UPDATE orders SET
+         filled_quantity    = filled_quantity + $1,
+         remaining_quantity = remaining_quantity - $1,
+         avg_fill_price     = CASE
+           WHEN filled_quantity = 0 THEN $2
+           ELSE (filled_quantity * COALESCE(avg_fill_price, $2) + $1 * $2)
+                / (filled_quantity + $1)
+         END,
+         status             = $3,
+         updated_at         = NOW()
+       WHERE id = $4::uuid
+       RETURNING *`,
+      [fillQty, fillPrice, newStatus, orderId],
+    );
+    return rows.rows[0] ? rowToOrder(rows.rows[0]) : null;
+  } catch (err) {
+    logger.error("[order-service] updateOrderFillTx failed", { orderId, fillQty, newStatus, err });
+    return null;
+  }
+}
+
+export async function setOrderStatusTx(
+  client: import("pg").PoolClient,
+  orderId: string,
+  newStatus: OrderStatus,
+): Promise<boolean> {
+  try {
+    await client.query(
+      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2::uuid`,
+      [newStatus, orderId],
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Internal — engine-only helpers ───────────────────────────────────────────
 
 // Fetch any order by ID — no userId filter; for engine use only.

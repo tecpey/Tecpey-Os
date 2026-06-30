@@ -5,13 +5,15 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
+import { withTx } from "@/lib/db";
 import { getMarket } from "@/lib/trading/market-service";
-import { createOrder, listOrders, getOrder } from "@/lib/trading/order-service";
+import { createOrderTx, listOrders, getOrder } from "@/lib/trading/order-service";
 import { validatePlaceOrderRequest, isValidOrderSide, isValidOrderType } from "@/lib/trading/validation";
-import { getAvailableBalance, postHold } from "@/lib/trading/wallet-service";
+import { getAvailableBalance } from "@/lib/trading/wallet-service";
+import { holdFundsTx } from "@/lib/trading/wallet-balance-service";
 import { getOrderBook } from "@/lib/trading/order-book";
 import { getMatchingEngine } from "@/lib/trading/engine";
-import type { OrderStatus, PlaceOrderRequest, TimeInForce } from "@/lib/trading/types";
+import type { Order, OrderStatus, PlaceOrderRequest, TimeInForce } from "@/lib/trading/types";
 
 export const dynamic = "force-dynamic";
 
@@ -39,15 +41,15 @@ export async function GET(req: NextRequest) {
 
 // ── POST /api/orders — place a new order ──────────────────────────────────────
 //
-// Flow:
+// Phase 30 flow:
 //  1. Validate request fields and market rules.
 //  2. Compute hold amount (funds to earmark before matching).
-//  3. Check available balance — reject if insufficient.
-//  4. Persist order record (status: NEW).
-//  5. Post HOLD ledger entry (earmarks funds).
-//  6. Run matching engine — returns tradeIds and accepted flag.
-//  7. Re-fetch order from DB (status/fills updated by engine).
-//  8. Return 201 if accepted; 422 if the engine rejected/expired the order.
+//  3. Pre-flight balance check — early rejection with descriptive error.
+//  4. Atomic transaction: create order record + holdFundsTx.
+//     Rolls back atomically if balance is insufficient (prevents orphaned orders).
+//  5. Run matching engine — has its own transaction for the fill sequence.
+//  6. Re-fetch order from DB (status/fills updated by engine).
+//  7. Return 201 if accepted; 422 if the engine rejected/expired the order.
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/orders" }, async () => {
@@ -135,6 +137,8 @@ export async function POST(req: NextRequest) {
       holdAmount = qty;
     }
 
+    // Pre-flight balance check — early rejection with a descriptive error.
+    // The atomic hold inside the transaction below is the true enforcement gate.
     const available = await getAvailableBalance(userId, holdAsset);
     if (available < holdAmount - 1e-10) {
       return apiError("insufficient_balance", 422, {
@@ -142,18 +146,34 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Persist order and earmark funds ───────────────────────────────────────
+    // ── Atomic: create order + hold funds in one transaction ──────────────────
+    //
+    // If the hold UPDATE matches 0 rows (concurrent request drained the balance),
+    // the entire transaction rolls back — no orphaned order in the DB.
 
-    const order = await createOrder({ ...request, userId });
-    if (!order) return apiError("order_creation_failed", 503);
+    let order: Order;
+    try {
+      const txResult = await withTx(async (client) => {
+        const o = await createOrderTx(client, { ...request, userId });
+        if (!o) throw new Error("order_creation_failed");
 
-    const held = await postHold(userId, holdAsset, holdAmount, order.id);
-    if (!held) {
-      logger.error("[orders] hold failed — order created but funds not locked", {
-        orderId: order.id, userId, holdAsset, holdAmount,
+        const held = await holdFundsTx(client, userId, holdAsset, holdAmount, o.id);
+        if (!held) throw new Error("insufficient_balance");
+
+        return o;
       });
-      // Non-fatal for Phase 29: order is in DB, engine will still run.
-      // Production: roll back the order creation here.
+
+      if (!txResult.enabled) return apiError("order_creation_failed", 503);
+      order = txResult.value;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "unknown";
+      if (msg === "insufficient_balance") {
+        return apiError("insufficient_balance", 422, {
+          detail: `requires ${holdAmount.toFixed(8)} ${holdAsset} — balance changed between check and hold`,
+        });
+      }
+      logger.error("[orders] order+hold transaction failed", { userId, market, err });
+      return apiError("order_creation_failed", 503);
     }
 
     // ── Run matching engine ───────────────────────────────────────────────────

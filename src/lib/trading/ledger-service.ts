@@ -38,6 +38,34 @@ export type PostLedgerEntryInput = {
   referenceType?: string | null;
 };
 
+// Transaction-aware variant — uses caller-provided PoolClient; does not emit events.
+export async function postLedgerEntryTx(
+  client: import("pg").PoolClient,
+  input: PostLedgerEntryInput,
+): Promise<WalletLedgerEntry | null> {
+  try {
+    const rows = await client.query(
+      `INSERT INTO wallet_ledger
+         (wallet_id, asset, type, amount, balance_after, reference_id, reference_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        input.walletId,
+        input.asset,
+        input.type,
+        input.amount,
+        input.balanceAfter,
+        input.referenceId ?? null,
+        input.referenceType ?? null,
+      ],
+    );
+    return rows.rows[0] ? rowToEntry(rows.rows[0]) : null;
+  } catch (err) {
+    logger.error("[ledger-service] postLedgerEntryTx failed", { input, err });
+    return null;
+  }
+}
+
 export async function postLedgerEntry(
   input: PostLedgerEntryInput,
 ): Promise<WalletLedgerEntry | null> {

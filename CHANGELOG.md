@@ -7,6 +7,92 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.30] — 2026-06-30 — Transactional Matching, Wallet Balances, Redis Order Book Foundation
+
+### Added — wallet_balances table (migration 0005)
+
+- `wallet_balances (user_id, asset)` — O(1) snapshot of available and held balances per user/asset
+- `CHECK (available_balance >= 0)` and `CHECK (held_balance >= 0)` — database-level non-negative enforcement
+- Eliminates the full `wallet_ledger` aggregate scan on every balance read
+
+### Added — Wallet Balance Service (`src/lib/trading/wallet-balance-service.ts`)
+
+- `holdFundsTx` / `holdFunds` — atomic single-SQL hold: `UPDATE … WHERE available >= holdAmount` (0 rows = insufficient balance, no TOCTOU)
+- `releaseFundsTx` / `releaseFunds` — atomic release of earmarked funds
+- `creditFundsTx` — increase available (received asset on fill)
+- `debitFundsTx` — decrease available (spent asset on fill, enforces `available >= amount`)
+- `chargeFeeTx` — deduct fee with `LEAST(fee, available)` to handle rounding edge cases
+- `depositFundsTx` / `depositFunds` — admin deposit (seed scripts; no real rails)
+- `getBalance(userId, asset)` — O(1) balance read from `wallet_balances`
+- Every operation appends to `wallet_ledger` within the same transaction (dual-layer audit)
+
+### Added — `withTx` in `src/lib/db.ts`
+
+- `withTx<T>(handler)` — wraps handler in `BEGIN / COMMIT / ROLLBACK`; re-throws on handler error after rollback
+- Enables single-client transactions across multiple service calls
+
+### Added — Order Book Store (`src/lib/trading/order-book-store.ts`)
+
+- `OrderBookStore` interface — abstraction over in-memory and Redis-backed order books
+- `InMemoryOrderBookStore` — wraps `globalThis.tecpeyEngineBooks`; synchronous sorted Map operations
+- `RedisOrderBookStore` stub — warns in non-production if ioredis not installed; throws in production
+- `getOrderBookStore()` — factory: selects Redis when `REDIS_URL` is set, in-memory otherwise
+- `rebuildOrderBook(market)` — warm-start recovery: loads `NEW` / `PARTIALLY_FILLED` limit orders from DB and repopulates engine book + display book
+- `pkStr(price)` — exported price-key helper used by engine and store
+
+### Changed — Matching Engine (`src/lib/trading/engine.ts`)
+
+- **Pre-tx fill computation**: `computeFills()` iterates in-memory book levels and builds `FillRecord[]` — zero DB calls
+- **Single Postgres transaction**: the full fill sequence (trades + wallet balance updates + order updates + audit events) runs inside one `withTx` call — any failure rolls back all writes
+- **Post-tx book update**: `store.updateMakerRemaining()` and display book mutations happen after commit, not during
+- Replaced internal `EngineBook` / `EngineOrder` structures with `OrderBookStore` interface
+- Market-order hold release now uses `tradePrice` as release basis (not `limitPrice=0`)
+- Zero-fill IOC/MARKET release queries `wallet_ledger` for original hold amount (no hardcoded value)
+- `cancelOrder` restores in-memory book entry on tx failure
+- `ensureBookReady(market)` calls `rebuildOrderBook` automatically on empty book (warm-start)
+
+### Changed — Order Service (`src/lib/trading/order-service.ts`)
+
+- `createOrderTx(client, input)` — tx-aware order creation (no `withDb` wrapper)
+- `getOrderByIdTx(client, orderId)` — tx-aware read
+- `updateOrderFillTx(client, ...)` — tx-aware fill update
+- `setOrderStatusTx(client, ...)` — tx-aware status update
+
+### Changed — Trade Service (`src/lib/trading/trade-service.ts`)
+
+- `createTradeTx(client, input)` — tx-aware trade insertion
+
+### Changed — Ledger Service (`src/lib/trading/ledger-service.ts`)
+
+- `postLedgerEntryTx(client, input)` — tx-aware ledger append (no event emission; caller handles events)
+
+### Changed — Wallet Service (`src/lib/trading/wallet-service.ts`)
+
+- `getAvailableBalance` — reads from `wallet_balances` (O(1)) instead of aggregating `wallet_ledger`
+- `postHold` — delegates to `holdFunds` from wallet-balance-service
+- `postRelease` — delegates to `releaseFunds` from wallet-balance-service
+
+### Changed — Orders Route (`src/app/api/orders/route.ts`)
+
+- Order creation + hold now wrapped in a single `withTx`: creates order record and atomically holds funds
+- If hold fails (insufficient balance or concurrent depletion), the entire tx rolls back — no orphaned order in DB
+- Pre-flight `getAvailableBalance` check kept for early error message; the tx is the authoritative enforcement
+
+### Added — Documentation
+
+- `docs/WALLET_ENGINE.md` — wallet balance table, hold/release model, atomic guarantees, service API
+- `docs/REDIS_ORDER_BOOK.md` — OrderBookStore interface, Redis key schema, warm-start, activation guide
+- `docs/TRADING_CORE.md` — Phase 29 and Phase 30 sections added
+
+### Safety
+
+- No Futures, Margin, Leverage, Stop-limit orders
+- No real-money deposit/withdrawal rails
+- No KYC provider integration
+- No external payment processing
+
+---
+
 ## [v0.29] — 2026-06-30 — In-Process Matching Engine and Order Execution
 
 ### Added — Matching Engine (`src/lib/trading/engine.ts`)

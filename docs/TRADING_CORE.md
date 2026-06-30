@@ -394,4 +394,89 @@ validation or service layer — only the orchestration in the order route.
 | Profit/loss reporting | Requires trade history aggregation |
 | Margin & futures models | Separate domain, separate phase |
 | Fee tier schedules | `makerFee`/`takerFee` per-user override |
+
+---
+
+## Phase 29 — In-Process Matching Engine
+
+Phase 29 implemented `InProcessMatchingEngine` with:
+- LIMIT and MARKET order types
+- GTC / IOC / FOK time-in-force
+- Price-time priority FIFO matching
+- Immediate matching in `placeOrder()`
+- Partial fills and VWAP avg_fill_price
+- Trade row creation with maker/taker fee accounting
+- Hold/release ledger entries
+- `order_events` audit trail
+- GTC order book insertion
+- Cancel flow via `engine.cancelOrder()`
+
+Phase 29 known gaps (all closed in Phase 30):
+- No DB transaction around the match sequence (multiple `withDb` calls)
+- Balance check and hold were two separate DB calls (TOCTOU race)
+- In-memory book lost on process restart (no warm-start)
+- `getAvailableBalance` was a full ledger aggregate query (slow)
+
+---
+
+## Phase 30 — Transactional Matching, Wallet Balances, Redis Foundation
+
+### New files
+
+| File | Description |
+|------|-------------|
+| `wallet-balance-service.ts` | Atomic hold/release/debit/credit/fee via single SQL statements on `wallet_balances` |
+| `order-book-store.ts` | `OrderBookStore` interface, `InMemoryOrderBookStore`, `RedisOrderBookStore` stub, warm-start `rebuildOrderBook()` |
+
+### wallet_balances table (migration 0005)
+
+Stores a fast, O(1) snapshot of each user's balance per asset. The `wallet_ledger` table continues to be the authoritative audit trail; both are updated in the same transaction.
+
+The `CHECK (available_balance >= 0)` and `CHECK (held_balance >= 0)` constraints give Postgres-level enforcement — a failing UPDATE is rejected at the DB layer regardless of application logic.
+
+### Atomic order placement
+
+The route now wraps order creation + hold in a single `withTx` call:
+
+```
+withTx:
+  createOrderTx(client, ...)   — INSERT INTO orders
+  holdFundsTx(client, ...)     — UPDATE wallet_balances … WHERE available >= holdAmount
+  → COMMIT (or ROLLBACK if hold fails)
+```
+
+This eliminates the orphaned-order-with-no-hold window from Phase 29.
+
+### Transactional matching
+
+The engine's `placeOrder` separates matching into three phases:
+
+1. **Pre-tx** (pure): `computeFills()` reads the in-memory book and builds `FillRecord[]` — zero DB calls.
+2. **Single tx** (`withTx`): executes all fills atomically — trade rows, wallet balance updates, order status updates, audit events.
+3. **Post-tx**: updates the in-memory `OrderBookStore` and display `OrderBook`.
+
+Any DB failure rolls back the entire fill sequence — no partial trades.
+
+### Warm-start recovery
+
+`rebuildOrderBook(market)` rebuilds the in-memory engine book from `orders WHERE status IN ('NEW', 'PARTIALLY_FILLED')` on process restart. Called automatically when `getEngineBook` detects an empty book.
+
+### Redis abstraction
+
+`getOrderBookStore()` selects:
+- `InMemoryOrderBookStore` — when `REDIS_URL` is not set
+- `RedisOrderBookStore` stub — when `REDIS_URL` is set (warns in dev, throws in prod until ioredis is installed)
+
+See `docs/REDIS_ORDER_BOOK.md` for the full key schema and activation guide.
+
+### Open gaps (Phase 31+)
+
+| Gap | Notes |
+|-----|-------|
+| Full single transaction (order+hold+match) | Phase 30 uses two transactions; gap is documented |
+| Redis-backed book (multi-instance) | Stub only; requires `npm install ioredis` |
+| WebSocket order book feed | Deferred |
+| Real deposit / withdrawal rails | Out of scope |
+| KYC integration | Out of scope |
+| Stop-limit, Margin, Futures | Out of scope |
 | KYC limits | External compliance check, not in core |
