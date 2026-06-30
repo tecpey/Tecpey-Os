@@ -6,6 +6,9 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
 import { withTx } from "@/lib/db";
+import { checkOrderRisk } from "@/lib/security/risk-engine";
+import { writeAudit } from "@/lib/security/audit-log";
+import { getClientIp } from "@/lib/rate-limit";
 import { getMarket } from "@/lib/trading/market-service";
 import { createOrderTx, listOrders, getOrder } from "@/lib/trading/order-service";
 import { validatePlaceOrderRequest, isValidOrderSide, isValidOrderType } from "@/lib/trading/validation";
@@ -100,6 +103,11 @@ export async function POST(req: NextRequest) {
 
     const marketDef = await getMarket(market);
     if (!marketDef) return apiError("market_not_found", 404);
+
+    // Risk engine check — fire-and-forget; does NOT block the order
+    const ip = getClientIp(req);
+    const fingerprint = `${market}:${side}:${quantity}:${price ?? "mkt"}:${userId}`;
+    checkOrderRisk({ userId, market, ip, orderFingerprint: fingerprint });
 
     const request: PlaceOrderRequest = {
       market,
@@ -202,6 +210,21 @@ export async function POST(req: NextRequest) {
       tradeCount: engineResult.tradeIds.length,
       finalStatus: finalOrder.status,
       latencyMs,
+    });
+
+    // Audit trail — write after engine result is known
+    writeAudit({
+      actorId: userId,
+      action: "order_placed",
+      resourceType: "order",
+      resourceId: order.id,
+      ip,
+      userAgent: req.headers.get("user-agent") ?? undefined,
+      metadata: {
+        market, side, type: order.type, quantity,
+        accepted: engineResult.accepted,
+        tradeCount: engineResult.tradeIds.length,
+      },
     });
 
     if (!engineResult.accepted) {

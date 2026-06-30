@@ -7,6 +7,101 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.34] — 2026-07-01 — Enterprise Security and Compliance Foundation
+
+### Added — Migration 0007 (`src/lib/db-migrate.ts`)
+
+- `user_sessions` — server-side session registry keyed by jti; indexed by (user_id, is_revoked, expires_at)
+- `api_keys` — API key management with SHA-256 hash storage; indexed by key_hash for O(1) validation
+- `audit_events` — immutable append-only security audit trail; indexed by actor_id and action
+- `risk_events` — risk signal storage (append-only); indexed by user_id and event_type
+
+### Added — JWT Hardening (`src/lib/unified-session.ts`)
+
+- `jti` (JWT ID) added to every new session token via `crypto.randomUUID()`
+- `jti` field added to `UnifiedSessionPayload` type
+- `extractJtiFromToken(token)` — base64url decode without signature verification (for logout)
+- `extractExpFromToken(token)` — extract exp claim without verification
+
+### Added — JTI Revocation Store (`src/lib/security/jti-store.ts`)
+
+- `revokeJti(jti, expiresAt)` — writes to Redis with TTL aligned to token lifetime
+- `isJtiRevoked(jti)` — O(1) Redis check; returns false on Redis unavailability (graceful degradation)
+- `revokeMultiple(sessions[])` — batch revocation via Redis pipeline (for logout-all)
+
+### Added — Session Registry (`src/lib/security/session-store.ts`)
+
+- `registerSession(opts)` — INSERT on login
+- `touchSession(jti)` — UPDATE last_used_at on authenticated requests
+- `listActiveSessions(userId)` — list non-expired, non-revoked sessions
+- `revokeSession(jti, userId)` — revoke one; updates DB + Redis
+- `revokeAllSessions(userId, exceptJti?)` — revoke all (except current); batch Redis pipeline
+
+### Added — Audit Trail (`src/lib/security/audit-log.ts`)
+
+- `writeAudit(event)` — fire-and-forget append to `audit_events`
+- `getAuditLog(opts)` — query by actor, action, date range
+- 17 audited action types covering auth, orders, API keys, admin, risk events
+- Audit failures are logged but never propagated to callers
+
+### Added — API Key Management (`src/lib/security/api-keys.ts`)
+
+- `createApiKey(opts)` — returns `{ apiKey, plaintext }` (plaintext returned once, hash stored)
+- `listApiKeys(userId)` — returns all keys (no plaintext ever returned)
+- `validateApiKey(rawKey, permission, ip?)` — hash comparison + permission + IP whitelist check
+- `setApiKeyActive(keyId, userId, active)` — enable/disable
+- `deleteApiKey(keyId, userId)` — permanent deletion
+- `rotateApiKey(keyId, userId)` — new key generated, old hash replaced
+- Max 20 active keys per user; key format: `tecpey_{prefix}_{48chars}`
+
+### Added — Risk Engine (`src/lib/security/risk-engine.ts`)
+
+- `checkOrderRisk(opts)` — fire-and-forget; 4 checks: frequency, burst, IP switch, duplicate request
+- `checkApiKeyRisk(opts)` — fire-and-forget; 1 check: API call rate
+- All checks use Redis counters (INCR + EXPIRE); all emit to `risk_events` + audit trail
+- Thresholds: 10 orders/min, 3 orders/5s burst, 50 API calls/min
+- Integrated into `POST /api/orders` and API key validation path
+
+### Added — Compliance Interfaces (`src/lib/security/compliance.ts`)
+
+- `KYCProvider` interface (createSession, getStatus, handleWebhook)
+- `AMLProvider` interface (screenTransaction, handleAlert)
+- `SanctionsProvider` interface (screenUser, screenAddress)
+- `TravelRuleProvider` interface (submitTransfer, isRequired)
+- `registerComplianceProviders(providers)` — DI registry on globalThis
+- `getComplianceProviders()` — retrieve registered providers
+
+### Added — Session Management API
+
+- `GET /api/auth/sessions` — list active sessions
+- `DELETE /api/auth/sessions` — logout all devices (keeps current session)
+- `DELETE /api/auth/sessions/[id]` — revoke specific session
+
+### Added — API Key API
+
+- `GET /api/api-keys` — list keys
+- `POST /api/api-keys` — create key; returns plaintext once (HTTP 201)
+- `PATCH /api/api-keys/[id]` — disable / enable / rotate
+- `DELETE /api/api-keys/[id]` — permanent delete
+
+### Changed — `src/lib/rate-limit.ts`
+
+- `rateLimitUser(req, { userId, ... })` — per-user rate limiting
+- `rateLimitApiKey({ keyId, ... })` — per-API-key rate limiting
+
+### Changed — `src/app/api/orders/route.ts`
+
+- `checkOrderRisk()` called after auth, before engine (fire-and-forget)
+- `writeAudit()` called after engine result (audit: order_placed)
+
+### Changed — `src/app/api/orders/[id]/route.ts`
+
+- `writeAudit()` called on successful cancel (audit: order_cancelled)
+
+### Added — `docs/SECURITY.md`, `docs/RISK_ENGINE.md`, `docs/API_KEYS.md`, `docs/COMPLIANCE.md`
+
+---
+
 ## [v0.33] — 2026-07-01 — Distributed Realtime Infrastructure
 
 ### Added — Redis Pub/Sub (`src/lib/redis-pubsub.ts`)

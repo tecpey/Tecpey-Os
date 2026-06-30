@@ -97,6 +97,33 @@ async function redisRestRateLimit(key: string, limit: number, windowMs: number):
   };
 }
 
+/** Rate limit by user ID instead of IP (for authenticated endpoints). */
+export async function rateLimitUser(
+  request: NextRequest,
+  options: { namespace: string; limit: number; windowMs: number; userId: string },
+): Promise<RateLimitResult> {
+  const key = `${options.namespace}:user:${options.userId}`;
+  try {
+    const redis = await redisRestRateLimit(key, options.limit, options.windowMs);
+    if (redis) return redis;
+  } catch { /* fallback */ }
+  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
+  return memoryRateLimit(key, options.limit, options.windowMs);
+}
+
+/** Rate limit by API key ID. */
+export async function rateLimitApiKey(
+  options: { namespace: string; limit: number; windowMs: number; keyId: string },
+): Promise<RateLimitResult> {
+  const key = `${options.namespace}:apikey:${options.keyId}`;
+  try {
+    const redis = await redisRestRateLimit(key, options.limit, options.windowMs);
+    if (redis) return redis;
+  } catch { /* fallback */ }
+  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
+  return memoryRateLimit(key, options.limit, options.windowMs);
+}
+
 export async function rateLimit(request: NextRequest, options: { namespace: string; limit: number; windowMs: number; identity?: string }) {
   const identity = options.identity || getClientIp(request);
   const key = `${options.namespace}:${identity}`;

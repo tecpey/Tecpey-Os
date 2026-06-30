@@ -28,6 +28,7 @@ export type UnifiedSessionData = {
 export type UnifiedSessionPayload = UnifiedSessionData & {
   role: "unified";
   v: 1;
+  jti?: string;
 };
 
 function unifiedSecret(): Uint8Array | null {
@@ -46,6 +47,7 @@ function unifiedSecret(): Uint8Array | null {
 export async function signUnifiedSession(data: UnifiedSessionData): Promise<string> {
   const key = unifiedSecret();
   if (!key) throw new Error("unified_session_secret_missing");
+  const jti = crypto.randomUUID(); // jti enables per-token revocation
   return new SignJWT({
     role: "unified" as const,
     v: 1 as const,
@@ -57,9 +59,34 @@ export async function signUnifiedSession(data: UnifiedSessionData): Promise<stri
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(data.studentId ?? data.accountId ?? "anon")
+    .setJti(jti)
     .setIssuedAt()
     .setExpirationTime(sessionMaxAge())
     .sign(key);
+}
+
+/** Extract jti from a JWT without verifying the signature. For revocation on logout. */
+export function extractJtiFromToken(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    // base64url → base64 → JSON
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = atob(padded);
+    const payload = JSON.parse(decoded) as Record<string, unknown>;
+    return typeof payload.jti === "string" ? payload.jti : null;
+  } catch { return null; }
+}
+
+/** Extract expiration timestamp (seconds since epoch) from a JWT without verifying. */
+export function extractExpFromToken(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch { return null; }
 }
 
 export async function verifyUnifiedSession(
@@ -79,6 +106,7 @@ export async function verifyUnifiedSession(
       email: typeof payload.email === "string" ? payload.email : null,
       displayName: typeof payload.displayName === "string" ? payload.displayName : null,
       username: typeof payload.username === "string" ? payload.username : null,
+      jti: typeof payload.jti === "string" ? payload.jti : undefined,
     };
   } catch {
     return null;

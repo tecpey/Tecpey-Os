@@ -638,6 +638,87 @@ CREATE INDEX IF NOT EXISTS idx_trades_market_time
   ON trades(market, executed_at DESC);
 `,
   },
+  {
+    filename: "0007_security.sql",
+    sql: `
+-- user_sessions: server-side session registry for multi-device management.
+-- Each JWT's jti is registered here on login and revoked on logout.
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id            TEXT        PRIMARY KEY,       -- jti from JWT
+  user_id       TEXT        NOT NULL,
+  device_info   TEXT        NOT NULL DEFAULT '',
+  ip            TEXT        NOT NULL DEFAULT '',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  is_revoked    BOOLEAN     NOT NULL DEFAULT FALSE,
+  revoked_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user
+  ON user_sessions(user_id, is_revoked, expires_at DESC);
+
+-- api_keys: production-grade API key management.
+-- Plaintext key is returned once on creation; only SHA-256 hash is stored.
+CREATE TABLE IF NOT EXISTS api_keys (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      TEXT        NOT NULL,
+  name         TEXT        NOT NULL,
+  key_prefix   TEXT        NOT NULL,           -- first 8 chars of key (display)
+  key_hash     TEXT        NOT NULL UNIQUE,    -- SHA-256(plaintext_key)
+  permissions  TEXT[]      NOT NULL DEFAULT '{}',
+  ip_whitelist TEXT[],                         -- NULL = allow all
+  expires_at   TIMESTAMPTZ,
+  last_used_at TIMESTAMPTZ,
+  is_active    BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_user
+  ON api_keys(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash
+  ON api_keys(key_hash)
+  WHERE is_active = TRUE;
+
+-- audit_events: immutable append-only security audit trail.
+-- Application code must NEVER UPDATE or DELETE rows in this table.
+CREATE TABLE IF NOT EXISTS audit_events (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id      TEXT        NOT NULL,
+  action        TEXT        NOT NULL,
+  resource_type TEXT,
+  resource_id   TEXT,
+  ip            TEXT,
+  user_agent    TEXT,
+  metadata      JSONB       NOT NULL DEFAULT '{}',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_actor
+  ON audit_events(actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_action
+  ON audit_events(action, created_at DESC);
+
+-- risk_events: risk signals produced by the risk engine (append-only).
+-- Phase 34: emit only. Phase 35+: trigger enforcement.
+CREATE TABLE IF NOT EXISTS risk_events (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     TEXT        NOT NULL,
+  event_type  TEXT        NOT NULL,
+  severity    TEXT        NOT NULL CHECK (severity IN ('low','medium','high')),
+  market      TEXT,
+  ip          TEXT,
+  metadata    JSONB       NOT NULL DEFAULT '{}',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_user
+  ON risk_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_risk_type
+  ON risk_events(event_type, created_at DESC);
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

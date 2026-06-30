@@ -6,6 +6,8 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
 import { getMatchingEngine } from "@/lib/trading/engine";
+import { writeAudit } from "@/lib/security/audit-log";
+import { getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,15 @@ export async function DELETE(
     if (!result.cancelled) {
       return apiError(result.reason ?? "order_not_cancellable", 404);
     }
+
+    writeAudit({
+      actorId: userId,
+      action: "order_cancelled",
+      resourceType: "order",
+      resourceId: orderId,
+      ip: getClientIp(req),
+      userAgent: req.headers.get("user-agent") ?? undefined,
+    });
 
     return apiOk({ orderId, cancelled: true });
   });
