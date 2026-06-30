@@ -7,6 +7,47 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.28] — 2026-06-30 — Trading Core Foundation
+
+### Added — Trading Domain Model (`src/lib/trading/`)
+
+- `types.ts` — Complete domain types: `Asset`, `Market`, `Order`, `Trade`, `WalletLedgerEntry`, `OrderBookLevel`, `OrderBookSnapshot`, `PlaceOrderRequest`
+- `events.ts` — `TradingEvent<T>` envelope + `createTradingEvent()` factory; 7 typed event kinds: `OrderCreated`, `OrderAccepted`, `OrderRejected`, `OrderCancelled`, `TradeExecuted`, `OrderExpired`, `LedgerPosted`
+- `order-book.ts` — `OrderBook` class (insert, cancel, snapshot, bestBid, bestAsk, priceLevels, clear); `getOrderBook(market)` registry via `globalThis` for hot-reload survival
+- `matching-engine.ts` — `MatchingEngineInterface` (interface only): `placeOrder`, `cancelOrder`, `match`, `snapshot`; architecture allows future replacement with Redis, C++, or external engine
+- `validation.ts` — `validatePlaceOrderRequest`, `validateAssetForDeposit/Withdraw`, `validateMarketActive`, `isValidOrderSide`, `isValidOrderType`, `roundToPrecision`
+- `market-service.ts` — `listAssets`, `getAsset`, `listMarkets`, `getMarket` (DB-backed, graceful fallback)
+- `order-service.ts` — `createOrder`, `cancelOrder`, `listOrders`, `getOrder`; emits `OrderCreated`/`OrderCancelled` events + persists to `order_events` audit log
+- `trade-service.ts` — `listTrades` (public), `listUserTrades` (authenticated); efficient join via `orders` table
+- `ledger-service.ts` — `postLedgerEntry` (append-only, emits `LedgerPosted`), `queryLedger` (paginated); 8 entry types: deposit, withdraw, trade_debit, trade_credit, fee, adjustment, hold, release
+
+### Added — Trading API Endpoints
+
+- `GET /api/markets[?symbol=X]` — list active markets or single market lookup
+- `GET /api/assets[?symbol=X]` — list active assets or single asset lookup
+- `GET /api/orderbook?symbol=X[&depth=N]` — in-memory order book depth snapshot (1–100 levels)
+- `GET /api/trades?market=X` or `?mine=1` — public recent trades or authenticated user trade history
+- `GET /api/orders` — authenticated user's order history (filterable by market/status)
+- `POST /api/orders` — place a new order with full validation (tick size, step size, min/max value, market active check)
+- `DELETE /api/orders/:id` — cancel an open order (owner-only enforcement)
+
+All endpoints: `withObservability()`, `rateLimit()`, `getCanonicalSession()`, CSRF where mutating.
+
+### Added — Database Migration `0004_trading_core.sql`
+
+- `assets` table + seed: USDT, BTC, ETH
+- `markets` table + seed: BTCUSDT (tick=0.01, step=0.00001), ETHUSDT (tick=0.01, step=0.0001)
+- `wallet_ledger` — append-only, type-checked, indexed on `(wallet_id, asset, created_at)`
+- `orders` — full status lifecycle, indexed on `(user_id)` and `(market, status)`
+- `trades` — indexed on `(market, executed_at)`
+- `order_events` — immutable audit log per order
+
+### Added — Documentation
+
+- `docs/TRADING_CORE.md` — architecture, all models, order lifecycle, wallet ledger philosophy, matching engine integration plan, API reference, future gap list
+
+---
+
 ## [v0.27] — 2026-06-30 — API Observability Rollout & Security Hardening
 
 ### Added — `withObservability()` Rollout

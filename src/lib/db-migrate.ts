@@ -469,6 +469,135 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 `,
   },
+
+  // ── 0004: Trading Core Foundation (Phase 28) ─────────────────────────────────
+  {
+    filename: "0004_trading_core.sql",
+    sql: `
+-- assets: canonical list of tradable tokens and fiat representations.
+CREATE TABLE IF NOT EXISTS assets (
+  id            TEXT         PRIMARY KEY,
+  symbol        TEXT         UNIQUE NOT NULL,
+  name          TEXT         NOT NULL,
+  precision     INT          NOT NULL DEFAULT 8,
+  status        TEXT         NOT NULL DEFAULT 'active'
+                             CHECK (status IN ('active','maintenance','suspended','delisted')),
+  deposit_enabled  BOOLEAN   NOT NULL DEFAULT TRUE,
+  withdraw_enabled BOOLEAN   NOT NULL DEFAULT TRUE,
+  min_deposit   NUMERIC(30,10) NOT NULL DEFAULT 0,
+  min_withdraw  NUMERIC(30,10) NOT NULL DEFAULT 0,
+  withdraw_fee  NUMERIC(30,10) NOT NULL DEFAULT 0,
+  display_order INT          NOT NULL DEFAULT 0,
+  metadata      JSONB        NOT NULL DEFAULT '{}',
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- markets: trading pairs derived from two assets.
+CREATE TABLE IF NOT EXISTS markets (
+  symbol             TEXT          PRIMARY KEY,
+  base_asset         TEXT          NOT NULL,
+  quote_asset        TEXT          NOT NULL,
+  status             TEXT          NOT NULL DEFAULT 'active'
+                                   CHECK (status IN ('active','maintenance','closed','suspended')),
+  tick_size          NUMERIC(30,10) NOT NULL,
+  step_size          NUMERIC(30,10) NOT NULL,
+  min_order_value    NUMERIC(30,10) NOT NULL,
+  max_order_value    NUMERIC(30,10) NOT NULL DEFAULT 0,
+  price_precision    INT            NOT NULL DEFAULT 2,
+  quantity_precision INT            NOT NULL DEFAULT 6,
+  maker_fee          NUMERIC(10,6)  NOT NULL DEFAULT 0.001,
+  taker_fee          NUMERIC(10,6)  NOT NULL DEFAULT 0.001,
+  created_at         TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ    NOT NULL DEFAULT NOW()
+);
+
+-- wallet_ledger: append-only double-entry style ledger.
+-- Balances are NEVER modified directly — every change must appear here.
+CREATE TABLE IF NOT EXISTS wallet_ledger (
+  id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  wallet_id      TEXT          NOT NULL,
+  asset          TEXT          NOT NULL,
+  type           TEXT          NOT NULL
+                               CHECK (type IN ('deposit','withdraw','trade_debit','trade_credit','fee','adjustment','hold','release')),
+  amount         NUMERIC(30,10) NOT NULL,
+  balance_after  NUMERIC(30,10) NOT NULL,
+  reference_id   TEXT,
+  reference_type TEXT,
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- orders: every order submitted to the exchange.
+CREATE TABLE IF NOT EXISTS orders (
+  id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            TEXT          NOT NULL,
+  market             TEXT          NOT NULL,
+  side               TEXT          NOT NULL  CHECK (side IN ('buy','sell')),
+  type               TEXT          NOT NULL  CHECK (type IN ('limit','market','ioc','fok','gtc','stop_limit')),
+  status             TEXT          NOT NULL  DEFAULT 'NEW'
+                                             CHECK (status IN ('NEW','PARTIALLY_FILLED','FILLED','CANCELLED','EXPIRED','REJECTED')),
+  price              NUMERIC(30,10),
+  stop_price         NUMERIC(30,10),
+  quantity           NUMERIC(30,10) NOT NULL,
+  filled_quantity    NUMERIC(30,10) NOT NULL DEFAULT 0,
+  remaining_quantity NUMERIC(30,10) NOT NULL,
+  avg_fill_price     NUMERIC(30,10),
+  client_order_id    TEXT,
+  time_in_force      TEXT          NOT NULL DEFAULT 'GTC',
+  expires_at         TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- trades: every executed match between a buyer and a seller.
+CREATE TABLE IF NOT EXISTS trades (
+  id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  market          TEXT          NOT NULL,
+  buyer_order_id  UUID          NOT NULL,
+  seller_order_id UUID          NOT NULL,
+  price           NUMERIC(30,10) NOT NULL,
+  quantity        NUMERIC(30,10) NOT NULL,
+  fee_buyer       NUMERIC(30,10) NOT NULL DEFAULT 0,
+  fee_seller      NUMERIC(30,10) NOT NULL DEFAULT 0,
+  maker_side      TEXT          NOT NULL  CHECK (maker_side IN ('buy','sell')),
+  executed_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- order_events: immutable audit log for every state transition.
+CREATE TABLE IF NOT EXISTS order_events (
+  id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id    UUID          NOT NULL,
+  event_type  TEXT          NOT NULL,
+  payload     JSONB         NOT NULL DEFAULT '{}',
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_wallet_ledger_wallet  ON wallet_ledger(wallet_id, asset, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user           ON orders(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_market_status  ON orders(market, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_market         ON trades(market, executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_order_events_order    ON order_events(order_id, created_at DESC);
+
+-- Seed assets: USDT, BTC, ETH — idempotent.
+INSERT INTO assets (id, symbol, name, precision, status, deposit_enabled, withdraw_enabled,
+                    min_deposit, min_withdraw, withdraw_fee, display_order)
+VALUES
+  ('usdt', 'USDT', 'Tether USD',      6, 'active', TRUE, TRUE, '1',     '10',    '1',    1),
+  ('btc',  'BTC',  'Bitcoin',         8, 'active', TRUE, TRUE, '0.0001','0.0005','0.0001',2),
+  ('eth',  'ETH',  'Ethereum',        8, 'active', TRUE, TRUE, '0.01',  '0.02',  '0.005', 3)
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed markets: BTCUSDT, ETHUSDT — idempotent.
+INSERT INTO markets (symbol, base_asset, quote_asset, status,
+                     tick_size, step_size, min_order_value, max_order_value,
+                     price_precision, quantity_precision, maker_fee, taker_fee)
+VALUES
+  ('BTCUSDT', 'BTC', 'USDT', 'active', '0.01', '0.00001', '10', '500000', 2, 5, '0.001', '0.001'),
+  ('ETHUSDT', 'ETH', 'USDT', 'active', '0.01', '0.0001',  '5',  '100000', 2, 4, '0.001', '0.001')
+ON CONFLICT (symbol) DO NOTHING;
+`,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────
