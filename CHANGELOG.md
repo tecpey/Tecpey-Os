@@ -7,6 +7,40 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.28.5] — 2026-06-30 — AI Development Skills & TecPey Enterprise Skill
+
+### Added — Claude Skills (`/.claude/skills/`)
+
+- `tecpey/SKILL.md` — **TecPey Enterprise Skill**: platform track architecture, engineering quality gates, Next.js 16 conventions, brand/logo rules, UX constraints, product strategy, 7-step phase workflow; primary skill that governs all TecPey sessions
+- `ui-ux-pro/SKILL.md` — Adapted from nextlevelbuilder/ui-ux-pro-max-skill (MIT); design guidance for fintech and edtech UI, color palettes, typography, chart recommendations, Tailwind/Next.js stack; reference only
+- `impeccable/SKILL.md` — Adapted from pbakaus/impeccable (Apache 2.0); 23-command design audit system (/impeccable audit, polish, colorize, typeset, layout, animate, quieter, bolder, critique); brand vs. product register; reference only
+- `motion-framer/SKILL.md` — Framer Motion patterns (DEFERRED); not activated until framer-motion dep is installed and user approves
+- `engineering/SKILL.md` — Adapted from addyosmani/agent-skills (MIT); spec-driven development, incremental implementation, git workflow, CI/CD, observability pattern, API design
+- `security/SKILL.md` — Adapted from addyosmani/agent-skills (MIT); threat modeling, STRIDE, CSRF, rate limiting, CSP, financial data protection, TecPey-specific auth patterns
+- `performance/SKILL.md` — Adapted from addyosmani/agent-skills (MIT); Next.js 16 App Router, DB query optimization, bundle size, trading surface real-time data, observability-driven profiling
+- `qa/SKILL.md` — Adapted from addyosmani/agent-skills (MIT); mandatory 3-check QA gate (typecheck → lint → build), code review checklist, debug protocol, ESLint rules
+
+### Added — Documentation
+
+- `docs/AI_DEVELOPMENT_ENVIRONMENT.md` — Full audit report: adoption decisions, what was installed vs. excluded, hooks policy, rules for adding future skills, update process
+
+### Not Installed
+
+- Hooks from agent-skills (session-start.sh, sdd-cache scripts) — deferred; requires manual shell script review before activation
+- Python search engine from ui-ux-pro-max-skill — reference guidance extracted; CLI not installed
+- Astro/Bun build pipeline from impeccable — reference guidance extracted; build tools not installed
+- Awesome Claude Skills (ComposioHQ) — reference catalog only; individual skills require separate audit before adoption
+- framer-motion npm package — deferred pending explicit user approval
+
+### Changes
+
+- `package.json` — unchanged
+- `package-lock.json` — unchanged
+- No product code modified
+- No runtime dependencies added
+
+---
+
 ## [v0.28] — 2026-06-30 — Trading Core Foundation
 
 ### Added — Trading Domain Model (`src/lib/trading/`)
