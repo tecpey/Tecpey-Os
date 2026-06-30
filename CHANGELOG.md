@@ -7,6 +7,70 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.29] — 2026-06-30 — In-Process Matching Engine and Order Execution
+
+### Added — Matching Engine (`src/lib/trading/engine.ts`)
+
+- `InProcessMatchingEngine` — full implementation of `MatchingEngineInterface`
+- Price-time priority matching: best price first, FIFO within each price level
+- Supported order types: `limit`, `market`, `ioc`, `fok`, `gtc`
+- Supported time-in-force: `GTC` (resting), `IOC` (immediate or cancel), `FOK` (fill or kill)
+- FOK pre-flight: checks available book volume before any execution; rejects atomically if insufficient
+- Partial fills: `PARTIALLY_FILLED` status + GTC remainder inserted into engine book and display book
+- IOC/MARKET remainder: cancelled after matching pass, hold released for unfilled quantity
+- Trade creation: each fill produces a `trades` DB row with VWAP avg_fill_price on both orders
+- Order events: every state transition appended to `order_events` audit log
+- Engine book sync: in-memory `tecpeyEngineBooks` (individual orders) kept in sync with display `OrderBook` (aggregated price levels)
+- `getMatchingEngine()` singleton — engine instance survives hot-reload via `globalThis`
+- Graceful engine-restart fallback in `cancelOrder`: if order not in engine book (e.g. after process restart), computes release from DB order fields
+
+### Added — Wallet Service (`src/lib/trading/wallet-service.ts`)
+
+- `getAvailableBalance(userId, asset)` — ledger aggregate: credits + releases − debits − holds − fees
+- `postHold` / `postRelease` — paired hold/release entries for open order earmarking
+- `postTradeDebit` / `postTradeCredit` / `postFee` — actual financial entries on fill
+- Phase 29 convention: `walletId = userId` (dedicated wallets table deferred to future phase)
+- Hold/release model: `hold` earmarks funds; `release` restores on fill (paired with `trade_debit`); full release on cancel/expire
+
+### Added — Order Service additions (`src/lib/trading/order-service.ts`)
+
+- `getOrderById(orderId)` — internal engine lookup without userId filter
+- `updateOrderFill(orderId, fillQty, fillPrice, newStatus)` — VWAP avg_fill_price computed in SQL; atomic status transition
+- `setOrderStatus(orderId, newStatus)` — for CANCELLED / EXPIRED / REJECTED transitions
+
+### Added — Trade Service additions (`src/lib/trading/trade-service.ts`)
+
+- `createTrade(input)` — persists a matched trade record to `trades` table
+
+### Changed — `POST /api/orders`
+
+- **Balance pre-check**: queries `getAvailableBalance` before accepting any order; returns 422 with detail on insufficient funds
+- **Hold posting**: `postHold` earmarks funds immediately after order creation
+- **Engine wiring**: calls `engine.placeOrder(order)` — returns `tradeIds` and `accepted` flag
+- **Final state fetch**: re-fetches order from DB after engine to reflect fills/status
+- **timeInForce parsing**: new `timeInForce` field accepted in request body (`GTC|IOC|FOK`)
+- **Market buy**: reads `bestAsk` from in-memory order book; rejects with 422 `no_liquidity` if book is empty
+- Returns 422 when engine rejects/expires the order (FOK failure, no liquidity); 201 on acceptance
+
+### Changed — `DELETE /api/orders/:id`
+
+- Routes through `engine.cancelOrder()` instead of `order-service.cancelOrder()`
+- Engine handles: book removal, DB status update, hold release, `OrderCancelled` event, audit log entry
+
+### Remaining Gaps (Phase 29 intentional deferrals)
+
+| Gap | Phase |
+|---|---|
+| In-memory book lost on process restart | 30/32 — Redis Sorted Sets |
+| No DB transaction wrapping full match sequence | 30 — transactional matching |
+| Balance check not atomic with hold post | 30 — balance table with advisory locks |
+| `walletId ≠ userId` separation | future — dedicated wallets table |
+| WebSocket / SSE real-time order book feed | future phase |
+| Negative adjustment support in ledger | future — signed amount field |
+| Multi-instance engine coordination | 30/32 — Redis |
+
+---
+
 ## [v0.28.5] — 2026-06-30 — AI Development Skills & TecPey Enterprise Skill
 
 ### Added — Claude Skills (`/.claude/skills/`)

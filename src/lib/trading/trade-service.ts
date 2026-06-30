@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { MakerSide, Trade } from "./types";
@@ -17,6 +18,51 @@ function rowToTrade(row: Record<string, unknown>): Trade {
     makerSide: String(row.maker_side) as MakerSide,
     executedAt: new Date(row.executed_at as string).toISOString(),
   };
+}
+
+// ── Create trade (engine-internal) ───────────────────────────────────────────
+
+export type CreateTradeInput = {
+  id: string;
+  market: string;
+  buyerOrderId: string;
+  sellerOrderId: string;
+  price: number;
+  quantity: number;
+  feeBuyer: number;
+  feeSeller: number;
+  makerSide: MakerSide;
+};
+
+export async function createTrade(input: CreateTradeInput): Promise<Trade | null> {
+  const id = input.id || randomUUID();
+  const result = await withDb(async (client) => {
+    const rows = await client.query(
+      `INSERT INTO trades
+         (id, market, buyer_order_id, seller_order_id, price, quantity,
+          fee_buyer, fee_seller, maker_side)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [
+        id,
+        input.market.toUpperCase(),
+        input.buyerOrderId,
+        input.sellerOrderId,
+        input.price.toFixed(10),
+        input.quantity.toFixed(10),
+        input.feeBuyer.toFixed(10),
+        input.feeSeller.toFixed(10),
+        input.makerSide,
+      ],
+    );
+    return rows.rows[0] ? rowToTrade(rows.rows[0]) : null;
+  });
+
+  if (!result.enabled || !result.value) {
+    logger.error("[trade-service] failed to create trade", { input });
+    return null;
+  }
+  return result.value;
 }
 
 // ── Public trade history ───────────────────────────────────────────────────────

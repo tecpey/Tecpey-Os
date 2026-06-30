@@ -5,11 +5,13 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
-import { cancelOrder } from "@/lib/trading/order-service";
+import { getMatchingEngine } from "@/lib/trading/engine";
 
 export const dynamic = "force-dynamic";
 
-// DELETE /api/orders/:id — cancel an open order
+// DELETE /api/orders/:id — cancel an open order via the matching engine.
+//
+// The engine handles: book removal, DB status update, hold release, audit log.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -31,7 +33,8 @@ export async function DELETE(
       return apiError("invalid_order_id", 400);
     }
 
-    const result = await cancelOrder(orderId, userId);
+    const engine = getMatchingEngine();
+    const result = await engine.cancelOrder(orderId, userId);
 
     const latencyMs = Date.now() - start;
     logger.info("[orders] cancel attempt", {
@@ -46,6 +49,6 @@ export async function DELETE(
       return apiError(result.reason ?? "order_not_cancellable", 404);
     }
 
-    return apiOk({ orderId, cancelled: true, order: result.order });
+    return apiOk({ orderId, cancelled: true });
   });
 }

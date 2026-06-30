@@ -147,6 +147,64 @@ export async function cancelOrder(
   return { cancelled: true, order };
 }
 
+// ── Internal — engine-only helpers ───────────────────────────────────────────
+
+// Fetch any order by ID — no userId filter; for engine use only.
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  const result = await withDb(async (client) => {
+    const rows = await client.query(
+      `SELECT * FROM orders WHERE id = $1::uuid LIMIT 1`,
+      [orderId],
+    );
+    return rows.rows[0] ? rowToOrder(rows.rows[0]) : null;
+  });
+  if (!result.enabled) return null;
+  return result.value ?? null;
+}
+
+// Apply a partial or full fill to an order.
+// VWAP avg_fill_price is computed in SQL to avoid a separate read round-trip.
+// newStatus: 'FILLED' when remaining reaches zero; 'PARTIALLY_FILLED' otherwise.
+export async function updateOrderFill(
+  orderId: string,
+  fillQty: number,
+  fillPrice: number,
+  newStatus: OrderStatus,
+): Promise<Order | null> {
+  const result = await withDb(async (client) => {
+    const rows = await client.query(
+      `UPDATE orders SET
+         filled_quantity    = filled_quantity + $1,
+         remaining_quantity = remaining_quantity - $1,
+         avg_fill_price     = CASE
+           WHEN filled_quantity = 0 THEN $2
+           ELSE (filled_quantity * COALESCE(avg_fill_price, $2) + $1 * $2)
+                / (filled_quantity + $1)
+         END,
+         status             = $3,
+         updated_at         = NOW()
+       WHERE id = $4::uuid
+       RETURNING *`,
+      [fillQty, fillPrice, newStatus, orderId],
+    );
+    return rows.rows[0] ? rowToOrder(rows.rows[0]) : null;
+  });
+  if (!result.enabled || !result.value) return null;
+  return result.value;
+}
+
+// Set order status for terminal states: CANCELLED, EXPIRED, REJECTED.
+export async function setOrderStatus(orderId: string, newStatus: OrderStatus): Promise<boolean> {
+  const result = await withDb(async (client) => {
+    await client.query(
+      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2::uuid`,
+      [newStatus, orderId],
+    );
+    return true;
+  });
+  return result.enabled && (result.value ?? false);
+}
+
 // ── Query orders ──────────────────────────────────────────────────────────────
 
 export type OrderQueryOptions = {
