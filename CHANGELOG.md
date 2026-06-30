@@ -7,6 +7,99 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.32] — 2026-07-01 — Realtime WebSocket Infrastructure
+
+### Added — Custom Server (`server.ts`)
+
+- Node.js HTTP server with WebSocket support on the same port
+- Next.js integrated via `app.prepare()` + `httpServer` option
+- WebSocket server (`ws`) on `/ws` path via HTTP upgrade event
+- `@next/env` for env loading (`.env.local`, `.env`) before any service imports
+- `npm run dev` / `npm run start` updated to use `tsx server.ts`
+
+### Added — Event Bus (`src/lib/event-bus.ts`)
+
+- Typed `TradingEventBus` singleton on `globalThis.tecpeyEventBus`
+- Events: `trade:executed`, `order:updated`, `orderbook:changed`, `ticker:updated`, `wallet:changed`
+- Per-market sequence counter (`globalThis.tecpeyObSeq`) for resync detection
+- Max 200 listeners (supports many WS channels without EventEmitter warnings)
+
+### Added — WebSocket Manager (`src/lib/ws/ws-manager.ts`)
+
+- `WsManager` singleton on `globalThis.tecpeyWsManager`
+- Connection lifecycle: connect, auth, subscribe, unsubscribe, heartbeat, disconnect
+- Cookie-based auto-auth via `tecpey_session` / `tecpey_academy_session` cookies on upgrade request
+- Token-based auth via `{ "type": "auth", "token": "..." }` message
+- Subscription registry: channel-key → Set<connId>; max 100 subs per connection
+- Heartbeat: 30s ping interval, 15s pong timeout → terminate on miss
+- Backpressure: messages dropped if `ws.bufferedAmount > 1MB`
+- Snapshot on subscribe: `orderbook` (50 levels), `ticker`, `market-summary`
+- `get_snapshot` message for manual resync
+- `WsMetrics` interface + `getMetrics()` method
+
+### Added — All 8 WebSocket Channels
+
+| Channel | Direction | Trigger |
+|---------|-----------|---------|
+| `ticker:{MARKET}` | Broadcast | On trade execution |
+| `trades:{MARKET}` | Broadcast | On trade execution |
+| `orderbook:{MARKET}` | Broadcast | On order/fill/cancel |
+| `market-summary:{MARKET}` | Broadcast | On trade execution |
+| `user-orders:{userId}` | Private | On order status change |
+| `user-trades:{userId}` | Private | On trade involving user |
+| `wallet:{userId}` | Private | On balance change |
+| `notifications:{userId}` | Private | Platform notifications |
+
+### Added — Market Stats Cache (`src/lib/trading/market-stats-cache.ts`)
+
+- 5-second TTL in-memory cache per market on `globalThis.tecpeyStatsCache`
+- `getCachedMarketStats(market)` — returns cached or refreshes from DB
+- `invalidateStatsCache(market)` — called by engine after each trade
+- `buildTickerPayload(market)` — merges stats + order book top for ticker broadcasts
+
+### Added — Complete Redis Order Book Store
+
+- `RedisOrderBookStore` fully implemented with ioredis
+- Write-through: all mutations fire async Redis pipeline (ZADD/ZREM/HSET/HDEL)
+- Read path: in-memory (synchronous interface maintained)
+- Warm-start: `warmFromRedis(market)` — reads from Redis Sorted Sets; falls back to DB
+- `rebuildOrderBook()` tries Redis first, then DB
+- `createRedisClient()` factory: lazy init, single client on `globalThis.tecpeyRedisClient`
+- `getRedisClient()` exported for custom server access
+- Connection error logging (non-fatal in dev; logged in prod)
+
+### Added — Engine → Event Bus Integration
+
+- Engine emits `trade:executed` for each fill (post-tx)
+- Engine emits `order:updated` for taker + maker on fill (post-tx)
+- Engine emits `orderbook:changed` after all book mutations (post-tx)
+- Engine emits `wallet:changed` for buyer and seller assets on fill (post-tx)
+- Engine calls `invalidateStatsCache(market)` after fills
+- Cancel flow emits `order:updated` (CANCELLED) + `orderbook:changed`
+
+### Added — Observability (`GET /api/ws/metrics`)
+
+- Admin-only endpoint
+- Returns: connected clients, authenticated clients, total subscriptions, subscriptions by channel, total messages sent, uptime ms
+- Returns `available: false` when running without custom server (plain `next start`)
+
+### Added — Packages
+
+| Package | Purpose |
+|---------|---------|
+| `ioredis` | Redis client for order book persistence |
+| `@types/ws` | TypeScript types for ws library |
+| `tsx` | TypeScript server runner (dev + prod custom server) |
+
+### Documentation
+
+- `docs/WEBSOCKET.md` — NEW: full WS protocol reference
+- `docs/REALTIME.md` — NEW: event bus, snapshot, cache, perf, security
+- `docs/REDIS.md` — NEW: Redis integration, key schema, failure modes, Phase 33 roadmap
+- `docs/API.md` — WebSocket section added
+
+---
+
 ## [v0.31] — 2026-06-30 — Spot Trading Complete
 
 ### Added — Market Statistics

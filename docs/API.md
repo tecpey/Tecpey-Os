@@ -414,6 +414,38 @@ Rate limit: 30 req/min.
 
 ---
 
+---
+
+## WebSocket
+
+```
+ws://localhost:3000/ws      (development)
+wss://tecpey.ir/ws          (production)
+```
+
+See `docs/WEBSOCKET.md` for the full protocol specification.
+
+### Supported Channels
+
+| Channel | Auth | Description |
+|---------|------|-------------|
+| `ticker` | No | Live 24h ticker + best bid/ask |
+| `trades` | No | Public trade stream |
+| `orderbook` | No | Full depth snapshot + incremental updates |
+| `market-summary` | No | 24h market stats |
+| `user-orders` | Yes | Order status changes |
+| `user-trades` | Yes | User's filled trades |
+| `wallet` | Yes | Balance change notifications |
+| `notifications` | Yes | Platform notifications |
+
+### GET /api/ws/metrics
+
+Admin-only WebSocket observability endpoint.
+
+Returns: `connectedClients`, `authenticatedClients`, `totalSubscriptions`, `subscriptionsByChannel`, `totalMsgsSent`, `uptimeMs`.
+
+---
+
 ## Admin
 
 All admin routes require `x-tecpey-admin-token` or an active admin session cookie.

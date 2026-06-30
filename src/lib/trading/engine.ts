@@ -30,6 +30,8 @@ import {
   rebuildOrderBook,
   pkStr,
 } from "./order-book-store";
+import { getEventBus, nextSeq } from "@/lib/event-bus";
+import { invalidateStatsCache } from "./market-stats-cache";
 
 // ── Fill record ───────────────────────────────────────────────────────────────
 //
@@ -402,6 +404,67 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       accepted: txReturn.accepted, tradeCount: txReturn.tradeIds.length,
     });
 
+    // ── Post-tx: event bus emissions ──────────────────────────────────────────
+    if (txReturn.accepted && fills.records.length > 0) {
+      const bus = getEventBus();
+      const mkt = await getMarket(order.market);
+      invalidateStatsCache(order.market);
+
+      for (const fill of fills.records) {
+        const executedAt = new Date().toISOString();
+        bus.emit("trade:executed", {
+          tradeId: fill.tradeId,
+          market: order.market,
+          price: fill.tradePrice.toFixed(10),
+          quantity: fill.fillQty.toFixed(10),
+          buyerOrderId: fill.buyerOrderId,
+          sellerOrderId: fill.sellerOrderId,
+          buyerUserId: fill.buyerUserId,
+          sellerUserId: fill.sellerUserId,
+          makerSide: fill.maker.side,
+          executedAt,
+        });
+        // Wallet change signals (client re-fetches balance)
+        if (mkt) {
+          bus.emit("wallet:changed", { userId: fill.buyerUserId, asset: mkt.quoteAsset });
+          bus.emit("wallet:changed", { userId: fill.buyerUserId, asset: mkt.baseAsset });
+          bus.emit("wallet:changed", { userId: fill.sellerUserId, asset: mkt.quoteAsset });
+          bus.emit("wallet:changed", { userId: fill.sellerUserId, asset: mkt.baseAsset });
+        }
+        // Maker order update
+        bus.emit("order:updated", {
+          orderId: fill.maker.orderId,
+          userId: fill.maker.userId,
+          market: order.market,
+          status: fill.makerNewStatus,
+          filledQuantity: (fill.maker.originalQty - fill.makerNewRemaining).toFixed(10),
+          remainingQuantity: fill.makerNewRemaining.toFixed(10),
+          avgFillPrice: fill.tradePrice.toFixed(10),
+        });
+      }
+
+      // Taker order update
+      const takerFinalStatus: OrderStatus = fullyFilled
+        ? "FILLED"
+        : fills.totalFilled > 0 && isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
+      bus.emit("order:updated", {
+        orderId: order.id,
+        userId: order.userId,
+        market: order.market,
+        status: takerFinalStatus,
+        filledQuantity: fills.totalFilled.toFixed(10),
+        remainingQuantity: fills.remaining.toFixed(10),
+        avgFillPrice: avgPrice > 0 ? avgPrice.toFixed(10) : null,
+      });
+
+      // Order book snapshot after all mutations
+      bus.emit("orderbook:changed", {
+        market: order.market,
+        snapshot: displayBook.snapshot(50),
+        seqNum: nextSeq(order.market),
+      });
+    }
+
     return {
       accepted: txReturn.accepted,
       orderId:  order.id,
@@ -475,6 +538,22 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       orderId, userId, market: engineEntry?.market ?? "unknown", cancelledBy: "user",
     });
     logger.info("[engine] OrderCancelled", { eventId: ev.eventId, orderId });
+
+    // Emit cancel events
+    if (engineEntry) {
+      const bus = getEventBus();
+      bus.emit("order:updated", {
+        orderId, userId, market: engineEntry.market, status: "CANCELLED",
+        filledQuantity: (engineEntry.originalQty - engineEntry.remaining).toFixed(10),
+        remainingQuantity: "0",
+        avgFillPrice: null,
+      });
+      bus.emit("orderbook:changed", {
+        market: engineEntry.market,
+        snapshot: getOrderBook(engineEntry.market).snapshot(50),
+        seqNum: nextSeq(engineEntry.market),
+      });
+    }
 
     return { cancelled: true, orderId };
   }

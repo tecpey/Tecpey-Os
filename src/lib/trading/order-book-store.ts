@@ -2,6 +2,7 @@ import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { OrderBookSnapshot, OrderSide } from "./types";
 import { getOrderBook } from "./order-book";
+import type { Redis } from "ioredis";
 
 // ── EngineOrder ───────────────────────────────────────────────────────────────
 //
@@ -172,39 +173,140 @@ class InMemoryOrderBookStore implements OrderBookStore {
   }
 }
 
-// ── Redis stub ────────────────────────────────────────────────────────────────
+// ── Redis implementation ──────────────────────────────────────────────────────
 //
-// Phase 30 foundation: the Redis implementation is stubbed.
-// When REDIS_URL is set: warn that ioredis is not installed and fall back to
-// in-memory in development/test. In production, fail loudly at startup.
+// Phase 32: Complete ioredis implementation.
+// Architecture: in-memory is the synchronous read path; Redis is the async
+// write-through layer for durability and future multi-instance sync.
 //
-// To activate Redis support in a future phase:
-//   npm install ioredis
-//   Implement each method using ZADD/ZRANGE/HSET/HGET Sorted Set commands.
-//   Key schema:
-//     tecpey:ob:{market}:bids  — Sorted Set  (score = price, member = JSON EngineOrder)
-//     tecpey:ob:{market}:asks  — Sorted Set  (score = price, member = JSON EngineOrder)
-//     tecpey:order:{orderId}   — Hash         (fields: market, side, priceKey, remaining …)
+// Key schema:
+//   tecpey:ob:{market}:bids  — Sorted Set (score=price, member=JSON EngineOrder)
+//   tecpey:ob:{market}:asks  — Sorted Set (score=price, member=JSON EngineOrder)
+//   tecpey:order:{orderId}   — Hash (market, side, priceKey, remaining, member)
 
 class RedisOrderBookStore extends InMemoryOrderBookStore {
-  constructor() {
+  private redis: Redis;
+
+  constructor(redis: Redis) {
     super();
-    this.validate();
+    this.redis = redis;
+  }
+
+  override insert(market: string, entry: EngineOrder): void {
+    super.insert(market, entry);
+    const sym = market.toUpperCase();
+    const key = entry.side === "buy"
+      ? `tecpey:ob:${sym}:bids`
+      : `tecpey:ob:${sym}:asks`;
+    const member = JSON.stringify(entry);
+    void this.redis.pipeline()
+      .zadd(key, entry.pricePerUnit, member)
+      .hset(`tecpey:order:${entry.orderId}`, {
+        market: sym,
+        side: entry.side,
+        priceKey: pkStr(entry.pricePerUnit),
+        remaining: entry.remaining.toString(),
+        member,
+      })
+      .exec()
+      .catch((err) => logger.warn("[order-book-store] Redis insert failed", { err }));
+  }
+
+  override findAndRemove(orderId: string): EngineOrder | null {
+    const removed = super.findAndRemove(orderId);
+    if (!removed) return null;
+    const sym = removed.market.toUpperCase();
+    const key = removed.side === "buy"
+      ? `tecpey:ob:${sym}:bids`
+      : `tecpey:ob:${sym}:asks`;
+    const member = JSON.stringify(removed);
+    void this.redis.pipeline()
+      .zrem(key, member)
+      .del(`tecpey:order:${orderId}`)
+      .exec()
+      .catch((err) => logger.warn("[order-book-store] Redis findAndRemove failed", { err }));
+    return removed;
+  }
+
+  override updateMakerRemaining(orderId: string, newRemaining: number): void {
+    // Capture old entry before the in-memory update removes it.
+    const oldMember = this.getMemberForUpdate(orderId);
+    super.updateMakerRemaining(orderId, newRemaining);
+    if (!oldMember) return;
+
+    const { entry, key, member } = oldMember;
+    if (newRemaining <= 1e-10) {
+      void this.redis.pipeline()
+        .zrem(key, member)
+        .del(`tecpey:order:${orderId}`)
+        .exec()
+        .catch((err) => logger.warn("[order-book-store] Redis remove failed", { err }));
+    } else {
+      const updated = { ...entry, remaining: newRemaining };
+      const newMember = JSON.stringify(updated);
+      void this.redis.pipeline()
+        .zrem(key, member)
+        .zadd(key, entry.pricePerUnit, newMember)
+        .hset(`tecpey:order:${orderId}`, { remaining: newRemaining.toString(), member: newMember })
+        .exec()
+        .catch((err) => logger.warn("[order-book-store] Redis update failed", { err }));
+    }
+  }
+
+  private getMemberForUpdate(orderId: string): { entry: EngineOrder; key: string; member: string } | null {
+    if (!globalThis.tecpeyEngineBooks) return null;
+    for (const [, book] of globalThis.tecpeyEngineBooks) {
+      const loc = book.index.get(orderId);
+      if (!loc) continue;
+      const map = loc.side === "buy" ? book.bids : book.asks;
+      const level = map.get(loc.priceKey);
+      const entry = level?.find((e) => e.orderId === orderId);
+      if (!entry) continue;
+      const sym = entry.market.toUpperCase();
+      const key = `tecpey:ob:${sym}:${loc.side === "buy" ? "bids" : "asks"}`;
+      return { entry, key, member: JSON.stringify(entry) };
+    }
+    return null;
   }
 
   override validate(): void {
-    const isProd = process.env.NODE_ENV === "production";
-    if (isProd) {
-      throw new Error(
-        "[order-book-store] REDIS_URL is set but ioredis is not installed. " +
-          "Run `npm install ioredis` and implement RedisOrderBookStore before deploying.",
-      );
+    // Validate Redis connectivity asynchronously (non-blocking).
+    void this.redis.ping()
+      .then(() => logger.info("[order-book-store] Redis connected"))
+      .catch((err) => {
+        const isProd = process.env.NODE_ENV === "production";
+        if (isProd) {
+          logger.error("[order-book-store] Redis PING failed in production", { err });
+        } else {
+          logger.warn("[order-book-store] Redis PING failed; falling back to in-memory", { err });
+        }
+      });
+  }
+
+  // Warm-start from Redis (called instead of rebuildOrderBook when Redis is available).
+  async warmFromRedis(market: string): Promise<number> {
+    const sym = market.toUpperCase();
+    let count = 0;
+    try {
+      const [bidMembers, askMembers] = await Promise.all([
+        this.redis.zrange(`tecpey:ob:${sym}:bids`, 0, -1),
+        this.redis.zrange(`tecpey:ob:${sym}:asks`, 0, -1),
+      ]);
+      const displayBook = getOrderBook(sym);
+      for (const member of [...bidMembers, ...askMembers]) {
+        try {
+          const entry = JSON.parse(member) as EngineOrder;
+          super.insert(entry.market, entry);
+          displayBook.insert(entry.side, pkStr(entry.pricePerUnit), entry.remaining.toFixed(10));
+          count++;
+        } catch { /* skip malformed entry */ }
+      }
+    } catch (err) {
+      logger.warn("[order-book-store] Redis warm-start failed, will fall back to DB", { err });
+      return 0;
     }
-    // Non-production: warn and fall back to in-memory.
-    logger.warn(
-      "[order-book-store] REDIS_URL detected but ioredis is not installed. " +
-        "Falling back to in-memory order book. Install ioredis for Redis-backed order books.",
-    );
+    logger.info("[order-book-store] warmed from Redis", { market: sym, orders: count });
+    return count;
   }
 }
 
@@ -212,16 +314,46 @@ class RedisOrderBookStore extends InMemoryOrderBookStore {
 
 declare global {
   var tecpeyOrderBookStore: OrderBookStore | undefined;
+  var tecpeyRedisClient: Redis | undefined;
+}
+
+function createRedisClient(): Redis | null {
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  try {
+    // Dynamic require so the module can load without ioredis in non-Redis environments.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Redis } = require("ioredis") as typeof import("ioredis");
+    if (!globalThis.tecpeyRedisClient) {
+      globalThis.tecpeyRedisClient = new Redis(url, {
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: true,
+        lazyConnect: false,
+      });
+      globalThis.tecpeyRedisClient.on("error", (err) =>
+        logger.warn("[redis] connection error", { err }),
+      );
+    }
+    return globalThis.tecpeyRedisClient;
+  } catch {
+    logger.warn("[order-book-store] ioredis not available despite REDIS_URL being set");
+    return null;
+  }
 }
 
 export function getOrderBookStore(): OrderBookStore {
   if (!globalThis.tecpeyOrderBookStore) {
-    const redisUrl = process.env.REDIS_URL;
-    globalThis.tecpeyOrderBookStore = redisUrl
-      ? new RedisOrderBookStore()
+    const redis = createRedisClient();
+    globalThis.tecpeyOrderBookStore = redis
+      ? new RedisOrderBookStore(redis)
       : new InMemoryOrderBookStore();
+    globalThis.tecpeyOrderBookStore.validate();
   }
   return globalThis.tecpeyOrderBookStore;
+}
+
+export function getRedisClient(): Redis | undefined {
+  return globalThis.tecpeyRedisClient;
 }
 
 // ── Warm-start recovery ───────────────────────────────────────────────────────
@@ -232,6 +364,14 @@ export function getOrderBookStore(): OrderBookStore {
 
 export async function rebuildOrderBook(market: string): Promise<void> {
   const mkt = market.toUpperCase();
+
+  // If the store is Redis-backed, try warm-start from Redis first.
+  const store = getOrderBookStore();
+  if (store instanceof RedisOrderBookStore) {
+    const count = await store.warmFromRedis(mkt);
+    if (count > 0) return; // Redis had data; no need to hit DB.
+  }
+
   const result = await withDb(async (client) => {
     const rows = await client.query<{
       id: string;
@@ -254,7 +394,6 @@ export async function rebuildOrderBook(market: string): Promise<void> {
 
   if (!result.enabled || !result.value?.length) return;
 
-  const store = getOrderBookStore();
   const displayBook = getOrderBook(mkt);
   let rebuilt = 0;
 
