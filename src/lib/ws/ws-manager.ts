@@ -12,6 +12,8 @@ import type {
 import { buildTickerPayload, getCachedMarketStats } from "@/lib/trading/market-stats-cache";
 import { getOrderBook } from "@/lib/trading/order-book";
 import { nextSeq } from "@/lib/event-bus";
+import { computeObDelta, resetObDelta } from "@/lib/ws/orderbook-delta";
+import type { PubSubMetrics } from "@/lib/redis-pubsub";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,7 +51,10 @@ export type WsMetrics = {
   totalSubscriptions: number;
   subscriptionsByChannel: Record<string, number>;
   totalMsgsSent: number;
+  droppedMessages: number;
   uptimeMs: number;
+  mode: "redis" | "local";
+  pubSub: PubSubMetrics | null;
 };
 
 // ── Manager ───────────────────────────────────────────────────────────────────
@@ -62,11 +67,15 @@ export class WsManager extends EventEmitter {
   private conns = new Map<ConnId, Conn>();
   private channels = new Map<string, Set<ConnId>>();
   private msgsSentTotal = 0;
+  private droppedTotal = 0;
   private startedAt = Date.now();
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private mode: "redis" | "local" = "local";
+  private pubSubRef: { getMetrics(): PubSubMetrics } | null = null;
 
   constructor() {
     super();
+    // Phase 32 fallback: local EventBus listeners active until Redis is wired.
     this.setupEventBusListeners();
     this.startHeartbeat();
   }
@@ -210,6 +219,8 @@ export class WsManager extends EventEmitter {
   private async sendSnapshot(conn: Conn, channel: string, market?: string): Promise<void> {
     try {
       if (channel === "orderbook" && market) {
+        // Reset delta state so next broadcast sends a full snapshot for this market.
+        resetObDelta(market);
         const snap = getOrderBook(market).snapshot(50);
         send(conn.ws, {
           type: "snapshot", channel: "orderbook", market,
@@ -240,12 +251,15 @@ export class WsManager extends EventEmitter {
     for (const id of ids) {
       const conn = this.conns.get(id);
       if (!conn || conn.ws.readyState !== 1) continue;
-      if ((conn.ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0 > 1_048_576) continue;
+      if ((conn.ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0 > 1_048_576) {
+        this.droppedTotal++;
+        continue;
+      }
       try {
         conn.ws.send(payload);
         conn.msgsSent++;
         this.msgsSentTotal++;
-      } catch { /* ignore */ }
+      } catch { this.droppedTotal++; }
     }
   }
 
@@ -254,6 +268,68 @@ export class WsManager extends EventEmitter {
   }
 
   // ── Event bus listeners ─────────────────────────────────────────────────────
+
+  // ── Delta order book broadcast ──────────────────────────────────────────────
+
+  private broadcastOrderBook(payload: OrderBookChangedPayload): void {
+    const delta = computeObDelta(payload.market, payload.snapshot);
+    if (delta) {
+      this.broadcast(`orderbook:${payload.market}`, {
+        type: "delta", channel: "orderbook", market: payload.market,
+        seq: payload.seqNum, bids: delta.bids, asks: delta.asks,
+      });
+    } else {
+      // First snapshot for this market or no change — send full.
+      this.broadcast(`orderbook:${payload.market}`, {
+        type: "update", channel: "orderbook", market: payload.market,
+        seq: payload.seqNum, data: payload.snapshot,
+      });
+    }
+  }
+
+  // ── Redis pub/sub subscription (Phase 33) ───────────────────────────────────
+  // Called from server.ts after Redis pub/sub is initialized.
+  // Replaces local EventBus listeners with Redis-sourced broadcasts.
+  // Ensures ALL instances (not just the one that matched) deliver events to clients.
+
+  setupRedisSubscriptions(pubsub: {
+    setHandlers(handlers: {
+      onTrade: (p: TradeExecutedPayload) => void;
+      onOrder: (p: OrderUpdatedPayload) => void;
+      onOrderBook: (p: OrderBookChangedPayload) => void;
+      onTicker: (p: TickerUpdatedPayload) => void;
+      onWallet: (p: WalletChangedPayload) => void;
+    }): void;
+    getMetrics(): PubSubMetrics;
+  }): void {
+    this.mode = "redis";
+    this.pubSubRef = pubsub;
+
+    pubsub.setHandlers({
+      onTrade: (payload) => {
+        const msg = { type: "update", channel: "trades", market: payload.market, data: payload };
+        this.broadcast(`trades:${payload.market}`, msg);
+        this.broadcastToUser(payload.buyerUserId, "user-trades", { type: "update", channel: "user-trades", data: payload });
+        this.broadcastToUser(payload.sellerUserId, "user-trades", { type: "update", channel: "user-trades", data: payload });
+        void buildTickerPayload(payload.market).then((ticker) => {
+          this.broadcast(`ticker:${payload.market}`, { type: "update", channel: "ticker", market: payload.market, data: ticker });
+          this.broadcast(`market-summary:${payload.market}`, { type: "update", channel: "market-summary", market: payload.market, data: ticker });
+        });
+      },
+      onOrder: (payload) => {
+        this.broadcastToUser(payload.userId, "user-orders", { type: "update", channel: "user-orders", data: payload });
+      },
+      onOrderBook: (payload) => {
+        this.broadcastOrderBook(payload);
+      },
+      onTicker: (payload) => {
+        this.broadcast(`ticker:${payload.market}`, { type: "update", channel: "ticker", market: payload.market, data: payload });
+      },
+      onWallet: (payload) => {
+        this.broadcastToUser(payload.userId, "wallet", { type: "update", channel: "wallet", data: payload });
+      },
+    });
+  }
 
   private setupEventBusListeners(): void {
     const bus = getEventBus();
@@ -281,10 +357,7 @@ export class WsManager extends EventEmitter {
     };
 
     const onOrderBookChanged = (payload: OrderBookChangedPayload) => {
-      this.broadcast(`orderbook:${payload.market}`, {
-        type: "update", channel: "orderbook", market: payload.market,
-        seq: payload.seqNum, data: payload.snapshot,
-      });
+      this.broadcastOrderBook(payload);
     };
 
     const onTickerUpdated = (payload: TickerUpdatedPayload) => {
@@ -348,7 +421,10 @@ export class WsManager extends EventEmitter {
       totalSubscriptions: totalSubs,
       subscriptionsByChannel: subsByChannel,
       totalMsgsSent: this.msgsSentTotal,
+      droppedMessages: this.droppedTotal,
       uptimeMs: Date.now() - this.startedAt,
+      mode: this.mode,
+      pubSub: this.pubSubRef?.getMetrics() ?? null,
     };
   }
 }

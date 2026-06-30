@@ -101,3 +101,32 @@ export function nextSeq(market: string): number {
   globalThis.tecpeyObSeq.set(market, n);
   return n;
 }
+
+// ── Redis publisher wiring ────────────────────────────────────────────────────
+// Called once from server.ts after Redis pub/sub is initialized.
+// Routes local EventBus events → Redis channels for cross-instance distribution.
+// The WsManager listens on Redis subscriber (not the local bus) for WS broadcasts.
+
+export function wireRedisPublisher(pubsub: {
+  publish: (channel: string, payload: unknown) => void;
+  publishOrderBook: (payload: OrderBookChangedPayload) => void;
+}): void {
+  const bus = getEventBus();
+
+  bus.on("trade:executed", (payload) => {
+    pubsub.publish("tecpey:events:trade", payload);
+  });
+
+  bus.on("order:updated", (payload) => {
+    pubsub.publish("tecpey:events:order", payload);
+  });
+
+  bus.on("orderbook:changed", (payload) => {
+    // Debounced: multiple rapid OB changes collapse to one publish per market.
+    pubsub.publishOrderBook(payload);
+  });
+
+  bus.on("wallet:changed", (payload) => {
+    pubsub.publish("tecpey:events:wallet", payload);
+  });
+}

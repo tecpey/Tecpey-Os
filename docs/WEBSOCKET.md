@@ -1,4 +1,4 @@
-# WebSocket API — Phase 32
+# WebSocket API — Phase 33
 
 > Real-time market data, user streams, and order book updates over WebSocket.
 
@@ -168,9 +168,23 @@ These require no authentication.
 }
 ```
 
-**Update (on every order/cancel/fill):** Same structure with `"type": "update"` and incremented `seq`.
+**Update — full snapshot (first update after subscribe, or after resync):**
+Same structure with `"type": "update"` and incremented `seq`.
 
-**Resync:** If you detect a gap in `seq`, request a fresh snapshot:
+**Update — incremental delta (Phase 33, subsequent updates):**
+```json
+{
+  "type": "delta",
+  "channel": "orderbook",
+  "market": "BTCUSDT",
+  "seq": 43,
+  "bids": [{ "price": "64999.00", "quantity": "0.5" }],
+  "asks": [{ "price": "65001.00", "quantity": "0" }]
+}
+```
+`quantity: "0"` means the level was removed. Only changed levels are included.
+
+**Resync:** If you detect a gap in `seq` (e.g., received 43 after 41, never saw 42), request a fresh snapshot. The server resets its delta state so the next broadcast will be a full `update`:
 ```json
 { "type": "get_snapshot", "channel": "orderbook", "market": "BTCUSDT" }
 ```

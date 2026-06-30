@@ -1,4 +1,4 @@
-# Redis Integration — Phase 32
+# Redis Integration — Phase 33
 
 > Order book persistence, warm-start recovery, and multi-instance architecture.
 
@@ -6,9 +6,9 @@
 
 ## Status
 
-Phase 32 ships a complete `RedisOrderBookStore` using ioredis. Redis is optional:
-- No `REDIS_URL` → `InMemoryOrderBookStore` (single-instance, no persistence)
-- `REDIS_URL` set → `RedisOrderBookStore` (persistent, multi-instance ready)
+Phase 33 adds Redis Pub/Sub for cross-instance event distribution. Redis is optional:
+- No `REDIS_URL` → `InMemoryOrderBookStore` + local EventBus (single-instance)
+- `REDIS_URL` set → `RedisOrderBookStore` + Redis Pub/Sub (multi-instance, production-ready)
 
 ---
 
@@ -105,24 +105,72 @@ The factory will detect `REDIS_URL` and automatically use `RedisOrderBookStore`.
 
 ---
 
-## Multi-Instance Synchronization (Phase 33)
+## Redis Pub/Sub (Phase 33)
 
-The current Redis store provides durability and warm-start but NOT cross-instance matching synchronization. Each instance still maintains its own in-memory book:
+Phase 33 adds cross-instance event distribution via `src/lib/redis-pubsub.ts`.
+
+### Architecture
 
 ```
-Instance A — engine → fill → update Redis ✓
-Instance B — reads Redis on warm-start ✓
-Instance B — engine → tries to fill → sees stale in-memory book ✗
+Engine (any instance)
+  └→ local EventBus
+       └→ wireRedisPublisher → Redis PUBLISH tecpey:events:{type}
+                                    │
+                              Redis Pub/Sub
+                             /               \
+                     Instance A sub        Instance B sub
+                           │                     │
+                     WsManager.broadcast    WsManager.broadcast
+                           │                     │
+                    local WS clients       local WS clients
 ```
 
-**Phase 33 fix: Redis pub/sub**
+All instances subscribe AND publish. The publisher also receives its own events via Redis (round-trip adds ~1ms but eliminates sticky-session requirements entirely).
 
-When an instance modifies the order book:
-1. Publish a `PUBLISH tecpey:ob:events {market}:{change}` message to Redis
-2. All instances subscribe to `tecpey:ob:events`
-3. On receiving a message, other instances update their in-memory book
+### Pub/Sub Channels
 
-This enables true multi-instance matching with Redis as the coordination layer.
+| Channel | Payload |
+|---------|---------|
+| `tecpey:events:trade` | `TradeExecutedPayload` |
+| `tecpey:events:order` | `OrderUpdatedPayload` |
+| `tecpey:events:orderbook` | `OrderBookChangedPayload` (50-level snapshot) |
+| `tecpey:events:ticker` | `TickerUpdatedPayload` |
+| `tecpey:events:wallet` | `WalletChangedPayload` |
+
+### Envelope format
+
+```json
+{ "nodeId": "abc12345", "ts": 1751366400000, "payload": { ... } }
+```
+
+`nodeId` is a random 8-character UUID prefix unique per server process.
+
+### Order book coalescing
+
+Multiple `orderbook:changed` events within a 50ms window per market are coalesced into a single Redis PUBLISH. This handles large market orders that trigger multiple fills.
+
+### Node Registry
+
+Each instance registers itself at startup and refreshes every 30s:
+```
+SET tecpey:node:{nodeId} {...} EX 60
+```
+Count with `KEYS tecpey:node:*` (also available via `GET /api/ws/metrics`).
+
+### WsManager mode
+
+When `setupRedisSubscriptions()` is called:
+- `mode` switches from `"local"` to `"redis"`
+- WsManager broadcasts only from Redis subscriber events
+- Local EventBus listeners remain active for non-WS concerns (stats cache invalidation)
+- `GET /api/ws/metrics` reports both `mode` and full `pubSub` metrics
+
+### Fallback (no Redis)
+
+Without `REDIS_URL`, the server runs in `"local"` mode:
+- WsManager subscribes directly to the local EventBus
+- Single-instance only — events from other instances are not distributed
+- Identical to Phase 32 behaviour
 
 ---
 

@@ -7,6 +7,67 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.33] — 2026-07-01 — Distributed Realtime Infrastructure
+
+### Added — Redis Pub/Sub (`src/lib/redis-pubsub.ts`)
+
+- `RedisPubSubManager` singleton on `globalThis.tecpeyPubSub`
+- Separate publisher and subscriber Redis clients (ioredis requirement)
+- Channels: `trade`, `order`, `orderbook`, `ticker`, `wallet` under `tecpey:events:*` prefix
+- Envelope format with `nodeId` + `ts` for observability
+- Debounced orderbook publish: 50ms coalescing window per market reduces Redis PUBLISH calls
+- Node registry: `SET tecpey:node:{nodeId} ... EX 60`, refreshed every 30s
+- Redis latency probe (PING) every 60s
+- Graceful shutdown: deregisters node, quits both clients
+- Retry strategy: exponential backoff up to 5s
+- Metrics: published, received, dropped, reconnects, latencyMs, subscribedChannels
+
+### Added — Delta Order Book (`src/lib/ws/orderbook-delta.ts`)
+
+- `computeObDelta(market, snapshot)` — computes level-diff from previous snapshot
+- `resetObDelta(market)` — clears state on resync requests
+- Delta format: `{ bids, asks }` where `quantity: "0"` means level removed
+- Previous snapshot stored on `globalThis.tecpeyObPrevSnap`
+
+### Changed — `server.ts`
+
+- `app.prepare()` now `async` — awaits Redis pub/sub initialization
+- If `REDIS_URL` is set: wires `wireRedisPublisher` + `setupRedisSubscriptions`
+- Graceful shutdown hooks (`SIGTERM`, `SIGINT`) — shuts down Redis pub/sub before exit
+- Logs whether multi-instance or single-instance mode is active
+
+### Changed — `src/lib/event-bus.ts`
+
+- Added `wireRedisPublisher(pubsub)` — routes local EventBus events to Redis pub/sub
+- Called once from `server.ts`; idempotent on hot reload
+
+### Changed — `src/lib/ws/ws-manager.ts`
+
+- Added `setupRedisSubscriptions(pubsub)` — switches WsManager from local EventBus to Redis sub path
+- Added `broadcastOrderBook(payload)` — sends delta if available, falls back to full snapshot
+- Added `droppedMessages` counter in broadcast loop (backpressure + send errors)
+- `getMetrics()` now returns `mode: "redis" | "local"` and `pubSub: PubSubMetrics | null`
+- Resync (`sendSnapshot` for orderbook) resets delta state via `resetObDelta(market)`
+- Local EventBus fallback remains active when Redis is not configured
+
+### Added — `docs/SCALING.md`
+
+- Horizontal scaling reference: architecture, Nginx config, failure modes
+- Multi-instance topology recommendations
+- Delta order book bandwidth reduction explanation
+
+### Changed — `docs/REDIS.md`
+
+- Added Phase 33 pub/sub architecture section with channel table and flow diagram
+- Updated status from Phase 32 to Phase 33
+
+### Changed — `docs/WEBSOCKET.md`
+
+- Added delta protocol documentation (`type: "delta"` message format)
+- Clarified full snapshot vs. delta semantics and resync behaviour
+
+---
+
 ## [v0.32] — 2026-07-01 — Realtime WebSocket Infrastructure
 
 ### Added — Custom Server (`server.ts`)
