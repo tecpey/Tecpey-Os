@@ -225,25 +225,106 @@ If hooks are added in a future phase, they must be:
 
 ---
 
+## Mandatory Pre-Installation Audit Protocol
+
+**Never install anything directly into the production project without completing all 8 steps and producing a recommendation matrix.**
+
+### Step 1 — Audit the Repository
+
+Read: README, CLAUDE.md, AGENTS.md, any SKILL.md files, `hooks/`, `package.json`, and the full directory tree. Understand exactly what gets installed where, what runs automatically, and what external services are contacted.
+
+### Step 2 — Verify License Compatibility
+
+| Accepted | Conditional | Reject |
+|---|---|---|
+| MIT | GPL (check copyleft implications) | No license |
+| Apache 2.0 | LGPL | Proprietary |
+| ISC | CC-BY-SA (check share-alike) | License unconfirmed → DEFER |
+| BSD | | |
+
+If the license field is missing or returns "Not confirmed" from the GitHub API, the skill is **DEFERRED**, not adopted.
+
+### Step 3 — Verify Maintenance Status
+
+- Last commit date: must be within 12 months
+- Open issues with no response for > 3 months → flag as risk
+- No README → reject
+- No author contact or org backing → flag
+
+### Step 4 — Verify Security
+
+Check for:
+- Hooks that run shell scripts automatically (SessionStart, PreToolUse, PostToolUse)
+- Scripts that write outside `.claude/skills/`
+- Scripts that read or transmit env vars or secrets
+- `npm postinstall` scripts in package.json
+- `curl | bash` patterns in any script
+- External API calls at install time
+
+Any of these found → **do not install the component that contains them**. Extract only the safe parts (SKILL.md).
+
+### Step 5 — Verify Compatibility
+
+| Check | Pass condition |
+|---|---|
+| Claude Code | Skill format uses valid YAML frontmatter + markdown |
+| Next.js | No changes to `next.config.ts`, `proxy.ts`, or App Router conventions |
+| TypeScript | No changes to `tsconfig.json`; introduces 0 type errors |
+| Tailwind | No changes to `tailwind.config.*` |
+| npm | No additions to `package.json` or `package-lock.json` |
+
+### Step 6 — Reject Abandoned or Low-Quality Skills
+
+Reject if any of:
+- No commits in 12+ months
+- No license file
+- No README
+- Single-file repo with no description
+- No stars/forks with no clear author or backing organization
+- Skill content is generic advice with no actionable process
+
+### Step 7 — Copy Only the Useful Parts
+
+Never `git clone` or `npx install` into the production project root.
+
+**Extract only:** the SKILL.md (or equivalent guidance document), adapted for TecPey conventions.
+
+**Leave behind:** build tools, lock files (`bun.lock`, `package-lock.json`), CI configs, demo sites, OG image generators, Astro/Bun/Webpack configs, hooks shell scripts, npm CLI packages, Python scripts, CSV databases.
+
+### Step 8 — Recommendation Matrix
+
+Before writing any files, produce a table:
+
+| Skill | License | Maintained | Security Risk | Deps Added | Hooks | Compat | Decision |
+|---|---|---|---|---|---|---|---|
+| ... | MIT | Yes | None | No | No | Yes | ADOPT |
+| ... | Unknown | No | Medium | Yes | Yes | Partial | REJECT |
+
+Get user acknowledgment of the matrix before proceeding to write files.
+
+---
+
 ## Rules for Adding Future Skills
 
-1. **Audit first** — check license, hooks, dependencies, security risk
-2. **Prefer reference adoption** — extract the SKILL.md guidance; don't install build tools
-3. **Never install hooks without user approval** — session-level hooks run invisibly
-4. **Never install npm dependencies as part of skill installation**
-5. **Update this document** when a skill is added, deferred, or rejected
-6. **Update CHANGELOG.md** with a Phase entry for the skill audit
-7. **Run QA gate** after any skill installation that touches project files
+1. Complete all 8 audit steps above before touching any project file
+2. Prefer reference adoption — extract SKILL.md guidance; never install build tools
+3. Never install hooks without explicit per-hook user approval after reviewing the shell script
+4. Never install npm dependencies as part of skill installation
+5. Update this document when a skill is added, deferred, or rejected
+6. Update `CHANGELOG.md` with a Phase entry for the skill audit
+7. Run QA gate after any skill installation that touches project files
 
 ### Skill Adoption Checklist
 
+- [ ] All 8 audit steps completed
+- [ ] Recommendation matrix produced and approved
 - [ ] License confirmed (MIT, Apache 2.0, ISC preferred)
 - [ ] No hooks that run automatically
-- [ ] No npm dependencies required
-- [ ] No modification of project code
+- [ ] No npm dependencies added
+- [ ] No modification of product code
 - [ ] SKILL.md adapted for TecPey conventions and constraints
 - [ ] Documented in this file
-- [ ] CHANGELOG.md updated
+- [ ] `CHANGELOG.md` updated
 - [ ] QA gate passes (typecheck + lint + build)
 
 ---

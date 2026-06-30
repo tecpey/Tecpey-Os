@@ -132,6 +132,21 @@ For every new API route, confirm:
 
 ---
 
+## External Skill Installation — Mandatory Audit Protocol
+
+**Never install any external Claude Skill without completing all 8 steps. Never install directly into the project without a recommendation matrix.**
+
+1. **Audit the repository** — README, CLAUDE.md, hooks/, package.json, full directory tree. Know exactly what runs where.
+2. **Verify license** — MIT, Apache 2.0, ISC accepted. Missing or unconfirmed license → DEFER, not ADOPT.
+3. **Verify maintenance** — last commit within 12 months; no zombie repos.
+4. **Verify security** — no auto-running shell scripts, no env var exfiltration, no postinstall hooks, no `curl | bash`.
+5. **Verify compatibility** — Claude Code format valid; no changes to `next.config.ts`, `tsconfig.json`, `tailwind.config.*`, `package.json`, `package-lock.json`.
+6. **Reject abandoned or low-quality** — no license, no README, no commits in 12+ months → REJECT.
+7. **Copy only useful parts** — extract SKILL.md only. Leave behind: build tools, lock files, CI configs, demo sites, Python scripts, CSV databases, hooks shell scripts.
+8. **Produce recommendation matrix** — table with License / Maintained / Security Risk / Deps Added / Hooks / Compat / Decision — before writing any file. Get user acknowledgment.
+
+---
+
 ## Phase Workflow (7-Step)
 
 1. **Plan** — Spec alignment, no code yet
