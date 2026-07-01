@@ -14,6 +14,7 @@ import { getWsManager } from "./src/lib/ws/ws-manager";
 import { getRedisPubSub } from "./src/lib/redis-pubsub";
 import { wireRedisPublisher } from "./src/lib/event-bus";
 import { bootstrapComplianceProviders } from "./src/lib/compliance/index";
+import { startWithdrawalWorkers, stopWithdrawalWorkers } from "./src/workers/withdrawal-worker";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const dev  = process.env.NODE_ENV !== "production";
@@ -25,6 +26,11 @@ const handle = app.getRequestHandler();
 app.prepare().then(async () => {
   // ── Compliance providers (Phase 36) ──────────────────────────────────────
   bootstrapComplianceProviders();
+
+  // ── Withdrawal pipeline workers (Phase 38) ────────────────────────────────
+  if (process.env.REDIS_URL) {
+    startWithdrawalWorkers();
+  }
 
   // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────
   // When REDIS_URL is set, wire up cross-instance event distribution.
@@ -67,6 +73,7 @@ app.prepare().then(async () => {
 
   // ── Graceful shutdown ─────────────────────────────────────────────────────
   const shutdown = async () => {
+    await stopWithdrawalWorkers();
     if (redisUrl) await getRedisPubSub().shutdown();
     process.exit(0);
   };

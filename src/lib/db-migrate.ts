@@ -847,6 +847,33 @@ CREATE INDEX IF NOT EXISTS idx_sec_notif_user ON security_notifications(user_id,
 `,
   },
 
+  // ── 0011: Withdrawal Execution Columns (Phase 38) ────────────────────────────
+  {
+    filename: "0011_withdrawal_execution.sql",
+    sql: `
+-- Adds blockchain execution tracking columns to the withdrawals table.
+-- These columns are populated by the hot wallet disbursement engine (Phase 38).
+ALTER TABLE withdrawals
+  ADD COLUMN IF NOT EXISTS tx_hash              TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS chain_id             TEXT,
+  ADD COLUMN IF NOT EXISTS nonce                INTEGER,
+  ADD COLUMN IF NOT EXISTS fee_config           JSONB      NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS broadcast_attempts   INTEGER    NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS last_broadcast_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS confirmation_count   INTEGER    NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS required_confirmations INTEGER  NOT NULL DEFAULT 6,
+  ADD COLUMN IF NOT EXISTS block_number         TEXT,
+  ADD COLUMN IF NOT EXISTS execution_error      TEXT,
+  ADD COLUMN IF NOT EXISTS network_fee          TEXT,
+  ADD COLUMN IF NOT EXISTS fee_currency         TEXT,
+  ADD COLUMN IF NOT EXISTS raw_tx               BYTEA,
+  ADD COLUMN IF NOT EXISTS idempotency_key      TEXT UNIQUE;
+
+CREATE INDEX IF NOT EXISTS idx_withdrawals_tx_hash ON withdrawals(tx_hash) WHERE tx_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_withdrawals_idempotency ON withdrawals(idempotency_key) WHERE idempotency_key IS NOT NULL;
+`,
+  },
+
   // ── 0008: Refresh Tokens + TOTP 2FA (Phase 35) ───────────────────────────────
   {
     filename: "0008_auth_hardening.sql",

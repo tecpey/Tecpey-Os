@@ -7,6 +7,88 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.38] — 2026-07-01 — Enterprise Hot Wallet and Disbursement Engine
+
+### Added — Migration 0011 (`src/lib/db-migrate.ts`)
+- Execution columns on `withdrawals`: `tx_hash UNIQUE`, `chain_id`, `nonce`, `broadcast_attempts`, `confirmation_count`, `block_number`, `execution_error`, `network_fee`, `fee_currency`, `raw_tx`, `idempotency_key UNIQUE`
+
+### Added — Wallet Types (`src/lib/wallet/types.ts`)
+- Complete type system: `ChainId`, `FeeSpeed`, `WithdrawalExecutionState` (12 states), `UTXO`, `BuildTransactionInput`, `BuiltTransaction`, `SignedTransaction`, `KeyStore` interface, `WalletProvider` interface, queue job types, `WalletMetricKey`
+
+### Added — Address Validator (`src/lib/wallet/address/validator.ts`)
+- Bitcoin: Bech32 (P2WPKH bc1q/P2WSH), Base58Check (P2PKH/P2SH)
+- Ethereum/BSC/Polygon: EIP-55 checksum via keccak256 (@noble/hashes)
+- Tron: Base58Check with 0x41 prefix
+- Solana: Base58 Ed25519 32-byte public key
+
+### Added — RPC Client (`src/lib/wallet/rpc/client.ts`)
+- HTTP JSON-RPC with failover across multiple endpoints
+- Circuit breaker: 3 failures → 30s cooldown → automatic recovery
+- Exponential retry (3 attempts, 500ms base delay)
+- Configurable 10s timeout per request
+
+### Added — Fee Engine (`src/lib/wallet/fee/engine.ts`)
+- Bitcoin: `estimatesmartfee` RPC → sats/vByte with speed multipliers
+- Ethereum: `eth_feeHistory` → EIP-1559 baseFee×2 + priorityFee
+- Solana: `getRecentPrioritizationFees` → microLamports/CU
+- Tron: static 1 TRX worst-case
+- TTL cache: 10–60s depending on speed tier
+
+### Added — Signing Layer (`src/lib/wallet/signing/keystore.ts`)
+- `HotWalletKeyStore`: env-var keys, secp256k1 + Ed25519, zero-after-use
+- `HsmKeyStore`: interface stub (Phase 39)
+- `MpcKeyStore`: interface stub (Phase 40)
+- `SimulatedKeyStore`: deterministic test signing
+- `createKeyStore()` factory: auto-selects based on env
+
+### Added — Chain Providers (`src/lib/wallet/providers/`)
+- `BitcoinProvider`: UTXO selection (largest-first, 546-sat dust threshold), BIP143 sighash, SegWit P2WPKH serialization, compact→DER signature conversion
+- `EthereumProvider`: RLP encoding, EIP-1559 type-2 tx, ERC-20 ABI, Redis nonce cache
+- `BscProvider`, `PolygonProvider`, `TronProvider`: extend EthereumProvider
+- `SolanaProvider`: System Program message serialization, Ed25519 signing
+- `registry.ts`: singleton provider registry
+
+### Added — BullMQ Queue (`src/lib/wallet/queue/`)
+- 5 queues: `withdrawal`, `withdrawal:retry`, `withdrawal:dlq`, `withdrawal:confirmation`, `withdrawal:recovery`
+- `enqueueWithdrawal()` with jobId deduplication (`withdrawal:{id}`)
+- `enqueueConfirmationWatch()` with 15s initial delay
+- `getQueueHealth()` for admin monitoring
+
+### Added — Queue Processor (`src/lib/wallet/queue/processor.ts`)
+- `createWithdrawalWorker()`: BullMQ worker, DLQ on final failure
+- `createConfirmationWorker()`: 50-attempt poll, suppresses expected retry noise
+- `createRecoveryWorker()`: crash recovery re-execution
+
+### Added — Confirmation Engine (`src/lib/wallet/confirmation/engine.ts`)
+- Chain-specific timeouts: BTC 1h, ETH 15m, Polygon 20m, SOL 5m
+- State transitions: `confirming` → `completed` / `failed` / `timeout`
+- Dropped transaction detection
+
+### Added — Withdrawal Executor (`src/lib/wallet/withdrawal-executor.ts`)
+- Orchestrates build → sign → broadcast → confirm pipeline
+- Idempotency: skips if `tx_hash` already set
+- State machine: approved → building_transaction → signing → broadcasting → broadcasted → confirming
+- 3-attempt broadcast with increasing delays
+
+### Added — Observability (`src/lib/wallet/observability.ts`)
+- 9 Redis INCR metrics: build/sign/broadcast latency, rpc_failures, rebroadcast_count, wallet_low_balance, idempotency_duplicate_blocked, tx_dropped_detected
+
+### Added — Worker (`src/workers/withdrawal-worker.ts`)
+- `startWithdrawalWorkers()` / `stopWithdrawalWorkers()` lifecycle
+- Concurrency via `WITHDRAWAL_WORKER_CONCURRENCY` env (default 5)
+
+### Modified — server.ts
+- Start withdrawal workers on boot (when REDIS_URL configured)
+- Graceful shutdown: stop workers before Redis disconnect
+
+### Added — Tests (`src/tests/wallet/`)
+- 47 tests across 5 files: address-validation, utxo-selection, fee-calculation, idempotency, failure-recovery
+
+### Added — Docs
+- `docs/HOT_WALLET.md`: full architecture, component reference, security model, configuration
+
+---
+
 ## [v0.37] — 2026-07-01 — Withdrawal Security Enforcement and Compliance Runtime
 
 ### Added — Migration 0010 (`src/lib/db-migrate.ts`)

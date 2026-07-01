@@ -28,8 +28,11 @@
     "qa:phase6-core": "node scripts/qa-phase6-core.mjs"
   },
   "dependencies": {
+    "@noble/hashes": "^2.2.0",
+    "@noble/secp256k1": "^3.1.0",
     "@swc/helpers": "0.5.23",
     "@tanstack/react-query": "^5.100.10",
+    "bullmq": "^5.79.2",
     "chart.js": "^4.5.1",
     "ioredis": "^5.11.1",
     "jose": "^6.2.3",
