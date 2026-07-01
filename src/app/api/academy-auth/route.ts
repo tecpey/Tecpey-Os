@@ -35,6 +35,9 @@ import {
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import { storePreAuthToken } from "@/lib/security/totp";
+import { trackAuthEvent } from "@/lib/security/auth-metrics";
+import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
 
 type AcademyAccount = {
   accountId: string;
@@ -257,12 +260,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const ip = getClientIp(req);
+    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+
+    // 2FA gate — only for login, only when DB is available and 2FA is enabled
+    if (mode === "login" && dbResult.enabled) {
+      const twoFaResult = await withDb(async (db) => {
+        const res = await db.query<{ enabled: boolean }>(
+          `SELECT enabled FROM user_2fa WHERE user_id = $1`,
+          [account!.accountId],
+        );
+        return res.rows[0]?.enabled ?? false;
+      });
+
+      if (twoFaResult.enabled && twoFaResult.value) {
+        // Credentials verified but 2FA not yet completed — return pre-auth token
+        const preAuthToken = crypto.randomUUID();
+        await storePreAuthToken(preAuthToken, account!.accountId);
+        trackAuthEvent("login_2fa_required");
+        writeAudit({
+          actorId: account!.accountId,
+          action: "login",
+          ip,
+          userAgent: deviceInfo,
+          metadata: { mode, email: account!.email, step: "2fa_required" },
+        });
+        return apiOk({ requires2fa: true, preAuthToken });
+      }
+    }
+
+    // Track new devices on successful login
+    const fp = deviceFingerprint(deviceInfo, ip);
+    const { isNew } = await markDeviceSeen(account!.accountId, fp);
+
     const response = apiOk({
       authenticated: true,
       account: {
-        email: account.email,
-        displayName: account.displayName,
-        username: account.username,
+        email: account!.email,
+        displayName: account!.displayName,
+        username: account!.username,
       },
     });
 
@@ -285,8 +321,6 @@ export async function POST(req: NextRequest) {
     });
 
     // Issue refresh token and persist session
-    const ip = getClientIp(req);
-    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const jti = extractJtiFromToken(accessToken);
     const exp = extractExpFromToken(accessToken);
 
@@ -311,12 +345,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Audit login
+    trackAuthEvent("login_success");
+    if (isNew) trackAuthEvent("new_device_detected");
     writeAudit({
       actorId: account.accountId,
       action: "login",
       ip,
       userAgent: deviceInfo,
-      metadata: { mode, email: account.email },
+      metadata: { mode, email: account.email, isNewDevice: isNew },
     });
 
     return response;

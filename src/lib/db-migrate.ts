@@ -720,6 +720,58 @@ CREATE INDEX IF NOT EXISTS idx_risk_type
 `,
   },
 
+  // ── 0009: WebAuthn Credentials + Device Tracking + Password History (Phase 36) ─
+  {
+    filename: "0009_identity_security.sql",
+    sql: `
+-- webauthn_credentials: FIDO2/WebAuthn authenticator registrations.
+-- Supports multiple authenticators per user (multi-device passkeys).
+-- credential_id is base64url-encoded; public_key is CBOR (COSE ES256), stored as base64url.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id            TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT        NOT NULL,
+  credential_id TEXT        NOT NULL UNIQUE,  -- base64url (from authenticatorData)
+  public_key    TEXT        NOT NULL,          -- base64url CBOR COSE key
+  counter       INTEGER     NOT NULL DEFAULT 0,
+  device_name   TEXT        NOT NULL DEFAULT 'Authenticator',
+  aaguid        TEXT,                          -- 32-char hex (identifies authenticator model)
+  transports    TEXT[]      NOT NULL DEFAULT '{}',
+  is_active     BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at  TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_webauthn_user ON webauthn_credentials(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_webauthn_cred ON webauthn_credentials(credential_id);
+
+-- known_devices: trusted device fingerprints per user.
+-- Fingerprint = SHA-256(userAgent + ":" + ip) stored as hex.
+-- Used to detect new device logins and set device trust level.
+CREATE TABLE IF NOT EXISTS known_devices (
+  id            TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT        NOT NULL,
+  fingerprint   TEXT        NOT NULL,
+  device_name   TEXT,
+  first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, fingerprint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_known_devices_user ON known_devices(user_id, last_seen_at DESC);
+
+-- password_history: last N password hashes to prevent reuse.
+-- Keep last 5 entries per user.
+CREATE TABLE IF NOT EXISTS password_history (
+  id            TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       TEXT        NOT NULL,
+  password_hash TEXT        NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pwd_history_user ON password_history(user_id, created_at DESC);
+`,
+  },
+
   // ── 0008: Refresh Tokens + TOTP 2FA (Phase 35) ───────────────────────────────
   {
     filename: "0008_auth_hardening.sql",

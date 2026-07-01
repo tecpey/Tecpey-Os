@@ -1,6 +1,6 @@
-# Security Architecture — Phase 35
+# Security Architecture — Phase 36
 
-> Enterprise security: JWT hardening, refresh token rotation, TOTP 2FA, HMAC API keys, CIDR whitelists, risk enforcement.
+> Enterprise security: JWT hardening, refresh token rotation, TOTP 2FA, HMAC API keys, CIDR whitelists, risk enforcement, WebAuthn/Passkeys, compliance adapters, withdrawal security gate, device trust, account security.
 
 ---
 
@@ -204,6 +204,10 @@ Cookies: `HttpOnly`, `Secure` (production), `SameSite=Lax` (access), `SameSite=S
 | Session revoke all | 5/min | 60s |
 | Order placement | 30/min | 60s |
 | API key create | 10/min | 60s |
+| WebAuthn register | 10/min | 60s |
+| WebAuthn authenticate | 10/min | 60s |
+| Password change | 5/min | 60s |
+| Device rename/remove | 20/min | 60s |
 
 ---
 

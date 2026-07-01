@@ -7,6 +7,101 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.36] — 2026-07-01 — Enterprise Identity Security and WebAuthn Integration
+
+### Added — WebAuthn / Passkeys (`src/lib/security/webauthn.ts`)
+
+- Native FIDO2 implementation — zero new dependencies; all crypto via Node.js built-ins
+- ES256 (P-256 ECDSA) support with custom CBOR decoder and P-256 SPKI DER construction
+- `verifyWebAuthnRegistration()` — full attestation verification: clientDataJSON, rpIdHash, UP flag, COSE key parse
+- `verifyWebAuthnAuthentication()` — assertion verification: signature, counter monotonicity, UV flag
+- `generateChallenge()` / `storeWebAuthnChallenge()` / `consumeWebAuthnChallenge()` — Redis-backed, 300s TTL, atomic consume
+- `listCredentials()` / `renameCredential()` / `revokeCredential()` — device lifecycle management
+- `deviceFingerprint(userAgent, ip)` — SHA-256 device fingerprint
+- `markDeviceSeen(userId, fp)` — upserts to `known_devices`; returns `{isNew: boolean}` for new device detection
+
+### Added — WebAuthn Routes
+
+- `POST /api/auth/webauthn/register/challenge` — generate registration challenge with `excludeCredentials`
+- `POST /api/auth/webauthn/register/verify` — verify registration, store credential
+- `POST /api/auth/webauthn/auth/challenge` — generate auth challenge (supports resident keys / passkeys)
+- `POST /api/auth/webauthn/auth/verify` — verify assertion, issue access + refresh token session
+- `GET /api/auth/webauthn/credentials` — list registered credentials
+- `PATCH /api/auth/webauthn/credentials/[id]` — rename credential
+- `DELETE /api/auth/webauthn/credentials/[id]` — revoke credential
+
+### Added — Migration 0009 (`src/lib/db-migrate.ts`)
+
+- `webauthn_credentials` — credential storage: `credential_id`, `public_key` (COSE), `counter`, `device_name`, `aaguid`, `transports`
+- `known_devices` — per-user device trust registry with fingerprint + last_seen_at
+- `password_history` — last N password hashes for reuse prevention
+
+### Changed — 2FA Enforcement in Login (`src/app/api/academy-auth/route.ts`)
+
+- Password-verified login with 2FA enabled now returns `{requires2fa: true, preAuthToken}` — no session cookie issued
+- `preAuthToken` is a Redis-backed one-time token (UUID, 5-min TTL, consumed atomically)
+- Client calls `POST /api/auth/2fa/verify` with `{code, preAuthToken}` to complete login
+
+### Changed — 2FA Verify Route (`src/app/api/auth/2fa/verify/route.ts`)
+
+- Pre-auth flow: after TOTP verified, fetches account and issues full access + refresh token session
+- Re-verification flow (no preAuthToken): unchanged — returns `{verified: true}`
+
+### Added — Auth Metrics (`src/lib/security/auth-metrics.ts`)
+
+- `trackAuthEvent(key)` — fire-and-forget Redis INCR for 18 event types
+- `getAuthMetrics()` / `resetAuthMetrics()` — pipeline reads/resets
+- `GET /api/admin/security-metrics` — admin-only metrics endpoint with counter snapshot
+- `DELETE /api/admin/security-metrics` — reset counters
+
+### Added — Compliance Adapters (`src/lib/compliance/`)
+
+- `sumsub.ts` — `SumsubKycProvider`: HMAC-SHA256 signed headers; graceful degrade without credentials
+- `chainalysis.ts` — `ChainalysisAmlProvider`: KYT v2 REST API; graceful degrade
+- `ofac.ts` — `OfacSanctionsProvider`: OFAC public API; 5s timeout; always registered
+- `index.ts` — `bootstrapComplianceProviders()`: env-driven auto-registration; called from `server.ts`
+
+### Added — Withdrawal Security Gate (`src/lib/security/withdraw-gate.ts`)
+
+- `checkWithdrawVelocity(userId, amountUsd)` — Redis INCRBYFLOAT rolling 24h limit ($10,000 default)
+- `requires2faForWithdrawal(amountUsd)` — true for amounts ≥ $100
+- `isDeviceTrusted(userId, fingerprint)` — DB lookup in `known_devices`
+- `runWithdrawGate(opts)` — compound gate: risk + velocity + 2FA + device trust
+
+### Added — Password Security (`src/lib/security/passwords.ts`)
+
+- `hashPassword()` / `verifyPassword()` — PBKDF2-SHA256 (120,000 iterations); extracted to shared module
+- `isPasswordReused(userId, password, limit)` — checks last N hashes from `password_history`
+- `recordPasswordHistory(userId, hash)` — persists hash; auto-prunes to last 10
+- `assessPasswordStrength(password)` — heuristic score (0–7) with specific feedback
+- `POST /api/auth/password/change` — current password verification, strength check, history check
+
+### Added — Device Management Routes
+
+- `GET /api/auth/devices` — list known devices (from `known_devices` table)
+- `PATCH /api/auth/devices/[id]` — rename device
+- `DELETE /api/auth/devices/[id]` — remove device from trust registry
+
+### Changed — Login Observability
+
+- `trackAuthEvent("login_success")` wired into password login and WebAuthn login
+- `trackAuthEvent("login_2fa_required")` emitted when 2FA gate triggers
+- `markDeviceSeen()` called on every successful login; new device triggers `new_device_detected` metric
+
+### Changed — server.ts
+
+- `bootstrapComplianceProviders()` called immediately after `app.prepare()`
+
+### Documentation
+
+- `docs/WEBAUTHN.md` — new: full WebAuthn protocol, crypto details, DB schema, env vars
+- `docs/WITHDRAW_SECURITY.md` — new: withdrawal gate layers, velocity limits, 2FA thresholds
+- `docs/AUTH.md` — updated: pre-auth token flow, WebAuthn section, phase table extended to v36
+- `docs/COMPLIANCE.md` — updated: implemented providers documented, bootstrap procedure
+- `docs/SECURITY.md` — updated: rate limit table, overview extended to v36
+
+---
+
 ## [v0.35] — 2026-07-01 — Enterprise Authentication Hardening and API Security
 
 ### Added — Migration 0008 (`src/lib/db-migrate.ts`)

@@ -1,4 +1,4 @@
-# Authentication Architecture — Phase 35
+# Authentication Architecture — Phase 36
 
 > Enterprise-grade authentication: jti revocation, refresh token rotation, TOTP 2FA, HMAC-signed API keys.
 
@@ -16,6 +16,11 @@ TecPey uses a layered authentication model introduced progressively across phase
 | Refresh token rotation | `tecpey_refresh` cookie + `refresh_tokens` DB table | 35 |
 | TOTP 2FA | RFC 6238 HOTP/TOTP + AES-256-GCM encrypted secret | 35 |
 | HMAC-signed API keys | `X-TECPEY-SIGNATURE` header | 35 |
+| WebAuthn / Passkeys | FIDO2 ES256, native Node.js crypto | 36 |
+| Pre-auth token 2FA gate | Redis token, no session before 2FA completes | 36 |
+| Device registry | `known_devices` table, SHA-256 fingerprinting | 36 |
+| Compliance providers | Sumsub KYC, Chainalysis AML, OFAC sanctions | 36 |
+| Withdrawal security gate | Risk + velocity + 2FA + device trust | 36 |
 
 ---
 
@@ -118,6 +123,33 @@ If a previously rotated (already-revoked) refresh token is presented:
 The `family_id` links all tokens in a session chain. Stealing a leaked refresh token and using it after the legitimate user has already rotated it triggers full session invalidation.
 
 ---
+
+## 2FA Enforcement in Login (Phase 36)
+
+When a user has 2FA enabled, the login endpoint no longer issues a session immediately:
+
+```
+POST /api/academy-auth (login)
+  │
+  ├─ verifyPassword()  ✓
+  ├─ check user_2fa.enabled
+  │    └── IF true:
+  │          ├─ storePreAuthToken(token, userId) → Redis TTL 5min
+  │          └─ return { requires2fa: true, preAuthToken }
+  │                (no cookies set)
+  └── ELSE (2FA not enabled):
+       └── issue session normally (access + refresh tokens)
+
+POST /api/auth/2fa/verify  { code, preAuthToken }
+  │
+  ├─ consumePreAuthToken(preAuthToken) → userId  (atomic, one-time)
+  ├─ verifyTotp(secret, code)
+  └─ issue access + refresh tokens + register session
+```
+
+The `preAuthToken` is opaque (UUID) stored in Redis with a 5-minute TTL. It is consumed atomically on first use — no replay.
+
+## WebAuthn — See `docs/WEBAUTHN.md`
 
 ## 2FA — See `docs/2FA.md`
 

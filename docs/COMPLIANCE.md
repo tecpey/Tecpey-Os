@@ -1,6 +1,6 @@
-# Compliance Architecture — Phase 34
+# Compliance Architecture — Phase 36
 
-> Provider interfaces for KYC, AML, Sanctions, and Travel Rule. No providers implemented.
+> Provider interfaces for KYC, AML, Sanctions, and Travel Rule. Sumsub, Chainalysis, and OFAC adapters implemented in Phase 36.
 
 ---
 
@@ -37,7 +37,9 @@ interface KYCProvider {
 | `standard` | Government ID + liveness check |
 | `enhanced` | Standard + source of funds |
 
-**Planned providers:** Sumsub, Jumio, Persona
+**Implemented (Phase 36):** Sumsub (`src/lib/compliance/sumsub.ts`) — HMAC-SHA256 signed requests, graceful degrade if `SUMSUB_APP_TOKEN` + `SUMSUB_SECRET_KEY` not set.
+
+**Planned:** Jumio, Persona
 
 ---
 
@@ -56,7 +58,9 @@ interface AMLProvider {
 
 **Risk Scores:** `low` | `medium` | `high` | `blocked`
 
-**Planned providers:** Chainalysis KYT, Elliptic Lens
+**Implemented (Phase 36):** Chainalysis KYT v2 (`src/lib/compliance/chainalysis.ts`) — requires `CHAINALYSIS_API_KEY`.
+
+**Planned:** Elliptic Lens
 
 ---
 
@@ -71,7 +75,9 @@ interface SanctionsProvider {
 }
 ```
 
-**Planned providers:** Comply Advantage, Chainalysis Sanctions, NICE Actimize
+**Implemented (Phase 36):** OFAC public API (`src/lib/compliance/ofac.ts`) — no API key required; 5-second timeout; always registered.
+
+**Planned:** Comply Advantage, NICE Actimize
 
 ---
 
@@ -86,25 +92,29 @@ interface TravelRuleProvider {
 }
 ```
 
-**Planned providers:** Notabene, Sygna Bridge, OpenVASP
+**Planned (Phase 38):** Notabene, Sygna Bridge, OpenVASP
 
 ---
 
 ## Provider Registry
 
-Providers are registered at server startup (DI container pattern):
+Providers are auto-registered at server startup by `bootstrapComplianceProviders()` in `src/lib/compliance/index.ts`, called from `server.ts`:
 
 ```typescript
-import { registerComplianceProviders } from "@/lib/security/compliance";
-
-// In server.ts or a bootstrap file:
-registerComplianceProviders({
-  kyc: new SumsubProvider(process.env.SUMSUB_SECRET_KEY),
-  aml: new ChainalysisProvider(process.env.CHAINALYSIS_API_KEY),
-  sanctions: new ComplyAdvantageProvider(process.env.COMPLY_API_KEY),
-  travelRule: new NotabeneProvider(process.env.NOTABENE_SECRET),
-});
+// server.ts
+import { bootstrapComplianceProviders } from "./src/lib/compliance/index";
+bootstrapComplianceProviders();  // reads env vars, registers available providers
 ```
+
+Provider selection logic:
+- **KYC**: Sumsub if `SUMSUB_APP_TOKEN` + `SUMSUB_SECRET_KEY` set
+- **AML**: Chainalysis if `CHAINALYSIS_API_KEY` set
+- **Sanctions**: OFAC (always registered, no key required)
+- **Travel Rule**: none in Phase 36 (Notabene Phase 38)
+
+All business logic imports only interfaces from `src/lib/security/compliance.ts`. Adapters are only imported in `src/lib/compliance/index.ts`.
+
+```typescript
 
 Unregistered providers return `undefined` — callers must handle:
 

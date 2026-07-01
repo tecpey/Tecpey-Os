@@ -13,6 +13,7 @@ import type WebSocket from "ws";
 import { getWsManager } from "./src/lib/ws/ws-manager";
 import { getRedisPubSub } from "./src/lib/redis-pubsub";
 import { wireRedisPublisher } from "./src/lib/event-bus";
+import { bootstrapComplianceProviders } from "./src/lib/compliance/index";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const dev  = process.env.NODE_ENV !== "production";
@@ -22,6 +23,9 @@ const app = next({ dev, httpServer });
 const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
+  // ── Compliance providers (Phase 36) ──────────────────────────────────────
+  bootstrapComplianceProviders();
+
   // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────
   // When REDIS_URL is set, wire up cross-instance event distribution.
   // Each instance publishes via EventBus → Redis and subscribes to receive
