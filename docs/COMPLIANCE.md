@@ -125,6 +125,39 @@ if (!kyc) return; // provider not configured
 
 ---
 
+## Compliance Runtime (Phase 37)
+
+The compliance runtime executes provider checks during withdrawal processing. It is decoupled from the security gate (synchronous) and runs asynchronously after the withdrawal record is created.
+
+### Execution sequence
+
+```
+[withdrawal created]
+       │
+       ▼ (async, non-blocking, 5s timeout per check)
+  KYC.getStatus(userId)          → skipped if amount < $100 or no provider
+  AML.screenTransaction(...)     → skipped if no provider
+  Sanctions.screenAddress(...)   → skipped if no provider
+       │
+       ▼
+  Decision → update withdrawal.state
+```
+
+### Timeout & degrade behavior
+
+Each provider call is wrapped in `Promise.race([providerCall, timeout(5s)])`. On timeout or exception:
+- KYC → skipped
+- AML → assumed "low"
+- Sanctions → assumed no match
+
+This prevents a slow/offline compliance provider from blocking the withdrawal flow.
+
+### State decisions
+
+See `src/lib/security/withdrawal-service.ts` → `runComplianceChecks()` for the exact decision table.
+
+---
+
 ## KYC Gate Thresholds (Phase 36+ enforcement)
 
 | Action | KYC Required |

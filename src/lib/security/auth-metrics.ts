@@ -1,5 +1,5 @@
-// Auth observability metrics — Phase 36.
-// Redis INCR counters for all auth events.
+// Auth and withdrawal observability metrics — Phase 36/37.
+// Redis INCR counters for all security events.
 // Gracefully degrade when Redis is unavailable.
 
 import { logger } from "@/lib/logger";
@@ -22,13 +22,37 @@ export type AuthMetricKey =
   | "refresh_reuse_detected"
   | "risk_blocked"
   | "password_changed"
-  | "new_device_detected";
+  | "new_device_detected"
+  // Withdrawal metrics (Phase 37)
+  | "withdrawal_requested"
+  | "withdrawal_approved"
+  | "withdrawal_rejected"
+  | "withdrawal_blocked"
+  | "withdrawal_compliance_review"
+  | "withdrawal_risk_blocked"
+  | "withdrawal_cancelled"
+  | "compliance_kyc_checked"
+  | "compliance_aml_checked"
+  | "compliance_sanctions_checked";
+
+const ALL_KEYS: AuthMetricKey[] = [
+  "login_success", "login_failed", "login_2fa_required",
+  "2fa_success", "2fa_failed", "2fa_backup_used",
+  "webauthn_success", "webauthn_failed", "webauthn_registered",
+  "session_revoked", "session_revoked_all",
+  "refresh_rotated", "refresh_reuse_detected",
+  "risk_blocked", "password_changed", "new_device_detected",
+  "withdrawal_requested", "withdrawal_approved", "withdrawal_rejected",
+  "withdrawal_blocked", "withdrawal_compliance_review", "withdrawal_risk_blocked",
+  "withdrawal_cancelled",
+  "compliance_kyc_checked", "compliance_aml_checked", "compliance_sanctions_checked",
+];
 
 function redis() {
   return globalThis.tecpeyRedisClient ?? null;
 }
 
-/** Increment an auth metric counter by 1. Fire-and-forget. */
+/** Increment a metric counter by 1. Fire-and-forget. */
 export function trackAuthEvent(key: AuthMetricKey): void {
   void (async () => {
     const r = redis();
@@ -41,26 +65,18 @@ export function trackAuthEvent(key: AuthMetricKey): void {
   })();
 }
 
-/** Read all auth metric counters (for admin endpoint). */
+/** Read all metric counters (for admin endpoint). */
 export async function getAuthMetrics(): Promise<Record<string, number>> {
   const r = redis();
   if (!r) return {};
-  const keys: AuthMetricKey[] = [
-    "login_success", "login_failed", "login_2fa_required",
-    "2fa_success", "2fa_failed", "2fa_backup_used",
-    "webauthn_success", "webauthn_failed", "webauthn_registered",
-    "session_revoked", "session_revoked_all",
-    "refresh_rotated", "refresh_reuse_detected",
-    "risk_blocked", "password_changed", "new_device_detected",
-  ];
   try {
     const pipeline = r.pipeline();
-    for (const k of keys) pipeline.get(`${PREFIX}${k}`);
+    for (const k of ALL_KEYS) pipeline.get(`${PREFIX}${k}`);
     const results = await pipeline.exec();
     const out: Record<string, number> = {};
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < ALL_KEYS.length; i++) {
       const val = results?.[i]?.[1];
-      out[keys[i]] = typeof val === "string" ? parseInt(val, 10) || 0 : 0;
+      out[ALL_KEYS[i]] = typeof val === "string" ? parseInt(val, 10) || 0 : 0;
     }
     return out;
   } catch {
@@ -72,17 +88,9 @@ export async function getAuthMetrics(): Promise<Record<string, number>> {
 export async function resetAuthMetrics(): Promise<void> {
   const r = redis();
   if (!r) return;
-  const keys: AuthMetricKey[] = [
-    "login_success", "login_failed", "login_2fa_required",
-    "2fa_success", "2fa_failed", "2fa_backup_used",
-    "webauthn_success", "webauthn_failed", "webauthn_registered",
-    "session_revoked", "session_revoked_all",
-    "refresh_rotated", "refresh_reuse_detected",
-    "risk_blocked", "password_changed", "new_device_detected",
-  ];
   try {
     const pipeline = r.pipeline();
-    for (const k of keys) pipeline.del(`${PREFIX}${k}`);
+    for (const k of ALL_KEYS) pipeline.del(`${PREFIX}${k}`);
     await pipeline.exec();
   } catch {
     // ignore

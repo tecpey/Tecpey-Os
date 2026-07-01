@@ -460,6 +460,67 @@ Send a notification campaign to all students.
 
 ---
 
+## Withdrawals (Phase 37)
+
+### POST /api/auth/withdraw
+
+Create a withdrawal request. Security gate runs synchronously; compliance checks run asynchronously.
+
+**Body:**
+```json
+{
+  "asset": "BTC",
+  "amount": "0.05",
+  "amountUsd": 3500.00,
+  "destinationAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+  "network": "bitcoin",
+  "twoFaVerified": true
+}
+```
+
+**Success (201):** `{ "ok": true, "withdrawal": { "id", "state", "asset", "amount", ... } }`
+
+**Error codes:**
+- `2fa_required` (403) — amount ≥ $100 but `twoFaVerified` not true
+- `untrusted_device` (403) — amount ≥ $1,000 from unrecognized device
+- `velocity_limit_exceeded` (429) — over $10,000/24h
+- `account_withdraw_restricted` (403) — risk engine block
+- `unsupported_asset` / `unsupported_network` (400)
+
+### GET /api/auth/withdraw
+
+List current user's withdrawals. Query: `limit` (max 100), `offset`.
+
+### GET /api/auth/withdraw/[id]
+
+Fetch withdrawal detail (owner only).
+
+### DELETE /api/auth/withdraw/[id]
+
+Cancel a `pending` or `compliance_review` withdrawal.
+
+---
+
+## Admin Withdrawals (Phase 37)
+
+Require admin session.
+
+### GET /api/admin/withdrawals
+
+List withdrawals in review queue (`pending` | `compliance_review`). Query: `limit` (max 200), `offset`.
+
+### GET /api/admin/withdrawals/[id]
+
+Full withdrawal view including `complianceResult` JSONB.
+
+### POST /api/admin/withdrawals/[id]
+
+Admin action. Body: `{ "action": "approve"|"reject"|"block"|"flag_review", "notes": "..." }`.
+
+Every action appends an immutable row to `withdrawal_admin_actions`. User receives a security notification.
+
+---
+
 ## Error Format
 
 All API errors follow this format:

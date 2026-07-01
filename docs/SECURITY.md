@@ -1,6 +1,6 @@
-# Security Architecture — Phase 36
+# Security Architecture — Phase 37
 
-> Enterprise security: JWT hardening, refresh token rotation, TOTP 2FA, HMAC API keys, CIDR whitelists, risk enforcement, WebAuthn/Passkeys, compliance adapters, withdrawal security gate, device trust, account security.
+> Enterprise security: JWT hardening, refresh token rotation, TOTP 2FA, HMAC API keys, CIDR whitelists, risk enforcement, WebAuthn/Passkeys, compliance adapters, withdrawal security enforcement, compliance runtime, admin review, security notifications.
 
 ---
 

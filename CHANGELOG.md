@@ -7,6 +7,61 @@ Versions follow semantic milestones (Phase-based).
 
 ---
 
+## [v0.37] — 2026-07-01 — Withdrawal Security Enforcement and Compliance Runtime
+
+### Added — Migration 0010 (`src/lib/db-migrate.ts`)
+
+- `withdrawals` — full withdrawal request model: state machine, security metadata, compliance results (JSONB), admin review fields, velocity tracking
+- `withdrawal_admin_actions` — immutable log of every admin decision; references `withdrawals(id)`
+- `security_notifications` — persistent security event log: withdrawal events, new device, suspicious activity
+
+### Added — Withdrawal Service (`src/lib/security/withdrawal-service.ts`)
+
+- `createWithdrawalRequest(opts)` — full lifecycle: risk block → security gate → DB insert → async compliance → state decision
+- `runComplianceChecks()` — KYC + AML + Sanctions via `getComplianceProviders()` interface; 5-second timeout per check; graceful degrade
+- State decision: `sanctionsHit` or `aml=high/blocked` → `blocked`; `aml=medium` or `kyc=pending` → `compliance_review`; else → `approved`
+- `listUserWithdrawals(userId)` / `fetchWithdrawal(id, userId?)` — user and admin queries
+- `adminActOnWithdrawal(opts)` — approve/reject/block/flag_review with immutable action log
+- `listPendingReviewWithdrawals()` — admin review queue (state: pending | compliance_review)
+- `cancelWithdrawal(id, userId)` — user-initiated cancel for pending/review withdrawals
+
+### Added — Security Notifications (`src/lib/security/security-notifications.ts`)
+
+- `emitSecurityNotification(n)` — fire-and-forget write to `security_notifications` table
+- `notifyWithdrawalRequested()` / `notifyWithdrawalBlocked()` / `notifyWithdrawalApproved()` / `notifyWithdrawalRejected()` / `notifyRiskyWithdrawal()` / `notifyNewDevice()` — pre-built factories
+- 11 notification types defined; no external email dependency
+
+### Added — Withdrawal Routes
+
+- `POST /api/auth/withdraw` — create request; validates asset/network/amount; calls security gate; returns 201 on success
+- `GET /api/auth/withdraw` — list user's withdrawals (paginated)
+- `GET /api/auth/withdraw/[id]` — fetch own withdrawal detail
+- `DELETE /api/auth/withdraw/[id]` — cancel pending/review withdrawal
+- `GET /api/admin/withdrawals` — admin review queue
+- `GET /api/admin/withdrawals/[id]` — full withdrawal view (compliance JSONB included)
+- `POST /api/admin/withdrawals/[id]` — admin action: approve/reject/block/flag_review; triggers user notification
+
+### Changed — Auth Metrics (`src/lib/security/auth-metrics.ts`)
+
+- Added 9 withdrawal/compliance metric keys: `withdrawal_requested`, `withdrawal_approved`, `withdrawal_rejected`, `withdrawal_blocked`, `withdrawal_compliance_review`, `withdrawal_risk_blocked`, `withdrawal_cancelled`, `compliance_kyc_checked`, `compliance_aml_checked`, `compliance_sanctions_checked`
+- Refactored `ALL_KEYS` constant to share across `getAuthMetrics()` and `resetAuthMetrics()`
+
+### Documentation
+
+- `docs/WITHDRAW_SECURITY.md` — complete rewrite: state machine, enforcement layers, compliance table, API reference, DB schema
+- `docs/COMPLIANCE.md` — added compliance runtime section: execution sequence, timeout behavior
+- `docs/SECURITY.md` — title updated to Phase 37
+- `docs/API.md` — added withdrawal + admin withdrawal endpoint docs
+- `CHANGELOG.md` — v0.37 entry added
+
+### Quality Gate
+
+- Zero TypeScript errors
+- Zero ESLint warnings
+- Clean production build (292 static pages)
+
+---
+
 ## [v0.36] — 2026-07-01 — Enterprise Identity Security and WebAuthn Integration
 
 ### Added — WebAuthn / Passkeys (`src/lib/security/webauthn.ts`)

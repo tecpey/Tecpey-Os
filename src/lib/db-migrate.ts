@@ -772,6 +772,81 @@ CREATE INDEX IF NOT EXISTS idx_pwd_history_user ON password_history(user_id, cre
 `,
   },
 
+  // ── 0010: Withdrawals + Compliance + Admin Actions (Phase 37) ───────────────
+  {
+    filename: "0010_withdrawals.sql",
+    sql: `
+-- withdrawals: core withdrawal request model with state machine and compliance results.
+-- States: pending → compliance_review | approved | blocked; also: rejected, completed, cancelled.
+-- amount is stored as TEXT to avoid floating-point precision issues.
+CREATE TABLE IF NOT EXISTS withdrawals (
+  id                    TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               TEXT        NOT NULL,
+  asset                 TEXT        NOT NULL,
+  amount                TEXT        NOT NULL,
+  amount_usd            NUMERIC     NOT NULL,
+  destination_address   TEXT        NOT NULL,
+  network               TEXT        NOT NULL,
+  state                 TEXT        NOT NULL DEFAULT 'pending',
+  -- Security gate
+  security_gate_passed  BOOLEAN     NOT NULL DEFAULT FALSE,
+  device_fingerprint    TEXT,
+  ip                    TEXT        NOT NULL DEFAULT '',
+  user_agent            TEXT        NOT NULL DEFAULT '',
+  two_fa_verified       BOOLEAN     NOT NULL DEFAULT FALSE,
+  -- Compliance results (stored inline for audit immutability)
+  kyc_status            TEXT,
+  aml_risk              TEXT,
+  sanctions_hit         BOOLEAN     NOT NULL DEFAULT FALSE,
+  compliance_result     JSONB       NOT NULL DEFAULT '{}',
+  compliance_checked_at TIMESTAMPTZ,
+  -- Admin review
+  reviewed_by           TEXT,
+  reviewed_at           TIMESTAMPTZ,
+  review_notes          TEXT,
+  -- Timestamps
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at          TIMESTAMPTZ,
+  -- Velocity tracking
+  velocity_used         NUMERIC
+);
+
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user  ON withdrawals(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_state ON withdrawals(state, created_at DESC);
+
+-- withdrawal_admin_actions: immutable log of every admin decision on a withdrawal.
+CREATE TABLE IF NOT EXISTS withdrawal_admin_actions (
+  id              TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  withdrawal_id   TEXT        NOT NULL REFERENCES withdrawals(id),
+  admin_id        TEXT        NOT NULL,
+  action          TEXT        NOT NULL,  -- approve | reject | block | flag_review
+  notes           TEXT,
+  metadata        JSONB       NOT NULL DEFAULT '{}',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wdl_admin_actions ON withdrawal_admin_actions(withdrawal_id, created_at DESC);
+
+-- security_notifications: structured security events for users and admins.
+-- Not a real-time delivery table — just a persistent log.
+-- Delivery (email, push) reads from here and marks delivered.
+CREATE TABLE IF NOT EXISTS security_notifications (
+  id          TEXT        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     TEXT        NOT NULL,
+  type        TEXT        NOT NULL,    -- withdrawal_requested | withdrawal_blocked | new_device | risky_withdrawal
+  title       TEXT        NOT NULL,
+  body        TEXT        NOT NULL,
+  metadata    JSONB       NOT NULL DEFAULT '{}',
+  read        BOOLEAN     NOT NULL DEFAULT FALSE,
+  delivered   BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sec_notif_user ON security_notifications(user_id, created_at DESC);
+`,
+  },
+
   // ── 0008: Refresh Tokens + TOTP 2FA (Phase 35) ───────────────────────────────
   {
     filename: "0008_auth_hardening.sql",
