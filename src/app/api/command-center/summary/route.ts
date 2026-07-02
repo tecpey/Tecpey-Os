@@ -26,8 +26,7 @@ export async function GET(req: NextRequest) {
       });
       if (!result.enabled) return apiError("service_unavailable", 503);
       const resp = apiOk({ configured: true, summary: result.value });
-      const adminToken = process.env.TECPEY_ADMIN_TOKEN;
-      if (adminToken) setAdminSessionCookie(resp, adminToken);
+      await setAdminSessionCookie(resp);
       return resp;
     } catch { return apiError("server_error", 500); }
   });

@@ -36,8 +36,7 @@ export async function POST(req: NextRequest) {
     });
     if (!result.enabled) return apiError("campaign_service_not_configured", 503);
     const resp = apiOk({ sent: result.value });
-    const adminToken = process.env.TECPEY_ADMIN_TOKEN;
-    if (adminToken) setAdminSessionCookie(resp, adminToken);
+    await setAdminSessionCookie(resp);
     return resp;
   } catch { return apiError("server_error", 500); }
   }); // end withObservability

@@ -12,6 +12,7 @@ import { logger } from "./logger";
 import { COOKIES } from "./platform-config";
 import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
 import { isJtiRevoked } from "./security/jti-store";
+import { hasAdminAccess } from "./admin-auth";
 
 // ── jti revocation cache ──────────────────────────────────────────────────────
 // 30-second in-memory cache per jti to avoid a Redis round-trip on every request.
@@ -148,13 +149,6 @@ async function verifyUserSession(token: string | undefined): Promise<{ userId: s
   }
 }
 
-function checkAdminAccess(req: NextRequest): boolean {
-  const token = process.env.TECPEY_ADMIN_TOKEN;
-  if (!token || token.length < 24) return false;
-  if (req.headers.get("x-tecpey-admin-token") === token) return true;
-  return req.cookies.get("tecpey_admin_session")?.value === token;
-}
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSession> {
@@ -187,7 +181,7 @@ export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSe
       displayName: unified.displayName,
       username: unified.username,
       isAcademyUser: Boolean(unified.accountId),
-      isAdmin: checkAdminAccess(req),
+      isAdmin: await hasAdminAccess(req),
     };
   }
 
@@ -215,6 +209,6 @@ export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSe
     displayName: academyAuth?.displayName ?? null,
     username: academyAuth?.username ?? null,
     isAcademyUser: Boolean(academyAuth),
-    isAdmin: checkAdminAccess(req),
+    isAdmin: await hasAdminAccess(req),
   };
 }
