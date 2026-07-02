@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { listActiveSessions, revokeAllSessions } from "@/lib/security/session-store";
 import { writeAudit } from "@/lib/security/audit-log";
@@ -28,6 +29,8 @@ export async function GET(req: NextRequest) {
 // DELETE /api/auth/sessions — logout all devices (revoke all sessions)
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const rl = await rateLimit(req, { namespace: "auth-revoke-all", limit: 5, windowMs: 60_000 });
     if (!rl.ok) return apiError("rate_limited", 429);
 
