@@ -22,7 +22,14 @@
 
 # misc
 .DS_Store
+.localized
 *.pem
+
+# local root artifacts
+/.agents/
+/Screenshot*.png
+/*.mp3
+/*.zip
 
 # debug
 npm-debug.log*
