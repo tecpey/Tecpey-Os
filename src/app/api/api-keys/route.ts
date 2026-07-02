@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { createApiKey, listApiKeys } from "@/lib/security/api-keys";
 import { writeAudit } from "@/lib/security/audit-log";
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
 // POST /api/api-keys — create a new API key
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/api-keys" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const rl = await rateLimit(req, { namespace: "api-keys-create", limit: 10, windowMs: 60_000 });
     if (!rl.ok) return apiError("rate_limited", 429);
 
