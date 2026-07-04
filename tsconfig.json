@@ -33,5 +33,8 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "docs/engineering/phase39/wallet-candidates/**"
+  ]
 }

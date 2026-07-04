@@ -34,6 +34,7 @@ const eslintConfig = defineConfig([
     "public/vendor/**",
     "public/**/*.min.js",
     "docs/internal-qa/**",
+    "docs/engineering/phase39/wallet-candidates/**",
     "*.config.cjs",
   ]),
 ]);
