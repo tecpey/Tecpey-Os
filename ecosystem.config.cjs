@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'tecpey-web',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      script: 'server.ts',
+      interpreter: 'tsx',
       cwd: process.cwd(),
       instances: 1,
       exec_mode: 'fork',
