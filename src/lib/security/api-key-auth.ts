@@ -21,7 +21,8 @@
 //   3. Nonce check (prevent replay within the window)
 //   4. Permission + IP whitelist check via validateApiKey()
 //
-// Nonces are tracked in Redis with 5-minute TTL.
+// Nonces are tracked in Redis with 5-minute TTL. Production rejects signed
+// requests when this durable replay-protection store is unavailable.
 
 import { createHmac, createHash, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
@@ -55,15 +56,18 @@ export function buildCanonicalString(
 
 // ── Nonce tracking ────────────────────────────────────────────────────────────
 
-async function markNonceUsed(signature: string): Promise<boolean> {
+type NonceMarkResult = "stored" | "replayed" | "unavailable";
+
+async function markNonceUsed(signature: string): Promise<NonceMarkResult> {
   const r = globalThis.tecpeyRedisClient;
-  if (!r) return false; // no Redis — can't track nonces (allow but log)
+  if (!r) return "unavailable";
   const key = `${NONCE_PREFIX}${signature.slice(0, 64)}`;
   try {
     const result = await r.set(key, "1", "EX", NONCE_TTL_S, "NX");
-    return result === "OK"; // NX: only set if not exists
-  } catch {
-    return false;
+    return result === "OK" ? "stored" : "replayed"; // NX: only set if not exists
+  } catch (err) {
+    logger.warn("[api-key-auth] Redis nonce write failed", { err });
+    return "unavailable";
   }
 }
 
@@ -138,13 +142,15 @@ export async function validateSignedApiKeyRequest(
   }
 
   // 3. Nonce check (replay prevention)
-  const hasRedis = Boolean(globalThis.tecpeyRedisClient);
-  if (hasRedis) {
-    const isNew = await markNonceUsed(signature);
-    if (!isNew) {
-      return invalid("replayed_request");
+  const nonceResult = await markNonceUsed(signature);
+  if (nonceResult === "replayed") {
+    return invalid("replayed_request");
+  }
+  if (nonceResult === "unavailable") {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("[api-key-auth] Redis unavailable — rejecting signed API request");
+      return invalid("nonce_store_unavailable");
     }
-  } else {
     logger.warn("[api-key-auth] Redis unavailable — nonce replay prevention disabled");
   }
 

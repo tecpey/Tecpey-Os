@@ -115,6 +115,10 @@ class RedisPubSubManager {
       await this.registerNode();
       this.nodeRefreshInterval = setInterval(() => void this.registerNode(), 30_000);
 
+      if (!globalThis.tecpeyRedisClient) {
+        globalThis.tecpeyRedisClient = this.pubClient;
+      }
+
       // Latency probe every 60s
       setInterval(() => void this.measureLatency(), 60_000);
 
@@ -244,6 +248,7 @@ class RedisPubSubManager {
 
 declare global {
   var tecpeyPubSub: RedisPubSubManager | undefined;
+  var tecpeyRedisClient: Redis | undefined;
 }
 
 export function getRedisPubSub(): RedisPubSubManager {
