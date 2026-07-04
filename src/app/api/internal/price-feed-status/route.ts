@@ -20,13 +20,31 @@
  */
 
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { rateLimit } from "@/lib/rate-limit";
 import { emitAlert } from "@/lib/alerts";
 import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
+const PRICE_FEED_STATUS_TOKEN_HEADER = "x-tecpey-price-feed-token";
+
+function isAuthorized(req: NextRequest): boolean {
+  const expected = process.env.TECPEY_PRICE_FEED_STATUS_TOKEN;
+  const provided = req.headers.get(PRICE_FEED_STATUS_TOKEN_HEADER);
+
+  if (!expected || !provided) return false;
+
+  const expectedBytes = Buffer.from(expected);
+  const providedBytes = Buffer.from(provided);
+  if (expectedBytes.length !== providedBytes.length) return false;
+
+  return timingSafeEqual(expectedBytes, providedBytes);
+}
+
 export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) return apiError("unauthorized", 401);
+
   // Strict rate limit — this endpoint must not be used as a DDoS amplifier.
   const limit = await rateLimit(req, { namespace: "price-feed-status", limit: 5, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
