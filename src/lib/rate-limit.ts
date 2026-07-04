@@ -14,6 +14,14 @@ function warnRedisUnconfigured() {
   );
 }
 
+function allowMemoryFallback(): boolean {
+  return process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT === "1";
+}
+
+function productionFallbackResult(windowMs: number): RateLimitResult {
+  return { ok: false, remaining: 0, resetAt: Date.now() + windowMs, retryAfterSeconds: Math.ceil(windowMs / 1000), mode: "memory" };
+}
+
 export type RateLimitResult = {
   ok: boolean;
   remaining: number;
@@ -107,7 +115,10 @@ export async function rateLimitUser(
     const redis = await redisRestRateLimit(key, options.limit, options.windowMs);
     if (redis) return redis;
   } catch { /* fallback */ }
-  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
+  if (process.env.NODE_ENV === "production") {
+    warnRedisUnconfigured();
+    if (!allowMemoryFallback()) return productionFallbackResult(options.windowMs);
+  }
   return memoryRateLimit(key, options.limit, options.windowMs);
 }
 
@@ -120,7 +131,10 @@ export async function rateLimitApiKey(
     const redis = await redisRestRateLimit(key, options.limit, options.windowMs);
     if (redis) return redis;
   } catch { /* fallback */ }
-  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
+  if (process.env.NODE_ENV === "production") {
+    warnRedisUnconfigured();
+    if (!allowMemoryFallback()) return productionFallbackResult(options.windowMs);
+  }
   return memoryRateLimit(key, options.limit, options.windowMs);
 }
 
@@ -135,6 +149,9 @@ export async function rateLimit(request: NextRequest, options: { namespace: stri
     logger.warn("[rate-limit] Redis unavailable, falling back to in-memory limiter", { key, message: msg });
   }
   // In production, log an error the first time we fall back to memory-only limiting.
-  if (process.env.NODE_ENV === "production") warnRedisUnconfigured();
+  if (process.env.NODE_ENV === "production") {
+    warnRedisUnconfigured();
+    if (!allowMemoryFallback()) return productionFallbackResult(options.windowMs);
+  }
   return memoryRateLimit(key, options.limit, options.windowMs);
 }

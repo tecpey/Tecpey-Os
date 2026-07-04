@@ -73,6 +73,20 @@ const mentorFallbackModel = process.env.AI_MENTOR_FALLBACK_MODEL;
 if (mentorModel && !allowedMentorModels.has(mentorModel)) errors.push(`AI_MENTOR_MODEL is not in the approved TecPey model allowlist: ${mentorModel}`);
 if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) errors.push(`AI_MENTOR_FALLBACK_MODEL is not in the approved TecPey model allowlist: ${mentorFallbackModel}`);
 
+// Production Redis REST check — coordinated rate limiting requires Redis REST.
+// Skipped when TECPEY_ALLOW_MEMORY_RATE_LIMIT=1 is set (single-instance opt-in).
+if (process.env.NODE_ENV === 'production' && process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {
+  const hasUpstash = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
+  const hasRedisRest = process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN;
+  if (!hasUpstash && !hasRedisRest) {
+    errors.push(
+      'Redis REST must be configured in production for coordinated rate limiting. ' +
+      'Set UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN or REDIS_REST_URL/REDIS_REST_TOKEN, ' +
+      'or set TECPEY_ALLOW_MEMORY_RATE_LIMIT=1 for single-instance deployments with per-instance limiting.'
+    );
+  }
+}
+
 if (errors.length) {
   console.error('TecPey environment validation failed:');
   for (const error of errors) console.error(`- ${error}`);
