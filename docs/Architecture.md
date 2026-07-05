@@ -1,5 +1,9 @@
 # TecPey — Architecture
 
+**Status: SUPERSEDED** — See `docs/MASTER_BLUEPRINT_v3.md` (Phase 39.5)
+Reason: Architecture content consolidated into MASTER_BLUEPRINT_v3.md with current-state deviation markers and revised phase targets.
+This document is retained for historical reference.
+
 ## Overview
 
 TecPey is a Next.js 15 App Router application with a clear separation between the public education/information platform (`tecpey.ir`) and the live trading exchange (`my.tecpey.ir`).

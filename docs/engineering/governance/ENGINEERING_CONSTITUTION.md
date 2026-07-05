@@ -1,7 +1,9 @@
 # TecPey Engineering Constitution
 
 Date: 2026-07-02  
-Status: Permanent operating standard for TecPey engineering work
+Status: **SUPERSEDED** — See `docs/TECPEY_CONSTITUTION.md` (Phase 39.5)  
+Reason: Superseded by `TECPEY_CONSTITUTION.md` which expands from engineering-only to full-platform governance, AI agent rules, Git/commit standards, QA gates, security, release management, and amendment procedures.  
+This document is retained for historical reference. Do not use as current source of truth.
 
 ## 1. Purpose
 

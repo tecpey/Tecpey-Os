@@ -1,6 +1,8 @@
 # TecPey — Future Modules Architecture
 
-**Phase 19 | Module Reservations**
+**Status: PARTIALLY SUPERSEDED** — Feature planning superseded by `docs/FUTURE_REGISTRY.md` (Phase 39.5)
+Reason: The registry provides a living inventory with priority, target phase, and dependencies. Module architecture descriptions in this document remain valid for reference.
+This document is retained for historical reference.
 **Date:** 2026-06-28
 **Status:** Architecture placeholders — no implementation
 

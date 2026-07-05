@@ -34,7 +34,7 @@ export const withdrawalQueue = new Queue<WithdrawalJobData>("withdrawal", {
   },
 });
 
-export const withdrawalDlq = new Queue<WithdrawalJobData>("withdrawal:dlq", {
+export const withdrawalDlq = new Queue<WithdrawalJobData>("withdrawal-dlq", {
   connection,
   defaultJobOptions: {
     attempts: 1,
@@ -43,7 +43,7 @@ export const withdrawalDlq = new Queue<WithdrawalJobData>("withdrawal:dlq", {
   },
 });
 
-export const withdrawalRetryQueue = new Queue<WithdrawalJobData>("withdrawal:retry", {
+export const withdrawalRetryQueue = new Queue<WithdrawalJobData>("withdrawal-retry", {
   connection,
   defaultJobOptions: {
     attempts: 5,
@@ -53,7 +53,7 @@ export const withdrawalRetryQueue = new Queue<WithdrawalJobData>("withdrawal:ret
   },
 });
 
-export const confirmationQueue = new Queue<ConfirmationJobData>("withdrawal:confirmation", {
+export const confirmationQueue = new Queue<ConfirmationJobData>("withdrawal-confirmation", {
   connection,
   defaultJobOptions: {
     attempts: 50,               // poll up to 50 times
@@ -63,7 +63,7 @@ export const confirmationQueue = new Queue<ConfirmationJobData>("withdrawal:conf
   },
 });
 
-export const recoveryQueue = new Queue<WithdrawalJobData>("withdrawal:recovery", {
+export const recoveryQueue = new Queue<WithdrawalJobData>("withdrawal-recovery", {
   connection,
   defaultJobOptions: {
     attempts: 3,

@@ -2,7 +2,9 @@
 
 **Phase 19 | Full System Blueprint**
 **Date:** 2026-06-28
-**Status:** Official — supersedes `docs/Architecture.md`
+**Status:** **SUPERSEDED** — See `docs/MASTER_BLUEPRINT_v3.md` (Phase 39.5)  
+Reason: Superseded by `MASTER_BLUEPRINT_v3.md` which updates architecture for Phase 39.5 current state, adds deployment architecture, and revises phase targets.  
+This document is retained for historical reference. Do not use as current source of truth.
 
 This document defines the target architecture. Current state deviations are noted with `[CURRENT STATE]` markers. Sections without such markers describe the target.
 

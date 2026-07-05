@@ -1,6 +1,8 @@
 # TecPey — Technical Debt Report
 
-**Phase 19 | Complete Inventory**
+**Status: PARTIALLY SUPERSEDED** — Debt section superseded by `docs/TECHNICAL_DEBT_REGISTRY.md` (Phase 39.5)
+Reason: The registry provides a living inventory with priority, target phase, and cross-references. This report's architecture review, methodology, and context sections remain valid. Debt items migrated to registry.
+This document is retained for historical reference.
 **Date:** 2026-06-28
 **Classification:** Critical / High / Medium / Low
 

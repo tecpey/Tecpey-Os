@@ -2,7 +2,9 @@
 
 **Phase 19 | Rebuilt Roadmap**
 **Date:** 2026-06-28
-**Status:** Official — supersedes `docs/Roadmap.md` and `docs/PROJECT_MASTER_STATUS.md` planned phases
+**Status:** **SUPERSEDED** — See `docs/MASTER_ROADMAP_v3.md` (Phase 39.5)  
+Reason: Superseded by `MASTER_ROADMAP_v3.md` which adds Phase 39.5, Phase 39.6, Phase 40+, and restructures future phases.  
+This document is retained for historical reference. Do not use as current source of truth.
 
 History is preserved. Future phases are redesigned from an enterprise-first perspective. Do not delete completed phases.
 

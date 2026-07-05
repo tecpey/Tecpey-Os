@@ -3,6 +3,13 @@
 **Last updated:** 2026-06-26
 **Status as of Phase 9.5:** Complete
 
+**SUPERSESSION NOTICE (Phase 39.5):**
+- **Product identity section** → See `docs/TECPEY_DNA.md`
+- **Roadmap section** → See `docs/MASTER_ROADMAP_v3.md`
+- **UX decisions section** → Preserved in `docs/TECPEY_DNA.md`
+- **Phase history section** → Preserved here for reference
+- **This document remains valid for:** Core UX decisions (Section 2), Completed phase details (Section 3), and Master principle (Section 5).
+
 > This document is the single source of truth for TecPey's product definition, UX decisions, phase history, and roadmap. It does not override Product Owner decisions — it preserves them between sessions.
 
 ---

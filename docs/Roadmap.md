@@ -1,5 +1,9 @@
 # TecPey — Product Roadmap
 
+**Status: SUPERSEDED** — See `docs/MASTER_ROADMAP_v3.md` (Phase 39.5)
+Reason: Roadmap consolidated into MASTER_ROADMAP_v3.md with Phase 39.5, 39.6, and restructured future phases.
+This document is retained for historical reference.
+
 ## Vision
 
 TecPey aims to be the most trusted Persian-language crypto education and trading platform — where education, security, and market access work together as one unified product.
