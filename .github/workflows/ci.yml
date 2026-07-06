@@ -14,7 +14,7 @@ jobs:
     env:
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_the model_URL: https://ci-placeholder.tecpey.ir
       NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
       TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
@@ -48,6 +48,9 @@ jobs:
 
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
+
+      - name: Tests
+        run: npm test
 
       - name: Build
         env:
