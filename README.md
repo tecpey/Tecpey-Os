@@ -395,7 +395,7 @@ See [LICENSE](./LICENSE) for details.
 | Instagram | [@tecpeyco](https://instagram.com/tecpeyco) |
 | Discord | [tecpeyex](https://discord.gg/tecpeyex) |
 | Office / دفتر | Babol, Mazandaran, Iran / بابل، مازندران، ایران |
-| Phone / تلفن | +98 11 3233 8026 |
+| Phone / تلفن | +989111166440 |
 
 ---
 
