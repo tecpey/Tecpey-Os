@@ -79,6 +79,10 @@ export class SumsubKycProvider implements KYCProvider {
     returnUrl: string,
   ): Promise<{ sessionId: string; redirectUrl: string }> {
     if (!isConfigured()) {
+      if (process.env.NODE_ENV === "production") {
+        logger.error("[sumsub] not configured in production — KYC sessions blocked");
+        throw new Error("kyc_not_configured");
+      }
       logger.warn("[sumsub] not configured — skipping KYC session creation");
       return { sessionId: `mock_${userId}`, redirectUrl: returnUrl };
     }

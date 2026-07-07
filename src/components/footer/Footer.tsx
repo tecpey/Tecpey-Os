@@ -122,7 +122,7 @@ const footerSectionsEn = [
       { label: "Support Center", href: "/en/support" },
       { label: "Security Center", href: "/en/security" },
       { label: "Market Insights", href: "/en/markets" },
-      { label: "Learning Hub", href: "/learn" },
+      { label: "Learning Hub", href: "/en/academy" },
     ],
   },
 ];

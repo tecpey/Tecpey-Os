@@ -15,7 +15,7 @@ export function EnglishShell({ children }: { children: React.ReactNode }) {
   return (
     <main
       dir="ltr"
-      className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 pt-28 text-left text-[color:var(--tp-text)] lg:pb-0"
+      className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 text-left text-[color:var(--tp-text)] lg:pb-0"
     >
       {children}
     </main>

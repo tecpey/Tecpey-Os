@@ -12,7 +12,8 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 
 function canUseLocal() {
-  return process.env.NODE_ENV !== "production" || process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true";
+  if (process.env.NODE_ENV === "production") return false;
+  return process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true";
 }
 
 function localPath() {

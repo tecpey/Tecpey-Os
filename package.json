@@ -25,7 +25,8 @@
     "qa:offline-core": "node scripts/qa-offline-core.mjs",
     "qa:core": "npm run qa:academy-core && npm run qa:offline-core && npm run qa:phase5-core && npm run qa:phase6-core",
     "qa:phase5-core": "node scripts/qa-phase5-core.mjs",
-    "qa:phase6-core": "node scripts/qa-phase6-core.mjs"
+    "qa:phase6-core": "node scripts/qa-phase6-core.mjs",
+    "test": "node --import tsx --test 'src/tests/**/*.test.ts'"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",

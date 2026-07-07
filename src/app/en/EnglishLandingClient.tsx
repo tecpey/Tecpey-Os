@@ -453,7 +453,8 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
   return (
     <EnglishShell>
       {schema}
-      <section className="px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="relative isolate overflow-hidden bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.16),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
           <div className="text-left">
             <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Education, live market and secure entry in one clear path</div>

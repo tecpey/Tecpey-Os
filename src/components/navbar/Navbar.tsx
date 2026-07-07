@@ -211,7 +211,7 @@ export default function Navbar({
   return (
     <nav
       dir={isEnglish ? "ltr" : "rtl"}
-      className="sticky left-0 top-0 z-50 w-full border-b border-white/5 bg-bg/95 text-fg backdrop-blur-xl"
+      className="sticky left-0 top-0 z-50 w-full border-b border-black/5 bg-navbar-bg/95 text-fg backdrop-blur-xl dark:border-white/10"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 lg:px-5 lg:py-3">
         <div className="flex items-center gap-5">
@@ -225,7 +225,7 @@ export default function Navbar({
               alt="TecPey"
               width={120}
               height={48}
-              className="h-10 w-auto object-contain md:h-11 lg:h-12"
+              className="h-11 w-auto object-contain md:h-12 lg:h-14"
             />
           </Link>
 
@@ -412,7 +412,7 @@ export default function Navbar({
       </div>
 
       {isOpen && (
-        <div className="fixed inset-x-0 top-[88px] z-40 h-[calc(100dvh-88px)] overflow-y-auto bg-bg/98 px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden">
+        <div className="fixed inset-x-0 top-[88px] z-40 h-[calc(100dvh-88px)] overflow-y-auto bg-navbar-bg/98 px-5 pb-20 pt-4 text-fg shadow-2xl lg:hidden">
           <div className="flex flex-col gap-2">
             {activePrimaryLinks.map((item) => (
               <Link
