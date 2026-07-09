@@ -13,11 +13,12 @@ import { logger } from "@/lib/logger";
 
 export type AuditAction =
   | "login" | "logout" | "logout_all" | "session_revoked"
-  | "password_changed" | "2fa_enabled" | "2fa_disabled"
+  | "password_changed" | "2fa_enabled" | "2fa_disabled" | "2fa_verify_success" | "2fa_verify_failed"
   | "api_key_created" | "api_key_rotated" | "api_key_disabled" | "api_key_deleted"
   | "order_placed" | "order_cancelled"
   | "wallet_deposit" | "wallet_withdrawal"
-  | "admin_action" | "permission_changed" | "risk_event";
+  | "admin_action" | "permission_changed" | "risk_event"
+  | "webauthn_registered" | "webauthn_registration_failed";
 
 export type AuditEvent = {
   actorId: string;

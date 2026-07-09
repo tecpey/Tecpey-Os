@@ -1,3 +1,8 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # TECPEY OS — Master Blueprint
 
 **Version:** 1.0 (Permanent Strategic Baseline)  
@@ -350,3 +355,5 @@ This document is the permanent program memory. All future work must be consisten
 
 *End of TECPEY OS Master Blueprint*  
 *This document supersedes previous vision, platform, and roadmap documents as the single source of truth for strategy and architecture.*
+
+(End of file - total 352 lines)

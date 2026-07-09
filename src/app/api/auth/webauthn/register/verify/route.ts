@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       trackAuthEvent("webauthn_failed");
       writeAudit({
         actorId: userId,
-        action: "admin_action",
+        action: "webauthn_registration_failed",
         ip,
         metadata: { event: "webauthn_register_failed", reason: result.reason },
       });
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     trackAuthEvent("webauthn_registered");
     writeAudit({
       actorId: userId,
-      action: "admin_action",
+      action: "webauthn_registered",
       ip,
       metadata: { event: "webauthn_registered", credentialId: result.credentialId },
     });

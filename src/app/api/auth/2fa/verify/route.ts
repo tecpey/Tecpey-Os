@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     if (!verifyTotp(rawSecret, code)) {
       trackAuthEvent("2fa_failed");
-      writeAudit({ actorId: userId, action: "2fa_enabled", ip, metadata: { event: "verify_failed" } });
+      writeAudit({ actorId: userId, action: "2fa_verify_failed", ip, metadata: { event: "verify_failed" } });
       return apiError("invalid_totp_code", 401);
     }
 
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     });
 
     trackAuthEvent("2fa_success");
-    writeAudit({ actorId: userId, action: "2fa_enabled", ip, metadata: { event: "verify_ok" } });
+    writeAudit({ actorId: userId, action: "2fa_verify_success", ip, metadata: { event: "verify_ok" } });
 
     // Pre-auth flow: TOTP verified — now issue the full authenticated session
     if (isPreAuthFlow) {
