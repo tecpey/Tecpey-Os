@@ -20,6 +20,10 @@ import {
 } from "@/lib/security/passwords";
 import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
+import { signUnifiedSession, extractJtiFromToken, extractExpFromToken } from "@/lib/unified-session";
+import { revokeJti } from "@/lib/security/jti-store";
+import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import { ACCESS_COOKIE_TTL_S } from "@/lib/security/refresh-tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +88,22 @@ export async function POST(req: NextRequest) {
 
     if (!updateResult.enabled) return apiError("db_unavailable", 503);
 
+    // Rotate session: invalidate old JTI and issue a fresh one
+    const currentToken = req.cookies.get(COOKIES.SESSION)?.value;
+    if (currentToken) {
+      const oldJti = extractJtiFromToken(currentToken);
+      const oldExp = extractExpFromToken(currentToken);
+      if (oldJti && oldExp) void revokeJti(oldJti, oldExp);
+    }
+
+    const accessToken = await signUnifiedSession({
+      accountId: session.academyAccountId ?? null,
+      studentId: session.studentId ?? null,
+      email: session.email ?? "",
+      displayName: session.displayName ?? "",
+      username: session.username ?? "",
+    });
+
     trackAuthEvent("password_changed");
     writeAudit({
       actorId: userId,
@@ -92,6 +112,15 @@ export async function POST(req: NextRequest) {
       metadata: { strengthScore: strength.score },
     });
 
-    return apiOk({ changed: true });
+    const response = apiOk({ changed: true });
+    response.cookies.set(COOKIES.SESSION, accessToken, {
+      path: "/",
+      httpOnly: true,
+      secure: shouldUseSecureCookie(),
+      sameSite: "lax",
+      maxAge: ACCESS_COOKIE_TTL_S,
+    });
+
+    return response;
   });
 }
