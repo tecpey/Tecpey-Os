@@ -95,20 +95,6 @@ export async function POST(req: NextRequest) {
       ip,
     });
 
-    const response = apiOk({ authenticated: true });
-
-    // Set new access cookie
-    response.cookies.set(COOKIES.SESSION, accessToken, {
-      path: "/",
-      httpOnly: true,
-      secure: shouldUseSecureCookie(),
-      sameSite: "lax",
-      maxAge: ACCESS_COOKIE_TTL_S,
-    });
-
-    // Set new refresh cookie
-    if (newRefreshToken) setRefreshCookie(response, newRefreshToken);
-
     // Register new access token session (fire-and-forget)
     const jti = extractJtiFromToken(accessToken);
     const exp = extractExpFromToken(accessToken);
@@ -123,6 +109,17 @@ export async function POST(req: NextRequest) {
       userAgent: deviceInfo,
       metadata: { action: "token_refresh" },
     });
+
+    // Set cookies last — after all checks and observable side effects
+    const response = apiOk({ authenticated: true });
+    response.cookies.set(COOKIES.SESSION, accessToken, {
+      path: "/",
+      httpOnly: true,
+      secure: shouldUseSecureCookie(),
+      sameSite: "lax",
+      maxAge: ACCESS_COOKIE_TTL_S,
+    });
+    if (newRefreshToken) setRefreshCookie(response, newRefreshToken);
 
     return response;
   });

@@ -114,18 +114,7 @@ export async function POST(req: NextRequest) {
       const familyId = crypto.randomUUID();
       const refreshToken = await issueRefreshToken({ userId: account.id, familyId, deviceInfo, ip });
 
-      const response = apiOk({ authenticated: true });
-
-      response.cookies.set(COOKIES.SESSION, accessToken, {
-        path: "/",
-        httpOnly: true,
-        secure: shouldUseSecureCookie(),
-        sameSite: "lax",
-        maxAge: ACCESS_COOKIE_TTL_S,
-      });
-
-      if (refreshToken) setRefreshCookie(response, refreshToken);
-
+      // Register session (fire-and-forget — never block login)
       const jti = extractJtiFromToken(accessToken);
       const exp = extractExpFromToken(accessToken);
       if (jti && exp) {
@@ -144,6 +133,17 @@ export async function POST(req: NextRequest) {
         userAgent: deviceInfo,
         metadata: { method: "password+2fa", isNewDevice: isNew },
       });
+
+      // Set cookies last — after all checks and observable side effects
+      const response = apiOk({ authenticated: true });
+      response.cookies.set(COOKIES.SESSION, accessToken, {
+        path: "/",
+        httpOnly: true,
+        secure: shouldUseSecureCookie(),
+        sameSite: "lax",
+        maxAge: ACCESS_COOKIE_TTL_S,
+      });
+      if (refreshToken) setRefreshCookie(response, refreshToken);
 
       return response;
     }
