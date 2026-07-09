@@ -100,6 +100,12 @@ export async function createWithdrawalRequest(
     network, deviceFingerprint, ip, userAgent, twoFaVerified,
   } = opts;
 
+  // 0. Idempotency check — deduplicate by (userId, asset, amount, destinationAddress, network)
+  const existing = await findPendingWithdrawal(userId, asset, amount, destinationAddress, network);
+  if (existing) {
+    return { ok: true, withdrawal: existing };
+  }
+
   // 1. Hard risk block (Redis — synchronous)
   const riskBlock = await enforceWithdrawAllowed(userId);
   if (riskBlock) {
@@ -306,6 +312,34 @@ async function runComplianceChecks(opts: ComplianceCheckOpts): Promise<void> {
   logger.info("[withdrawal] compliance checks complete", {
     withdrawalId, newState, kycStatus, amlRisk, sanctionsHit,
   });
+}
+
+// ── Idempotency check ──────────────────────────────────────────────────────────
+
+async function findPendingWithdrawal(
+  userId: string,
+  asset: string,
+  amount: string,
+  destinationAddress: string,
+  network: string,
+): Promise<WithdrawalRecord | null> {
+  const result = await withDb(async (db) => {
+    const res = await db.query<WithdrawalRow>(
+      `SELECT * FROM withdrawals
+       WHERE user_id = $1
+         AND asset = $2
+         AND amount = $3
+         AND destination_address = $4
+         AND network = $5
+         AND state NOT IN ('completed', 'cancelled')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId, asset, amount, destinationAddress, network],
+    );
+    return res.rows[0] ?? null;
+  });
+  if (!result.enabled || !result.value) return null;
+  return rowToRecord(result.value);
 }
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
