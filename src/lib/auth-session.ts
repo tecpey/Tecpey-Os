@@ -11,7 +11,7 @@ import type { NextRequest } from "next/server";
 import { logger } from "./logger";
 import { COOKIES } from "./platform-config";
 import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
-import { isJtiRevoked } from "./security/jti-store";
+import { isJtiRevoked, isJtiRevokedStrict } from "./security/jti-store";
 import { hasAdminAccess } from "./admin-auth";
 
 // ── jti revocation cache ──────────────────────────────────────────────────────
@@ -33,12 +33,12 @@ function pruneJtiCache(): void {
   }
 }
 
-async function checkJtiRevoked(jti: string): Promise<boolean> {
+async function checkJtiRevoked(jti: string, strict = false): Promise<boolean> {
   const cached = jtiCache.get(jti);
   if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) {
     return cached.revoked;
   }
-  const revoked = await isJtiRevoked(jti);
+  const revoked = await (strict ? isJtiRevokedStrict(jti) : isJtiRevoked(jti));
   pruneJtiCache();
   jtiCache.set(jti, { revoked, ts: Date.now() });
   return revoked;
@@ -151,14 +151,17 @@ async function verifyUserSession(token: string | undefined): Promise<{ userId: s
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export async function getCanonicalSession(req: NextRequest): Promise<CanonicalSession> {
+export async function getCanonicalSession(
+  req: NextRequest,
+  options?: { strictRevocation?: boolean },
+): Promise<CanonicalSession> {
   // Prefer unified cookie — set by Phase 22+ login flows.
   const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
   if (unified) {
     // Phase 35: jti revocation check (30-second in-memory cache)
     if (unified.jti) {
       try {
-        const revoked = await checkJtiRevoked(unified.jti);
+        const revoked = await checkJtiRevoked(unified.jti, options?.strictRevocation);
         if (revoked) {
           logger.info("[auth-session] jti revoked — rejecting session", { jti: unified.jti });
           return {

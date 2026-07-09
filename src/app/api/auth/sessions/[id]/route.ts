@@ -20,7 +20,7 @@ export async function DELETE(
     const rl = await rateLimit(req, { namespace: "auth-revoke-session", limit: 20, windowMs: 60_000 });
     if (!rl.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
     if (!userId) return apiError("unauthorized", 401);
 

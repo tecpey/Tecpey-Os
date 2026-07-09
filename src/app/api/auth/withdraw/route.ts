@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const rlimit = await rateLimit(req, { namespace: "withdraw-create", limit: 5, windowMs: 60_000 });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     const rlimit = await rateLimit(req, { namespace: "withdraw-list", limit: 30, windowMs: 60_000 });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       userId = await consumePreAuthToken(preAuthToken);
       if (!userId) return apiError("preauth_token_invalid", 401);
     } else {
-      const session = await getCanonicalSession(req);
+      const session = await getCanonicalSession(req, { strictRevocation: true });
       userId = session.academyAccountId ?? session.userId ?? session.studentId ?? null;
       if (!userId) return apiError("authentication_required", 401);
     }

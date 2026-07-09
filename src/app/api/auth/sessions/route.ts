@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const rl = await rateLimit(req, { namespace: "auth-sessions", limit: 30, windowMs: 60_000 });
     if (!rl.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
     if (!userId) return apiError("unauthorized", 401);
 
@@ -34,7 +34,7 @@ export async function DELETE(req: NextRequest) {
     const rl = await rateLimit(req, { namespace: "auth-revoke-all", limit: 5, windowMs: 60_000 });
     if (!rl.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
     if (!userId) return apiError("unauthorized", 401);
 

@@ -42,6 +42,23 @@ export async function isJtiRevoked(jti: string): Promise<boolean> {
   }
 }
 
+/**
+ * Strict variant — fails closed for security-sensitive operations.
+ * Returns true (revoked) when Redis is unavailable so a revoked session
+ * is never accepted during an outage.
+ */
+export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  try {
+    const val = await redis.get(`${PREFIX}${jti}`);
+    return val !== null;
+  } catch (err) {
+    logger.warn("[jti-store] strict revocation check failed — blocking", { jti, err: String(err) });
+    return true;
+  }
+}
+
 /** Revoke all jtis for a user by scanning the session table + revoking each.
  *  Called by logout-all. Accepts array of { jti, expiresAt } tuples. */
 export async function revokeMultiple(sessions: Array<{ jti: string; expiresAt: number }>): Promise<void> {
