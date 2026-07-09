@@ -35,7 +35,7 @@ type Conn = {
 function send(ws: WebSocket, msg: Record<string, unknown>): void {
   if (ws.readyState !== 1 /* OPEN */) return;
   // Basic backpressure: drop if buffer exceeds 1 MB.
-  if ((ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0 > 1_048_576) return;
+  if (((ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0) > 1_048_576) return;
   try { ws.send(JSON.stringify(msg)); } catch { /* connection may be closing */ }
 }
 
@@ -251,7 +251,7 @@ export class WsManager extends EventEmitter {
     for (const id of ids) {
       const conn = this.conns.get(id);
       if (!conn || conn.ws.readyState !== 1) continue;
-      if ((conn.ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0 > 1_048_576) {
+      if (((conn.ws as unknown as { bufferedAmount?: number }).bufferedAmount ?? 0) > 1_048_576) {
         this.droppedTotal++;
         continue;
       }

@@ -69,14 +69,15 @@ export async function withDb<T>(
 
   if (!schemaInit) {
     schemaInit = (async () => {
-      const c = await p.connect();
+      let c;
       try {
+        c = await p.connect();
         await runMigrations(c);
       } catch (err) {
         schemaInit = null;
         throw err;
       } finally {
-        c.release();
+        if (c) c.release();
       }
     })();
   }
@@ -107,14 +108,15 @@ export async function withTx<T>(
 
   if (!schemaInit) {
     schemaInit = (async () => {
-      const c = await p.connect();
+      let c;
       try {
+        c = await p.connect();
         await runMigrations(c);
       } catch (err) {
         schemaInit = null;
         throw err;
       } finally {
-        c.release();
+        if (c) c.release();
       }
     })();
   }
