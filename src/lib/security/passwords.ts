@@ -2,6 +2,7 @@
 // Uses PBKDF2-SHA256 with 120,000 iterations.
 
 import { randomBytes, pbkdf2Sync, timingSafeEqual } from "crypto";
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 
 export function hashPassword(password: string): string {
@@ -41,18 +42,48 @@ export async function isPasswordReused(userId: string, newPassword: string, limi
 
 export async function recordPasswordHistory(userId: string, passwordHash: string): Promise<void> {
   await withDb(async (db) => {
-    await db.query(
+    await recordPasswordHistoryWithClient(db, userId, passwordHash);
+  });
+}
+
+/** Client-aware variant for use inside withTx() — inserts and prunes in one call. */
+export async function recordPasswordHistoryWithClient(
+  client: PoolClient,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO password_history (id, user_id, password_hash) VALUES ($1, $2, $3)`,
+    [crypto.randomUUID(), userId, passwordHash],
+  );
+  // Keep only the last 10 entries
+  await client.query(
+    `DELETE FROM password_history WHERE user_id = $1 AND id NOT IN (
+       SELECT id FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10
+     )`,
+    [userId],
+  );
+}
+
+/** Batch variant for use inside withTx() — inserts all hashes then prunes once. */
+export async function recordPasswordHistoryBatchWithClient(
+  client: PoolClient,
+  userId: string,
+  passwordHashes: string[],
+): Promise<void> {
+  for (const passwordHash of passwordHashes) {
+    await client.query(
       `INSERT INTO password_history (id, user_id, password_hash) VALUES ($1, $2, $3)`,
       [crypto.randomUUID(), userId, passwordHash],
     );
-    // Keep only the last 10 entries
-    await db.query(
-      `DELETE FROM password_history WHERE user_id = $1 AND id NOT IN (
-         SELECT id FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10
-       )`,
-      [userId],
-    );
-  });
+  }
+  // Keep only the last 10 entries (single prune after all inserts)
+  await client.query(
+    `DELETE FROM password_history WHERE user_id = $1 AND id NOT IN (
+       SELECT id FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10
+     )`,
+    [userId],
+  );
 }
 
 export function assessPasswordStrength(password: string): { score: number; feedback: string[] } {

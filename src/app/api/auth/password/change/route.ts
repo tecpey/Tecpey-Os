@@ -10,12 +10,12 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import {
   hashPassword,
   verifyPassword,
   isPasswordReused,
-  recordPasswordHistory,
+  recordPasswordHistoryBatchWithClient,
   assessPasswordStrength,
 } from "@/lib/security/passwords";
 import { writeAudit } from "@/lib/security/audit-log";
@@ -69,19 +69,20 @@ export async function POST(req: NextRequest) {
 
     const newHash = hashPassword(newPassword);
 
-    // Update password and record history
-    const updateResult = await withDb(async (db) => {
-      await db.query(
+    // Update password and record history atomically
+    const updateResult = await withTx(async (client) => {
+      await client.query(
         `UPDATE academy_auth_accounts SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
         [newHash, userId],
       );
+      // Record old and new hashes in history, then prune in one batch
+      await recordPasswordHistoryBatchWithClient(client, userId, [
+        dbResult.value.currentHash!,
+        newHash,
+      ]);
     });
 
     if (!updateResult.enabled) return apiError("db_unavailable", 503);
-
-    // Record old hash in history so it can't be reused
-    await recordPasswordHistory(userId, dbResult.value.currentHash);
-    await recordPasswordHistory(userId, newHash);
 
     trackAuthEvent("password_changed");
     writeAudit({
