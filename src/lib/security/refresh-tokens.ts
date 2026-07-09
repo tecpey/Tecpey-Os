@@ -83,6 +83,7 @@ export async function issueRefreshToken(opts: {
     return true;
   }).catch((err) => {
     logger.warn("[refresh-tokens] DB persist failed", { err: String(err) });
+    throw err; // fail closed — do not issue an unstored token
   });
 
   return token;
