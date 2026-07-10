@@ -130,12 +130,17 @@ class RedisPubSubManager {
 
   // ── Node registry ───────────────────────────────────────────────────────────
 
+  // This process is a web/matching application node. Workers run in-process
+  // here (no standalone worker process registers a node), and only server.ts
+  // ever reaches initialize()→registerNode(). The key is namespaced with the
+  // "web" role so a future standalone worker registering under a different
+  // role cannot inflate the web-node count used by the single-instance guard.
   private async registerNode(): Promise<void> {
     if (!this.pubClient) return;
     try {
       await this.pubClient.set(
-        `tecpey:node:${this.nodeId}`,
-        JSON.stringify({ startedAt: new Date().toISOString(), pid: process.pid }),
+        `tecpey:node:web:${this.nodeId}`,
+        JSON.stringify({ role: "web", startedAt: new Date().toISOString(), pid: process.pid }),
         "EX", 60,
       );
     } catch { /* non-critical */ }
@@ -145,6 +150,16 @@ class RedisPubSubManager {
     if (!this.pubClient) return 1;
     try {
       const keys = await this.pubClient.keys("tecpey:node:*");
+      return keys.length;
+    } catch { return 1; }
+  }
+
+  // Count active web/matching application nodes only (role-scoped key glob).
+  // Used by the single-instance matching guardrail at startup.
+  async countActiveWebNodes(): Promise<number> {
+    if (!this.pubClient) return 1;
+    try {
+      const keys = await this.pubClient.keys("tecpey:node:web:*");
       return keys.length;
     } catch { return 1; }
   }
@@ -237,6 +252,9 @@ class RedisPubSubManager {
     if (this.nodeRefreshInterval) clearInterval(this.nodeRefreshInterval);
     for (const t of this.obDebounce.values()) clearTimeout(t);
     this.obDebounce.clear();
+    // Deregister this node before disconnecting so a graceful restart does not
+    // leave a stale key that would trip the single-instance matching guard.
+    try { await this.pubClient?.del(`tecpey:node:web:${this.nodeId}`); } catch { /* ignore */ }
     try { await this.pubClient?.quit(); } catch { /* ignore */ }
     try { await this.subClient?.quit(); } catch { /* ignore */ }
     this.connected = false;

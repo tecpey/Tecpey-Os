@@ -41,6 +41,30 @@ app.prepare().then(async () => {
     const pubsub = getRedisPubSub();
     await pubsub.initialize(redisUrl);
 
+    // ── Single-instance matching guardrail (production only) ────────────────
+    // The per-market matching mutex and in-memory order book are process-local.
+    // Distributed matching (advisory/distributed locks) is NOT yet implemented,
+    // so running more than one web/matching application node causes stale order
+    // books, spurious matching failures, and inconsistent realtime snapshots.
+    // Fail closed rather than start silently in an unsafe mode.
+    // Workers run in-process and do not register a web node, so scaling them is
+    // unaffected; only the web/matching app is restricted to a single instance.
+    if (process.env.NODE_ENV === "production") {
+      const webNodes = await pubsub.countActiveWebNodes();
+      if (webNodes > 1) {
+        console.error(
+          `\nFATAL: ${webNodes} active TecPey web/matching nodes detected.\n` +
+          "Distributed matching is NOT enabled. Production is currently restricted " +
+          "to a SINGLE web/matching application instance.\n" +
+          "Scaling BullMQ workers is allowed; scaling the web/matching application is not.\n" +
+          "Shut down the extra instance(s) before starting, or implement distributed " +
+          "matching locks first.\n",
+        );
+        await pubsub.shutdown();
+        process.exit(1);
+      }
+    }
+
     // Route local EventBus events → Redis pub channels.
     wireRedisPublisher(pubsub);
 
