@@ -33,6 +33,22 @@ import {
 import { getEventBus, nextSeq } from "@/lib/event-bus";
 import { invalidateStatsCache } from "./market-stats-cache";
 
+// ── Per-market execution lock ─────────────────────────────────────────────────
+//
+// Serializes placeOrder calls per market so no two matching passes run
+// concurrently for the same market. Uses a Promise chain — each call waits
+// for the previous one to complete before starting its critical section.
+// Market count is bounded (10-100), so the Map never leaks meaningfully.
+
+const marketLocks = new Map<string, Promise<void>>();
+
+async function withMarketLock<T>(market: string, fn: () => Promise<T>): Promise<T> {
+  const prev = marketLocks.get(market) ?? Promise.resolve();
+  const next = prev.then(() => fn(), () => fn());
+  marketLocks.set(market, next.then(() => {}, () => {}));
+  return next;
+}
+
 // ── Fill record ───────────────────────────────────────────────────────────────
 //
 // Pre-computed in a pure pass over the in-memory book — zero DB calls.
@@ -220,10 +236,13 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
     const limitPrice = order.price ? parseFloat(order.price) : 0;
     const holdAsset  = order.side === "buy" ? quoteAsset : baseAsset;
 
-    await this.ensureBookReady(order.market);
+    // ── Serialized per-market execution ──────────────────────────────────
+    // Only one placeOrder runs the critical section per market at a time.
+    return withMarketLock(order.market, async () => {
+      await this.ensureBookReady(order.market);
 
-    const store       = getOrderBookStore();
-    const displayBook = getOrderBook(order.market);
+      const store       = getOrderBookStore();
+      const displayBook = getOrderBook(order.market);
 
     // ── FOK pre-flight ────────────────────────────────────────────────────────
     if (isFOK) {
@@ -308,7 +327,8 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
           if (fill.feeSeller > 1e-12) await chargeFeeTx(client, fill.sellerUserId, quoteAsset, fill.feeSeller, fill.tradeId);
 
           // Update maker order + audit
-          await updateOrderFillTx(client, fill.maker.orderId, fill.fillQty, fill.tradePrice, fill.makerNewStatus);
+          const makerUpdated = await updateOrderFillTx(client, fill.maker.orderId, fill.fillQty, fill.tradePrice, fill.makerNewStatus);
+          if (!makerUpdated) throw new Error("maker_fill_rejected");
           await appendOrderEventTx(client, fill.maker.orderId, "TradeExecuted", {
             tradeId: fill.tradeId, fillQty: fill.fillQty, tradePrice: fill.tradePrice, newStatus: fill.makerNewStatus,
           });
@@ -319,7 +339,8 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
 
         // Finalise incoming order
         if (fullyFilled) {
-          await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, "FILLED");
+          const takerUpdated = await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, "FILLED");
+          if (!takerUpdated) throw new Error("taker_fill_rejected");
           await appendOrderEventTx(client, order.id, "OrderFilled", {
             orderId: order.id, market: order.market,
             filledQty: fills.totalFilled.toFixed(10), avgFillPrice: avgPrice.toFixed(10),
@@ -328,7 +349,8 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
 
         } else if (fills.totalFilled > 0) {
           const partialStatus: OrderStatus = isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
-          await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, partialStatus);
+          const takerPartialUpdated = await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, partialStatus);
+          if (!takerPartialUpdated) throw new Error("taker_fill_rejected");
 
           if (!isGTC) {
             // Release unfilled portion of hold.
@@ -471,6 +493,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       tradeIds: txReturn.tradeIds,
       reason:   txReturn.reason,
     };
+    });
   }
 
   async cancelOrder(orderId: string, userId: string): Promise<CancelOrderResult> {
