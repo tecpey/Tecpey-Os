@@ -29,6 +29,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".kilo/**",
     "public/charting_library/**",
     "public/datafeeds/**",
     "public/vendor/**",

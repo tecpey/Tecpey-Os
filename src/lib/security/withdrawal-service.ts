@@ -10,6 +10,7 @@
 // Never imports concrete compliance provider classes.
 // All provider access via getComplianceProviders() interface.
 
+import { createHash } from "crypto";
 import { withDb } from "@/lib/db";
 import { runWithdrawGate } from "./withdraw-gate";
 import { getComplianceProviders } from "./compliance";
@@ -100,11 +101,8 @@ export async function createWithdrawalRequest(
     network, deviceFingerprint, ip, userAgent, twoFaVerified,
   } = opts;
 
-  // 0. Idempotency check — deduplicate by (userId, asset, amount, destinationAddress, network)
-  const existing = await findPendingWithdrawal(userId, asset, amount, destinationAddress, network);
-  if (existing) {
-    return { ok: true, withdrawal: existing };
-  }
+  // 0. Compute deterministic withdrawal key for DB-level dedup
+  const baseId = makeWithdrawalId(userId, asset, amount, destinationAddress, network);
 
   // 1. Hard risk block (Redis — synchronous)
   const riskBlock = await enforceWithdrawAllowed(userId);
@@ -132,28 +130,19 @@ export async function createWithdrawalRequest(
     return { ok: false, reason: gate.reason, code: 403 };
   }
 
-  // 3. Insert withdrawal record (state: pending)
-  const withdrawalId = crypto.randomUUID();
-  const insertResult = await withDb(async (db) => {
-    await db.query(
-      `INSERT INTO withdrawals
-         (id, user_id, asset, amount, amount_usd, destination_address, network,
-          state, security_gate_passed, device_fingerprint, ip, user_agent,
-          two_fa_verified, velocity_used)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',TRUE,$8,$9,$10,$11,$12)`,
-      [
-        withdrawalId, userId, asset, amount, amountUsd,
-        destinationAddress, network,
-        deviceFingerprint.slice(0, 64), ip.slice(0, 80),
-        userAgent.slice(0, 500), twoFaVerified,
-        gate.remaining !== undefined ? amountUsd : null,
-      ],
-    );
-    return withdrawalId;
+  // 3. Insert withdrawal record with DB-level dedup (ON CONFLICT is atomic)
+  const { withdrawalId, isNew } = await insertWithdrawalDedup({
+    baseId, userId, asset, amount, amountUsd, destinationAddress, network,
+    deviceFingerprint, ip, userAgent, twoFaVerified, gate,
   });
 
-  if (!insertResult.enabled) {
+  if (!withdrawalId) {
     return { ok: false, reason: "db_unavailable", code: 503 };
+  }
+  if (!isNew) {
+    const existing = await fetchWithdrawal(withdrawalId, userId);
+    if (existing) return { ok: true, withdrawal: existing };
+    return { ok: false, reason: "withdrawal_not_found", code: 500 };
   }
 
   trackAuthEvent("withdrawal_requested");
@@ -314,32 +303,86 @@ async function runComplianceChecks(opts: ComplianceCheckOpts): Promise<void> {
   });
 }
 
-// ── Idempotency check ──────────────────────────────────────────────────────────
+// ── Idempotency helpers (DB-level race-safe) ────────────────────────────────────
 
-async function findPendingWithdrawal(
-  userId: string,
-  asset: string,
-  amount: string,
-  destinationAddress: string,
-  network: string,
-): Promise<WithdrawalRecord | null> {
-  const result = await withDb(async (db) => {
-    const res = await db.query<WithdrawalRow>(
-      `SELECT * FROM withdrawals
-       WHERE user_id = $1
-         AND asset = $2
-         AND amount = $3
-         AND destination_address = $4
-         AND network = $5
-         AND state NOT IN ('completed', 'cancelled')
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [userId, asset, amount, destinationAddress, network],
-    );
-    return res.rows[0] ?? null;
-  });
-  if (!result.enabled || !result.value) return null;
-  return rowToRecord(result.value);
+/** Deterministic withdrawal key derived from request parameters. */
+function makeWithdrawalId(
+  userId: string, asset: string, amount: string,
+  destinationAddress: string, network: string,
+): string {
+  return createHash("sha256")
+    .update(`${userId}\0${asset}\0${amount}\0${destinationAddress}\0${network}`)
+    .digest("hex")
+    .slice(0, 32);
+}
+
+type InsertDedupOpts = {
+  baseId: string;
+  userId: string;
+  asset: string;
+  amount: string;
+  amountUsd: number;
+  destinationAddress: string;
+  network: string;
+  deviceFingerprint: string;
+  ip: string;
+  userAgent: string;
+  twoFaVerified: boolean;
+  gate: { remaining?: number };
+};
+
+/**
+ * Atomically insert a withdrawal or return the existing one.
+ * Uses a deterministic ID so ON CONFLICT DO NOTHING prevents races.
+ * If the existing row is in a terminal state, retries with a suffix.
+ */
+async function insertWithdrawalDedup(
+  opts: InsertDedupOpts,
+): Promise<{ withdrawalId: string | null; isNew: boolean }> {
+  const {
+    baseId, userId, asset, amount, amountUsd, destinationAddress, network,
+    deviceFingerprint, ip, userAgent, twoFaVerified, gate,
+  } = opts;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const withdrawalId = attempt === 0 ? baseId : `${baseId}-r${attempt}`;
+
+    const result = await withDb(async (db) => {
+      const res = await db.query<{ id: string }>(
+        `INSERT INTO withdrawals
+           (id, user_id, asset, amount, amount_usd, destination_address, network,
+            state, security_gate_passed, device_fingerprint, ip, user_agent,
+            two_fa_verified, velocity_used)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',TRUE,$8,$9,$10,$11,$12)
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id`,
+        [
+          withdrawalId, userId, asset, amount, amountUsd,
+          destinationAddress, network,
+          deviceFingerprint.slice(0, 64), ip.slice(0, 80),
+          userAgent.slice(0, 500), twoFaVerified,
+          gate.remaining !== undefined ? amountUsd : null,
+        ],
+      );
+      return res.rows[0]?.id ?? null;
+    });
+
+    if (!result.enabled) return { withdrawalId: null, isNew: false };
+
+    if (result.value !== null) {
+      return { withdrawalId: result.value, isNew: true };
+    }
+
+    // Row exists — check state
+    const existing = await fetchWithdrawal(withdrawalId, userId);
+    if (!existing) continue;
+    if (existing.state !== "completed" && existing.state !== "cancelled") {
+      return { withdrawalId: existing.id, isNew: false };
+    }
+    // Terminal state → retry with a different ID
+  }
+
+  return { withdrawalId: null, isNew: false };
 }
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
