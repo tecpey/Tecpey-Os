@@ -51,6 +51,14 @@ app.prepare().then(async () => {
     // unaffected; only the web/matching app is restricted to a single instance.
     if (process.env.NODE_ENV === "production") {
       const webNodes = await pubsub.countActiveWebNodes();
+      if (webNodes < 0) {
+        console.error(
+          "\nFATAL: active web-node count could not be verified.\n" +
+          "Single-instance matching safety cannot be guaranteed.\n",
+        );
+        await pubsub.shutdown();
+        process.exit(1);
+      }
       if (webNodes > 1) {
         console.error(
           `\nFATAL: ${webNodes} active TecPey web/matching nodes detected.\n` +
