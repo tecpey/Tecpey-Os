@@ -343,3 +343,234 @@ export async function depositFunds(
   );
   return result.enabled ? (result.value ?? false) : false;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WA-04A — Withdrawal accounting primitives
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Three-phase model — every withdrawal goes through these steps:
+//
+//   1. reserve  —  available -= amount, held += amount   (type: "hold")
+//   2. settle   —  held -= amount                         (type: "withdraw")
+//   3. release  —  held -= amount, available += amount    (type: "release")
+//
+// Each step is a *Tx variant (production canonical API). The convenience
+// wrappers at the bottom exist for consistency with the rest of this file
+// but MUST NOT be used in withdrawal lifecycle code (WA-04C) — they run
+// outside a managed transaction, so a crash between the UPDATE and the
+// ledger INSERT would produce an unreconciled balance.
+//
+// Idempotency is enforced by a partial unique index on wallet_ledger:
+//   UNIQUE (reference_type, reference_id, type)
+//   WHERE reference_type = 'withdrawal' AND reference_id IS NOT NULL
+//
+// Within a *Tx function the idempotency SELECT is an optimisation — the
+// index is the real enforcement.
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ── 1. Reserve ────────────────────────────────────────────────────────────────
+//
+// Moves `amount` from available → held. This earmarks the funds so they
+// cannot be spent by trading or another withdrawal.
+// The WHERE clause rejects the operation when available is insufficient.
+
+export async function reserveForWithdrawalTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  if (amount <= 0) return true;
+
+  // Idempotency — ledger unique index is the real enforcement
+  const done = await client.query(
+    `SELECT 1 FROM wallet_ledger
+     WHERE reference_type = 'withdrawal'
+       AND reference_id   = $1
+       AND type           = 'hold'
+     LIMIT 1`,
+    [withdrawalId],
+  );
+  if (done.rows.length > 0) return true;
+
+  await ensureRowTx(client, userId, asset);
+
+  const rows = await client.query<{ available_balance: string }>(
+    `UPDATE wallet_balances
+     SET
+       available_balance = available_balance - $3,
+       held_balance      = held_balance      + $3,
+       updated_at        = NOW()
+     WHERE user_id = $1 AND asset = $2 AND available_balance >= $3
+     RETURNING available_balance`,
+    [userId, asset.toUpperCase(), amount.toFixed(10)],
+  );
+
+  if (!rows.rowCount || rows.rowCount === 0) return false;
+
+  await postLedgerEntryTx(client, {
+    walletId: userId,
+    asset: asset.toUpperCase(),
+    type: "hold",
+    amount: amount.toFixed(10),
+    balanceAfter: rows.rows[0].available_balance,
+    referenceId: withdrawalId,
+    referenceType: "withdrawal",
+  });
+
+  return true;
+}
+
+// Convenience wrapper — NOT safe for lifecycle use (see note above).
+export async function reserveForWithdrawal(
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  const result = await withDb((client) =>
+    reserveForWithdrawalTx(client, userId, asset, amount, withdrawalId),
+  );
+  return result.enabled ? (result.value ?? false) : false;
+}
+
+// ── 2. Settle (consume from held) ────────────────────────────────────────────
+//
+// Deducts `amount` from held_balance only.  This is the final accounting
+// event — the funds are gone (broadcast on chain).
+// Available_balance is NEVER touched.  The WHERE guard prevents settling
+// more than was reserved.
+
+export async function consumeHeldWithdrawalTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  if (amount <= 0) return true;
+
+  // Idempotency — ledger unique index is the real enforcement
+  const done = await client.query(
+    `SELECT 1 FROM wallet_ledger
+     WHERE reference_type = 'withdrawal'
+       AND reference_id   = $1
+       AND type           = 'withdraw'
+     LIMIT 1`,
+    [withdrawalId],
+  );
+  if (done.rows.length > 0) return true;
+
+  const rows = await client.query<{ available_balance: string }>(
+    `UPDATE wallet_balances
+     SET
+       held_balance = held_balance - $3,
+       updated_at   = NOW()
+     WHERE user_id = $1 AND asset = $2 AND held_balance >= $3
+     RETURNING available_balance`,
+    [userId, asset.toUpperCase(), amount.toFixed(10)],
+  );
+
+  if (!rows.rowCount || rows.rowCount === 0) {
+    logger.error("[wallet-balance-service] consumeHeldWithdrawal: insufficient held", {
+      userId, asset, amount, withdrawalId,
+    });
+    return false;
+  }
+
+  await postLedgerEntryTx(client, {
+    walletId: userId,
+    asset: asset.toUpperCase(),
+    type: "withdraw",
+    amount: amount.toFixed(10),
+    balanceAfter: rows.rows[0].available_balance,
+    referenceId: withdrawalId,
+    referenceType: "withdrawal",
+  });
+
+  return true;
+}
+
+// Convenience wrapper — NOT safe for lifecycle use (see note above).
+export async function consumeHeldWithdrawal(
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  const result = await withDb((client) =>
+    consumeHeldWithdrawalTx(client, userId, asset, amount, withdrawalId),
+  );
+  return result.enabled ? (result.value ?? false) : false;
+}
+
+// ── 3. Release ───────────────────────────────────────────────────────────────
+//
+// Returns earmarked funds from held back to available.
+// Used when a withdrawal fails / is cancelled.
+// Enforces held_balance >= amount so a caller cannot fabricate funds.
+
+export async function releaseWithdrawalTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  if (amount <= 0) return true;
+
+  // Idempotency — ledger unique index is the real enforcement
+  const done = await client.query(
+    `SELECT 1 FROM wallet_ledger
+     WHERE reference_type = 'withdrawal'
+       AND reference_id   = $1
+       AND type           = 'release'
+     LIMIT 1`,
+    [withdrawalId],
+  );
+  if (done.rows.length > 0) return true;
+
+  const rows = await client.query<{ available_balance: string }>(
+    `UPDATE wallet_balances
+     SET
+       available_balance = available_balance + $3,
+       held_balance      = held_balance - $3,
+       updated_at        = NOW()
+     WHERE user_id = $1 AND asset = $2 AND held_balance >= $3
+     RETURNING available_balance`,
+    [userId, asset.toUpperCase(), amount.toFixed(10)],
+  );
+
+  if (!rows.rowCount || rows.rowCount === 0) {
+    logger.error("[wallet-balance-service] releaseWithdrawal: insufficient held", {
+      userId, asset, amount, withdrawalId,
+    });
+    return false;
+  }
+
+  await postLedgerEntryTx(client, {
+    walletId: userId,
+    asset: asset.toUpperCase(),
+    type: "release",
+    amount: amount.toFixed(10),
+    balanceAfter: rows.rows[0].available_balance,
+    referenceId: withdrawalId,
+    referenceType: "withdrawal",
+  });
+
+  return true;
+}
+
+// Convenience wrapper — NOT safe for lifecycle use (see note above).
+export async function releaseWithdrawal(
+  userId: string,
+  asset: string,
+  amount: number,
+  withdrawalId: string,
+): Promise<boolean> {
+  const result = await withDb((client) =>
+    releaseWithdrawalTx(client, userId, asset, amount, withdrawalId),
+  );
+  return result.enabled ? (result.value ?? false) : false;
+}

@@ -910,6 +910,31 @@ CREATE TABLE IF NOT EXISTS user_2fa (
 );
 `,
   },
+  // WA-04A — withdrawal ledger idempotency
+  //
+  // Each withdrawal may produce up to 3 ledger entries (hold → withdraw → release)
+  // under the same withdrawalId.  The unique scope is (reference_type, reference_id, type)
+  // so that each *phase* of one withdrawal can appear exactly once.
+  //
+  // reference_type IS NOT NULL IN the WHERE  — the index only applies to withdrawal
+  // entries, NOT to order/trade/admin entries that happen to share a reference_id.
+  //
+  // Why asset is NOT IN the index:
+  //   - The withdrawal lifecycle processes one asset per withdrawalId.
+  //   - Adding asset to the unique scope would allow the same withdrawal to
+  //     generate duplicate holds (two with the same withdrawalId but different
+  //     assets), which violates the one-entry-per-phase invariant.
+  //   - Multi-asset withdrawals (future) would use distinct withdrawalIds per
+  //     leg, or a new reference_type schema — the index today does not constrain
+  //     that design.
+  {
+    filename: "0002_withdrawal_ledger_idempotency.sql",
+    sql: `
+CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_ledger_withdrawal_phase
+  ON wallet_ledger (reference_type, reference_id, type)
+  WHERE reference_type = 'withdrawal' AND reference_id IS NOT NULL;
+    `,
+  },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────
