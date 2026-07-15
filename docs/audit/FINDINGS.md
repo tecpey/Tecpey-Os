@@ -102,3 +102,49 @@ reconciliation sweep that detects orders in Redis not present in the
 in-memory index on startup and cleans them up.
 
 ---
+
+## F-003 — Recovery worker has no concurrency guard; concurrent recovery jobs double-broadcast a stuck withdrawal
+
+- **ID:** F-003
+- **Severity:** Critical
+- **Confidence:** High
+- **File:** `src/lib/wallet/queue/processor.ts` (lines 99–118) and `src/lib/wallet/withdrawal-executor.ts` (lines 31–146)
+- **Line numbers:** processor.ts 101–118; executor.ts 52–62
+
+### Evidence
+`createRecoveryWorker` (processor.ts 101) creates a worker with `concurrency: 2`.
+`executeWithdrawal` (executor.ts 31) checks idempotency only via `withdrawal.txHash`
+(lines 57–62). If a withdrawal is stuck in "broadcasting" state (txHash is null),
+the idempotency check passes and the worker proceeds to build/sign/broadcast.
+
+With `concurrency: 2`, two recovery jobs for the same withdrawalId can be active
+simultaneously. Both pass the `txHash === null` check and both attempt to broadcast.
+
+Additionally, `broadcastTransaction` (executor.ts 150) catches "already known"
+errors (line 201) but throws a new error without extracting the txHash from the
+RPC response (line 205). This means a duplicate broadcast response (which usually
+includes the existing txHash) is discarded, leaving the withdrawal stuck.
+
+### Root cause
+1. Recovery worker concurrency > 1 with no distributed lock on withdrawalId.
+2. Idempotency check only guards "already broadcast" (txHash set), not
+   "currently being broadcast" (state = broadcasting).
+3. "Already known" RPC error is treated as a failure rather than a success path
+   that extracts the existing txHash.
+
+### Production impact
+A stuck withdrawal (e.g., RPC timeout after broadcast but before tx_hash
+persistence) can be recovered by two concurrent workers, causing:
+- Two blockchain transactions for the same withdrawal (double-spend).
+- The user's funds are sent twice. On an irreversible chain (Bitcoin), this
+  is a permanent loss of funds with no technical recovery mechanism.
+
+### Recommended fix
+1. Add a distributed lock (Redis SETNX or BullMQ job deduplication by key)
+   on withdrawalId before entering `executeWithdrawal`.
+2. Change idempotency check to also guard against state = "broadcasting"
+   (a withdrawal in that state with no txHash should not be re-broadcast).
+3. Parse the txHash from "already known" / "AlreadyProcessed" RPC error
+   responses and persist it instead of throwing.
+
+---
