@@ -331,3 +331,105 @@ address. Cloudflare's `CF-Connecting-IP` is already the first choice and is
 trusted when behind Cloudflare.
 
 ---
+
+## F-008 — OFAC sanctions screening fails open when API is unavailable
+
+- **ID:** F-008
+- **Severity:** Critical
+- **Confidence:** High
+- **File:** `src/lib/compliance/ofac.ts`
+- **Line numbers:** 22–45, 72, 98
+
+### Evidence
+`ofacSearch` (line 22) catches all errors and returns `null` on failure:
+
+```
+} catch (err) {
+  logger.warn("[ofac] API unavailable", { err: String(err) });
+  return null;
+}
+```
+
+`screenUser` (line 72) and `screenAddress` (line 98) both treat `null` as
+"no sanctions hit":
+
+```
+if (!result) return { ...noHit, screenedAt: new Date() };
+```
+
+When the OFAC API is unreachable (network issue, rate limit, service outage),
+the screening silently returns `matched: false`, allowing a blocked user or
+address to pass through the compliance gate.
+
+### Root cause
+The sanctions screening is designed for graceful degradation when the external
+provider is unavailable, but compliance screening has a fundamentally different
+risk profile from other external dependencies. A sanctions miss is not a
+performance degradation — it is a regulatory violation that can result in
+severe penalties (OFAC fines, criminal liability, exchange license revocation).
+
+### Production impact
+If the OFAC API is down, the system processes withdrawals and user operations
+as if no sanctions match exist. This exposes the platform to:
+- OFAC violations (processing transactions involving sanctioned entities).
+- Regulatory penalties and criminal liability.
+- Reputational damage and potential loss of banking relationships.
+
+### Recommended fix
+Change the default to fail-closed: when the OFAC API is unavailable, the
+screening should return `matched: true` (treat as a potential hit requiring
+manual review) or throw an error that blocks the withdrawal. Add a circuit
+breaker that tracks consecutive failures and automatically blocks all
+withdrawals after N consecutive API failures. The `OfacSanctionsProvider`
+should implement a local fallback list (SDN addresses and names cached
+periodically) for use when the API is unavailable.
+
+---
+
+## F-009 — Withdrawal velocity check has a TOCTOU race condition
+
+- **ID:** F-009
+- **Severity:** High
+- **Confidence:** High
+- **File:** `src/lib/security/withdraw-gate.ts`
+- **Line numbers:** 44–62
+
+### Evidence
+`checkWithdrawVelocity` (line 32) performs a read-then-write on the user's
+withdrawal volume counter:
+
+```
+const currentStr = results?[0]?[1];
+const current = typeof currentStr === "string" ? parseFloat(currentStr) : 0;
+
+if (current + amountUsd > limitUsd) {
+  return { allowed: false, remaining, reason: "daily_limit_exceeded" };
+}
+
+await r.incrbyfloat(key, amountUsd);
+```
+
+The check and the increment are two separate Redis commands with no atomic
+guard. Between the check and the increment, another concurrent request can
+also pass the check and increment the counter, causing the total to exceed
+`limitUsd` by the sum of all concurrent requests.
+
+### Root cause
+Classic Time-Of-Check to Time-Of-Use (TOCTOU) race condition. The velocity
+check is not atomic with the increment.
+
+### Production impact
+An attacker with multiple concurrent withdrawal requests (or a user making
+many simultaneous withdrawals) can exceed the daily USD withdrawal limit.
+The limit is a financial risk control — exceeding it exposes the platform
+to larger losses if the accounts are fraudulent. On a crypto exchange, this
+could enable a bad actor to withdraw more than the platform's per-user daily
+limit before the system detects the anomaly.
+
+### Recommended fix
+Use a Lua script to perform the check and increment atomically in a single
+Redis command. The Lua script should return a result indicating whether the
+operation is allowed, and the caller should act on that result. Alternatively,
+use Redis `WATCH`/`MULTI`/`EXEC` transaction with a retry loop.
+
+---
