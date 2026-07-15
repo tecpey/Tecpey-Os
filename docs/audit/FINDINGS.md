@@ -148,3 +148,186 @@ persistence) can be recovered by two concurrent workers, causing:
    responses and persist it instead of throwing.
 
 ---
+
+## F-004 — Auth falls back to hardcoded dev secrets in production when env vars are missing
+
+- **ID:** F-004
+- **Severity:** Critical
+- **Confidence:** High
+- **File:** `src/lib/auth-session. ts`
+- **Line numbers:** 72–90
+
+### Evidence
+`academyAuthKey()` (line 72) and `sessionKey()` (line 82) both return hardcoded
+fallback secrets when the required env var is missing or too short:
+
+```
+return new TextEncoder().encode("tecpey- local- academy-auth- dev-secret- please- set- env");
+return new TextEncoder().encode("tecpey- local- student- session- dev-secret- please- set- env");
+```
+
+These are used in `verifyAcademyAuth` and `verifyUserSession` respectively.
+In `unified-session. ts` line 40–41, `unifiedSecret()` similarly returns:
+
+```
+return new TextEncoder().encode("tecpey- local- unified- session- dev-secret- please- set- env");
+```
+
+The fallback is only gated by `NODE_ENV !== "production"` for the academy and
+student session keys — but `unifiedSecret()` uses `NODE_ENV !== "production"`
+for its fallback, meaning all three paths can use the hardcoded secret in
+production if the env var is missing.
+
+### Root cause
+The fallback secrets were added for local development ergonomics but the
+production guard (`NODE_ENV === "production"`) is missing or inconsistent across
+the three auth key functions. An operator who deploys without setting the
+required env vars gets a running system that signs and verifies JWTs with a
+publicly known secret.
+
+### Production impact
+An attacker who knows the hardcoded secret can:
+- Forge arbitrary academy_auth, student_session, and unified session JWTs.
+- Impersonate any user, including admin users.
+- Access all authenticated endpoints including withdrawal APIs.
+This is a complete account takeover vulnerability.
+
+### Recommended fix
+In production (`NODE_ENV === "production"`), throw or return null immediately
+when the required secret is missing or too short. Remove all hardcoded fallback
+secrets from production code paths. Add a startup check (e.g., in `server. ts`)
+that verifies all required secrets are present before accepting connections.
+
+---
+
+## F-005 — `setUnifiedSessionCookie` swallows signing errors silently
+
+- **ID:** F-005
+- **Severity:** Medium
+- **Confidence:** High
+- **File:** `src/lib/unified-session. ts`
+- **Line numbers:** 122–135
+
+### Evidence
+`setUnifiedSessionCookie` (line 122) calls `signUnifiedSession` asynchronously
+and attaches `.catch()` handlers that only log the error:
+
+```
+signUnifiedSession(data).then((token) => {
+  response.cookies.set(UNIFIED_SESSION_COOKIE, token, { ... });
+}).catch((err) => {
+  logger.error("[unified-session] failed to sign session cookie", { error: msg });
+});
+```
+
+The function returns `void` immediately, before the Promise resolves. The
+caller receives no indication that the session cookie was not set.
+
+### Root cause
+The async cookie setter was designed as a fire-and-forget convenience wrapper.
+Errors are caught and logged but not propagated.
+
+### Production impact
+If JWT signing fails (e.g., secret key unavailable, clock skew, or unexpected
+encoding error), the user logs in successfully from the application's
+perspective but receives no session cookie. The login appears to succeed
+(server returns 200) but the user is not authenticated on subsequent requests.
+This creates a silent login failure that is difficult to debug and may cause
+users to repeatedly attempt login without understanding why they remain logged
+out. The async version `setUnifiedSessionCookieAsync` (line 138) does not have
+this problem and should be preferred.
+
+### Recommended fix
+Remove `setUnifiedSessionCookie` or deprecate it. Ensure all callers use
+`setUnifiedSessionCookieAsync` which awaits the signing and propagates errors.
+
+---
+
+## F-006 — Email validator regex accepts malformed addresses
+
+- **ID:** F-006
+- **Severity:** Medium
+- **Confidence:** High
+- **File:** `src/lib/api-validation. ts`
+- **Line numbers:** 38–41
+
+### Evidence
+The `Validate.email` validator uses the regex `/^\S+@\S+\.\S+$/` (line 40).
+This accepts any string with at least one non-whitespace character, an `@`,
+another non-whitespace, a `.`, and at least one more non-whitespace character.
+It accepts these invalid inputs:
+
+- `admin@@example.com` (double @)
+- `admin@ x.com` (space in local part — stripped by `.trim().toLowerCase()` but the space is inside the string before the `@`)
+- `admin@x` (no TLD separator)
+- `a@b.c` (single-character TLD)
+- `<script>alert(1)</script>@x.com` (no HTML encoding/escaping of angle brackets before the @)
+
+### Root cause
+The regex is a simplified check that does not conform to RFC 5322 or even
+RFC 5321 (the SMTP specification). It was written as a quick heuristic rather
+than a standards-compliant validator.
+
+### Production impact
+Malformed email addresses stored in the database can cause:
+- Email delivery failures (bounces from mail servers that reject non-RFC-compliant addresses).
+- Bounce rate increases that damage sender reputation with email service providers.
+- Potential injection risks if these addresses are used in email templates
+  without proper escaping.
+- Inconsistent user identification if the same user registers with both a
+  valid and an invalid variant of the same address.
+
+### Recommended fix
+Replace with a standards-compliant email validator. The `email-validator` npm
+package (or Node's built-in WHATWG URL parsing) provides RFC 5322-compliant
+validation. Alternatively, use Zod's built-in email schema which handles this
+correctly.
+
+---
+
+## F-007 — Rate limiter trusts X-Forwarded-For header, enabling IP spoofing
+
+- **ID:** F-007
+- **Severity:** High
+- **Confidence:** High
+- **File:** `src/lib/rate-limit. ts`
+- **Line numbers:** 45–52
+
+### Evidence
+`getClientIp` (line 45) extracts the client IP from request headers in this
+preference order:
+
+```
+cf-connecting-ip  // Cloudflare (trusted if behind CF)
+x-forwarded-for   // Can be set by any client
+x-real-ip        // Can be set by any client
+"local"
+```
+
+`x-forwarded-for` and `x-real-ip` are client-supplied headers that any HTTP
+client can set arbitrarily. An attacker can bypass IP-based rate limiting by
+setting these headers to a different IP on every request (or to a trusted
+IP range), making the rate limiter ineffective.
+
+### Root cause
+The function trusts `X-Forwarded-For` and `X-Real-IP` without validating that
+the request actually came through a trusted proxy. In a deployment behind a
+load balancer or CDN, these headers should only be trusted from the proxy's
+IP range — but no such validation exists.
+
+### Production impact
+An attacker can circumvent IP-based rate limiting by spoofing the
+`X-Forwarded-For` header, enabling:
+- Brute-force attacks on login endpoints.
+- Credential stuffing at scale.
+- API abuse and scraping without hitting rate limits.
+- Denial-of-service by generating unlimited requests.
+
+### Recommended fix
+Only trust `X-Forwarded-For` / `X-Real-IP` when the request originates from a
+known trusted proxy IP (configured via an allowlist env var). In environments
+where the app is directly exposed (no proxy), always use the socket remote
+address. Cloudflare's `CF-Connecting-IP` is already the first choice and is
+trusted when behind Cloudflare.
+
+---
