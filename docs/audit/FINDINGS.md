@@ -52,3 +52,53 @@ Prefer deleting the non-Tx variant entirely and routing all fills through the
 transaction-aware path so fill + balance + ledger mutate atomically.
 
 ---
+
+## F-002 — `RedisOrderBookStore.findAndRemove` can leave orphaned orders in Redis on write failure
+
+- **ID:** F-002
+- **Severity:** High
+- **Confidence:** High
+- **File:** `src/lib/trading/order-book-store.ts`
+- **Line numbers:** 215–229
+
+### Evidence
+`RedisOrderBookStore.findAndRemove` (line 215) calls `super.findAndRemove(market, entry)`
+which synchronously removes the order from the in-memory book. It then fires
+an async Redis pipeline to clean up the same order with no retry and no
+synchronization:
+
+```
+void this.redis.pipeline()
+  .zrem(key, member)
+  .del(`tecpey:order:${orderId}`)
+  .exec()
+  .catch((err) => logger.warn("[order-book-store] Redis findAndRemove failed", { err }));
+```
+
+If the Redis call fails (connection error, timeout, etc.), the order is
+permanently removed from the in-memory book but remains in Redis. On the next
+process restart, `warmFromRedis` (line 287) reads from Redis and re-inserts
+the order into the in-memory book via `super.insert` (line 299), resurrecting
+a cancelled order as a live resting order.
+
+### Root cause
+The Redis write-through is fire-and-forget with no durability guarantee.
+The in-memory mutation commits before Redis confirms, and a Redis failure
+is logged but not retried or propagated.
+
+### Production impact
+Cancelled orders can re-appear as live resting orders after restart.
+On a crypto exchange, a maker order that was cancelled (funds released) could
+re-enter the book, get matched, and cause the system to attempt a second fill
+for an order the user already cancelled. This results in incorrect trade
+execution, incorrect balance debits, and a user having funds held for an order
+they believe was cancelled.
+
+### Recommended fix
+Make Redis cleanup synchronous (await the pipeline) before removing from
+in-memory, or use a two-phase approach: mark as "pending cancel" in Redis,
+remove from memory, then confirm Redis cleanup. Alternatively, add a
+reconciliation sweep that detects orders in Redis not present in the
+in-memory index on startup and cleans them up.
+
+---
