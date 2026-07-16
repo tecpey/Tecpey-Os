@@ -811,7 +811,10 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at          TIMESTAMPTZ,
   -- Velocity tracking
-  velocity_used         NUMERIC
+  velocity_used         NUMERIC,
+  -- Idempotency and deduplication
+  idempotency_key       TEXT,
+  tx_hash               TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_withdrawals_user  ON withdrawals(user_id, created_at DESC);
