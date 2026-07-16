@@ -546,7 +546,9 @@ CREATE TABLE IF NOT EXISTS orders (
   time_in_force      TEXT          NOT NULL DEFAULT 'GTC',
   expires_at         TIMESTAMPTZ,
   created_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  version            INTEGER       NOT NULL DEFAULT 0,
+  CONSTRAINT chk_remaining_quantity_nonnegative CHECK (remaining_quantity >= 0)
 );
 
 -- trades: every executed match between a buyer and a seller.

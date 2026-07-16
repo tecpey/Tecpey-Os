@@ -218,6 +218,7 @@ export async function updateOrderFillTx(
                 / (filled_quantity + $1)
          END,
          status             = $3,
+         version            = version + 1,
          updated_at         = NOW()
        WHERE id = $4::uuid AND remaining_quantity >= $1
        RETURNING *`,
