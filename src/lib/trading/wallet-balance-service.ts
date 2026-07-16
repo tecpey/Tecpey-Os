@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { postLedgerEntryTx } from "./ledger-service";
+import { D, toFixed } from "./decimal";
 
 // ── Wallet balance service ────────────────────────────────────────────────────
 //
@@ -56,8 +57,8 @@ export async function getBalance(userId: string, asset: string): Promise<WalletB
     return {
       userId: r.user_id,
       asset: r.asset,
-      available: parseFloat(r.available_balance),
-      held: parseFloat(r.held_balance),
+      available: D(r.available_balance).toNumber(),
+      held: D(r.held_balance).toNumber(),
     };
   });
   if (!result.enabled) return null;
@@ -87,7 +88,7 @@ export async function holdFundsTx(
        updated_at        = NOW()
      WHERE user_id = $1 AND asset = $2 AND available_balance >= $3
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) return false;
@@ -96,7 +97,7 @@ export async function holdFundsTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "hold",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: orderId,
     referenceType: "order",
@@ -138,7 +139,7 @@ export async function releaseFundsTx(
        updated_at        = NOW()
      WHERE user_id = $1 AND asset = $2
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) {
@@ -150,7 +151,7 @@ export async function releaseFundsTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "release",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId,
     referenceType: "order",
@@ -191,7 +192,7 @@ export async function creditFundsTx(
      SET available_balance = available_balance + $3, updated_at = NOW()
      WHERE user_id = $1 AND asset = $2
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) return false;
@@ -200,7 +201,7 @@ export async function creditFundsTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "trade_credit",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: tradeId,
     referenceType: "trade",
@@ -229,7 +230,7 @@ export async function debitFundsTx(
      SET available_balance = available_balance - $3, updated_at = NOW()
      WHERE user_id = $1 AND asset = $2 AND available_balance >= $3
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) {
@@ -243,7 +244,7 @@ export async function debitFundsTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "trade_debit",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: tradeId,
     referenceType: "trade",
@@ -272,7 +273,7 @@ export async function chargeFeeTx(
      SET available_balance = available_balance - LEAST($3, available_balance), updated_at = NOW()
      WHERE user_id = $1 AND asset = $2
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) {
@@ -284,7 +285,7 @@ export async function chargeFeeTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "fee",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: tradeId,
     referenceType: "trade",
@@ -314,7 +315,7 @@ export async function depositFundsTx(
      SET available_balance = available_balance + $3, updated_at = NOW()
      WHERE user_id = $1 AND asset = $2
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) return false;
@@ -323,7 +324,7 @@ export async function depositFundsTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "deposit",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId,
     referenceType: "admin",
@@ -404,7 +405,7 @@ export async function reserveForWithdrawalTx(
        updated_at        = NOW()
      WHERE user_id = $1 AND asset = $2 AND available_balance >= $3
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) return false;
@@ -413,7 +414,7 @@ export async function reserveForWithdrawalTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "hold",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: withdrawalId,
     referenceType: "withdrawal",
@@ -469,7 +470,7 @@ export async function consumeHeldWithdrawalTx(
        updated_at   = NOW()
      WHERE user_id = $1 AND asset = $2 AND held_balance >= $3
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) {
@@ -483,7 +484,7 @@ export async function consumeHeldWithdrawalTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "withdraw",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: withdrawalId,
     referenceType: "withdrawal",
@@ -539,7 +540,7 @@ export async function releaseWithdrawalTx(
        updated_at        = NOW()
      WHERE user_id = $1 AND asset = $2 AND held_balance >= $3
      RETURNING available_balance`,
-    [userId, asset.toUpperCase(), amount.toFixed(10)],
+    [userId, asset.toUpperCase(), toFixed(amount, 10)],
   );
 
   if (!rows.rowCount || rows.rowCount === 0) {
@@ -553,7 +554,7 @@ export async function releaseWithdrawalTx(
     walletId: userId,
     asset: asset.toUpperCase(),
     type: "release",
-    amount: amount.toFixed(10),
+    amount: toFixed(amount, 10),
     balanceAfter: rows.rows[0].available_balance,
     referenceId: withdrawalId,
     referenceType: "withdrawal",
