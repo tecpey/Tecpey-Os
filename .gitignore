@@ -49,3 +49,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# runtime data
+/storage/*.jsonl
+!/storage/.gitkeep
