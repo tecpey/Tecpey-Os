@@ -2,7 +2,7 @@ import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { LedgerEntryType, WalletLedgerEntry } from "./types";
 import { createTradingEvent } from "./events";
-import { D, toFixed, toDP } from "./decimal";
+import { toFixed } from "./decimal";
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
