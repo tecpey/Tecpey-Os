@@ -2,6 +2,7 @@ import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { LedgerEntryType, WalletLedgerEntry } from "./types";
 import { createTradingEvent } from "./events";
+import { D, toFixed, toDP } from "./decimal";
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
@@ -32,8 +33,8 @@ export type PostLedgerEntryInput = {
   walletId: string;
   asset: string;
   type: LedgerEntryType;
-  amount: string;
-  balanceAfter: string;
+  amount: string | number;
+  balanceAfter: string | number;
   referenceId?: string | null;
   referenceType?: string | null;
 };
@@ -53,8 +54,8 @@ export async function postLedgerEntryTx(
         input.walletId,
         input.asset,
         input.type,
-        input.amount,
-        input.balanceAfter,
+        toFixed(input.amount, 10),
+        toFixed(input.balanceAfter, 10),
         input.referenceId ?? null,
         input.referenceType ?? null,
       ],
@@ -79,8 +80,8 @@ export async function postLedgerEntry(
         input.walletId,
         input.asset,
         input.type,
-        input.amount,
-        input.balanceAfter,
+        toFixed(input.amount, 10),
+        toFixed(input.balanceAfter, 10),
         input.referenceId ?? null,
         input.referenceType ?? null,
       ],
@@ -99,7 +100,7 @@ export async function postLedgerEntry(
     walletId: input.walletId,
     asset: input.asset,
     type: input.type,
-    amount: input.amount,
+    amount: toFixed(input.amount, 10),
   });
   logger.info("[ledger-service] LedgerPosted", { eventId: event.eventId, ...event.payload });
 
