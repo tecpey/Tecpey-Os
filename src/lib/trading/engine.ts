@@ -17,6 +17,7 @@ import {
   setOrderStatusTx,
 } from "./order-service";
 import { createTradeTx } from "./trade-service";
+import Decimal from "decimal.js";
 import {
   releaseFundsTx,
   debitFundsTx,
@@ -518,7 +519,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
           let releaseAmount: number;
           if (engineEntry) {
             releaseAmount = order.side === "buy"
-              ? engineEntry.remaining * engineEntry.pricePerUnit
+              ? new Decimal(engineEntry.remaining).times(engineEntry.pricePerUnit).toNumber()
               : engineEntry.remaining;
           } else {
             const rem   = parseFloat(order.remainingQuantity);
