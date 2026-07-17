@@ -105,7 +105,7 @@ export class OrderBook {
       .sort(([a], [b]) => D(b).comparedTo(D(a)))
       .map(([price, entry]) => ({
         price,
-        quantity: toDP(entry.quantity, 8),
+        quantity: toDP(entry.quantity.toString(), 8).toString(),
         orderCount: entry.orderCount,
       }));
   }
@@ -115,7 +115,7 @@ export class OrderBook {
       .sort(([a], [b]) => D(a).comparedTo(D(b)))
       .map(([price, entry]) => ({
         price,
-        quantity: toDP(entry.quantity, 8),
+        quantity: toDP(entry.quantity.toString(), 8).toString(),
         orderCount: entry.orderCount,
       }));
   }
