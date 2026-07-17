@@ -1,9 +1,11 @@
 import type { OrderBookLevel, OrderBookSnapshot, OrderSide } from "./types";
+import { D, toDP } from "./decimal";
+import Decimal from "decimal.js";
 
 // ── Internal level representation ─────────────────────────────────────────────
 
 type LevelEntry = {
-  quantity: number;
+  quantity: Decimal;
   orderCount: number;
 };
 
@@ -14,8 +16,10 @@ type LevelEntry = {
 //
 // Bids are sorted descending (highest first); asks ascending (lowest first).
 // Prices are stored as strings to preserve precision across serialization.
-// Internal arithmetic uses parseFloat, which is acceptable at this foundation
-// layer; a production implementation should use a decimal library.
+// Internal arithmetic now uses Decimal for exact precision.
+//
+// Note: OrderBookLevel quantities are strings (8 decimal places) for API compatibility.
+// Internal LevelEntry uses Decimal for precise arithmetic.
 
 export class OrderBook {
   private readonly market: string;
@@ -32,10 +36,10 @@ export class OrderBook {
     const map = side === "buy" ? this.bids : this.asks;
     const existing = map.get(price);
     if (existing) {
-      existing.quantity += parseFloat(quantity);
+      existing.quantity = existing.quantity.plus(D(quantity));
       existing.orderCount += 1;
     } else {
-      map.set(price, { quantity: parseFloat(quantity), orderCount: 1 });
+      map.set(price, { quantity: D(quantity), orderCount: 1 });
     }
     this.updateId += 1;
   }
@@ -46,10 +50,10 @@ export class OrderBook {
     const existing = map.get(price);
     if (!existing) return false;
 
-    existing.quantity -= parseFloat(quantity);
+    existing.quantity = existing.quantity.minus(D(quantity));
     existing.orderCount = Math.max(0, existing.orderCount - 1);
 
-    if (existing.quantity <= 0 || existing.orderCount <= 0) {
+    if (existing.quantity.lte(D(0)) || existing.orderCount <= 0) {
       map.delete(price);
     }
     this.updateId += 1;
@@ -98,20 +102,20 @@ export class OrderBook {
 
   private _sortedBids(): OrderBookLevel[] {
     return Array.from(this.bids.entries())
-      .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
+      .sort(([a], [b]) => D(b).comparedTo(D(a)))
       .map(([price, entry]) => ({
         price,
-        quantity: entry.quantity.toFixed(8),
+        quantity: toDP(entry.quantity, 8),
         orderCount: entry.orderCount,
       }));
   }
 
   private _sortedAsks(): OrderBookLevel[] {
     return Array.from(this.asks.entries())
-      .sort(([a], [b]) => parseFloat(a) - parseFloat(b))
+      .sort(([a], [b]) => D(a).comparedTo(D(b)))
       .map(([price, entry]) => ({
         price,
-        quantity: entry.quantity.toFixed(8),
+        quantity: toDP(entry.quantity, 8),
         orderCount: entry.orderCount,
       }));
   }
