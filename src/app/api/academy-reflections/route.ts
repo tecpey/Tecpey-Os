@@ -88,6 +88,18 @@ export async function PUT(req: NextRequest) {
     }
 
     const result = await withTx(async (client) => {
+      // SELECT ... FOR UPDATE cannot lock a row that does not exist yet. The
+      // transaction-scoped advisory lock serializes the initial insert and all
+      // later JSON-document rewrites for this student/locale, preventing a
+      // cross-device first-write race from silently losing one reflection.
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+           hashtext('academy_reflections'),
+           hashtext($1)
+         )`,
+        [`${session.studentId}:${locale}`],
+      );
+
       const row = await client.query<{
         reflections: unknown;
         reflection_revision: string;
