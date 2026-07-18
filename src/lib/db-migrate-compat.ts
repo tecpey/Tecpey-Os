@@ -2,9 +2,23 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import { logger } from "./logger";
 
-const FILENAME = "0012_academy_term_progress_v2.sql";
+const FILENAME = "0012_academy_runtime_schema_repair.sql";
 
-export const ACADEMY_TERM_PROGRESS_V2_SQL = `
+export const ACADEMY_RUNTIME_SCHEMA_REPAIR_SQL = `
+-- Academy student/profile columns used by current API routes but absent from
+-- the original inlined migration on a fresh database.
+ALTER TABLE academy_students
+  ADD COLUMN IF NOT EXISTS last_active_day DATE;
+
+ALTER TABLE academy_student_cartax
+  ADD COLUMN IF NOT EXISTS identity_score INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS retention_score INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS community_score INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS source TEXT,
+  ADD COLUMN IF NOT EXISTS ip TEXT,
+  ADD COLUMN IF NOT EXISTS user_agent TEXT;
+
+-- Term progress contract used by /api/academy-term-progress.
 ALTER TABLE academy_term_progress
   ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'fa',
   ADD COLUMN IF NOT EXISTS percent INTEGER NOT NULL DEFAULT 0,
@@ -19,6 +33,26 @@ ALTER TABLE academy_term_progress
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_term_progress_student_term_locale
   ON academy_term_progress(student_id, term_number, locale);
+
+-- Simulator API evolved from the early generic decision model to a scenario
+-- model. Fresh DBs created by 0001 otherwise miss these fields and still require
+-- decision_type, causing every current INSERT to fail.
+ALTER TABLE academy_simulator_decisions
+  ADD COLUMN IF NOT EXISTS scenario_id TEXT,
+  ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'fa',
+  ADD COLUMN IF NOT EXISTS choice_id TEXT,
+  ADD COLUMN IF NOT EXISTS xp INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS feedback TEXT,
+  ADD COLUMN IF NOT EXISTS entry_reason TEXT,
+  ADD COLUMN IF NOT EXISTS emotion_state TEXT,
+  ADD COLUMN IF NOT EXISTS risk_plan TEXT;
+
+ALTER TABLE academy_simulator_decisions
+  ALTER COLUMN decision_type DROP NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_simulator_student_scenario
+  ON academy_simulator_decisions(student_id, scenario_id)
+  WHERE scenario_id IS NOT NULL;
 `;
 
 function checksum(sql: string): string {
@@ -34,7 +68,7 @@ function checksum(sql: string): string {
  * every database receives the repair exactly once and drift remains observable.
  */
 export async function runCompatibilityMigrations(client: PoolClient): Promise<void> {
-  const cs = checksum(ACADEMY_TERM_PROGRESS_V2_SQL);
+  const cs = checksum(ACADEMY_RUNTIME_SCHEMA_REPAIR_SQL);
   const applied = await client.query<{ checksum: string }>(
     `SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1`,
     [FILENAME],
@@ -50,7 +84,7 @@ export async function runCompatibilityMigrations(client: PoolClient): Promise<vo
   logger.info("[db-migrate-compat] applying migration", { filename: FILENAME });
   await client.query("BEGIN");
   try {
-    await client.query(ACADEMY_TERM_PROGRESS_V2_SQL);
+    await client.query(ACADEMY_RUNTIME_SCHEMA_REPAIR_SQL);
     await client.query(
       `INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)`,
       [FILENAME, cs],
