@@ -19,7 +19,8 @@ export type MentorUpdateReason =
   | "trading_trade_created"
   | "mentor_conversation_saved"
   | "academy_progress_updated"
-  | "flashcards_updated";
+  | "flashcards_updated"
+  | "reflection_updated";
 
 // ── Safe runner ───────────────────────────────────────────────────────────────
 
