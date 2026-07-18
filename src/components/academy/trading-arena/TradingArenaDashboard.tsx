@@ -8,8 +8,10 @@ import {
   ArrowUpRight,
   BookOpen,
   ChevronRight,
+  Database,
   Flame,
   Info,
+  Loader2,
   RefreshCw,
   Shield,
   TrendingDown,
@@ -17,22 +19,24 @@ import {
   X,
 } from "lucide-react";
 import {
-  loadArenaState,
-  executeMarketBuy,
-  addLimitOrder,
-  closePosition,
-  processPriceTick,
   computeUnrealizedPnl,
   computeNetEquity,
   computeArenaStats,
-  resetArenaState,
   WARNING_RISK_PCT,
   type TradingArenaState,
   type OpenPosition,
   type ClosedTrade,
   type Asset,
 } from "@/lib/trading-arena";
-import { saveJournalEntry, createJournalEntry, type EmotionalState } from "@/lib/trading-journal";
+import {
+  ArenaExecutionError,
+  fetchArenaExecutionState,
+  mutateArenaExecutionState,
+  type ArenaExecutionSnapshot,
+} from "@/lib/trading-arena-client";
+
+type EmotionalState = "calm" | "neutral" | "confident" | "anxious" | "fearful" | "greedy";
+type PreTradePlan = { preTradePlan: string; emotionalState: EmotionalState };
 
 // ─── Simulated price hook ─────────────────────────────────────────────────────
 
@@ -137,10 +141,19 @@ function JournalModal({ onSubmit, onSkip }: JournalModalProps) {
 interface TradeFormProps {
   prices: Record<Asset, number>;
   balance: number;
-  onBuy: (asset: Asset, usdt: number, orderType: "market" | "limit", limitPrice: number, sl: number | null, tp: number | null) => void;
+  disabled: boolean;
+  onBuy: (
+    asset: Asset,
+    usdt: number,
+    orderType: "market" | "limit",
+    limitPrice: number,
+    sl: number | null,
+    tp: number | null,
+    plan: PreTradePlan | null,
+  ) => Promise<boolean>;
 }
 
-function TradeForm({ prices, balance, onBuy }: TradeFormProps) {
+function TradeForm({ prices, balance, disabled, onBuy }: TradeFormProps) {
   const [asset, setAsset] = useState<Asset>("BTC");
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [usdt, setUsdt] = useState("");
@@ -154,38 +167,17 @@ function TradeForm({ prices, balance, onBuy }: TradeFormProps) {
   const overRisk = riskPct > WARNING_RISK_PCT;
 
   const handleSubmit = () => {
-    if (usdtNum <= 0) return;
+    if (usdtNum <= 0 || disabled) return;
     setShowJournal(true);
   };
 
-  const executeWithPlan = (plan: { preTradePlan: string; emotionalState: EmotionalState } | null) => {
+  const executeWithPlan = async (plan: PreTradePlan | null) => {
     setShowJournal(false);
     const slNum = parseFloat(sl) || null;
     const tpNum = parseFloat(tp) || null;
     const limitNum = parseFloat(limitPrice) || prices[asset];
-
-    // Save pre-trade journal entry
-    let journalId: string | undefined;
-    if (plan) {
-      const entry = createJournalEntry({
-        positionId: "pending",
-        asset,
-        entryPrice: orderType === "market" ? prices[asset] : limitNum,
-        usdtValue: usdtNum,
-        preTradePlan: plan.preTradePlan,
-        entryReason: plan.preTradePlan,
-        riskAmount: usdtNum,
-        emotionalState: plan.emotionalState,
-        expectedOutcome: "",
-        postReflection: "",
-        mistakeTags: [],
-        lessonLearned: "",
-      });
-      saveJournalEntry(entry);
-      journalId = entry.id;
-    }
-    void journalId; // used by parent via onBuy opts
-    onBuy(asset, usdtNum, orderType, limitNum, slNum, tpNum);
+    const saved = await onBuy(asset, usdtNum, orderType, limitNum, slNum, tpNum, plan);
+    if (!saved) return;
     setUsdt("");
     setSl("");
     setTp("");
@@ -196,8 +188,8 @@ function TradeForm({ prices, balance, onBuy }: TradeFormProps) {
     <>
       {showJournal && (
         <JournalModal
-          onSubmit={(plan) => executeWithPlan(plan)}
-          onSkip={() => executeWithPlan(null)}
+          onSubmit={(plan) => void executeWithPlan(plan)}
+          onSkip={() => void executeWithPlan(null)}
         />
       )}
       <div className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
@@ -292,7 +284,7 @@ function TradeForm({ prices, balance, onBuy }: TradeFormProps) {
 
         <button
           onClick={handleSubmit}
-          disabled={usdtNum < 10 || usdtNum > balance}
+          disabled={disabled || usdtNum < 10 || usdtNum > balance}
           className="w-full rounded-2xl bg-emerald-500 py-3 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-emerald-300"
           aria-label="خرید / ورود به معامله"
         >
@@ -403,80 +395,198 @@ function MentorFlagBadge({ flag }: { flag: string }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function TradingArenaDashboard() {
-  const [arenaState, setArenaState] = useState<TradingArenaState | null>(null);
+  const [snapshot, setSnapshot] = useState<ArenaExecutionSnapshot | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const { prices, ticks } = useSimulatedPrices();
-  const initialized = useRef(false);
+  const mutationInFlight = useRef(false);
 
   useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      setArenaState(loadArenaState());
-    }
-  }, []);
-
-  // Process SL/TP on every price tick
-  useEffect(() => {
-    if (!arenaState || ticks === 0) return;
-    const updated = processPriceTick(arenaState, prices);
-    if (updated !== arenaState) setArenaState(updated);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticks]);
-
-  const handleBuy = useCallback((
-    asset: Asset, usdt: number, orderType: "market" | "limit",
-    limitPrice: number, sl: number | null, tp: number | null,
-  ) => {
-    if (!arenaState) return;
+    const controller = new AbortController();
+    setLoadError(false);
     setError("");
-    if (orderType === "market") {
-      const result = executeMarketBuy(arenaState, asset, usdt, prices[asset], { stopLoss: sl ?? undefined, takeProfit: tp ?? undefined });
-      if (result.ok) setArenaState(result.state);
-      else setError(result.error);
-    } else {
-      const result = addLimitOrder(arenaState, asset, usdt, limitPrice, { stopLoss: sl ?? undefined, takeProfit: tp ?? undefined });
-      if (result.ok) setArenaState(result.state);
-      else setError(result.error);
+    void fetchArenaExecutionState(controller.signal)
+      .then(setSnapshot)
+      .catch(() => {
+        if (!controller.signal.aborted) setLoadError(true);
+      });
+    return () => controller.abort();
+  }, [reloadToken]);
+
+  const applyAction = useCallback(async (
+    action: Parameters<typeof mutateArenaExecutionState>[0],
+  ): Promise<boolean> => {
+    if (!snapshot || mutationInFlight.current) return false;
+    mutationInFlight.current = true;
+    setMutating(true);
+    setError("");
+    try {
+      const next = await mutateArenaExecutionState(action, snapshot.revision);
+      setSnapshot(next);
+      return true;
+    } catch (cause) {
+      if (cause instanceof ArenaExecutionError) {
+        if (cause.code === "revision_conflict" && cause.snapshot?.account && cause.snapshot.attempts && typeof cause.snapshot.revision === "number") {
+          setSnapshot({
+            account: cause.snapshot.account,
+            attempts: cause.snapshot.attempts,
+            activeAttempt: cause.snapshot.activeAttempt ?? null,
+            state: cause.snapshot.state ?? null,
+            revision: cause.snapshot.revision,
+          });
+          setError("نسخه جدیدتری از Arena روی دستگاه دیگری ثبت شده بود. وضعیت سرور بازیابی شد؛ دوباره اقدام کنید.");
+        } else if (cause.code === "arena_attempts_exhausted") {
+          setError("هر سه فرصت این دوره مصرف شده‌اند. برای ادامه باید دوره اشتراک بعدی فعال شود.");
+          setReloadToken((value) => value + 1);
+        } else if (cause.code === "arena_no_active_attempt") {
+          setError("فرصت فعال برای این دوره وجود ندارد.");
+          setReloadToken((value) => value + 1);
+        } else {
+          setError("ثبت تراکنشی روی سرور انجام نشد. هیچ تغییر محلی یا جعلی ایجاد نشد؛ دوباره تلاش کنید.");
+        }
+      } else {
+        setError("ارتباط با Arena برقرار نشد. وضعیت حساب شما روی سرور محفوظ است.");
+      }
+      return false;
+    } finally {
+      mutationInFlight.current = false;
+      setMutating(false);
     }
-  }, [arenaState, prices]);
+  }, [snapshot]);
 
-  const handleClose = useCallback((positionId: string) => {
-    if (!arenaState) return;
-    const pos = arenaState.openPositions.find((p) => p.id === positionId);
-    if (!pos) return;
-    const result = closePosition(arenaState, positionId, prices[pos.asset], "manual");
-    if (result) setArenaState(result.state);
-  }, [arenaState, prices]);
+  const arenaState = snapshot?.state ?? null;
 
-  const handleReset = () => {
-    setArenaState(resetArenaState());
-    setConfirmReset(false);
-  };
+  useEffect(() => {
+    if (!arenaState || ticks === 0 || mutationInFlight.current) return;
+    if (arenaState.openPositions.length === 0 && arenaState.pendingOrders.length === 0) return;
+    void applyAction({ type: "price_tick", prices });
+  }, [applyAction, arenaState, prices, ticks]);
 
-  if (!arenaState) {
-    return <div className="flex h-64 items-center justify-center text-sm font-bold text-slate-500">در حال بارگذاری...</div>;
+  const handleBuy = useCallback(async (
+    asset: Asset,
+    usdt: number,
+    orderType: "market" | "limit",
+    limitPrice: number,
+    sl: number | null,
+    tp: number | null,
+    plan: PreTradePlan | null,
+  ) => {
+    if (orderType === "market") {
+      return applyAction({
+        type: "market_buy",
+        asset,
+        usdtAmount: usdt,
+        marketPrice: prices[asset],
+        stopLoss: sl ?? undefined,
+        takeProfit: tp ?? undefined,
+        preTradePlan: plan?.preTradePlan,
+        emotionalState: plan?.emotionalState,
+      });
+    }
+    return applyAction({
+      type: "limit_order",
+      asset,
+      usdtAmount: usdt,
+      limitPrice,
+      stopLoss: sl ?? undefined,
+      takeProfit: tp ?? undefined,
+      preTradePlan: plan?.preTradePlan,
+      emotionalState: plan?.emotionalState,
+    });
+  }, [applyAction, prices]);
+
+  const handleClose = useCallback(async (positionId: string) => {
+    const position = arenaState?.openPositions.find((item) => item.id === positionId);
+    if (!position) return;
+    await applyAction({
+      type: "close_position",
+      positionId,
+      exitPrice: prices[position.asset],
+      reason: "manual",
+    });
+  }, [applyAction, arenaState, prices]);
+
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    await applyAction({ type: "cancel_order", orderId });
+  }, [applyAction]);
+
+  const handleNextAttempt = useCallback(async () => {
+    const advanced = await applyAction("start_next_attempt");
+    if (advanced) setConfirmReset(false);
+  }, [applyAction]);
+
+  if (!snapshot && !loadError) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm font-bold text-slate-500">
+        <Loader2 className="h-7 w-7 animate-spin text-cyan-300" />
+        در حال بازیابی وضعیت Arena از PostgreSQL…
+      </div>
+    );
+  }
+
+  if (loadError || !snapshot) {
+    return (
+      <div className="rounded-[28px] border border-rose-400/25 bg-rose-400/10 p-8 text-center" role="alert">
+        <Database className="mx-auto h-10 w-10 text-rose-200" />
+        <h2 className="mt-4 text-xl font-black text-rose-100">وضعیت Arena از سرور بازیابی نشد</h2>
+        <p className="mt-2 text-sm font-bold leading-7 text-slate-300">
+          هیچ نسخه محلی ساخته نشده و تاریخچه حساب شما دست‌نخورده است.
+        </p>
+        <button
+          type="button"
+          onClick={() => setReloadToken((value) => value + 1)}
+          className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-rose-400/20 px-5 py-3 text-sm font-black text-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-300"
+        >
+          <RefreshCw className="h-4 w-4" /> تلاش دوباره
+        </button>
+      </div>
+    );
+  }
+
+  if (!arenaState || !snapshot.activeAttempt || snapshot.account.status !== "active") {
+    return (
+      <div className="rounded-[28px] border border-amber-400/25 bg-amber-400/10 p-8 text-center" role="status">
+        <Shield className="mx-auto h-10 w-10 text-amber-200" />
+        <h2 className="mt-4 text-2xl font-black text-amber-100">فرصت فعال Arena وجود ندارد</h2>
+        <p className="mt-3 text-sm font-bold leading-7 text-slate-300">
+          {snapshot.account.attemptsRemaining === 0
+            ? "سه فرصت این دوره مصرف شده‌اند. شروع دوره بعدی باید از مسیر اشتراک انجام شود."
+            : "وضعیت فرصت‌ها از سرور قابل بازیابی نیست؛ دوباره تلاش کنید."}
+        </p>
+        <button
+          type="button"
+          onClick={() => setReloadToken((value) => value + 1)}
+          className="mt-5 rounded-2xl border border-amber-300/30 px-5 py-3 text-sm font-black text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-300"
+        >
+          تازه‌سازی حساب
+        </button>
+      </div>
+    );
   }
 
   const stats = computeArenaStats(arenaState);
   const equity = computeNetEquity(arenaState, prices);
   const equityPnl = equity - arenaState.initialBalance;
   const equityPct = (equityPnl / arenaState.initialBalance) * 100;
-  const recentFlags = arenaState.closedTrades.slice(0, 5).flatMap((t) => t.mentorFlags);
+  const recentFlags = arenaState.closedTrades.slice(0, 5).flatMap((trade) => trade.mentorFlags);
 
   return (
     <div className="space-y-6" dir="rtl">
-      {/* Safety banner */}
       <div className="flex items-center justify-center gap-2 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-2.5">
         <Info className="h-4 w-4 shrink-0 text-amber-300" />
-        <p className="text-xs font-black text-amber-200">معامله شبیه‌سازی شده — برای یادگیری، نه سرمایه‌گذاری واقعی</p>
+        <p className="text-xs font-black text-amber-200">معامله شبیه‌سازی‌شده و server-side — برای یادگیری، نه سرمایه‌گذاری واقعی</p>
       </div>
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black">آرنای معاملاتی</h1>
-          <p className="mt-1 text-sm font-bold text-slate-400">تمرین رفتار و انضباط معامله‌گری</p>
+          <p className="mt-1 text-sm font-bold text-slate-400">تمرین رفتار، مدیریت ریسک و اجرای معامله با state تراکنشی سرور</p>
+          <p className="mt-2 text-xs font-black text-cyan-200">
+            فرصت فعال {snapshot.activeAttempt.attemptNumber} از {snapshot.account.attemptsTotal} · {snapshot.account.attemptsRemaining} فرصت باقی‌مانده
+          </p>
         </div>
         <div className="flex gap-2">
           <Link href="/academy/trading-arena/scenarios" className="flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400">
@@ -488,15 +598,14 @@ export function TradingArenaDashboard() {
         </div>
       </div>
 
-      {/* Balance + equity */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="col-span-2 rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">موجودی USDT</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">موجودی نقد فعال</p>
           <p className="mt-2 text-3xl font-black tabular-nums">${fmt(arenaState.balance, 2)}</p>
-          <p className="mt-1 text-xs font-bold text-slate-500">اولیه: ${fmt(arenaState.initialBalance, 0)}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">شروع هر فرصت: ${fmt(arenaState.initialBalance, 0)}</p>
         </div>
         <div className={`rounded-[24px] border p-5 ${equityPnl >= 0 ? "border-emerald-400/20 bg-emerald-400/5" : "border-red-400/20 bg-red-400/5"}`}>
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">ارزش کل</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">ارزش لحظه‌ای</p>
           <p className="mt-2 text-xl font-black">${fmt(equity, 0)}</p>
           <p className={`mt-1 text-xs font-black ${equityPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
             {equityPnl >= 0 ? <ArrowUpRight className="inline h-3 w-3" /> : <ArrowDownRight className="inline h-3 w-3" />}
@@ -504,25 +613,20 @@ export function TradingArenaDashboard() {
           </p>
         </div>
         <div className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">معاملات</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">معاملات بسته</p>
           <p className="mt-2 text-xl font-black">{stats.totalTrades}</p>
-          <p className="mt-1 text-xs font-bold text-slate-500">
-            Win: {(stats.winRate * 100).toFixed(0)}٪
-          </p>
+          <p className="mt-1 text-xs font-bold text-slate-500">Win: {(stats.winRate * 100).toFixed(0)}٪</p>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold text-red-200">
+        <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold leading-7 text-red-200" role="alert">
           {error}
         </div>
       )}
 
-      {/* Trade form */}
-      <TradeForm prices={prices} balance={arenaState.balance} onBuy={handleBuy} />
+      <TradeForm prices={prices} balance={arenaState.balance} disabled={mutating} onBuy={handleBuy} />
 
-      {/* Open positions */}
       {arenaState.openPositions.length > 0 && (
         <div>
           <div className="mb-3 flex items-center justify-between">
@@ -530,22 +634,21 @@ export function TradingArenaDashboard() {
             <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-black text-slate-400">{arenaState.openPositions.length}</span>
           </div>
           <div className="space-y-2">
-            {arenaState.openPositions.map((pos) => (
+            {arenaState.openPositions.map((position) => (
               <PositionRow
-                key={pos.id}
-                pos={pos}
-                currentPrice={prices[pos.asset]}
-                onClose={() => handleClose(pos.id)}
+                key={position.id}
+                pos={position}
+                currentPrice={prices[position.asset]}
+                onClose={() => void handleClose(position.id)}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Pending limit orders */}
       {arenaState.pendingOrders.length > 0 && (
         <div>
-          <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">سفارشات محدود در انتظار</p>
+          <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">سفارش‌های محدود در انتظار</p>
           <div className="space-y-2">
             {arenaState.pendingOrders.map((order) => (
               <div key={order.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
@@ -554,35 +657,31 @@ export function TradingArenaDashboard() {
                   <p className="text-xs font-bold text-slate-500">{fmtUSD(order.usdtValue)} USDT</p>
                 </div>
                 <span className="text-xs font-black text-amber-300">در انتظار اجرا</span>
+                <button
+                  type="button"
+                  disabled={mutating}
+                  onClick={() => void handleCancelOrder(order.id)}
+                  className="rounded-xl border border-red-400/30 px-3 py-1.5 text-xs font-black text-red-300 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-red-400"
+                >
+                  لغو
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Mentor flag summary */}
       {recentFlags.length > 0 && (
         <div className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
           <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">تحلیل منتور — معاملات اخیر</p>
           <div className="flex flex-wrap gap-2">
-            {[...new Set(recentFlags)].map((flag) => (
-              <MentorFlagBadge key={flag} flag={flag} />
-            ))}
+            {[...new Set(recentFlags)].map((flag) => <MentorFlagBadge key={flag} flag={flag} />)}
           </div>
-          {recentFlags.includes("no-stop-loss") && (
-            <p className="mt-3 text-sm font-bold text-amber-200">
-              ⚠️ برخی معاملات بدون حد ضرر بسته شدند. این یکی از مهم‌ترین اشتباهات در معامله‌گری است.
-            </p>
-          )}
-          {recentFlags.includes("revenge-trade") && (
-            <p className="mt-2 text-sm font-bold text-red-200">
-              🔴 الگوی معامله انتقامی شناسایی شد. بعد از ضرر، قبل از معامله بعدی توقف کنید.
-            </p>
-          )}
+          {recentFlags.includes("no-stop-loss") && <p className="mt-3 text-sm font-bold text-amber-200">⚠️ برخی معاملات بدون حد ضرر بسته شدند. این یکی از مهم‌ترین اشتباهات در معامله‌گری است.</p>}
+          {recentFlags.includes("revenge-trade") && <p className="mt-2 text-sm font-bold text-red-200">🔴 الگوی معامله انتقامی شناسایی شد. بعد از ضرر، قبل از معامله بعدی توقف کنید.</p>}
         </div>
       )}
 
-      {/* Stats */}
       {stats.totalTrades >= 2 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-4 text-center">
@@ -590,9 +689,7 @@ export function TradingArenaDashboard() {
             <p className="text-xs font-bold text-slate-400">با حد ضرر</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-4 text-center">
-            <p className={`text-lg font-black ${stats.avgPnlPct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-              {fmtPct(stats.avgPnlPct)}
-            </p>
+            <p className={`text-lg font-black ${stats.avgPnlPct >= 0 ? "text-emerald-300" : "text-red-300"}`}>{fmtPct(stats.avgPnlPct)}</p>
             <p className="text-xs font-bold text-slate-400">میانگین P&L</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-slate-800/60 p-4 text-center">
@@ -602,7 +699,6 @@ export function TradingArenaDashboard() {
         </div>
       )}
 
-      {/* Recent trades */}
       {arenaState.closedTrades.length > 0 && (
         <div>
           <div className="mb-3 flex items-center justify-between">
@@ -610,17 +706,14 @@ export function TradingArenaDashboard() {
             <Link href="/academy/trading-arena/journal" className="text-xs font-black text-cyan-300 hover:underline">مشاهده همه</Link>
           </div>
           <div className="space-y-2">
-            {arenaState.closedTrades.slice(0, 5).map((trade) => (
-              <TradeRow key={trade.id} trade={trade} />
-            ))}
+            {arenaState.closedTrades.slice(0, 5).map((trade) => <TradeRow key={trade.id} trade={trade} />)}
           </div>
         </div>
       )}
 
-      {/* Empty state */}
       {arenaState.openPositions.length === 0 && arenaState.closedTrades.length === 0 && (
         <div className="rounded-[24px] border border-dashed border-white/10 p-8 text-center">
-          <Flame className="mx-auto h-8 w-8 text-slate-600 mb-3" />
+          <Flame className="mx-auto mb-3 h-8 w-8 text-slate-600" />
           <p className="font-black text-slate-400">هنوز معامله‌ای نزده‌اید</p>
           <p className="mt-1 text-sm font-bold text-slate-600">با سناریوهای راهنما شروع کنید یا مستقیم معامله کنید.</p>
           <Link href="/academy/trading-arena/scenarios" className="mt-4 inline-flex items-center gap-1 rounded-2xl bg-cyan-500/20 px-4 py-2 text-sm font-black text-cyan-300 hover:bg-cyan-500/30">
@@ -629,17 +722,30 @@ export function TradingArenaDashboard() {
         </div>
       )}
 
-      {/* Reset */}
       <div className="pt-2">
         {confirmReset ? (
-          <div className="flex items-center gap-3">
-            <p className="flex-1 text-xs font-bold text-red-300">آیا مطمئن هستید؟ تمام داده‌های آرنا پاک می‌شود.</p>
-            <button onClick={handleReset} className="rounded-xl border border-red-400/40 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-400/10">تایید ریست</button>
-            <button onClick={() => setConfirmReset(false)} className="rounded-xl border border-white/10 px-3 py-1.5 text-xs font-black text-slate-400">لغو</button>
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-red-400/20 bg-red-400/5 p-4">
+            <p className="flex-1 text-xs font-bold leading-6 text-red-200">
+              این کار فرصت فعال را ناموفق می‌بندد و فرصت بعدی را با ۱۰۰٬۰۰۰ دلار تازه فعال می‌کند. قابل بازگشت نیست.
+            </p>
+            <button
+              type="button"
+              disabled={mutating}
+              onClick={() => void handleNextAttempt()}
+              className="rounded-xl border border-red-400/40 px-3 py-1.5 text-xs font-black text-red-300 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              مصرف این فرصت و شروع بعدی
+            </button>
+            <button type="button" onClick={() => setConfirmReset(false)} className="rounded-xl border border-white/10 px-3 py-1.5 text-xs font-black text-slate-400">لغو</button>
           </div>
         ) : (
-          <button onClick={() => setConfirmReset(true)} className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-black text-slate-600 hover:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500">
-            <RefreshCw className="h-3 w-3" /> ریست آرنا
+          <button
+            type="button"
+            disabled={mutating || snapshot.account.attemptsRemaining <= 0}
+            onClick={() => setConfirmReset(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-xs font-black text-slate-500 hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-slate-500"
+          >
+            <RefreshCw className="h-3 w-3" /> پایان فرصت و شروع فرصت بعدی
           </button>
         )}
       </div>
