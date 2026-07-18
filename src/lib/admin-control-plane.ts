@@ -198,6 +198,7 @@ export async function loadAdminPrincipal(req: NextRequest): Promise<AdminPrincip
        WHERE s.id = $1::uuid
          AND s.admin_id = $2::uuid
          AND s.jti = $3
+         AND s.permission_version = u.permission_version
          AND s.revoked_at IS NULL
          AND s.idle_expires_at > NOW()
          AND s.absolute_expires_at > NOW()
@@ -257,7 +258,21 @@ export async function authorizeAdminRequest(
   return { ok: true, principal };
 }
 
-const SENSITIVE_KEY = /^(authorization|cookie|password|passphrase|secret|token|access[_-]?token|refresh[_-]?token|private[_-]?key|seed|otp|totp|recovery[_-]?code|credential|signature)$/i;
+function isSensitiveAuditKey(key: string): boolean {
+  const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  if (["authorization", "cookie", "seed", "otp", "totp"].includes(normalized)) return true;
+  return [
+    "password",
+    "passphrase",
+    "secret",
+    "token",
+    "apikey",
+    "privatekey",
+    "recoverycode",
+    "credential",
+    "signature",
+  ].some((suffix) => normalized.endsWith(suffix));
+}
 
 export function redactAdminAuditValue(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[TRUNCATED]";
@@ -268,7 +283,7 @@ export function redactAdminAuditValue(value: unknown, depth = 0): unknown {
 
   const output: Record<string, unknown> = {};
   for (const [key, nested] of Object.entries(value as Record<string, unknown>).slice(0, 200)) {
-    output[key] = SENSITIVE_KEY.test(key) ? "[REDACTED]" : redactAdminAuditValue(nested, depth + 1);
+    output[key] = isSensitiveAuditKey(key) ? "[REDACTED]" : redactAdminAuditValue(nested, depth + 1);
   }
   return output;
 }
@@ -312,7 +327,6 @@ export async function writeAdminAuditEvent(
   client: PoolClient,
   input: AdminAuditInput,
 ): Promise<{ id: string; eventHash: string; createdAt: string }> {
-  await client.query(`SELECT pg_advisory_xact_lock(hashtext('tecpey_admin_audit_chain'))`);
   const previous = await client.query<{ event_hash: string }>(
     `SELECT event_hash FROM admin_audit_events ORDER BY created_at DESC, id DESC LIMIT 1`,
   );
@@ -343,6 +357,9 @@ export async function writeAdminAuditEvent(
   };
   const eventHash = computeAdminAuditHash(previousHash, hashPayload);
 
+  // The database BEFORE INSERT trigger takes an exclusive table lock until the
+  // surrounding transaction commits and rejects stale previous_hash values.
+  // This prevents concurrent writers from creating a fork in the audit chain.
   await client.query(
     `INSERT INTO admin_audit_events (
        id, actor_admin_id, session_id, effective_roles, action, resource_type,
