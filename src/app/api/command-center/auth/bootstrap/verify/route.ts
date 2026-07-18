@@ -20,7 +20,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function validAdminId(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value);
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export async function POST(req: NextRequest) {
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     if (!validAdminId(body.adminId)) return apiError("invalid_admin_id", 400);
+    if (
+      typeof body.response?.id !== "string" ||
+      typeof body.response?.rawId !== "string" ||
+      body.response.id !== body.response.rawId
+    ) {
+      return apiError("credential_id_mismatch", 400);
+    }
 
     const challenge = extractWebAuthnClientChallenge(
       body.response?.response?.clientDataJSON,
@@ -163,7 +171,7 @@ export async function POST(req: NextRequest) {
           displayName: result.value.admin.display_name,
           roles: ["super_admin"],
         },
-      });
+      }, 200, { "Cache-Control": "no-store, max-age=0" });
       setAdminControlSessionCookie(response, result.value.session);
       return response;
     } catch (error) {
