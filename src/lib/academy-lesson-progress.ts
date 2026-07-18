@@ -72,6 +72,9 @@ export function resolveOfficialLesson(
   const match = /^lesson-(\d+)$/.exec(sectionKey);
   if (!match) return null;
   const sectionIndex = Number(match[1]) - 1;
+  const canonicalSectionKey = sectionKeyForIndex(sectionIndex);
+  if (sectionKey !== canonicalSectionKey) return null;
+
   const lesson = term.lessons[sectionIndex];
   const sectionHeading = lesson?.[0];
   if (!lesson || typeof sectionHeading !== "string" || !sectionHeading.trim()) return null;
@@ -80,7 +83,7 @@ export function resolveOfficialLesson(
     termNumber: term.number,
     termSlug: term.slug,
     totalSections: term.lessons.length,
-    sectionKey,
+    sectionKey: canonicalSectionKey,
     sectionIndex,
     sectionHeading: sectionHeading.trim().slice(0, 500),
   };
