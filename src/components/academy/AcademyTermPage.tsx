@@ -6,6 +6,7 @@ import { caseStudiesForTerm } from "@/data/academyCaseStudies";
 import { ContentShell } from "@/components/content/ContentUI";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
 import { TermAccessGuard } from "@/components/academy/TermAccessGuard";
+import { AcademyLessonCompletionControl } from "@/components/academy/AcademyLessonCompletionControl";
 import { MentorChallengeBox } from "@/components/learning-os/MentorChallengeBox";
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardCheck, Lightbulb, ListChecks, MessageCircleQuestion, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 
@@ -178,6 +179,11 @@ export function AcademyTermPage({ slug }: { slug: string }) {
                         درباره این درس از مربی هوشمند بپرس
                       </Link>
                     </div>
+                    <AcademyLessonCompletionControl
+                      locale="fa"
+                      termSlug={term.slug}
+                      sectionKey={`lesson-${index + 1}`}
+                    />
                   </article>
                 );
               })}
