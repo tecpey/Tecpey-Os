@@ -1,5 +1,8 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify, SignJWT } from "jose";
+import { loadAdminPrincipal } from "./admin-control-plane";
+import { getAdminBootstrapState } from "./admin-passkey-service";
 import { shouldUseSecureCookie } from "./platform-config";
 import { apiError } from "./api-validation";
 
@@ -22,14 +25,33 @@ function getAdminSigningKey(): Uint8Array | null {
   return token ? new TextEncoder().encode(token) : null;
 }
 
+function safeTokenMatch(supplied: string | null, expected: string): boolean {
+  if (!supplied) return false;
+  const suppliedBytes = Buffer.from(supplied, "utf8");
+  const expectedBytes = Buffer.from(expected, "utf8");
+  return suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes);
+}
+
 export async function hasAdminAccess(req: NextRequest): Promise<boolean> {
+  const principal = await loadAdminPrincipal(req);
+  if (principal === "unavailable") return false;
+  if (principal) return true;
+
+  const legacyHeader = req.headers.get(ADMIN_HEADER);
+  const legacyCookie = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!legacyHeader && !legacyCookie) return false;
+
+  // Transitional fallback. It is evaluated only when a legacy credential is
+  // actually presented, so ordinary user requests do not acquire an admin DB
+  // dependency. A database outage still fails closed before the shared secret
+  // can authorize anything.
   const token = getAdminToken();
   if (!token) return false;
+  const bootstrapState = await getAdminBootstrapState();
+  if (bootstrapState === "unavailable") return false;
 
-  // Accept either the explicit header (first-time token submission) or the
-  // signed httpOnly session cookie set by a previous successful authentication.
-  if (req.headers.get(ADMIN_HEADER) === token) return true;
-  return verifyAdminSessionCookie(req.cookies.get(ADMIN_SESSION_COOKIE)?.value);
+  if (safeTokenMatch(legacyHeader, token)) return true;
+  return verifyAdminSessionCookie(legacyCookie);
 }
 
 async function createAdminSessionToken(): Promise<string | null> {
@@ -60,7 +82,8 @@ async function verifyAdminSessionCookie(token: string | undefined): Promise<bool
 }
 
 /**
- * Sets a signed httpOnly admin session cookie without storing the raw admin token.
+ * Transitional legacy cookie. New administrator authentication uses the
+ * server-registered, revocable control-plane session cookie.
  */
 export async function setAdminSessionCookie(response: NextResponse) {
   const sessionToken = await createAdminSessionToken();
