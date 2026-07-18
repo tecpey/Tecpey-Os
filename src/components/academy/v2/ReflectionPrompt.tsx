@@ -70,7 +70,7 @@ export function ReflectionPrompt({ prompt, lessonId }: { prompt: string; lessonI
         setRevision(Number(body.revision) || reflection?.revision || 0);
         setConflict(null);
         setStatus(reflection ? "saved" : "idle");
-      } catch (error) {
+      } catch {
         if (controller.signal.aborted) return;
         setStatus("error");
       }
