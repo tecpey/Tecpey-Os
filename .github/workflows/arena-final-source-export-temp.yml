@@ -1,0 +1,21 @@
+name: Temporary Final Arena Source Export
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-final-execution-sources
+          path: |
+            src/lib/trading-arena-execution.ts
+            src/lib/trading-arena-client.ts
+            src/app/api/trading-arena/state/route.ts
+            src/components/academy/trading-arena/TradingArenaDashboard.tsx
+          if-no-files-found: error
+          retention-days: 1
