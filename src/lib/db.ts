@@ -1,5 +1,6 @@
 import { Pool, type PoolClient } from "pg";
 import { runMigrations } from "./db-migrate";
+import { runCompatibilityMigrations } from "./db-migrate-compat";
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
@@ -61,29 +62,34 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
   }
 }
 
+async function ensureSchema(p: Pool): Promise<void> {
+  if (!schemaInit) {
+    schemaInit = (async () => {
+      let client: PoolClient | undefined;
+      try {
+        client = await p.connect();
+        await runMigrations(client);
+        await runCompatibilityMigrations(client);
+      } catch (err) {
+        schemaInit = null;
+        throw err;
+      } finally {
+        client?.release();
+      }
+    })();
+  }
+
+  await schemaInit;
+}
+
 export async function withDb<T>(
   handler: (client: PoolClient) => Promise<T>,
 ): Promise<{ enabled: true; value: T } | { enabled: false; value: null }> {
   const p = getPool();
   if (!p) return { enabled: false, value: null };
 
-  if (!schemaInit) {
-    schemaInit = (async () => {
-      let c;
-      try {
-        c = await p.connect();
-        await runMigrations(c);
-      } catch (err) {
-        schemaInit = null;
-        throw err;
-      } finally {
-        if (c) c.release();
-      }
-    })();
-  }
-
   try {
-    await schemaInit;
+    await ensureSchema(p);
   } catch {
     return { enabled: false, value: null };
   }
@@ -106,23 +112,8 @@ export async function withTx<T>(
   const p = getPool();
   if (!p) return { enabled: false, value: null };
 
-  if (!schemaInit) {
-    schemaInit = (async () => {
-      let c;
-      try {
-        c = await p.connect();
-        await runMigrations(c);
-      } catch (err) {
-        schemaInit = null;
-        throw err;
-      } finally {
-        if (c) c.release();
-      }
-    })();
-  }
-
   try {
-    await schemaInit;
+    await ensureSchema(p);
   } catch {
     return { enabled: false, value: null };
   }
@@ -134,7 +125,11 @@ export async function withTx<T>(
     await client.query("COMMIT");
     return { enabled: true, value };
   } catch (err) {
-    try { await client.query("ROLLBACK"); } catch { /* ignore rollback error */ }
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Best-effort rollback; preserve the original failure.
+    }
     throw err;
   } finally {
     client.release();
