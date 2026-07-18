@@ -1,0 +1,29 @@
+name: Temporary PR11 Main Sync
+
+on:
+  push:
+    branches:
+      - feat/academy-official-progress-server-20260718-v2
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: sync Academy progress branch with main') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/academy-official-progress-server-20260718-v2
+          fetch-depth: 0
+      - name: Merge current main and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge --no-edit origin/main
+          rm .github/workflows/update-pr11-from-main.yml
+          git add .github/workflows/update-pr11-from-main.yml
+          git commit -m "chore: sync Academy progress branch with main" || true
+          git push origin HEAD:feat/academy-official-progress-server-20260718-v2
