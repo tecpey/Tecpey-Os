@@ -75,82 +75,106 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+
+          def replace_once(source: str, pattern: str, replacement: str, label: str) -> str:
+              result, count = re.subn(pattern, replacement, source, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              return result
 
           quiz_path = Path('src/components/academy/TermQuizClient.tsx')
           quiz = quiz_path.read_text()
-          lead_block = '''        const savedLead = window.localStorage.getItem("tecpey-academy-lead");
-          if (savedLead) {
-            const parsed = JSON.parse(savedLead);
-            if (parsed?.name && parsed?.phone) {
-              setLead({ name: parsed.name, phone: parsed.phone });
-              setLeadSaved(true);
-            }
-          }
-
-'''
-          result_block = '''          const payload = { score: Number(data?.score || 0), percent: Number(data?.percent || 0), passed: Boolean(data?.passed), completedAt: new Date().toISOString(), termNumber };
-          try {
-            window.localStorage.setItem(storageKey, JSON.stringify(payload));
-            window.localStorage.setItem(`tecpey-academy-term-${termNumber}`, JSON.stringify(payload));
-            window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
-          } catch {}
-'''
-          lead_write = '      window.localStorage.setItem("tecpey-academy-lead", JSON.stringify({ name: cleanName, phone: cleanPhone, locale, termNumber, createdAt: new Date().toISOString() }));\n'
-          for anchor, name in [(lead_block, 'lead hydration'), (result_block, 'quiz result copy'), (lead_write, 'lead write')]:
-              if quiz.count(anchor) != 1:
-                  raise SystemExit(f'TermQuizClient: expected {name} exactly once')
-          quiz = quiz.replace(lead_block, '', 1)
-          quiz = quiz.replace('    if (!storageKey || !completed) return;\n', '    if (!completed) return;\n', 1)
-          quiz = quiz.replace(result_block, '          window.dispatchEvent(new Event("tecpey-academy-progress-updated"));\n', 1)
-          quiz = quiz.replace(lead_write, '', 1)
+          quiz = replace_once(
+              quiz,
+              r'\n        const savedLead = window\.localStorage\.getItem\("tecpey-academy-lead"\);.*?\n\n        const profileResponse',
+              '\n        const profileResponse',
+              'TermQuizClient lead hydration',
+          )
+          quiz = replace_once(
+              quiz,
+              r'    if \(!storageKey \|\| !completed\) return;',
+              '    if (!completed) return;',
+              'TermQuizClient completion guard',
+          )
+          quiz = replace_once(
+              quiz,
+              r'\n          const payload = \{ score:.*?termNumber \};\n          try \{.*?\n          \} catch \{\}',
+              '\n          window.dispatchEvent(new Event("tecpey-academy-progress-updated"));',
+              'TermQuizClient result browser copy',
+          )
+          quiz = replace_once(
+              quiz,
+              r'\n      window\.localStorage\.setItem\("tecpey-academy-lead".*?\);',
+              '',
+              'TermQuizClient lead browser write',
+          )
           if 'localStorage' in quiz:
               raise SystemExit('TermQuizClient still contains localStorage')
           quiz_path.write_text(quiz)
 
           dashboard_path = Path('src/components/academy/AcademyStudentDashboard.tsx')
           dashboard = dashboard_path.read_text()
-          dashboard = dashboard.replace(
-              'import { useEffect, useMemo, useState } from "react";\n',
-              'import { useEffect, useMemo, useState } from "react";\nimport { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";\n',
-              1,
+          dashboard = replace_once(
+              dashboard,
+              r'import \{ useEffect, useMemo, useState \} from "react";',
+              'import { useEffect, useMemo, useState } from "react";\nimport { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";',
+              'Dashboard hook import',
           )
-          dashboard = dashboard.replace('type CloudTerm = { term_number?: number; score?: number; percent?: number; status?: string };\n', '', 1)
-          helper_start = dashboard.index('function safeParse(')
-          helper_end = dashboard.index('function levelFromXp(', helper_start)
-          dashboard = dashboard[:helper_start] + dashboard[helper_end:]
-          state_block = '''  const [loaded, setLoaded] = useState(false);
-          const [termProgress, setTermProgress] = useState<Record<string, ProgressItem>>({});
-'''
-          if dashboard.count(state_block) != 1:
-              raise SystemExit('Dashboard state anchor not found exactly once')
-          dashboard = dashboard.replace(state_block, '  const { loaded, termProgress } = useAcademyPathProgress(locale);\n', 1)
-          effect_start = dashboard.index('  useEffect(() => {\n    let active = true;\n    const read = async () => {')
-          effect_end = dashboard.index('  useEffect(() => {\n    let active = true;\n    fetch("/api/academy-student-profile"', effect_start)
-          dashboard = dashboard[:effect_start] + dashboard[effect_end:]
+          dashboard = replace_once(
+              dashboard,
+              r'\ntype CloudTerm = \{.*?\};',
+              '',
+              'Dashboard CloudTerm type',
+          )
+          dashboard = replace_once(
+              dashboard,
+              r'function safeParse\(.*?(?=function levelFromXp\()',
+              '',
+              'Dashboard browser helper block',
+          )
+          dashboard = replace_once(
+              dashboard,
+              r'  const \[loaded, setLoaded\] = useState\(false\);\n  const \[termProgress, setTermProgress\] = useState<Record<string, ProgressItem>>\(\{\}\);',
+              '  const { loaded, termProgress } = useAcademyPathProgress(locale);',
+              'Dashboard progress state',
+          )
+          dashboard = replace_once(
+              dashboard,
+              r'  useEffect\(\(\) => \{\n    let active = true;\n    const read = async \(\) => \{.*?(?=  useEffect\(\(\) => \{\n    let active = true;\n    fetch\("/api/academy-student-profile")',
+              '',
+              'Dashboard browser progress effect',
+          )
           if 'localStorage' in dashboard:
               raise SystemExit('AcademyStudentDashboard still contains localStorage')
           dashboard_path.write_text(dashboard)
 
           roadmap_path = Path('src/components/academy/AcademyInteractiveRoadmap.tsx')
           roadmap = roadmap_path.read_text()
-          roadmap = roadmap.replace(
-              'import { useEffect, useMemo, useState } from "react";\n',
-              'import { useMemo } from "react";\nimport { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";\n',
-              1,
+          roadmap = replace_once(
+              roadmap,
+              r'import \{ useEffect, useMemo, useState \} from "react";',
+              'import { useMemo } from "react";\nimport { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";',
+              'Roadmap hook import',
           )
-          helper_start = roadmap.index('type Progress =')
-          helper_end = roadmap.index('export function AcademyInteractiveRoadmap()', helper_start)
-          roadmap = roadmap[:helper_start] + roadmap[helper_end:]
-          component_start = roadmap.index('export function AcademyInteractiveRoadmap() {')
-          progress_start = roadmap.index('  const [progress, setProgress]', component_start)
-          progress_end = roadmap.index('  const completedTerms =', progress_start)
-          roadmap = roadmap[:progress_start] + '  const { termProgress: progress } = useAcademyPathProgress("fa");\n\n' + roadmap[progress_end:]
+          roadmap = replace_once(
+              roadmap,
+              r'type Progress =.*?(?=export function AcademyInteractiveRoadmap\(\))',
+              '',
+              'Roadmap browser helper block',
+          )
+          roadmap = replace_once(
+              roadmap,
+              r'  const \[progress, setProgress\].*?(?=  const completedTerms =)',
+              '  const { termProgress: progress } = useAcademyPathProgress("fa");\n\n',
+              'Roadmap browser progress effect',
+          )
           if 'localStorage' in roadmap or 'addEventListener("storage"' in roadmap:
               raise SystemExit('AcademyInteractiveRoadmap still contains browser persistence')
           roadmap_path.write_text(roadmap)
           PY
 
-      - name: Restore CI and remove temporary workflow
+      - name: Restore protected workflow files
         run: |
           git fetch origin main
           git checkout origin/main -- .github/workflows/ci.yml
