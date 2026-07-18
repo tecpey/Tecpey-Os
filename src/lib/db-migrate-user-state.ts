@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import { logger } from "./logger";
 
-const FILENAME = "0013_authoritative_academy_state.sql";
+type Migration = { filename: string; sql: string };
 
 export const AUTHORITATIVE_ACADEMY_STATE_SQL = `
 CREATE TABLE IF NOT EXISTS academy_state_documents (
@@ -20,6 +20,19 @@ CREATE INDEX IF NOT EXISTS academy_state_documents_updated_idx
   ON academy_state_documents(updated_at DESC);
 `;
 
+export const ACADEMY_LEARNING_MEMORY_SQL = `
+ALTER TABLE academy_state_documents
+  ADD COLUMN IF NOT EXISTS flashcards JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS flashcard_revision BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS reflections JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS memory_updated_at TIMESTAMPTZ;
+`;
+
+const MIGRATIONS: Migration[] = [
+  { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
+  { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
+];
+
 function checksum(sql: string): string {
   return createHash("sha256")
     .update(sql.replace(/\s+/g, " ").trim())
@@ -28,31 +41,33 @@ function checksum(sql: string): string {
 }
 
 export async function runUserStateMigrations(client: PoolClient): Promise<void> {
-  const cs = checksum(AUTHORITATIVE_ACADEMY_STATE_SQL);
-  const applied = await client.query<{ checksum: string }>(
-    `SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1`,
-    [FILENAME],
-  );
-
-  if (applied.rows[0]) {
-    if (applied.rows[0].checksum !== cs) {
-      throw new Error(`[db-migrate-user-state] checksum mismatch for ${FILENAME}`);
-    }
-    return;
-  }
-
-  logger.info("[db-migrate-user-state] applying migration", { filename: FILENAME });
-  await client.query("BEGIN");
-  try {
-    await client.query(AUTHORITATIVE_ACADEMY_STATE_SQL);
-    await client.query(
-      `INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)`,
-      [FILENAME, cs],
+  for (const migration of MIGRATIONS) {
+    const cs = checksum(migration.sql);
+    const applied = await client.query<{ checksum: string }>(
+      `SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1`,
+      [migration.filename],
     );
-    await client.query("COMMIT");
-    logger.info("[db-migrate-user-state] migration applied", { filename: FILENAME });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
+
+    if (applied.rows[0]) {
+      if (applied.rows[0].checksum !== cs) {
+        throw new Error(`[db-migrate-user-state] checksum mismatch for ${migration.filename}`);
+      }
+      continue;
+    }
+
+    logger.info("[db-migrate-user-state] applying migration", { filename: migration.filename });
+    await client.query("BEGIN");
+    try {
+      await client.query(migration.sql);
+      await client.query(
+        `INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)`,
+        [migration.filename, cs],
+      );
+      await client.query("COMMIT");
+      logger.info("[db-migrate-user-state] migration applied", { filename: migration.filename });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
   }
 }

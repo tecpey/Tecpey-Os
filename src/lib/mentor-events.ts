@@ -18,7 +18,8 @@ export type MentorUpdateReason =
   | "quiz_submitted"
   | "trading_trade_created"
   | "mentor_conversation_saved"
-  | "academy_progress_updated";
+  | "academy_progress_updated"
+  | "flashcards_updated";
 
 // ── Safe runner ───────────────────────────────────────────────────────────────
 
