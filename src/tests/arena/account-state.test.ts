@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ARENA_ATTEMPTS_PER_CYCLE,
   ARENA_INITIAL_BALANCE,
+  formatArenaBalance,
   summarizeArenaDecisions,
   type ArenaDecision,
 } from "@/lib/trading-arena-account";
@@ -31,6 +32,7 @@ describe("Trading Arena authoritative account contract", () => {
   it("starts every subscription cycle with $100k and three attempts", () => {
     assert.equal(ARENA_INITIAL_BALANCE, "100000.0000000000");
     assert.equal(ARENA_ATTEMPTS_PER_CYCLE, 3);
+    assert.equal(formatArenaBalance(ARENA_INITIAL_BALANCE), "100,000");
   });
 
   it("does not fabricate realized win rate from journal quality", () => {
