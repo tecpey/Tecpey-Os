@@ -39,3 +39,5 @@ jobs:
       - name: Preserve failure signal
         if: steps.typecheck.outputs.exit_code != '0'
         run: exit 1
+
+# Temporary file: remove before merge.
