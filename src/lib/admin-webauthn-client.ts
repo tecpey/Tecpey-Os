@@ -168,3 +168,8 @@ export function passkeySupported(): boolean {
     typeof navigator.credentials?.create === "function" &&
     typeof navigator.credentials?.get === "function";
 }
+
+declare global {
+  type PublicKeyCredentialCreationOptionsJSON = AdminRegistrationOptionsJSON;
+  type PublicKeyCredentialRequestOptionsJSON = AdminAuthenticationOptionsJSON;
+}
