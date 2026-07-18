@@ -52,6 +52,7 @@ describe("server-fed behavioral intelligence", () => {
 
     assert.match(prompt, /behavioral_overall=/);
     assert.match(prompt, /data_quality=rich/);
+    assert.ok(prompt.length < 500);
     assert.doesNotMatch(prompt, /بازتاب معتبر|سؤال کاربر|entry_reason/);
   });
 });
