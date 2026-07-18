@@ -1,9 +1,8 @@
 name: Temporary Source Export
 
 on:
-  push:
-    branches:
-      - feat/academy-reflections-server-20260718
+  pull_request:
+    branches: [main]
 
 jobs:
   export:
