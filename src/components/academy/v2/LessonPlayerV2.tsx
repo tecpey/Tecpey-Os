@@ -15,7 +15,6 @@ import {
   Lightbulb,
   Lock,
   MessageSquare,
-  Pencil,
   Shield,
   Sparkles,
   Star,
@@ -25,6 +24,7 @@ import {
 } from "lucide-react";
 import { QuizEngineV2 } from "./QuizEngineV2";
 import { FlashcardDeck } from "./FlashcardDeck";
+import { ReflectionPrompt } from "./ReflectionPrompt";
 import {
   loadProgress,
   onProgressChange,
@@ -210,57 +210,6 @@ function PracticeExercisePanel({ exercise }: { exercise: Lesson["practiceExercis
           <p className="text-sm font-bold text-emerald-300">{exercise.expectedInsight}</p>
         </div>
       )}
-    </div>
-  );
-}
-
-function ReflectionPrompt({ prompt, lessonId }: { prompt: string; lessonId: string }) {
-  const [text, setText] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    if (!text.trim()) return;
-    try {
-      const key = `tecpey-reflection-${lessonId}`;
-      localStorage.setItem(key, JSON.stringify({ text, savedAt: Date.now() }));
-      setSaved(true);
-    } catch {
-      // quota exceeded
-    }
-  };
-
-  return (
-    <div className="rounded-[24px] border border-cyan-400/20 bg-cyan-400/5 p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <Pencil className="h-5 w-5 text-cyan-300" />
-        <h3 className="font-black text-cyan-200">بازتاب یادگیری</h3>
-      </div>
-      <p className="mb-4 text-sm font-bold leading-7 text-slate-300">{prompt}</p>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="افکار خود را بنویسید — فقط برای شما ذخیره می‌شود..."
-        rows={3}
-        className="w-full rounded-xl border border-white/10 bg-slate-800/60 p-4 text-sm font-bold text-slate-200 placeholder-slate-600 focus:border-cyan-300/50 focus:outline-none focus:ring-2 focus:ring-cyan-300/30 resize-none"
-        aria-label="بازتاب یادگیری"
-      />
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-600">{text.length} کاراکتر</span>
-        {saved ? (
-          <span className="flex items-center gap-1 text-xs font-bold text-emerald-400">
-            <CheckCircle2 className="h-3 w-3" /> ذخیره شد
-          </span>
-        ) : (
-          <button
-            onClick={handleSave}
-            disabled={!text.trim()}
-            className="rounded-xl bg-cyan-400/20 px-4 py-1.5 text-xs font-black text-cyan-300 hover:bg-cyan-400/30 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            aria-label="ذخیره بازتاب"
-          >
-            ذخیره
-          </button>
-        )}
-      </div>
     </div>
   );
 }
