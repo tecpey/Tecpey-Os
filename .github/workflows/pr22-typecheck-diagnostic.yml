@@ -1,0 +1,41 @@
+name: PR22 TypeScript Diagnostic
+
+on:
+  push:
+    branches:
+      - feat/admin-passkey-backend-20260719
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --silent
+      - name: Capture TypeScript output
+        id: typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck > typecheck.log 2>&1
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          cat typecheck.log
+          exit 0
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr22-typecheck-log
+          path: typecheck.log
+          if-no-files-found: error
+          retention-days: 1
+      - name: Preserve failure signal
+        if: steps.typecheck.outputs.exit_code != '0'
+        run: exit 1
