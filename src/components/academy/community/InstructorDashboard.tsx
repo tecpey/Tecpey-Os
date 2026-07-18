@@ -7,7 +7,8 @@ import {
   updatePrivacy,
   type CommunityProfile,
 } from "@/lib/community-profile";
-import { computeBehavioralSnapshot, DIMENSION_LABELS } from "@/lib/behavioral-engine";
+import { DIMENSION_LABELS, type BehavioralSnapshot } from "@/lib/behavioral-engine";
+import { fetchBehavioralSnapshot } from "@/lib/behavioral-client";
 import { computeMyLeaderboardScores } from "@/lib/community-leaderboard";
 import { loadArenaState, computeArenaStats } from "@/lib/trading-arena";
 import { getJournalCompletionRate } from "@/lib/trading-journal";
@@ -159,7 +160,40 @@ export function InstructorDashboard() {
 // ─── Full view after consent ──────────────────────────────────────────────────
 
 function ConsentedView() {
-  const snapshot = computeBehavioralSnapshot();
+  const [snapshot, setSnapshot] = useState<BehavioralSnapshot | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadError(false);
+    void fetchBehavioralSnapshot("fa", controller.signal)
+      .then(setSnapshot)
+      .catch(() => {
+        if (!controller.signal.aborted) setLoadError(true);
+      });
+    return () => controller.abort();
+  }, [reloadToken]);
+
+  if (!snapshot) {
+    return (
+      <div className="flex h-48 flex-col items-center justify-center gap-3 text-sm font-bold text-slate-500">
+        {loadError ? (
+          <>
+            <span className="text-amber-300">دریافت نمای رفتاری از سرور انجام نشد.</span>
+            <button
+              type="button"
+              onClick={() => setReloadToken((value) => value + 1)}
+              className="rounded-xl border border-cyan-300/30 px-4 py-2 text-xs font-black text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              تلاش دوباره
+            </button>
+          </>
+        ) : "در حال دریافت نمای مجاز از سرور..."}
+      </div>
+    );
+  }
+
   const scores = computeMyLeaderboardScores();
   const arena = loadArenaState();
   const stats = computeArenaStats(arena);

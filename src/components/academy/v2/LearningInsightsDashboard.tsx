@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -16,14 +16,14 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  computeBehavioralSnapshot,
   DIMENSION_LABELS,
   type BehavioralSnapshot,
 } from "@/lib/behavioral-engine";
+import { fetchBehavioralSnapshot } from "@/lib/behavioral-client";
 import { generateCoachingReport } from "@/lib/coaching-engine";
 import { buildSmartReviewQueue } from "@/lib/smart-review";
-import { loadProgress } from "@/lib/academy-progress";
-import { loadDeck, getDueCards } from "@/lib/spaced-repetition";
+import { hydrateProgress } from "@/lib/academy-progress";
+import { hydrateDeck, getDueCards } from "@/lib/spaced-repetition";
 import { CONCEPT_NODES } from "@/lib/knowledge-graph";
 import type { SmartReviewQueue } from "@/lib/smart-review";
 
@@ -366,52 +366,70 @@ export function LearningInsightsDashboard() {
   const [masteredIds, setMasteredIds] = useState<string[]>([]);
   const [weakIds, setWeakIds] = useState<string[]>([]);
   const [dueFlashcards, setDueFlashcards] = useState(0);
-  const initialized = useRef(false);
+  const [completedLessons, setCompletedLessons] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    const controller = new AbortController();
+    setLoadError(false);
 
-    const snap = computeBehavioralSnapshot();
-    const queue = buildSmartReviewQueue();
-    const prog = loadProgress();
-    const deck = loadDeck();
-    const due = getDueCards(deck).length;
+    void Promise.all([
+      fetchBehavioralSnapshot("fa", controller.signal),
+      hydrateProgress("fa"),
+      hydrateDeck("fa"),
+    ]).then(([snap, prog, deck]) => {
+      if (controller.signal.aborted) return;
+      const queue = buildSmartReviewQueue();
+      setSnapshot(snap);
+      setReviewQueue(queue);
+      setProgress({ xp: prog.xp, level: prog.level, streak: prog.streak });
+      setDueFlashcards(getDueCards(deck).length);
+      setCompletedLessons(Object.keys(prog.completedLessons).length);
 
-    setSnapshot(snap);
-    setReviewQueue(queue);
-    setProgress({ xp: prog.xp, level: prog.level, streak: prog.streak });
-    setDueFlashcards(due);
+      const timestamps = Object.values(prog.completedLessons).map((lesson) => lesson.completedAt);
+      setCompletedAt(timestamps);
 
-    const timestamps = Object.values(prog.completedLessons).map((l) => l.completedAt);
-    setCompletedAt(timestamps);
-
-    // Simple concept status from module scores
-    const mastered: string[] = [];
-    const weak: string[] = [];
-    // Map lesson scores to concept statuses
-    for (const node of CONCEPT_NODES) {
-      const lessonScore = Object.values(prog.moduleScores)[node.lessonIndex - 1] ?? 0;
-      const lessonCompleted = Object.values(prog.completedLessons).some((l) => l.lessonId.includes(`l${node.lessonIndex}`));
-      if (lessonCompleted) {
-        if (lessonScore >= 80) mastered.push(node.id);
-        else weak.push(node.id);
+      const mastered: string[] = [];
+      const weak: string[] = [];
+      for (const node of CONCEPT_NODES) {
+        const lessonScore = Object.values(prog.moduleScores)[node.lessonIndex - 1] ?? 0;
+        const lessonCompleted = Object.values(prog.completedLessons)
+          .some((lesson) => lesson.lessonId.includes(`l${node.lessonIndex}`));
+        if (lessonCompleted) {
+          if (lessonScore >= 80) mastered.push(node.id);
+          else weak.push(node.id);
+        }
       }
-    }
-    setMasteredIds(mastered);
-    setWeakIds(weak);
-  }, []);
+      setMasteredIds(mastered);
+      setWeakIds(weak);
+    }).catch(() => {
+      if (!controller.signal.aborted) setLoadError(true);
+    });
+
+    return () => controller.abort();
+  }, [reloadToken]);
 
   if (!snapshot) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-500 font-bold text-sm" aria-label="در حال بارگذاری">
-        در حال بارگذاری داشبورد...
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm font-bold text-slate-500" aria-label="در حال بارگذاری">
+        {loadError ? (
+          <>
+            <span className="text-amber-300">دریافت داشبورد از سرور انجام نشد.</span>
+            <button
+              type="button"
+              onClick={() => setReloadToken((value) => value + 1)}
+              className="rounded-xl border border-cyan-300/30 px-4 py-2 text-xs font-black text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              تلاش دوباره
+            </button>
+          </>
+        ) : "در حال بارگذاری داشبورد امن سرور..."}
       </div>
     );
   }
 
   const coaching = generateCoachingReport(snapshot, dueFlashcards);
-  const completedLessons = Object.keys(loadProgress().completedLessons).length;
 
   return (
     <div className="space-y-6" dir="rtl">

@@ -24,7 +24,6 @@ const expectedMatches = new Map(Object.entries({
   "src/components/academy/TradingArenaProClient.tsx": 2,
   "src/components/admin/CommandCenterDashboard.tsx": 1,
   "src/components/offline/OfflineSyncManager.tsx": 3,
-  "src/lib/behavioral-engine.ts": 9,
   "src/lib/community-challenges.ts": 2,
   "src/lib/community-profile.ts": 2,
   "src/lib/smart-review.ts": 1,

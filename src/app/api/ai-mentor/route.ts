@@ -13,6 +13,8 @@ import {
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { computeBehavioralSnapshot } from "@/lib/behavioral-engine";
+import { buildBehavioralPrompt, collectBehavioralInputs } from "@/lib/behavioral-context-server";
 
 type MentorRequest = {
   question?: string;
@@ -178,10 +180,14 @@ export async function POST(request: NextRequest) {
     const fallback = localFallback(question, termNumber, lessonNumber);
 
     // ── Load server-side mentor context (fire-and-forget if unavailable) ────
-    const [mentorCtx] = await Promise.all([
+    const [mentorCtx, behavioralInputs] = await Promise.all([
       studentId ? getMentorContext(studentId) : Promise.resolve(null),
+      studentId ? collectBehavioralInputs(studentId, locale === "en" ? "en" : "fa") : Promise.resolve(null),
       studentId ? getOrCreateMentorProfile(studentId) : Promise.resolve(null),
     ]);
+    const behavioralSnapshot = behavioralInputs
+      ? computeBehavioralSnapshot(behavioralInputs)
+      : null;
 
     // Persist the user's question (non-blocking — failure logged internally).
     if (studentId) {
@@ -221,6 +227,7 @@ export async function POST(request: NextRequest) {
 
     // Build server-side context block from DB memories and progress.
     const contextBlock = mentorCtx ? buildContextPrompt(mentorCtx) : "";
+    const behavioralBlock = behavioralSnapshot ? buildBehavioralPrompt(behavioralSnapshot) : "";
 
     const instructions = [
       `تو TecPey AI Mentor هستی؛ مربی آموزشی آکادمی تک‌پی.`,
@@ -233,6 +240,7 @@ export async function POST(request: NextRequest) {
       `- اگر سؤال درباره مقدار خرید یا فروش بود، آن را به مدیریت ریسک، اندازه موقعیت، سناریو و تحقیق شخصی تبدیل کن.`,
       `- زبان پاسخ را با زبان سؤال هماهنگ کن.`,
       contextBlock ? `\nاطلاعات شخصی‌سازی‌شده کاربر (از پایگاه داده):\n${contextBlock}` : "",
+      behavioralBlock ? `\nنمای رفتاری محاسبه‌شده روی سرور:\n${behavioralBlock}` : "",
       `\nفرمت پاسخ:\n۱) پاسخ کوتاه و روشن\n۲) توضیح آموزشی با مثال\n۳) اشتباه رایج\n۴) چک‌لیست عملی\n۵) درس مرتبط`,
     ].filter(Boolean).join("\n");
 
