@@ -39,16 +39,17 @@ export function parseWebAuthnChallengeEnvelope(raw: unknown): WebAuthnChallengeE
 
   try {
     const parsed = JSON.parse(raw) as Partial<WebAuthnChallengeEnvelope>;
+    const issuedAt = parsed.issuedAt;
     if (parsed.version !== 1) return null;
     if (parsed.ceremony !== "registration" && parsed.ceremony !== "authentication") return null;
     if (!validSubject(parsed.userId)) return null;
-    if (!Number.isInteger(parsed.issuedAt) || (parsed.issuedAt ?? 0) <= 0) return null;
+    if (typeof issuedAt !== "number" || !Number.isInteger(issuedAt) || issuedAt <= 0) return null;
 
     return {
       version: 1,
       ceremony: parsed.ceremony,
       userId: parsed.userId,
-      issuedAt: parsed.issuedAt,
+      issuedAt,
     };
   } catch {
     return null;
