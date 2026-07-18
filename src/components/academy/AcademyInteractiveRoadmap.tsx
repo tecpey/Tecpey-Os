@@ -32,7 +32,7 @@ export function AcademyInteractiveRoadmap() {
             </div>
             <h2 className="mt-4 text-3xl font-black leading-tight text-white">از صفر تا آمادگی مسئولانه؛ با قفل مرحله‌ای، آزمون و راهنمای آموزشی هر ترم</h2>
             <p className="mt-4 max-w-3xl text-sm font-bold leading-8 text-slate-300">
-              دسترسی هر ترم فقط بعد از گرفتن امتیاز ۱۰۰٪ در آزمون ترم قبلی باز می‌شود. مرور درس‌ها پیشرفت آموزشی را نشان می‌دهد، اما قفل مسیر فقط با آزمون رسمی باز می‌شود.
+              دسترسی هر ترم پس از قبولی رسمی در ارزیابی ترم قبلی باز می‌شود. مرور درس‌ها پیشرفت آموزشی را نشان می‌دهد، اما قفل مسیر فقط با ثبت نتیجه قبولی در پرونده آکادمی باز می‌شود.
             </p>
             <div className="mt-6 h-4 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-cyan-400 transition-all duration-700" style={{ width: `${overall}%` }} />
@@ -64,7 +64,7 @@ export function AcademyInteractiveRoadmap() {
                   <span className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black text-slate-200">{locked ? "قفل" : `${item.progress}%`}</span>
                 </div>
                 <h3 className="mt-4 text-base font-black leading-7 text-white">{term.title}</h3>
-                <p className="mt-2 text-xs font-bold leading-6 text-slate-400">{locked ? `برای باز شدن، ترم ${index} را با ۱۰۰٪ کامل کنید.` : term.focus}</p>
+                <p className="mt-2 text-xs font-bold leading-6 text-slate-400">{locked ? `برای باز شدن، باید در ارزیابی رسمی ترم ${index} قبول شوید.` : term.focus}</p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${item.progress}%` }} /></div>
                 <div className="mt-3 rounded-2xl border border-violet-300/15 bg-violet-400/10 p-3">
                   <p className="flex items-center gap-2 text-[11px] font-black text-violet-100"><Bot className="h-3.5 w-3.5" />{term.mentor}</p>
@@ -78,7 +78,7 @@ export function AcademyInteractiveRoadmap() {
         <div className="border-t border-white/10 p-6 lg:p-8">
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              [ClipboardCheck, "آزمون و تسلط", "هر ترم فقط با آزمون ۱۰۰٪ ترم قبلی باز می‌شود؛ این ساختار کمک می‌کند یادگیری مرحله‌به‌مرحله و قابل سنجش باقی بماند."],
+              [ClipboardCheck, "آزمون و تسلط", "هر ترم پس از قبولی رسمی در ارزیابی ترم قبلی باز می‌شود؛ این ساختار کمک می‌کند یادگیری مرحله‌به‌مرحله و قابل سنجش باقی بماند."],
               [Bot, "مربی متناسب با مرحله", "مربی هوشمند سؤال کاربر را به ترم، درس، ضعف احتمالی و چک‌لیست عملی وصل می‌کند."],
               [GraduationCap, "ارزیابی نهایی", "پایان مسیر، آمادگی واقعی دانشجو را در امنیت، تحلیل، ریسک و روانشناسی نشان می‌دهد."],
             ].map(([Icon, title, text]) => (
