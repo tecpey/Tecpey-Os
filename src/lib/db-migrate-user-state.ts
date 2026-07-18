@@ -87,11 +87,26 @@ CREATE INDEX IF NOT EXISTS academy_trading_arena_attempts_cycle_idx
   ON academy_trading_arena_attempts(student_id, cycle_id, attempt_number);
 `;
 
+export const TRADING_ARENA_EXECUTION_STATE_SQL = `
+ALTER TABLE academy_trading_arena_attempts
+  ADD COLUMN IF NOT EXISTS execution_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS execution_revision BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS execution_updated_at TIMESTAMPTZ;
+
+ALTER TABLE academy_trading_arena_attempts
+  DROP CONSTRAINT IF EXISTS academy_trading_arena_execution_state_object;
+
+ALTER TABLE academy_trading_arena_attempts
+  ADD CONSTRAINT academy_trading_arena_execution_state_object
+  CHECK (jsonb_typeof(execution_state) = 'object');
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
   { filename: "0015_academy_reflection_memory.sql", sql: ACADEMY_REFLECTION_MEMORY_SQL },
   { filename: "0016_trading_arena_account.sql", sql: TRADING_ARENA_ACCOUNT_SQL },
+  { filename: "0017_trading_arena_execution_state.sql", sql: TRADING_ARENA_EXECUTION_STATE_SQL },
 ];
 
 function checksum(sql: string): string {
