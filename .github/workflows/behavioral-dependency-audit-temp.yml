@@ -17,5 +17,6 @@ jobs:
             src/components/academy/v2/MentorV2.tsx
             src/components/academy/v2/LearningInsightsDashboard.tsx
             src/components/academy/community/InstructorDashboard.tsx
+            src/app/api/ai-mentor/route.ts
           if-no-files-found: error
           retention-days: 1
