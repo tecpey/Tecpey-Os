@@ -7,6 +7,17 @@ on:
     branches: [main]
 
 jobs:
+  typecheck-diagnostic:
+    name: TypeScript Diagnostic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install quietly
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund --silent
+      - name: TypeScript errors
+        run: ./node_modules/.bin/tsc --noEmit --pretty false
+
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
