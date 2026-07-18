@@ -7,7 +7,14 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import { verifyWebAuthnRegistration } from "@/lib/security/webauthn";
+import {
+  storeWebAuthnChallenge,
+  verifyWebAuthnRegistration,
+} from "@/lib/security/webauthn";
+import {
+  consumeWebAuthnCeremonyChallenge,
+  extractWebAuthnClientChallenge,
+} from "@/lib/security/webauthn-ceremony";
 import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 
@@ -26,6 +33,33 @@ export async function POST(req: NextRequest) {
 
     const ip = getClientIp(req);
     const body = await req.json().catch(() => ({}));
+    const challenge = extractWebAuthnClientChallenge(
+      body.response?.response?.clientDataJSON,
+      "webauthn.create",
+    );
+    const ceremony = challenge
+      ? await consumeWebAuthnCeremonyChallenge(challenge, "registration")
+      : null;
+
+    if (!challenge || !ceremony || ceremony.userId !== userId) {
+      trackAuthEvent("webauthn_failed");
+      writeAudit({
+        actorId: userId,
+        action: "webauthn_registration_failed",
+        ip,
+        metadata: { event: "webauthn_register_failed", reason: "invalid_challenge" },
+      });
+      return apiError("invalid_challenge", 400);
+    }
+
+    // Compatibility bridge for the existing cryptographic verifier. The public
+    // ceremony envelope has already been consumed atomically, so only this
+    // request can stage and consume the legacy verifier key.
+    try {
+      await storeWebAuthnChallenge(challenge, userId);
+    } catch {
+      return apiError("webauthn_requires_redis", 503);
+    }
 
     const result = await verifyWebAuthnRegistration({
       userId,

@@ -9,9 +9,9 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
   generateChallenge,
-  storeWebAuthnChallenge,
   listCredentials,
 } from "@/lib/security/webauthn";
+import { storeWebAuthnCeremonyChallenge } from "@/lib/security/webauthn-ceremony";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     const challenge = generateChallenge();
 
     try {
-      await storeWebAuthnChallenge(challenge, userId);
+      await storeWebAuthnCeremonyChallenge({
+        challenge,
+        ceremony: "registration",
+        userId,
+      });
     } catch {
       return apiError("webauthn_requires_redis", 503);
     }
