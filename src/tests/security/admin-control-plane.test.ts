@@ -55,12 +55,15 @@ describe("admin control plane authorization", () => {
 });
 
 describe("admin audit protection", () => {
-  it("redacts nested secrets without removing operational context", () => {
+  it("redacts nested and camelCase secrets without removing operational context", () => {
     const redacted = redactAdminAuditValue({
       userId: "user-1",
       token: "raw-token",
+      adminToken: "raw-admin-token",
+      apiKey: "raw-api-key",
       nested: {
         password: "raw-password",
+        clientSecret: "raw-client-secret",
         amount: "100.00",
         cookie: "raw-cookie",
       },
@@ -69,8 +72,11 @@ describe("admin audit protection", () => {
     assert.deepEqual(redacted, {
       userId: "user-1",
       token: "[REDACTED]",
+      adminToken: "[REDACTED]",
+      apiKey: "[REDACTED]",
       nested: {
         password: "[REDACTED]",
+        clientSecret: "[REDACTED]",
         amount: "100.00",
         cookie: "[REDACTED]",
       },
