@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify, SignJWT } from "jose";
 import { loadAdminPrincipal } from "./admin-control-plane";
+import { getAdminBootstrapState } from "./admin-passkey-service";
 import { shouldUseSecureCookie } from "./platform-config";
 import { apiError } from "./api-validation";
 
@@ -33,10 +34,15 @@ function safeTokenMatch(supplied: string | null, expected: string): boolean {
 
 export async function hasAdminAccess(req: NextRequest): Promise<boolean> {
   const principal = await loadAdminPrincipal(req);
-  if (principal && principal !== "unavailable") return true;
+  if (principal === "unavailable") return false;
+  if (principal) return true;
 
-  // Transitional fallback. The following UI migration will make this token
-  // bootstrap-only after Passkey login is available in Command Center.
+  // Transitional fallback. It remains available only while the admin database
+  // is healthy and its authority state can be determined. A database outage
+  // must never turn the shared token into a bypass around server-side identity.
+  const bootstrapState = await getAdminBootstrapState();
+  if (bootstrapState === "unavailable") return false;
+
   const token = getAdminToken();
   if (!token) return false;
   if (safeTokenMatch(req.headers.get(ADMIN_HEADER), token)) return true;
