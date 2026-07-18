@@ -150,8 +150,8 @@ function computeFills(
       const buyerUserId   = order.side === "buy"  ? order.userId : maker.userId;
       const sellerUserId  = order.side === "sell" ? order.userId : maker.userId;
 
-      const feeBuyer  = fillQty * tradePrice * (maker.side === "buy"  ? makerFeeRate : takerFeeRate);
-      const feeSeller = fillQty * tradePrice * (maker.side === "sell" ? makerFeeRate : takerFeeRate);
+      const feeBuyer  = new Decimal(fillQty).times(tradePrice).times(maker.side === "buy"  ? makerFeeRate : takerFeeRate).toNumber();
+      const feeSeller = new Decimal(fillQty).times(tradePrice).times(maker.side === "sell" ? makerFeeRate : takerFeeRate).toNumber();
 
       // Market orders have limitPrice=0 — use tradePrice as release basis
       // so the earmarked funds are properly returned on each fill.
