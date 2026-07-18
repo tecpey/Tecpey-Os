@@ -1,23 +1,21 @@
-name: Temporary Behavioral Dependency Audit
+name: Temporary Behavioral Source Export
 
 on:
   pull_request:
     branches: [main]
 
 jobs:
-  inventory:
+  export:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Map behavioral engine consumers
-        run: |
-          grep -RInE --exclude-dir=.git --exclude-dir=node_modules \
-            '(behavioral-engine|computeBehavioralSnapshot|loadOrComputeSnapshot|getDimensionScore|collectTradingDNASignals)' \
-            src > behavioral-dependency-inventory.txt || true
-          cat behavioral-dependency-inventory.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: behavioral-dependency-inventory
-          path: behavioral-dependency-inventory.txt
+          name: behavioral-source-files
+          path: |
+            src/lib/behavioral-engine.ts
+            src/components/academy/v2/MentorV2.tsx
+            src/components/academy/v2/LearningInsightsDashboard.tsx
+            src/components/academy/community/InstructorDashboard.tsx
           if-no-files-found: error
           retention-days: 1
