@@ -86,8 +86,7 @@ export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
     await updateWithdrawalState(withdrawalId, "signing");
     const signStart = Date.now();
     const signature = await keyStore.sign(chainId as ChainId, built.signingHash);
-    const publicKey = Buffer.from(await keyStore.getAddress(chainId as ChainId), "utf8");
-    // For signing public key, use secp256k1 or Ed25519 public key bytes — derived from keystore
+    const publicKey = await keyStore.getPublicKey(chainId as ChainId);
     const signed = await provider.applySignature(built, signature, publicKey);
     recordLatency("withdraw_sign_ms", signStart);
 
@@ -114,7 +113,7 @@ export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
       return null;
     });
 
-    // ── 5. Enqueue Confirmation Watch ─────────────────────────────────────────
+    // ── 5. Enqueue Confirmation Watch ────────────────────────────────────────
     const confirmations = provider.requiredConfirmations("normal");
     await enqueueConfirmationWatch({
       withdrawalId,

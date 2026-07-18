@@ -71,7 +71,7 @@ export type UTXOSelection = {
   change: bigint;          // satoshis (0 if no change output)
 };
 
-// ── Transaction Building ──────────────────────────────────────────────────────
+// ── Transaction Building ─────────────────────────────────────────────────────
 
 export type BuildTransactionInput = {
   withdrawalId: string;
@@ -120,6 +120,12 @@ export interface KeyStore {
   readonly type: KeyStoreType;
   /** Returns the public address for a given path/asset */
   getAddress(chainId: ChainId, index?: number): Promise<string>;
+  /**
+   * Returns the raw signing public key bytes for witness/signature assembly.
+   * This is intentionally separate from getAddress(): an address is derived
+   * from a public key and MUST NOT be substituted for the public key itself.
+   */
+  getPublicKey(chainId: ChainId, index?: number): Promise<Buffer>;
   /**
    * Sign exactly the bytes in signingHash.
    * MUST zero the private key from memory immediately after signing.
