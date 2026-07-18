@@ -65,8 +65,10 @@ export async function PUT(req: NextRequest) {
 
     const locale = parseLocale(body.locale);
     const expectedRevision = Math.max(0, Math.round(Number(body.expectedRevision) || 0));
+    if (!Array.isArray(body.cards) || body.cards.length > 2000) {
+      return apiError("invalid_flashcards", 400);
+    }
     const cards = normalizeDeck(body.cards);
-    if (!Array.isArray(body.cards) || cards.length > 2000) return apiError("invalid_flashcards", 400);
 
     const result = await withTx(async (client) => {
       const row = await client.query<{ flashcards: unknown; flashcard_revision: string }>(
