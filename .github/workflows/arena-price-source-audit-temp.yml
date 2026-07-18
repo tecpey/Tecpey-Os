@@ -1,0 +1,27 @@
+name: Temporary Arena Price Source Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find server-side market price sources
+        run: |
+          {
+            echo '# Market price source inventory'
+            echo
+            grep -RInE --exclude-dir=.git --exclude-dir=node_modules \
+              '(coingecko|binance|coinbase|ticker|market.?price|price.?feed|price.?oracle|bookTicker|markPrice|lastPrice|BTCUSDT|ETHUSDT)' \
+              src server.ts docs 2>/dev/null || true
+          } > arena-price-source-inventory.txt
+          cat arena-price-source-inventory.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-price-source-inventory
+          path: arena-price-source-inventory.txt
+          if-no-files-found: error
+          retention-days: 1
