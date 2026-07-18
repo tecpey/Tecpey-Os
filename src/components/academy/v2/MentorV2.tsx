@@ -22,12 +22,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  computeBehavioralSnapshot,
   DIMENSION_LABELS,
   DIMENSION_DESCRIPTIONS,
   type BehavioralSnapshot,
   type BehavioralDimension,
 } from "@/lib/behavioral-engine";
+import { fetchBehavioralSnapshot } from "@/lib/behavioral-client";
 import { generateCoachingReport, type CoachingCard, type CoachingWarning } from "@/lib/coaching-engine";
 import { buildSmartReviewQueue, type ReviewQueueItem } from "@/lib/smart-review";
 import { loadDeck, getDueCards } from "@/lib/spaced-repetition";
@@ -154,7 +154,7 @@ function ReviewItem({ item }: { item: ReviewQueueItem }) {
 
 // ─── Ask Mentor ───────────────────────────────────────────────────────────────
 
-function AskMentor({ snapshot }: { snapshot: BehavioralSnapshot }) {
+function AskMentor() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
@@ -167,8 +167,6 @@ function AskMentor({ snapshot }: { snapshot: BehavioralSnapshot }) {
     setAnswer("");
     setError("");
 
-    const weakest = snapshot.weakestDimension;
-    const strongest = snapshot.strongestDimension;
 
     try {
       const res = await fetch("/api/ai-mentor-v2", {
@@ -177,17 +175,6 @@ function AskMentor({ snapshot }: { snapshot: BehavioralSnapshot }) {
         body: JSON.stringify({
           question: question.trim(),
           locale: "fa",
-          behavioralContext: {
-            overallScore: snapshot.overallScore,
-            weakestDimension: weakest ? DIMENSION_LABELS[weakest] : null,
-            strongestDimension: strongest ? DIMENSION_LABELS[strongest] : null,
-            learningVelocity: snapshot.learningVelocity,
-            preferredStyle: snapshot.preferredLearningStyle,
-            topWarnings: snapshot.dimensions
-              .filter((d) => d.score < 50)
-              .slice(0, 2)
-              .map((d) => ({ dimension: DIMENSION_LABELS[d.dimension], message: d.explanation })),
-          },
         }),
       });
       const json = (await res.json()) as { ok: boolean; answer?: string; error?: string };
@@ -201,7 +188,7 @@ function AskMentor({ snapshot }: { snapshot: BehavioralSnapshot }) {
     } finally {
       setLoading(false);
     }
-  }, [question, loading, snapshot]);
+  }, [question, loading]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -281,23 +268,42 @@ export function MentorV2() {
   const [activeTab, setActiveTab] = useState<MentorV2Tab>("daily");
   const [reviewQueue, setReviewQueue] = useState<ReviewQueueItem[]>([]);
   const [dueFlashcards, setDueFlashcards] = useState(0);
-  const initialized = useRef(false);
+  const [snapshotError, setSnapshotError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-    const snap = computeBehavioralSnapshot();
+    const controller = new AbortController();
+    setSnapshotError(false);
+
     const queue = buildSmartReviewQueue();
     const deck = loadDeck();
-    setSnapshot(snap);
     setReviewQueue(queue.items.slice(0, 5));
     setDueFlashcards(getDueCards(deck).length);
-  }, []);
+
+    void fetchBehavioralSnapshot("fa", controller.signal)
+      .then(setSnapshot)
+      .catch(() => {
+        if (!controller.signal.aborted) setSnapshotError(true);
+      });
+
+    return () => controller.abort();
+  }, [reloadToken]);
 
   if (!snapshot) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm font-bold text-slate-500">
-        در حال بارگذاری...
+      <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm font-bold text-slate-500">
+        {snapshotError ? (
+          <>
+            <span className="text-amber-300">دریافت تحلیل رفتاری از سرور انجام نشد.</span>
+            <button
+              type="button"
+              onClick={() => setReloadToken((value) => value + 1)}
+              className="rounded-xl border border-cyan-300/30 px-4 py-2 text-xs font-black text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              تلاش دوباره
+            </button>
+          </>
+        ) : "در حال بارگذاری تحلیل امن سرور..."}
       </div>
     );
   }
@@ -452,7 +458,7 @@ export function MentorV2() {
       )}
 
       {/* Ask mentor */}
-      <AskMentor snapshot={snapshot} />
+      <AskMentor />
     </div>
   );
 }
