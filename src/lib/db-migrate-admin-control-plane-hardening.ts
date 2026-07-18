@@ -37,9 +37,10 @@ AS $$
 DECLARE
   latest_hash TEXT;
 BEGIN
-  -- Serialize writers until their surrounding transaction commits. This keeps
-  -- two concurrent privileged actions from creating a fork in the hash chain.
-  LOCK TABLE admin_audit_events IN EXCLUSIVE MODE;
+  -- The transaction-scoped advisory lock serializes audit writers until the
+  -- surrounding transaction commits, without upgrading the table lock held by
+  -- INSERT and risking a lock-conversion deadlock.
+  PERFORM pg_advisory_xact_lock(hashtext('tecpey_admin_audit_chain'));
 
   SELECT event_hash
     INTO latest_hash
