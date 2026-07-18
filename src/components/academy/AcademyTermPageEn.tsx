@@ -5,6 +5,7 @@ import { academyPathTermsEn } from "@/data/academyPathEn";
 import { EnglishShell } from "@/app/en/components/EnglishUI";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
 import { TermAccessGuard } from "@/components/academy/TermAccessGuard";
+import { AcademyLessonCompletionControl } from "@/components/academy/AcademyLessonCompletionControl";
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardCheck, Lightbulb, ListChecks, ShieldCheck, Target, TriangleAlert } from "lucide-react";
 
 
@@ -118,6 +119,11 @@ export function AcademyTermPageEn({ slug }: { slug: string }) {
                       </div>
                       <p className="mt-3 text-sm font-bold leading-8 text-slate-700">{proTip}</p>
                     </div>
+                    <AcademyLessonCompletionControl
+                      locale="en"
+                      termSlug={term.slug}
+                      sectionKey={`lesson-${index + 1}`}
+                    />
                   </article>
                 );
               })}

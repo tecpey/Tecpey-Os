@@ -19,10 +19,10 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useAcademyPathProgress } from "@/hooks/useAcademyPathProgress";
 
 type Locale = "fa" | "en";
 type ProgressItem = { progress: number; xp: number; completed: boolean; answered: number; locked: boolean };
-type CloudTerm = { term_number?: number; score?: number; percent?: number; status?: string };
 type CloudProfile = {
   public_student_id?: string;
   streak_days?: number;
@@ -48,52 +48,6 @@ const terms = [
   { slug: "term-7", fa: "ارزیابی نهایی و آمادگی", en: "Final readiness", badge: "Ready Learner", icon: "🧠", outcomeFa: "آمادگی آموزشی خود را می‌سنجی و مسیر بعدی را روشن می‌کنی.", outcomeEn: "Measure learning readiness and clarify the next path." },
 ];
 
-function safeParse(value: string | null) {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
-}
-
-function clampPercent(value: unknown, max = 100) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.min(max, Math.round(numeric)));
-}
-
-function readOfficialQuiz(termNumber: number) {
-  if (typeof window === "undefined") return null;
-  return safeParse(window.localStorage.getItem(`tecpey-academy-term-${termNumber}`));
-}
-
-function isOfficiallyPassed(termNumber: number) {
-  const parsed = readOfficialQuiz(termNumber);
-  return Boolean(Number.isFinite(Number(parsed?.score)) && parsed?.passed === true);
-}
-
-function readSyncedTermProgress(termNumber: number, slug: string, locale: Locale, unlocked: boolean) {
-  const official = readOfficialQuiz(termNumber);
-  if (Number.isFinite(Number(official?.score))) {
-    const percent = clampPercent(official?.percent);
-    return { progress: percent, xp: percent, completed: official?.passed === true, answered: Number(official?.score) || 0 };
-  }
-  if (!unlocked) return { progress: 0, xp: 0, completed: false, answered: 0 };
-
-  const reading = safeParse(window.localStorage.getItem(`tecpey-academy-reading-term-${termNumber}`));
-  if (Number.isFinite(Number(reading?.percent))) {
-    const progress = clampPercent(reading?.percent, 99);
-    return { progress, xp: Math.round(progress * 0.7), completed: false, answered: 0 };
-  }
-
-  const lesson = safeParse(window.localStorage.getItem(`tecpey-lesson-progress-${locale}-${slug}`));
-  const completedCount = lesson?.completed ? Object.keys(lesson.completed).filter((item) => lesson.completed[item]).length : 0;
-  const answerCount = lesson?.answers ? Object.keys(lesson.answers).filter((item) => lesson.answers[item]).length : 0;
-  const totalLessons = slug === "term-7" ? 6 : 7;
-  const progress = Math.min(99, Math.round((completedCount / totalLessons) * 100));
-  return { progress, xp: completedCount * 10 + answerCount * 5, completed: false, answered: answerCount };
-}
-
 function levelFromXp(xp: number) {
   if (xp >= 650) return { level: 7, titleFa: "آماده مسیر تخصصی", titleEn: "Specialized Path Ready" };
   if (xp >= 500) return { level: 6, titleFa: "یادگیرنده مسئول", titleEn: "Responsible Learner" };
@@ -111,49 +65,10 @@ function rankFromProgress(overallProgress: number, completedTerms: number) {
 
 export function AcademyStudentDashboard({ locale = "fa" }: { locale?: Locale }) {
   const isFa = locale === "fa";
-  const [loaded, setLoaded] = useState(false);
-  const [termProgress, setTermProgress] = useState<Record<string, ProgressItem>>({});
+  const { loaded, termProgress } = useAcademyPathProgress(locale);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "device" | "paused">("idle");
   const [cloudProfile, setCloudProfile] = useState<CloudProfile | null>(null);
   const [profileChecked, setProfileChecked] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const read = async () => {
-      let officialTerms: CloudTerm[] = [];
-      try {
-        const response = await fetch(`/api/academy-term-progress?locale=${locale}`, { cache: "no-store" });
-        const data = await response.json().catch(() => ({}));
-        officialTerms = Array.isArray(data?.terms) ? data.terms : [];
-      } catch {}
-      if (!active) return;
-      const data: Record<string, ProgressItem> = {};
-      terms.forEach((term, index) => {
-        const termNumber = index + 1;
-        const official = officialTerms.find((item) => Number(item.term_number) === termNumber);
-        const previousOfficialPassed = termNumber === 1 || officialTerms.some((item) => Number(item.term_number) === termNumber - 1 && item.status === "passed");
-        const localUnlocked = termNumber === 1 || isOfficiallyPassed(termNumber - 1);
-        const unlocked = previousOfficialPassed || (officialTerms.length === 0 && localUnlocked);
-        const synced = official
-          ? { progress: clampPercent(official.percent), xp: Math.round(Number(official.percent || 0)), completed: official.status === "passed", answered: Number(official.score || 0) }
-          : readSyncedTermProgress(termNumber, term.slug, locale, unlocked);
-        data[term.slug] = { ...synced, locked: !unlocked };
-      });
-      setTermProgress(data);
-      setLoaded(true);
-    };
-
-    void read();
-    window.addEventListener("storage", read);
-    window.addEventListener("tecpey-academy-progress-updated", read);
-    window.addEventListener("focus", read);
-    return () => {
-      active = false;
-      window.removeEventListener("storage", read);
-      window.removeEventListener("tecpey-academy-progress-updated", read);
-      window.removeEventListener("focus", read);
-    };
-  }, [locale]);
 
   useEffect(() => {
     let active = true;
