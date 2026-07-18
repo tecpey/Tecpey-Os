@@ -1,0 +1,27 @@
+name: Temporary Arena Dependency Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Map Arena dependencies
+        run: |
+          {
+            echo '# Trading Arena dependency inventory'
+            echo
+            grep -RInE --exclude-dir=.git --exclude-dir=node_modules \
+              '(trading-arena|TradingArena|academy_trading_arena|loadArenaState|saveArenaState|resetArenaState)' \
+              src docs scripts 2>/dev/null || true
+          } > arena-dependency-inventory.txt
+          cat arena-dependency-inventory.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arena-dependency-inventory
+          path: arena-dependency-inventory.txt
+          if-no-files-found: error
+          retention-days: 1
