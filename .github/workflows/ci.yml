@@ -49,6 +49,9 @@ jobs:
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
 
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
+
       - name: Tests
         run: npm test
 
