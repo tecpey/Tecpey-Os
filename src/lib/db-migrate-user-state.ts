@@ -28,9 +28,15 @@ ALTER TABLE academy_state_documents
   ADD COLUMN IF NOT EXISTS memory_updated_at TIMESTAMPTZ;
 `;
 
+export const ACADEMY_REFLECTION_MEMORY_SQL = `
+ALTER TABLE academy_state_documents
+  ADD COLUMN IF NOT EXISTS reflection_revision BIGINT NOT NULL DEFAULT 0;
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
+  { filename: "0015_academy_reflection_memory.sql", sql: ACADEMY_REFLECTION_MEMORY_SQL },
 ];
 
 function checksum(sql: string): string {
