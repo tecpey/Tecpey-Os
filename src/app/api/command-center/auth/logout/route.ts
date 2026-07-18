@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
-import {
-  clearAdminControlSessionCookie,
-} from "@/lib/admin-passkey-service";
+import { clearAdminControlSessionCookie } from "@/lib/admin-passkey-service";
 import {
   loadAdminPrincipal,
   writeAdminAuditEvent,
@@ -27,35 +25,55 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     const principal = await loadAdminPrincipal(req);
-    if (principal === "unavailable") return apiError("admin_service_unavailable", 503);
+    let serverRevoked = false;
+    let auditRecorded = false;
 
-    if (principal) {
+    if (principal && principal !== "unavailable") {
       const ip = getClientIp(req);
       const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
-      const result = await withTx(async (client) => {
-        await client.query(
-          `UPDATE admin_sessions
-           SET revoked_at = NOW(), revoked_by = $1::uuid, revoked_reason = 'logout'
-           WHERE id = $2::uuid AND revoked_at IS NULL`,
-          [principal.adminId, principal.sessionId],
-        );
+      try {
+        const result = await withTx(async (client) => {
+          const revoked = await client.query(
+            `UPDATE admin_sessions
+             SET revoked_at = NOW(), revoked_by = $1::uuid, revoked_reason = 'logout'
+             WHERE id = $2::uuid AND revoked_at IS NULL`,
+            [principal.adminId, principal.sessionId],
+          );
 
-        await writeAdminAuditEvent(client, {
-          actorAdminId: principal.adminId,
-          sessionId: principal.sessionId,
-          effectiveRoles: principal.roles,
-          action: "admin.logout",
-          resourceType: "admin_session",
-          resourceId: principal.sessionId,
-          sourceIp: ip,
-          userAgent,
+          await writeAdminAuditEvent(client, {
+            actorAdminId: principal.adminId,
+            sessionId: principal.sessionId,
+            effectiveRoles: principal.roles,
+            action: "admin.logout",
+            resourceType: "admin_session",
+            resourceId: principal.sessionId,
+            sourceIp: ip,
+            userAgent,
+            afterState: {
+              revoked: (revoked.rowCount ?? 0) === 1,
+            },
+          });
+          return (revoked.rowCount ?? 0) === 1;
         });
-        return true;
-      });
-      if (!result.enabled) return apiError("admin_service_unavailable", 503);
+        serverRevoked = result.enabled && result.value;
+        auditRecorded = result.enabled;
+      } catch {
+        serverRevoked = false;
+        auditRecorded = false;
+      }
     }
 
-    const response = apiOk({ loggedOut: true });
+    // Local logout must never be blocked by an unavailable database. Clearing
+    // the HttpOnly cookie removes this browser's bearer credential immediately;
+    // the response reports whether server-side revocation and audit also landed.
+    const response = apiOk({
+      loggedOut: true,
+      localSessionCleared: true,
+      serverRevoked,
+      auditRecorded,
+    }, 200, {
+      "Cache-Control": "no-store, max-age=0",
+    });
     clearAdminControlSessionCookie(response);
     return response;
   });
