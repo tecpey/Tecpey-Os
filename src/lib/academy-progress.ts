@@ -1,17 +1,16 @@
 /**
  * Academy Progress Engine
  *
- * Single source of truth for client-side academy state:
- * XP, streak, lesson completion, mastery scores, achievements.
- *
- * Persists to localStorage. Dispatches custom DOM events so any
- * mounted component can reactively observe progress changes.
+ * PostgreSQL is the authoritative source of truth. The browser keeps only an
+ * ephemeral in-memory projection so existing synchronous UI components remain
+ * responsive. Every mutation is sent to /api/academy-state and reconciled with
+ * the state returned by the server. No Academy progress is stored in Web Storage.
  */
 
 export type LessonCompletion = {
   lessonId: string;
   completedAt: number;
-  score: number;       // 0–100 quiz score for this lesson
+  score: number;
   xpEarned: number;
 };
 
@@ -20,19 +19,28 @@ export type AcademyProgressState = {
   xp: number;
   level: number;
   streak: number;
-  lastStudyDate: string | null;  // ISO date string "YYYY-MM-DD"
+  lastStudyDate: string | null;
   completedLessons: Record<string, LessonCompletion>;
-  moduleScores: Record<string, number>;   // moduleId → best score
+  moduleScores: Record<string, number>;
   termStatus: Record<number, "unlocked" | "in_progress" | "passed">;
   earnedBadges: string[];
-  masteryScores: Record<string, number>;  // conceptId → 0–100
+  masteryScores: Record<string, number>;
 };
 
-const STORAGE_KEY = "tecpey-academy-progress-v2";
-const PROGRESS_UPDATED_EVENT = "tecpey-academy-progress-updated";
+export type AcademyProgressAction =
+  | { type: "award_xp"; amount: number }
+  | { type: "lesson_complete"; lessonId: string; score: number; termNumber: number; completedAt?: number }
+  | { type: "module_score"; moduleId: string; score: number }
+  | { type: "pass_term"; termNumber: number }
+  | { type: "award_badge"; badgeCode: string };
 
-// XP thresholds per level (cumulative)
+export const PROGRESS_UPDATED_EVENT = "tecpey-academy-progress-updated";
+export const PROGRESS_SYNC_ERROR_EVENT = "tecpey-academy-progress-sync-error";
+
 const LEVEL_THRESHOLDS = [0, 200, 700, 1500, 2700, 4500, 7000, 10500, 15000, 21000, 29000, 39000];
+const memoryByLocale = new Map<"fa" | "en", AcademyProgressState>();
+const hydrationByLocale = new Map<"fa" | "en", Promise<AcademyProgressState>>();
+const writeQueueByLocale = new Map<"fa" | "en", Promise<void>>();
 
 function computeLevel(xp: number): number {
   let level = 1;
@@ -50,7 +58,7 @@ export function xpForNextLevel(currentXp: number): { current: number; needed: nu
   return { current: currentXp - currentThreshold, needed: nextThreshold - currentThreshold, level };
 }
 
-function defaultState(): AcademyProgressState {
+export function createDefaultAcademyProgressState(): AcademyProgressState {
   return {
     version: 2,
     xp: 0,
@@ -65,183 +73,242 @@ function defaultState(): AcademyProgressState {
   };
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+export function normalizeAcademyProgressState(value: unknown): AcademyProgressState {
+  if (!value || typeof value !== "object") return createDefaultAcademyProgressState();
+  const raw = value as Partial<AcademyProgressState>;
+  const xp = Number.isFinite(raw.xp) ? Math.max(0, Math.round(raw.xp as number)) : 0;
+  return {
+    ...createDefaultAcademyProgressState(),
+    ...raw,
+    version: 2,
+    xp,
+    level: computeLevel(xp),
+    streak: Number.isFinite(raw.streak) ? Math.max(0, Math.round(raw.streak as number)) : 0,
+    completedLessons: raw.completedLessons && typeof raw.completedLessons === "object" ? raw.completedLessons : {},
+    moduleScores: raw.moduleScores && typeof raw.moduleScores === "object" ? raw.moduleScores : {},
+    termStatus: raw.termStatus && typeof raw.termStatus === "object" ? raw.termStatus : { 1: "unlocked" },
+    earnedBadges: Array.isArray(raw.earnedBadges) ? [...new Set(raw.earnedBadges.filter((item): item is string => typeof item === "string"))] : [],
+    masteryScores: raw.masteryScores && typeof raw.masteryScores === "object" ? raw.masteryScores : {},
+  };
 }
 
-function dispatchUpdate(): void {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT));
-  }
+function todayIso(now = Date.now()): string {
+  return new Date(now).toISOString().slice(0, 10);
 }
 
-export function loadProgress(): AcademyProgressState {
-  if (typeof window === "undefined") return defaultState();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState();
-    const parsed = JSON.parse(raw) as Partial<AcademyProgressState>;
-    // Migrate old versions
-    if (parsed.version !== 2) return defaultState();
-    return { ...defaultState(), ...parsed };
-  } catch {
-    return defaultState();
-  }
-}
-
-function saveProgress(state: AcademyProgressState): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Quota exceeded
-  }
-  dispatchUpdate();
-}
-
-/** Update streak based on last study date and today. */
-function updateStreak(state: AcademyProgressState): AcademyProgressState {
-  const today = todayIso();
+function updateStreak(state: AcademyProgressState, now = Date.now()): AcademyProgressState {
+  const today = todayIso(now);
   if (state.lastStudyDate === today) return state;
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterday = new Date(now);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const yesterdayIso = yesterday.toISOString().slice(0, 10);
-
-  const newStreak = state.lastStudyDate === yesterdayIso ? state.streak + 1 : 1;
-  return { ...state, streak: newStreak, lastStudyDate: today };
+  return {
+    ...state,
+    streak: state.lastStudyDate === yesterdayIso ? state.streak + 1 : 1,
+    lastStudyDate: today,
+  };
 }
-
-// ─── Public API ───────────────────────────────────────────────────────────────
 
 export const XP_TABLE = {
   LESSON_COMPLETE: 30,
-  LESSON_PERFECT: 80,       // 100% on lesson quiz
+  LESSON_PERFECT: 80,
   MODULE_QUIZ_PASS: 50,
   MODULE_QUIZ_PERFECT: 80,
-  FLASHCARD_SESSION: 10,    // per day
-  AI_MENTOR_SESSION: 15,    // per day
-  STREAK_MAINTAIN: 15,      // per day
-  STREAK_BONUS_30: 200,     // milestone
+  FLASHCARD_SESSION: 10,
+  AI_MENTOR_SESSION: 15,
+  STREAK_MAINTAIN: 15,
+  STREAK_BONUS_30: 200,
   STREAK_BONUS_100: 500,
 } as const;
 
-/** Award XP and update streak. Returns new state. */
-export function awardXp(amount: number): AcademyProgressState {
-  let state = loadProgress();
-  state = updateStreak(state);
-  state = { ...state, xp: state.xp + amount, level: computeLevel(state.xp + amount) };
-  saveProgress(state);
-  return state;
-}
-
-/** Record a completed lesson with quiz score. */
-export function recordLessonComplete(
-  lessonId: string,
-  score: number,
-  termNumber: number,
+export function applyAcademyProgressAction(
+  current: AcademyProgressState,
+  action: AcademyProgressAction,
 ): AcademyProgressState {
-  let state = loadProgress();
-  state = updateStreak(state);
+  let state = normalizeAcademyProgressState(current);
 
-  const existing = state.completedLessons[lessonId];
-  const xpEarned = score === 100 ? XP_TABLE.LESSON_PERFECT : XP_TABLE.LESSON_COMPLETE;
-  const bestScore = Math.max(existing?.score ?? 0, score);
-
-  state = {
-    ...state,
-    completedLessons: {
-      ...state.completedLessons,
-      [lessonId]: {
-        lessonId,
-        completedAt: Date.now(),
-        score: bestScore,
-        xpEarned,
-      },
-    },
-  };
-
-  // Only award XP if this is the first completion or score improved
-  if (!existing || score > existing.score) {
-    state = { ...state, xp: state.xp + xpEarned, level: computeLevel(state.xp + xpEarned) };
+  if (action.type === "award_xp") {
+    state = updateStreak(state);
+    const xp = state.xp + Math.max(0, Math.round(action.amount));
+    return { ...state, xp, level: computeLevel(xp) };
   }
 
-  // Update term status
-  const currentTermStatus = state.termStatus[termNumber];
-  if (!currentTermStatus || currentTermStatus === "unlocked") {
-    state = {
+  if (action.type === "lesson_complete") {
+    const completedAt = Number.isFinite(action.completedAt) ? Number(action.completedAt) : Date.now();
+    state = updateStreak(state, completedAt);
+    const existing = state.completedLessons[action.lessonId];
+    const xpEarned = action.score === 100 ? XP_TABLE.LESSON_PERFECT : XP_TABLE.LESSON_COMPLETE;
+    const bestScore = Math.max(existing?.score ?? 0, action.score);
+    let xp = state.xp;
+    if (!existing || action.score > existing.score) xp += xpEarned;
+
+    return {
       ...state,
-      termStatus: { ...state.termStatus, [termNumber]: "in_progress" },
+      xp,
+      level: computeLevel(xp),
+      completedLessons: {
+        ...state.completedLessons,
+        [action.lessonId]: {
+          lessonId: action.lessonId,
+          completedAt,
+          score: bestScore,
+          xpEarned,
+        },
+      },
+      termStatus: {
+        ...state.termStatus,
+        [action.termNumber]: state.termStatus[action.termNumber] === "passed" ? "passed" : "in_progress",
+      },
     };
   }
 
-  saveProgress(state);
-  return state;
-}
-
-/** Record module quiz score. Unlocks next term if all modules in current term pass. */
-export function recordModuleScore(
-  moduleId: string,
-  score: number,
-): AcademyProgressState {
-  let state = loadProgress();
-  const best = Math.max(state.moduleScores[moduleId] ?? 0, score);
-  const xp = score >= 90 ? XP_TABLE.MODULE_QUIZ_PERFECT : XP_TABLE.MODULE_QUIZ_PASS;
-  const prevBest = state.moduleScores[moduleId] ?? 0;
-
-  state = {
-    ...state,
-    moduleScores: { ...state.moduleScores, [moduleId]: best },
-  };
-
-  if (score > prevBest) {
-    state = { ...state, xp: state.xp + xp, level: computeLevel(state.xp + xp) };
+  if (action.type === "module_score") {
+    const previous = state.moduleScores[action.moduleId] ?? 0;
+    const best = Math.max(previous, action.score);
+    const reward = action.score >= 90 ? XP_TABLE.MODULE_QUIZ_PERFECT : XP_TABLE.MODULE_QUIZ_PASS;
+    const xp = action.score > previous ? state.xp + reward : state.xp;
+    return {
+      ...state,
+      xp,
+      level: computeLevel(xp),
+      moduleScores: { ...state.moduleScores, [action.moduleId]: best },
+    };
   }
 
-  saveProgress(state);
-  return state;
+  if (action.type === "pass_term") {
+    if (state.termStatus[action.termNumber] === "passed") return state;
+    const xp = state.xp + 500;
+    return {
+      ...state,
+      xp,
+      level: computeLevel(xp),
+      termStatus: {
+        ...state.termStatus,
+        [action.termNumber]: "passed",
+        [action.termNumber + 1]: state.termStatus[action.termNumber + 1] ?? "unlocked",
+      },
+    };
+  }
+
+  if (state.earnedBadges.includes(action.badgeCode)) return state;
+  return { ...state, earnedBadges: [...state.earnedBadges, action.badgeCode] };
 }
 
-/** Mark a term as passed and unlock the next one. */
-export function passTerm(termNumber: number): AcademyProgressState {
-  let state = loadProgress();
-  state = {
-    ...state,
-    termStatus: {
-      ...state.termStatus,
-      [termNumber]: "passed",
-      [termNumber + 1]: state.termStatus[termNumber + 1] ?? "unlocked",
-    },
-    xp: state.xp + 500,
-    level: computeLevel(state.xp + 500),
-  };
-  saveProgress(state);
-  return state;
+function localeFromBrowser(): "fa" | "en" {
+  if (typeof window === "undefined") return "fa";
+  return window.location.pathname.startsWith("/en/") ? "en" : "fa";
 }
 
-/** Award a badge (idempotent). */
-export function awardBadge(badgeCode: string): AcademyProgressState {
-  const state = loadProgress();
-  if (state.earnedBadges.includes(badgeCode)) return state;
-  const next = { ...state, earnedBadges: [...state.earnedBadges, badgeCode] };
-  saveProgress(next);
+function dispatchUpdate(locale: "fa" | "en", source: "server" | "optimistic"): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(PROGRESS_UPDATED_EVENT, { detail: { locale, source } }));
+}
+
+function dispatchSyncError(locale: "fa" | "en", error: unknown): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(PROGRESS_SYNC_ERROR_EVENT, {
+    detail: { locale, message: error instanceof Error ? error.message : String(error) },
+  }));
+}
+
+export function loadProgress(locale = localeFromBrowser()): AcademyProgressState {
+  return memoryByLocale.get(locale) ?? createDefaultAcademyProgressState();
+}
+
+export async function hydrateProgress(locale = localeFromBrowser()): Promise<AcademyProgressState> {
+  const existing = hydrationByLocale.get(locale);
+  if (existing) return existing;
+
+  const request = (async () => {
+    const response = await fetch(`/api/academy-state?locale=${locale}`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      if (response.status === 401) return loadProgress(locale);
+      throw new Error(`academy_state_load_failed:${response.status}`);
+    }
+    const body = await response.json() as { state?: unknown };
+    const state = normalizeAcademyProgressState(body.state);
+    memoryByLocale.set(locale, state);
+    dispatchUpdate(locale, "server");
+    return state;
+  })().catch((error) => {
+    hydrationByLocale.delete(locale);
+    dispatchSyncError(locale, error);
+    return loadProgress(locale);
+  });
+
+  hydrationByLocale.set(locale, request);
+  return request;
+}
+
+function enqueueServerAction(action: AcademyProgressAction, locale: "fa" | "en"): void {
+  const previous = writeQueueByLocale.get(locale) ?? Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(async () => {
+      const response = await fetch("/api/academy-state", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ locale, action }),
+      });
+      if (!response.ok) throw new Error(`academy_state_write_failed:${response.status}`);
+      const body = await response.json() as { state?: unknown };
+      const authoritative = normalizeAcademyProgressState(body.state);
+      memoryByLocale.set(locale, authoritative);
+      dispatchUpdate(locale, "server");
+    })
+    .catch((error) => {
+      dispatchSyncError(locale, error);
+      hydrationByLocale.delete(locale);
+    });
+
+  writeQueueByLocale.set(locale, next);
+}
+
+function applyAndPersist(action: AcademyProgressAction, locale = localeFromBrowser()): AcademyProgressState {
+  const next = applyAcademyProgressAction(loadProgress(locale), action);
+  memoryByLocale.set(locale, next);
+  dispatchUpdate(locale, "optimistic");
+  enqueueServerAction(action, locale);
   return next;
 }
 
-/** Check if a lesson has been completed at the given score threshold. */
+export function awardXp(amount: number): AcademyProgressState {
+  return applyAndPersist({ type: "award_xp", amount });
+}
+
+export function recordLessonComplete(lessonId: string, score: number, termNumber: number): AcademyProgressState {
+  return applyAndPersist({ type: "lesson_complete", lessonId, score, termNumber, completedAt: Date.now() });
+}
+
+export function recordModuleScore(moduleId: string, score: number): AcademyProgressState {
+  return applyAndPersist({ type: "module_score", moduleId, score });
+}
+
+export function passTerm(termNumber: number): AcademyProgressState {
+  return applyAndPersist({ type: "pass_term", termNumber });
+}
+
+export function awardBadge(badgeCode: string): AcademyProgressState {
+  return applyAndPersist({ type: "award_badge", badgeCode });
+}
+
 export function isLessonUnlocked(lessonId: string, minScore = 0): boolean {
-  const state = loadProgress();
-  const c = state.completedLessons[lessonId];
-  return c !== undefined && c.score >= minScore;
+  const completion = loadProgress().completedLessons[lessonId];
+  return completion !== undefined && completion.score >= minScore;
 }
 
-/** Get lesson completion data. */
 export function getLessonData(lessonId: string): LessonCompletion | null {
-  const state = loadProgress();
-  return state.completedLessons[lessonId] ?? null;
+  return loadProgress().completedLessons[lessonId] ?? null;
 }
 
-/** Subscribe to progress changes. Returns unsubscribe function. */
 export function onProgressChange(handler: () => void): () => void {
   if (typeof window === "undefined") return () => undefined;
   window.addEventListener(PROGRESS_UPDATED_EVENT, handler);
