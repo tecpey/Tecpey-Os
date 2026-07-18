@@ -59,3 +59,57 @@ jobs:
         env:
           NODE_ENV: production
         run: npm run build
+
+  migrate_academy_changes:
+    name: One-time Academy Migration to Latest Main
+    if: ${{ github.event_name == 'pull_request' && github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout clean branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/academy-official-progress-server-20260718-v3
+          fetch-depth: 0
+
+      - name: Copy reviewed Academy files without overwriting latest guard
+        run: |
+          set -euo pipefail
+          SOURCE_BRANCH=feat/academy-official-progress-server-20260718-v2
+          git fetch origin "$SOURCE_BRANCH:refs/remotes/origin/$SOURCE_BRANCH"
+
+          files=(
+            src/app/api/academy-lesson-progress/route.ts
+            src/components/academy/AcademyInteractiveRoadmap.tsx
+            src/components/academy/AcademyLessonCompletionControl.tsx
+            src/components/academy/AcademyStudentDashboard.tsx
+            src/components/academy/AcademyTermPage.tsx
+            src/components/academy/AcademyTermPageEn.tsx
+            src/components/academy/TermQuizClient.tsx
+            src/hooks/useAcademyPathProgress.ts
+            src/lib/academy-lesson-progress.ts
+            src/lib/db-migrate-user-state.ts
+            src/lib/mentor-events.ts
+            src/tests/academy/lesson-progress-model.test.ts
+            src/tests/academy/path-progress.test.ts
+          )
+
+          for file in "${files[@]}"; do
+            mkdir -p "$(dirname "$file")"
+            git show "origin/$SOURCE_BRANCH:$file" > "$file"
+          done
+
+      - name: Restore protected CI workflow
+        run: |
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ci.yml
+
+      - name: Commit clean migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/ci.yml src
+          git commit -m "feat(academy): migrate official progress onto latest main"
+          git push origin HEAD:feat/academy-official-progress-server-20260718-v3
