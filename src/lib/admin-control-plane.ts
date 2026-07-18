@@ -9,6 +9,7 @@ export const ADMIN_CONTROL_SESSION_COOKIE = "tecpey_admin_control_session";
 const ADMIN_SESSION_ISSUER = "tecpey";
 const ADMIN_SESSION_AUDIENCE = "tecpey-admin-control-plane";
 const DEFAULT_STEP_UP_MAX_AGE_SECONDS = 5 * 60;
+const ADMIN_AUDIT_LOCK_KEY = "tecpey_admin_audit_chain";
 
 export type AdminPrincipal = {
   adminId: string;
@@ -327,71 +328,84 @@ export async function writeAdminAuditEvent(
   client: PoolClient,
   input: AdminAuditInput,
 ): Promise<{ id: string; eventHash: string; createdAt: string }> {
-  const previous = await client.query<{ event_hash: string }>(
-    `SELECT event_hash FROM admin_audit_events ORDER BY created_at DESC, id DESC LIMIT 1`,
-  );
+  await client.query(`SELECT pg_advisory_lock(hashtext($1))`, [ADMIN_AUDIT_LOCK_KEY]);
 
-  const id = randomUUID();
-  const createdAt = new Date().toISOString();
-  const beforeState = input.beforeState === undefined ? null : redactAdminAuditValue(input.beforeState);
-  const afterState = input.afterState === undefined ? null : redactAdminAuditValue(input.afterState);
-  const previousHash = previous.rows[0]?.event_hash ?? null;
-  const hashPayload: Record<string, unknown> = {
-    id,
-    createdAt,
-    actorAdminId: input.actorAdminId,
-    sessionId: input.sessionId,
-    effectiveRoles: [...new Set(input.effectiveRoles)].sort(),
-    action: input.action,
-    resourceType: input.resourceType,
-    resourceId: input.resourceId ?? null,
-    requestId: input.requestId ?? null,
-    sourceIp: input.sourceIp ?? null,
-    userAgent: input.userAgent ?? null,
-    reason: input.reason ?? null,
-    beforeState,
-    afterState,
-    approvalRequestId: input.approvalRequestId ?? null,
-    outcome: input.outcome ?? "success",
-    errorCode: input.errorCode ?? null,
-  };
-  const eventHash = computeAdminAuditHash(previousHash, hashPayload);
+  try {
+    const previous = await client.query<{ event_hash: string }>(
+      `SELECT event_hash FROM admin_audit_events ORDER BY chain_sequence DESC LIMIT 1`,
+    );
 
-  // The database BEFORE INSERT trigger takes a transaction-scoped advisory lock
-  // and rejects stale previous_hash values, preventing concurrent chain forks.
-  await client.query(
-    `INSERT INTO admin_audit_events (
-       id, actor_admin_id, session_id, effective_roles, action, resource_type,
-       resource_id, request_id, source_ip, user_agent, reason, before_state,
-       after_state, approval_request_id, outcome, error_code, previous_hash,
-       event_hash, created_at
-     ) VALUES (
-       $1::uuid, $2::uuid, $3::uuid, $4::jsonb, $5, $6,
-       $7, $8, $9, $10, $11, $12::jsonb,
-       $13::jsonb, $14::uuid, $15, $16, $17, $18, $19::timestamptz
-     )`,
-    [
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    const beforeState = input.beforeState === undefined ? null : redactAdminAuditValue(input.beforeState);
+    const afterState = input.afterState === undefined ? null : redactAdminAuditValue(input.afterState);
+    const previousHash = previous.rows[0]?.event_hash ?? null;
+    const hashPayload: Record<string, unknown> = {
       id,
-      input.actorAdminId,
-      input.sessionId,
-      JSON.stringify(hashPayload.effectiveRoles),
-      input.action,
-      input.resourceType,
-      input.resourceId ?? null,
-      input.requestId ?? null,
-      input.sourceIp ?? null,
-      input.userAgent ?? null,
-      input.reason ?? null,
-      beforeState === null ? null : JSON.stringify(beforeState),
-      afterState === null ? null : JSON.stringify(afterState),
-      input.approvalRequestId ?? null,
-      input.outcome ?? "success",
-      input.errorCode ?? null,
-      previousHash,
-      eventHash,
       createdAt,
-    ],
-  );
+      actorAdminId: input.actorAdminId,
+      sessionId: input.sessionId,
+      effectiveRoles: [...new Set(input.effectiveRoles)].sort(),
+      action: input.action,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId ?? null,
+      requestId: input.requestId ?? null,
+      sourceIp: input.sourceIp ?? null,
+      userAgent: input.userAgent ?? null,
+      reason: input.reason ?? null,
+      beforeState,
+      afterState,
+      approvalRequestId: input.approvalRequestId ?? null,
+      outcome: input.outcome ?? "success",
+      errorCode: input.errorCode ?? null,
+    };
+    const eventHash = computeAdminAuditHash(previousHash, hashPayload);
 
-  return { id, eventHash, createdAt };
+    // The database trigger takes a transaction-scoped lock as a second layer and
+    // rejects stale previous_hash values, including direct inserts that bypass
+    // this writer.
+    await client.query(
+      `INSERT INTO admin_audit_events (
+         id, actor_admin_id, session_id, effective_roles, action, resource_type,
+         resource_id, request_id, source_ip, user_agent, reason, before_state,
+         after_state, approval_request_id, outcome, error_code, previous_hash,
+         event_hash, created_at
+       ) VALUES (
+         $1::uuid, $2::uuid, $3::uuid, $4::jsonb, $5, $6,
+         $7, $8, $9, $10, $11, $12::jsonb,
+         $13::jsonb, $14::uuid, $15, $16, $17, $18, $19::timestamptz
+       )`,
+      [
+        id,
+        input.actorAdminId,
+        input.sessionId,
+        JSON.stringify(hashPayload.effectiveRoles),
+        input.action,
+        input.resourceType,
+        input.resourceId ?? null,
+        input.requestId ?? null,
+        input.sourceIp ?? null,
+        input.userAgent ?? null,
+        input.reason ?? null,
+        beforeState === null ? null : JSON.stringify(beforeState),
+        afterState === null ? null : JSON.stringify(afterState),
+        input.approvalRequestId ?? null,
+        input.outcome ?? "success",
+        input.errorCode ?? null,
+        previousHash,
+        eventHash,
+        createdAt,
+      ],
+    );
+
+    return { id, eventHash, createdAt };
+  } finally {
+    try {
+      await client.query(`SELECT pg_advisory_unlock(hashtext($1))`, [ADMIN_AUDIT_LOCK_KEY]);
+    } catch (error) {
+      logger.error("[admin-control] failed to release audit advisory lock", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }
