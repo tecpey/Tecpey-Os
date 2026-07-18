@@ -10,6 +10,15 @@ CREATE UNIQUE INDEX admin_user_roles_active_idx
   ON admin_user_roles (admin_id, role_id)
   WHERE revoked_at IS NULL;
 
+ALTER TABLE admin_audit_events
+  ADD COLUMN IF NOT EXISTS chain_sequence BIGSERIAL;
+
+ALTER TABLE admin_audit_events
+  ALTER COLUMN chain_sequence SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS admin_audit_events_chain_sequence_idx
+  ON admin_audit_events (chain_sequence);
+
 CREATE OR REPLACE FUNCTION tecpey_block_admin_audit_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -37,15 +46,15 @@ AS $$
 DECLARE
   latest_hash TEXT;
 BEGIN
-  -- The transaction-scoped advisory lock serializes audit writers until the
-  -- surrounding transaction commits, without upgrading the table lock held by
-  -- INSERT and risking a lock-conversion deadlock.
+  -- Serialize audit writers until the surrounding transaction commits. A
+  -- database sequence supplies deterministic ordering independent of app clocks
+  -- and UUID ordering.
   PERFORM pg_advisory_xact_lock(hashtext('tecpey_admin_audit_chain'));
 
   SELECT event_hash
     INTO latest_hash
     FROM admin_audit_events
-    ORDER BY created_at DESC, id DESC
+    ORDER BY chain_sequence DESC
     LIMIT 1;
 
   IF NEW.previous_hash IS DISTINCT FROM latest_hash THEN
