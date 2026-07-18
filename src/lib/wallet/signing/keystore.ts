@@ -7,7 +7,7 @@
 //
 // SECURITY INVARIANTS (enforced here, not caller):
 //   - Private keys NEVER appear in logs, exceptions, or serialized objects
-//   - Key bytes are zeroed immediately after signing
+//   - Key bytes are zeroed immediately after signing/derivation
 //   - Key material sourced from environment only, never hardcoded
 
 import { createHash, createPrivateKey, createPublicKey, sign as cryptoSign } from "crypto";
@@ -29,11 +29,11 @@ async function secp256k1Sign(privateKeyHex: string, hash: Buffer): Promise<Buffe
   }
 }
 
-async function secp256k1GetPublicKey(privateKeyHex: string): Promise<Buffer> {
+async function secp256k1GetPublicKey(privateKeyHex: string, compressed = false): Promise<Buffer> {
   const secp = await import("@noble/secp256k1");
   const privKeyBytes = Buffer.from(privateKeyHex, "hex");
   try {
-    return Buffer.from(secp.getPublicKey(privKeyBytes, false)); // uncompressed 65 bytes
+    return Buffer.from(secp.getPublicKey(privKeyBytes, compressed));
   } finally {
     privKeyBytes.fill(0);
   }
@@ -84,7 +84,7 @@ function ed25519GetPublicKey(privateKeyHex: string): Buffer {
 // ── EVM address derivation ────────────────────────────────────────────────────
 
 async function evmAddressFromPrivKey(privateKeyHex: string): Promise<string> {
-  const pubKey = await secp256k1GetPublicKey(privateKeyHex);
+  const pubKey = await secp256k1GetPublicKey(privateKeyHex, false);
   const pubKeyBody = pubKey.slice(1); // Remove 0x04 prefix
   const { keccak_256 } = await import("@noble/hashes/sha3.js");
   const hash = keccak_256(pubKeyBody);
@@ -136,7 +136,7 @@ function encodeBech32(hrp: string, version: number, data: Buffer): string {
   return hrp + "1" + [...converted, ...checksum].map((d) => CHARSET[d]).join("");
 }
 
-// ── Environment key names ─────────────────────────────────────────────────────
+// ── Environment key names ────────────────────────────────────────────────────
 
 function envKeyName(chainId: ChainId, index = 0): string {
   const chain = chainId.toUpperCase().replace(/-/g, "_");
@@ -151,7 +151,7 @@ function getPrivateKey(chainId: ChainId, index = 0): string | null {
   return key.replace("0x", "").toLowerCase();
 }
 
-// ── Hot Wallet KeyStore ───────────────────────────────────────────────────────
+// ── Hot Wallet KeyStore ──────────────────────────────────────────────────────
 
 export class HotWalletKeyStore implements KeyStore {
   readonly type: KeyStoreType = "hot_wallet";
@@ -174,15 +174,22 @@ export class HotWalletKeyStore implements KeyStore {
     }
 
     if (chainId === "bitcoin") {
-      const secp = await import("@noble/secp256k1");
-      const privBytes = Buffer.from(privKey, "hex");
-      const pubBytes = Buffer.from(secp.getPublicKey(privBytes, true)); // compressed
-      privBytes.fill(0);
+      const pubBytes = await secp256k1GetPublicKey(privKey, true);
       return btcP2WPKHAddress(pubBytes);
     }
 
     // EVM chains
-    return await evmAddressFromPrivKey(privKey);
+    return evmAddressFromPrivKey(privKey);
+  }
+
+  async getPublicKey(chainId: ChainId, index = 0): Promise<Buffer> {
+    const privKey = getPrivateKey(chainId, index);
+    if (!privKey) {
+      throw new Error(`Hot wallet not configured for ${chainId}`);
+    }
+
+    if (chainId === "solana") return ed25519GetPublicKey(privKey);
+    return secp256k1GetPublicKey(privKey, chainId === "bitcoin");
   }
 
   async sign(chainId: ChainId, signingHash: Buffer, index = 0): Promise<Buffer> {
@@ -199,7 +206,7 @@ export class HotWalletKeyStore implements KeyStore {
   }
 }
 
-// ── HSM KeyStore (stub — Phase 39) ────────────────────────────────────────────
+// ── HSM KeyStore (stub — Phase 39) ───────────────────────────────────────────
 
 export class HsmKeyStore implements KeyStore {
   readonly type: KeyStoreType = "hsm";
@@ -212,12 +219,16 @@ export class HsmKeyStore implements KeyStore {
     throw new Error("HSM integration not implemented (Phase 39)");
   }
 
+  async getPublicKey(_chainId: ChainId, _index?: number): Promise<Buffer> {
+    throw new Error("HSM integration not implemented (Phase 39)");
+  }
+
   async sign(_chainId: ChainId, _hash: Buffer, _index?: number): Promise<Buffer> {
     throw new Error("HSM integration not implemented (Phase 39)");
   }
 }
 
-// ── MPC KeyStore (stub — Phase 40) ────────────────────────────────────────────
+// ── MPC KeyStore (stub — Phase 40) ───────────────────────────────────────────
 
 export class MpcKeyStore implements KeyStore {
   readonly type: KeyStoreType = "mpc";
@@ -227,6 +238,10 @@ export class MpcKeyStore implements KeyStore {
   }
 
   async getAddress(_chainId: ChainId, _index?: number): Promise<string> {
+    throw new Error("MPC integration not implemented (Phase 40)");
+  }
+
+  async getPublicKey(_chainId: ChainId, _index?: number): Promise<Buffer> {
     throw new Error("MPC integration not implemented (Phase 40)");
   }
 
@@ -268,17 +283,30 @@ export class SimulatedKeyStore implements KeyStore {
     throw new Error(`SimulatedKeyStore: unsupported chain ${chainId}`);
   }
 
+  async getPublicKey(chainId: ChainId, _index = 0): Promise<Buffer> {
+    const fixedKeyHex = this.fixedKey.toString("hex");
+    if (chainId === "solana") return ed25519GetPublicKey(fixedKeyHex);
+    return secp256k1GetPublicKey(fixedKeyHex, chainId === "bitcoin");
+  }
+
   async sign(_chainId: ChainId, signingHash: Buffer, _index = 0): Promise<Buffer> {
     const fakeSig = createHash("sha256").update(signingHash).update(this.fixedKey).digest();
     return Buffer.concat([fakeSig, fakeSig.slice(0, 32)]);
   }
 }
 
-// ── KeyStore Factory ──────────────────────────────────────────────────────────
+// ── KeyStore Factory ─────────────────────────────────────────────────────────
 
 export function createKeyStore(): KeyStore {
-  if (process.env.HSM_ENDPOINT && process.env.HSM_KEY_ID) return new HsmKeyStore();
-  if (process.env.MPC_ENDPOINT && process.env.MPC_PARTY_ID) return new MpcKeyStore();
+  // HSM/MPC classes are intentionally not selectable until their implementations
+  // and integration tests exist. Fail at configuration time, not after an
+  // approved withdrawal reaches the signing step.
+  if (process.env.HSM_ENDPOINT || process.env.HSM_KEY_ID) {
+    throw new Error("HSM keystore configured but HSM integration is not implemented");
+  }
+  if (process.env.MPC_ENDPOINT || process.env.MPC_PARTY_ID) {
+    throw new Error("MPC keystore configured but MPC integration is not implemented");
+  }
 
   const chains: ChainId[] = ["bitcoin", "ethereum", "bsc", "polygon", "tron", "solana"];
   const hotWallet = new HotWalletKeyStore();
@@ -288,7 +316,7 @@ export function createKeyStore(): KeyStore {
   throw new Error("No wallet keystore configured. Set WALLET_*_PRIVATE_KEY env vars.");
 }
 
-// ── Base58 encode (Solana address) ────────────────────────────────────────────
+// ── Base58 encode (Solana address) ───────────────────────────────────────────
 
 const B58_CHARS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
