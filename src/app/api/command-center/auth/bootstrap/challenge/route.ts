@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
            FOR UPDATE`,
         );
 
-        let adminId = proposedAdminId;
+        let adminId: string = proposedAdminId;
         if (pending.rows[0]) {
           if (pending.rows[0].email.toLowerCase() !== email) {
             throw new Error("admin_bootstrap_pending_for_another_identity");
