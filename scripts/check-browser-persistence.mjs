@@ -21,7 +21,6 @@ const expectedMatches = new Map(Object.entries({
   "src/components/academy/AiMentorExperience.tsx": 6,
   "src/components/academy/GlobalAiMentorWidget.tsx": 8,
   "src/components/academy/TermQuizClient.tsx": 4,
-  "src/components/academy/TradingArenaProClient.tsx": 2,
   "src/components/admin/CommandCenterDashboard.tsx": 1,
   "src/components/offline/OfflineSyncManager.tsx": 3,
   "src/lib/community-challenges.ts": 2,

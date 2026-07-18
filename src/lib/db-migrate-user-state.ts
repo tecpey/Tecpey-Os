@@ -33,10 +33,65 @@ ALTER TABLE academy_state_documents
   ADD COLUMN IF NOT EXISTS reflection_revision BIGINT NOT NULL DEFAULT 0;
 `;
 
+export const TRADING_ARENA_ACCOUNT_SQL = `
+CREATE TABLE IF NOT EXISTS academy_trading_arena_accounts (
+  student_id UUID PRIMARY KEY REFERENCES academy_students(id) ON DELETE CASCADE,
+  cycle_id UUID NOT NULL DEFAULT gen_random_uuid(),
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'locked', 'completed')),
+  initial_balance NUMERIC(30,10) NOT NULL DEFAULT 100000.0000000000
+    CHECK (initial_balance > 0),
+  available_balance NUMERIC(30,10) NOT NULL DEFAULT 100000.0000000000
+    CHECK (available_balance >= 0),
+  attempts_total SMALLINT NOT NULL DEFAULT 3
+    CHECK (attempts_total = 3),
+  attempts_used SMALLINT NOT NULL DEFAULT 0
+    CHECK (attempts_used >= 0 AND attempts_used <= attempts_total),
+  current_attempt SMALLINT NOT NULL DEFAULT 1
+    CHECK (current_attempt >= 1 AND current_attempt <= attempts_total),
+  revision BIGINT NOT NULL DEFAULT 1,
+  cycle_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  cycle_ends_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 days'),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, cycle_id)
+);
+
+CREATE TABLE IF NOT EXISTS academy_trading_arena_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL,
+  cycle_id UUID NOT NULL,
+  attempt_number SMALLINT NOT NULL CHECK (attempt_number BETWEEN 1 AND 3),
+  status TEXT NOT NULL CHECK (status IN ('active', 'available', 'failed', 'passed')),
+  starting_balance NUMERIC(30,10) NOT NULL DEFAULT 100000.0000000000
+    CHECK (starting_balance > 0),
+  cash_balance NUMERIC(30,10) NOT NULL DEFAULT 100000.0000000000
+    CHECK (cash_balance >= 0),
+  equity NUMERIC(30,10) NOT NULL DEFAULT 100000.0000000000
+    CHECK (equity >= 0),
+  started_at TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, cycle_id, attempt_number),
+  FOREIGN KEY (student_id, cycle_id)
+    REFERENCES academy_trading_arena_accounts(student_id, cycle_id)
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS academy_trading_arena_one_active_attempt_idx
+  ON academy_trading_arena_attempts(student_id)
+  WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS academy_trading_arena_attempts_cycle_idx
+  ON academy_trading_arena_attempts(student_id, cycle_id, attempt_number);
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
   { filename: "0015_academy_reflection_memory.sql", sql: ACADEMY_REFLECTION_MEMORY_SQL },
+  { filename: "0016_trading_arena_account.sql", sql: TRADING_ARENA_ACCOUNT_SQL },
 ];
 
 function checksum(sql: string): string {
