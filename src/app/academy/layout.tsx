@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { pageMetadata } from "@/components/seo/metadata";
+import AcademyStateBootstrap from "@/components/academy/AcademyStateBootstrap";
 
 export const metadata = pageMetadata({
   title: "آکادمی تک‌پی | آموزش رمزارز با بیان ساده",
@@ -21,5 +22,10 @@ export const metadata = pageMetadata({
 });
 
 export default function Layout({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <AcademyStateBootstrap locale="fa" />
+      {children}
+    </>
+  );
 }
