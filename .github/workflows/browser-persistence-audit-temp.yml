@@ -1,0 +1,30 @@
+name: Temporary Browser Persistence Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build persistence inventory
+        run: |
+          {
+            echo '# Browser persistence inventory'
+            echo
+            echo 'Generated from commit:' "$GITHUB_SHA"
+            echo
+            echo '## Matches'
+            grep -RInE --exclude-dir=.git --exclude-dir=node_modules --exclude='browser-persistence-inventory.md' \
+              '(localStorage|sessionStorage|indexedDB|IndexedDB|caches\.(open|match|put|delete)|CacheStorage)' \
+              src public .github docs 2>/dev/null || true
+          } > browser-persistence-inventory.md
+          cat browser-persistence-inventory.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browser-persistence-inventory
+          path: browser-persistence-inventory.md
+          if-no-files-found: error
+          retention-days: 1
