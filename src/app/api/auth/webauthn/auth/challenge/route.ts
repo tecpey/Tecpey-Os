@@ -8,9 +8,9 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
   generateChallenge,
-  storeWebAuthnChallenge,
   listCredentials,
 } from "@/lib/security/webauthn";
+import { storeWebAuthnCeremonyChallenge } from "@/lib/security/webauthn-ceremony";
 
 export const dynamic = "force-dynamic";
 
@@ -20,19 +20,24 @@ export async function POST(req: NextRequest) {
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
     const body = await req.json().catch(() => ({}));
-    const userId: string | undefined = body.userId;
+    const userId = typeof body.userId === "string" && body.userId.length > 0
+      ? body.userId
+      : null;
 
     const challenge = generateChallenge();
 
     try {
-      // Store challenge associated with userId (or "anon" for resident key flow)
-      await storeWebAuthnChallenge(challenge, userId ?? "anon");
+      await storeWebAuthnCeremonyChallenge({
+        challenge,
+        ceremony: "authentication",
+        userId,
+      });
     } catch {
       return apiError("webauthn_requires_redis", 503);
     }
 
-    // For resident keys: no allowCredentials (browser discovers them)
-    // For non-resident: provide the user's registered credentials
+    // For discoverable credentials: no allowCredentials (browser discovers them).
+    // For username-bound authentication: return only that user's active credentials.
     const allowCredentials = userId
       ? (await listCredentials(userId))
           .filter((c) => c.isActive)
