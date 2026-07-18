@@ -37,16 +37,21 @@ export async function hasAdminAccess(req: NextRequest): Promise<boolean> {
   if (principal === "unavailable") return false;
   if (principal) return true;
 
-  // Transitional fallback. It remains available only while the admin database
-  // is healthy and its authority state can be determined. A database outage
-  // must never turn the shared token into a bypass around server-side identity.
+  const legacyHeader = req.headers.get(ADMIN_HEADER);
+  const legacyCookie = req.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!legacyHeader && !legacyCookie) return false;
+
+  // Transitional fallback. It is evaluated only when a legacy credential is
+  // actually presented, so ordinary user requests do not acquire an admin DB
+  // dependency. A database outage still fails closed before the shared secret
+  // can authorize anything.
+  const token = getAdminToken();
+  if (!token) return false;
   const bootstrapState = await getAdminBootstrapState();
   if (bootstrapState === "unavailable") return false;
 
-  const token = getAdminToken();
-  if (!token) return false;
-  if (safeTokenMatch(req.headers.get(ADMIN_HEADER), token)) return true;
-  return verifyAdminSessionCookie(req.cookies.get(ADMIN_SESSION_COOKIE)?.value);
+  if (safeTokenMatch(legacyHeader, token)) return true;
+  return verifyAdminSessionCookie(legacyCookie);
 }
 
 async function createAdminSessionToken(): Promise<string | null> {
