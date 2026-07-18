@@ -52,14 +52,22 @@ export async function GET() {
   const warnings: string[] = [];
   if (db.status === "unconfigured") warnings.push("database_not_configured: DATABASE_URL is missing or placeholder");
   if (db.status === "unavailable") warnings.push("database_unavailable: cannot connect to PostgreSQL");
-  if (redis.status === "unconfigured" && isProduction) warnings.push("redis_not_configured: rate limiting is per-instance only");
+  if (redis.status === "unconfigured" && isProduction) warnings.push("redis_not_configured: production requires shared Redis");
   if (redis.status === "unavailable") warnings.push("redis_unavailable: cannot reach Redis");
   if (email === "unconfigured" && isProduction) warnings.push("email_not_configured: transactional emails will not be delivered");
 
-  // Overall status: "degraded" on any non-ok non-unconfigured check.
-  const overall = (db.status === "unavailable" || redis.status === "unavailable")
-    ? "degraded"
-    : "ok";
+  // Production must fail closed when a critical persistence/distributed-state
+  // dependency is unavailable or missing. Returning HTTP 200 in this state can
+  // keep an unhealthy instance behind a load balancer and route financial or
+  // authenticated traffic to it.
+  const criticalDependencyFailure =
+    db.status !== "ok" || (isProduction && redis.status !== "ok");
+
+  const overall = criticalDependencyFailure
+    ? "unhealthy"
+    : warnings.length > 0
+      ? "degraded"
+      : "ok";
 
   const checks = {
     app: "ok" as const,
@@ -105,5 +113,5 @@ export async function GET() {
       alertWebhook: process.env.ALERT_WEBHOOK_URL ? "configured" : "unconfigured",
     },
     ...(warnings.length > 0 ? { warnings } : {}),
-  }, 200, { "Cache-Control": "no-store, max-age=0" });
+  }, criticalDependencyFailure ? 503 : 200, { "Cache-Control": "no-store, max-age=0" });
 }
