@@ -1,0 +1,133 @@
+name: Temporary Trading Arena Refactor
+
+on:
+  push:
+    branches:
+      - fix/trading-arena-no-browser-fallback-20260718
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: ${{ !contains(github.event.head_commit.message, 'fix(arena): remove silent browser persistence fallback') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/trading-arena-no-browser-fallback-20260718
+          fetch-depth: 0
+
+      - name: Apply exact Arena refactor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          client_path = Path('src/components/academy/TradingArenaProClient.tsx')
+          source = client_path.read_text()
+
+          source = source.replace(
+              '  const [saving, setSaving] = useState(false);\n',
+              '  const [saving, setSaving] = useState(false);\n  const [loadError, setLoadError] = useState(false);\n  const [saveError, setSaveError] = useState("");\n',
+              1,
+          )
+
+          old_load = '''      .catch(() => {
+        try {
+          const stored = JSON.parse(localStorage.getItem("tecpey-trading-arena-trades") || "[]");
+          if (Array.isArray(stored)) setTrades(stored.slice(0, 30));
+        } catch {}
+      });'''
+          new_load = '''      .catch(() => {
+        if (!active) return;
+        setLoadError(true);
+      });'''
+          if old_load not in source:
+              raise SystemExit('Expected Arena load fallback block not found')
+          source = source.replace(old_load, new_load, 1)
+
+          old_persist = '''
+  useEffect(() => {
+    try { localStorage.setItem("tecpey-trading-arena-trades", JSON.stringify(trades.slice(0, 30))); } catch {}
+  }, [trades]);
+'''
+          if old_persist not in source:
+              raise SystemExit('Expected Arena localStorage persistence effect not found')
+          source = source.replace(old_persist, '\n', 1)
+
+          source = source.replace(
+              '    setSaving(true);\n',
+              '    setSaving(true);\n    setSaveError("");\n',
+              1,
+          )
+
+          old_catch = '''    } catch {
+      setTrades((items) => [trade, ...items].slice(0, 30));
+      setEntryReason("");
+      setPlan("");
+    } finally {'''
+          new_catch = '''    } catch {
+      setSaveError(isFa
+        ? "معامله ثبت نشد. اتصال به سرور را بررسی کن و دوباره تلاش کن؛ هیچ داده‌ای فقط در مرورگر ذخیره نشده است."
+        : "Trade was not saved. Check the server connection and try again; no browser-only copy was created.");
+    } finally {'''
+          if old_catch not in source:
+              raise SystemExit('Expected Arena optimistic failure block not found')
+          source = source.replace(old_catch, new_catch, 1)
+
+          anchor = '''  if (!checked) {
+'''
+          status_block = '''  if (loadError && profileReady) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-12 text-white" dir={isFa ? "rtl" : "ltr"}>
+        <section className="mx-auto max-w-3xl rounded-[38px] border border-red-300/25 bg-red-400/10 p-8 text-center" role="alert">
+          <AlertTriangle className="mx-auto h-12 w-12 text-red-200" />
+          <h1 className="mt-4 text-2xl font-black">{isFa ? "اتصال به اتاق معامله برقرار نشد" : "Trading Arena connection failed"}</h1>
+          <p className="mt-4 text-sm font-bold leading-8 text-slate-200">{isFa ? "برای جلوگیری از نمایش سابقه جعلی یا ناقص، داده‌ای از مرورگر بازیابی نشد. صفحه را پس از بررسی اتصال دوباره بارگذاری کن." : "To avoid showing false or incomplete history, no browser fallback was used. Check the connection and reload the page."}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-6 rounded-2xl bg-red-300/20 px-6 py-3 text-sm font-black text-red-100 hover:bg-red-300/30">
+            {isFa ? "تلاش دوباره" : "Try again"}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+'''
+          if anchor not in source:
+              raise SystemExit('Arena checked-state anchor not found')
+          source = source.replace(anchor, status_block + anchor, 1)
+
+          submit_anchor = '''               <div className="grid gap-3 sm:grid-cols-2">'''
+          error_ui = '''               {saveError && (
+                 <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-3 text-xs font-bold leading-6 text-red-200" role="alert">
+                   {saveError}
+                 </div>
+               )}
+
+'''
+          if submit_anchor not in source:
+              raise SystemExit('Arena submit form anchor not found')
+          source = source.replace(submit_anchor, error_ui + submit_anchor, 1)
+
+          if 'localStorage' in source:
+              raise SystemExit('TradingArenaProClient still contains localStorage')
+          client_path.write_text(source)
+
+          guard_path = Path('scripts/check-browser-persistence.mjs')
+          guard = guard_path.read_text()
+          baseline_line = '  "src/components/academy/TradingArenaProClient.tsx": 2,\n'
+          if baseline_line not in guard:
+              raise SystemExit('Expected TradingArenaProClient baseline was not found')
+          guard_path.write_text(guard.replace(baseline_line, '', 1))
+
+          workflow = Path('.github/workflows/trading-arena-browser-fallback-refactor.yml')
+          workflow.unlink()
+          PY
+
+      - name: Commit targeted refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/academy/TradingArenaProClient.tsx scripts/check-browser-persistence.mjs .github/workflows/trading-arena-browser-fallback-refactor.yml
+          git commit -m "fix(arena): remove silent browser persistence fallback"
+          git push origin HEAD:fix/trading-arena-no-browser-fallback-20260718
