@@ -17,10 +17,13 @@ describe("Academy path progress aggregation", () => {
 
     assert.equal(progress["term-1"].completed, true);
     assert.equal(progress["term-1"].progress, 100);
+    assert.equal(progress["term-1"].xp, 140);
     assert.equal(progress["term-2"].locked, false);
     assert.equal(progress["term-2"].progress, 50);
+    assert.equal(progress["term-2"].xp, 55);
     assert.equal(progress["term-3"].locked, true);
     assert.equal(progress["term-3"].progress, 0);
+    assert.equal(progress["term-3"].xp, 0);
   });
 
   it("shows lesson progress before the official quiz without unlocking the next term", () => {
@@ -32,6 +35,7 @@ describe("Academy path progress aggregation", () => {
     );
 
     assert.equal(progress["term-1"].progress, 40);
+    assert.equal(progress["term-1"].xp, 20);
     assert.equal(progress["term-1"].completed, false);
     assert.equal(progress["term-2"].locked, true);
   });
