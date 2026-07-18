@@ -6,8 +6,8 @@ import { apiError } from "./api-validation";
  * Canonical administrator authorization.
  *
  * Normal production access is granted only through an individually attributable,
- * server-registered control-plane session. TECPEY_ADMIN_TOKEN is intentionally
- * accepted only by the one-time bootstrap endpoints.
+ * server-registered control-plane session. The temporary shared bootstrap
+ * credential is intentionally accepted only by the one-time bootstrap endpoints.
  */
 export async function hasAdminAccess(req: NextRequest): Promise<boolean> {
   const principal = await loadAdminPrincipal(req);
