@@ -23,6 +23,13 @@ describe("Academy lesson progress model", () => {
     assert.equal(resolveOfficialLesson("fa", "term-1", "custom-heading"), null);
   });
 
+  it("rejects alternate encodings of the same official lesson key", () => {
+    assert.equal(resolveOfficialLesson("fa", "term-1", "lesson-01"), null);
+    assert.equal(resolveOfficialLesson("fa", "term-1", "lesson-001"), null);
+    assert.equal(resolveOfficialLesson("fa", "term-1", "lesson-00"), null);
+    assert.equal(resolveOfficialLesson("fa", "term-1", "lesson-1" )?.sectionKey, "lesson-1");
+  });
+
   it("normalizes answers and keeps only the latest twenty attempts", () => {
     assert.equal(normalizeLessonAnswer("  پاسخ\u0000  نمونه  "), "پاسخ نمونه");
     assert.equal(normalizeLessonAnswer("   "), null);
