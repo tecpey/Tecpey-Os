@@ -1,3 +1,30 @@
+export type PublicKeyCredentialDescriptorJSON = {
+  type: "public-key";
+  id: string;
+  transports?: AuthenticatorTransport[];
+};
+
+export type AdminRegistrationOptionsJSON = {
+  challenge: string;
+  rp: PublicKeyCredentialRpEntity;
+  user: Omit<PublicKeyCredentialUserEntity, "id"> & { id: string };
+  pubKeyCredParams: PublicKeyCredentialParameters[];
+  timeout?: number;
+  excludeCredentials?: PublicKeyCredentialDescriptorJSON[];
+  authenticatorSelection?: AuthenticatorSelectionCriteria;
+  attestation?: AttestationConveyancePreference;
+  extensions?: AuthenticationExtensionsClientInputs;
+};
+
+export type AdminAuthenticationOptionsJSON = {
+  challenge: string;
+  timeout?: number;
+  rpId?: string;
+  allowCredentials?: PublicKeyCredentialDescriptorJSON[];
+  userVerification?: UserVerificationRequirement;
+  extensions?: AuthenticationExtensionsClientInputs;
+};
+
 export type RegistrationCredentialJSON = {
   id: string;
   rawId: string;
@@ -61,7 +88,7 @@ export function bufferSourceToBase64Url(value: BufferSource): string {
 }
 
 export function registrationOptionsFromJSON(
-  input: PublicKeyCredentialCreationOptionsJSON,
+  input: AdminRegistrationOptionsJSON,
 ): PublicKeyCredentialCreationOptions {
   return {
     ...input,
@@ -78,7 +105,7 @@ export function registrationOptionsFromJSON(
 }
 
 export function authenticationOptionsFromJSON(
-  input: PublicKeyCredentialRequestOptionsJSON,
+  input: AdminAuthenticationOptionsJSON,
 ): PublicKeyCredentialRequestOptions {
   return {
     ...input,
