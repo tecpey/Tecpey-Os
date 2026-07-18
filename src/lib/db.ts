@@ -2,6 +2,7 @@ import { Pool, type PoolClient } from "pg";
 import { runMigrations } from "./db-migrate";
 import { runCompatibilityMigrations } from "./db-migrate-compat";
 import { runUserStateMigrations } from "./db-migrate-user-state";
+import { runAdminControlPlaneMigrations } from "./db-migrate-admin-control-plane";
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
@@ -72,6 +73,7 @@ async function ensureSchema(p: Pool): Promise<void> {
         await runMigrations(client);
         await runCompatibilityMigrations(client);
         await runUserStateMigrations(client);
+        await runAdminControlPlaneMigrations(client);
       } catch (err) {
         schemaInit = null;
         throw err;
