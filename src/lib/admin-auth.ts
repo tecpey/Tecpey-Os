@@ -1,5 +1,7 @@
+import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify, SignJWT } from "jose";
+import { loadAdminPrincipal } from "./admin-control-plane";
 import { shouldUseSecureCookie } from "./platform-config";
 import { apiError } from "./api-validation";
 
@@ -22,13 +24,22 @@ function getAdminSigningKey(): Uint8Array | null {
   return token ? new TextEncoder().encode(token) : null;
 }
 
+function safeTokenMatch(supplied: string | null, expected: string): boolean {
+  if (!supplied) return false;
+  const suppliedBytes = Buffer.from(supplied, "utf8");
+  const expectedBytes = Buffer.from(expected, "utf8");
+  return suppliedBytes.length === expectedBytes.length && timingSafeEqual(suppliedBytes, expectedBytes);
+}
+
 export async function hasAdminAccess(req: NextRequest): Promise<boolean> {
+  const principal = await loadAdminPrincipal(req);
+  if (principal && principal !== "unavailable") return true;
+
+  // Transitional fallback. The following UI migration will make this token
+  // bootstrap-only after Passkey login is available in Command Center.
   const token = getAdminToken();
   if (!token) return false;
-
-  // Accept either the explicit header (first-time token submission) or the
-  // signed httpOnly session cookie set by a previous successful authentication.
-  if (req.headers.get(ADMIN_HEADER) === token) return true;
+  if (safeTokenMatch(req.headers.get(ADMIN_HEADER), token)) return true;
   return verifyAdminSessionCookie(req.cookies.get(ADMIN_SESSION_COOKIE)?.value);
 }
 
@@ -60,7 +71,8 @@ async function verifyAdminSessionCookie(token: string | undefined): Promise<bool
 }
 
 /**
- * Sets a signed httpOnly admin session cookie without storing the raw admin token.
+ * Transitional legacy cookie. New administrator authentication uses the
+ * server-registered, revocable control-plane session cookie.
  */
 export async function setAdminSessionCookie(response: NextResponse) {
   const sessionToken = await createAdminSessionToken();
