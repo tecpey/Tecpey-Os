@@ -7,19 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  typecheck-diagnostic:
-    name: TypeScript Diagnostic
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clone branch quietly
-        run: git clone --quiet --depth 1 --branch feat/admin-passkey-backend-20260719 https://github.com/tecpey/Tecpey-Os.git repo
-      - name: Install quietly
-        working-directory: repo
-        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund --silent
-      - name: TypeScript errors
-        working-directory: repo
-        run: ./node_modules/.bin/tsc --noEmit --pretty false
-
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
