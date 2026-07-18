@@ -56,15 +56,6 @@ export function TermQuizClient({
     let active = true;
     const checkAccess = async () => {
       try {
-        const savedLead = window.localStorage.getItem("tecpey-academy-lead");
-        if (savedLead) {
-          const parsed = JSON.parse(savedLead);
-          if (parsed?.name && parsed?.phone) {
-            setLead({ name: parsed.name, phone: parsed.phone });
-            setLeadSaved(true);
-          }
-        }
-
         const profileResponse = await fetch("/api/academy-student-profile", { cache: "no-store" }).catch(() => null);
         if (profileResponse?.ok) {
           const profileData = await profileResponse.json().catch(() => ({}));
@@ -103,7 +94,7 @@ export function TermQuizClient({
   const passed = Boolean(officialResult?.passed);
 
   useEffect(() => {
-    if (!storageKey || !completed) return;
+    if (!completed) return;
     void fetch("/api/academy-term-progress", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,12 +104,7 @@ export function TermQuizClient({
         const data = await response.json().catch(() => ({}));
         if (response.ok) {
           setOfficialResult({ score: Number(data?.score || 0), percent: Number(data?.percent || 0), passed: Boolean(data?.passed) });
-          const payload = { score: Number(data?.score || 0), percent: Number(data?.percent || 0), passed: Boolean(data?.passed), completedAt: new Date().toISOString(), termNumber };
-          try {
-            window.localStorage.setItem(storageKey, JSON.stringify(payload));
-            window.localStorage.setItem(`tecpey-academy-term-${termNumber}`, JSON.stringify(payload));
-            window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
-          } catch {}
+          window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
           setOfficialMessage(data?.passed ? (locale === "fa" ? "نتیجه آزمون به‌صورت رسمی در پرونده آموزشی ثبت شد." : "Your assessment result was officially saved to your learning record.") : (locale === "fa" ? "نیاز به مرور دارید؛ نتیجه رسمی در پرونده آموزشی ثبت شد." : "Review needed; your official result was saved."));
         } else if (data?.error === "complete_account_required") setOfficialMessage(locale === "fa" ? "برای ثبت رسمی نتیجه، ابتدا حساب آکادمی را کامل کن." : "Complete your academy account to save this result officially.");
         else setOfficialMessage(locale === "fa" ? "نتیجه فقط پس از بررسی رسمی در پرونده آموزشی ثبت می‌شود." : "Results are saved only after official verification.");
@@ -155,7 +141,6 @@ export function TermQuizClient({
         setLeadError(isFa ? "برای ثبت رسمی مسیر، تنظیمات حساب یا پایگاه داده را بررسی کنید." : "Check account or database settings to save the official path.");
         return;
       }
-      window.localStorage.setItem("tecpey-academy-lead", JSON.stringify({ name: cleanName, phone: cleanPhone, locale, termNumber, createdAt: new Date().toISOString() }));
       setLeadSaved(true);
       window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
     } catch {
