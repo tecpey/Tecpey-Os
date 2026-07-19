@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Cloud, CloudOff, RotateCw } from "lucide-react";
-import type { OfflineEventType } from "@/lib/offline-sync";
+import type { OfflineEventType, OfflineSyncResult } from "@/lib/offline-sync";
 
 type OfflineQueueItem = {
   id: string;
@@ -11,6 +11,10 @@ type OfflineQueueItem = {
   locale: "fa" | "en";
   clientCreatedAt: string;
   payload: Record<string, unknown>;
+};
+
+type OfflineSyncResponse = {
+  results?: OfflineSyncResult[];
 };
 
 const STORAGE_KEY = "tecpey_offline_queue_v1";
@@ -32,9 +36,16 @@ function writeQueue(items: OfflineQueueItem[]) {
   window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
 }
 
-export function queueOfflineEvent(eventType: OfflineEventType, payload: Record<string, unknown> = {}, locale: "fa" | "en" = "fa") {
+export function queueOfflineEvent(
+  eventType: OfflineEventType,
+  payload: Record<string, unknown> = {},
+  locale: "fa" | "en" = "fa",
+) {
   const item: OfflineQueueItem = {
-    id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `offline_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `offline_${Date.now()}_${Math.random().toString(16).slice(2)}`,
     eventType,
     source: "web",
     locale,
@@ -54,11 +65,18 @@ async function syncQueue() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items: queue }),
   });
+
+  // A non-2xx response, including storage-unavailable 503, is never an
+  // acknowledgement. Preserve every client command for a later retry.
   if (!response.ok) return { ok: false, pending: queue.length };
-  const data = await response.json().catch(() => null);
-  const accepted = new Set((data?.results || []).filter((r: any) => r.status === "accepted").map((r: any) => r.id));
-  const rejected = new Set((data?.results || []).filter((r: any) => r.status === "rejected").map((r: any) => r.id));
-  writeQueue(queue.filter((item) => !accepted.has(item.id) && !rejected.has(item.id)));
+
+  const data = (await response.json().catch(() => null)) as OfflineSyncResponse | null;
+  const terminal = new Set(
+    (data?.results || [])
+      .filter((result) => result.status === "committed" || result.status === "rejected")
+      .map((result) => result.id),
+  );
+  writeQueue(queue.filter((item) => !terminal.has(item.id)));
   window.localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   return { ok: true, pending: readQueue().length };
 }
@@ -112,9 +130,18 @@ export function OfflineSyncManager() {
 
   if (online && pending === 0) return null;
   return (
-    <div className="fixed bottom-4 left-4 z-[70] max-w-[calc(100vw-2rem)] rounded-2xl border border-cyan-300/20 bg-slate-950/92 px-4 py-3 text-xs font-black text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl" dir="rtl">
+    <div
+      className="fixed bottom-4 left-4 z-[70] max-w-[calc(100vw-2rem)] rounded-2xl border border-cyan-300/20 bg-slate-950/92 px-4 py-3 text-xs font-black text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl"
+      dir="rtl"
+    >
       <div className="flex items-center gap-2">
-        {syncing ? <RotateCw className="h-4 w-4 animate-spin text-cyan-300" /> : online ? <Cloud className="h-4 w-4 text-cyan-300" /> : <CloudOff className="h-4 w-4 text-amber-300" />}
+        {syncing ? (
+          <RotateCw className="h-4 w-4 animate-spin text-cyan-300" />
+        ) : online ? (
+          <Cloud className="h-4 w-4 text-cyan-300" />
+        ) : (
+          <CloudOff className="h-4 w-4 text-amber-300" />
+        )}
         <span>{label}</span>
       </div>
     </div>
