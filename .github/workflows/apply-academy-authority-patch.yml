@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: apply-academy-authority-patch
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply:
