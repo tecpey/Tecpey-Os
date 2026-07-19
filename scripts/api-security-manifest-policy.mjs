@@ -14,6 +14,14 @@ function validDate(value) {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+function groupedExceptionId(groupId, method, route) {
+  const routeId = route
+    .toLowerCase()
+    .replace(/[^a-z0-9._:-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${groupId}:${method.toLowerCase()}:${routeId}`;
+}
+
 function validateManifestShape(manifest) {
   const errors = [];
   if (!manifest || manifest.schemaVersion !== 1) errors.push("manifest.schemaVersion must equal 1");
@@ -129,7 +137,7 @@ function expandRegistry(registry, errors) {
         errors.push(`${operationPrefix}.owner is invalid`);
       }
       exceptions.push({
-        id: `${group.id}:${operation.method}:${operation.route}`,
+        id: groupedExceptionId(group.id, operation.method, operation.route),
         route: operation.route,
         method: operation.method,
         finding: group.finding,
