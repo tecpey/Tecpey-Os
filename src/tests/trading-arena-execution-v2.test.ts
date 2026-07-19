@@ -7,7 +7,6 @@ import {
   createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionContext,
-  type ArenaExecutionStateV2,
   type ArenaPriceSnapshot,
 } from "@/lib/trading-arena-execution-v2";
 import { parseArenaMarketPricePayload } from "@/lib/arena-market-price";

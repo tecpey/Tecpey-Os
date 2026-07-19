@@ -21,7 +21,6 @@ import {
 import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
-  createArenaExecutionStateV2,
   normalizeArenaExecutionStateV2,
   type ArenaExecutionActionV2,
   type ArenaExecutionStateV2,

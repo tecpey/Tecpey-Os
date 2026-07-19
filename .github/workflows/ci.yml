@@ -6,57 +6,59 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
-  arena-lint-fix:
-    name: Arena Lint Fix
+  quality:
+    name: Quality Checks
     runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_the model_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+
     steps:
-      - name: Checkout source branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: feat/trading-arena-authoritative-execution-20260719
-          fetch-depth: 0
-      - name: Apply asserted lint fixes and restore canonical CI
-        shell: bash
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Verify npm version
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+          echo "npm $(npm --version) OK"
 
-          def replace_once(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"expected exactly one match in {path}, found {count}")
-              file.write_text(text.replace(old, new, 1))
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-          replace_once(
-              "src/app/api/trading-arena/execution/route.ts",
-              "  createArenaExecutionStateV2,\n",
-              "",
-          )
-          replace_once(
-              "src/tests/trading-arena-execution-v2.test.ts",
-              "  type ArenaExecutionStateV2,\n",
-              "",
-          )
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
 
-          subprocess.run(["git", "fetch", "origin", "main", "--quiet"], check=True)
-          canonical_ci = subprocess.check_output(
-              ["git", "show", "origin/main:.github/workflows/ci.yml"],
-              text=True,
-          )
-          Path(".github/workflows/ci.yml").write_text(canonical_ci)
-          PY
+      - name: ESLint
+        run: ./node_modules/.bin/eslint . --max-warnings 0
 
-          git config user.name "tecpey-ci"
-          git config user.email "actions@users.noreply.github.com"
-          git add src/app/api/trading-arena/execution/route.ts \
-                  src/tests/trading-arena-execution-v2.test.ts \
-                  .github/workflows/ci.yml
-          git commit -m "fix(arena): remove unused execution imports"
-          git push origin HEAD:feat/trading-arena-authoritative-execution-20260719
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
+
+      - name: Admin authentication boundary guard
+        run: node scripts/check-admin-auth-boundary.mjs
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        env:
+          NODE_ENV: production
+        run: npm run build
