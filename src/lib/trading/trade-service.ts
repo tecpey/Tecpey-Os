@@ -1,9 +1,8 @@
 import { randomUUID } from "crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { toFixed } from "./decimal";
 import type { MakerSide, Trade } from "./types";
-
-// ── Row mapper ────────────────────────────────────────────────────────────────
 
 function rowToTrade(row: Record<string, unknown>): Trade {
   return {
@@ -20,21 +19,18 @@ function rowToTrade(row: Record<string, unknown>): Trade {
   };
 }
 
-// ── Create trade (engine-internal) ───────────────────────────────────────────
-
 export type CreateTradeInput = {
   id: string;
   market: string;
   buyerOrderId: string;
   sellerOrderId: string;
-  price: number;
-  quantity: number;
-  feeBuyer: number;
-  feeSeller: number;
+  price: string;
+  quantity: string;
+  feeBuyer: string;
+  feeSeller: string;
   makerSide: MakerSide;
 };
 
-// Transaction-aware variant — uses caller-provided PoolClient.
 export async function createTradeTx(
   client: import("pg").PoolClient,
   input: CreateTradeInput,
@@ -52,10 +48,10 @@ export async function createTradeTx(
         input.market.toUpperCase(),
         input.buyerOrderId,
         input.sellerOrderId,
-        input.price.toFixed(10),
-        input.quantity.toFixed(10),
-        input.feeBuyer.toFixed(10),
-        input.feeSeller.toFixed(10),
+        toFixed(input.price, 10),
+        toFixed(input.quantity, 10),
+        toFixed(input.feeBuyer, 10),
+        toFixed(input.feeSeller, 10),
         input.makerSide,
       ],
     );
@@ -80,10 +76,10 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade | null
         input.market.toUpperCase(),
         input.buyerOrderId,
         input.sellerOrderId,
-        input.price.toFixed(10),
-        input.quantity.toFixed(10),
-        input.feeBuyer.toFixed(10),
-        input.feeSeller.toFixed(10),
+        toFixed(input.price, 10),
+        toFixed(input.quantity, 10),
+        toFixed(input.feeBuyer, 10),
+        toFixed(input.feeSeller, 10),
         input.makerSide,
       ],
     );
@@ -96,8 +92,6 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade | null
   }
   return result.value;
 }
-
-// ── Public trade history ───────────────────────────────────────────────────────
 
 export type TradeQueryOptions = {
   market: string;
@@ -141,9 +135,6 @@ export async function listTrades(options: TradeQueryOptions): Promise<Trade[]> {
   }
   return result.value ?? [];
 }
-
-// ── User trade history ─────────────────────────────────────────────────────────
-// Uses UNION of buyer/seller subqueries for index-friendly execution.
 
 export async function listUserTrades(userId: string, market?: string, limit = 50, before?: string): Promise<Trade[]> {
   const result = await withDb(async (client) => {
