@@ -1,9 +1,6 @@
-import { createHash } from "crypto";
 import type { PoolClient } from "pg";
-import {
-  parseNotificationProducerEvent,
-  type NotificationProducerEvent,
-} from "./producers";
+import { hashNotificationDomainEvent } from "./domain-event-hash";
+import { parseNotificationProducerEvent } from "./producers";
 
 export type NotificationDomainOutboxClaim = {
   outboxId: string;
@@ -49,22 +46,6 @@ function retryDelaySeconds(attemptNumber: number): number {
   return Math.min(3_600, 15 * 2 ** Math.max(0, attemptNumber - 1));
 }
 
-function canonicalEventHash(event: NotificationProducerEvent): string {
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        tenantId: event.tenantId,
-        principalId: event.principalId,
-        occurredAt: event.occurredAt,
-        locale: event.locale,
-        version: event.version,
-        type: event.type,
-        payload: event.payload,
-      }),
-    )
-    .digest("hex");
-}
-
 async function insertDeadLetter(
   client: PoolClient,
   outboxId: string,
@@ -95,9 +76,8 @@ async function insertDeadLetter(
 }
 
 /**
- * Must be called inside the authoritative domain transaction. The committed
- * outbox row is the durable hand-off; notification creation happens later and
- * cannot roll back the user's domain action.
+ * Must run inside the authoritative domain transaction. Notification creation
+ * happens later; the committed row is the durable hand-off.
  */
 export async function enqueueNotificationDomainEvent(
   client: PoolClient,
@@ -105,7 +85,7 @@ export async function enqueueNotificationDomainEvent(
 ): Promise<{ outboxId: string; replayed: boolean }> {
   const event = parseNotificationProducerEvent(rawEvent);
   if (!event) throw new Error("notification_domain_event_invalid");
-  const eventHash = canonicalEventHash(event);
+  const eventHash = hashNotificationDomainEvent(event);
 
   const inserted = await client.query<{ id: string }>(
     `INSERT INTO notification_domain_outbox
@@ -126,15 +106,11 @@ export async function enqueueNotificationDomainEvent(
       eventHash,
     ],
   );
-
   if (inserted.rows[0]) {
     return { outboxId: inserted.rows[0].id, replayed: false };
   }
 
-  const existing = await client.query<{
-    id: string;
-    payload_hash: string;
-  }>(
+  const existing = await client.query<{ id: string; payload_hash: string }>(
     `SELECT id, payload_hash
        FROM notification_domain_outbox
       WHERE tenant_id = $1 AND event_type = $2 AND event_id = $3
@@ -216,9 +192,8 @@ export async function recoverExpiredNotificationDomainLeases(
 }
 
 /**
- * Claim returns only lease coordinates. Event payload is deliberately not
- * materialized here: malformed/poison rows must still be claimable so the
- * authoritative processor can classify them terminal and move them to DLQ.
+ * Claims contain lease coordinates only. Invalid/poison payloads remain
+ * claimable and are classified by the authoritative processor into DLQ.
  */
 export async function claimNotificationDomainOutbox(
   client: PoolClient,
