@@ -4,9 +4,7 @@
 
 import { Queue, QueueEvents } from "bullmq";
 import type { WithdrawalJobData, ConfirmationJobData } from "../types";
-
-// ── Redis connection ──────────────────────────────────────────────────────────
-// BullMQ requires its own connection (it uses blocking commands).
+import { WITHDRAWAL_QUEUE_NAMES } from "./names";
 
 function redisConnection() {
   const url = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -16,25 +14,23 @@ function redisConnection() {
     port: parseInt(parsed.port) || 6379,
     password: parsed.password || undefined,
     tls: parsed.protocol === "rediss:" ? {} : undefined,
-    maxRetriesPerRequest: null, // required by BullMQ
+    maxRetriesPerRequest: null,
   };
 }
 
 const connection = redisConnection();
 
-// ── Queue instances ───────────────────────────────────────────────────────────
-
-export const withdrawalQueue = new Queue<WithdrawalJobData>("withdrawal", {
+export const withdrawalQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES.execution, {
   connection,
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: "exponential", delay: 5_000 },
     removeOnComplete: { count: 500 },
-    removeOnFail: false, // keep for DLQ analysis
+    removeOnFail: false,
   },
 });
 
-export const withdrawalDlq = new Queue<WithdrawalJobData>("withdrawal-dlq", {
+export const withdrawalDlq = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES.deadLetter, {
   connection,
   defaultJobOptions: {
     attempts: 1,
@@ -43,27 +39,27 @@ export const withdrawalDlq = new Queue<WithdrawalJobData>("withdrawal-dlq", {
   },
 });
 
-export const withdrawalRetryQueue = new Queue<WithdrawalJobData>("withdrawal-retry", {
+export const withdrawalRetryQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES.retry, {
   connection,
   defaultJobOptions: {
     attempts: 5,
-    backoff: { type: "exponential", delay: 30_000 }, // 30s, 1m, 2m, 4m, 8m
+    backoff: { type: "exponential", delay: 30_000 },
     removeOnComplete: { count: 200 },
     removeOnFail: false,
   },
 });
 
-export const confirmationQueue = new Queue<ConfirmationJobData>("withdrawal-confirmation", {
+export const confirmationQueue = new Queue<ConfirmationJobData>(WITHDRAWAL_QUEUE_NAMES.confirmation, {
   connection,
   defaultJobOptions: {
-    attempts: 50,               // poll up to 50 times
-    backoff: { type: "fixed", delay: 30_000 }, // check every 30s
+    attempts: 50,
+    backoff: { type: "fixed", delay: 30_000 },
     removeOnComplete: { count: 500 },
     removeOnFail: false,
   },
 });
 
-export const recoveryQueue = new Queue<WithdrawalJobData>("withdrawal-recovery", {
+export const recoveryQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES.recovery, {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -73,9 +69,7 @@ export const recoveryQueue = new Queue<WithdrawalJobData>("withdrawal-recovery",
   },
 });
 
-export const withdrawalQueueEvents = new QueueEvents("withdrawal", { connection });
-
-// ── Queue helpers ─────────────────────────────────────────────────────────────
+export const withdrawalQueueEvents = new QueueEvents(WITHDRAWAL_QUEUE_NAMES.execution, { connection });
 
 export async function enqueueWithdrawal(
   data: WithdrawalJobData,
@@ -84,7 +78,7 @@ export async function enqueueWithdrawal(
   const job = await withdrawalQueue.add("process", data, {
     priority: opts?.priority ?? data.priority,
     delay: opts?.delay ?? 0,
-    jobId: `withdrawal:${data.withdrawalId}`, // idempotency: deduplicate by withdrawalId
+    jobId: `withdrawal:${data.withdrawalId}`,
   });
   return job.id ?? data.withdrawalId;
 }
@@ -92,20 +86,22 @@ export async function enqueueWithdrawal(
 export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<void> {
   await confirmationQueue.add("watch", data, {
     jobId: `confirm:${data.withdrawalId}`,
-    delay: 15_000, // wait 15s before first check
+    delay: 15_000,
   });
 }
 
 export async function moveToDeadLetter(data: WithdrawalJobData, reason: string): Promise<void> {
-  await withdrawalDlq.add("failed", { ...data, _failReason: reason } as WithdrawalJobData & { _failReason: string }, {
-    jobId: `dlq:${data.withdrawalId}`,
-  });
+  await withdrawalDlq.add(
+    "failed",
+    { ...data, _failReason: reason } as WithdrawalJobData & { _failReason: string },
+    { jobId: `dlq:${data.withdrawalId}` },
+  );
 }
 
 export async function enqueueRecovery(data: WithdrawalJobData): Promise<void> {
   await recoveryQueue.add("recover", data, {
     jobId: `recovery:${data.withdrawalId}`,
-    delay: 60_000, // 1 min delay before recovery attempt
+    delay: 60_000,
   });
 }
 

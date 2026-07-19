@@ -1,11 +1,12 @@
 // Queue Processor — Phase 38
-// BullMQ job handlers for withdrawal and confirmation queues.
+// BullMQ job handlers for withdrawal execution, confirmation and recovery.
 
 import { Worker, type Job } from "bullmq";
 import { logger } from "@/lib/logger";
 import { executeWithdrawal } from "../withdrawal-executor";
 import { checkConfirmation } from "../confirmation/engine";
 import { moveToDeadLetter } from "./withdrawal-queue";
+import { WITHDRAWAL_QUEUE_NAMES } from "./names";
 import type { ConfirmationJobData, WithdrawalJobData } from "../types";
 
 function redisConnection() {
@@ -22,16 +23,13 @@ function redisConnection() {
 
 const connection = redisConnection();
 
-// ── Withdrawal Worker ─────────────────────────────────────────────────────────
-
 export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobData> {
   const worker = new Worker<WithdrawalJobData>(
-    "withdrawal",
+    WITHDRAWAL_QUEUE_NAMES.execution,
     async (job: Job<WithdrawalJobData>) => {
       logger.info("[queue] processing withdrawal job", {
         jobId: job.id,
         withdrawalId: job.data.withdrawalId,
-        chainId: job.data.chainId,
         attempt: job.attemptsMade + 1,
       });
       await executeWithdrawal(job.data);
@@ -40,7 +38,10 @@ export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobDat
   );
 
   worker.on("completed", (job) => {
-    logger.info("[queue] withdrawal job completed", { jobId: job.id, withdrawalId: job.data.withdrawalId });
+    logger.info("[queue] withdrawal job completed", {
+      jobId: job.id,
+      withdrawalId: job.data.withdrawalId,
+    });
   });
 
   worker.on("failed", async (job, err) => {
@@ -53,7 +54,6 @@ export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobDat
       error: err.message,
     });
 
-    // On final failure, send to DLQ
     if (job.attemptsMade >= (job.opts.attempts ?? 3)) {
       await moveToDeadLetter(job.data, err.message);
     }
@@ -62,32 +62,31 @@ export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobDat
   return worker;
 }
 
-// ── Confirmation Worker ───────────────────────────────────────────────────────
-
 export function createConfirmationWorker(concurrency = 20): Worker<ConfirmationJobData> {
   const worker = new Worker<ConfirmationJobData>(
-    "withdrawal:confirmation",
+    WITHDRAWAL_QUEUE_NAMES.confirmation,
     async (job: Job<ConfirmationJobData>) => {
       const done = await checkConfirmation(job.data);
       if (!done) {
-        // Throw to trigger retry (BullMQ will re-schedule per backoff)
-        throw new Error(`Not yet confirmed: ${job.data.txHash}`);
+        throw new Error(`Not yet confirmed: ${job.data.withdrawalId}`);
       }
     },
     { connection, concurrency },
   );
 
   worker.on("completed", (job) => {
-    logger.info("[queue] confirmation job completed", { jobId: job.id, txHash: job.data.txHash });
+    logger.info("[queue] confirmation job completed", {
+      jobId: job.id,
+      withdrawalId: job.data.withdrawalId,
+    });
   });
 
   worker.on("failed", (job, err) => {
     if (!job) return;
-    // Suppress "not yet confirmed" noise — these are expected retry errors
     if (!err.message.startsWith("Not yet confirmed")) {
       logger.error("[queue] confirmation job error", {
         jobId: job.id,
-        txHash: job.data.txHash,
+        withdrawalId: job.data.withdrawalId,
         error: err.message,
       });
     }
@@ -96,14 +95,13 @@ export function createConfirmationWorker(concurrency = 20): Worker<ConfirmationJ
   return worker;
 }
 
-// ── Recovery Worker ───────────────────────────────────────────────────────────
-
 export function createRecoveryWorker(): Worker<WithdrawalJobData> {
   const worker = new Worker<WithdrawalJobData>(
-    "withdrawal:recovery",
+    WITHDRAWAL_QUEUE_NAMES.recovery,
     async (job: Job<WithdrawalJobData>) => {
-      logger.info("[queue] running recovery for withdrawal", { withdrawalId: job.data.withdrawalId });
-      // Recovery re-tries execution from scratch
+      logger.info("[queue] running recovery for withdrawal", {
+        withdrawalId: job.data.withdrawalId,
+      });
       await executeWithdrawal(job.data);
     },
     { connection, concurrency: 2 },
@@ -111,7 +109,10 @@ export function createRecoveryWorker(): Worker<WithdrawalJobData> {
 
   worker.on("failed", (job, err) => {
     if (!job) return;
-    logger.error("[queue] recovery failed", { withdrawalId: job.data.withdrawalId, error: err.message });
+    logger.error("[queue] recovery failed", {
+      withdrawalId: job.data.withdrawalId,
+      error: err.message,
+    });
   });
 
   return worker;
