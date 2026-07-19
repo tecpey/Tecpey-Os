@@ -21,6 +21,8 @@ const commandTest = read("src/tests/security/exchange-order-command.test.ts");
 const postgresHoldTest = read("src/tests/trading/order-admission-postgres.test.ts");
 const postgresAuthorityTest = read("src/tests/security/exchange-order-authority-postgres.test.ts");
 const orderBookAuthorityTest = read("src/tests/security/exchange-order-book-authority.test.ts");
+const feeSettlementTest = read("src/tests/security/exchange-order-fee-settlement.test.ts");
+const marketProtectionTest = read("src/tests/security/exchange-order-market-protection.test.ts");
 const migrationTest = read("src/tests/database/migration-integration.test.ts");
 
 const failures = [];
@@ -126,8 +128,14 @@ rejectText(command, "void with", "financial evidence must never be fire-and-forg
 requireText(engine, "withExchangeMarketExecutionLock", "matching and cancellation require distributed market ownership");
 requireText(engine, "rebuildMarketBookFromAuthority", "matching must rebuild from PostgreSQL authority before execution");
 requireText(engine, "validateLockedOrdersTx", "maker and taker rows must be locked and revalidated");
+requireText(engine, "current.market !== order.market", "incoming order market identity must be revalidated under lock");
+requireText(engine, "maker.market !== order.market", "maker market identity must be revalidated under lock");
+requireText(engine, "!D(maker.price).eq(fill.maker.pricePerUnit)", "maker price must match the authoritative locked row");
+requireText(engine, "!D(maker.remaining_quantity).eq(fill.maker.remaining)", "maker remaining quantity must match the rebuilt authority snapshot");
 requireText(engine, "commitTerminalOrder", "rejection and expiry must commit terminal state plus hold closure atomically");
 requireText(engine, "assertOrderHoldClosedTx", "engine terminal paths must verify hold closure");
+requireText(engine, "plannedBuyerFee", "market-buy protection must include buyer fees");
+requireText(engine, "plannedSpend", "market-buy quote cap must compare total spend, not only notional");
 requireText(engine, "market_price_protection", "market buys must not spend beyond the committed hold authority");
 for (const forbidden of [
   "releaseFundsTx(",
@@ -169,6 +177,7 @@ requireText(pkg, "npm run exchange:check", "release gate must execute exchange g
 requireText(pkg, "npm run test:exchange-order-authority", "release gate must execute focused exchange tests");
 requireText(workflow, "Exchange order admission authority guard", "CI must execute exchange guard");
 requireText(workflow, "Exchange order authority tests", "CI must execute focused exchange tests");
+requireText(workflow, "Upload Exchange authority diagnostics", "focused CI must preserve failure diagnostics");
 
 for (const evidence of [
   "binary-unsafe decimal boundaries",
@@ -193,6 +202,12 @@ for (const evidence of [
 ]) requireText(postgresAuthorityTest, evidence, `missing adversarial PostgreSQL evidence: ${evidence}`);
 requireText(orderBookAuthorityTest, "excludes admitted or processing commands", "non-final maker exclusion evidence is required");
 requireText(orderBookAuthorityTest, "getLevels(market, \"buy\").length, 0", "pre-final order-book exclusion assertion is required");
+requireText(feeSettlementTest, "exactly the committed notional plus fee reserve", "real crossing settlement must prove fee-covered admission");
+requireText(feeSettlementTest, "buyerFilled.outcome.tradeIds.length, 1", "fee-covered settlement must prove a real trade");
+requireText(feeSettlementTest, "D(row.residual).isZero()", "fee-covered settlement must prove zero order-hold residuals");
+requireText(marketProtectionTest, "quote cap covers notional but not fee", "negative market-buy total-spend evidence is required");
+requireText(marketProtectionTest, 'rejected.outcome.reason, "market_price_protection"', "insufficient total quote authority must be a committed rejection");
+requireText(marketProtectionTest, "D(evidence.value.residual).isZero()", "market-price rejection must prove hold closure");
 requireText(migrationTest, "0027_exchange_order_admission_authority.sql", "migration integration must verify exchange command migration");
 requireText(migrationTest, "exchange_order_commands_identity_no_update", "migration integration must verify immutable command evidence");
 requireText(migrationTest, "exchange_order_command_attempts_no_update", "migration integration must verify immutable attempt evidence");
@@ -203,4 +218,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Exchange order admission authority check passed: strict sessions, exact fee-covered financial admission, immutable idempotency, crash recovery, distributed market ownership, final-command maker liquidity and terminal hold closure are enforced.");
+console.log("Exchange order admission authority check passed: strict sessions, exact fee-covered financial admission, immutable idempotency, crash recovery, distributed market ownership, locked maker revalidation, final-command maker liquidity and terminal hold closure are enforced.");
