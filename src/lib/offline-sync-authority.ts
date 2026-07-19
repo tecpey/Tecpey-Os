@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withTx } from "./db";
-import { refreshLearningBrain } from "./learning-os";
 import { logger } from "./logger";
 import type { OfflineSyncItem, OfflineSyncResult } from "./offline-sync";
 
@@ -96,12 +95,11 @@ async function insertLearningEventExactlyOnce(
   client: PoolClient,
   args: { eventId: string; studentId: string; item: OfflineSyncItem },
 ): Promise<void> {
-  const inserted = await client.query<{ event_id: string }>(
+  await client.query(
     `INSERT INTO learning_events
       (event_id, student_id, event_type, source, locale, payload)
      VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
-     ON CONFLICT (event_id) DO NOTHING
-     RETURNING event_id`,
+     ON CONFLICT (event_id) DO NOTHING`,
     [
       args.eventId,
       args.studentId,
@@ -115,10 +113,6 @@ async function insertLearningEventExactlyOnce(
       }),
     ],
   );
-
-  if (inserted.rows[0]) {
-    await refreshLearningBrain(client, args.studentId);
-  }
 }
 
 export async function processOfflineSyncCommand(args: {
