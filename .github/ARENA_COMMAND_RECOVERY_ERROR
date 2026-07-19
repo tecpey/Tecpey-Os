@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/runner/work/Tecpey-Os/Tecpey-Os/scripts/_apply_arena_command_recovery.py", line 86, in <module>
+    replace_once(
+  File "/home/runner/work/Tecpey-Os/Tecpey-Os/scripts/_apply_arena_command_recovery.py", line 8, in replace_once
+    assert after not in text, f"replacement already present in {path}: {after[:100]!r}"
+           ^^^^^^^^^^^^^^^^^
+AssertionError: replacement already present in src/components/academy/trading-arena/TradingArenaExecutionClient.tsx: ''
