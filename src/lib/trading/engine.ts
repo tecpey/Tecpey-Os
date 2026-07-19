@@ -1,7 +1,9 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import Decimal from "decimal.js";
 import { logger } from "@/lib/logger";
-import { withTx } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
+import { getEventBus, nextSeq } from "@/lib/event-bus";
 import type { Order, OrderBookSnapshot, OrderSide, OrderStatus } from "./types";
 import type {
   CancelOrderResult,
@@ -11,49 +13,39 @@ import type {
 } from "./matching-engine";
 import { getOrderBook } from "./order-book";
 import { getMarket } from "./market-service";
-import {
-  getOrderByIdTx,
-  updateOrderFillTx,
-  setOrderStatusTx,
-} from "./order-service";
+import { getOrderByIdTx, updateOrderFillTx } from "./order-service";
 import { createTradeTx } from "./trade-service";
-import Decimal from "decimal.js";
 import {
-  releaseFundsTx,
-  debitFundsTx,
-  creditFundsTx,
-  chargeFeeTx,
-} from "./wallet-balance-service";
+  assertOrderHoldClosedTx,
+  chargeTradeFeeTx,
+  creditTradeFundsTx,
+  debitTradeFundsTx,
+  getOrderHoldResidualTx,
+  releaseMatchedOrderFundsTx,
+  releaseOrderHoldResidualTx,
+} from "./wallet-service";
 import { createTradingEvent } from "./events";
 import {
   type EngineOrder,
   getOrderBookStore,
-  rebuildOrderBook,
   pkStr,
 } from "./order-book-store";
-import { getEventBus, nextSeq } from "@/lib/event-bus";
+import { rebuildMarketBookFromAuthority } from "./order-book-recovery";
+import { withExchangeMarketExecutionLock } from "./market-execution-lock";
 import { invalidateStatsCache } from "./market-stats-cache";
-
-// ── Per-market execution lock ─────────────────────────────────────────────────
-//
-// Serializes placeOrder calls per market so no two matching passes run
-// concurrently for the same market. Uses a Promise chain — each call waits
-// for the previous one to complete before starting its critical section.
-// Market count is bounded (10-100), so the Map never leaks meaningfully.
+import { D } from "./decimal";
 
 const marketLocks = new Map<string, Promise<void>>();
 
-async function withMarketLock<T>(market: string, fn: () => Promise<T>): Promise<T> {
-  const prev = marketLocks.get(market) ?? Promise.resolve();
-  const next = prev.then(() => fn(), () => fn());
-  marketLocks.set(market, next.then(() => {}, () => {}));
+async function withLocalMarketLock<T>(
+  market: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = marketLocks.get(market) ?? Promise.resolve();
+  const next = previous.then(fn, fn);
+  marketLocks.set(market, next.then(() => undefined, () => undefined));
   return next;
 }
-
-// ── Fill record ───────────────────────────────────────────────────────────────
-//
-// Pre-computed in a pure pass over the in-memory book — zero DB calls.
-// The single Postgres transaction uses these records to write all fills atomically.
 
 type FillRecord = {
   tradeId: string;
@@ -73,8 +65,6 @@ type FillRecord = {
   sellerHoldRelease: number;
 };
 
-// ── Audit helper ──────────────────────────────────────────────────────────────
-
 async function appendOrderEventTx(
   client: PoolClient,
   orderId: string,
@@ -88,78 +78,63 @@ async function appendOrderEventTx(
   );
 }
 
-// ── Hold lookup (inside tx) ───────────────────────────────────────────────────
-
-async function queryOriginalHold(
-  client: PoolClient,
-  userId: string,
-  asset: string,
-  orderId: string,
-): Promise<number> {
-  const rows = await client.query<{ amount: string }>(
-    `SELECT amount FROM wallet_ledger
-     WHERE wallet_id = $1 AND asset = $2 AND type = 'hold' AND reference_id = $3::uuid
-     LIMIT 1`,
-    [userId, asset, orderId],
-  );
-  return rows.rows[0] ? parseFloat(rows.rows[0].amount) : 0;
-}
-
-// ── Fill computation (pure — no DB) ──────────────────────────────────────────
-//
-// Iterates the in-memory book levels to determine fills.
-// Book mutations happen only AFTER the DB transaction commits.
-
 function computeFills(
   order: Order,
   limitPrice: number,
   isMarket: boolean,
   makerFeeRate: number,
   takerFeeRate: number,
-): { records: FillRecord[]; remaining: number; totalFilled: number; vwapNumerator: number } {
-  const store   = getOrderBookStore();
-  const oppSide: OrderSide = order.side === "buy" ? "sell" : "buy";
-  const levels  = store.getLevels(order.market, oppSide);
-
+): {
+  records: FillRecord[];
+  remaining: number;
+  totalFilled: number;
+  vwapNumerator: number;
+} {
+  const store = getOrderBookStore();
+  const opposite: OrderSide = order.side === "buy" ? "sell" : "buy";
+  const levels = store.getLevels(order.market, opposite);
   const records: FillRecord[] = [];
-  let remaining     = parseFloat(order.quantity);
-  let totalFilled   = 0;
+  const makerAllocated = new Map<string, number>();
+  let remaining = Number(order.quantity);
+  let totalFilled = 0;
   let vwapNumerator = 0;
-  const makerAllocated = new Map<string, number>(); // qty allocated per maker in this pass
 
   outer: for (const level of levels) {
     if (remaining <= 1e-10) break;
     if (!isMarket) {
-      if (order.side === "buy"  && level.price > limitPrice) break;
+      if (order.side === "buy" && level.price > limitPrice) break;
       if (order.side === "sell" && level.price < limitPrice) break;
     }
 
     for (const maker of level.orders) {
       if (remaining <= 1e-10) break outer;
-      const allocated        = makerAllocated.get(maker.orderId) ?? 0;
-      const effectiveRem     = maker.remaining - allocated;
-      if (effectiveRem <= 1e-10) continue;
+      if (maker.orderId === order.id || maker.userId === order.userId) continue;
+      const allocated = makerAllocated.get(maker.orderId) ?? 0;
+      const effectiveRemaining = maker.remaining - allocated;
+      if (effectiveRemaining <= 1e-10) continue;
 
-      const fillQty        = Math.min(remaining, effectiveRem);
-      const tradePrice     = level.price;
-      const makerNewRem    = effectiveRem - fillQty;
-      const makerNewStatus: OrderStatus = makerNewRem <= 1e-10 ? "FILLED" : "PARTIALLY_FILLED";
-
-      const buyerOrderId  = order.side === "buy"  ? order.id     : maker.orderId;
-      const sellerOrderId = order.side === "sell" ? order.id     : maker.orderId;
-      const buyerUserId   = order.side === "buy"  ? order.userId : maker.userId;
-      const sellerUserId  = order.side === "sell" ? order.userId : maker.userId;
-
-      const feeBuyer  = new Decimal(fillQty).times(tradePrice).times(maker.side === "buy"  ? makerFeeRate : takerFeeRate).toNumber();
-      const feeSeller = new Decimal(fillQty).times(tradePrice).times(maker.side === "sell" ? makerFeeRate : takerFeeRate).toNumber();
-
-      // Market orders have limitPrice=0 — use tradePrice as release basis
-      // so the earmarked funds are properly returned on each fill.
-      const effectiveLimit    = limitPrice > 0 ? limitPrice : tradePrice;
-      const buyerHoldRelease  = order.side === "buy"
-        ? fillQty * effectiveLimit       // incoming BUY: held at limit (or trade) price
-        : fillQty * maker.pricePerUnit;  // maker BUY: held at their limit price
-      const sellerHoldRelease = fillQty; // sellers always hold base asset qty
+      const fillQty = Math.min(remaining, effectiveRemaining);
+      const tradePrice = level.price;
+      const makerNewRemaining = effectiveRemaining - fillQty;
+      const makerNewStatus: OrderStatus = makerNewRemaining <= 1e-10
+        ? "FILLED"
+        : "PARTIALLY_FILLED";
+      const buyerOrderId = order.side === "buy" ? order.id : maker.orderId;
+      const sellerOrderId = order.side === "sell" ? order.id : maker.orderId;
+      const buyerUserId = order.side === "buy" ? order.userId : maker.userId;
+      const sellerUserId = order.side === "sell" ? order.userId : maker.userId;
+      const feeBuyer = new Decimal(fillQty)
+        .times(tradePrice)
+        .times(maker.side === "buy" ? makerFeeRate : takerFeeRate)
+        .toNumber();
+      const feeSeller = new Decimal(fillQty)
+        .times(tradePrice)
+        .times(maker.side === "sell" ? makerFeeRate : takerFeeRate)
+        .toNumber();
+      const effectiveLimit = limitPrice > 0 ? limitPrice : tradePrice;
+      const buyerHoldRelease = order.side === "buy"
+        ? fillQty * effectiveLimit
+        : fillQty * maker.pricePerUnit;
 
       records.push({
         tradeId: randomUUID(),
@@ -167,7 +142,7 @@ function computeFills(
         makerPriceKey: level.priceKey,
         fillQty,
         tradePrice,
-        makerNewRemaining: makerNewRem,
+        makerNewRemaining,
         makerNewStatus,
         buyerOrderId,
         sellerOrderId,
@@ -176,12 +151,11 @@ function computeFills(
         feeBuyer,
         feeSeller,
         buyerHoldRelease,
-        sellerHoldRelease,
+        sellerHoldRelease: fillQty,
       });
-
       makerAllocated.set(maker.orderId, allocated + fillQty);
-      remaining     -= fillQty;
-      totalFilled   += fillQty;
+      remaining -= fillQty;
+      totalFilled += fillQty;
       vwapNumerator += fillQty * tradePrice;
     }
   }
@@ -189,409 +163,842 @@ function computeFills(
   return { records, remaining, totalFilled, vwapNumerator };
 }
 
-// ── In-process matching engine ────────────────────────────────────────────────
-//
-// Price-time priority FIFO matching.
-// Phase 30 additions:
-//   - Pre-tx fill computation (pure, reads in-memory book)
-//   - Single Postgres transaction for all DB writes in a match sequence
-//   - Atomic balance operations via wallet_balances table
-//   - In-memory book updates happen post-tx commit
-//   - Warm-start recovery from DB on empty book
-
-export class InProcessMatchingEngine implements MatchingEngineInterface {
-  private async ensureBookReady(market: string): Promise<void> {
-    const store = getOrderBookStore();
-    if (
-      store.getLevels(market, "buy").length  === 0 &&
-      store.getLevels(market, "sell").length === 0
-    ) {
-      await rebuildOrderBook(market);
+async function commitTerminalOrder(
+  order: Order,
+  holdAsset: string,
+  status: "EXPIRED" | "REJECTED",
+  eventType: "OrderExpired" | "OrderRejected",
+  reason: string,
+): Promise<void> {
+  const result = await withTx(async (client) => {
+    const locked = await client.query<{ status: string; user_id: string }>(
+      `SELECT status, user_id
+         FROM orders
+        WHERE id = $1::uuid
+        FOR UPDATE`,
+      [order.id],
+    );
+    if (!locked.rows[0] || locked.rows[0].user_id !== order.userId) {
+      throw new Error("order_authority_missing");
     }
+
+    if (
+      !new Set(["FILLED", "CANCELLED", "EXPIRED", "REJECTED"]).has(
+        locked.rows[0].status,
+      )
+    ) {
+      const updated = await client.query(
+        `UPDATE orders
+            SET status = $2, version = version + 1, updated_at = NOW()
+          WHERE id = $1::uuid AND status IN ('NEW', 'PARTIALLY_FILLED')`,
+        [order.id, status],
+      );
+      if (!updated.rowCount) throw new Error("order_terminal_transition_failed");
+      await appendOrderEventTx(client, order.id, eventType, {
+        orderId: order.id,
+        reason,
+      });
+    }
+
+    await releaseOrderHoldResidualTx(
+      client,
+      order.userId,
+      holdAsset,
+      order.id,
+    );
+    await assertOrderHoldClosedTx(client, order.userId, holdAsset, order.id);
+  });
+  if (!result.enabled) throw new Error("storage_unavailable");
+}
+
+async function validateLockedOrdersTx(
+  client: PoolClient,
+  order: Order,
+  fills: FillRecord[],
+): Promise<void> {
+  const incoming = await client.query<{
+    status: string;
+    remaining_quantity: string;
+    quantity: string;
+    user_id: string;
+    market: string;
+    side: OrderSide;
+    type: string;
+    price: string | null;
+  }>(
+    `SELECT status, remaining_quantity::text, quantity::text, user_id,
+            market, side, type, price::text
+       FROM orders
+      WHERE id = $1::uuid
+      FOR UPDATE`,
+    [order.id],
+  );
+  const current = incoming.rows[0];
+  if (
+    !current ||
+    current.user_id !== order.userId ||
+    current.market !== order.market ||
+    current.side !== order.side ||
+    current.type !== order.type ||
+    !D(current.quantity).eq(order.quantity) ||
+    (current.price === null) !== (order.price === null) ||
+    (current.price !== null && order.price !== null && !D(current.price).eq(order.price)) ||
+    current.status !== "NEW" ||
+    !D(current.remaining_quantity).eq(order.remainingQuantity)
+  ) {
+    throw new Error("incoming_order_state_changed");
   }
 
+  const makerIds = [...new Set(fills.map((fill) => fill.maker.orderId))].sort();
+  if (!makerIds.length) return;
+  const makers = await client.query<{
+    id: string;
+    status: string;
+    remaining_quantity: string;
+    quantity: string;
+    user_id: string;
+    market: string;
+    side: OrderSide;
+    type: string;
+    price: string | null;
+  }>(
+    `SELECT id::text, status, remaining_quantity::text, quantity::text,
+            user_id, market, side, type, price::text
+       FROM orders
+      WHERE id = ANY($1::uuid[])
+      ORDER BY id
+      FOR UPDATE`,
+    [makerIds],
+  );
+  if (makers.rows.length !== makerIds.length) {
+    throw new Error("maker_order_missing");
+  }
+  const byId = new Map(makers.rows.map((row) => [row.id, row]));
+  const expectedMakerSide: OrderSide = order.side === "buy" ? "sell" : "buy";
+  for (const fill of fills) {
+    const maker = byId.get(fill.maker.orderId);
+    if (
+      !maker ||
+      maker.user_id !== fill.maker.userId ||
+      maker.market !== order.market ||
+      maker.side !== expectedMakerSide ||
+      maker.type !== "limit" ||
+      maker.price === null ||
+      !D(maker.price).eq(fill.maker.pricePerUnit) ||
+      !D(maker.quantity).eq(fill.maker.originalQty) ||
+      !D(maker.remaining_quantity).eq(fill.maker.remaining) ||
+      !["NEW", "PARTIALLY_FILLED"].includes(maker.status) ||
+      D(maker.remaining_quantity).lt(fill.fillQty)
+    ) {
+      throw new Error("maker_order_state_changed");
+    }
+  }
+}
+
+export class InProcessMatchingEngine implements MatchingEngineInterface {
   async placeOrder(order: Order): Promise<PlaceOrderResult> {
     const market = await getMarket(order.market);
     if (!market) {
-      logger.warn("[engine] market not found", { market: order.market });
-      try {
-        await withTx(async (client) => {
-          await setOrderStatusTx(client, order.id, "REJECTED");
-          await appendOrderEventTx(client, order.id, "OrderRejected", {
-            orderId: order.id, reason: "market_not_found",
-          });
-          return true;
-        });
-      } catch { /* best-effort */ }
-      return { accepted: false, orderId: order.id, tradeIds: [], reason: "market_not_found" };
+      return {
+        accepted: false,
+        orderId: order.id,
+        tradeIds: [],
+        reason: "storage_unavailable",
+      };
     }
 
-    const baseAsset    = market.baseAsset;
-    const quoteAsset   = market.quoteAsset;
-    const makerFeeRate = parseFloat(market.makerFee);
-    const takerFeeRate = parseFloat(market.takerFee);
+    const execution = await withExchangeMarketExecutionLock(
+      order.market,
+      () =>
+        withLocalMarketLock(order.market, () =>
+          this.placeOrderLocked(order, market),
+        ),
+      { tryOnly: true },
+    );
+    if (!execution.acquired) {
+      return {
+        accepted: false,
+        orderId: order.id,
+        tradeIds: [],
+        reason: execution.reason,
+      };
+    }
+    return execution.value;
+  }
+
+  private async placeOrderLocked(
+    order: Order,
+    market: NonNullable<Awaited<ReturnType<typeof getMarket>>>,
+  ): Promise<PlaceOrderResult> {
+    try {
+      await rebuildMarketBookFromAuthority(order.market);
+    } catch (error) {
+      logger.error("[engine] authoritative book rebuild failed", {
+        orderId: order.id,
+        market: order.market,
+        error,
+      });
+      return {
+        accepted: false,
+        orderId: order.id,
+        tradeIds: [],
+        reason: "storage_unavailable",
+      };
+    }
+
+    const store = getOrderBookStore();
+    const displayBook = getOrderBook(order.market);
+    const admittedEntry = store.findAndRemove(order.id);
+    if (admittedEntry) {
+      displayBook.cancel(
+        admittedEntry.side,
+        pkStr(admittedEntry.pricePerUnit),
+        admittedEntry.remaining.toFixed(10),
+      );
+    }
+
+    const baseAsset = market.baseAsset;
+    const quoteAsset = market.quoteAsset;
+    const makerFeeRate = Number(market.makerFee);
+    const takerFeeRate = Number(market.takerFee);
     const isMarket = order.type === "market";
-    const isFOK    = order.timeInForce === "FOK";
-    const isIOC    = order.timeInForce === "IOC";
-    const isGTC    = !isMarket && !isFOK && !isIOC;
-    const limitPrice = order.price ? parseFloat(order.price) : 0;
-    const holdAsset  = order.side === "buy" ? quoteAsset : baseAsset;
+    const isFOK = order.timeInForce === "FOK";
+    const isIOC = order.timeInForce === "IOC";
+    const isGTC = !isMarket && !isFOK && !isIOC;
+    const limitPrice = order.price ? Number(order.price) : 0;
+    const holdAsset = order.side === "buy" ? quoteAsset : baseAsset;
 
-    // ── Serialized per-market execution ──────────────────────────────────
-    // Only one placeOrder runs the critical section per market at a time.
-    return withMarketLock(order.market, async () => {
-      await this.ensureBookReady(order.market);
-
-      const store       = getOrderBookStore();
-      const displayBook = getOrderBook(order.market);
-
-    // ── FOK pre-flight ────────────────────────────────────────────────────────
     if (isFOK) {
-      const available = store.getFOKVolume(order.market, order.side, limitPrice);
-      const requested = parseFloat(order.quantity);
+      const available = store.getFOKVolume(
+        order.market,
+        order.side,
+        limitPrice,
+      );
+      const requested = Number(order.quantity);
       if (available < requested - 1e-10) {
-        logger.info("[engine] FOK rejected — insufficient liquidity", {
-          orderId: order.id, available, requested,
-        });
-        const holdAmt = order.side === "buy" ? limitPrice * requested : requested;
         try {
-          await withTx(async (client) => {
-            await setOrderStatusTx(client, order.id, "EXPIRED");
-            await releaseFundsTx(client, order.userId, holdAsset, holdAmt, order.id);
-            await appendOrderEventTx(client, order.id, "OrderExpired", {
-              orderId: order.id, reason: "fok_insufficient_liquidity",
-            });
-            return true;
+          await commitTerminalOrder(
+            order,
+            holdAsset,
+            "EXPIRED",
+            "OrderExpired",
+            "fok_insufficient_liquidity",
+          );
+          return {
+            accepted: false,
+            orderId: order.id,
+            tradeIds: [],
+            reason: "fok_insufficient_liquidity",
+          };
+        } catch (error) {
+          logger.error("[engine] FOK rejection failed closed", {
+            orderId: order.id,
+            error,
           });
-        } catch (err) {
-          logger.error("[engine] FOK rejection tx failed", { orderId: order.id, err });
+          return {
+            accepted: false,
+            orderId: order.id,
+            tradeIds: [],
+            reason: "matching_failed",
+          };
         }
-        const ev = createTradingEvent("OrderExpired", { orderId: order.id, market: order.market });
-        logger.info("[engine] OrderExpired (FOK)", { eventId: ev.eventId, orderId: order.id });
-        return { accepted: false, orderId: order.id, tradeIds: [], reason: "fok_insufficient_liquidity" };
       }
     }
 
-    // ── Compute fills (pure) ──────────────────────────────────────────────────
-    const fills       = computeFills(order, limitPrice, isMarket, makerFeeRate, takerFeeRate);
+    const fills = computeFills(
+      order,
+      limitPrice,
+      isMarket,
+      makerFeeRate,
+      takerFeeRate,
+    );
     const fullyFilled = fills.remaining <= 1e-10;
-    const avgPrice    = fills.totalFilled > 0 ? fills.vwapNumerator / fills.totalFilled : 0;
+    const averagePrice = fills.totalFilled > 0
+      ? fills.vwapNumerator / fills.totalFilled
+      : 0;
 
-    // Safety re-check for FOK (guards against book state diverging from pre-flight).
-    if (isFOK && fills.remaining > 1e-10) {
-      const holdAmt = order.side === "buy" ? limitPrice * parseFloat(order.quantity) : parseFloat(order.quantity);
+    if (isFOK && !fullyFilled) {
       try {
-        await withTx(async (client) => {
-          await setOrderStatusTx(client, order.id, "EXPIRED");
-          await releaseFundsTx(client, order.userId, holdAsset, holdAmt, order.id);
-          await appendOrderEventTx(client, order.id, "OrderExpired", { orderId: order.id, reason: "fok_partial" });
-          return true;
+        await commitTerminalOrder(
+          order,
+          holdAsset,
+          "EXPIRED",
+          "OrderExpired",
+          "fok_partial",
+        );
+        return {
+          accepted: false,
+          orderId: order.id,
+          tradeIds: [],
+          reason: "fok_partial",
+        };
+      } catch (error) {
+        logger.error("[engine] FOK partial rejection failed closed", {
+          orderId: order.id,
+          error,
         });
-      } catch { /* best-effort */ }
-      return { accepted: false, orderId: order.id, tradeIds: [], reason: "fok_partial" };
+        return {
+          accepted: false,
+          orderId: order.id,
+          tradeIds: [],
+          reason: "matching_failed",
+        };
+      }
     }
 
-    // ── Single Postgres transaction ───────────────────────────────────────────
-    type TxReturn = { tradeIds: string[]; accepted: boolean; reason?: string };
+    if (isMarket && order.side === "buy" && fills.totalFilled > 0) {
+      const plannedBuyerFee = fills.records
+        .filter((fill) => fill.buyerOrderId === order.id)
+        .reduce(
+          (sum, fill) => sum.plus(new Decimal(fill.feeBuyer)),
+          new Decimal(0),
+        );
+      const plannedSpend = new Decimal(fills.vwapNumerator)
+        .plus(plannedBuyerFee)
+        .toFixed(10);
+      const residualResult = await withDb((client) =>
+        getOrderHoldResidualTx(client, order.userId, holdAsset, order.id),
+      );
+      if (!residualResult.enabled) {
+        return {
+          accepted: false,
+          orderId: order.id,
+          tradeIds: [],
+          reason: "storage_unavailable",
+        };
+      }
+      if (D(residualResult.value).lt(plannedSpend)) {
+        try {
+          await commitTerminalOrder(
+            order,
+            holdAsset,
+            "EXPIRED",
+            "OrderExpired",
+            "market_price_protection",
+          );
+          return {
+            accepted: false,
+            orderId: order.id,
+            tradeIds: [],
+            reason: "market_price_protection",
+          };
+        } catch (error) {
+          logger.error("[engine] market-price rejection failed closed", {
+            orderId: order.id,
+            error,
+          });
+          return {
+            accepted: false,
+            orderId: order.id,
+            tradeIds: [],
+            reason: "matching_failed",
+          };
+        }
+      }
+    }
 
-    let txReturn: TxReturn;
+    type TxResult = {
+      accepted: boolean;
+      tradeIds: string[];
+      reason?: string;
+    };
+    let committed: TxResult;
     try {
-      const txResult = await withTx(async (client): Promise<TxReturn> => {
-        const ids: string[] = [];
+      const transaction = await withTx(async (client): Promise<TxResult> => {
+        await validateLockedOrdersTx(client, order, fills.records);
+        const tradeIds: string[] = [];
 
         for (const fill of fills.records) {
-          // Trade record
           const trade = await createTradeTx(client, {
-            id:            fill.tradeId,
-            market:        order.market,
-            buyerOrderId:  fill.buyerOrderId,
+            id: fill.tradeId,
+            market: order.market,
+            buyerOrderId: fill.buyerOrderId,
             sellerOrderId: fill.sellerOrderId,
-            price:         fill.tradePrice,
-            quantity:      fill.fillQty,
-            feeBuyer:      fill.feeBuyer,
-            feeSeller:     fill.feeSeller,
-            makerSide:     fill.maker.side,
+            price: fill.tradePrice,
+            quantity: fill.fillQty,
+            feeBuyer: fill.feeBuyer,
+            feeSeller: fill.feeSeller,
+            makerSide: fill.maker.side,
           });
           if (!trade) throw new Error("trade_creation_failed");
-          ids.push(fill.tradeId);
+          tradeIds.push(fill.tradeId);
 
-          // Buyer: release held → debit actual cost → credit received asset → fee
-          await releaseFundsTx(client, fill.buyerUserId, quoteAsset, fill.buyerHoldRelease,  fill.buyerOrderId);
-          await debitFundsTx  (client, fill.buyerUserId, quoteAsset, fill.fillQty * fill.tradePrice, fill.tradeId);
-          await creditFundsTx (client, fill.buyerUserId, baseAsset,  fill.fillQty,                   fill.tradeId);
-          if (fill.feeBuyer  > 1e-12) await chargeFeeTx(client, fill.buyerUserId,  quoteAsset, fill.feeBuyer,  fill.tradeId);
+          await releaseMatchedOrderFundsTx(
+            client,
+            fill.buyerUserId,
+            quoteAsset,
+            fill.buyerHoldRelease,
+            fill.buyerOrderId,
+          );
+          await debitTradeFundsTx(
+            client,
+            fill.buyerUserId,
+            quoteAsset,
+            fill.fillQty * fill.tradePrice,
+            fill.tradeId,
+          );
+          await creditTradeFundsTx(
+            client,
+            fill.buyerUserId,
+            baseAsset,
+            fill.fillQty,
+            fill.tradeId,
+          );
+          if (fill.feeBuyer > 1e-12) {
+            await chargeTradeFeeTx(
+              client,
+              fill.buyerUserId,
+              quoteAsset,
+              fill.feeBuyer,
+              fill.tradeId,
+            );
+          }
 
-          // Seller: release held base → debit qty → credit quote → fee
-          await releaseFundsTx(client, fill.sellerUserId, baseAsset,  fill.sellerHoldRelease, fill.sellerOrderId);
-          await debitFundsTx  (client, fill.sellerUserId, baseAsset,  fill.fillQty,                   fill.tradeId);
-          await creditFundsTx (client, fill.sellerUserId, quoteAsset, fill.fillQty * fill.tradePrice, fill.tradeId);
-          if (fill.feeSeller > 1e-12) await chargeFeeTx(client, fill.sellerUserId, quoteAsset, fill.feeSeller, fill.tradeId);
+          await releaseMatchedOrderFundsTx(
+            client,
+            fill.sellerUserId,
+            baseAsset,
+            fill.sellerHoldRelease,
+            fill.sellerOrderId,
+          );
+          await debitTradeFundsTx(
+            client,
+            fill.sellerUserId,
+            baseAsset,
+            fill.fillQty,
+            fill.tradeId,
+          );
+          await creditTradeFundsTx(
+            client,
+            fill.sellerUserId,
+            quoteAsset,
+            fill.fillQty * fill.tradePrice,
+            fill.tradeId,
+          );
+          if (fill.feeSeller > 1e-12) {
+            await chargeTradeFeeTx(
+              client,
+              fill.sellerUserId,
+              quoteAsset,
+              fill.feeSeller,
+              fill.tradeId,
+            );
+          }
 
-          // Update maker order + audit
-          const makerUpdated = await updateOrderFillTx(client, fill.maker.orderId, fill.fillQty, fill.tradePrice, fill.makerNewStatus);
+          const makerUpdated = await updateOrderFillTx(
+            client,
+            fill.maker.orderId,
+            fill.fillQty,
+            fill.tradePrice,
+            fill.makerNewStatus,
+          );
           if (!makerUpdated) throw new Error("maker_fill_rejected");
-          await appendOrderEventTx(client, fill.maker.orderId, "TradeExecuted", {
-            tradeId: fill.tradeId, fillQty: fill.fillQty, tradePrice: fill.tradePrice, newStatus: fill.makerNewStatus,
-          });
+          await appendOrderEventTx(
+            client,
+            fill.maker.orderId,
+            "TradeExecuted",
+            {
+              tradeId: fill.tradeId,
+              fillQty: fill.fillQty,
+              tradePrice: fill.tradePrice,
+              newStatus: fill.makerNewStatus,
+            },
+          );
           await appendOrderEventTx(client, order.id, "TradeExecuted", {
-            tradeId: fill.tradeId, fillQty: fill.fillQty, tradePrice: fill.tradePrice,
+            tradeId: fill.tradeId,
+            fillQty: fill.fillQty,
+            tradePrice: fill.tradePrice,
           });
+          if (fill.makerNewStatus === "FILLED") {
+            const makerHoldAsset = fill.maker.side === "buy"
+              ? quoteAsset
+              : baseAsset;
+            await releaseOrderHoldResidualTx(
+              client,
+              fill.maker.userId,
+              makerHoldAsset,
+              fill.maker.orderId,
+            );
+            await assertOrderHoldClosedTx(
+              client,
+              fill.maker.userId,
+              makerHoldAsset,
+              fill.maker.orderId,
+            );
+          }
         }
 
-        // Finalise incoming order
         if (fullyFilled) {
-          const takerUpdated = await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, "FILLED");
-          if (!takerUpdated) throw new Error("taker_fill_rejected");
+          const updated = await updateOrderFillTx(
+            client,
+            order.id,
+            fills.totalFilled,
+            averagePrice,
+            "FILLED",
+          );
+          if (!updated) throw new Error("taker_fill_rejected");
+          await releaseOrderHoldResidualTx(
+            client,
+            order.userId,
+            holdAsset,
+            order.id,
+          );
+          await assertOrderHoldClosedTx(
+            client,
+            order.userId,
+            holdAsset,
+            order.id,
+          );
           await appendOrderEventTx(client, order.id, "OrderFilled", {
-            orderId: order.id, market: order.market,
-            filledQty: fills.totalFilled.toFixed(10), avgFillPrice: avgPrice.toFixed(10),
+            orderId: order.id,
+            market: order.market,
+            filledQty: fills.totalFilled.toFixed(10),
+            avgFillPrice: averagePrice.toFixed(10),
           });
-          return { tradeIds: ids, accepted: true };
+          return { accepted: true, tradeIds };
+        }
 
-        } else if (fills.totalFilled > 0) {
-          const partialStatus: OrderStatus = isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
-          const takerPartialUpdated = await updateOrderFillTx(client, order.id, fills.totalFilled, avgPrice, partialStatus);
-          if (!takerPartialUpdated) throw new Error("taker_fill_rejected");
-
-          if (!isGTC) {
-            // Release unfilled portion of hold.
-            const orig     = await queryOriginalHold(client, order.userId, holdAsset, order.id);
-            const released = fills.records.reduce(
-              (s, f) => s + (order.side === "buy" ? f.buyerHoldRelease : f.sellerHoldRelease), 0,
+        if (fills.totalFilled > 0) {
+          const status: OrderStatus = isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
+          const updated = await updateOrderFillTx(
+            client,
+            order.id,
+            fills.totalFilled,
+            averagePrice,
+            status,
+          );
+          if (!updated) throw new Error("taker_fill_rejected");
+          if (isGTC) {
+            await appendOrderEventTx(
+              client,
+              order.id,
+              "OrderPartiallyFilled",
+              {
+                orderId: order.id,
+                market: order.market,
+                filledQty: fills.totalFilled.toFixed(10),
+                remainingQty: fills.remaining.toFixed(10),
+                avgFillPrice: averagePrice.toFixed(10),
+              },
             );
-            const rem = Math.max(0, orig - released);
-            if (rem > 0) await releaseFundsTx(client, order.userId, holdAsset, rem, order.id);
-            await appendOrderEventTx(client, order.id, "OrderExpired", { orderId: order.id, reason: "ioc_remainder" });
           } else {
-            await appendOrderEventTx(client, order.id, "OrderPartiallyFilled", {
-              orderId: order.id, market: order.market,
-              filledQty: fills.totalFilled.toFixed(10),
-              remainingQty: fills.remaining.toFixed(10),
-              avgFillPrice: avgPrice.toFixed(10),
+            await releaseOrderHoldResidualTx(
+              client,
+              order.userId,
+              holdAsset,
+              order.id,
+            );
+            await assertOrderHoldClosedTx(
+              client,
+              order.userId,
+              holdAsset,
+              order.id,
+            );
+            await appendOrderEventTx(client, order.id, "OrderExpired", {
+              orderId: order.id,
+              reason: "ioc_remainder",
             });
           }
-          return { tradeIds: ids, accepted: true };
-
-        } else {
-          // Zero fills
-          if (isGTC) {
-            await appendOrderEventTx(client, order.id, "OrderAccepted", { orderId: order.id });
-            return { tradeIds: ids, accepted: true };
-          } else {
-            await setOrderStatusTx(client, order.id, "EXPIRED");
-            const holdAmt = await queryOriginalHold(client, order.userId, holdAsset, order.id);
-            if (holdAmt > 0) await releaseFundsTx(client, order.userId, holdAsset, holdAmt, order.id);
-            await appendOrderEventTx(client, order.id, "OrderExpired", { orderId: order.id, reason: "no_liquidity" });
-            return { tradeIds: ids, accepted: false, reason: "no_liquidity" };
-          }
+          return { accepted: true, tradeIds };
         }
+
+        if (isGTC) {
+          await appendOrderEventTx(client, order.id, "OrderAccepted", {
+            orderId: order.id,
+          });
+          return { accepted: true, tradeIds };
+        }
+
+        const expired = await client.query(
+          `UPDATE orders
+              SET status = 'EXPIRED', version = version + 1, updated_at = NOW()
+            WHERE id = $1::uuid AND status = 'NEW'`,
+          [order.id],
+        );
+        if (!expired.rowCount) throw new Error("order_expiry_transition_failed");
+        await releaseOrderHoldResidualTx(
+          client,
+          order.userId,
+          holdAsset,
+          order.id,
+        );
+        await assertOrderHoldClosedTx(
+          client,
+          order.userId,
+          holdAsset,
+          order.id,
+        );
+        await appendOrderEventTx(client, order.id, "OrderExpired", {
+          orderId: order.id,
+          reason: "no_liquidity",
+        });
+        return { accepted: false, tradeIds, reason: "no_liquidity" };
       });
-
-      if (!txResult.enabled) {
-        logger.error("[engine] placeOrder tx unavailable", { orderId: order.id });
-        return { accepted: false, orderId: order.id, tradeIds: [], reason: "storage_unavailable" };
+      if (!transaction.enabled) {
+        return {
+          accepted: false,
+          orderId: order.id,
+          tradeIds: [],
+          reason: "storage_unavailable",
+        };
       }
-      txReturn = txResult.value;
-    } catch (err) {
-      logger.error("[engine] placeOrder tx rolled back", { orderId: order.id, err });
-      return { accepted: false, orderId: order.id, tradeIds: [], reason: "matching_failed" };
-    }
-
-    // ── Post-tx: update in-memory book ────────────────────────────────────────
-    for (const fill of fills.records) {
-      store.updateMakerRemaining(fill.maker.orderId, fill.makerNewRemaining);
-      displayBook.cancel(fill.maker.side, fill.makerPriceKey, fill.fillQty.toFixed(10));
-    }
-
-    if (!fullyFilled && isGTC && fills.remaining > 1e-10) {
-      const entry: EngineOrder = {
-        orderId:      order.id,
-        userId:       order.userId,
-        market:       order.market,
-        side:         order.side,
-        pricePerUnit: limitPrice,
-        originalQty:  parseFloat(order.quantity),
-        remaining:    fills.remaining,
-        ts:           Date.now(),
-      };
-      store.insert(order.market, entry);
-      displayBook.insert(order.side, pkStr(limitPrice), fills.remaining.toFixed(10));
-    }
-
-    const suffix = fullyFilled ? "filled" : (fills.totalFilled > 0 ? "partial" : "resting");
-    const ev = createTradingEvent(txReturn.accepted ? "OrderAccepted" : "OrderExpired", {
-      orderId: order.id, market: order.market,
-    });
-    logger.info("[engine] order processed", {
-      eventId: ev.eventId, orderId: order.id, suffix,
-      accepted: txReturn.accepted, tradeCount: txReturn.tradeIds.length,
-    });
-
-    // ── Post-tx: event bus emissions ──────────────────────────────────────────
-    if (txReturn.accepted && fills.records.length > 0) {
-      const bus = getEventBus();
-      const mkt = await getMarket(order.market);
-      invalidateStatsCache(order.market);
-
-      for (const fill of fills.records) {
-        const executedAt = new Date().toISOString();
-        bus.emit("trade:executed", {
-          tradeId: fill.tradeId,
-          market: order.market,
-          price: fill.tradePrice.toFixed(10),
-          quantity: fill.fillQty.toFixed(10),
-          buyerOrderId: fill.buyerOrderId,
-          sellerOrderId: fill.sellerOrderId,
-          buyerUserId: fill.buyerUserId,
-          sellerUserId: fill.sellerUserId,
-          makerSide: fill.maker.side,
-          executedAt,
-        });
-        // Wallet change signals (client re-fetches balance)
-        if (mkt) {
-          bus.emit("wallet:changed", { userId: fill.buyerUserId, asset: mkt.quoteAsset });
-          bus.emit("wallet:changed", { userId: fill.buyerUserId, asset: mkt.baseAsset });
-          bus.emit("wallet:changed", { userId: fill.sellerUserId, asset: mkt.quoteAsset });
-          bus.emit("wallet:changed", { userId: fill.sellerUserId, asset: mkt.baseAsset });
-        }
-        // Maker order update
-        bus.emit("order:updated", {
-          orderId: fill.maker.orderId,
-          userId: fill.maker.userId,
-          market: order.market,
-          status: fill.makerNewStatus,
-          filledQuantity: (fill.maker.originalQty - fill.makerNewRemaining).toFixed(10),
-          remainingQuantity: fill.makerNewRemaining.toFixed(10),
-          avgFillPrice: fill.tradePrice.toFixed(10),
-        });
-      }
-
-      // Taker order update
-      const takerFinalStatus: OrderStatus = fullyFilled
-        ? "FILLED"
-        : fills.totalFilled > 0 && isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
-      bus.emit("order:updated", {
+      committed = transaction.value;
+    } catch (error) {
+      logger.error("[engine] matching transaction rolled back", {
         orderId: order.id,
-        userId: order.userId,
         market: order.market,
-        status: takerFinalStatus,
-        filledQuantity: fills.totalFilled.toFixed(10),
-        remainingQuantity: fills.remaining.toFixed(10),
-        avgFillPrice: avgPrice > 0 ? avgPrice.toFixed(10) : null,
+        error,
       });
+      try {
+        await rebuildMarketBookFromAuthority(order.market);
+      } catch {
+        // The command remains retryable; recovery will attempt another rebuild.
+      }
+      return {
+        accepted: false,
+        orderId: order.id,
+        tradeIds: [],
+        reason: "matching_failed",
+      };
+    }
 
-      // Order book snapshot after all mutations
-      bus.emit("orderbook:changed", {
+    try {
+      await rebuildMarketBookFromAuthority(order.market);
+    } catch (error) {
+      logger.error("[engine] post-commit book rebuild failed", {
+        orderId: order.id,
         market: order.market,
-        snapshot: displayBook.snapshot(50),
-        seqNum: nextSeq(order.market),
+        error,
       });
     }
+
+    const event = createTradingEvent(
+      committed.accepted ? "OrderAccepted" : "OrderExpired",
+      { orderId: order.id, market: order.market },
+    );
+    logger.info("[engine] order committed", {
+      eventId: event.eventId,
+      orderId: order.id,
+      market: order.market,
+      accepted: committed.accepted,
+      tradeCount: committed.tradeIds.length,
+    });
+    this.emitCommittedEvents(order, fills.records, committed, averagePrice);
 
     return {
-      accepted: txReturn.accepted,
-      orderId:  order.id,
-      tradeIds: txReturn.tradeIds,
-      reason:   txReturn.reason,
+      accepted: committed.accepted,
+      orderId: order.id,
+      tradeIds: committed.tradeIds,
+      reason: committed.reason,
     };
+  }
+
+  private emitCommittedEvents(
+    order: Order,
+    fills: FillRecord[],
+    result: { accepted: boolean; tradeIds: string[]; reason?: string },
+    averagePrice: number,
+  ): void {
+    if (!result.accepted || fills.length === 0) return;
+    const bus = getEventBus();
+    invalidateStatsCache(order.market);
+    for (const fill of fills) {
+      const executedAt = new Date().toISOString();
+      bus.emit("trade:executed", {
+        tradeId: fill.tradeId,
+        market: order.market,
+        price: fill.tradePrice.toFixed(10),
+        quantity: fill.fillQty.toFixed(10),
+        buyerOrderId: fill.buyerOrderId,
+        sellerOrderId: fill.sellerOrderId,
+        buyerUserId: fill.buyerUserId,
+        sellerUserId: fill.sellerUserId,
+        makerSide: fill.maker.side,
+        executedAt,
+      });
+      bus.emit("order:updated", {
+        orderId: fill.maker.orderId,
+        userId: fill.maker.userId,
+        market: order.market,
+        status: fill.makerNewStatus,
+        filledQuantity: (
+          fill.maker.originalQty - fill.makerNewRemaining
+        ).toFixed(10),
+        remainingQuantity: fill.makerNewRemaining.toFixed(10),
+        avgFillPrice: fill.tradePrice.toFixed(10),
+      });
+    }
+    bus.emit("order:updated", {
+      orderId: order.id,
+      userId: order.userId,
+      market: order.market,
+      status:
+        fills.reduce((sum, fill) => sum + fill.fillQty, 0) >=
+        Number(order.quantity) - 1e-10
+          ? "FILLED"
+          : "PARTIALLY_FILLED",
+      filledQuantity: fills
+        .reduce((sum, fill) => sum + fill.fillQty, 0)
+        .toFixed(10),
+      remainingQuantity: Math.max(
+        0,
+        Number(order.quantity) -
+          fills.reduce((sum, fill) => sum + fill.fillQty, 0),
+      ).toFixed(10),
+      avgFillPrice: averagePrice > 0 ? averagePrice.toFixed(10) : null,
+    });
+    bus.emit("orderbook:changed", {
+      market: order.market,
+      snapshot: getOrderBook(order.market).snapshot(50),
+      seqNum: nextSeq(order.market),
     });
   }
 
-  async cancelOrder(orderId: string, userId: string): Promise<CancelOrderResult> {
-    const store = getOrderBookStore();
-    // Remove from in-memory book immediately; restore if the DB update fails.
-    const engineEntry = store.findAndRemove(orderId);
-
-    try {
-      const txResult = await withTx(async (client) => {
-        const order = await getOrderByIdTx(client, orderId);
-        if (!order)                                          return { ok: false, reason: "order_not_found" as string };
-        if (order.userId !== userId)                         return { ok: false, reason: "order_not_found" as string };
-        if (!["NEW", "PARTIALLY_FILLED"].includes(order.status)) {
-          return { ok: false, reason: "order_already_terminal" as string };
-        }
-
-        await setOrderStatusTx(client, orderId, "CANCELLED");
-
-        const mkt = await getMarket(order.market);
-        if (mkt) {
-          const holdAsset = order.side === "buy" ? mkt.quoteAsset : mkt.baseAsset;
-          let releaseAmount: number;
-          if (engineEntry) {
-            releaseAmount = order.side === "buy"
-              ? new Decimal(engineEntry.remaining).times(engineEntry.pricePerUnit).toNumber()
-              : engineEntry.remaining;
-          } else {
-            const rem   = parseFloat(order.remainingQuantity);
-            const price = order.price ? parseFloat(order.price) : 0;
-            releaseAmount = order.side === "buy" ? rem * price : rem;
-          }
-          if (releaseAmount > 0) {
-            await releaseFundsTx(client, userId, holdAsset, releaseAmount, orderId);
-          }
-        }
-
-        await appendOrderEventTx(client, orderId, "OrderCancelled", {
-          orderId, userId, cancelledBy: "user",
-        });
-        return { ok: true, reason: undefined as string | undefined };
-      });
-
-      if (!txResult.enabled) {
-        if (engineEntry) store.insert(engineEntry.market, engineEntry);
-        return { cancelled: false, orderId, reason: "storage_unavailable" };
-      }
-
-      const res = txResult.value;
-      if (!res.ok) {
-        if (engineEntry) store.insert(engineEntry.market, engineEntry);
-        return { cancelled: false, orderId, reason: res.reason };
-      }
-    } catch (err) {
-      logger.error("[engine] cancelOrder tx failed", { orderId, err });
-      if (engineEntry) store.insert(engineEntry.market, engineEntry);
-      return { cancelled: false, orderId, reason: "cancel_failed" };
-    }
-
-    if (engineEntry) {
-      const displayBook = getOrderBook(engineEntry.market);
-      displayBook.cancel(engineEntry.side, pkStr(engineEntry.pricePerUnit), engineEntry.remaining.toFixed(10));
-    }
-
-    const ev = createTradingEvent("OrderCancelled", {
-      orderId, userId, market: engineEntry?.market ?? "unknown", cancelledBy: "user",
+  async cancelOrder(
+    orderId: string,
+    userId: string,
+  ): Promise<CancelOrderResult> {
+    const lookup = await withDb(async (client) => {
+      const row = await client.query<{ market: string }>(
+        "SELECT market FROM orders WHERE id = $1::uuid AND user_id = $2",
+        [orderId, userId],
+      );
+      return row.rows[0]?.market ?? null;
     });
-    logger.info("[engine] OrderCancelled", { eventId: ev.eventId, orderId });
-
-    // Emit cancel events
-    if (engineEntry) {
-      const bus = getEventBus();
-      bus.emit("order:updated", {
-        orderId, userId, market: engineEntry.market, status: "CANCELLED",
-        filledQuantity: (engineEntry.originalQty - engineEntry.remaining).toFixed(10),
-        remainingQuantity: "0",
-        avgFillPrice: null,
-      });
-      bus.emit("orderbook:changed", {
-        market: engineEntry.market,
-        snapshot: getOrderBook(engineEntry.market).snapshot(50),
-        seqNum: nextSeq(engineEntry.market),
-      });
+    if (!lookup.enabled) {
+      return { cancelled: false, orderId, reason: "storage_unavailable" };
+    }
+    if (!lookup.value) {
+      return { cancelled: false, orderId, reason: "order_not_found" };
     }
 
-    return { cancelled: true, orderId };
+    const execution = await withExchangeMarketExecutionLock(
+      lookup.value,
+      () =>
+        withLocalMarketLock(lookup.value!, async () => {
+          try {
+            const transaction = await withTx(async (client) => {
+              const order = await getOrderByIdTx(client, orderId);
+              if (!order || order.userId !== userId) {
+                return { ok: false as const, reason: "order_not_found" };
+              }
+              if (!["NEW", "PARTIALLY_FILLED"].includes(order.status)) {
+                return {
+                  ok: false as const,
+                  reason: "order_already_terminal",
+                };
+              }
+              const command = await client.query<{
+                state: string;
+                hold_asset: string;
+              }>(
+                `SELECT state, hold_asset
+                   FROM exchange_order_commands
+                  WHERE order_id = $1::uuid
+                  FOR SHARE`,
+                [orderId],
+              );
+              if (!command.rows[0] || command.rows[0].state !== "final") {
+                return { ok: false as const, reason: "order_processing" };
+              }
+
+              const updated = await client.query(
+                `UPDATE orders
+                    SET status = 'CANCELLED', version = version + 1, updated_at = NOW()
+                  WHERE id = $1::uuid
+                    AND user_id = $2
+                    AND status IN ('NEW', 'PARTIALLY_FILLED')`,
+                [orderId, userId],
+              );
+              if (!updated.rowCount) throw new Error("order_cancel_race_lost");
+              await releaseOrderHoldResidualTx(
+                client,
+                userId,
+                command.rows[0].hold_asset,
+                orderId,
+              );
+              await assertOrderHoldClosedTx(
+                client,
+                userId,
+                command.rows[0].hold_asset,
+                orderId,
+              );
+              await appendOrderEventTx(client, orderId, "OrderCancelled", {
+                orderId,
+                userId,
+                cancelledBy: "user",
+              });
+              return { ok: true as const, market: order.market };
+            });
+            if (!transaction.enabled) {
+              return {
+                cancelled: false,
+                orderId,
+                reason: "storage_unavailable",
+              };
+            }
+            if (!transaction.value.ok) {
+              return {
+                cancelled: false,
+                orderId,
+                reason: transaction.value.reason,
+              };
+            }
+
+            await rebuildMarketBookFromAuthority(transaction.value.market);
+            const event = createTradingEvent("OrderCancelled", {
+              orderId,
+              userId,
+              market: transaction.value.market,
+              cancelledBy: "user",
+            });
+            logger.info("[engine] OrderCancelled", {
+              eventId: event.eventId,
+              orderId,
+            });
+            const bus = getEventBus();
+            bus.emit("order:updated", {
+              orderId,
+              userId,
+              market: transaction.value.market,
+              status: "CANCELLED",
+              filledQuantity: "0",
+              remainingQuantity: "0",
+              avgFillPrice: null,
+            });
+            bus.emit("orderbook:changed", {
+              market: transaction.value.market,
+              snapshot: getOrderBook(transaction.value.market).snapshot(50),
+              seqNum: nextSeq(transaction.value.market),
+            });
+            return { cancelled: true, orderId };
+          } catch (error) {
+            logger.error("[engine] cancelOrder failed closed", {
+              orderId,
+              error,
+            });
+            return { cancelled: false, orderId, reason: "cancel_failed" };
+          }
+        }),
+      { tryOnly: true },
+    );
+    if (!execution.acquired) {
+      return { cancelled: false, orderId, reason: execution.reason };
+    }
+    return execution.value;
   }
 
   async match(market: string): Promise<MatchResult> {
     return { market, trades: [], matched: 0 };
   }
 
-  async snapshot(market: string, depth = 20): Promise<OrderBookSnapshot> {
+  async snapshot(
+    market: string,
+    depth = 20,
+  ): Promise<OrderBookSnapshot> {
     return getOrderBook(market).snapshot(depth);
   }
 }
-
-// ── Singleton ─────────────────────────────────────────────────────────────────
 
 declare global {
   var tecpeyMatchingEngine: InProcessMatchingEngine | undefined;

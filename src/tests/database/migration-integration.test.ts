@@ -19,6 +19,7 @@ const REQUIRED_MIGRATIONS = [
   "0025_crm_lead_authority.sql",
   "0026_crm_lead_hardening.sql",
   "0027_academy_progress_authority_v2.sql",
+  "0027_exchange_order_admission_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ] as const;
@@ -36,6 +37,8 @@ const REQUIRED_TABLES = [
   "crm_lead_commands",
   "crm_lead_delivery_outbox",
   "crm_lead_audit_events",
+  "exchange_order_commands",
+  "exchange_order_command_attempts",
   "orders",
   "withdrawals",
   "withdrawal_price_snapshots",
@@ -70,6 +73,11 @@ const REQUIRED_COLUMNS = [
   ["crm_lead_commands", "request_hash"],
   ["crm_lead_delivery_outbox", "lease_expires_at"],
   ["crm_lead_audit_events", "network_fingerprint"],
+  ["exchange_order_commands", "request_hash"],
+  ["exchange_order_commands", "hold_amount"],
+  ["exchange_order_commands", "lease_expires_at"],
+  ["exchange_order_commands", "result"],
+  ["exchange_order_command_attempts", "outcome"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -85,6 +93,11 @@ const REQUIRED_INDEXES = [
   "crm_lead_delivery_claim_idx",
   "crm_lead_delivery_lease_idx",
   "academy_progress_legacy_reward_student_idx",
+  "exchange_order_commands_claim_idx",
+  "exchange_order_commands_lease_idx",
+  "exchange_order_commands_market_idx",
+  "exchange_order_commands_user_idx",
+  "exchange_order_command_attempts_command_idx",
   "withdrawals_user_idempotency_unique_idx",
 ] as const;
 
@@ -109,6 +122,10 @@ const REQUIRED_TRIGGERS = [
   "academy_reward_ledger_reject_client_section",
   "academy_progress_legacy_reward_quarantine_no_update",
   "academy_progress_legacy_reward_quarantine_no_delete",
+  "exchange_order_commands_identity_no_update",
+  "exchange_order_commands_no_delete",
+  "exchange_order_command_attempts_no_update",
+  "exchange_order_command_attempts_no_delete",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [

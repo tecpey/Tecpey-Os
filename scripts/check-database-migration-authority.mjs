@@ -32,6 +32,7 @@ for (const directImport of [
   'from "./db-migrate-crm-leads"',
   'from "./db-migrate-crm-leads-hardening"',
   'from "./db-migrate-academy-progress-hardening"',
+  'from "./db-migrate-exchange-order-admission"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -52,6 +53,7 @@ const orderedCalls = [
   "await runCrmLeadMigrations(client)",
   "await runCrmLeadHardeningMigrations(client)",
   "await runAcademyProgressHardeningMigrations(client)",
+  "await runExchangeOrderAdmissionMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -82,6 +84,7 @@ for (const migration of [
   "0025_crm_lead_authority.sql",
   "0026_crm_lead_hardening.sql",
   "0027_academy_progress_authority_v2.sql",
+  "0027_exchange_order_admission_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ]) {
@@ -96,6 +99,8 @@ for (const table of [
   "crm_lead_delivery_outbox",
   "crm_lead_audit_events",
   "academy_progress_legacy_reward_quarantine",
+  "exchange_order_commands",
+  "exchange_order_command_attempts",
 ]) {
   requireText(integration, table, `migration integration must verify ${table}`);
 }
@@ -111,10 +116,14 @@ for (const trigger of [
   "academy_term_learning_progress_read_only",
   "academy_reward_ledger_reject_client_section",
   "academy_progress_legacy_reward_quarantine_no_update",
+  "exchange_order_commands_identity_no_update",
+  "exchange_order_commands_no_delete",
+  "exchange_order_command_attempts_no_update",
 ]) {
   requireText(integration, trigger, `migration integration must verify ${trigger}`);
 }
 requireText(integration, "crm_leads_legal_basis_consent_check", "migration integration must verify CRM consent/legal-basis integrity");
+requireText(integration, "exchange_order_commands_claim_idx", "migration integration must verify recoverable order command claims");
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 
 if (failures.length) {

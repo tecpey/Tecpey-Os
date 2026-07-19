@@ -1,0 +1,112 @@
+name: Exchange Authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/api/orders/**'
+      - 'src/lib/trading/**'
+      - 'src/lib/db-migrate-exchange-order-admission.ts'
+      - 'src/lib/db-migration-plan.ts'
+      - 'src/tests/security/exchange-order*.test.ts'
+      - 'src/tests/trading/order-admission*.test.ts'
+      - 'scripts/check-exchange-order-admission.mjs'
+      - 'scripts/run-exchange-order-worker.ts'
+      - 'package.json'
+      - '.github/workflows/exchange-authority.yml'
+
+concurrency:
+  group: exchange-authority-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exchange-authority:
+    name: Exchange order authority tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: exchange-ci-session-secret-32-characters-minimum
+      TECPEY_REFRESH_SECRET: exchange-ci-refresh-secret-32-characters-minimum
+      TECPEY_ACADEMY_AUTH_SECRET: exchange-ci-academy-secret-32-characters-minimum
+      CERTIFICATE_SIGNING_SECRET: exchange-ci-certificate-secret-32-minimum
+      TECPEY_WITHDRAWAL_PRICE_SECRET: exchange-ci-withdrawal-price-secret-32-minimum
+      TECPEY_OFFLINE_SYNC_SECRET: exchange-ci-offline-secret-32-characters-minimum
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: exchange-ci-crm-hash-secret-32-characters-minimum
+      TECPEY_CRM_WEBHOOK_SECRET: exchange-ci-crm-webhook-secret-32-characters-minimum
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: '1'
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: exchange-ci-placeholder-token
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Clean migrations
+        run: npm run db:migrate
+
+      - name: Migration idempotency
+        run: npm run db:migrate
+
+      - name: Exchange order admission authority guard
+        run: npm run exchange:check
+
+      - name: Exchange order authority tests
+        run: |
+          set -o pipefail
+          npm run test:exchange-order-authority 2>&1 | tee /tmp/tecpey-exchange-authority-tests.log
+
+      - name: Upload Exchange authority diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: exchange-authority-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-exchange-authority-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: TypeScript
+        run: npm run typecheck

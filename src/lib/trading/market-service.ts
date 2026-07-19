@@ -2,8 +2,6 @@ import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { Asset, Market } from "./types";
 
-// ── Row → domain mappers ──────────────────────────────────────────────────────
-
 function rowToAsset(row: Record<string, unknown>): Asset {
   return {
     id: String(row.id),
@@ -38,8 +36,6 @@ function rowToMarket(row: Record<string, unknown>): Market {
   };
 }
 
-// ── Asset queries ─────────────────────────────────────────────────────────────
-
 export async function listAssets(activeOnly = true): Promise<Asset[]> {
   const result = await withDb(async (client) => {
     const query = activeOnly
@@ -67,8 +63,6 @@ export async function getAsset(symbol: string): Promise<Asset | null> {
   return result.value ?? null;
 }
 
-// ── Market queries ────────────────────────────────────────────────────────────
-
 export async function listMarkets(activeOnly = true): Promise<Market[]> {
   const result = await withDb(async (client) => {
     const query = activeOnly
@@ -93,5 +87,24 @@ export async function getMarket(symbol: string): Promise<Market | null> {
     return rows.rows[0] ? rowToMarket(rows.rows[0]) : null;
   });
   if (!result.enabled) return null;
+  return result.value ?? null;
+}
+
+/**
+ * Financial admission must distinguish an unavailable authority from a missing
+ * or disabled market. Silent empty/null fallback is forbidden at this boundary.
+ */
+export async function getActiveMarketStrict(symbol: string): Promise<Market | null> {
+  const result = await withDb(async (client) => {
+    const rows = await client.query(
+      `SELECT *
+         FROM markets
+        WHERE symbol = $1 AND status = 'active'
+        LIMIT 1`,
+      [symbol.toUpperCase()],
+    );
+    return rows.rows[0] ? rowToMarket(rows.rows[0]) : null;
+  });
+  if (!result.enabled) throw new Error("market_storage_unavailable");
   return result.value ?? null;
 }
