@@ -35,6 +35,7 @@ const LEGACY_STORAGE_KEY = "tecpey_offline_queue_v1";
 const LEGACY_QUARANTINE_KEY = "tecpey_offline_queue_unscoped_quarantine_v1";
 const LAST_SYNC_KEY = "tecpey_offline_last_sync_v1";
 const SCOPE_KEY = "tecpey_offline_principal_scope_v1";
+const MAX_QUEUE_ITEMS = 200;
 let scopeRefreshInFlight: Promise<StoredScope | null> | null = null;
 
 // Single audited browser-storage boundary. Values here are transport-only and
@@ -54,15 +55,33 @@ function readQueue(): OfflineQueueItem[] {
   }
 }
 
-function writeQueue(items: OfflineQueueItem[]) {
+function writeQueue(items: OfflineQueueItem[]): boolean {
   const store = transportStorage();
-  if (!store) return;
-  store.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
-  window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
+  if (!store || items.length > MAX_QUEUE_ITEMS) return false;
+  try {
+    store.setItem(STORAGE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function enqueueScopedItem(item: PendingOfflineQueueItem, scope: StoredScope) {
-  writeQueue([...readQueue(), { ...item, scopeToken: scope.token }]);
+function reportQueueWriteFailure(eventId: string) {
+  window.dispatchEvent(
+    new CustomEvent("tecpey-offline-queue-write-failed", {
+      detail: { eventId },
+    }),
+  );
+}
+
+function enqueueScopedItem(
+  item: PendingOfflineQueueItem,
+  scope: StoredScope,
+): boolean {
+  const queued = writeQueue([...readQueue(), { ...item, scopeToken: scope.token }]);
+  if (!queued) reportQueueWriteFailure(item.id);
+  return queued;
 }
 
 function quarantineLegacyQueue() {
@@ -70,10 +89,14 @@ function quarantineLegacyQueue() {
   if (!store) return;
   const legacy = store.getItem(LEGACY_STORAGE_KEY);
   if (!legacy) return;
-  if (!store.getItem(LEGACY_QUARANTINE_KEY)) {
-    store.setItem(LEGACY_QUARANTINE_KEY, legacy);
+  try {
+    if (!store.getItem(LEGACY_QUARANTINE_KEY)) {
+      store.setItem(LEGACY_QUARANTINE_KEY, legacy);
+    }
+    store.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Preserve the original queue if quarantine cannot be written atomically.
   }
-  store.removeItem(LEGACY_STORAGE_KEY);
 }
 
 function readScope(): StoredScope | null {
@@ -100,8 +123,12 @@ function readScope(): StoredScope | null {
 function writeScope(scope: StoredScope | null) {
   const store = transportStorage();
   if (!store) return;
-  if (!scope) store.removeItem(SCOPE_KEY);
-  else store.setItem(SCOPE_KEY, JSON.stringify(scope));
+  try {
+    if (!scope) store.removeItem(SCOPE_KEY);
+    else store.setItem(SCOPE_KEY, JSON.stringify(scope));
+  } catch {
+    // Scope refresh remains unavailable; callers surface that state visibly.
+  }
 }
 
 async function fetchPrincipalScope(): Promise<StoredScope | null> {
@@ -207,9 +234,16 @@ async function syncQueue() {
       .filter((result) => result.status === "committed" || result.status === "rejected")
       .map((result) => result.id),
   );
-  writeQueue(queue.filter((item) => !terminal.has(item.id)));
-  transportStorage()?.setItem(LAST_SYNC_KEY, new Date().toISOString());
-  return { ok: true, pending: readQueue().length };
+  const remaining = queue.filter((item) => !terminal.has(item.id));
+  if (!writeQueue(remaining)) {
+    return { ok: false, pending: queue.length };
+  }
+  try {
+    transportStorage()?.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  } catch {
+    // Last-sync metadata is non-authoritative and may safely be omitted.
+  }
+  return { ok: true, pending: remaining.length };
 }
 
 export function OfflineSyncManager() {
@@ -217,14 +251,18 @@ export function OfflineSyncManager() {
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [scopeRequired, setScopeRequired] = useState(false);
+  const [queueWriteFailed, setQueueWriteFailed] = useState(false);
 
   const label = useMemo(() => {
+    if (queueWriteFailed) {
+      return "حافظه آفلاین پر یا غیرقابل‌دسترسی است؛ این رویداد ثبت نشد";
+    }
     if (scopeRequired) return "برای ثبت آفلاین، ابتدا وارد حساب آکادمی شوید";
     if (!online) return "حالت آفلاین فعال است؛ داده‌ها بعداً همگام می‌شوند";
     if (syncing) return "در حال همگام‌سازی تمرین‌های ذخیره‌شده…";
     if (pending > 0) return `${pending} رویداد آماده همگام‌سازی`;
     return "همگام‌سازی آماده";
-  }, [online, pending, scopeRequired, syncing]);
+  }, [online, pending, queueWriteFailed, scopeRequired, syncing]);
 
   useEffect(() => {
     // Legacy commands had no principal binding. Preserve them in quarantine for
@@ -239,6 +277,7 @@ export function OfflineSyncManager() {
       setPending(readQueue().length);
     };
     const requireScope = () => setScopeRequired(true);
+    const reportWriteFailure = () => setQueueWriteFailed(true);
     const runSync = async () => {
       refresh();
       if (!navigator.onLine) return;
@@ -259,6 +298,10 @@ export function OfflineSyncManager() {
     window.addEventListener("offline", refresh);
     window.addEventListener("tecpey-offline-queue-changed", refresh);
     window.addEventListener("tecpey-offline-scope-required", requireScope);
+    window.addEventListener(
+      "tecpey-offline-queue-write-failed",
+      reportWriteFailure,
+    );
     window.addEventListener("focus", runSync);
     return () => {
       window.clearInterval(interval);
@@ -266,11 +309,15 @@ export function OfflineSyncManager() {
       window.removeEventListener("offline", refresh);
       window.removeEventListener("tecpey-offline-queue-changed", refresh);
       window.removeEventListener("tecpey-offline-scope-required", requireScope);
+      window.removeEventListener(
+        "tecpey-offline-queue-write-failed",
+        reportWriteFailure,
+      );
       window.removeEventListener("focus", runSync);
     };
   }, []);
 
-  if (online && pending === 0 && !scopeRequired) return null;
+  if (online && pending === 0 && !scopeRequired && !queueWriteFailed) return null;
   return (
     <div
       className="fixed bottom-4 left-4 z-[70] max-w-[calc(100vw-2rem)] rounded-2xl border border-cyan-300/20 bg-slate-950/92 px-4 py-3 text-xs font-black text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl"
