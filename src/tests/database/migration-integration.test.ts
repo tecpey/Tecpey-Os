@@ -18,6 +18,8 @@ const REQUIRED_MIGRATIONS = [
   "0024_notification_domain_outbox.sql",
   "0025_crm_lead_authority.sql",
   "0026_crm_lead_hardening.sql",
+  "0027_academy_section_checkpoint_authority.sql",
+  "0028_academy_reward_legacy_release.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ] as const;
@@ -26,6 +28,8 @@ const REQUIRED_TABLES = [
   "academy_students",
   "academy_state_documents",
   "academy_trading_arena_commands",
+  "academy_section_attempts",
+  "academy_section_legacy_snapshots",
   "offline_sync_commands",
   "notification_domain_outbox",
   "notification_domain_outbox_attempts",
@@ -49,6 +53,17 @@ const REQUIRED_COLUMNS = [
   ["withdrawals", "request_hash"],
   ["academy_trading_arena_attempts", "execution_state"],
   ["academy_state_documents", "reflection_revision"],
+  ["academy_lesson_progress", "question_id"],
+  ["academy_lesson_progress", "question_version"],
+  ["academy_lesson_progress", "selected_option_id"],
+  ["academy_lesson_progress", "last_answer_correct"],
+  ["academy_lesson_progress", "best_score"],
+  ["academy_lesson_progress", "attempt_count"],
+  ["academy_lesson_progress", "authority_status"],
+  ["academy_section_attempts", "request_hash"],
+  ["academy_section_attempts", "idempotency_key"],
+  ["academy_reward_ledger", "revoked_at"],
+  ["academy_reward_ledger", "revocation_reason"],
   ["admin_audit_events", "chain_sequence"],
   ["learning_events", "event_id"],
   ["learning_events", "source"],
@@ -80,6 +95,9 @@ const REQUIRED_INDEXES = [
   "crm_lead_commands_lead_idx",
   "crm_lead_delivery_claim_idx",
   "crm_lead_delivery_lease_idx",
+  "academy_section_attempts_student_term_idx",
+  "academy_section_attempts_question_idx",
+  "academy_reward_ledger_active_student_idx",
   "withdrawals_user_idempotency_unique_idx",
 ] as const;
 
@@ -99,10 +117,16 @@ const REQUIRED_TRIGGERS = [
   "crm_lead_commands_no_delete",
   "crm_lead_audit_no_update",
   "crm_lead_audit_no_delete",
+  "academy_section_attempts_no_update",
+  "academy_section_attempts_no_delete",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
   "crm_leads_legal_basis_consent_check",
+  "academy_lesson_progress_authority_status_check",
+  "academy_lesson_progress_checkpoint_completion_check",
+  "academy_lesson_progress_attempt_count_check",
+  "academy_reward_ledger_revocation_reason_check",
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -193,7 +217,7 @@ describe("PostgreSQL migration authority", () => {
       assert.deepEqual(
         new Set(constraintResult.rows.map((row) => row.conname)),
         new Set(REQUIRED_CONSTRAINTS),
-        "critical CRM privacy constraints must exist",
+        "critical privacy and Academy authority constraints must exist",
       );
     } finally {
       client.release();
