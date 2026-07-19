@@ -27,7 +27,7 @@ test("only governed domain producers can call notification creation authority", 
     "academy.assessment_completed",
     "academy.certificate_issued",
     "security.new_login",
-    "security.credentials_changed",
+    "security.credential_changed",
     "security.session_revoked",
     "support.ticket_status_changed",
   ]) {
@@ -35,18 +35,21 @@ test("only governed domain producers can call notification creation authority", 
   }
 
   for (const required of [
-    "parseDomainNotificationEvent",
+    "parseNotificationProducerEvent",
     "hasExactKeys",
-    "validOccurredAt",
-    "Validate.uuid(input.principalId)",
+    "occurredAt(value.occurredAt)",
+    "uuid(value.principalId)",
+    "value.version !== 1",
     "WHERE tenant_id = $1 AND id = $2::uuid",
     "FOR SHARE",
     "createInAppNotification",
+    "buildNotificationRequest",
     "templateId",
-    "correlationKey(event)",
-    "sourceType: event.eventType",
-    "sourceId: event.eventId",
-    "eventOccurredAt",
+    "correlationKey: `${event.type}:${event.id}`",
+    "sourceType: event.type",
+    "sourceId: event.id",
+    "producerOccurredAt",
+    "event.locale !== principal.locale",
   ]) {
     assert.ok(producer.includes(required), required);
   }
@@ -56,6 +59,7 @@ test("only governed domain producers can call notification creation authority", 
     "input.body",
     "input.urgency",
     "input.notificationClass",
+    "producerPayload",
     "https://",
     "http://",
   ]) {
@@ -75,5 +79,13 @@ test("only governed domain producers can call notification creation authority", 
       false,
       `${path} bypasses governed producer authority`,
     );
+
+    if (path.startsWith("src/app/api/")) {
+      assert.equal(
+        source.includes("produceDomainNotification"),
+        false,
+        `${path} calls producer authority outside a domain transaction`,
+      );
+    }
   }
 });
