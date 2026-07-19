@@ -7,6 +7,16 @@ on:
     branches: [main]
 
 jobs:
+  hygiene:
+    name: Repository Hygiene Inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan repository ownership and cleanup candidates
+        run: node scripts/audit-repository-hygiene.mjs
+
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
@@ -82,9 +92,6 @@ jobs:
 
       - name: Wallet authority boundary guard
         run: node scripts/check-wallet-authority.mjs
-
-      - name: Repository hygiene inventory
-        run: npm run audit:hygiene
 
       - name: Tests
         run: npm test
