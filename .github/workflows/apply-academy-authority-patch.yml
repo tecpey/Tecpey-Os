@@ -1,0 +1,65 @@
+name: Apply Academy Authority Patch — One Shot
+
+on:
+  push:
+    branches:
+      - feat/academy-server-reward-authority
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-academy-authority-patch
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Verify and apply reviewed authority patch
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feat/academy-server-reward-authority
+
+      - name: Reassemble and verify patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/academy-authority.patch.gz.b64.part* \
+            | base64 --decode \
+            | gzip --decompress \
+            > /tmp/academy-authority.patch
+
+          echo '8a1a7826d509bb39a5efac3b2c7692d06511b43e6fd32af47877112f5f38fa52  /tmp/academy-authority.patch' \
+            | sha256sum --check --strict
+
+          git apply --check /tmp/academy-authority.patch
+
+      - name: Apply reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply /tmp/academy-authority.patch
+          git diff --check
+          node scripts/check-academy-authority.mjs
+
+      - name: Remove one-shot transfer files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/academy-authority.patch.gz.b64.part*
+          rm -f .github/workflows/apply-academy-authority-patch.yml
+
+      - name: Commit authoritative Academy implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git diff --cached --check
+          git commit -m 'feat(academy): enforce server-issued progress authority'
+          git push origin HEAD:feat/academy-server-reward-authority
