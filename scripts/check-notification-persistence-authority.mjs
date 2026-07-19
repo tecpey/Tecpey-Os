@@ -29,9 +29,12 @@ const rejectText = (target, text, reason) => {
 requireText("migrationPlan", 'import { runNotificationMigrations }', "canonical plan must import notification migrations");
 requireText("migrationPlan", "await runNotificationMigrations(client);", "canonical plan must execute notification migrations");
 requireText("migration", "CREATE TABLE IF NOT EXISTS platform_principals", "tenant-scoped principal registry is required");
+requireText("migration", "UNIQUE (tenant_id, id)", "principal identity must expose a tenant-bound composite key");
 requireText("migration", "platform_principals_account_unique_idx", "account identity must be unique per tenant");
 requireText("migration", "platform_principals_student_unique_idx", "student identity must be unique per tenant");
 requireText("migration", "CREATE TABLE IF NOT EXISTS platform_notifications", "durable inbox table is required");
+requireText("migration", "FOREIGN KEY (tenant_id, principal_id)", "notification ownership must be tenant-bound at the database layer");
+requireText("migration", "REFERENCES platform_principals(tenant_id, id) ON DELETE CASCADE", "notification tenant and principal identities must reference the same principal row");
 requireText("migration", "UNIQUE (tenant_id, principal_id, correlation_key)", "visible notification dedupe must be database-enforced");
 requireText("migration", "CREATE TABLE IF NOT EXISTS notification_outbox", "transactional delivery outbox boundary is required");
 requireText("migration", "notification_consents_no_update", "consent history must be append-only");
@@ -48,6 +51,9 @@ requireText("inboxRoute", 'apiError("notification_inbox_unavailable", 503)', "da
 
 requireText("mutationRoute", "resolveNotificationPrincipal", "notification mutations must resolve the canonical authenticated principal");
 requireText("mutationRoute", "mutateInboxNotification", "notification mutations must delegate to the principal-scoped repository boundary");
+requireText("mutationRoute", "verifyCsrfOrigin", "notification lifecycle mutations must enforce same-origin CSRF protection");
+requireText("preferenceRoute", "verifyCsrfOrigin", "notification preference mutations must enforce same-origin CSRF protection");
+requireText("consentRoute", "verifyCsrfOrigin", "notification consent mutations must enforce same-origin CSRF protection");
 requireText("repository", "AND tenant_id = $2", "mutation SQL must enforce tenant ownership");
 requireText("repository", "AND principal_id = $3", "mutation SQL must enforce principal ownership");
 requireText("repository", "[notificationId, principal.tenantId, principal.id]", "mutation parameters must bind the resolved tenant and principal identities");
@@ -64,4 +70,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, inbox, consent and ownership boundaries are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, CSRF, consent and ownership boundaries are enforced.");
