@@ -50,4 +50,25 @@ describe("Trading Arena reflection evidence integrity", () => {
       /arena_reflection_evidence_invalid/,
     );
   });
+
+  it("fails closed on duplicate or noncanonical persisted mistake tags", () => {
+    assert.throws(
+      () => mapArenaReflectionRow(reflectionRow({
+        mistake_tags: ["late-entry", "late-entry"],
+      })),
+      /arena_reflection_row_invalid/,
+    );
+    assert.throws(
+      () => mapArenaReflectionRow(reflectionRow({
+        mistake_tags: ["late-entry", "early-exit"],
+      })),
+      /arena_reflection_row_invalid/,
+    );
+    assert.deepEqual(
+      mapArenaReflectionRow(reflectionRow({
+        mistake_tags: ["early-exit", "late-entry"],
+      })).mistakeTags,
+      ["early-exit", "late-entry"],
+    );
+  });
 });
