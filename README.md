@@ -8,7 +8,7 @@
 
 <br>
 
-**Education First • Intelligence Native • Enterprise Ready**
+**Education First • Intelligence Native • Production Hardening**
 
 <br>
 
@@ -26,13 +26,21 @@
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
 
-![License](https://img.shields.io/badge/license-private-red)
+![License](https://img.shields.io/badge/license-proprietary-red)
 
-![Architecture](https://img.shields.io/badge/architecture-multi--tenant-success)
+![Architecture](https://img.shields.io/badge/architecture-single--tenant%20core-f59e0b)
+
+![Roadmap](https://img.shields.io/badge/roadmap-multi--tenant%20%2F%20white--label-8b5cf6)
 
 ![CI](https://img.shields.io/github/actions/workflow/status/tecpey/Tecpey-Os/ci.yml)
 
 </div>
+
+---
+
+## Implementation Reality
+
+TecPey OS is under active production hardening. The current deployment foundation is intentionally single-tenant while multi-tenant and white-label isolation remain open platform gates. A capability is treated as production-ready only after its server-side authority, security, recovery, CI, integration and runtime evidence are complete.
 
 ---
 
@@ -136,7 +144,7 @@ TecPey OS consists of multiple integrated systems.
 
 Each platform is designed independently while operating as part of one ecosystem.
 
-This architecture allows TecPey to scale from individual users to enterprise customers without rebuilding its foundation.
+The architecture is being hardened so TecPey can evolve from its initial single-tenant product into enterprise and white-label deployments without weakening core security and data-authority boundaries.
 
 ---
 

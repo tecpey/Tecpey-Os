@@ -1,7 +1,13 @@
 {
-  "name": "tecpey-landing",
+  "name": "tecpey-os",
   "version": "0.1.0",
   "private": true,
+  "description": "TecPey Financial Education and Digital Asset Operating System",
+  "homepage": "https://tecpey.ir",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tecpey/Tecpey-Os.git"
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "dev:next": "next dev",
