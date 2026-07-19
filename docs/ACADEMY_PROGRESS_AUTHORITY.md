@@ -1,6 +1,6 @@
 # Academy Progress Authority
 
-**Status:** Implemented production-hardening contract
+**Status:** Implemented production-hardening contract  
 **Scope:** Academy XP, lesson completion, term progression, badges, streak and learner projection
 
 ## Authority hierarchy
@@ -55,6 +55,8 @@ Every pull request must pass:
 - production build
 
 The Academy authority guard fails CI if generic client mutation helpers or unverified Flashcard XP are reintroduced.
+
+Merge evidence is valid only when the successful Quality Checks run is attached to the exact pull-request head SHA being merged. Results from earlier commits, diagnostic branches or temporary workflows do not satisfy this gate.
 
 ## Follow-up gates
 
