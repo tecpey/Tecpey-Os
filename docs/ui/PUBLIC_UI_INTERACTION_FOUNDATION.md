@@ -11,14 +11,15 @@ This bounded recovery slice addresses confirmed public-surface defects from owne
 - Profile-ready users continue to use the existing personalized `GlobalAiMentorWidget`; the public entry hands off instead of creating a second personalized authority.
 - Knowledge Center uses logical RTL/LTR alignment, a bounded visible panel, menu semantics, Escape dismissal, route-close behavior and a mobile accordion contract.
 - Trading Arena and AI Mentor are discoverable from shared navigation and Footer paths.
+- The English Trading Arena route now provides an honest English product surface instead of redirecting visitors into an unexpected language; it clearly discloses that authenticated execution parity is still being completed.
 - Footer content is visible without IntersectionObserver or animation success.
 - Persian trust/registration content is Persian, and pending items explicitly avoid implying approval.
 
 ## Explicitly not complete
 
 - Final world-class landing information architecture and visual redesign.
-- A dedicated public Trading Arena landing section.
-- Full English Trading Arena product parity; the temporary English route safely bridges to the authoritative current Arena while the English product surface is built.
+- A dedicated public Trading Arena section on the root landing page.
+- Full English parity for the authenticated Trading Arena execution workspace.
 - Real browser automation and visual-regression screenshots.
 - Full public-route link crawler and responsive matrix.
 
