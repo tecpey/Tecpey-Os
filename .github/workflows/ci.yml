@@ -68,6 +68,9 @@ jobs:
       - name: Arena UI authority boundary guard
         run: node scripts/check-arena-ui-authority.mjs
 
+      - name: Wallet authority boundary guard
+        run: node scripts/check-wallet-authority.mjs
+
       - name: Tests
         run: npm test
 
