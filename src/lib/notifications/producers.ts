@@ -125,7 +125,9 @@ function text(
 function uuid(value: unknown): string | null {
   const normalized = text(value, 36, 36);
   return normalized &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      normalized,
+    )
     ? normalized.toLowerCase()
     : null;
 }
@@ -149,8 +151,14 @@ function locale(value: unknown): "fa" | "en" | null {
   return value === "fa" || value === "en" ? value : null;
 }
 
-function integer(value: unknown, minimum: number, maximum: number): number | null {
-  return Number.isInteger(value) && Number(value) >= minimum && Number(value) <= maximum
+function integer(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): number | null {
+  return Number.isInteger(value) &&
+    Number(value) >= minimum &&
+    Number(value) <= maximum
     ? Number(value)
     : null;
 }
@@ -194,24 +202,40 @@ export function parseNotificationProducerEvent(
 
   switch (root.type) {
     case "academy.lesson_available": {
-      if (!hasExactKeys(root.payload, ["termNumber", "lessonSlug", "lessonTitle"])) return null;
+      if (!hasExactKeys(root.payload, ["termNumber", "lessonSlug", "lessonTitle"])) {
+        return null;
+      }
       const termNumber = integer(root.payload.termNumber, 1, 100);
       const lessonSlug = text(root.payload.lessonSlug, 1, 120);
       const lessonTitle = text(root.payload.lessonTitle, 1, 160);
       return termNumber && lessonSlug && lessonTitle
-        ? { ...root, type: root.type, payload: { termNumber, lessonSlug, lessonTitle } }
-        : null;
-    }
-    case "academy.assessment_completed": {
-      if (!hasExactKeys(root.payload, ["assessmentId", "title", "score", "passed"])) return null;
-      const assessmentId = text(root.payload.assessmentId, 1, 180);
-      const title = text(root.payload.title, 1, 160);
-      const score = integer(root.payload.score, 0, 100);
-      return assessmentId && title && score !== null && typeof root.payload.passed === "boolean"
         ? {
             ...root,
             type: root.type,
-            payload: { assessmentId, title, score, passed: root.payload.passed },
+            payload: { termNumber, lessonSlug, lessonTitle },
+          }
+        : null;
+    }
+    case "academy.assessment_completed": {
+      if (!hasExactKeys(root.payload, ["assessmentId", "title", "score", "passed"])) {
+        return null;
+      }
+      const assessmentId = text(root.payload.assessmentId, 1, 180);
+      const title = text(root.payload.title, 1, 160);
+      const score = integer(root.payload.score, 0, 100);
+      return assessmentId &&
+        title &&
+        score !== null &&
+        typeof root.payload.passed === "boolean"
+        ? {
+            ...root,
+            type: root.type,
+            payload: {
+              assessmentId,
+              title,
+              score,
+              passed: root.payload.passed,
+            },
           }
         : null;
     }
@@ -230,7 +254,9 @@ export function parseNotificationProducerEvent(
     case "security.credential_changed": {
       if (!hasExactKeys(root.payload, ["credential"])) return null;
       const credential = root.payload.credential;
-      return credential === "password" || credential === "passkey" || credential === "two_factor"
+      return credential === "password" ||
+        credential === "passkey" ||
+        credential === "two_factor"
         ? { ...root, type: root.type, payload: { credential } }
         : null;
     }
@@ -245,13 +271,12 @@ export function parseNotificationProducerEvent(
       if (!hasExactKeys(root.payload, ["ticketId", "status"])) return null;
       const ticketId = text(root.payload.ticketId, 1, 180);
       const status = root.payload.status;
-      return ticketId && (
-        status === "received" ||
-        status === "in_progress" ||
-        status === "waiting_for_user" ||
-        status === "resolved" ||
-        status === "closed"
-      )
+      return ticketId &&
+        (status === "received" ||
+          status === "in_progress" ||
+          status === "waiting_for_user" ||
+          status === "resolved" ||
+          status === "closed")
         ? { ...root, type: root.type, payload: { ticketId, status } }
         : null;
     }
@@ -260,7 +285,10 @@ export function parseNotificationProducerEvent(
   }
 }
 
-function expiresAt(event: NotificationProducerEvent, milliseconds: number): string {
+function expiresAt(
+  event: NotificationProducerEvent,
+  milliseconds: number,
+): string {
   return new Date(Date.parse(event.occurredAt) + milliseconds).toISOString();
 }
 
@@ -328,15 +356,20 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
       return {
         ...base,
         notificationClass: "academy" as const,
-        title: fa ? "درس بعدی آکادمی آماده است" : "Your next Academy lesson is ready",
+        title: fa
+          ? "درس بعدی آکادمی آماده است"
+          : "Your next Academy lesson is ready",
         body: fa
           ? `«${event.payload.lessonTitle}» در ترم ${event.payload.termNumber.toLocaleString("fa-IR")} آماده ادامه است.`
           : `“${event.payload.lessonTitle}” is ready in term ${event.payload.termNumber}.`,
-        actionUrl: `/academy/term-${event.payload.termNumber}/${encodeURIComponent(event.payload.lessonSlug)}`,
+        actionUrl: `/academy/term-${event.payload.termNumber}`,
         urgency: "normal" as const,
         priority: 3,
         expiresAt: expiresAt(event, 7 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.lessonAvailable },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.lessonAvailable,
+        },
       };
     case "academy.assessment_completed":
       return {
@@ -346,11 +379,14 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
         body: fa
           ? `نتیجه «${event.payload.title}» با امتیاز ${event.payload.score.toLocaleString("fa-IR")} ثبت شد${event.payload.passed ? " و با موفقیت گذرانده شد." : "."}`
           : `Your result for “${event.payload.title}” was recorded with a score of ${event.payload.score}${event.payload.passed ? " and marked as passed." : "."}`,
-        actionUrl: `/academy/assessment/${encodeURIComponent(event.payload.assessmentId)}`,
+        actionUrl: "/academy/profile",
         urgency: "normal" as const,
         priority: event.payload.passed ? 3 : 4,
         expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.assessmentCompleted },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.assessmentCompleted,
+        },
       };
     case "academy.certificate_issued":
       return {
@@ -360,25 +396,33 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
         body: fa
           ? `گواهی «${event.payload.title}» صادر شد و در پروفایل آموزشی شما آماده مشاهده است.`
           : `Your “${event.payload.title}” certificate is ready in your learning profile.`,
-        actionUrl: `/academy/certificate/${encodeURIComponent(event.payload.certificateId)}`,
+        actionUrl: "/academy/certificates",
         urgency: "normal" as const,
         priority: 4,
         expiresAt: expiresAt(event, 365 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.certificateIssued },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.certificateIssued,
+        },
       };
     case "security.new_login":
       return {
         ...base,
         notificationClass: "security_critical" as const,
-        title: fa ? "ورود جدید به حساب تک‌پی" : "New sign-in to your TecPey account",
+        title: fa
+          ? "ورود جدید به حساب تک‌پی"
+          : "New sign-in to your TecPey account",
         body: fa
           ? "یک ورود جدید ثبت شد. اگر این فعالیت متعلق به شما نیست، نشست‌ها و تنظیمات امنیتی را بررسی کنید."
           : "A new sign-in was recorded. If this was not you, review your sessions and security settings.",
-        actionUrl: "/academy/settings/security",
+        actionUrl: "/academy/security",
         urgency: "critical" as const,
         priority: 10,
         expiresAt: expiresAt(event, 7 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securityNewLogin },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.securityNewLogin,
+        },
       };
     case "security.credential_changed": {
       const label = credentialLabel(event.locale, event.payload.credential);
@@ -389,11 +433,14 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
         body: fa
           ? "اگر این تغییر را انجام نداده‌اید، فوراً نشست‌های فعال و امنیت حساب را بررسی کنید."
           : "If you did not make this change, review active sessions and account security immediately.",
-        actionUrl: "/academy/settings/security",
+        actionUrl: "/academy/security",
         urgency: "critical" as const,
         priority: 10,
         expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securityCredentialChanged },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.securityCredentialChanged,
+        },
       };
     }
     case "security.session_revoked":
@@ -402,28 +449,39 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
         notificationClass: "security_critical" as const,
         title: fa ? "نشست حساب لغو شد" : "Account session revoked",
         body: fa
-          ? "یک یا چند نشست حساب بر اساس درخواست امنیتی لغو شد. فهرست دستگاه‌ها را بررسی کنید."
-          : "One or more account sessions were revoked following a security action. Review your devices.",
-        actionUrl: "/academy/settings/sessions",
+          ? "یک یا چند نشست حساب بر اساس درخواست امنیتی لغو شد. امنیت حساب را بررسی کنید."
+          : "One or more account sessions were revoked following a security action. Review account security.",
+        actionUrl: "/academy/security",
         urgency: "critical" as const,
         priority: 9,
         expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securitySessionRevoked },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.securitySessionRevoked,
+        },
       };
     case "support.ticket_status_changed": {
       const status = supportStatusLabel(event.locale, event.payload.status);
       return {
         ...base,
         notificationClass: "product_support" as const,
-        title: fa ? "وضعیت درخواست پشتیبانی تغییر کرد" : "Support request status changed",
+        title: fa
+          ? "وضعیت درخواست پشتیبانی تغییر کرد"
+          : "Support request status changed",
         body: fa
           ? `درخواست پشتیبانی ${event.payload.ticketId.slice(0, 8)} اکنون «${status}».`
           : `Support request ${event.payload.ticketId.slice(0, 8)} ${status}.`,
-        actionUrl: `/academy/support/tickets/${encodeURIComponent(event.payload.ticketId)}`,
-        urgency: event.payload.status === "waiting_for_user" ? "high" as const : "normal" as const,
+        actionUrl: "/support",
+        urgency:
+          event.payload.status === "waiting_for_user"
+            ? ("high" as const)
+            : ("normal" as const),
         priority: event.payload.status === "waiting_for_user" ? 6 : 4,
         expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
-        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.supportTicketStatusChanged },
+        metadata: {
+          ...base.metadata,
+          templateId: TEMPLATE_IDS.supportTicketStatusChanged,
+        },
       };
     }
   }
@@ -467,7 +525,8 @@ async function loadPrincipalForEvent(
 /**
  * Trusted internal producer boundary. Callers provide only a versioned domain
  * event; templates, class, urgency, action URL, expiry, policy evaluation and
- * outbox creation remain server-owned.
+ * outbox creation remain server-owned. Event time is retained as provenance;
+ * current processing time remains the sole policy authority.
  */
 export async function produceDomainNotification(
   client: PoolClient,
@@ -484,7 +543,5 @@ export async function produceDomainNotification(
     throw new Error("notification_event_locale_mismatch");
   }
   const request = buildNotificationRequest(event);
-  return createInAppNotification(client, principal, request, {
-    now: event.occurredAt,
-  });
+  return createInAppNotification(client, principal, request);
 }
