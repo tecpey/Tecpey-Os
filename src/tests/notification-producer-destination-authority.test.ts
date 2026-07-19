@@ -16,7 +16,7 @@ function base(locale: "fa" | "en") {
   return {
     tenantId: "tecpey",
     principalId,
-    occurredAt: "2026-07-19T12:00:00.000Z",
+    occurredAt: new Date().toISOString(),
     locale,
     version: 1 as const,
   };
