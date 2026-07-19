@@ -187,9 +187,9 @@ export async function POST(req: NextRequest) {
           && percent >= Number(process.env.ACADEMY_TERM_PASS_PERCENT || 80);
         const idempotencyKey = cleanText(
           req.headers.get("Idempotency-Key") ?? body.idempotencyKey,
-          160,
+          120,
         );
-        if (!/^[A-Za-z0-9._:-]{16,160}$/.test(idempotencyKey)) {
+        if (!/^[A-Za-z0-9._:-]{16,120}$/.test(idempotencyKey)) {
           return apiError("idempotency_key_required", 400);
         }
 
