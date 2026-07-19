@@ -22,13 +22,13 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  arenaCommandFingerprint,
   arenaUiError,
-  createArenaIdempotencyKey,
   parseArenaExecutionSnapshot,
+  resolveArenaCommandIdentity,
   shouldApplyArenaSnapshot,
   type ArenaExecutionCommand,
   type ArenaExecutionSnapshot,
+  type ArenaPendingCommandIdentity,
 } from "@/lib/trading-arena-client";
 import {
   ARENA_EXECUTION_MAX_RISK_RATE,
@@ -46,13 +46,6 @@ const FEE_RATE = 0.001;
 
 type EmotionalState = "calm" | "neutral" | "confident" | "anxious" | "fearful" | "greedy";
 type LoadState = "loading" | "ready" | "profile" | "error";
-
-type PendingCommandIdentity = {
-  attemptId: string;
-  expectedRevision: number;
-  fingerprint: string;
-  idempotencyKey: string;
-};
 
 type TradeDraft = {
   asset: ArenaExecutionAsset;
@@ -533,7 +526,7 @@ export function TradingArenaExecutionClient() {
   const sequenceRef = useRef(0);
   const lastAppliedSequenceRef = useRef(0);
   const commandLockRef = useRef(false);
-  const pendingCommandRef = useRef<PendingCommandIdentity | null>(null);
+  const pendingCommandRef = useRef<ArenaPendingCommandIdentity | null>(null);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -612,6 +605,20 @@ export function TradingArenaExecutionClient() {
       if (!options?.quiet) setError("آرنا در حال همگام‌سازی یک فرمان معتبر است؛ چند لحظه بعد دوباره ارسال کنید.");
       return false;
     }
+    const identityDecision = resolveArenaCommandIdentity({
+      pending: pendingCommandRef.current,
+      attemptId: current.activeAttempt.id,
+      revision: current.revision,
+      action,
+    });
+    if (identityDecision.kind === "blocked") {
+      if (!options?.quiet) {
+        setError("نتیجه فرمان قبلی هنوز قطعی نشده است. ابتدا همان فرمان با شناسه امن قبلی بازیابی می‌شود.");
+      }
+      return false;
+    }
+    const identity = identityDecision.identity;
+    pendingCommandRef.current = identity;
     commandLockRef.current = true;
     const sequence = ++sequenceRef.current;
     if (!options?.quiet) {
@@ -620,19 +627,6 @@ export function TradingArenaExecutionClient() {
       setNotice(null);
     }
     try {
-      const fingerprint = arenaCommandFingerprint(action);
-      const previousIdentity = pendingCommandRef.current;
-      const identity = previousIdentity &&
-        previousIdentity.attemptId === current.activeAttempt.id &&
-        previousIdentity.fingerprint === fingerprint
-        ? previousIdentity
-        : {
-            attemptId: current.activeAttempt.id,
-            expectedRevision: current.revision,
-            fingerprint,
-            idempotencyKey: createArenaIdempotencyKey(action.type),
-          };
-      pendingCommandRef.current = identity;
       const response = await fetch(ENDPOINT, {
         method: "POST",
         credentials: "include",
@@ -691,6 +685,12 @@ export function TradingArenaExecutionClient() {
     const hasLiveCommands = snapshot.state.openPositions.length > 0 || snapshot.state.pendingOrders.length > 0;
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible" || commandLockRef.current) return;
+      const pending = pendingCommandRef.current;
+      if (pending && pending.attemptId === snapshot.activeAttempt.id) {
+        void sendCommand(pending.action, { quiet: true });
+        return;
+      }
+      if (pending) pendingCommandRef.current = null;
       if (hasLiveCommands) void sendCommand({ type: "refresh_market" }, { quiet: true });
       else void loadSnapshot({ quiet: true });
     }, POLL_MS);

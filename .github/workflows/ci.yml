@@ -1,59 +1,80 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
-  arena-command-recovery:
-    name: Arena Command Recovery Patch
+  quality:
+    name: Quality Checks
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]' && github.head_ref == 'feat/trading-arena-authoritative-ui-v2'
+
+    env:
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
+
     steps:
-      - name: Checkout exact feature branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: feat/trading-arena-authoritative-ui-v2
-          fetch-depth: 0
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Correct transport guard and apply asserted source patch
-        shell: bash
+      - name: Verify npm version
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('scripts/_apply_arena_command_recovery.py')
-          text = path.read_text()
-          before = '    assert after not in text, f"replacement already present in {path}: {after[:100]!r}"\n'
-          after = '    if after:\n        assert after not in text, f"replacement already present in {path}: {after[:100]!r}"\n'
-          assert text.count(before) == 1
-          path.write_text(text.replace(before, after, 1))
-          PY
-          python scripts/_apply_arena_command_recovery.py
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+          echo "npm $(npm --version) OK"
 
-      - name: Verify authority boundaries
-        run: |
-          node scripts/check-arena-ui-authority.mjs
-          node --check scripts/check-arena-ui-authority.mjs
-          git diff --check
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-      - name: Restore canonical CI and remove all transport files
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin main --quiet
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git rm -f .github/workflows/fix-arena-command-recovery.yml \
-                    scripts/_apply_arena_command_recovery.py \
-                    .github/ARENA_COMMAND_RECOVERY_TRIGGER \
-                    .github/ARENA_COMMAND_RECOVERY_ERROR
-          git add .github/workflows/ci.yml \
-                  src/lib/trading-arena-client.ts \
-                  src/components/academy/trading-arena/TradingArenaExecutionClient.tsx \
-                  src/tests/arena/client-authority.test.ts \
-                  scripts/check-arena-ui-authority.mjs
-          git diff --cached --check
-          git commit -m 'fix(arena): preserve unresolved command identity across polling'
-          git push origin HEAD:feat/trading-arena-authoritative-ui-v2
+      - name: Production environment contract
+        env:
+          NODE_ENV: production
+        run: npm run env:check
+
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: ESLint
+        run: ./node_modules/.bin/eslint . --max-warnings 0
+
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
+
+      - name: Admin authentication boundary guard
+        run: node scripts/check-admin-auth-boundary.mjs
+
+      - name: Academy authority boundary guard
+        run: node scripts/check-academy-authority-boundary.mjs
+
+      - name: Arena UI authority boundary guard
+        run: node scripts/check-arena-ui-authority.mjs
+
+      - name: Wallet authority boundary guard
+        run: node scripts/check-wallet-authority.mjs
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        env:
+          NODE_ENV: production
+        run: npm run build

@@ -21,6 +21,18 @@ export type ArenaExecutionSnapshot = {
 
 export type ArenaExecutionCommand = ArenaExecutionActionV2;
 
+export type ArenaPendingCommandIdentity = {
+  attemptId: string;
+  expectedRevision: number;
+  fingerprint: string;
+  idempotencyKey: string;
+  action: ArenaExecutionCommand;
+};
+
+export type ArenaCommandIdentityDecision =
+  | { kind: "ready"; identity: ArenaPendingCommandIdentity; reused: boolean }
+  | { kind: "blocked"; identity: ArenaPendingCommandIdentity };
+
 export type ArenaSnapshotDecision = {
   apply: boolean;
   nextSequence: number;
@@ -240,6 +252,33 @@ export function createArenaIdempotencyKey(
   const key = `arena-ui:${action}:${safeEntropy}`;
   if (safeEntropy.length < 8 || key.length > 120) throw new Error("arena_idempotency_entropy_invalid");
   return key;
+}
+
+export function resolveArenaCommandIdentity(input: {
+  pending: ArenaPendingCommandIdentity | null;
+  attemptId: string;
+  revision: number;
+  action: ArenaExecutionCommand;
+  entropy?: string;
+}): ArenaCommandIdentityDecision {
+  const fingerprint = arenaCommandFingerprint(input.action);
+  if (input.pending && input.pending.attemptId === input.attemptId) {
+    if (input.pending.fingerprint !== fingerprint) {
+      return { kind: "blocked", identity: input.pending };
+    }
+    return { kind: "ready", identity: input.pending, reused: true };
+  }
+  return {
+    kind: "ready",
+    reused: false,
+    identity: {
+      attemptId: input.attemptId,
+      expectedRevision: input.revision,
+      fingerprint,
+      idempotencyKey: createArenaIdempotencyKey(input.action.type, input.entropy),
+      action: input.action,
+    },
+  };
 }
 
 export function arenaUiError(error: unknown, status?: number): string {

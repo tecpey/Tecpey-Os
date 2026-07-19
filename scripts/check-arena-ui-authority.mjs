@@ -55,6 +55,8 @@ for (const [target, pattern, reason] of [
   ["client", "expectedRevision", "commands must carry optimistic concurrency revision"],
   ["client", "idempotency-key", "commands must carry idempotency header"],
   ["client", "parseArenaExecutionSnapshot", "all API payloads must pass strict runtime validation"],
+  ["client", "resolveArenaCommandIdentity", "ambiguous commands must preserve one idempotency identity"],
+  ["client", "pending.action", "polling must retry the unresolved command before any refresh command"],
   ["client", "shouldApplyArenaSnapshot", "stale response protection is required"],
   ["client", "refresh_market", "live orders and protective exits require server refresh commands"],
   ["client", "marketAvailable={snapshot.marketStatus === \"available\"}", "position exits must honor authoritative market availability"],

@@ -4,6 +4,7 @@ import {
   arenaCommandFingerprint,
   createArenaIdempotencyKey,
   parseArenaExecutionSnapshot,
+  resolveArenaCommandIdentity,
   shouldApplyArenaSnapshot,
   type ArenaExecutionSnapshot,
 } from "@/lib/trading-arena-client";
@@ -162,5 +163,72 @@ describe("Trading Arena UI authority parser", () => {
       "arena-ui:market_buy:12345678-1234-4234-8234-123456789012",
     );
     assert.throws(() => createArenaIdempotencyKey("market_buy", "short"), /arena_idempotency_entropy_invalid/);
+  });
+
+  it("reuses an unresolved command identity and preserves its original revision", () => {
+    const action = { type: "market_buy", asset: "BTC", quoteAmount: "100" } as const;
+    const first = resolveArenaCommandIdentity({
+      pending: null,
+      attemptId: "attempt-a",
+      revision: 7,
+      action,
+      entropy: "12345678-1234-4234-8234-123456789012",
+    });
+    if (first.kind !== "ready") throw new Error("expected ready identity");
+    const replay = resolveArenaCommandIdentity({
+      pending: first.identity,
+      attemptId: "attempt-a",
+      revision: 9,
+      action,
+      entropy: "87654321-4321-4321-8321-210987654321",
+    });
+    if (replay.kind !== "ready") throw new Error("expected replay identity");
+    assert.equal(replay.reused, true);
+    assert.equal(replay.identity.idempotencyKey, first.identity.idempotencyKey);
+    assert.equal(replay.identity.expectedRevision, 7);
+    assert.deepEqual(replay.identity.action, action);
+  });
+
+  it("blocks a different command while an ambiguous command remains unresolved", () => {
+    const pending = resolveArenaCommandIdentity({
+      pending: null,
+      attemptId: "attempt-a",
+      revision: 4,
+      action: { type: "close_position", positionId: "position-1" },
+      entropy: "12345678-1234-4234-8234-123456789012",
+    });
+    if (pending.kind !== "ready") throw new Error("expected ready identity");
+    const blocked = resolveArenaCommandIdentity({
+      pending: pending.identity,
+      attemptId: "attempt-a",
+      revision: 4,
+      action: { type: "refresh_market" },
+      entropy: "87654321-4321-4321-8321-210987654321",
+    });
+    assert.equal(blocked.kind, "blocked");
+  });
+
+  it("discards an identity from an old attempt instead of replaying it on a new attempt", () => {
+    const pending = resolveArenaCommandIdentity({
+      pending: null,
+      attemptId: "attempt-a",
+      revision: 11,
+      action: { type: "cancel_order", orderId: "order-1" },
+      entropy: "12345678-1234-4234-8234-123456789012",
+    });
+    if (pending.kind !== "ready") throw new Error("expected ready identity");
+    const next = resolveArenaCommandIdentity({
+      pending: pending.identity,
+      attemptId: "attempt-b",
+      revision: 0,
+      action: { type: "refresh_market" },
+      entropy: "87654321-4321-4321-8321-210987654321",
+    });
+    if (next.kind !== "ready") throw new Error("expected new-attempt identity");
+    assert.equal(next.reused, false);
+    assert.equal(next.identity.attemptId, "attempt-b");
+    assert.equal(next.identity.expectedRevision, 0);
+    assert.deepEqual(next.identity.action, { type: "refresh_market" });
+    assert.notEqual(next.identity.idempotencyKey, pending.identity.idempotencyKey);
   });
 });
