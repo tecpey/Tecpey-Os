@@ -37,7 +37,7 @@ function inspectLifetime(config: {
     }));
   `;
 
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: "production",
     TECPEY_SESSION_SECRET: "access-session-secret-with-at-least-32-characters",
