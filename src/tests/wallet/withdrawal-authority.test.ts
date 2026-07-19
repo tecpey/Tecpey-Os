@@ -1,6 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { assertQueueIdentityMatchesRecord } from "../../lib/wallet/withdrawal-authority";
+import {
+  assertQueueIdentityMatchesRecord,
+  hasDurablePreparedTransaction,
+  resolveAuthoritativeFeeSpeed,
+} from "../../lib/wallet/withdrawal-authority";
 import type { WithdrawalJobData } from "../../lib/wallet/types";
 
 const staleJob: WithdrawalJobData = {
@@ -24,6 +28,27 @@ describe("Withdrawal queue authority boundary", () => {
     assert.throws(
       () => assertQueueIdentityMatchesRecord(staleJob, { id: "withdrawal-2" }),
       /identity mismatch/,
+    );
+  });
+
+  it("ignores queue fee policy and resolves only a valid DB fee_config", () => {
+    assert.equal(resolveAuthoritativeFeeSpeed({ speed: "fast" }), "fast");
+    assert.equal(resolveAuthoritativeFeeSpeed({ speed: "invalid" }), "normal");
+    assert.equal(resolveAuthoritativeFeeSpeed(null), "normal");
+  });
+
+  it("requires both durable raw bytes and deterministic hash before broadcast", () => {
+    assert.equal(
+      hasDurablePreparedTransaction({ rawTx: new Uint8Array([1, 2, 3]), txHash: "0xabc" }),
+      true,
+    );
+    assert.equal(
+      hasDurablePreparedTransaction({ rawTx: new Uint8Array(), txHash: "0xabc" }),
+      false,
+    );
+    assert.equal(
+      hasDurablePreparedTransaction({ rawTx: new Uint8Array([1]), txHash: null }),
+      false,
     );
   });
 });
