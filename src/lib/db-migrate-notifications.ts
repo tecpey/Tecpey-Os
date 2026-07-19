@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS platform_principals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE CASCADE,
   account_id TEXT,
-  student_id UUID REFERENCES academy_students(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES academy_students(id) ON DELETE SET NULL,
   email TEXT,
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'suspended', 'disabled', 'deleted')),
@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS platform_principals (
   timezone TEXT NOT NULL DEFAULT 'UTC',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (account_id IS NOT NULL OR student_id IS NOT NULL),
   CHECK (account_id IS NULL OR char_length(account_id) BETWEEN 3 AND 220),
   CHECK (email IS NULL OR char_length(email) BETWEEN 3 AND 254),
   CHECK (char_length(timezone) BETWEEN 1 AND 100)
