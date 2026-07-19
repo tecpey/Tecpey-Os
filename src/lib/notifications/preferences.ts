@@ -241,7 +241,7 @@ export async function getCurrentNotificationConsents(
             id, purpose, status, policy_version, source, jurisdiction, occurred_at
        FROM notification_consents
       WHERE principal_id = $1
-      ORDER BY purpose, occurred_at DESC, id DESC`,
+      ORDER BY purpose, event_sequence DESC`,
     [principalId],
   );
 
