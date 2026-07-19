@@ -8,6 +8,7 @@ const files = {
   preferences: "src/lib/notifications/preferences.ts",
   http: "src/lib/notifications/http.ts",
   notificationCenter: "src/components/learning-os/NotificationCenter.tsx",
+  persianNotificationPage: "src/app/academy/notifications/page.tsx",
   englishNotificationPage: "src/app/en/academy/notifications/page.tsx",
   inboxRoute: "src/app/api/notifications/route.ts",
   mutationRoute: "src/app/api/notifications/[id]/route.ts",
@@ -104,7 +105,11 @@ rejectText("notificationCenter", ".catch(() => undefined)", "Notification Center
 rejectText("notificationCenter", "/api/notifications/read", "Notification Center must not write to the retired legacy notification table");
 rejectText("notificationCenter", "action_url", "Notification Center must not depend on the legacy action URL field");
 rejectText("notificationCenter", "read_at", "Notification Center must not depend on the legacy read timestamp field");
+requireText("persianNotificationPage", '<NotificationCenter locale="fa" compact />', "Persian Notification Center route must render the durable Persian inbox");
+requireText("persianNotificationPage", "کانال‌های خارجی تا پیش از تأیید ارائه‌دهنده", "Persian Notification Center must disclose that external channels are not yet certified");
+rejectText("persianNotificationPage", "اندروید، iOS، ایمیل و تلگرام طراحی شده", "Persian Notification Center must not imply inactive external channels are available");
 requireText("englishNotificationPage", '<NotificationCenter locale="en" compact />', "English Notification Center route must render the durable English inbox");
+requireText("englishNotificationPage", "External delivery channels are not presented as active", "English Notification Center must disclose that external channels are not yet certified");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
 requireText("preferences", "mandatory_notification_class_requires_instant_delivery", "mandatory notification classes must not be downgraded to digest");
@@ -133,4 +138,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, policy-only AI entry, accessible current inbox, tenant ownership, mandatory cadence, serialized idempotent consent, private no-store responses and CSRF are enforced.");
+console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, policy-only AI entry, truthful bilingual accessible inbox, tenant ownership, mandatory cadence, serialized idempotent consent, private no-store responses and CSRF are enforced.");
