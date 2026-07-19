@@ -89,8 +89,12 @@ rejectText("repository", "validNotificationPreferenceInput", "preference parsing
 requireText("notificationCenter", "notificationClass", "Smart Center must consume the durable notification class contract");
 requireText("notificationCenter", "actionUrl", "Smart Center must consume the durable action URL contract");
 requireText("notificationCenter", "readAt", "Smart Center must consume the durable lifecycle contract");
+requireText("notificationCenter", "loadState === \"error\"", "Smart Center must expose inbox failures rather than fabricate an empty state");
+requireText("notificationCenter", "loadState === \"ready\" && topItems.length === 0", "Smart Center may show an empty state only after a successful inbox read");
+requireText("notificationCenter", "setLoadState(\"error\")", "Smart Center must preserve explicit failure state on inbox errors");
 requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Smart Center must mutate the authoritative platform notification endpoint");
 requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Smart Center must use the typed read lifecycle mutation");
+rejectText("notificationCenter", ".catch(() => undefined)", "Smart Center must not silently swallow authoritative inbox failures");
 rejectText("notificationCenter", "/api/notifications/read", "Smart Center must not write to the retired legacy notification table");
 rejectText("notificationCenter", "action_url", "Smart Center must not depend on the legacy action URL field");
 rejectText("notificationCenter", "read_at", "Smart Center must not depend on the legacy read timestamp field");
@@ -122,4 +126,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, current Smart Center contract, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, truthful Smart Center states, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
