@@ -246,8 +246,15 @@ describe("Authentication session PostgreSQL and Redis authority", () => {
 
   it("refuses access-session and refresh-token issuance without PostgreSQL authority", () => {
     const script = `
-      const { registerSession } = await import("./src/lib/security/session-store.ts");
-      const { issueRefreshToken } = await import("./src/lib/security/refresh-tokens.ts");
+      const sessionModule = await import("./src/lib/security/session-store.ts");
+      const refreshModule = await import("./src/lib/security/refresh-tokens.ts");
+      const sessionApi = sessionModule.default ?? sessionModule;
+      const refreshApi = refreshModule.default ?? refreshModule;
+      const registerSession = sessionModule.registerSession ?? sessionApi.registerSession;
+      const issueRefreshToken = refreshModule.issueRefreshToken ?? refreshApi.issueRefreshToken;
+      if (typeof registerSession !== "function" || typeof issueRefreshToken !== "function") {
+        throw new TypeError("auth authority exports unavailable");
+      }
       const session = await registerSession({
         jti: "00000000-0000-4000-8000-000000000001",
         userId: "db-unavailable-user",
