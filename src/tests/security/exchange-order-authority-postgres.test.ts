@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import { withDb } from "../../lib/db";
 import { D } from "../../lib/trading/decimal";
 import { getMatchingEngine } from "../../lib/trading/engine";
@@ -13,6 +13,10 @@ import {
 } from "../../lib/trading/order-command-service";
 import { getOrderHoldResidualTx } from "../../lib/trading/wallet-service";
 import { PLATFORM } from "../../lib/platform-config";
+import { isolateExchangeOrderTestCache } from "./exchange-order-test-environment";
+
+const restoreTestCache = isolateExchangeOrderTestCache();
+after(restoreTestCache);
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -135,14 +139,24 @@ describe("Exchange order PostgreSQL authority", () => {
     const results = await Promise.all(
       Array.from({ length: 8 }, () => admitExchangeOrderCommand(input)),
     );
-    assert.equal(results.every((entry) => ["admitted", "replayed"].includes(entry.status)), true);
+    assert.equal(
+      results.every((entry) => ["admitted", "replayed"].includes(entry.status)),
+      true,
+    );
     const committed = results.filter(
-      (entry): entry is Extract<typeof entry, { status: "admitted" | "replayed" }> =>
-        entry.status === "admitted" || entry.status === "replayed",
+      (
+        entry,
+      ): entry is Extract<
+        typeof entry,
+        { status: "admitted" | "replayed" }
+      > => entry.status === "admitted" || entry.status === "replayed",
     );
     assert.equal(new Set(committed.map((entry) => entry.commandId)).size, 1);
     assert.equal(new Set(committed.map((entry) => entry.order.id)).size, 1);
-    assert.equal(committed.filter((entry) => entry.status === "admitted").length, 1);
+    assert.equal(
+      committed.filter((entry) => entry.status === "admitted").length,
+      1,
+    );
     assert.deepEqual(await evidenceFor(userId, market), {
       orders: "1",
       commands: "1",
@@ -254,7 +268,9 @@ describe("Exchange order PostgreSQL authority", () => {
       });
     } finally {
       await withDb(async (client) => {
-        await client.query(`DROP TRIGGER IF EXISTS ${triggerName} ON wallet_balances`);
+        await client.query(
+          `DROP TRIGGER IF EXISTS ${triggerName} ON wallet_balances`,
+        );
         await client.query(`DROP FUNCTION IF EXISTS ${functionName}()`);
         await client.query(
           `UPDATE exchange_order_commands
@@ -289,8 +305,12 @@ describe("Exchange order PostgreSQL authority", () => {
     const market = uniqueMarket();
     let entered!: () => void;
     let release!: () => void;
-    const enteredPromise = new Promise<void>((resolve) => { entered = resolve; });
-    const releasePromise = new Promise<void>((resolve) => { release = resolve; });
+    const enteredPromise = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const releasePromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
 
     const first = withExchangeMarketExecutionLock(market, async () => {
       entered();
@@ -315,11 +335,13 @@ describe("Exchange order PostgreSQL authority", () => {
     const market = uniqueMarket();
     const userId = `exchange-cancel-${randomUUID()}`;
     await seedMarketAndBalance({ market, userId });
-    const admitted = await admitExchangeOrderCommand(command({
-      market,
-      userId,
-      timeInForce: "GTC",
-    }));
+    const admitted = await admitExchangeOrderCommand(
+      command({
+        market,
+        userId,
+        timeInForce: "GTC",
+      }),
+    );
     assert.equal(admitted.status, "admitted");
     if (admitted.status !== "admitted") return;
 
@@ -336,7 +358,10 @@ describe("Exchange order PostgreSQL authority", () => {
       getMatchingEngine().cancelOrder(admitted.order.id, userId),
       getMatchingEngine().cancelOrder(admitted.order.id, userId),
     ]);
-    assert.equal([first, second].filter((entry) => entry.cancelled).length, 1);
+    assert.equal(
+      [first, second].filter((entry) => entry.cancelled).length,
+      1,
+    );
     assert.equal(
       [first.reason, second.reason].some((reason) =>
         ["market_busy", "order_already_terminal"].includes(reason ?? ""),
