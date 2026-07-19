@@ -4,6 +4,7 @@ const files = {
   package: "package.json",
   workflow: ".github/workflows/ci.yml",
   env: "scripts/validate-env.mjs",
+  browserGuard: "scripts/check-browser-persistence.mjs",
   migrationPlan: "src/lib/db-migration-plan.ts",
   migration: "src/lib/db-migrate-crm-leads.ts",
   hardening: "src/lib/db-migrate-crm-leads-hardening.ts",
@@ -51,6 +52,7 @@ requireText("env", "TECPEY_CRM_CONTACT_HASH_SECRET", "production must require a 
 requireText("env", "TECPEY_CRM_WEBHOOK_SECRET", "webhook delivery must require a dedicated signing key");
 requireText("env", "ACADEMY_LEADS_WEBHOOK_URL is required", "webhook URL and secret must be configured as a pair");
 requireText("env", "TECPEY_TRUSTED_PROXY_HEADER", "production must explicitly configure trusted proxy extraction");
+rejectText("browserGuard", '"src/components/academy/AcademySpecializedProgram.tsx"', "removed browser PII persistence must not remain in the approved baseline");
 
 requireText("migrationPlan", "runCrmLeadMigrations", "canonical migrations must include CRM lead authority");
 requireText("migrationPlan", "runCrmLeadHardeningMigrations", "canonical migrations must include CRM lead hardening");
