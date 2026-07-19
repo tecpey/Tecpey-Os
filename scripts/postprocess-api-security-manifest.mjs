@@ -66,6 +66,21 @@ function findings(entry) {
   return output;
 }
 
+function bodyLimitEvidence(source) {
+  const headerHint = /\bcheckBodySize\s*\(|content-length/i.test(source);
+  const governedReader = source.match(
+    /\b(readJsonBody|readBoundedJson|readBoundedBody|readBodyWithLimit|parseBoundedJsonBody)\s*\(/,
+  )?.[1] ?? null;
+  const streamingReader = /\.body\?*\.getReader\s*\(|\.body\.getReader\s*\(/.test(source)
+    && /(?:bytesRead|totalBytes|receivedBytes|size)\s*>\s*[A-Z0-9_]+/.test(source);
+
+  return {
+    headerHint,
+    authority: governedReader ?? (streamingReader ? "streaming-reader-with-byte-counter" : null),
+    enforceable: Boolean(governedReader || streamingReader),
+  };
+}
+
 const sourceCache = new Map();
 async function sourceFor(entry) {
   if (!sourceCache.has(entry.sourcePath)) {
@@ -76,6 +91,17 @@ async function sourceFor(entry) {
 
 for (const entry of manifest.routes) {
   const source = await sourceFor(entry);
+
+  // Content-Length can be absent, forged, or bypassed by chunked transfer. It is
+  // useful for an early rejection only and must never satisfy the governed body
+  // limit requirement. Only a reader that stops consuming bytes at the limit is
+  // accepted as enforceable evidence.
+  const bodyEvidence = bodyLimitEvidence(source);
+  entry.controls.headerBodySizeHint = bodyEvidence.headerHint;
+  entry.controls.bodySizeLimitAuthority = bodyEvidence.authority;
+  if (entry.controls.expectsBody) {
+    entry.controls.bodySizeLimit = bodyEvidence.enforceable;
+  }
 
   // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
   // no-store contract from src/lib/api-validation.ts.
