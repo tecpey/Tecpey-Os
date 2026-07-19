@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 const academySecret = "legacy-academy-secret-with-at-least-32-characters";
+const hardSunset = "2026-08-18T00:00:00.000Z";
+const hardSunsetMs = Date.parse(hardSunset);
 
 function runLegacySession(cutoff?: string): {
   status: number | null;
@@ -107,18 +109,24 @@ describe("Legacy cookie retirement authority", () => {
     });
   });
 
-  it("allows a legacy cookie only inside an explicit short migration window", () => {
-    const cutoff = new Date(Date.now() + 24 * 60 * 60 * 1_000).toISOString();
-    const child = runLegacySession(cutoff);
-    assert.equal(child.status, 0, child.stderr);
-    assert.deepEqual(child.result, {
-      role: "academy_user",
-      academyAccountId: "legacy-account",
-    });
-  });
+  it(
+    "allows a legacy cookie only inside an explicit window before the immutable sunset",
+    { skip: Date.now() + 60_000 >= hardSunsetMs },
+    () => {
+      const cutoff = new Date(
+        Math.min(Date.now() + 24 * 60 * 60 * 1_000, hardSunsetMs - 1_000),
+      ).toISOString();
+      const child = runLegacySession(cutoff);
+      assert.equal(child.status, 0, child.stderr);
+      assert.deepEqual(child.result, {
+        role: "academy_user",
+        academyAccountId: "legacy-account",
+      });
+    },
+  );
 
-  it("rejects a legacy migration cutoff beyond the 30-day maximum", () => {
-    const cutoff = new Date(Date.now() + 31 * 24 * 60 * 60 * 1_000).toISOString();
+  it("rejects configuration that attempts to slide beyond the immutable sunset", () => {
+    const cutoff = new Date(hardSunsetMs + 1_000).toISOString();
     const runtime = runLegacySession(cutoff);
     assert.equal(runtime.status, 0, runtime.stderr);
     assert.deepEqual(runtime.result, {
@@ -130,7 +138,7 @@ describe("Legacy cookie retirement authority", () => {
     assert.notEqual(validation.status, 0);
     assert.match(
       validation.stderr,
-      /may not extend legacy cookie compatibility beyond 30 days/,
+      /may not exceed the immutable 2026-08-18 legacy auth sunset|has passed its immutable 2026-08-18 sunset/,
     );
   });
 });

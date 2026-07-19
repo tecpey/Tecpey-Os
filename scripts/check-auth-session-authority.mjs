@@ -10,7 +10,7 @@ const files = {
   sessionsTests: "src/tests/security/auth-sessions-route-postgres.test.ts",
   specificSessionTests: "src/tests/security/auth-session-revoke-route-postgres.test.ts",
   passwordTests: "src/tests/security/auth-password-change-postgres.test.ts",
-  legacyCookieTests: "src/tests/security/auth-legacy-cookie-cutoff.test.ts",
+  legacyTests: "src/tests/security/auth-legacy-cookie-cutoff.test.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
@@ -51,8 +51,9 @@ requireText("ci", "npm run auth:check", "CI must invoke the governed auth comman
 requireText("ci", "Authentication session integration tests", "pull-request CI must expose focused auth integration evidence");
 requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
-requireText("env", "TECPEY_LEGACY_AUTH_UNTIL", "legacy compatibility must be explicit and environment-governed");
-requireText("env", "may not extend legacy cookie compatibility beyond 30 days", "legacy compatibility must have a hard maximum window");
+requireText("env", "TECPEY_LEGACY_AUTH_UNTIL", "legacy compatibility must have an explicit environment cutoff");
+requireText("env", "beyond 30 days", "legacy compatibility cutoff must remain locally bounded");
+requireText("env", "immutable 2026-08-18", "legacy compatibility must have a non-extendable production sunset");
 
 for (const target of ["unified", "legacySession"]) {
   requireText(target, "TECPEY_SESSION_SECRET", "access sessions must use the canonical secret");
@@ -72,11 +73,12 @@ requireText("api", "Authenticated session required", "API forwarding must not em
 
 requireText("authSession", "type JtiCacheEntry = { revoked: true", "only deny decisions may be cached");
 rejectText("authSession", "revoked: false", "cached allow decisions are forbidden");
-requireText("authSession", "legacyCookieCompatibilityEnabled", "legacy cookies must be governed by an explicit compatibility boundary");
-requireText("authSession", "process.env.NODE_ENV !== \"production\"", "production must not enable legacy cookies implicitly");
-requireText("authSession", "TECPEY_LEGACY_AUTH_UNTIL", "production legacy auth requires an explicit cutoff");
-requireText("authSession", "LEGACY_AUTH_MAX_WINDOW_MS", "runtime must enforce the maximum migration window");
-requireText("authSession", "if (strict || !legacyCookieCompatibilityEnabled()) return guestSession()", "strict operations and disabled compatibility must reject legacy cookies");
+requireText("authSession", "legacyCookieCompatibilityEnabled", "legacy cookie acceptance must use one governed cutoff function");
+requireText("authSession", "TECPEY_LEGACY_AUTH_UNTIL", "legacy cookie acceptance must require an explicit production cutoff");
+requireText("authSession", "LEGACY_AUTH_MAX_WINDOW_MS", "legacy cookie migration windows must be bounded");
+requireText("authSession", "LEGACY_AUTH_HARD_SUNSET", "legacy cookie retirement must have an immutable code-owned sunset");
+requireText("authSession", "immutable hard sunset", "legacy cutoff configuration may not slide beyond retirement");
+requireText("authSession", "if (strict || !legacyCookieCompatibilityEnabled())", "strict callers and expired legacy windows must reject legacy cookies");
 requireText("authSession", "revocation check failed — blocking", "revocation check exceptions must fail closed");
 
 requireText("jti", "durableSessionState", "PostgreSQL session authority must back JTI checks");
@@ -152,13 +154,13 @@ requireText("specificSessionTests", "cannot mint a replacement", "device revocat
 requireText("specificSessionTests", "does not belong to the principal", "foreign session IDs must not revoke the caller's refresh authority");
 requireText("passwordTests", "invalidates every old access and refresh credential", "password tests must prove complete credential rotation");
 requireText("passwordTests", "one fresh session", "password tests must prove only the replacement session remains active");
-requireText("legacyCookieTests", "disables legacy cookie authentication by default in production", "tests must prove legacy auth is off by default");
-requireText("legacyCookieTests", "explicit short migration window", "tests must prove bounded compatibility can be enabled deliberately");
-requireText("legacyCookieTests", "30-day maximum", "tests must reject permanent legacy-cookie compatibility");
+requireText("legacyTests", "disables legacy cookie authentication by default in production", "legacy authentication must be off by default in production");
+requireText("legacyTests", "explicit window before the immutable sunset", "legacy authentication must require a short pre-sunset migration window");
+requireText("legacyTests", "slide beyond the immutable sunset", "legacy compatibility tests must reject configuration-based extensions");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, bounded legacy-cookie retirement, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
