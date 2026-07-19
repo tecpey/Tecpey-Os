@@ -97,10 +97,10 @@ describe("Decimal-safe Exchange order admission", () => {
     );
   });
 
-  it("calculates exact limit-buy, protected market-buy and sell holds", () => {
+  it("calculates exact fee-covered limit-buy, protected market-buy and sell holds", () => {
     assert.deepEqual(calculateOrderHold({ request: request(), market }), {
       asset: "USDT",
-      amount: "0.0300000000",
+      amount: "0.0300300000",
       basisPrice: "0.10",
     });
 
@@ -125,6 +125,14 @@ describe("Decimal-safe Exchange order admission", () => {
     });
   });
 
+  it("reserves the greater maker or taker fee for a resting buy", () => {
+    const hold = calculateOrderHold({
+      request: request({ quantity: "1.00000", price: "100.00" }),
+      market: { ...market, makerFee: "0.001", takerFee: "0.0025" },
+    });
+    assert.equal(hold.amount, "100.2500000000");
+  });
+
   it("requires explicit market-buy maximum quote authority", () => {
     assert.throws(
       () => calculateOrderHold({
@@ -147,7 +155,7 @@ describe("Decimal-safe Exchange order admission", () => {
   it("preserves a large exact product beyond the legacy global precision", () => {
     const hold = calculateOrderHold({
       request: request({ quantity: "9999999999.12345", price: "999999999.12345" }),
-      market,
+      market: { ...market, makerFee: "0", takerFee: "0" },
     });
     assert.equal(hold.amount, "9999999990357950000.7683399025");
   });
