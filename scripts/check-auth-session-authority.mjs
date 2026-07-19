@@ -8,6 +8,8 @@ const files = {
   logoutTests: "src/tests/security/auth-logout-route-postgres.test.ts",
   refreshTests: "src/tests/security/auth-refresh-route-postgres.test.ts",
   sessionsTests: "src/tests/security/auth-sessions-route-postgres.test.ts",
+  specificSessionTests: "src/tests/security/auth-session-revoke-route-postgres.test.ts",
+  passwordTests: "src/tests/security/auth-password-change-postgres.test.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
@@ -17,6 +19,7 @@ const files = {
   refresh: "src/lib/security/refresh-tokens.ts",
   academyAuth: "src/app/api/academy-auth/route.ts",
   sessionsRoute: "src/app/api/auth/sessions/route.ts",
+  specificSessionRoute: "src/app/api/auth/sessions/[id]/route.ts",
   refreshRoute: "src/app/api/auth/refresh/route.ts",
   twoFactor: "src/app/api/auth/2fa/verify/route.ts",
   webauthn: "src/app/api/auth/webauthn/auth/verify/route.ts",
@@ -106,6 +109,11 @@ requireText("sessionsRoute", "revokeAllRefreshTokensForUser", "logout-all must r
 requireText("sessionsRoute", "session_revocation_unavailable", "logout-all must return an explicit unavailable response");
 requireText("sessionsRoute", "currentAccessRetained", "logout-all response must disclose retained current access semantics");
 
+requireText("specificSessionRoute", "revokeSessionStrict", "device revocation must revoke the exact owned JTI");
+requireText("specificSessionRoute", "revokeAllRefreshTokensForUser", "device revocation must prevent refresh-token resurrection");
+requireText("specificSessionRoute", "refreshScope", "device revocation must disclose broad refresh invalidation semantics");
+requireText("specificSessionRoute", 'return apiError("not_found", 404)', "unknown or foreign sessions must not revoke refresh authority");
+
 for (const target of ["refreshRoute", "twoFactor", "webauthn", "password"]) {
   requireText(target, "if (!registered)", "every token-issuing path must fail on missing durable access-session evidence");
   rejectText(target, "void registerSession", "token issuance may not fire-and-forget session registration");
@@ -113,6 +121,7 @@ for (const target of ["refreshRoute", "twoFactor", "webauthn", "password"]) {
 requireText("refreshRoute", "verifyCsrfOrigin(req)", "refresh rotation must enforce same-origin mutation authority");
 requireText("refreshRoute", "if (!oldRevoked)", "refresh rotation must prove the old refresh token was revoked");
 requireText("password", "revokeAllSessionsStrict", "password change must revoke every prior access session");
+rejectText("password", "revokeSessionStrict", "password change may not leave other access sessions alive");
 requireText("password", "revokeAllRefreshTokensForUser", "password change must revoke old refresh authority");
 requireText("password", "revokedAccessSessions", "password-change evidence must disclose full access-session rotation");
 
@@ -132,10 +141,14 @@ requireText("refreshTests", "without consuming the durable refresh token", "CSRF
 requireText("sessionsTests", "all refresh tokens", "logout-all tests must prove refresh invalidation");
 requireText("sessionsTests", "repairs deny evidence on retry", "logout-all tests must prove Redis outage recovery");
 requireText("sessionsTests", "database unavailability", "bulk authority tests must reject false empty and zero-success results");
+requireText("specificSessionTests", "cannot mint a replacement", "device revocation tests must prove refresh-token resurrection is blocked");
+requireText("specificSessionTests", "does not belong to the principal", "foreign session IDs must not revoke the caller's refresh authority");
+requireText("passwordTests", "invalidates every old access and refresh credential", "password tests must prove complete credential rotation");
+requireText("passwordTests", "one fresh session", "password tests must prove only the replacement session remains active");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, full password-change rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
