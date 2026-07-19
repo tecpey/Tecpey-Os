@@ -21,11 +21,6 @@ export async function getAvailableBalance(userId: string, asset: string): Promis
   return D(await getAvailableBalanceAmount(userId, asset)).toNumber();
 }
 
-/**
- * Executes the existing atomic wallet hold with an exact decimal string, then
- * proves the immutable ledger evidence exists with the same canonical amount.
- * Any mismatch throws so the caller's order+hold transaction rolls back.
- */
 export async function holdOrderFundsTx(
   client: PoolClient,
   userId: string,
@@ -37,15 +32,7 @@ export async function holdOrderFundsTx(
   if (!parsed) throw new Error("invalid_order_hold_amount");
   const canonical = toHoldAmount(parsed);
 
-  // Runtime value remains a decimal string. The cast only bridges the legacy
-  // number-typed signature until the matching balance API migrates in #30.
-  const held = await holdFundsTx(
-    client,
-    userId,
-    asset,
-    canonical as unknown as number,
-    orderId,
-  );
+  const held = await holdFundsTx(client, userId, asset, canonical, orderId);
   if (!held) return false;
 
   const ledger = await client.query<{ amount: string }>(
@@ -70,7 +57,7 @@ export async function holdOrderFundsTx(
 export async function postHold(
   userId: string,
   asset: string,
-  amount: number,
+  amount: string | number,
   orderId: string,
 ): Promise<boolean> {
   return holdFunds(userId, asset, amount, orderId);
@@ -79,7 +66,7 @@ export async function postHold(
 export async function postRelease(
   userId: string,
   asset: string,
-  amount: number,
+  amount: string | number,
   orderId: string,
 ): Promise<boolean> {
   return releaseFunds(userId, asset, amount, orderId);
