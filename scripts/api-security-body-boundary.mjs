@@ -1,15 +1,11 @@
-import { detectBodyLimitEvidence } from "./api-security-body-limit-policy.mjs";
+import {
+  detectBodyLimitEvidence,
+  GOVERNED_BODY_READERS,
+} from "./api-security-body-limit-policy.mjs";
 import { runtimeEvidenceSource } from "./api-security-runtime-evidence.mjs";
 
-const BOUNDED_BODY_READERS = [
-  "readJsonBody",
-  "readBoundedJson",
-  "readBoundedBody",
-  "readBodyWithLimit",
-  "parseBoundedJsonBody",
-];
 const BOUNDED_READER_PATTERN = new RegExp(
-  `\\b(${BOUNDED_BODY_READERS.join("|")})\\s*\\(`,
+  `\\b(${GOVERNED_BODY_READERS.join("|")})\\s*\\(`,
 );
 
 export function detectBodyParser(source) {
