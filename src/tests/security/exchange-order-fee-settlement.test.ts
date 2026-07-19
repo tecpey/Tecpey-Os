@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { withDb } from "../../lib/db";
+import { D } from "../../lib/trading/decimal";
 import {
   admitExchangeOrderCommand,
   processExchangeOrderCommand,
@@ -10,6 +11,29 @@ import { PLATFORM } from "../../lib/platform-config";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
+
+type BalanceEvidence = {
+  user_id: string;
+  asset: string;
+  available_balance: string;
+  held_balance: string;
+};
+
+function assertBalance(
+  row: BalanceEvidence | undefined,
+  input: {
+    userId: string;
+    asset: string;
+    available: string;
+    held: string;
+  },
+): void {
+  assert.ok(row, `missing balance ${input.userId}:${input.asset}`);
+  assert.equal(row.user_id, input.userId);
+  assert.equal(row.asset, input.asset);
+  assert.equal(D(row.available_balance).eq(input.available), true);
+  assert.equal(D(row.held_balance).eq(input.held), true);
+}
 
 describe("Exchange fee-covered settlement authority", () => {
   it("fills a crossing buy when the buyer owns exactly the committed notional plus fee reserve", {
@@ -97,12 +121,7 @@ describe("Exchange fee-covered settlement authority", () => {
     assert.equal(buyerFilled.order.status, "FILLED");
 
     const evidence = await withDb(async (client) => {
-      const balances = await client.query<{
-        user_id: string;
-        asset: string;
-        available_balance: string;
-        held_balance: string;
-      }>(
+      const balances = await client.query<BalanceEvidence>(
         `SELECT user_id, asset, available_balance::text, held_balance::text
            FROM wallet_balances
           WHERE user_id = ANY($1::text[])
@@ -148,45 +167,51 @@ describe("Exchange fee-covered settlement authority", () => {
     assert.equal(evidence.enabled, true);
     if (!evidence.enabled) return;
 
-    assert.deepEqual(evidence.value.orders, [
-      { user_id: buyerId, status: "FILLED" },
-      { user_id: sellerId, status: "FILLED" },
-    ].sort((left, right) => left.user_id.localeCompare(right.user_id)));
+    assert.deepEqual(
+      evidence.value.orders,
+      [
+        { user_id: buyerId, status: "FILLED" },
+        { user_id: sellerId, status: "FILLED" },
+      ].sort((left, right) => left.user_id.localeCompare(right.user_id)),
+    );
     assert.equal(
-      evidence.value.residuals.every((row) => Number(row.residual) === 0),
+      evidence.value.residuals.every((row) => D(row.residual).isZero()),
       true,
     );
 
     const byBalance = new Map(
       evidence.value.balances.map((row) => [`${row.user_id}:${row.asset}`, row]),
     );
-    assert.deepEqual(byBalance.get(`${buyerId}:USDT`), {
-      user_id: buyerId,
+    assertBalance(byBalance.get(`${buyerId}:USDT`), {
+      userId: buyerId,
       asset: "USDT",
-      available_balance: "0.0000000000",
-      held_balance: "0.0000000000",
+      available: "0",
+      held: "0",
     });
-    assert.deepEqual(byBalance.get(`${buyerId}:${baseAsset}`), {
-      user_id: buyerId,
+    assertBalance(byBalance.get(`${buyerId}:${baseAsset}`), {
+      userId: buyerId,
       asset: baseAsset,
-      available_balance: "0.1000000000",
-      held_balance: "0.0000000000",
+      available: "0.1",
+      held: "0",
     });
-    assert.deepEqual(byBalance.get(`${sellerId}:${baseAsset}`), {
-      user_id: sellerId,
+    assertBalance(byBalance.get(`${sellerId}:${baseAsset}`), {
+      userId: sellerId,
       asset: baseAsset,
-      available_balance: "0.0000000000",
-      held_balance: "0.0000000000",
+      available: "0",
+      held: "0",
     });
-    assert.deepEqual(byBalance.get(`${sellerId}:USDT`), {
-      user_id: sellerId,
+    assertBalance(byBalance.get(`${sellerId}:USDT`), {
+      userId: sellerId,
       asset: "USDT",
-      available_balance: "9.9900000000",
-      held_balance: "0.0000000000",
+      available: "9.99",
+      held: "0",
     });
-    assert.deepEqual(evidence.value.fees, [
-      { wallet_id: buyerId, amount: "0.0100000000" },
-      { wallet_id: sellerId, amount: "0.0100000000" },
-    ].sort((left, right) => left.wallet_id.localeCompare(right.wallet_id)));
+
+    assert.equal(evidence.value.fees.length, 2);
+    const feeByWallet = new Map(
+      evidence.value.fees.map((row) => [row.wallet_id, row.amount]),
+    );
+    assert.equal(D(feeByWallet.get(buyerId) ?? "NaN").eq("0.01"), true);
+    assert.equal(D(feeByWallet.get(sellerId) ?? "NaN").eq("0.01"), true);
   });
 });
