@@ -6,16 +6,16 @@ const FILENAME = "0023_offline_sync_command_authority.sql";
 
 export const OFFLINE_SYNC_COMMAND_AUTHORITY_SQL = `
 -- Extend the existing learning_events table with a stable, globally unique
--- domain-event identity. Existing rows remain valid because the new fields are
--- nullable; offline authority always supplies all three values.
+-- domain-event identity. Existing rows remain valid because PostgreSQL unique
+-- indexes allow multiple NULL values; offline authority always supplies all
+-- three new fields.
 ALTER TABLE learning_events
   ADD COLUMN IF NOT EXISTS event_id TEXT,
   ADD COLUMN IF NOT EXISTS source TEXT,
   ADD COLUMN IF NOT EXISTS locale TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS learning_events_offline_event_id_idx
-  ON learning_events (event_id)
-  WHERE event_id IS NOT NULL;
+  ON learning_events (event_id);
 
 CREATE TABLE IF NOT EXISTS offline_sync_commands (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
