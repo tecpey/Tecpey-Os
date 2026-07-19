@@ -4,11 +4,11 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { fetchWithdrawal } from "@/lib/security/withdrawal-service";
 import {
-  fetchWithdrawal,
-  adminActOnWithdrawal,
-  AdminWithdrawalAction,
-} from "@/lib/security/withdrawal-service";
+  adminActOnAuthoritativeWithdrawal,
+  type AuthoritativeAdminWithdrawalAction,
+} from "@/lib/security/withdrawal-admin-authority";
 import {
   notifyWithdrawalApproved,
   notifyWithdrawalRejected,
@@ -17,14 +17,14 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const VALID_ACTIONS = new Set<AdminWithdrawalAction>([
+const VALID_ACTIONS = new Set<AuthoritativeAdminWithdrawalAction>([
   "approve",
   "reject",
   "block",
   "flag_review",
 ]);
 
-const ACTION_PERMISSION: Record<AdminWithdrawalAction, string> = {
+const ACTION_PERMISSION: Record<AuthoritativeAdminWithdrawalAction, string> = {
   approve: "withdrawals.approve",
   reject: "withdrawals.reject",
   block: "withdrawals.hold",
@@ -78,7 +78,7 @@ export async function POST(
     if (!validWithdrawalId(id)) return apiError("invalid_withdrawal_id", 400);
 
     const body = await req.json().catch(() => ({}));
-    const action = body.action as AdminWithdrawalAction;
+    const action = body.action as AuthoritativeAdminWithdrawalAction;
     if (!VALID_ACTIONS.has(action)) {
       return apiError("invalid_action", 400, {
         allowed: [...VALID_ACTIONS],
@@ -92,19 +92,17 @@ export async function POST(
     );
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const notes = typeof body.notes === "string"
-      ? body.notes.trim().slice(0, 1000)
-      : undefined;
+    const notes =
+      typeof body.notes === "string"
+        ? body.notes.trim().slice(0, 1000)
+        : undefined;
     if (action !== "approve" && (!notes || notes.length < 3)) {
       return apiError("review_notes_required", 400);
     }
 
-    const withdrawal = await fetchWithdrawal(id);
-    if (!withdrawal) return apiError("withdrawal_not_found", 404);
-
     const ip = getClientIp(req);
     const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
-    const result = await adminActOnWithdrawal({
+    const result = await adminActOnAuthoritativeWithdrawal({
       withdrawalId: id,
       adminId: authorization.principal.adminId,
       action,
@@ -117,32 +115,42 @@ export async function POST(
       },
     });
 
-    if (!result.ok) return apiError(result.reason ?? "action_failed", 409);
+    if (!result.ok) return apiError(result.reason, result.code);
 
-    if (action === "approve") {
-      notifyWithdrawalApproved(withdrawal.userId, {
-        withdrawalId: id,
-        asset: withdrawal.asset,
-        amount: withdrawal.amount,
-      });
-    } else if (action === "reject") {
-      notifyWithdrawalRejected(withdrawal.userId, {
-        withdrawalId: id,
-        asset: withdrawal.asset,
-        amount: withdrawal.amount,
-        reason: notes,
-      });
-    } else if (action === "block") {
-      notifyWithdrawalBlocked(withdrawal.userId, {
-        withdrawalId: id,
-        asset: withdrawal.asset,
-        amount: withdrawal.amount,
-        reason: notes ?? "admin_blocked",
-      });
+    if (!result.replayed) {
+      if (action === "approve") {
+        notifyWithdrawalApproved(result.userId, {
+          withdrawalId: id,
+          asset: result.asset,
+          amount: result.amount,
+        });
+      } else if (action === "reject") {
+        notifyWithdrawalRejected(result.userId, {
+          withdrawalId: id,
+          asset: result.asset,
+          amount: result.amount,
+          reason: notes,
+        });
+      } else if (action === "block") {
+        notifyWithdrawalBlocked(result.userId, {
+          withdrawalId: id,
+          asset: result.asset,
+          amount: result.amount,
+          reason: notes ?? "admin_blocked",
+        });
+      }
     }
 
-    return apiOk({ actioned: true, action, withdrawalId: id }, 200, {
-      "Cache-Control": "no-store, max-age=0",
-    });
+    return apiOk(
+      {
+        actioned: true,
+        replayed: result.replayed,
+        action,
+        withdrawalId: id,
+        state: result.state,
+      },
+      200,
+      { "Cache-Control": "no-store, max-age=0" },
+    );
   });
 }

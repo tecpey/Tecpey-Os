@@ -1,120 +1,121 @@
-// Withdrawal security gate — Phase 36.
-//
-// Multi-layer gate for withdrawal requests:
-//   1. Risk level enforcement (from risk-enforcement.ts)
-//   2. Velocity limit (configurable per asset, stored in Redis)
-//   3. 2FA re-verification requirement for large withdrawals
-//   4. Device trust check
-//
-// This is infrastructure — it is wired into withdrawal routes when they exist (Phase 37+).
-// None of the checks block non-withdrawal flows.
+// Legacy withdrawal gate retained only for compatibility with non-route callers.
+// The canonical route uses withdrawal-admission-service and PostgreSQL velocity.
+// Every unavailable authority in this compatibility layer fails closed.
 
 import { logger } from "@/lib/logger";
-import { getRiskLevel } from "./risk-enforcement";
 import { withDb } from "@/lib/db";
-
-// ── Velocity limits ───────────────────────────────────────────────────────────
+import { getStrictWithdrawalRiskLevel } from "./withdrawal-admission-authority";
 
 const VELOCITY_PREFIX = "tecpey:withdraw:velocity:";
-const VELOCITY_WINDOW_S = 24 * 60 * 60; // 24-hour rolling window
-
-// Default daily USD limits. Phase 37+: configurable per user level.
+const VELOCITY_WINDOW_S = 24 * 60 * 60;
 const DEFAULT_DAILY_LIMIT_USD = 10_000;
 
 function redis() {
   return globalThis.tecpeyRedisClient ?? null;
 }
 
-/**
- * Check and update the user's 24-hour withdrawal volume.
- * Returns { allowed: true } or { allowed: false, reason, remaining }.
- */
 export async function checkWithdrawVelocity(
   userId: string,
   amountUsd: number,
   limitUsd = DEFAULT_DAILY_LIMIT_USD,
 ): Promise<{ allowed: boolean; remaining: number; reason?: string }> {
-  const r = redis();
-  if (!r) {
-    // Redis unavailable — allow but log
-    logger.warn("[withdraw-gate] Redis unavailable — velocity check skipped");
-    return { allowed: true, remaining: limitUsd };
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    return { allowed: false, remaining: 0, reason: "invalid_amount_usd" };
+  }
+
+  const client = redis();
+  if (!client) {
+    logger.warn("[withdraw-gate] Redis unavailable — blocking velocity decision", {
+      userId,
+    });
+    return {
+      allowed: false,
+      remaining: 0,
+      reason: "velocity_authority_unavailable",
+    };
   }
 
   const key = `${VELOCITY_PREFIX}${userId}`;
   try {
-    const pipeline = r.pipeline();
-    pipeline.get(key);
-    const results = await pipeline.exec();
-    const currentStr = results?.[0]?.[1];
-    const current = typeof currentStr === "string" ? parseFloat(currentStr) : 0;
+    const currentRaw = await client.get(key);
+    const current = currentRaw ? Number(currentRaw) : 0;
+    if (!Number.isFinite(current) || current < 0) {
+      return {
+        allowed: false,
+        remaining: 0,
+        reason: "velocity_evidence_invalid",
+      };
+    }
     const remaining = Math.max(0, limitUsd - current);
-
     if (current + amountUsd > limitUsd) {
       return { allowed: false, remaining, reason: "daily_limit_exceeded" };
     }
 
-    // Increment by amountUsd with INCRBYFLOAT and set TTL if new key
-    await r.incrbyfloat(key, amountUsd);
-    const ttl = await r.ttl(key);
-    if (ttl < 0) await r.expire(key, VELOCITY_WINDOW_S);
+    const transaction = client.multi();
+    transaction.incrbyfloat(key, amountUsd);
+    transaction.expire(key, VELOCITY_WINDOW_S, "NX");
+    const result = await transaction.exec();
+    if (!Array.isArray(result) || result.some((entry) => entry?.[0])) {
+      return {
+        allowed: false,
+        remaining: 0,
+        reason: "velocity_authority_unavailable",
+      };
+    }
 
     return { allowed: true, remaining: Math.max(0, remaining - amountUsd) };
-  } catch (err) {
-    logger.warn("[withdraw-gate] velocity check failed", { userId, err: String(err) });
-    return { allowed: true, remaining: limitUsd }; // graceful degrade
+  } catch (error) {
+    logger.warn("[withdraw-gate] velocity check failed — blocking", {
+      userId,
+      error: String(error),
+    });
+    return {
+      allowed: false,
+      remaining: 0,
+      reason: "velocity_authority_unavailable",
+    };
   }
 }
 
-/** Get current 24h withdrawal volume for a user. */
-export async function getWithdrawVolume(userId: string): Promise<number> {
-  const r = redis();
-  if (!r) return 0;
+export async function getWithdrawVolume(userId: string): Promise<number | null> {
+  const client = redis();
+  if (!client) return null;
   try {
-    const val = await r.get(`${VELOCITY_PREFIX}${userId}`);
-    return val ? parseFloat(val) : 0;
+    const value = await client.get(`${VELOCITY_PREFIX}${userId}`);
+    if (value === null) return 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   } catch {
-    return 0;
+    return null;
   }
 }
 
-// ── 2FA requirement ───────────────────────────────────────────────────────────
-
-const REQUIRE_2FA_ABOVE_USD = 100; // require 2FA for withdrawals above this
-
-export function requires2faForWithdrawal(amountUsd: number): boolean {
-  return amountUsd >= REQUIRE_2FA_ABOVE_USD;
+export function requires2faForWithdrawal(_amountUsd: number): boolean {
+  return true;
 }
-
-// ── Device trust ──────────────────────────────────────────────────────────────
 
 export async function isDeviceTrusted(
   userId: string,
   fingerprint: string,
 ): Promise<boolean> {
-  const r = await withDb(async (db) => {
-    const result = await db.query(
+  const result = await withDb(async (db) => {
+    const rows = await db.query(
       `SELECT id FROM known_devices WHERE user_id = $1 AND fingerprint = $2`,
       [userId, fingerprint],
     );
-    return (result.rowCount ?? 0) > 0;
+    return (rows.rowCount ?? 0) > 0;
   });
-  return r.enabled ? r.value : false;
+  return result.enabled ? result.value : false;
 }
 
-// ── Compound gate ─────────────────────────────────────────────────────────────
-
 export type WithdrawGateResult =
-  | { allowed: true; requires2fa: boolean; remaining: number }
-  | { allowed: false; reason: string; requires2fa?: boolean };
+  | { allowed: true; requires2fa: true; remaining: number }
+  | { allowed: false; reason: string; requires2fa?: true };
 
 /**
- * Run all withdrawal security checks.
- *
- * @param userId - the user requesting the withdrawal
- * @param amountUsd - estimated USD value of the withdrawal
- * @param fingerprint - device fingerprint (from `deviceFingerprint()`)
- * @param has2faVerified - true if the user already completed 2FA this request
+ * @deprecated The canonical route requires a one-time request-bound PostgreSQL
+ * authorization. This compatibility gate is fail-closed and must not be used
+ * to interpret browser booleans as 2FA evidence.
  */
 export async function runWithdrawGate(opts: {
   userId: string;
@@ -123,38 +124,30 @@ export async function runWithdrawGate(opts: {
   has2faVerified: boolean;
   limitUsd?: number;
 }): Promise<WithdrawGateResult> {
-  const { userId, amountUsd, fingerprint, has2faVerified, limitUsd } = opts;
-
-  // 1. Risk level check
-  const riskLevel = await getRiskLevel(userId);
-  if (riskLevel === "withdraw_blocked" || riskLevel === "all_blocked") {
+  const risk = await getStrictWithdrawalRiskLevel(opts.userId);
+  if (!risk.ok) return { allowed: false, reason: risk.reason };
+  if (risk.level === "withdraw_blocked" || risk.level === "all_blocked") {
     return { allowed: false, reason: "account_withdraw_restricted" };
   }
 
-  // 2. Velocity check
-  const velocityResult = await checkWithdrawVelocity(userId, amountUsd, limitUsd);
-  if (!velocityResult.allowed) {
-    return { allowed: false, reason: velocityResult.reason ?? "velocity_limit_exceeded" };
+  const velocity = await checkWithdrawVelocity(
+    opts.userId,
+    opts.amountUsd,
+    opts.limitUsd,
+  );
+  if (!velocity.allowed) {
+    return {
+      allowed: false,
+      reason: velocity.reason ?? "velocity_authority_unavailable",
+    };
   }
 
-  // 3. 2FA requirement
-  const needsVerification = requires2faForWithdrawal(amountUsd);
-  if (needsVerification && !has2faVerified) {
-    return { allowed: false, reason: "2fa_required", requires2fa: true };
-  }
-
-  // 4. Device trust check — large withdrawals from unknown devices are blocked
-  const UNTRUSTED_DEVICE_LIMIT_USD = 1000;
-  if (amountUsd >= UNTRUSTED_DEVICE_LIMIT_USD && fingerprint) {
-    const trusted = await isDeviceTrusted(userId, fingerprint);
-    if (!trusted) {
-      return { allowed: false, reason: "untrusted_device", requires2fa: true };
-    }
-  }
-
+  // Browser-provided verification booleans are never accepted as authority.
+  void opts.fingerprint;
+  void opts.has2faVerified;
   return {
-    allowed: true,
-    requires2fa: needsVerification,
-    remaining: velocityResult.remaining,
+    allowed: false,
+    reason: "withdrawal_authorization_required",
+    requires2fa: true,
   };
 }

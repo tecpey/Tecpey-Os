@@ -15,8 +15,6 @@ import {
 } from "crypto";
 import { logger } from "@/lib/logger";
 
-// ── Key derivation ────────────────────────────────────────────────────────────
-
 let _2faKey: Buffer | null = null;
 
 function get2faKey(): Buffer {
@@ -33,16 +31,11 @@ function get2faKey(): Buffer {
   throw new Error("TECPEY_2FA_SECRET must be at least 32 chars in production");
 }
 
-// ── Secret generation ─────────────────────────────────────────────────────────
-
-// Base32 alphabet (RFC 4648, no padding in our output)
 const B32_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function bytesToBase32(buf: Buffer): string {
   let bits = "";
-  for (const byte of buf) {
-    bits += byte.toString(2).padStart(8, "0");
-  }
+  for (const byte of buf) bits += byte.toString(2).padStart(8, "0");
   let result = "";
   for (let i = 0; i + 5 <= bits.length; i += 5) {
     result += B32_ALPHA[parseInt(bits.slice(i, i + 5), 2)];
@@ -50,14 +43,10 @@ function bytesToBase32(buf: Buffer): string {
   return result;
 }
 
-/** Generate a 20-byte (160-bit) TOTP secret in base32. */
 export function generateTotpSecret(): string {
   return bytesToBase32(randomBytes(20));
 }
 
-// ── Secret encryption / decryption ───────────────────────────────────────────
-
-/** AES-256-GCM encrypt a TOTP secret. Returns base64: iv(12) + tag(16) + ciphertext. */
 export function encryptTotpSecret(rawBase32: string): string {
   const key = get2faKey();
   const iv = randomBytes(12);
@@ -67,7 +56,6 @@ export function encryptTotpSecret(rawBase32: string): string {
   return Buffer.concat([iv, tag, encrypted]).toString("base64");
 }
 
-/** AES-256-GCM decrypt a stored TOTP secret. Returns the raw base32 string. */
 export function decryptTotpSecret(stored: string): string {
   const key = get2faKey();
   const buf = Buffer.from(stored, "base64");
@@ -78,8 +66,6 @@ export function decryptTotpSecret(stored: string): string {
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 }
-
-// ── Base32 decode ─────────────────────────────────────────────────────────────
 
 function base32ToBuffer(encoded: string): Buffer {
   const clean = encoded.toUpperCase().replace(/=+$/, "").replace(/\s/g, "");
@@ -96,14 +82,9 @@ function base32ToBuffer(encoded: string): Buffer {
   return Buffer.from(bytes);
 }
 
-// ── HOTP / TOTP ───────────────────────────────────────────────────────────────
-
-// HOTP counter is written as 8-byte big-endian. The time step fits in 32 bits
-// (floor(Date.now()/30000) ≈ 57M in 2026, well within uint32 max of 4.3B).
-// High 4 bytes are always 0.
 function hotp(keyBuf: Buffer, counter: number): number {
-  const counterBuf = Buffer.alloc(8, 0); // high 4 bytes = 0
-  counterBuf.writeUInt32BE(counter >>> 0, 4); // low 4 bytes
+  const counterBuf = Buffer.alloc(8, 0);
+  counterBuf.writeUInt32BE(counter >>> 0, 4);
   const mac = createHmac("sha1", keyBuf).update(counterBuf).digest();
   const offset = mac[19] & 0x0f;
   const code =
@@ -114,56 +95,56 @@ function hotp(keyBuf: Buffer, counter: number): number {
   return (code >>> 0) % 1_000_000;
 }
 
-/** Generate the current TOTP code from a raw base32 secret. */
 export function generateTotp(secretBase32: string): string {
   const key = base32ToBuffer(secretBase32);
-  const T = Math.floor(Date.now() / 30_000);
-  return hotp(key, T).toString().padStart(6, "0");
+  const step = Math.floor(Date.now() / 30_000);
+  return hotp(key, step).toString().padStart(6, "0");
 }
 
 /**
- * Verify a 6-digit TOTP code against a base32 secret.
- * Accepts codes from window [-1, 0, +1] (±30 seconds).
- * Returns false on any error.
+ * Verify a TOTP code and return the exact accepted RFC-6238 time step.
+ * The step is suitable for a database uniqueness constraint, preventing one
+ * code window from minting multiple withdrawal authorizations.
  */
-export function verifyTotp(secretBase32: string, code: string): boolean {
-  if (!/^\d{6}$/.test(code)) return false;
+export function verifyTotpStep(secretBase32: string, code: string): number | null {
+  if (!/^\d{6}$/.test(code)) return null;
   try {
     const key = base32ToBuffer(secretBase32);
-    const T = Math.floor(Date.now() / 30_000);
-    const submitted = parseInt(code, 10);
-    for (let delta = -1; delta <= 1; delta++) {
-      const expected = hotp(key, T + delta);
-      const ea = Buffer.from(expected.toString().padStart(6, "0"), "utf8");
-      const sa = Buffer.from(submitted.toString().padStart(6, "0"), "utf8");
-      if (ea.length === sa.length && timingSafeEqual(ea, sa)) return true;
+    const currentStep = Math.floor(Date.now() / 30_000);
+    const submitted = Buffer.from(code, "utf8");
+    for (let delta = -1; delta <= 1; delta += 1) {
+      const step = currentStep + delta;
+      const expected = Buffer.from(
+        hotp(key, step).toString().padStart(6, "0"),
+        "utf8",
+      );
+      if (expected.length === submitted.length && timingSafeEqual(expected, submitted)) {
+        return step;
+      }
     }
-    return false;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
-// ── Backup codes ──────────────────────────────────────────────────────────────
+export function verifyTotp(secretBase32: string, code: string): boolean {
+  return verifyTotpStep(secretBase32, code) !== null;
+}
 
 function backupCodeSalt(): string {
   const raw = process.env.TECPEY_2FA_SECRET ?? "tecpey-dev-2fa-aes-key-32-chars!";
   return raw.slice(0, 32);
 }
 
-/** Hash a single backup code for storage. */
 export function hashBackupCode(plainCode: string): string {
   const salt = backupCodeSalt();
   return createHmac("sha256", salt).update(plainCode).digest("hex");
 }
 
-/**
- * Verify a backup code against stored hashes.
- * Returns the index of the matched code (so it can be removed), or -1.
- */
 export function findBackupCode(plainCode: string, hashes: string[]): number {
   const submitted = Buffer.from(hashBackupCode(plainCode.trim().toUpperCase()), "hex");
-  for (let i = 0; i < hashes.length; i++) {
+  for (let i = 0; i < hashes.length; i += 1) {
     const stored = Buffer.from(hashes[i], "hex");
     if (stored.length === submitted.length && timingSafeEqual(stored, submitted)) {
       return i;
@@ -172,27 +153,18 @@ export function findBackupCode(plainCode: string, hashes: string[]): number {
   return -1;
 }
 
-/** Generate 10 random 8-char backup codes (uppercase alphanumeric, no ambiguous chars). */
 export function generateBackupCodes(): string[] {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const codes: string[] = [];
-  for (let c = 0; c < 10; c++) {
+  for (let c = 0; c < 10; c += 1) {
     const bytes = randomBytes(8);
     let code = "";
-    for (const byte of bytes) {
-      code += alphabet[byte % alphabet.length];
-    }
+    for (const byte of bytes) code += alphabet[byte % alphabet.length];
     codes.push(code);
   }
   return codes;
 }
 
-// ── QR URI ────────────────────────────────────────────────────────────────────
-
-/**
- * Build an otpauth:// URI for QR code generation.
- * Compatible with Google Authenticator, Authy, 1Password, Bitwarden.
- */
 export function buildOtpAuthUri(opts: {
   secret: string;
   accountName: string;
@@ -210,16 +182,13 @@ export function buildOtpAuthUri(opts: {
   );
 }
 
-// ── Pre-auth token (for 2FA login flow) ───────────────────────────────────────
-
 const PREAUTH_PREFIX = "tecpey:preauth:";
-const PREAUTH_TTL_S = 300; // 5 minutes to complete 2FA
+const PREAUTH_TTL_S = 300;
 
 function redisClient() {
   return globalThis.tecpeyRedisClient ?? null;
 }
 
-/** Store a pre-auth token in Redis, associating it with a userId. */
 export async function storePreAuthToken(token: string, userId: string): Promise<void> {
   const r = redisClient();
   if (!r) {
@@ -229,7 +198,6 @@ export async function storePreAuthToken(token: string, userId: string): Promise<
   await r.set(`${PREAUTH_PREFIX}${token}`, userId, "EX", PREAUTH_TTL_S);
 }
 
-/** Consume a pre-auth token. Returns userId if valid, null otherwise. Deletes on use. */
 export async function consumePreAuthToken(token: string): Promise<string | null> {
   const r = redisClient();
   if (!r) return null;
