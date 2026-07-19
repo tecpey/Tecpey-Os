@@ -7,12 +7,12 @@ import type {
   KYCProvider,
   SanctionsProvider,
 } from "../../lib/security/compliance";
-import { withDb } from "../../lib/db";
+import { withDb, withTx } from "../../lib/db";
 import {
   canonicalizeWithdrawalCommand,
+  getAuthoritativeUsdValuation,
+  issueWithdrawalAuthorizationTx,
   recordWithdrawalPriceSnapshot,
-  WITHDRAWAL_ADMISSION_POLICY_VERSION,
-  WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
 } from "../../lib/security/withdrawal-admission-authority";
 import {
   cancelAuthoritativeWithdrawal,
@@ -32,7 +32,7 @@ const originalProviders = globalThis.tecpeyComplianceProviders;
 const originalRedis = globalThis.tecpeyRedisClient;
 const originalRealWithdrawals = process.env.TECPEY_REAL_WITHDRAWALS_ENABLED;
 let redis: Redis | null = null;
-let verificationStep = Math.floor(Date.now() / 30_000) + 10_000;
+let verificationStep = Math.floor(Date.now() / 30_000) + 100_000;
 
 function passingProviders() {
   const kyc: KYCProvider = {
@@ -116,7 +116,7 @@ async function seedBalance(userId: string, amount: string): Promise<void> {
     await client.query(
       `INSERT INTO wallet_balances
          (user_id, asset, available_balance, held_balance)
-       VALUES ($1, 'USDT', $2, 0)
+       VALUES ($1, 'USDT', $2::numeric, 0)
        ON CONFLICT (user_id, asset)
        DO UPDATE SET available_balance = EXCLUDED.available_balance,
                      held_balance = 0,
@@ -147,39 +147,31 @@ async function createAuthorization(input: {
   if (!canonical.ok) throw new Error(canonical.reason);
 
   verificationStep += 1;
-  const expiresAt = new Date(
-    Date.now() + WITHDRAWAL_AUTHORIZATION_TTL_SECONDS * 1000,
+  const inserted = await withTx((client) =>
+    issueWithdrawalAuthorizationTx(client, {
+      userId: input.userId,
+      requestHash: canonical.requestHash,
+      verificationStep,
+    }),
   );
-  const inserted = await withDb(async (client) => {
-    const result = await client.query<{ id: string }>(
-      `INSERT INTO withdrawal_authorizations
-         (user_id, request_hash, verification_step, policy_version, expires_at)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [
-        input.userId,
-        canonical.requestHash,
-        verificationStep,
-        WITHDRAWAL_ADMISSION_POLICY_VERSION,
-        expiresAt,
-      ],
-    );
-    return result.rows[0]?.id ?? null;
-  });
   assert.equal(inserted.enabled, true);
   assert.ok(inserted.enabled && inserted.value);
   return {
-    authorizationId: inserted.enabled ? inserted.value! : "",
+    authorizationId: inserted.enabled ? inserted.value!.id : "",
     requestHash: canonical.requestHash,
   };
 }
 
-async function seedPrice(): Promise<string> {
+async function seedPrice(input?: {
+  observedAt?: Date;
+  ttlSeconds?: number;
+}): Promise<string> {
   const id = await recordWithdrawalPriceSnapshot({
     asset: "USDT",
     priceUsd: "1",
     source: "ci-authoritative-price-feed",
-    ttlSeconds: 120,
+    observedAt: input?.observedAt,
+    ttlSeconds: input?.ttlSeconds ?? 120,
   });
   assert.ok(id);
   return id!;
@@ -269,7 +261,7 @@ describe("PostgreSQL withdrawal admission authority", () => {
                FROM wallet_ledger
               WHERE wallet_id = $1
                 AND reference_type = 'withdrawal'
-                AND type = 'withdraw_hold'`,
+                AND type = 'hold'`,
             [userId],
           );
           const balance = await client.query<{
@@ -445,6 +437,65 @@ describe("PostgreSQL withdrawal admission authority", () => {
   );
 
   it(
+    "concurrent requests cannot reserve more than the available balance",
+    { skip: !integrationConfigured, timeout: 45_000 },
+    async () => {
+      const userId = `withdraw-concurrent-${randomUUID()}`;
+      const keyA = `withdrawal-concurrent-a-${randomUUID()}`;
+      const keyB = `withdrawal-concurrent-b-${randomUUID()}`;
+      await seedBalance(userId, "1.5");
+      await seedPrice();
+      const [authorizationA, authorizationB] = await Promise.all([
+        createAuthorization({ userId, amount: "1", idempotencyKey: keyA }),
+        createAuthorization({ userId, amount: "1", idempotencyKey: keyB }),
+      ]);
+
+      try {
+        const results = await Promise.all([
+          createAuthoritativeWithdrawal(
+            requestInput({
+              userId,
+              amount: "1",
+              idempotencyKey: keyA,
+              authorizationId: authorizationA.authorizationId,
+            }),
+          ),
+          createAuthoritativeWithdrawal(
+            requestInput({
+              userId,
+              amount: "1",
+              idempotencyKey: keyB,
+              authorizationId: authorizationB.authorizationId,
+            }),
+          ),
+        ]);
+        assert.equal(results.filter((result) => result.ok).length, 1);
+        assert.equal(
+          results.filter(
+            (result) => !result.ok && result.reason === "insufficient_balance",
+          ).length,
+          1,
+        );
+      } finally {
+        await cleanup(userId);
+      }
+    },
+  );
+
+  it(
+    "stale price evidence cannot authorize valuation",
+    { skip: !integrationConfigured, timeout: 45_000 },
+    async () => {
+      await seedPrice({
+        observedAt: new Date(Date.now() - 3 * 60_000),
+        ttlSeconds: 300,
+      });
+      const valuation = await getAuthoritativeUsdValuation("USDT", "1");
+      assert.deepEqual(valuation, { ok: false, reason: "price_snapshot_stale" });
+    },
+  );
+
+  it(
     "cancellation releases the hold and cancels the outbox event",
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
@@ -500,7 +551,7 @@ describe("PostgreSQL withdrawal admission authority", () => {
                FROM wallet_ledger
               WHERE wallet_id = $1
                 AND reference_id = $2
-                AND type = 'withdraw_release'`,
+                AND type = 'release'`,
             [userId, created.withdrawal.id],
           );
           return {
