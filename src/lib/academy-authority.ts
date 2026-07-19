@@ -51,6 +51,13 @@ function commandLocale(request: unknown): "fa" | "en" {
   return locale;
 }
 
+function resultLocale(result: Record<string, unknown>): "fa" | "en" | null {
+  const record = result.record;
+  if (!record || typeof record !== "object") return null;
+  const locale = (record as Record<string, unknown>).locale;
+  return locale === "fa" || locale === "en" ? locale : null;
+}
+
 async function readSectionCommand<T>(
   client: PoolClient,
   input: {
@@ -209,7 +216,8 @@ export async function storeLearningCommand(
   },
 ): Promise<void> {
   if (isSectionCheckpointCommand(input.commandType)) {
-    if (!input.locale || !input.idempotencyKey) {
+    const locale = input.locale ?? resultLocale(input.result);
+    if (!locale || !input.idempotencyKey) {
       throw new Error("academy_section_command_identity_missing");
     }
     const inserted = await client.query<{ id: string }>(
@@ -220,7 +228,7 @@ export async function storeLearningCommand(
        RETURNING id::text`,
       [
         input.studentId,
-        input.locale,
+        locale,
         input.commandType,
         input.idempotencyKey,
         input.requestHash,
