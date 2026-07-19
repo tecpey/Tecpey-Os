@@ -121,9 +121,12 @@ export function detectRedactionCall(handler) {
 
 export function detectServiceIdentityEvidence(handler) {
   const source = runtimeEvidenceSource(handler);
-  return /\b(?:verifyInternal[A-Za-z0-9_]*|verifyService[A-Za-z0-9_]*|authenticateService[A-Za-z0-9_]*|serviceIdentity[A-Za-z0-9_]*)\s*\(/.test(source)
-    || /\b(?:req|request)\.headers\.get\s*\(\s*["']authorization["']\s*\)/i.test(source)
-    || /\bBearer\s+[A-Za-z0-9._~+\/-]+/.test(source);
+  const governedVerifier = /\b(?:verifyInternal[A-Za-z0-9_]*|verifyService[A-Za-z0-9_]*|authenticateService[A-Za-z0-9_]*|serviceIdentity[A-Za-z0-9_]*)\s*\(/.test(source);
+  if (governedVerifier) return true;
+
+  const authorizationRead = /\b(?:req|request)\.headers\.get\s*\(\s*["']authorization["']\s*\)/i.test(source);
+  const cryptographicCheck = /\b(?:timingSafeEqual|jwtVerify|createHmac|verifySignature|verifyToken)\s*\(/.test(source);
+  return authorizationRead && cryptographicCheck;
 }
 
 export function detectDirectNoStoreEvidence(handler) {
