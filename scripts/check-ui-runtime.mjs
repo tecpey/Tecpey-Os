@@ -13,7 +13,7 @@ const child = spawn(npmCommand, npmArgs, {
     ...process.env,
     PORT: String(port),
     NODE_ENV: mode,
-    REDIS_URL: "",
+    REDIS_URL: mode === "development" ? "" : (process.env.REDIS_URL ?? ""),
     NEXT_PUBLIC_API_BACKEND_URL: "",
     NEXT_PUBLIC_API_SOCKET_URL: "",
     NEXT_PUBLIC_API_URL: "",
