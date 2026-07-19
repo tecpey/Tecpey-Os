@@ -74,6 +74,7 @@ jobs:
       TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       TECPEY_CRM_CONTACT_HASH_SECRET: ci-placeholder-crm-contact-hash-secret-32-min
       TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: '1'
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
