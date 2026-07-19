@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { LessonPlayerV2 } from "./LessonPlayerV2";
-import { hydrateProgress, refreshProgress } from "@/lib/academy-progress";
+import {
+  hydrateProgressStrict,
+  refreshProgressStrict,
+} from "@/lib/academy-progress";
 import type { Lesson } from "@/data/academy/term1Curriculum";
 
 type Props = { lesson: Lesson; nextPath: string };
@@ -17,7 +20,7 @@ export function LessonPlayerV2Client({ lesson, nextPath }: Props) {
   useEffect(() => {
     let active = true;
     setStatus("loading");
-    void hydrateProgress("fa")
+    void hydrateProgressStrict("fa")
       .then(() => {
         if (active) setStatus("ready");
       })
@@ -32,7 +35,7 @@ export function LessonPlayerV2Client({ lesson, nextPath }: Props) {
   const retry = async () => {
     setStatus("loading");
     try {
-      await refreshProgress("fa");
+      await refreshProgressStrict("fa");
       setStatus("ready");
     } catch {
       setStatus("error");
