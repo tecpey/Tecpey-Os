@@ -7,6 +7,11 @@ import {
   processClaimedNotificationDomainEvent,
   type NotificationDomainOutboxClaim,
 } from "../src/lib/notifications/domain-outbox";
+import {
+  isTerminalNotificationDomainError,
+  loadEffectiveNotificationDomainClaim,
+  notificationDomainWorkerErrorCode,
+} from "../src/lib/notifications/domain-worker";
 
 function boundedIntegerEnv(
   name: string,
@@ -24,24 +29,6 @@ function boundedIntegerEnv(
     throw new Error(`${name.toLowerCase()}_out_of_range`);
   }
   return parsed;
-}
-
-function errorCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  const normalized = message.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 100);
-  return normalized || "notification_domain_processing_failed";
-}
-
-function terminalProducerError(code: string): boolean {
-  return [
-    "notification_domain_event_invalid",
-    "notification_domain_outbox_event_invalid",
-    "notification_principal_not_found",
-    "notification_principal_inactive",
-    "notification_event_locale_mismatch",
-    "notification_correlation_payload_conflict",
-    "notification_domain_event_identity_conflict",
-  ].includes(code);
 }
 
 const workerId = `notification-domain:${hostname()}:${process.pid}`;
@@ -83,27 +70,10 @@ process.once("SIGTERM", () => stop("SIGTERM"));
 async function processClaim(claim: NotificationDomainOutboxClaim): Promise<void> {
   try {
     const processed = await withTx(async (client) => {
-      const principal = await client.query<{
-        locale: "fa" | "en";
-        status: "active" | "suspended" | "disabled" | "deleted";
-      }>(
-        `SELECT locale, status
-           FROM platform_principals
-          WHERE tenant_id = $1 AND id = $2::uuid
-          LIMIT 1
-          FOR SHARE`,
-        [claim.event.tenantId, claim.event.principalId],
+      const effectiveClaim = await loadEffectiveNotificationDomainClaim(
+        client,
+        claim,
       );
-      const current = principal.rows[0];
-      if (!current) throw new Error("notification_principal_not_found");
-      if (current.status !== "active") {
-        throw new Error("notification_principal_inactive");
-      }
-
-      const effectiveClaim: NotificationDomainOutboxClaim = {
-        ...claim,
-        event: { ...claim.event, locale: current.locale },
-      };
       return processClaimedNotificationDomainEvent(
         client,
         effectiveClaim,
@@ -114,13 +84,13 @@ async function processClaim(claim: NotificationDomainOutboxClaim): Promise<void>
       throw new Error("notification_database_unavailable");
     }
   } catch (error) {
-    const code = errorCode(error);
+    const code = notificationDomainWorkerErrorCode(error);
     const detail = error instanceof Error ? error.message.slice(0, 2_000) : null;
     const failed = await withTx((client) =>
       failNotificationDomainEvent(client, claim, workerId, {
         errorCode: code,
         errorDetail: detail,
-        retryable: !terminalProducerError(code),
+        retryable: !isTerminalNotificationDomainError(code),
       }),
     );
     if (!failed.enabled) {
