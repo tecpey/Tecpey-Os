@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiError, apiOk, checkBodySize, Validate } from "@/lib/api-validation";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { withObservability } from "@/lib/observe";
@@ -19,6 +20,8 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   return withObservability(req, { route: "/api/notifications/[id]" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const rate = await rateLimit(req, {
       namespace: "notifications-mutate",
       limit: 90,
