@@ -12,11 +12,11 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 48,
-    "findings": 65,
+    "operationsWithFindings": 56,
+    "findings": 75,
     "findingCounts": {
       "missing_audit_or_observability_evidence": 3,
-      "parsed_body_without_size_limit": 38,
+      "parsed_body_without_size_limit": 48,
       "replayable_command_without_idempotency": 4,
       "required_strict_revocation_missing": 20
     }
@@ -52,7 +52,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-auth",
       "testReferences": [
@@ -102,7 +104,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-auth",
       "testReferences": [
@@ -160,7 +164,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-certificates",
       "testReferences": [],
@@ -198,7 +204,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-flashcards-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": false,
@@ -210,7 +216,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-flashcards",
       "testReferences": [],
@@ -226,7 +234,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/academy-lead",
@@ -260,7 +270,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lead",
       "testReferences": [
@@ -302,7 +314,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-lesson-assessment",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": true,
@@ -314,7 +326,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lesson-assessment",
       "testReferences": [],
@@ -330,7 +344,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/academy-lesson-progress",
@@ -364,7 +380,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lesson-progress",
       "testReferences": [],
@@ -400,7 +418,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-reflection-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": false,
@@ -412,7 +430,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-reflections",
       "testReferences": [],
@@ -428,7 +448,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/academy-simulator-decision",
@@ -460,7 +482,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-simulator-decision",
       "testReferences": [],
@@ -500,7 +524,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-specialized-lead",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "text",
         "idempotency": true,
@@ -512,7 +536,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-specialized-lead",
       "testReferences": [],
@@ -528,7 +554,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/academy-state",
@@ -562,7 +590,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-state",
       "testReferences": [
@@ -614,7 +644,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-student-profile",
       "testReferences": [],
@@ -666,7 +698,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-term-progress",
       "testReferences": [],
@@ -718,7 +752,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -786,7 +822,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -848,7 +886,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -916,7 +956,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "admin",
       "testReferences": [
@@ -971,7 +1013,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "admin",
       "testReferences": [
@@ -1028,7 +1072,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor",
       "testReferences": [],
@@ -1081,7 +1127,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor-v2",
       "testReferences": [],
@@ -1136,7 +1184,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1186,7 +1236,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1234,7 +1286,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1286,7 +1340,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1339,7 +1395,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1392,7 +1450,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1445,7 +1505,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1498,7 +1560,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1551,7 +1615,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1604,7 +1670,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1658,7 +1726,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1712,7 +1782,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1765,7 +1837,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1817,7 +1891,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1873,7 +1949,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": true
+        "setsCookie": true,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1930,7 +2008,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1983,7 +2063,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2036,7 +2118,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2086,7 +2170,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2140,7 +2226,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2196,7 +2284,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2249,7 +2339,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2302,7 +2394,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [
@@ -2361,7 +2455,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2418,7 +2514,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2475,7 +2573,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2530,7 +2630,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2586,7 +2688,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2638,7 +2742,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "community",
       "testReferences": [],
@@ -2692,7 +2798,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "device-token",
       "testReferences": [],
@@ -2744,7 +2852,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": true,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "internal",
       "testReferences": [],
@@ -2792,7 +2902,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "learning-events",
       "testReferences": [],
@@ -2842,7 +2954,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-challenge",
       "testReferences": [],
@@ -2894,7 +3008,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-conversations",
       "testReferences": [],
@@ -2948,7 +3064,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
       "testReferences": [],
@@ -3000,7 +3118,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
       "testReferences": [],
@@ -3054,7 +3174,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-profile",
       "testReferences": [],
@@ -3105,7 +3227,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notification-brain",
       "testReferences": [],
@@ -3153,7 +3277,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3189,7 +3315,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notifications-mutate",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": false,
@@ -3201,7 +3327,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3217,7 +3345,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/notifications/consent",
@@ -3239,7 +3369,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notification-consent-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": true,
@@ -3251,7 +3381,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3268,7 +3400,8 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing"
+        "required_strict_revocation_missing",
+        "parsed_body_without_size_limit"
       ]
     },
     {
@@ -3291,7 +3424,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notification-preferences-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": false,
@@ -3303,7 +3436,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3320,7 +3455,8 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing"
+        "required_strict_revocation_missing",
+        "parsed_body_without_size_limit"
       ]
     },
     {
@@ -3353,7 +3489,9 @@
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3403,7 +3541,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "offline-sync",
       "testReferences": [
@@ -3460,7 +3600,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "orders",
       "testReferences": [],
@@ -3512,7 +3654,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": false,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "orders",
       "testReferences": [],
@@ -3552,7 +3696,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "trading-arena-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": false,
@@ -3564,7 +3708,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -3584,7 +3730,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/trading-arena/execution",
@@ -3606,7 +3754,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "arena-execution-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": true,
@@ -3618,7 +3766,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -3637,7 +3787,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     },
     {
       "route": "/api/trading-arena/reflections",
@@ -3659,7 +3811,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "arena-reflections-write",
         "expectsBody": true,
-        "bodySizeLimit": true,
+        "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
         "idempotency": true,
@@ -3671,7 +3823,9 @@
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
-        "setsCookie": false
+        "setsCookie": false,
+        "headerBodySizeHint": true,
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -3691,7 +3845,9 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [
+        "parsed_body_without_size_limit"
+      ]
     }
   ]
 }

@@ -13,44 +13,246 @@
       ],
       "expiresOn": "2026-08-31",
       "operations": [
-        { "route": "/api/academy-auth", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy-certificates", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy-lead", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy-simulator-decision", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy-student-profile", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy-term-progress", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy/auth/login", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/academy/auth/register", "method": "POST", "owner": "academy-platform" },
-        { "route": "/api/admin/withdrawals/[id]", "method": "POST", "owner": "exchange-wallet-security" },
-        { "route": "/api/ai-mentor", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/ai-mentor-v2", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/api-keys", "method": "POST", "owner": "developer-platform-security" },
-        { "route": "/api/api-keys/[id]", "method": "PATCH", "owner": "developer-platform-security" },
-        { "route": "/api/auth/2fa/backup", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/2fa/disable", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/2fa/enroll", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/2fa/verify", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/devices/[id]", "method": "PATCH", "owner": "identity-security" },
-        { "route": "/api/auth/password/change", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/auth/challenge", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/auth/verify", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/credentials/[id]", "method": "PATCH", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/register/verify", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/withdraw", "method": "POST", "owner": "exchange-wallet-security" },
-        { "route": "/api/auth/withdraw/authorize", "method": "POST", "owner": "exchange-wallet-security" },
-        { "route": "/api/command-center/auth/bootstrap/challenge", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/command-center/auth/bootstrap/verify", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/command-center/auth/passkey/verify", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/command-center/campaign", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/community/profile", "method": "PATCH", "owner": "social-platform-security" },
-        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/learning-events", "method": "POST", "owner": "academy-event-platform" },
-        { "route": "/api/mentor-challenge", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-memory", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/notifications/read", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/offline-sync", "method": "POST", "owner": "offline-sync-platform" },
-        { "route": "/api/orders", "method": "POST", "owner": "exchange-wallet-security" }
+        {
+          "route": "/api/academy-auth",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/academy-certificates",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-flashcards",
+          "method": "PUT",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-lead",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-lesson-assessment",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-reflections",
+          "method": "PUT",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-simulator-decision",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-specialized-lead",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-student-profile",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy-term-progress",
+          "method": "POST",
+          "owner": "academy-platform"
+        },
+        {
+          "route": "/api/academy/auth/login",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/academy/auth/register",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/admin/withdrawals/[id]",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/ai-mentor",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/ai-mentor-v2",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/api-keys",
+          "method": "POST",
+          "owner": "developer-platform-security"
+        },
+        {
+          "route": "/api/api-keys/[id]",
+          "method": "PATCH",
+          "owner": "developer-platform-security"
+        },
+        {
+          "route": "/api/auth/2fa/backup",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/2fa/disable",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/2fa/enroll",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/2fa/verify",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/devices/[id]",
+          "method": "PATCH",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/password/change",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/auth/challenge",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/auth/verify",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/credentials/[id]",
+          "method": "PATCH",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/register/verify",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/withdraw",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/withdraw/authorize",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/command-center/auth/bootstrap/challenge",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/command-center/auth/bootstrap/verify",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/command-center/auth/passkey/verify",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/command-center/campaign",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/community/profile",
+          "method": "PATCH",
+          "owner": "social-platform-security"
+        },
+        {
+          "route": "/api/device-token",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/learning-events",
+          "method": "POST",
+          "owner": "academy-event-platform"
+        },
+        {
+          "route": "/api/mentor-challenge",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-conversations/migrate",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-memory",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/notifications/[id]",
+          "method": "PATCH",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/notifications/consent",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/notifications/preferences",
+          "method": "PATCH",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/notifications/read",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/offline-sync",
+          "method": "POST",
+          "owner": "offline-sync-platform"
+        },
+        {
+          "route": "/api/orders",
+          "method": "POST",
+          "owner": "exchange-wallet-security"
+        },
+        {
+          "route": "/api/trading-arena",
+          "method": "POST",
+          "owner": "security-platform"
+        },
+        {
+          "route": "/api/trading-arena/execution",
+          "method": "POST",
+          "owner": "security-platform"
+        },
+        {
+          "route": "/api/trading-arena/reflections",
+          "method": "POST",
+          "owner": "security-platform"
+        }
       ]
     },
     {
@@ -65,61 +267,169 @@
       ],
       "expiresOn": "2026-08-12",
       "operations": [
-        { "route": "/api/ai-mentor", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/ai-mentor-v2", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/auth/2fa/backup", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/2fa/disable", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/2fa/enroll", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/devices/[id]", "method": "DELETE", "owner": "identity-security" },
-        { "route": "/api/auth/devices/[id]", "method": "PATCH", "owner": "identity-security" },
-        { "route": "/api/auth/refresh", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/credentials/[id]", "method": "DELETE", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/credentials/[id]", "method": "PATCH", "owner": "identity-security" },
-        { "route": "/api/auth/webauthn/register/verify", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/command-center/auth/logout", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/community/profile", "method": "PATCH", "owner": "social-platform-security" },
-        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-memory", "method": "DELETE", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-memory", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/notifications/consent", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/notifications/preferences", "method": "PATCH", "owner": "notification-platform-security" }
+        {
+          "route": "/api/ai-mentor",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/ai-mentor-v2",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/auth/2fa/backup",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/2fa/disable",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/2fa/enroll",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/devices/[id]",
+          "method": "DELETE",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/devices/[id]",
+          "method": "PATCH",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/refresh",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/credentials/[id]",
+          "method": "DELETE",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/credentials/[id]",
+          "method": "PATCH",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/auth/webauthn/register/verify",
+          "method": "POST",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/command-center/auth/logout",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/community/profile",
+          "method": "PATCH",
+          "owner": "social-platform-security"
+        },
+        {
+          "route": "/api/device-token",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/mentor-conversations/migrate",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-memory",
+          "method": "DELETE",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-memory",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-profile/recompute",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/notifications/consent",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/notifications/preferences",
+          "method": "PATCH",
+          "owner": "notification-platform-security"
+        }
       ]
     },
     {
       "id": "idempotency",
       "finding": "replayable_command_without_idempotency",
       "issue": "#143",
-      "reason": "The command remains authenticated, authorized, and inventoried while durable principal-scoped idempotency is implemented and concurrency-tested.",
+      "reason": "The command remains inventoried while it migrates to principal-scoped durable idempotency and exact replay semantics.",
       "compensatingControls": [
-        "The exact command is pinned in the manifest and retains existing authentication and authorization.",
-        "Existing transaction or state-transition guards remain unchanged pending durable replay records.",
-        "Issue #143 tracks exact, conflicting, concurrent, and cross-user replay tests."
-      ],
-      "expiresOn": "2026-08-05",
-      "operations": [
-        { "route": "/api/admin/withdrawals/[id]", "method": "POST", "owner": "exchange-wallet-security" },
-        { "route": "/api/auth/withdraw/[id]", "method": "DELETE", "owner": "exchange-wallet-security" },
-        { "route": "/api/offline-sync", "method": "POST", "owner": "offline-sync-platform" },
-        { "route": "/api/orders/[id]", "method": "DELETE", "owner": "exchange-wallet-security" }
-      ]
-    },
-    {
-      "id": "audit-evidence",
-      "finding": "missing_audit_or_observability_evidence",
-      "issue": "#144",
-      "reason": "The mutation remains inventoried and access-controlled while durable privacy-safe audit evidence and outage behavior are implemented.",
-      "compensatingControls": [
-        "The exact sensitive mutation is pinned in the generated manifest.",
-        "Existing authentication, authorization, redaction, and no-store controls remain unchanged.",
-        "Issue #144 tracks durable audit evidence, redaction, and audit-sink outage tests."
+        "Existing transaction, ownership, and domain guards remain enforced where present.",
+        "The exact replay gap is pinned by route, method, finding, and source hash in CI.",
+        "Issue #143 tracks exact replay, conflict, concurrency, and cross-principal tests."
       ],
       "expiresOn": "2026-08-12",
       "operations": [
-        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" }
+        {
+          "route": "/api/admin/withdrawals/[id]",
+          "method": "POST",
+          "owner": "admin-security-platform"
+        },
+        {
+          "route": "/api/auth/withdraw/[id]",
+          "method": "DELETE",
+          "owner": "identity-security"
+        },
+        {
+          "route": "/api/offline-sync",
+          "method": "POST",
+          "owner": "offline-sync-platform"
+        },
+        {
+          "route": "/api/orders/[id]",
+          "method": "DELETE",
+          "owner": "exchange-wallet-security"
+        }
+      ]
+    },
+    {
+      "id": "durable-audit",
+      "finding": "missing_audit_or_observability_evidence",
+      "issue": "#144",
+      "reason": "The sensitive mutation remains inventoried while durable actor-scoped and privacy-safe audit evidence is added.",
+      "compensatingControls": [
+        "The exact operation and current control evidence remain pinned in the generated manifest.",
+        "Existing authentication, authorization, and private response controls remain active.",
+        "Issue #144 tracks durable evidence, redaction, sink-failure behavior, and negative tests."
+      ],
+      "expiresOn": "2026-08-12",
+      "operations": [
+        {
+          "route": "/api/device-token",
+          "method": "POST",
+          "owner": "notification-platform-security"
+        },
+        {
+          "route": "/api/mentor-conversations/migrate",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        },
+        {
+          "route": "/api/mentor-profile/recompute",
+          "method": "POST",
+          "owner": "mentor-ai-platform"
+        }
       ]
     }
   ]
