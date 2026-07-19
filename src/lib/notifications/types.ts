@@ -59,6 +59,7 @@ export type NotificationPolicyDecision =
 export type NotificationPolicyReason =
   | "policy_allowed"
   | "critical_policy_allowed"
+  | "invalid_request"
   | "recipient_ineligible"
   | "jurisdiction_disallowed"
   | "expired"
