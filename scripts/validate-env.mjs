@@ -93,14 +93,20 @@ for (const key of optional) {
 }
 
 const legacyAuthUntil = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
+const legacyAuthHardSunset = Date.parse('2026-08-18T00:00:00.000Z');
 if (process.env.NODE_ENV === 'production' && legacyAuthUntil) {
   const cutoff = Date.parse(legacyAuthUntil);
+  const now = Date.now();
   const maxLegacyWindowMs = 30 * 24 * 60 * 60 * 1000;
   if (!Number.isFinite(cutoff)) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL must be a valid ISO-8601 timestamp');
-  } else if (cutoff <= Date.now()) {
+  } else if (now >= legacyAuthHardSunset) {
+    errors.push('Legacy cookie compatibility has passed its immutable 2026-08-18 sunset and must be removed');
+  } else if (cutoff <= now) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL must be in the future or removed to disable legacy auth');
-  } else if (cutoff - Date.now() > maxLegacyWindowMs) {
+  } else if (cutoff > legacyAuthHardSunset) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL may not exceed the immutable 2026-08-18 legacy auth sunset');
+  } else if (cutoff - now > maxLegacyWindowMs) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL may not extend legacy cookie compatibility beyond 30 days');
   }
 }
