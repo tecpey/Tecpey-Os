@@ -19,6 +19,10 @@ function getPool(): Pool | null {
       max: 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      // Test workers import the shared DB authority directly. Once their
+      // assertions complete, idle PostgreSQL sockets must not keep Node alive.
+      // Production retains the default false behavior.
+      allowExitOnIdle: process.env.NODE_ENV === "test",
     });
     pool.on("error", (err) => {
       logger.error("[db] pool error", { message: err.message });
