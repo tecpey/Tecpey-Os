@@ -110,17 +110,38 @@ function closedTrade(value: unknown): ArenaClosedTradeV2 {
   const openedAt = time(row.openedAt);
   const closedAt = time(row.closedAt);
   if (Date.parse(closedAt) < Date.parse(openedAt)) invalid();
+
+  const entryPrice = amount(row.entryPrice, true, false, 10);
+  const exitPrice = amount(row.exitPrice, true, false, 10);
+  const quantity = amount(row.quantity, true, false, 18);
+  const quoteCommitted = amount(row.quoteCommitted, true, false, 10);
+  const totalFee = amount(row.totalFee, false, false, 10);
+  const realizedPnl = amount(row.realizedPnl, false, true, 10);
+  const realizedPnlRate = amount(row.realizedPnlRate, false, true, 8);
+
+  const openingFee = new Decimal(quoteCommitted).mul(FEE_RATE)
+    .toDecimalPlaces(10, Decimal.ROUND_DOWN);
+  const expectedQuantity = new Decimal(quoteCommitted).minus(openingFee).div(entryPrice)
+    .toDecimalPlaces(18, Decimal.ROUND_DOWN);
+  const grossProceeds = new Decimal(quantity).mul(exitPrice);
+  const closingFee = grossProceeds.mul(FEE_RATE);
+  const rawPnl = grossProceeds.minus(closingFee).minus(quoteCommitted);
+  const expectedTotalFee = openingFee.plus(closingFee)
+    .toDecimalPlaces(10, Decimal.ROUND_DOWN);
+  const expectedPnl = rawPnl.toDecimalPlaces(10, Decimal.ROUND_DOWN);
+  const expectedRate = rawPnl.div(quoteCommitted)
+    .toDecimalPlaces(8, Decimal.ROUND_DOWN);
+
+  if (!new Decimal(quantity).eq(expectedQuantity)) invalid();
+  if (!new Decimal(totalFee).eq(expectedTotalFee)) invalid();
+  if (!new Decimal(realizedPnl).eq(expectedPnl)) invalid();
+  if (!new Decimal(realizedPnlRate).eq(expectedRate)) invalid();
+
   return {
     id: text(row.id, 200, false), positionId: text(row.positionId, 200, false),
-    asset: asset(row.asset), entryPrice: amount(row.entryPrice, true, false, 10),
-    exitPrice: amount(row.exitPrice, true, false, 10),
-    quantity: amount(row.quantity, true, false, 18),
-    quoteCommitted: amount(row.quoteCommitted, true, false, 10),
-    totalFee: amount(row.totalFee, false, false, 10),
-    realizedPnl: amount(row.realizedPnl, false, true, 10),
-    realizedPnlRate: amount(row.realizedPnlRate, false, true, 8),
-    openedAt, closedAt, closureReason: reason,
-    mentorFlags: mentorFlags(row.mentorFlags),
+    asset: asset(row.asset), entryPrice, exitPrice, quantity, quoteCommitted,
+    totalFee, realizedPnl, realizedPnlRate, openedAt, closedAt,
+    closureReason: reason, mentorFlags: mentorFlags(row.mentorFlags),
   };
 }
 

@@ -6,89 +6,59 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
-  arena-trade-validation:
-    name: Arena Trade Validation
+  quality:
+    name: Quality Checks
     runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_the model_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+
     steps:
-      - name: Checkout source branch
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          ref: feat/trading-arena-authoritative-execution-20260719
-          fetch-depth: 0
-      - name: Harden closed-trade validation and restore canonical CI
-        shell: bash
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Verify npm version
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+          echo "npm $(npm --version) OK"
 
-          path = Path("src/lib/trading-arena-execution-state-validation.ts")
-          text = path.read_text()
-          start_marker = "function closedTrade(value: unknown): ArenaClosedTradeV2 {"
-          end_marker = "\n\nfunction market"
-          start = text.find(start_marker)
-          end = text.find(end_marker, start)
-          if start < 0 or end < 0:
-              raise SystemExit("closedTrade validation markers not found")
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-          replacement = '''function closedTrade(value: unknown): ArenaClosedTradeV2 {
-            const row = object(value);
-            const reason = row.closureReason;
-            if (reason !== "manual" && reason !== "stop-loss" && reason !== "take-profit") invalid();
-            const openedAt = time(row.openedAt);
-            const closedAt = time(row.closedAt);
-            if (Date.parse(closedAt) < Date.parse(openedAt)) invalid();
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
 
-            const entryPrice = amount(row.entryPrice, true, false, 10);
-            const exitPrice = amount(row.exitPrice, true, false, 10);
-            const quantity = amount(row.quantity, true, false, 18);
-            const quoteCommitted = amount(row.quoteCommitted, true, false, 10);
-            const totalFee = amount(row.totalFee, false, false, 10);
-            const realizedPnl = amount(row.realizedPnl, false, true, 10);
-            const realizedPnlRate = amount(row.realizedPnlRate, false, true, 8);
+      - name: ESLint
+        run: ./node_modules/.bin/eslint . --max-warnings 0
 
-            const openingFee = new Decimal(quoteCommitted).mul(FEE_RATE)
-              .toDecimalPlaces(10, Decimal.ROUND_DOWN);
-            const expectedQuantity = new Decimal(quoteCommitted).minus(openingFee).div(entryPrice)
-              .toDecimalPlaces(18, Decimal.ROUND_DOWN);
-            const grossProceeds = new Decimal(quantity).mul(exitPrice);
-            const closingFee = grossProceeds.mul(FEE_RATE);
-            const rawPnl = grossProceeds.minus(closingFee).minus(quoteCommitted);
-            const expectedTotalFee = openingFee.plus(closingFee)
-              .toDecimalPlaces(10, Decimal.ROUND_DOWN);
-            const expectedPnl = rawPnl.toDecimalPlaces(10, Decimal.ROUND_DOWN);
-            const expectedRate = rawPnl.div(quoteCommitted)
-              .toDecimalPlaces(8, Decimal.ROUND_DOWN);
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
 
-            if (!new Decimal(quantity).eq(expectedQuantity)) invalid();
-            if (!new Decimal(totalFee).eq(expectedTotalFee)) invalid();
-            if (!new Decimal(realizedPnl).eq(expectedPnl)) invalid();
-            if (!new Decimal(realizedPnlRate).eq(expectedRate)) invalid();
+      - name: Admin authentication boundary guard
+        run: node scripts/check-admin-auth-boundary.mjs
 
-            return {
-              id: text(row.id, 200, false), positionId: text(row.positionId, 200, false),
-              asset: asset(row.asset), entryPrice, exitPrice, quantity, quoteCommitted,
-              totalFee, realizedPnl, realizedPnlRate, openedAt, closedAt,
-              closureReason: reason, mentorFlags: mentorFlags(row.mentorFlags),
-            };
-          }'''
-          path.write_text(text[:start] + replacement + text[end:])
+      - name: Tests
+        run: npm test
 
-          subprocess.run(["git", "fetch", "origin", "main", "--quiet"], check=True)
-          canonical_ci = subprocess.check_output(
-              ["git", "show", "origin/main:.github/workflows/ci.yml"],
-              text=True,
-          )
-          Path(".github/workflows/ci.yml").write_text(canonical_ci)
-          PY
-
-          git config user.name "tecpey-ci"
-          git config user.email "actions@users.noreply.github.com"
-          git add src/lib/trading-arena-execution-state-validation.ts \
-                  .github/workflows/ci.yml
-          git commit -m "fix(arena): verify persisted trade fee and pnl equations"
-          git push origin HEAD:feat/trading-arena-authoritative-execution-20260719
+      - name: Build
+        env:
+          NODE_ENV: production
+        run: npm run build
