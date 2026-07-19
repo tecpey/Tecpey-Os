@@ -127,7 +127,10 @@ function validateRequest(request: InAppNotificationRequest): void {
   if (request.sourceType.trim().length < 1 || request.sourceType.length > 100) {
     throw new Error("notification_source_type_invalid");
   }
-  if (request.sourceId !== null && (request.sourceId.length < 1 || request.sourceId.length > 220)) {
+  if (
+    request.sourceId !== null &&
+    (request.sourceId.length < 1 || request.sourceId.length > 220)
+  ) {
     throw new Error("notification_source_id_invalid");
   }
   if (request.title.trim().length < 1 || request.title.length > 240) {
@@ -139,7 +142,11 @@ function validateRequest(request: InAppNotificationRequest): void {
   if (!validInternalActionUrl(request.actionUrl)) {
     throw new Error("notification_action_url_invalid");
   }
-  if (!Number.isInteger(request.priority) || request.priority < 0 || request.priority > 10) {
+  if (
+    !Number.isInteger(request.priority) ||
+    request.priority < 0 ||
+    request.priority > 10
+  ) {
     throw new Error("notification_priority_invalid");
   }
   if (
@@ -289,8 +296,13 @@ export async function createInAppNotification(
   }
 
   const now = options.now ?? new Date().toISOString();
-  if (!Number.isFinite(Date.parse(now))) throw new Error("notification_now_invalid");
-  if (request.expiresAt !== null && Date.parse(request.expiresAt) <= Date.parse(now)) {
+  if (!Number.isFinite(Date.parse(now))) {
+    throw new Error("notification_now_invalid");
+  }
+  if (
+    request.expiresAt !== null &&
+    Date.parse(request.expiresAt) <= Date.parse(now)
+  ) {
     throw new Error("notification_expiry_not_future");
   }
 
@@ -377,10 +389,10 @@ export async function createInAppNotification(
   };
   const policy = evaluateNotificationPolicy(policyInput);
   const metadata = canonicalize(request.metadata ?? {}) as Record<string, unknown>;
-  const policySnapshot = canonicalize(policyInput) as Record<string, unknown>;
 
-  let notificationId: string | null = null;
-  let outboxId: string | null = null;
+  let effectiveDecision: NotificationPolicyDecision = policy.decision;
+  let effectiveReason: NotificationPolicyReason = policy.reason;
+  let effectiveFallback = policy.shouldTryFallbackChannel;
   let scheduledFor: string | null = null;
 
   if (["allow", "defer", "digest"].includes(policy.decision)) {
@@ -394,6 +406,31 @@ export async function createInAppNotification(
       throw new Error("notification_schedule_resolution_failed");
     }
 
+    if (
+      request.expiresAt !== null &&
+      Date.parse(scheduledFor) >= Date.parse(request.expiresAt)
+    ) {
+      effectiveDecision = "suppress";
+      effectiveReason = "expired";
+      effectiveFallback = false;
+      scheduledFor = null;
+    }
+  }
+
+  const policySnapshot = canonicalize({
+    input: policyInput,
+    evaluated: policy,
+    effective: {
+      decision: effectiveDecision,
+      reason: effectiveReason,
+      scheduledFor,
+    },
+  }) as Record<string, unknown>;
+
+  let notificationId: string | null = null;
+  let outboxId: string | null = null;
+
+  if (["allow", "defer", "digest"].includes(effectiveDecision)) {
     const insertedNotification = await client.query<{ id: string }>(
       `INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
@@ -415,8 +452,8 @@ export async function createInAppNotification(
         request.urgency,
         request.priority,
         request.correlationKey,
-        policy.decision,
-        policy.reason,
+        effectiveDecision,
+        effectiveReason,
         scheduledFor,
         request.expiresAt,
         JSON.stringify(metadata),
@@ -441,7 +478,7 @@ export async function createInAppNotification(
         outboxIdempotencyKey(principal, request.correlationKey),
         scheduledFor,
         hash,
-        policy.decision,
+        effectiveDecision,
       ],
     );
     outboxId = insertedOutbox.rows[0]?.id ?? null;
@@ -479,10 +516,10 @@ export async function createInAppNotification(
       request.correlationKey,
       hash,
       request.templateAvailable,
-      policy.decision,
-      policy.reason,
+      effectiveDecision,
+      effectiveReason,
       policy.mandatory,
-      policy.shouldTryFallbackChannel,
+      effectiveFallback,
       scheduledFor,
       request.expiresAt,
       JSON.stringify(policySnapshot),
@@ -494,16 +531,16 @@ export async function createInAppNotification(
 
   return {
     status:
-      policy.decision === "suppress"
+      effectiveDecision === "suppress"
         ? "suppressed"
-        : policy.decision === "escalate"
+        : effectiveDecision === "escalate"
           ? "escalated"
           : "created",
     intentId,
     notificationId,
     outboxId,
-    decision: policy.decision,
-    reason: policy.reason,
+    decision: effectiveDecision,
+    reason: effectiveReason,
     scheduledFor,
   };
 }
