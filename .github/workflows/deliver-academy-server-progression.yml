@@ -1,0 +1,83 @@
+name: Deliver Academy Server Progression — Never Merge
+
+on:
+  push:
+    branches:
+      - delivery/academy-server-issued-progression-20260719
+
+permissions:
+  contents: write
+
+jobs:
+  deliver:
+    name: Verify and deliver reviewed Academy patch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout delivery payload
+        uses: actions/checkout@v4
+        with:
+          ref: delivery/academy-server-issued-progression-20260719
+          path: payload
+
+      - name: Checkout target feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/academy-server-issued-progression
+          path: work
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild and verify payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat payload/delivery/academy-server-issued-progression/part-* | base64 --decode > academy-patch.tgz
+          echo '1bc944df38f018ee8343c24833198c6cd4f0a37ab2abeceaf5e738feec2ab2fd  academy-patch.tgz' | sha256sum --check --strict
+          tar -tzf academy-patch.tgz | sort > archive-files.txt
+          cat > expected-files.txt <<'EOF'
+          .github/workflows/ci.yml
+          docs/academy/ACADEMY_PROGRESS_AUTHORITY_MIGRATION_REPORT.md
+          scripts/check-academy-authority-boundary.mjs
+          src/app/api/academy-lesson-assessment/route.ts
+          src/app/api/academy-lesson-progress/route.ts
+          src/app/api/academy-state/route.ts
+          src/app/api/academy-term-progress/route.ts
+          src/components/academy/v2/FlashcardDeck.tsx
+          src/components/academy/v2/LessonPlayerV2.tsx
+          src/components/academy/v2/QuizEngineV2.tsx
+          src/lib/academy-assessment.ts
+          src/lib/academy-authority.ts
+          src/lib/academy-progress-projection.ts
+          src/lib/academy-progress.ts
+          src/lib/academy-reward-policy.ts
+          src/lib/db-migrate-user-state.ts
+          src/tests/academy/assessment-authority.test.ts
+          src/tests/academy/authority-migration.test.ts
+          src/tests/academy/progress-state.test.ts
+          EOF
+          sort -o expected-files.txt expected-files.txt
+          diff -u expected-files.txt archive-files.txt
+
+      - name: Apply payload and run dependency-free authority guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf academy-patch.tgz -C work
+          cd work
+          node scripts/check-academy-authority-boundary.mjs
+
+      - name: Commit exact reviewed scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd work
+          git config user.name 'tecpey-delivery-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          while IFS= read -r file; do git add -- "$file"; done < ../expected-files.txt
+          git diff --cached --name-only | sort > ../staged-files.txt
+          diff -u ../expected-files.txt ../staged-files.txt
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'feat(academy): make progression and rewards server-issued'
+          git push origin HEAD:agent/academy-server-issued-progression
+
+      - name: Delivery branch safety notice
+        run: echo 'NEVER MERGE this delivery workflow or payload branch into main.'
