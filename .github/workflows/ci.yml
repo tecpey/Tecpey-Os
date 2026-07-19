@@ -65,6 +65,9 @@ jobs:
       - name: Academy authority boundary guard
         run: node scripts/check-academy-authority-boundary.mjs
 
+      - name: Arena UI authority boundary guard
+        run: node scripts/check-arena-ui-authority.mjs
+
       - name: Tests
         run: npm test
 
