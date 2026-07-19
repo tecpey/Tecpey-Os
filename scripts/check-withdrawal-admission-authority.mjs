@@ -14,12 +14,14 @@ const files = {
   price: "src/lib/security/withdrawal-price-authority.ts",
   authorization: "src/lib/security/withdrawal-authorization-authority.ts",
   compliance: "src/lib/security/withdrawal-compliance-authority.ts",
+  replay: "src/lib/security/withdrawal-replay-authority.ts",
   admission: "src/lib/security/withdrawal-admission-service.ts",
   legacyGate: "src/lib/security/withdraw-gate.ts",
   migration: "src/lib/db-migrate-withdrawal-admission.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   unitTests: "src/tests/security/withdrawal-admission.test.ts",
   postgresTests: "src/tests/security/withdrawal-admission-postgres.test.ts",
+  replayTests: "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
 };
 
 const content = Object.fromEntries(
@@ -47,8 +49,10 @@ requireText("ci", "TECPEY_WITHDRAWAL_PRICE_SECRET", "CI needs server-owned price
 
 requireText("route", "client_security_facts_forbidden", "browser amountUsd and 2FA booleans must be rejected");
 requireText("route", 'req.headers.get("idempotency-key")', "creation requires an Idempotency-Key header");
-requireText("route", "authorizationId", "creation requires one-time authorization evidence");
-requireText("route", "createAuthoritativeWithdrawal", "creation must use the transactional service");
+requireText("route", "canonicalizeWithdrawalCommand", "route replay and admission must share one canonical command");
+requireText("route", "resolveWithdrawalReplay", "committed replay must be resolved before external authorities");
+requireText("route", "authorizationId", "new creation requires one-time authorization evidence");
+requireText("route", "createAuthoritativeWithdrawal", "new creation must use the transactional service");
 requireText("route", "listUserWithdrawalsStrict", "history reads must expose storage failure");
 requireText("route", "strictRevocation: true", "withdrawal reads and writes require strict sessions");
 rejectText("route", "createWithdrawalRequest", "routes may not call the fail-open legacy service");
@@ -99,10 +103,19 @@ requireText("compliance", "control_timeout", "provider calls need bounded execut
 requireText("compliance", "compliance_evidence_incomplete", "missing/malformed evidence must never approve");
 requireText("compliance", "custody_launch_gate_disabled", "execution must remain behind custody closure");
 
+requireText("replay", "resolveWithdrawalReplay", "committed replay needs an explicit authority");
+requireText("replay", "user_id = $1", "replay lookup must be owner-bound");
+requireText("replay", "idempotency_key = $2", "replay lookup must bind the idempotency key");
+requireText("replay", "request_hash", "replay must compare the immutable request hash");
+requireText("replay", "fetchWithdrawal", "replay must return persisted withdrawal evidence");
+rejectText("replay", "getComplianceProviders", "committed replay may not depend on compliance providers");
+rejectText("replay", "getAuthoritativeUsdValuation", "committed replay may not depend on current pricing");
+rejectText("replay", "tecpeyRedisClient", "committed replay may not depend on Redis risk state");
+
 requireText("admission", "withTx", "admission must be transactionally atomic");
 requireText("admission", "pg_advisory_xact_lock", "per-user admission and velocity must serialize");
 requireText("admission", "idempotency_conflict", "changed payload reuse must fail closed");
-requireText("admission", "request_hash", "replay must compare canonical payload evidence");
+requireText("admission", "request_hash", "concurrent replay must compare canonical payload evidence");
 requireText("admission", "consumeWithdrawalAuthorizationTx", "authorization must be consumed in the admission transaction");
 requireText("admission", "INTERVAL '24 hours'", "velocity must derive from durable withdrawals");
 requireText("admission", "reserveExactWithdrawalTx", "funds must be reserved with exact decimals");
@@ -131,7 +144,7 @@ requireText("migration", "compliance_evidence", "withdrawals must retain complia
 requireText("migrationPlan", "runWithdrawalAdmissionMigrations", "migration must be in the canonical plan");
 
 requireText("env", "TECPEY_WITHDRAWAL_PRICE_SECRET", "production must require price-signing authority");
-requireText("env", "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden", "real execution must remain disabled until #106 closes");
+requireText("env", "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden", "real execution must remain disabled until custody closure");
 requireText("env", "TECPEY_WITHDRAWAL_DAILY_LIMIT_USD", "velocity configuration must be validated");
 
 requireText("unitTests", "preserves significant integer zeroes", "canonical amount regression needs a test");
@@ -147,10 +160,12 @@ requireText("postgresTests", "stale price evidence cannot authorize valuation", 
 requireText("postgresTests", "cancellation releases the hold", "ledger release needs an integration test");
 requireText("postgresTests", "type = 'hold'", "tests must inspect the real ledger hold type");
 requireText("postgresTests", "type = 'release'", "tests must inspect the real ledger release type");
+requireText("replayTests", "resolves exact replay from PostgreSQL without external providers", "committed replay needs a provider-independent DB test");
+requireText("replayTests", "checks committed replay before authorization", "route ordering must be regression tested");
 
 if (failures.length) {
   console.error("Withdrawal admission authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; canonical commands, one-time TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, durable outbox and custody launch blocking are enforced.");
+console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; canonical commands, one-time TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, durable outbox and custody launch blocking are enforced.");
