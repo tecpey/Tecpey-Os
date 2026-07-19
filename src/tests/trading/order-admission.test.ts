@@ -90,6 +90,13 @@ describe("Decimal-safe Exchange order admission", () => {
     if (!aboveMaximum.ok) assert.equal(aboveMaximum.error, "order_value_too_large");
   });
 
+  it("treats any parsed zero maxOrderValue as unlimited", () => {
+    assert.deepEqual(
+      validatePlaceOrderRequest(request(), { ...market, maxOrderValue: "0.0000000000" }),
+      { ok: true },
+    );
+  });
+
   it("calculates exact limit-buy, market-buy and sell holds", () => {
     assert.deepEqual(calculateOrderHold({ request: request(), market }), {
       asset: "USDT",
@@ -117,12 +124,22 @@ describe("Decimal-safe Exchange order admission", () => {
     });
   });
 
-  it("rounds holds upward at the database scale to prevent under-reservation", () => {
+  it("preserves a large exact product beyond the legacy global precision", () => {
     const hold = calculateOrderHold({
-      request: request({ type: "market", quantity: "1", price: undefined }),
+      request: request({ quantity: "9999999999.12345", price: "999999999.12345" }),
       market,
-      bestAskPrice: "1.00000000001",
     });
-    assert.equal(hold.amount, "1.0000000001");
+    assert.equal(hold.amount, "9999999990357950000.7683399025");
+  });
+
+  it("fails closed when a hold would require scale rounding", () => {
+    assert.throws(
+      () => calculateOrderHold({
+        request: request({ type: "market", quantity: "1", price: undefined }),
+        market,
+        bestAskPrice: "1.00000000001",
+      }),
+      /order_hold_scale_exceeded/,
+    );
   });
 });
