@@ -1,0 +1,11 @@
+diff --git a/src/components/academy/v2/LessonPlayerV2.tsx b/src/components/academy/v2/LessonPlayerV2.tsx
+--- a/src/components/academy/v2/LessonPlayerV2.tsx
++++ b/src/components/academy/v2/LessonPlayerV2.tsx
+@@ -19,7 +19,6 @@ import {
+   Star,
+   Target,
+   Trophy,
+-  Zap,
+ } from "lucide-react";
+ import { QuizEngineV2, type QuizAttemptResult } from "./QuizEngineV2";
+ import { FlashcardDeck } from "./FlashcardDeck";
