@@ -1,6 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { withDb, withTx } from "@/lib/db";
+import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import {
   decryptLeadPii,
@@ -34,6 +34,15 @@ export type AcademyLeadResult = {
   revision: number;
 };
 
+export type DeliveryClaim = {
+  id: string;
+  lead_id: string;
+  tenant_id: string;
+  lead_revision: number;
+  attempt_count: number;
+  max_attempts: number;
+};
+
 function canonicalJson(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
@@ -50,23 +59,25 @@ function canonicalJson(value: unknown): string {
 
 export function hashAcademyLeadCommand(command: AcademyLeadCommand): string {
   return createHash("sha256")
-    .update(canonicalJson({
-      leadKind: command.leadKind,
-      source: command.source,
-      campaign: command.campaign ?? null,
-      locale: command.locale,
-      pii: {
-        name: command.pii.name,
-        phone: normalizeLeadPhone(command.pii.phone),
-        email: normalizeLeadEmail(command.pii.email),
-        city: command.pii.city ?? "",
-        note: command.pii.note ?? "",
-      },
-      attributes: command.attributes,
-      consent: command.consent,
-      legalBasis: command.legalBasis,
-      privacyNoticeVersion: command.privacyNoticeVersion,
-    }))
+    .update(
+      canonicalJson({
+        leadKind: command.leadKind,
+        source: command.source,
+        campaign: command.campaign ?? null,
+        locale: command.locale,
+        pii: {
+          name: command.pii.name,
+          phone: normalizeLeadPhone(command.pii.phone),
+          email: normalizeLeadEmail(command.pii.email),
+          city: command.pii.city ?? "",
+          note: command.pii.note ?? "",
+        },
+        attributes: command.attributes,
+        consent: command.consent,
+        legalBasis: command.legalBasis,
+        privacyNoticeVersion: command.privacyNoticeVersion,
+      }),
+    )
     .digest("hex");
 }
 
@@ -75,7 +86,15 @@ async function appendAudit(
   input: {
     tenantId: string;
     leadId: string;
-    action: string;
+    action:
+      | "created"
+      | "updated"
+      | "delivery_claimed"
+      | "delivery_succeeded"
+      | "delivery_failed"
+      | "exported"
+      | "deleted"
+      | "retention_deleted";
     actorType: "public" | "worker" | "admin" | "retention";
     actorId?: string | null;
     networkFingerprint?: string | null;
@@ -100,7 +119,9 @@ async function appendAudit(
 
 function resultFromJson(value: unknown): AcademyLeadResult {
   const row = value as Partial<AcademyLeadResult>;
-  if (!row.id || !Number.isInteger(row.revision)) throw new Error("crm_lead_command_result_invalid");
+  if (!row.id || !Number.isInteger(row.revision)) {
+    throw new Error("crm_lead_command_result_invalid");
+  }
   return {
     id: row.id,
     created: Boolean(row.created),
@@ -119,14 +140,12 @@ export async function ingestAcademyLead(
   const requestHash = hashAcademyLeadCommand(command);
   const phone = normalizeLeadPhone(command.pii.phone);
   const email = normalizeLeadEmail(command.pii.email);
-  const contactHash = leadContactHash(phone, email);
+  const contactHash = leadContactHash(phone);
   const phoneHash = hashLeadValue(phone);
   const emailHash = email ? hashLeadValue(email) : null;
 
   try {
     const transaction = await withTx(async (client) => {
-      // All command attempts use the same lock order to avoid deadlocks while
-      // serializing both idempotency and contact-level deduplication.
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
         `crm-contact:${command.tenantId}:${command.leadKind}:${contactHash}`,
       ]);
@@ -141,7 +160,7 @@ export async function ingestAcademyLead(
         `SELECT request_hash, result
            FROM crm_lead_commands
           WHERE tenant_id = $1 AND idempotency_key = $2
-          FOR UPDATE`,
+          FOR SHARE`,
         [command.tenantId, command.idempotencyKey],
       );
       if (existingCommand.rows[0]) {
@@ -173,6 +192,9 @@ export async function ingestAcademyLead(
         { tenantId: command.tenantId, leadId },
       );
       const retentionMonths = command.leadKind === "academy_specialized" ? 24 : 12;
+      const retentionClass = retentionMonths === 24
+        ? "academy_lead_24m"
+        : "academy_lead_12m";
 
       if (created) {
         await client.query(
@@ -202,7 +224,7 @@ export async function ingestAcademyLead(
             command.locale,
             command.legalBasis,
             command.privacyNoticeVersion,
-            retentionMonths === 24 ? "academy_lead_24m" : "academy_lead_12m",
+            retentionClass,
             revision,
             String(retentionMonths),
           ],
@@ -243,12 +265,26 @@ export async function ingestAcademyLead(
             command.locale,
             command.legalBasis,
             command.privacyNoticeVersion,
-            retentionMonths === 24 ? "academy_lead_24m" : "academy_lead_12m",
+            retentionClass,
             revision,
             String(retentionMonths),
           ],
         );
       }
+
+      await client.query(
+        `UPDATE crm_lead_delivery_outbox
+            SET status = 'terminal',
+                locked_at = NULL,
+                locked_by = NULL,
+                lease_expires_at = NULL,
+                last_error_code = 'superseded_revision',
+                updated_at = NOW()
+          WHERE lead_id = $1::uuid
+            AND destination = 'academy_webhook'
+            AND status IN ('pending', 'retryable')`,
+        [leadId],
+      );
 
       await client.query(
         `INSERT INTO crm_lead_delivery_outbox
@@ -272,12 +308,23 @@ export async function ingestAcademyLead(
         },
       });
 
-      const result: AcademyLeadResult = { id: leadId, created, replayed: false, revision };
+      const result: AcademyLeadResult = {
+        id: leadId,
+        created,
+        replayed: false,
+        revision,
+      };
       await client.query(
         `INSERT INTO crm_lead_commands
           (tenant_id, idempotency_key, request_hash, lead_id, result)
          VALUES ($1, $2, $3, $4::uuid, $5::jsonb)`,
-        [command.tenantId, command.idempotencyKey, requestHash, leadId, JSON.stringify(result)],
+        [
+          command.tenantId,
+          command.idempotencyKey,
+          requestHash,
+          leadId,
+          JSON.stringify(result),
+        ],
       );
       return { status: "committed" as const, result };
     });
@@ -294,13 +341,65 @@ export async function ingestAcademyLead(
   }
 }
 
-type DeliveryClaim = { id: string; lead_id: string; tenant_id: string; attempt_count: number; max_attempts: number };
+export async function recoverExpiredCrmLeadDeliveries(
+  client: PoolClient,
+  workerId: string,
+  limit = 100,
+): Promise<number> {
+  const recovered = await client.query<DeliveryClaim & { terminal: boolean }>(
+    `WITH expired AS (
+       SELECT id
+         FROM crm_lead_delivery_outbox
+        WHERE status = 'processing'
+          AND lease_expires_at <= NOW()
+        ORDER BY lease_expires_at
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE crm_lead_delivery_outbox outbox
+        SET status = CASE
+              WHEN outbox.attempt_count >= outbox.max_attempts THEN 'terminal'
+              ELSE 'retryable'
+            END,
+            available_at = NOW(),
+            locked_at = NULL,
+            locked_by = NULL,
+            lease_expires_at = NULL,
+            last_error_code = 'lease_expired',
+            updated_at = NOW()
+       FROM expired
+      WHERE outbox.id = expired.id
+      RETURNING outbox.id, outbox.lead_id, outbox.tenant_id,
+                outbox.lead_revision, outbox.attempt_count,
+                outbox.max_attempts,
+                (outbox.status = 'terminal') AS terminal`,
+    [Math.max(1, Math.min(limit, 500))],
+  );
+
+  for (const row of recovered.rows) {
+    await appendAudit(client, {
+      tenantId: row.tenant_id,
+      leadId: row.lead_id,
+      action: "delivery_failed",
+      actorType: "worker",
+      actorId: workerId,
+      metadata: {
+        deliveryId: row.id,
+        revision: row.lead_revision,
+        terminal: row.terminal,
+        errorCode: "lease_expired",
+      },
+    });
+  }
+  return recovered.rowCount ?? 0;
+}
 
 export async function claimCrmLeadDeliveries(
   client: PoolClient,
   workerId: string,
   limit = 20,
 ): Promise<DeliveryClaim[]> {
+  await recoverExpiredCrmLeadDeliveries(client, workerId, Math.max(limit * 2, 20));
   const bounded = Math.max(1, Math.min(limit, 100));
   const claims = await client.query<DeliveryClaim>(
     `WITH candidates AS (
@@ -322,13 +421,38 @@ export async function claimCrmLeadDeliveries(
        FROM candidates
       WHERE outbox.id = candidates.id
       RETURNING outbox.id, outbox.lead_id, outbox.tenant_id,
-                outbox.attempt_count, outbox.max_attempts`,
+                outbox.lead_revision, outbox.attempt_count,
+                outbox.max_attempts`,
     [bounded, workerId],
   );
+
+  for (const claim of claims.rows) {
+    await appendAudit(client, {
+      tenantId: claim.tenant_id,
+      leadId: claim.lead_id,
+      action: "delivery_claimed",
+      actorType: "worker",
+      actorId: workerId,
+      metadata: {
+        deliveryId: claim.id,
+        revision: claim.lead_revision,
+        attempt: claim.attempt_count,
+      },
+    });
+  }
   return claims.rows;
 }
 
-export async function deliverCrmLeadClaim(claim: DeliveryClaim, workerId: string): Promise<void> {
+function webhookSecret(): string {
+  const secret = process.env.TECPEY_CRM_WEBHOOK_SECRET?.trim();
+  if (!secret || secret.length < 32) throw new Error("crm_webhook_secret_unavailable");
+  return secret;
+}
+
+export async function deliverCrmLeadClaim(
+  claim: DeliveryClaim,
+  workerId: string,
+): Promise<void> {
   const webhookUrl = process.env.ACADEMY_LEADS_WEBHOOK_URL?.trim();
   if (!webhookUrl) throw new Error("crm_webhook_unconfigured");
   const parsedUrl = new URL(webhookUrl);
@@ -336,8 +460,8 @@ export async function deliverCrmLeadClaim(claim: DeliveryClaim, workerId: string
     throw new Error("crm_webhook_insecure");
   }
 
-  const loaded = await withDb(async (client) => {
-    const row = await client.query<{
+  const committed = await withTx(async (client) => {
+    const loaded = await client.query<{
       lead_kind: string;
       source: string;
       campaign: string | null;
@@ -349,71 +473,136 @@ export async function deliverCrmLeadClaim(claim: DeliveryClaim, workerId: string
       pii_tag: string;
       pii_key_version: number;
     }>(
-      `SELECT lead_kind, source, campaign, locale, attributes, revision,
-              pii_ciphertext, pii_iv, pii_tag, pii_key_version
-         FROM crm_leads
-        WHERE tenant_id = $1 AND id = $2::uuid AND status = 'active'`,
-      [claim.tenant_id, claim.lead_id],
+      `SELECT lead.lead_kind, lead.source, lead.campaign, lead.locale,
+              lead.attributes, lead.revision, lead.pii_ciphertext,
+              lead.pii_iv, lead.pii_tag, lead.pii_key_version
+         FROM crm_lead_delivery_outbox outbox
+         JOIN crm_leads lead
+           ON lead.tenant_id = outbox.tenant_id
+          AND lead.id = outbox.lead_id
+        WHERE outbox.id = $1::uuid
+          AND outbox.tenant_id = $2
+          AND outbox.lead_id = $3::uuid
+          AND outbox.lead_revision = $4
+          AND outbox.status = 'processing'
+          AND outbox.locked_by = $5
+          AND outbox.lease_expires_at > NOW()
+          AND lead.status = 'active'
+          AND lead.revision = outbox.lead_revision
+        FOR UPDATE OF outbox
+        FOR SHARE OF lead`,
+      [claim.id, claim.tenant_id, claim.lead_id, claim.lead_revision, workerId],
     );
-    return row.rows[0] ?? null;
-  });
-  if (!loaded.enabled || !loaded.value) throw new Error("crm_lead_unavailable");
+    const row = loaded.rows[0];
+    if (!row) {
+      const superseded = await client.query<{ id: string }>(
+        `UPDATE crm_lead_delivery_outbox
+            SET status = 'terminal',
+                locked_at = NULL,
+                locked_by = NULL,
+                lease_expires_at = NULL,
+                last_error_code = 'lease_lost_or_superseded',
+                updated_at = NOW()
+          WHERE id = $1::uuid
+            AND status = 'processing'
+            AND locked_by = $2
+          RETURNING id`,
+        [claim.id, workerId],
+      );
+      if (superseded.rows[0]) {
+        await appendAudit(client, {
+          tenantId: claim.tenant_id,
+          leadId: claim.lead_id,
+          action: "delivery_failed",
+          actorType: "worker",
+          actorId: workerId,
+          metadata: {
+            deliveryId: claim.id,
+            revision: claim.lead_revision,
+            terminal: true,
+            errorCode: "lease_lost_or_superseded",
+          },
+        });
+      }
+      return { delivered: false };
+    }
 
-  const row = loaded.value;
-  const pii = decryptLeadPii(
-    {
-      ciphertext: row.pii_ciphertext,
-      iv: row.pii_iv,
-      tag: row.pii_tag,
-      keyVersion: row.pii_key_version,
-    },
-    { tenantId: claim.tenant_id, leadId: claim.lead_id },
-  );
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8_000);
-  try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": claim.id },
-      body: JSON.stringify({
-        leadId: claim.lead_id,
-        tenantId: claim.tenant_id,
-        kind: row.lead_kind,
-        source: row.source,
-        campaign: row.campaign,
-        locale: row.locale,
-        revision: row.revision,
-        attributes: row.attributes,
-        ...pii,
-      }),
-      signal: controller.signal,
+    const pii = decryptLeadPii(
+      {
+        ciphertext: row.pii_ciphertext,
+        iv: row.pii_iv,
+        tag: row.pii_tag,
+        keyVersion: row.pii_key_version,
+      },
+      { tenantId: claim.tenant_id, leadId: claim.lead_id },
+    );
+    const body = JSON.stringify({
+      leadId: claim.lead_id,
+      tenantId: claim.tenant_id,
+      kind: row.lead_kind,
+      source: row.source,
+      campaign: row.campaign,
+      locale: row.locale,
+      revision: row.revision,
+      attributes: row.attributes,
+      ...pii,
     });
-    if (!response.ok) throw new Error(`crm_webhook_http_${response.status}`);
-  } finally {
-    clearTimeout(timer);
-  }
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signature = createHmac("sha256", webhookSecret())
+      .update(`${timestamp}.${body}`)
+      .digest("hex");
 
-  const committed = await withTx(async (client) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": claim.id,
+          "X-TecPey-Timestamp": timestamp,
+          "X-TecPey-Signature": `v1=${signature}`,
+        },
+        body,
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`crm_webhook_http_${response.status}`);
+    } finally {
+      clearTimeout(timer);
+    }
+
     const updated = await client.query<{ lead_id: string }>(
       `UPDATE crm_lead_delivery_outbox
-          SET status = 'delivered', delivered_at = NOW(), locked_at = NULL,
-              locked_by = NULL, lease_expires_at = NULL, last_error_code = NULL,
+          SET status = 'delivered',
+              delivered_at = NOW(),
+              locked_at = NULL,
+              locked_by = NULL,
+              lease_expires_at = NULL,
+              last_error_code = NULL,
               updated_at = NOW()
-        WHERE id = $1::uuid AND status = 'processing' AND locked_by = $2
+        WHERE id = $1::uuid
+          AND status = 'processing'
+          AND locked_by = $2
+          AND lease_expires_at > NOW()
         RETURNING lead_id`,
       [claim.id, workerId],
     );
     if (!updated.rows[0]) throw new Error("crm_delivery_lease_lost");
+
     await appendAudit(client, {
       tenantId: claim.tenant_id,
       leadId: claim.lead_id,
       action: "delivery_succeeded",
       actorType: "worker",
       actorId: workerId,
-      metadata: { deliveryId: claim.id },
+      metadata: {
+        deliveryId: claim.id,
+        revision: claim.lead_revision,
+      },
     });
+    return { delivered: true };
   });
+
   if (!committed.enabled) throw new Error("crm_delivery_storage_unavailable");
 }
 
@@ -422,28 +611,48 @@ export async function failCrmLeadClaim(
   workerId: string,
   errorCode: string,
 ): Promise<void> {
-  await withTx(async (client) => {
+  const transaction = await withTx(async (client) => {
     const terminal = claim.attempt_count >= claim.max_attempts;
-    await client.query(
+    const updated = await client.query<{ lead_id: string }>(
       `UPDATE crm_lead_delivery_outbox
           SET status = $3,
               available_at = CASE WHEN $3 = 'retryable'
                 THEN NOW() + (LEAST(3600, 15 * power(2, GREATEST(0, attempt_count - 1)))::text || ' seconds')::interval
                 ELSE available_at END,
-              locked_at = NULL, locked_by = NULL, lease_expires_at = NULL,
-              last_error_code = $4, updated_at = NOW()
-        WHERE id = $1::uuid AND locked_by = $2`,
-      [claim.id, workerId, terminal ? "terminal" : "retryable", errorCode.slice(0, 100)],
+              locked_at = NULL,
+              locked_by = NULL,
+              lease_expires_at = NULL,
+              last_error_code = $4,
+              updated_at = NOW()
+        WHERE id = $1::uuid
+          AND status = 'processing'
+          AND locked_by = $2
+        RETURNING lead_id`,
+      [
+        claim.id,
+        workerId,
+        terminal ? "terminal" : "retryable",
+        errorCode.slice(0, 100),
+      ],
     );
+    if (!updated.rows[0]) return false;
+
     await appendAudit(client, {
       tenantId: claim.tenant_id,
       leadId: claim.lead_id,
       action: "delivery_failed",
       actorType: "worker",
       actorId: workerId,
-      metadata: { deliveryId: claim.id, terminal, errorCode: errorCode.slice(0, 100) },
+      metadata: {
+        deliveryId: claim.id,
+        revision: claim.lead_revision,
+        terminal,
+        errorCode: errorCode.slice(0, 100),
+      },
     });
+    return true;
   });
+  if (!transaction.enabled) throw new Error("crm_delivery_storage_unavailable");
 }
 
 export async function deleteExpiredCrmLeadPii(limit = 250): Promise<number> {
@@ -459,9 +668,24 @@ export async function deleteExpiredCrmLeadPii(limit = 250): Promise<number> {
     );
     for (const row of rows.rows) {
       await client.query(
+        `UPDATE crm_lead_delivery_outbox
+            SET status = 'terminal',
+                locked_at = NULL,
+                locked_by = NULL,
+                lease_expires_at = NULL,
+                last_error_code = 'retention_deleted',
+                updated_at = NOW()
+          WHERE lead_id = $1::uuid AND status <> 'delivered'`,
+        [row.id],
+      );
+      await client.query(
         `UPDATE crm_leads
-            SET status = 'deleted', deleted_at = NOW(), updated_at = NOW(),
-                pii_ciphertext = '', pii_iv = '', pii_tag = '',
+            SET status = 'deleted',
+                deleted_at = NOW(),
+                updated_at = NOW(),
+                pii_ciphertext = '',
+                pii_iv = '',
+                pii_tag = '',
                 attributes = '{}'::jsonb
           WHERE id = $1::uuid`,
         [row.id],
@@ -475,5 +699,6 @@ export async function deleteExpiredCrmLeadPii(limit = 250): Promise<number> {
     }
     return rows.rowCount ?? 0;
   });
-  return result.enabled ? result.value : 0;
+  if (!result.enabled) throw new Error("crm_storage_unavailable");
+  return result.value;
 }
