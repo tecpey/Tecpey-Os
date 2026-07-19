@@ -6,6 +6,7 @@ const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const PERSISTENCE_PATTERN = /(?:localStorage|sessionStorage|indexedDB|IndexedDB|caches\.(?:open|match|put|delete)|CacheStorage)/;
 
 // Exact line-count baseline from the repository-wide audit on 2026-07-18.
+// Academy specialized lead browser persistence was removed on 2026-07-19.
 // Every remediation PR MUST lower the relevant number here in the same change.
 // Increasing a count or adding a new file fails CI.
 const expectedMatches = new Map(Object.entries({
