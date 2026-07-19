@@ -6,6 +6,7 @@ import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 import {
   appendAttempt,
   calculateTermLearningSummary,
@@ -334,10 +335,18 @@ export async function PUT(req: NextRequest) {
         })],
       );
 
+      const projection = await refreshAcademyProgressProjection(
+        client,
+        session.studentId as string,
+        locale,
+      );
+
       return {
         blocked: false as const,
         record: toLessonRecord(savedResult.rows[0]),
         summary: toSummary(savedSummaryResult.rows[0]),
+        state: projection.state,
+        revision: projection.revision,
       };
     });
 
@@ -348,6 +357,8 @@ export async function PUT(req: NextRequest) {
     return apiOk({
       record: result.value.record,
       summary: result.value.summary,
+      state: result.value.state,
+      revision: result.value.revision,
     }, 200, { "Cache-Control": "no-store, max-age=0" });
   });
 }

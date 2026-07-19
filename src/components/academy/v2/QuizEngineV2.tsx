@@ -8,6 +8,9 @@ import type { QuizQuestion } from "@/data/academy/term1Curriculum";
 
 type QuizMode = "module" | "term-exam" | "knowledge-check";
 
+export type QuizAnswerValue = string | string[] | Record<string, string>;
+export type QuizSubmission = { answers: Record<string, QuizAnswerValue>; elapsedSeconds: number };
+
 type QuizState = {
   phase: "intro" | "question" | "feedback" | "result" | "locked";
   questionIndex: number;
@@ -20,6 +23,7 @@ type QuizState = {
   orderingSelection: string[];
   matchingPairs: Record<string, string>;
   fillBlankValue: string;
+  responses: Record<string, QuizAnswerValue>;
 };
 
 type QuizAction =
@@ -30,7 +34,7 @@ type QuizAction =
   | { type: "MATCH_PAIR"; term: string; definition: string }
   | { type: "FILL_BLANK"; value: string }
   | { type: "SUBMIT_ANSWER" }
-  | { type: "NEXT_QUESTION"; correct: boolean }
+  | { type: "NEXT_QUESTION"; correct: boolean; questionId: string; response: QuizAnswerValue }
   | { type: "TICK" }
   | { type: "RETRY" };
 
@@ -74,6 +78,7 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
         orderingSelection: [],
         matchingPairs: {},
         fillBlankValue: "",
+        responses: { ...state.responses, [action.questionId]: action.response },
       };
     }
     case "TICK":
@@ -100,6 +105,7 @@ const initialState: QuizState = {
   orderingSelection: [],
   matchingPairs: {},
   fillBlankValue: "",
+  responses: {},
 };
 
 // ─── Grading helpers ──────────────────────────────────────────────────────────
@@ -130,6 +136,25 @@ function gradeAnswer(q: QuizQuestion, state: QuizState): boolean {
     }
     default:
       return false;
+  }
+}
+
+
+function currentResponse(question: QuizQuestion, state: QuizState): QuizAnswerValue {
+  switch (question.type) {
+    case "single":
+    case "scenario":
+      return String(state.answers.current ?? "");
+    case "multi":
+      return [...((state.answers.current as string[] | undefined) ?? [])];
+    case "ordering":
+      return [...state.orderingSelection];
+    case "matching":
+      return { ...state.matchingPairs };
+    case "fillblank":
+      return state.fillBlankValue;
+    default:
+      return "";
   }
 }
 
@@ -520,8 +545,8 @@ type QuizEngineV2Props = {
   /** Hours to wait before retake on fail. 0 = immediate. */
   retakeCooldownHours?: number;
   title?: string;
-  onPass?: (score: number) => void;
-  onFail?: (score: number) => void;
+  onPass?: (score: number, submission: QuizSubmission) => void;
+  onFail?: (score: number, submission: QuizSubmission) => void;
   onReviewRequested?: () => void;
 };
 
@@ -577,18 +602,15 @@ export function QuizEngineV2({
   }, [currentQ, state]);
 
   const handleNext = useCallback(() => {
+    if (!currentQ) return;
     setShowFeedback(false);
-    if (isLastQuestion) {
-      const totalCorrect = state.correctCount + (lastCorrect ? 1 : 0);
-      const pct = Math.round((totalCorrect / questions.length) * 100);
-      if (pct >= threshold) onPass?.(pct);
-      else onFail?.(pct);
-      // Move to result
-      dispatch({ type: "NEXT_QUESTION", correct: lastCorrect });
-    } else {
-      dispatch({ type: "NEXT_QUESTION", correct: lastCorrect });
-    }
-  }, [isLastQuestion, state.correctCount, lastCorrect, questions.length, threshold, onPass, onFail]);
+    dispatch({
+      type: "NEXT_QUESTION",
+      correct: lastCorrect,
+      questionId: currentQ.id,
+      response: currentResponse(currentQ, state),
+    });
+  }, [currentQ, lastCorrect, state]);
 
   const totalCorrect =
     state.phase === "result" || isLastQuestion
@@ -641,8 +663,12 @@ export function QuizEngineV2({
         passed={isPassed}
         threshold={threshold}
         elapsedSeconds={state.elapsedSeconds}
-        onRetry={() => { onReviewRequested?.(); }}
-        onContinue={() => onPass?.(currentScore)}
+        onRetry={() => {
+          const submission = { answers: state.responses, elapsedSeconds: state.elapsedSeconds };
+          onFail?.(currentScore, submission);
+          onReviewRequested?.();
+        }}
+        onContinue={() => onPass?.(currentScore, { answers: state.responses, elapsedSeconds: state.elapsedSeconds })}
         cooldownHours={retakeCooldownHours}
       />
     );
