@@ -10,6 +10,7 @@ import Footer from "@/components/footer/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import HtmlLangDir from "@/components/seo/HtmlLangDir";
 import { GlobalAiMentorWidget } from "@/components/academy/GlobalAiMentorWidget";
+import { PublicMentorEntry } from "@/components/academy/PublicMentorEntry";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
 
 const globalSeoSchemas = [
@@ -204,6 +205,7 @@ export default async function RootLayout({
               <Navbar user={user} metaData={metaData} />
               {children}
               <Footer metaData={metaData} />
+              <PublicMentorEntry />
               <GlobalAiMentorWidget />
             </Providers>
           </ThemeProvider>

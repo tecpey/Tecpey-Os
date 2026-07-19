@@ -122,6 +122,9 @@ jobs:
       - name: Frontend style authority guard
         run: npm run ui:check
 
+      - name: Public UI interaction foundation guard
+        run: npm run ui:public:check
+
       - name: Runtime bootstrap authority guard
         run: node scripts/check-runtime-bootstrap.mjs
 
