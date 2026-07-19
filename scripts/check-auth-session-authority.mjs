@@ -11,6 +11,8 @@ const files = {
   specificSessionTests: "src/tests/security/auth-session-revoke-route-postgres.test.ts",
   passwordTests: "src/tests/security/auth-password-change-postgres.test.ts",
   legacyTests: "src/tests/security/auth-legacy-cookie-cutoff.test.ts",
+  ttlTests: "src/tests/security/auth-access-session-ttl.test.ts",
+  platform: "src/lib/platform-config.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
@@ -51,6 +53,7 @@ requireText("ci", "npm run auth:check", "CI must invoke the governed auth comman
 requireText("ci", "Authentication session integration tests", "pull-request CI must expose focused auth integration evidence");
 requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
+requireText("env", "4-hour security ceiling", "production validation must reject overlong access sessions");
 requireText("env", "TECPEY_LEGACY_AUTH_UNTIL", "legacy compatibility must have an explicit environment cutoff");
 requireText("env", "beyond 30 days", "legacy compatibility cutoff must remain locally bounded");
 requireText("env", "immutable 2026-08-18", "legacy compatibility must have a non-extendable production sunset");
@@ -61,6 +64,9 @@ for (const target of ["unified", "legacySession"]) {
   rejectText(target, "NEXTAUTH_SECRET", "access-session secret fallback is forbidden");
   rejectText(target, "TECPEY_ACADEMY_AUTH_SECRET ||", "Academy secret may not sign unified access sessions");
 }
+requireText("platform", "ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60", "access JWTs need a code-owned four-hour ceiling");
+requireText("platform", "return `${sessionMaxAgeSeconds()}s`", "JWT duration must derive from cookie lifetime authority");
+requireText("refresh", "ACCESS_COOKIE_TTL_S = sessionMaxAgeSeconds()", "access cookie lifetime must share JWT lifetime authority");
 requireText("refresh", "TECPEY_REFRESH_SECRET", "refresh tokens require a dedicated secret");
 rejectText("refresh", "process.env.TECPEY_SESSION_SECRET", "refresh tokens may not fall back to the access-session secret");
 rejectText("refresh", "process.env.JWT_SECRET", "refresh tokens may not fall back to a generic JWT secret");
@@ -157,10 +163,13 @@ requireText("passwordTests", "one fresh session", "password tests must prove onl
 requireText("legacyTests", "disables legacy cookie authentication by default in production", "legacy authentication must be off by default in production");
 requireText("legacyTests", "explicit window before the immutable sunset", "legacy authentication must require a short pre-sunset migration window");
 requireText("legacyTests", "slide beyond the immutable sunset", "legacy compatibility tests must reject configuration-based extensions");
+requireText("ttlTests", "one four-hour default for JWT", "access TTL tests must prove JWT and cookie alignment");
+requireText("ttlTests", "explicitly shorter lifetime aligned", "access TTL tests must preserve safe shorter deployments");
+requireText("ttlTests", "caps unsafe runtime configuration", "access TTL tests must reject or cap overlong sessions");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, aligned four-hour access lifetime, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
