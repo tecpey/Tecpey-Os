@@ -14,6 +14,10 @@ const child = spawn(npmCommand, npmArgs, {
     PORT: String(port),
     NODE_ENV: mode,
     REDIS_URL: "",
+    NEXT_PUBLIC_API_BACKEND_URL: "",
+    NEXT_PUBLIC_API_SOCKET_URL: "",
+    NEXT_PUBLIC_API_URL: "",
+    NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
   },
   detached: process.platform !== "win32",
   stdio: ["ignore", "pipe", "pipe"],
@@ -88,6 +92,7 @@ function inlineStyles(html) {
 async function collectCss(html) {
   let css = inlineStyles(html);
   const links = stylesheetLinks(html);
+  console.log(`UI runtime: discovered ${links.length} linked stylesheet(s) and ${css.length} inline CSS bytes.`);
   for (const href of links) {
     const url = new URL(href, baseUrl);
     const response = await fetchWithDeadline(url, 20_000);
@@ -96,7 +101,9 @@ async function collectCss(html) {
     if (!contentType.toLowerCase().includes("text/css")) {
       throw new Error(`stylesheet ${url} returned invalid content-type: ${contentType}`);
     }
-    css += `\n${await response.text()}`;
+    const stylesheet = await response.text();
+    console.log(`UI runtime: loaded ${url.pathname} (${stylesheet.length} bytes, ${contentType}).`);
+    css += `\n${stylesheet}`;
   }
   if (!css.trim()) {
     throw new Error("root HTML contained neither inline CSS nor stylesheet links");
@@ -116,11 +123,14 @@ async function assertPublicRoute(path, expectedText) {
   if (stylesheetLinks(html).length === 0 && inlineStyles(html).trim().length === 0) {
     throw new Error(`${path} rendered without a stylesheet reference or inline CSS`);
   }
+  console.log(`UI runtime: ${path} rendered with the expected public marker.`);
 }
 
 try {
+  console.log(`UI runtime: starting isolated ${mode} server on ${baseUrl}.`);
   const response = await waitForRoot();
   const html = await response.text();
+  console.log(`UI runtime: root returned ${html.length} HTML bytes.`);
 
   for (const required of [
     "tecpey-enterprise",
