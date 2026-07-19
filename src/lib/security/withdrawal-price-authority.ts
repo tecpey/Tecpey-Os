@@ -108,7 +108,7 @@ export async function recordWithdrawalPriceSnapshot(input: {
   return result.enabled ? result.value : null;
 }
 
-async function readAuthoritativeUsdValuation(
+export async function getAuthoritativeUsdValuation(
   asset: string,
   amount: string,
 ): Promise<ValuationResult> {
@@ -171,21 +171,4 @@ async function readAuthoritativeUsdValuation(
       policyVersion: row.policy_version,
     },
   };
-}
-
-export async function getAuthoritativeUsdValuation(
-  asset: string,
-  amount: string,
-): Promise<ValuationResult> {
-  const existing = await readAuthoritativeUsdValuation(asset, amount);
-  if (existing.ok || existing.reason !== "price_snapshot_unavailable") {
-    return existing;
-  }
-
-  // Dynamic import prevents a static authority cycle: the producer may persist
-  // snapshots through recordWithdrawalPriceSnapshot, but never owns validation.
-  const { refreshWithdrawalPriceSnapshot } = await import("./withdrawal-price-producer");
-  const refreshed = await refreshWithdrawalPriceSnapshot(asset);
-  if (!refreshed) return { ok: false, reason: "price_consensus_unavailable" };
-  return readAuthoritativeUsdValuation(asset, amount);
 }
