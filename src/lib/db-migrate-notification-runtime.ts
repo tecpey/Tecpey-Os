@@ -8,9 +8,9 @@ export const NOTIFICATION_CREATION_OUTBOX_RUNTIME_SQL = `
 CREATE TABLE IF NOT EXISTS notification_intents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_sequence BIGSERIAL NOT NULL UNIQUE,
-  tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE RESTRICT,
   principal_id UUID NOT NULL,
-  notification_id UUID REFERENCES platform_notifications(id) ON DELETE SET NULL,
+  notification_id UUID REFERENCES platform_notifications(id) ON DELETE RESTRICT,
   outbox_id UUID,
   notification_class TEXT NOT NULL CHECK (notification_class IN (
     'security_critical',
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS notification_intents (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, principal_id)
-    REFERENCES platform_principals(tenant_id, id) ON DELETE CASCADE,
+    REFERENCES platform_principals(tenant_id, id) ON DELETE RESTRICT,
   UNIQUE (tenant_id, principal_id, channel, correlation_key),
   CHECK (char_length(source_type) BETWEEN 1 AND 100),
   CHECK (source_id IS NULL OR char_length(source_id) BETWEEN 1 AND 220),
@@ -140,11 +140,11 @@ ALTER TABLE notification_outbox
 
 ALTER TABLE notification_intents
   ADD CONSTRAINT notification_intents_outbox_fk
-  FOREIGN KEY (outbox_id) REFERENCES notification_outbox(id) ON DELETE SET NULL;
+  FOREIGN KEY (outbox_id) REFERENCES notification_outbox(id) ON DELETE RESTRICT;
 
 CREATE TABLE IF NOT EXISTS notification_delivery_attempts (
   id BIGSERIAL PRIMARY KEY,
-  outbox_id UUID NOT NULL REFERENCES notification_outbox(id) ON DELETE CASCADE,
+  outbox_id UUID NOT NULL REFERENCES notification_outbox(id) ON DELETE RESTRICT,
   attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
   worker_id TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN (
