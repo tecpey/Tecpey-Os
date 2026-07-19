@@ -37,6 +37,7 @@ requireText("migration", "FOREIGN KEY (tenant_id, principal_id)", "notification 
 requireText("migration", "REFERENCES platform_principals(tenant_id, id) ON DELETE CASCADE", "notification tenant and principal identities must reference the same principal row");
 requireText("migration", "UNIQUE (tenant_id, principal_id, correlation_key)", "visible notification dedupe must be database-enforced");
 requireText("migration", "CREATE TABLE IF NOT EXISTS notification_outbox", "transactional delivery outbox boundary is required");
+requireText("migration", "event_sequence BIGSERIAL NOT NULL UNIQUE", "consent history requires deterministic append ordering");
 requireText("migration", "notification_consents_no_update", "consent history must be append-only");
 requireText("migration", "notification_consents_no_delete", "consent history deletion must be blocked");
 
@@ -63,6 +64,7 @@ rejectText("repository", "export async function upsertNotificationPreference", "
 rejectText("repository", "validNotificationPreferenceInput", "preference parsing must not be duplicated in the inbox repository");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
+requireText("preferences", "ORDER BY purpose, event_sequence DESC", "current consent projection must use deterministic append order");
 requireText("preferences", 'MARKETING_CONSENT_POLICY_VERSION = "marketing-v1"', "consent policy version must be server-owned");
 requireText("preferences", 'NOTIFICATION_CONSENT_SOURCE = "notification-preference-center"', "consent source must be server-owned");
 requireText("preferenceRoute", "exactly_one_preferences_operation_required", "preference mutations must be unambiguous");
@@ -78,4 +80,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, CSRF, server-owned consent and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, deterministic consent ordering, CSRF, server-owned consent and single preference authority are enforced.");
