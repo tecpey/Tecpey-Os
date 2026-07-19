@@ -1,6 +1,17 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  detectAdminAuthorityCall,
+  detectAuditCall,
+  detectCsrfCall,
+  detectDirectNoStoreEvidence,
+  detectPrincipalCall,
+  detectRedactionCall,
+  detectServiceIdentityEvidence,
+  detectSessionCookieWrite,
+  runtimeEvidenceSource,
+} from "./api-security-runtime-evidence.mjs";
 
 const root = process.cwd();
 const apiRoot = path.join(root, "src", "app", "api");
@@ -59,11 +70,6 @@ function handlerSource(source, method) {
   return source.slice(start, next?.index ?? source.length);
 }
 
-function importPrelude(source) {
-  const firstExport = source.search(/export\s+(?:(?:async\s+)?function|const|\{)/);
-  return firstExport > 0 ? source.slice(0, firstExport) : "";
-}
-
 function matchFirst(source, patterns) {
   for (const pattern of patterns) {
     const match = source.match(pattern);
@@ -72,38 +78,17 @@ function matchFirst(source, patterns) {
   return null;
 }
 
-function detectPrincipalSource(source) {
-  return matchFirst(source, [
-    /(getCanonicalSession)/,
-    /(requireCanonicalSession)/,
-    /(getAcademyAuthFromRequest)/,
-    /(getStudentSessionFromRequest)/,
-    /(getUnifiedSessionFromRequest)/,
-    /(getNotificationIdentityFromRequest)/,
-    /(verifyUnifiedSession)/,
-    /(verifyAccessToken)/,
-    /(setCurrentPublicVisibility)/,
-    /(requireAdmin[A-Za-z0-9_]*)/,
-    /(requireAuth[A-Za-z0-9_]*)/,
-    /(requireUser[A-Za-z0-9_]*)/,
-    /(requireStudent[A-Za-z0-9_]*)/,
-    /(getAcademy[A-Za-z0-9_]*Session)/,
-    /(verifyInternal[A-Za-z0-9_]*)/,
-    /(serviceIdentity[A-Za-z0-9_]*)/,
-    /(authenticate[A-Za-z0-9_]*)/,
-    /((?:get|require|verify|resolve)[A-Za-z0-9_]*(?:Session|Identity|Principal|Auth|User|Account)[A-Za-z0-9_]*)\s*\(/,
-  ]);
-}
-
-function detectClassification(route, source) {
+function detectClassification(route, handler) {
   if (route.startsWith("/api/internal/")) return "internal";
   if (route.startsWith("/api/admin/") || route.startsWith("/api/command-center/")) return "admin";
-  if (/requireAdmin|adminSession|admin_users|verifyAdmin|assertAdmin|ADMIN_/i.test(source)) return "admin";
-  if (
-    detectPrincipalSource(source)
-    || /studentId|userId|accountId|session\.|academySession|authSession|sessionCookie/i.test(source)
-    || (/verifyCsrfOrigin/.test(source) && /\b401\b/.test(source))
-  ) return "authenticated";
+  if (detectAdminAuthorityCall(handler)) return "admin";
+  if (detectPrincipalCall(handler)) return "authenticated";
+
+  const runtime = runtimeEvidenceSource(handler);
+  const directCookieAuthority = /\b(?:req|request)\.cookies\.get\s*\(/.test(runtime)
+    && /\b(?:401|403)\b/.test(runtime);
+  if (directCookieAuthority) return "authenticated";
+
   return "public";
 }
 
@@ -123,47 +108,48 @@ function detectRisk(route, classification) {
   return [...new Set(values)].sort();
 }
 
-function detectInputParser(source) {
+function detectInputParser(handler) {
+  const source = runtimeEvidenceSource(handler);
   if (/\b(?:req|request)\.json\s*\(/.test(source)) return "json";
   if (/\b(?:req|request)\.formData\s*\(/.test(source)) return "form-data";
   if (/\b(?:req|request)\.text\s*\(/.test(source)) return "text";
-  if (/readJsonBody\s*\(/.test(source)) return "bounded-json-helper";
-  const parser = matchFirst(source, [/(parse[A-Z][A-Za-z0-9_]*)\s*\(/]);
-  return parser;
+  if (/\breadJsonBody\s*\(/.test(source)) return "bounded-json-helper";
+  return matchFirst(source, [/(parse[A-Z][A-Za-z0-9_]*)\s*\(/]);
 }
 
 function detectMutationMode(handler) {
-  const denies = /\b405\b|method_not_allowed|read_only|put_only|creation_protected/i.test(handler);
-  const mutationEvidence = /\b(?:INSERT|UPDATE|DELETE)\b|withTx\s*\(|withDb\s*\(|\.json\s*\(|formData\s*\(/i.test(handler);
+  const source = runtimeEvidenceSource(handler);
+  const denies = /\b405\b|method_not_allowed|read_only|put_only|creation_protected/i.test(source);
+  const mutationEvidence = /\b(?:INSERT|UPDATE|DELETE)\b|withTx\s*\(|withDb\s*\(|\.json\s*\(|formData\s*\(/i.test(source);
   return denies && !mutationEvidence ? "deny-only" : "active";
 }
 
-function detectControls(handler, fullSource) {
-  const context = `${importPrelude(fullSource)}\n${handler}`;
-  const rateLimitNamespace = matchFirst(handler, [
+function detectControls(handler) {
+  const source = runtimeEvidenceSource(handler);
+  const rateLimitNamespace = matchFirst(source, [
     /namespace:\s*["'`]([^"'`]+)["'`]/,
     /rateLimit\w*\([^)]*["'`]([^"'`]+)["'`]/s,
   ]);
-  const inputParser = detectInputParser(handler);
+  const inputParser = detectInputParser(source);
   return {
-    csrf: /verifyCsrfOrigin|verifyCsrfToken|assertSameOrigin|requireCsrf|csrfProtection/.test(context),
-    strictRevocation: /strictRevocation\s*:\s*true|revokeSessionStrict|requireStrictSession|assertSession.*Strict/i.test(handler),
-    rateLimit: /rateLimit(?:User|Distributed)?\s*\(/.test(handler),
+    csrf: detectCsrfCall(source),
+    strictRevocation: /strictRevocation\s*:\s*true|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(/i.test(source),
+    rateLimit: /\brateLimit(?:User|Distributed)?\s*\(/.test(source),
     rateLimitNamespace,
     expectsBody: Boolean(inputParser),
-    bodySizeLimit: /checkBodySize|MAX_(?:BODY|PAYLOAD)|bodySizeLimit|readJsonBody\s*\(/i.test(handler),
-    contentTypeCheck: /content-type|application\/json|formData\s*\(/i.test(handler),
+    bodySizeLimit: /\bcheckBodySize\s*\(|MAX_(?:BODY|PAYLOAD)|bodySizeLimit|\breadJsonBody\s*\(/i.test(source),
+    contentTypeCheck: /\b(?:req|request)\.headers\.get\s*\(\s*["']content-type["']\s*\)|application\/json|\.formData\s*\(/i.test(source),
     inputParser,
-    idempotency: /Idempotency-Key|idempotency|request_hash|commandId|correlationId|dedup/i.test(handler),
-    transaction: /withTx\s*\(|withDb\s*\(|BEGIN|transaction\s*\(|\.tx\s*\(/.test(handler),
-    verifiedPrincipal: Boolean(detectPrincipalSource(context)),
-    tenantFromVerifiedContext: /tenantContext|session\.tenant|principal\.tenant|requireTenant|canonicalTenant/i.test(handler),
-    noStore: /Cache-Control[^\n]*(?:no-store|private)|cache:\s*["']no-store["']|noStore\s*\(|notificationApi(?:Ok|Error)|PRIVATE_HEADERS/i.test(context),
-    audit: /audit|securityEvent|student_events|admin_events|logger\.(?:info|warn|error)|withObservability/i.test(context),
-    redaction: /redact|sanitize|safeError|apiError|withObservability|notificationApiError/i.test(context),
-    failClosed: /503|service_not_configured|unavailable|dependency|if\s*\(!result\.enabled\)|fail.closed/i.test(handler),
-    serviceIdentity: /serviceIdentity|verifyInternal|INTERNAL_|Bearer|authorization/i.test(context),
-    setsCookie: /Set-Cookie|\.cookies\.set\s*\(|cookies\(\)\.set\s*\(/i.test(handler),
+    idempotency: /["']Idempotency-Key["']|\bidempotency[A-Za-z0-9_]*\s*\(|request_hash|commandId|correlationId|\bdedup[A-Za-z0-9_]*\s*\(/i.test(source),
+    transaction: /\bwithTx\s*\(|\bwithDb\s*\(|\bBEGIN\b|\btransaction\s*\(|\.tx\s*\(/.test(source),
+    verifiedPrincipal: Boolean(detectPrincipalCall(source)),
+    tenantFromVerifiedContext: /tenantContext|session\.tenant|principal\.tenant|\brequireTenant\s*\(|canonicalTenant/i.test(source),
+    noStore: detectDirectNoStoreEvidence(source),
+    audit: detectAuditCall(source),
+    redaction: detectRedactionCall(source),
+    failClosed: /\b503\b|service_not_configured|unavailable|dependency|if\s*\(!result\.enabled\)|fail.closed/i.test(source),
+    serviceIdentity: detectServiceIdentityEvidence(source),
+    setsCookie: detectSessionCookieWrite(source),
   };
 }
 
@@ -283,8 +269,7 @@ for (const file of routeFiles) {
       }
     }
 
-    const effectiveContext = `${importPrelude(effectiveSource)}\n${effectiveHandler}`;
-    const classification = detectClassification(route, effectiveContext);
+    const classification = detectClassification(route, effectiveHandler);
     const entry = {
       route,
       method,
@@ -294,14 +279,14 @@ for (const file of routeFiles) {
       delegatedSourceHash,
       mutationMode: detectMutationMode(effectiveHandler),
       classification,
-      principalSource: detectPrincipalSource(effectiveContext),
-      tenantSource: matchFirst(effectiveHandler, [
+      principalSource: detectPrincipalCall(effectiveHandler),
+      tenantSource: matchFirst(runtimeEvidenceSource(effectiveHandler), [
         /(tenantContext[A-Za-z0-9_.]*)/,
         /(session\.tenant[A-Za-z0-9_.]*)/,
-        /(requireTenant[A-Za-z0-9_]*)/,
+        /(requireTenant[A-Za-z0-9_]*)\s*\(/,
       ]),
       risk: detectRisk(route, classification),
-      controls: detectControls(effectiveHandler, effectiveSource),
+      controls: detectControls(effectiveHandler),
       domainOwner: route.split("/")[2] || "root",
       testReferences: testReferences(route, sourcePath, tests),
     };
