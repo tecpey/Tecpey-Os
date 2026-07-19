@@ -8,6 +8,7 @@ import { runNotificationMigrations } from "./db-migrate-notifications";
 import { runNotificationRuntimeMigrations } from "./db-migrate-notification-runtime";
 import { runNotificationDeliveryVisibilityMigrations } from "./db-migrate-notification-delivery-visibility";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
+import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
 
@@ -25,6 +26,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runNotificationRuntimeMigrations(client);
   await runNotificationDeliveryVisibilityMigrations(client);
   await runWithdrawalAdmissionMigrations(client);
+  await runWithdrawalSettlementMigrations(client);
 }
 
 /**
