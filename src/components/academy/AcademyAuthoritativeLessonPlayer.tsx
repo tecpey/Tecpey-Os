@@ -17,6 +17,7 @@ import {
 
 type Section = { heading: string; body: readonly string[] };
 type Locale = "fa" | "en";
+type AuthorityStatus = "loading" | "ready" | "auth" | "error";
 
 type Checkpoint = {
   questionId: string;
@@ -62,7 +63,7 @@ type SubmitResponse = {
   replayed?: boolean;
 };
 
-type ApiEnvelope<T> = T & {
+type ApiEnvelope<T> = Partial<T> & {
   ok?: boolean;
   error?: string;
   details?: { checkpoint?: Checkpoint };
@@ -126,7 +127,7 @@ export function AcademyAuthoritativeLessonPlayer({
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<Record<string, "correct" | "wrong">>({});
   const [saving, setSaving] = useState<string | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "auth" | "error">("loading");
+  const [status, setStatus] = useState<AuthorityStatus>("loading");
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState("");
 
@@ -143,20 +144,26 @@ export function AcademyAuthoritativeLessonPlayer({
         setStatus("auth");
         return;
       }
-      if (!response.ok || body.authority !== "server_checkpoint_v1") {
+      if (
+        !response.ok
+        || body.authority !== "server_checkpoint_v1"
+        || !Array.isArray(body.records)
+        || !Array.isArray(body.checkpoints)
+        || !body.summary
+      ) {
         throw new Error(body.error ?? "academy_progress_load_failed");
       }
       setRecords(Object.fromEntries(body.records.map((record) => [record.sectionKey, record])));
       setCheckpoints(Object.fromEntries(body.checkpoints.map((item) => [item.sectionKey, item.checkpoint])));
       setSummary(body.summary);
-      setRevision(body.revision);
+      setRevision(Number(body.revision ?? 0));
       setStatus("ready");
     } catch {
       setStatus("error");
       setMessage(
         isFa
-          ? "ارتباط با مرجع رسمی پیشرفت آکادمی برقرار نشد. هیچ پیشرفت یا XP محلی ثبت نشده است."
-          : "The Academy progress authority is unavailable. No local progress or XP was recorded.",
+          ? "ارتباط با مرجع رسمی پیشرفت آکادمی برقرار نشد. محتوای رایگان در دسترس است، اما هیچ پیشرفت یا XP محلی ثبت نمی‌شود."
+          : "The Academy progress authority is unavailable. Free content remains available, but no local progress or XP is recorded.",
       );
     }
   }, [isFa, locale, slug]);
@@ -168,7 +175,7 @@ export function AcademyAuthoritativeLessonPlayer({
   const submitCheckpoint = useCallback(async (sectionKey: string) => {
     const checkpoint = checkpoints[sectionKey];
     const selectedOptionId = selected[sectionKey];
-    if (!checkpoint || !selectedOptionId || saving) return;
+    if (status !== "ready" || !checkpoint || !selectedOptionId || saving) return;
     setSaving(sectionKey);
     setMessage("");
     const idempotencyKey = safeUuid(`academy-${slug}-${sectionKey}`);
@@ -191,6 +198,10 @@ export function AcademyAuthoritativeLessonPlayer({
         }),
       });
       const body = await response.json().catch(() => ({})) as ApiEnvelope<SubmitResponse>;
+      if (response.status === 401) {
+        setStatus("auth");
+        throw new Error("academy_auth_required");
+      }
       if (response.status === 409 && body.details?.checkpoint) {
         setCheckpoints((current) => ({ ...current, [sectionKey]: body.details!.checkpoint! }));
         setSelected((current) => ({ ...current, [sectionKey]: "" }));
@@ -204,85 +215,36 @@ export function AcademyAuthoritativeLessonPlayer({
       if (!response.ok || !body.record || !body.summary) {
         throw new Error(body.error ?? "checkpoint_submit_failed");
       }
-      setRecords((current) => ({ ...current, [sectionKey]: body.record }));
+      setRecords((current) => ({ ...current, [sectionKey]: body.record! }));
       setSummary(body.summary);
-      setRevision(body.revision);
+      setRevision(Number(body.revision ?? revision));
       setFeedback((current) => ({
         ...current,
         [sectionKey]: body.correct ? "correct" : "wrong",
       }));
-      if (body.correct) {
-        window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
-      }
+      if (body.correct) window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
     } catch (error) {
-      const versionChanged = error instanceof Error && error.message === "question_version_conflict";
+      const code = error instanceof Error ? error.message : "checkpoint_submit_failed";
       setMessage(
-        versionChanged
+        code === "question_version_conflict"
           ? isFa
             ? "نسخه سؤال به‌روزرسانی شد. پاسخ جدید را انتخاب و دوباره ثبت کنید."
             : "The question version changed. Select an answer and submit again."
-          : isFa
-            ? "ثبت رسمی پاسخ انجام نشد. دوباره تلاش کنید؛ پیشرفت محلی یا موفقیت کاذب ثبت نشده است."
-            : "The official answer was not saved. Retry; no local or false completion was recorded.",
+          : code === "academy_auth_required"
+            ? isFa
+              ? "نشست حساب منقضی شده است. برای ادامه ثبت رسمی دوباره وارد شوید."
+              : "Your session expired. Sign in again to continue official progress."
+            : isFa
+              ? "ثبت رسمی پاسخ انجام نشد. دوباره تلاش کنید؛ پیشرفت محلی یا موفقیت کاذب ثبت نشده است."
+              : "The official answer was not saved. Retry; no local or false completion was recorded.",
       );
     } finally {
       setSaving(null);
     }
-  }, [checkpoints, isFa, locale, saving, selected, slug]);
-
-  if (status === "loading") {
-    return (
-      <div className="mt-10 flex min-h-52 items-center justify-center rounded-[30px] border border-cyan-300/20 bg-white/90 dark:bg-white/[0.04]">
-        <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-500" />
-          <p className="mt-3 text-sm font-black text-slate-600 dark:text-slate-300">
-            {isFa ? "در حال دریافت پیشرفت رسمی از حساب شما…" : "Loading official progress from your account…"}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "auth") {
-    return (
-      <div className="mt-10 rounded-[30px] border border-amber-300/30 bg-amber-500/10 p-7 text-center">
-        <Lock className="mx-auto h-8 w-8 text-amber-500" />
-        <h2 className="mt-3 text-xl font-black text-slate-950 dark:text-white">
-          {isFa ? "برای ثبت پیشرفت، وارد حساب آکادمی شوید" : "Sign in to save Academy progress"}
-        </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">
-          {isFa
-            ? "پیشرفت، پاسخ‌ها و XP فقط در سرور تک‌پی ثبت می‌شوند تا در همه دستگاه‌ها قابل بازیابی و در برابر دست‌کاری محافظت شوند."
-            : "Progress, answers, and XP are stored only by TecPey's server so they remain cross-device and tamper resistant."}
-        </p>
-        <Link
-          href={`/academy/login?next=${encodeURIComponent(`/academy/${slug}`)}`}
-          className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-6 py-3 text-sm font-black text-white"
-        >
-          {isFa ? "ورود به حساب آکادمی" : "Sign in to Academy"}
-        </Link>
-      </div>
-    );
-  }
-
-  if (status === "error") {
-    return (
-      <div className="mt-10 rounded-[30px] border border-red-300/30 bg-red-500/10 p-7 text-center">
-        <CircleAlert className="mx-auto h-8 w-8 text-red-500" />
-        <p className="mt-3 text-sm font-black leading-7 text-red-700 dark:text-red-200">{message}</p>
-        <button
-          type="button"
-          onClick={() => void loadProgress()}
-          className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white dark:bg-white dark:text-slate-950"
-        >
-          <RefreshCw className="h-4 w-4" />
-          {isFa ? "تلاش دوباره" : "Retry"}
-        </button>
-      </div>
-    );
-  }
+  }, [checkpoints, isFa, locale, revision, saving, selected, slug, status]);
 
   const termNumber = termNumberFromSlug(slug);
+  const authorityReady = status === "ready";
 
   return (
     <div className="mt-10">
@@ -290,11 +252,15 @@ export function AcademyAuthoritativeLessonPlayer({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-300">
-              <ShieldCheck className="h-4 w-4" />
-              {isFa ? "مرجع رسمی: سرور آکادمی تک‌پی" : "Official authority: TecPey Academy server"}
+              {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {status === "loading"
+                ? isFa ? "در حال اتصال به پرونده رسمی…" : "Connecting to your official record…"
+                : authorityReady
+                  ? isFa ? "مرجع رسمی: سرور آکادمی تک‌پی" : "Official authority: TecPey Academy server"
+                  : isFa ? "مطالعه رایگان فعال؛ ثبت رسمی نیازمند حساب است" : "Free learning available; an account is required to save progress"}
             </div>
             <h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-              {isFa ? "یادگیری مرحله‌ای و قابل بازیابی در همه دستگاه‌ها" : "Server-verified learning across devices"}
+              {isFa ? "یادگیری مرحله‌ای با پیشرفت قابل بازیابی در همه دستگاه‌ها" : "Structured learning with cross-device progress"}
             </h2>
           </div>
           <div className="flex gap-2 text-xs font-black">
@@ -302,7 +268,9 @@ export function AcademyAuthoritativeLessonPlayer({
             <span className="rounded-full bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-200">
               <Zap className="mr-1 inline h-3 w-3" />{summary.xp} XP
             </span>
-            <span className="rounded-full bg-slate-500/10 px-3 py-2 text-slate-600 dark:text-slate-300">r{revision}</span>
+            {authorityReady ? (
+              <span className="rounded-full bg-slate-500/10 px-3 py-2 text-slate-600 dark:text-slate-300">r{revision}</span>
+            ) : null}
           </div>
         </div>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
@@ -310,7 +278,48 @@ export function AcademyAuthoritativeLessonPlayer({
         </div>
       </div>
 
-      {message ? (
+      {status === "auth" ? (
+        <div className="mb-6 rounded-[28px] border border-amber-300/30 bg-amber-500/10 p-5">
+          <div className="flex items-start gap-3">
+            <Lock className="mt-1 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+            <div>
+              <h3 className="font-black text-slate-950 dark:text-white">
+                {isFa ? "محتوا رایگان است؛ برای ثبت پیشرفت وارد شوید" : "Content is free; sign in to save progress"}
+              </h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">
+                {isFa
+                  ? "می‌توانید همه درس‌ها و ویدیوها را بخوانید. پاسخ، XP و بازشدن مراحل فقط در حساب سروری ثبت می‌شود."
+                  : "You can read every lesson and watch the references. Answers, XP, and unlocks are saved only in your server account."}
+              </p>
+              <Link
+                href={`/academy/login?next=${encodeURIComponent(`/academy/${slug}`)}`}
+                className="mt-3 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-xs font-black text-white"
+              >
+                {isFa ? "ورود به حساب آکادمی" : "Sign in to Academy"}
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {status === "error" ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-red-300/30 bg-red-500/10 p-5">
+          <div className="flex items-start gap-3">
+            <CircleAlert className="mt-1 h-5 w-5 shrink-0 text-red-500" />
+            <p className="max-w-3xl text-sm font-black leading-7 text-red-700 dark:text-red-200">{message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadProgress()}
+            className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-xs font-black text-white dark:bg-white dark:text-slate-950"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {isFa ? "تلاش دوباره" : "Retry"}
+          </button>
+        </div>
+      ) : null}
+
+      {message && status !== "error" ? (
         <div className="mb-5 rounded-2xl border border-amber-300/30 bg-amber-500/10 p-4 text-sm font-black leading-7 text-amber-800 dark:text-amber-100" role="alert">
           {message}
         </div>
@@ -329,7 +338,7 @@ export function AcademyAuthoritativeLessonPlayer({
           const videoId = videoIdFor(termNumber, Math.max(0, learningIndex));
 
           return (
-            <section key={section.heading} className="rounded-[30px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-cyan-300/10 dark:bg-white/[0.04]">
+            <section key={`${section.heading}-${index}`} className="rounded-[30px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-cyan-300/10 dark:bg-white/[0.04]">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${completed ? "bg-emerald-500 text-white" : "bg-cyan-500/10 text-cyan-600 dark:text-cyan-200"}`}>
@@ -353,8 +362,8 @@ export function AcademyAuthoritativeLessonPlayer({
 
               <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="space-y-4">
-                  {section.body.map((paragraph) => (
-                    <p key={paragraph} className="text-base font-bold leading-9 text-slate-700 dark:text-slate-300">{paragraph}</p>
+                  {section.body.map((paragraph, paragraphIndex) => (
+                    <p key={`${sectionKey}-${paragraphIndex}`} className="text-base font-bold leading-9 text-slate-700 dark:text-slate-300">{paragraph}</p>
                   ))}
                 </div>
 
@@ -384,7 +393,7 @@ export function AcademyAuthoritativeLessonPlayer({
                       </a>
                     </div>
 
-                    {checkpoint ? (
+                    {authorityReady && checkpoint ? (
                       <div className="rounded-3xl border border-amber-300/20 bg-amber-500/10 p-4">
                         <h3 className="text-sm font-black text-slate-950 dark:text-white">
                           {isFa ? "سنجش رسمی یادگیری" : "Official learning checkpoint"}
@@ -441,8 +450,12 @@ export function AcademyAuthoritativeLessonPlayer({
                         ) : null}
                       </div>
                     ) : (
-                      <div className="rounded-3xl border border-red-300/20 bg-red-500/10 p-4 text-xs font-black leading-6 text-red-700 dark:text-red-200">
-                        {isFa ? "سؤال رسمی این درس در دسترس نیست؛ تکمیل و XP غیرفعال است." : "The official checkpoint is unavailable; completion and XP are disabled."}
+                      <div className="rounded-3xl border border-slate-300/20 bg-slate-500/10 p-4 text-xs font-black leading-6 text-slate-700 dark:text-slate-200">
+                        {status === "loading"
+                          ? isFa ? "در حال دریافت سؤال رسمی این درس…" : "Loading the official checkpoint…"
+                          : status === "auth"
+                            ? isFa ? "برای پاسخ رسمی، XP و ذخیره پیشرفت وارد حساب آکادمی شوید." : "Sign in for official grading, XP, and saved progress."
+                            : isFa ? "مرجع رسمی موقتاً در دسترس نیست؛ تکمیل و XP غیرفعال است." : "The official authority is temporarily unavailable; completion and XP are disabled."}
                       </div>
                     )}
                   </aside>
@@ -453,7 +466,7 @@ export function AcademyAuthoritativeLessonPlayer({
         })}
       </div>
 
-      {summary.percent === 100 ? (
+      {authorityReady && summary.percent === 100 ? (
         <div className="mt-6 rounded-[28px] border border-emerald-300/30 bg-emerald-500/10 p-5 text-center">
           <Trophy className="mx-auto h-8 w-8 text-emerald-500" />
           <h3 className="mt-3 text-xl font-black text-slate-950 dark:text-white">
