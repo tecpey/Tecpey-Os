@@ -33,6 +33,12 @@ The inventory scans the repository while excluding generated/build directories a
 - browser-persistence, TODO, FIXME, HACK and legacy marker counts;
 - detected dependency-to-file ownership.
 
+### CI evidence
+
+Every CI run executes a separate `Repository Hygiene Inventory` job. It publishes a structured `repository-hygiene-<commit>` JSON artifact retained for 14 days, allowing candidate counts and ownership evidence to be reviewed without mixing the report into Build/Test logs.
+
+The artifact is evidence input only. It is not committed to the repository and does not authorize automatic deletion.
+
 ## Classification
 
 Every candidate must be assigned one class before action:
