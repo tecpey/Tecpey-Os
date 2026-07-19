@@ -10,7 +10,10 @@ const files = {
   sessionsTests: "src/tests/security/auth-sessions-route-postgres.test.ts",
   specificSessionTests: "src/tests/security/auth-session-revoke-route-postgres.test.ts",
   passwordTests: "src/tests/security/auth-password-change-postgres.test.ts",
+  platform: "src/lib/platform-config.ts",
   unified: "src/lib/unified-session.ts",
+  sessionRefresh: "src/lib/session-refresh.ts",
+  profileRoute: "src/app/api/academy-student-profile/route.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
   authSession: "src/lib/auth-session.ts",
@@ -50,6 +53,8 @@ requireText("ci", "npm run auth:check", "CI must invoke the governed auth comman
 requireText("ci", "Authentication session integration tests", "pull-request CI must expose focused auth integration evidence");
 requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
+requireText("env", "REDIS_URL is required in production", "strict auth must require the ioredis runtime client");
+requireText("env", "between 300 and 14400 seconds", "production validation must reject long-lived access JWTs");
 
 for (const target of ["unified", "legacySession"]) {
   requireText(target, "TECPEY_SESSION_SECRET", "access sessions must use the canonical secret");
@@ -61,7 +66,20 @@ requireText("refresh", "TECPEY_REFRESH_SECRET", "refresh tokens require a dedica
 rejectText("refresh", "process.env.TECPEY_SESSION_SECRET", "refresh tokens may not fall back to the access-session secret");
 rejectText("refresh", "process.env.JWT_SECRET", "refresh tokens may not fall back to a generic JWT secret");
 
+requireText("platform", "ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60", "copied access JWTs must have a hard four-hour upper bound");
+requireText("platform", "Math.min(parsed, ACCESS_SESSION_MAX_AGE_SECONDS)", "configuration may shorten but never extend access lifetime");
+requireText("unified", "accessSessionMaxAgeSeconds", "JWT expiry and cookie expiry must share the bounded access lifetime");
+requireText("unified", ".setExpirationTime(expiresAt)", "the signed JWT itself must use the bounded access expiry");
+rejectText("unified", "sessionMaxAge()", "unified access JWTs may not inherit a legacy 30-day session lifetime");
+requireText("unified", "registerSession", "replacement access cookies require durable JTI registration");
+requireText("unified", "if (!registered) throw new Error(\"session_registry_unavailable\")", "replacement cookie writes must fail before Set-Cookie when registration fails");
 requireText("unified", "setUnifiedSessionCookie_async_required", "unawaited cookie signing must fail explicitly");
+requireText("sessionRefresh", "refresh_token_rotation_required", "legacy sliding access refresh must be disabled");
+rejectText("sessionRefresh", "setUnifiedSessionCookieAsync", "session refresh helper may not bypass refresh-token rotation");
+requireText("profileRoute", "strictRevocation: true", "profile claim changes require a strict active session");
+requireText("profileRoute", "setUnifiedSessionCookieAsync", "profile claim replacements must use registered cookie issuance");
+requireText("profileRoute", "session_registry_unavailable", "profile responses must expose registration failure rather than mint rejected cookies");
+
 requireText("legacySession", "getSessionToken", "server-to-server forwarding needs a verified raw token contract");
 requireText("api", "getSessionToken", "API forwarding must use the verified raw access token");
 rejectText("api", "session as { user?: { token?: string } }", "legacy empty-bearer session shape is forbidden");
@@ -151,4 +169,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, four-hour access JWT cap, required ioredis strict authority, durable issuance for every replacement cookie, disabled sliding refresh, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
