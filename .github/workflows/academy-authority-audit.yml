@@ -42,9 +42,18 @@ jobs:
             audit/academy-p0-patch-parts-v2/part-02 \
             audit/academy-p0-patch-parts-v2/part-03-00 \
             audit/academy-p0-patch-parts-v2/part-03-01 \
-            audit/academy-p0-patch-parts-v2/part-03-02 \
+            audit/academy-p0-patch-parts-v2/part-03-02-00 \
+            audit/academy-p0-patch-parts-v2/part-03-02-01 \
+            audit/academy-p0-patch-parts-v2/part-03-02-02 \
+            audit/academy-p0-patch-parts-v2/part-03-02-03 \
             audit/academy-p0-patch-parts-v2/part-04-00 \
-            audit/academy-p0-patch-parts-v2/part-04-01 \
+            audit/academy-p0-patch-parts-v2/part-04-01-00-00 \
+            audit/academy-p0-patch-parts-v2/part-04-01-00-01 \
+            audit/academy-p0-patch-parts-v2/part-04-01-00-02 \
+            audit/academy-p0-patch-parts-v2/part-04-01-00-03 \
+            audit/academy-p0-patch-parts-v2/part-04-01-01 \
+            audit/academy-p0-patch-parts-v2/part-04-01-02 \
+            audit/academy-p0-patch-parts-v2/part-04-01-03 \
             audit/academy-p0-patch-parts-v2/part-04-02 \
             audit/academy-p0-patch-parts-v2/part-05 \
             > /tmp/academy-p0.patch.gz.b64
