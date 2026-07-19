@@ -23,29 +23,49 @@ export type CookieName = (typeof COOKIES)[keyof typeof COOKIES];
 
 // ── Cookie security ───────────────────────────────────────────────────────────
 
-/**
- * Returns true if cookies should carry the Secure flag.
- * Reads TECPEY_COOKIE_SECURE env var or infers from NEXT_PUBLIC_SITE_URL.
- */
 export function shouldUseSecureCookie(): boolean {
   if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
   if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   if (siteUrl.startsWith("https://")) return true;
-  if (siteUrl.startsWith("http://localhost") || siteUrl.startsWith("http://127.0.0.1")) return false;
+  if (
+    siteUrl.startsWith("http://localhost") ||
+    siteUrl.startsWith("http://127.0.0.1")
+  ) {
+    return false;
+  }
   return false;
 }
 
-// ── Session expiry ────────────────────────────────────────────────────────────
+// ── Access-session expiry ─────────────────────────────────────────────────────
 
-/** Session max age as a JWT duration string (e.g. "30d"). */
-export function sessionMaxAge(): string {
-  return process.env.TECPEY_SESSION_MAX_AGE || "30d";
+/** Hard upper bound for a copied access JWT, independent of cookie retention. */
+export const ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60;
+
+/**
+ * Configurable access-session lifetime, capped at four hours. The refresh-token
+ * family is the long-lived authority; an access JWT may never inherit a 30-day
+ * browser-session lifetime.
+ */
+export function accessSessionMaxAgeSeconds(): number {
+  const parsed = Number(
+    process.env.TECPEY_ACCESS_SESSION_MAX_AGE_SECONDS ||
+      ACCESS_SESSION_MAX_AGE_SECONDS,
+  );
+  if (!Number.isSafeInteger(parsed) || parsed < 5 * 60) {
+    return ACCESS_SESSION_MAX_AGE_SECONDS;
+  }
+  return Math.min(parsed, ACCESS_SESSION_MAX_AGE_SECONDS);
 }
 
-/** Session max age in seconds for the Set-Cookie maxAge attribute. */
+/** @deprecated Access JWTs must use accessSessionMaxAgeSeconds(). */
+export function sessionMaxAge(): string {
+  return `${accessSessionMaxAgeSeconds()}s`;
+}
+
+/** @deprecated Access cookies must use accessSessionMaxAgeSeconds(). */
 export function sessionMaxAgeSeconds(): number {
-  return Number(process.env.TECPEY_SESSION_MAX_AGE_SECONDS || 60 * 60 * 24 * 30);
+  return accessSessionMaxAgeSeconds();
 }
 
 // ── Platform metadata ─────────────────────────────────────────────────────────
