@@ -40,6 +40,7 @@ function route(findings = ["required_csrf_missing"], overrides = {}) {
       setsCookie: false,
       headerBodySizeHint: false,
       bodySizeLimitAuthority: null,
+      explicitPublicCachePolicy: false,
     },
     requirements: {
       csrf: csrfMissing,
@@ -265,5 +266,23 @@ describe("API security manifest exception policy", () => {
     const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([]), now });
     assert.equal(result.ok, false);
     assert.equal(result.errors.some((error) => error.includes("requires named enforceable authority")), true);
+  });
+
+  it("rejects contradictory public-cache and no-store evidence", () => {
+    const value = manifest([]);
+    value.routes[0].controls.explicitPublicCachePolicy = true;
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([]), now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("both explicit public caching and no-store")), true);
+  });
+
+  it("rejects unknown fields in manifest operations and registries", () => {
+    const value = manifest();
+    value.routes[0].unreviewedControl = true;
+    const grouped = groupedRegistry({ unreviewedMetadata: "unsafe" });
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: grouped, now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("unreviewedControl is not allowed")), true);
+    assert.equal(result.errors.some((error) => error.includes("unreviewedMetadata is not allowed")), true);
   });
 });
