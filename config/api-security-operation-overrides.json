@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "operations": [
+    {
+      "route": "/api/academy-auth",
+      "method": "POST",
+      "classification": "public",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Login and signup create the first authenticated session; no prior session exists to revoke-check.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/academy/auth/login",
+      "method": "POST",
+      "classification": "public",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Compatibility login delegates to the canonical first-session authentication authority.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/academy/auth/register",
+      "method": "POST",
+      "classification": "public",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Compatibility registration delegates to the canonical first-session authentication authority.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/auth/webauthn/auth/challenge",
+      "method": "POST",
+      "classification": "public",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "csrf": false,
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Discoverable-passkey challenge generation intentionally precedes user authentication and sets no session cookie.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/auth/webauthn/auth/verify",
+      "method": "POST",
+      "classification": "public",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Passkey assertion verification establishes the first session after server-side ceremony and credential validation.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/command-center/auth/bootstrap/challenge",
+      "method": "POST",
+      "classification": "admin",
+      "principalSource": "verifyAdminBootstrapToken",
+      "controlOverrides": {
+        "verifiedPrincipal": true,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false
+      },
+      "reason": "Initial control-plane bootstrap is authorized by the one-time bootstrap credential before any admin session exists.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/command-center/auth/bootstrap/verify",
+      "method": "POST",
+      "classification": "admin",
+      "principalSource": "verifyAdminBootstrapToken",
+      "controlOverrides": {
+        "verifiedPrincipal": true,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false
+      },
+      "reason": "Initial control-plane bootstrap verifies the one-time bootstrap credential and creates the first admin session.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/command-center/auth/passkey/challenge",
+      "method": "POST",
+      "classification": "admin",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Admin passkey challenge generation intentionally precedes authentication and creates no active admin authority.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/command-center/auth/passkey/verify",
+      "method": "POST",
+      "classification": "admin",
+      "principalSource": null,
+      "controlOverrides": {
+        "verifiedPrincipal": false,
+        "noStore": true
+      },
+      "requirementOverrides": {
+        "strictRevocation": false,
+        "verifiedPrincipal": false
+      },
+      "reason": "Admin passkey assertion verification establishes a new database-backed admin session after credential validation.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/command-center/auth/logout",
+      "method": "POST",
+      "classification": "admin",
+      "principalSource": "loadAdminPrincipal",
+      "controlOverrides": {
+        "verifiedPrincipal": true,
+        "noStore": true
+      },
+      "requirementOverrides": {},
+      "reason": "The handler loads the live database-backed admin principal before attempting server-side session revocation.",
+      "issue": "#108"
+    },
+    {
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "classification": "authenticated",
+      "principalSource": "canonical /api/ai-mentor handler",
+      "controlOverrides": {
+        "noStore": true
+      },
+      "requirementOverrides": {},
+      "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+      "issue": "#108"
+    }
+  ]
+}
