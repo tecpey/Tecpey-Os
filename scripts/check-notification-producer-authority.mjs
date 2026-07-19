@@ -80,8 +80,13 @@ requireText(
 );
 requireText(
   "producer",
-  "createInAppNotification",
-  "domain producers must delegate to deterministic creation/outbox authority",
+  "createInAppNotification(client, principal, request);",
+  "creation policy must use actual processing time rather than event time",
+);
+rejectText(
+  "producer",
+  "now: event.occurredAt",
+  "event occurrence time is provenance and must not override current policy time",
 );
 requireText(
   "producer",
@@ -113,6 +118,35 @@ requireText(
   "templateId",
   "templates must remain version-addressable",
 );
+
+for (const route of [
+  'actionUrl: `/academy/term-${event.payload.termNumber}`',
+  'actionUrl: "/academy/profile"',
+  'actionUrl: "/academy/certificates"',
+  'actionUrl: "/academy/security"',
+  'actionUrl: "/support"',
+]) {
+  requireText(
+    "producer",
+    route,
+    `controlled template destination is missing: ${route}`,
+  );
+}
+
+for (const invalidRoute of [
+  "/academy/assessment/",
+  "/academy/certificate/",
+  "/academy/settings/security",
+  "/academy/settings/sessions",
+  "/academy/support/tickets/",
+]) {
+  rejectText(
+    "producer",
+    invalidRoute,
+    `producer template references a route not present in the application: ${invalidRoute}`,
+  );
+}
+
 rejectText(
   "producer",
   "producerPayload",
@@ -219,5 +253,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Notification producer authority check passed: CI/release governance, exact versioned events, principal locale, minimal metadata, server-owned templates, policy creation and anti-bypass boundaries are enforced.",
+  "Notification producer authority check passed: CI/release governance, exact versioned events, current-time policy, valid destinations, principal locale, minimal metadata, server-owned templates and anti-bypass boundaries are enforced.",
 );
