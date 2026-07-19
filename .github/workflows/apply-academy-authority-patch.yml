@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f .github/academy-authority.patch.gz.b64.part*
-          rm -f .github/ACADEMY_AUTHORITY_TRANSFER_NOTICE*.md
+          rm -f .github/ACADEMY_AUTHORITY_TRANSFER_*.md
           rm -f .github/workflows/apply-academy-authority-patch.yml
 
       - name: Commit authoritative Academy implementation
