@@ -8,7 +8,10 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { deviceFingerprint } from "@/lib/security/webauthn";
-import { canonicalizeWithdrawalCommand } from "@/lib/security/withdrawal-admission-authority";
+import {
+  canonicalizeWithdrawalCommand,
+  inspectWithdrawalAuthorization,
+} from "@/lib/security/withdrawal-admission-authority";
 import {
   createAuthoritativeWithdrawal,
   listUserWithdrawalsStrict,
@@ -90,6 +93,20 @@ export async function POST(req: NextRequest) {
       typeof body.authorizationId === "string" ? body.authorizationId.trim() : "";
     if (!authorizationId) {
       return apiError("withdrawal_authorization_required", 403);
+    }
+
+    // Reject forged/expired/foreign authorization IDs before any external price,
+    // risk or compliance work. Admission still consumes it atomically later.
+    const authorization = await inspectWithdrawalAuthorization({
+      authorizationId,
+      userId,
+      requestHash: canonical.requestHash,
+    });
+    if (authorization === "unavailable") {
+      return apiError("authorization_store_unavailable", 503);
+    }
+    if (authorization === "invalid") {
+      return apiError("withdrawal_authorization_invalid", 403);
     }
 
     const ip = getClientIp(req);
