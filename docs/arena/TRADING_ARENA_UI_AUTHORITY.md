@@ -24,6 +24,10 @@ The production dashboard may not import the legacy browser execution engine, cre
 - When positions or pending orders exist, periodic `refresh_market` commands allow the server to process fills and protective exits.
 - When the account has no live command state, polling is read-only.
 
+## Ambiguous command recovery
+
+When a request fails without a definitive server result, the client preserves the complete command, original expected revision and idempotency key in memory. Background polling retries that exact command first. A different command is blocked until the server returns success, replay, revision conflict or another definitive response. An identity from a previous attempt is never replayed against a new attempt.
+
 ## Journal boundary
 
 Phase A removes localStorage from the production journal and displays:
