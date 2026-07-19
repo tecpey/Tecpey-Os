@@ -95,8 +95,8 @@ test(
       const digest = await createInAppNotification(
         client,
         principal,
-        request(digestKey, "digest", "2026-01-01T01:00:00.000Z"),
-        { now: "2026-01-01T00:00:00.000Z" },
+        request(digestKey, "digest", "2099-01-01T01:00:00.000Z"),
+        { now: "2099-01-01T00:00:00.000Z" },
       );
       assert.deepEqual(
         {
@@ -130,8 +130,8 @@ test(
       const deferred = await createInAppNotification(
         client,
         principal,
-        request(deferKey, "instant", "2026-01-01T01:00:00.000Z"),
-        { now: "2026-01-01T00:30:00.000Z" },
+        request(deferKey, "instant", "2099-01-01T01:00:00.000Z"),
+        { now: "2099-01-01T00:30:00.000Z" },
       );
       assert.deepEqual(
         {
