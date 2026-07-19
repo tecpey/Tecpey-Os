@@ -108,7 +108,10 @@ export async function enqueueWithdrawal(
 }
 
 export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<string> {
-  const identity = queueIdentity("confirmation", data.withdrawalId, data.txHash);
+  // Queue payload values are untrusted hints. The worker hydrates tx_hash and
+  // confirmation policy from PostgreSQL, so one withdrawal may have only one
+  // live watcher regardless of a stale caller-provided txHash.
+  const identity = queueIdentity("confirmation", data.withdrawalId);
   const job = await confirmationQueue.add("watch", data, {
     jobId: identity.jobId,
     deduplication: { id: identity.deduplicationId },
