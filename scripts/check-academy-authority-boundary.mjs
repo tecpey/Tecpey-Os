@@ -10,6 +10,7 @@ const files = {
   legacyLessonRoute: "src/app/api/academy-lesson-progress/route.ts",
   lessonRoute: "src/app/api/academy-lesson-assessment/route.ts",
   termRoute: "src/app/api/academy-term-progress/route.ts",
+  termClient: "src/components/academy/TermQuizClient.tsx",
   migration: "src/lib/db-migrate-user-state.ts",
   hardening: "src/lib/db-migrate-academy-progress-hardening.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
@@ -75,7 +76,20 @@ for (const contract of [
   "pg_advisory_xact_lock",
   "awardAcademyReward",
   "refreshAcademyProgressProjection",
+  "idempotency_key_required",
+  "server_term_assessment_v2",
 ]) requireText("termRoute", contract, `official term assessment missing ${contract}`);
+for (const forbidden of [
+  'from "fs/promises"',
+  "readLocalProgress",
+  "writeLocalProgress",
+  "canUseLocalProgress",
+  "ACADEMY_PROGRESS_LOCAL_FILE",
+  "TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE",
+]) rejectText("termRoute", forbidden, `term assessment retains forbidden filesystem fallback ${forbidden}`);
+requireText("termClient", "assessmentCommandId", "client retries need stable command identity");
+requireText("termClient", '"Idempotency-Key": idempotencyKey', "term client must send stable idempotency header");
+requireText("termClient", "assessmentCommandId.current = null", "a deliberate new attempt must rotate command identity");
 
 for (const contract of [
   "UNIQUE (student_id, locale, reward_key)",
