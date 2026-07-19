@@ -25,6 +25,8 @@ const required = [
   'NEXT_PUBLIC_API_BACKEND_URL',
   'NEXT_PUBLIC_API_SOCKET_URL',
   'TECPEY_SESSION_SECRET',
+  'TECPEY_REFRESH_SECRET',
+  'TECPEY_ACADEMY_AUTH_SECRET',
   'CERTIFICATE_SIGNING_SECRET',
   'DATABASE_URL',
 ];
@@ -54,27 +56,58 @@ const errors = [];
 for (const key of required) {
   const value = process.env[key];
   if (!value) errors.push(`${key} is missing`);
-  if (value && badTokens.some((token) => value.includes(token))) errors.push(`${key} still contains a placeholder`);
+  if (value && badTokens.some((token) => value.includes(token))) {
+    errors.push(`${key} still contains a placeholder`);
+  }
 }
 
-for (const key of ['TECPEY_SESSION_SECRET', 'CERTIFICATE_SIGNING_SECRET']) {
+for (const key of [
+  'TECPEY_SESSION_SECRET',
+  'TECPEY_REFRESH_SECRET',
+  'TECPEY_ACADEMY_AUTH_SECRET',
+  'CERTIFICATE_SIGNING_SECRET',
+]) {
   const value = process.env[key] || '';
   if (value && value.length < 32) errors.push(`${key} must be at least 32 characters`);
 }
 
-for (const key of optional) {
-  const value = process.env[key];
-  if (value && badTokens.some((token) => value.includes(token))) errors.push(`${key} still contains a placeholder`);
+const authSecrets = [
+  ['TECPEY_SESSION_SECRET', process.env.TECPEY_SESSION_SECRET],
+  ['TECPEY_REFRESH_SECRET', process.env.TECPEY_REFRESH_SECRET],
+  ['TECPEY_ACADEMY_AUTH_SECRET', process.env.TECPEY_ACADEMY_AUTH_SECRET],
+].filter(([, value]) => Boolean(value));
+for (let i = 0; i < authSecrets.length; i += 1) {
+  for (let j = i + 1; j < authSecrets.length; j += 1) {
+    if (authSecrets[i][1] === authSecrets[j][1]) {
+      errors.push(`${authSecrets[i][0]} and ${authSecrets[j][0]} must be distinct`);
+    }
+  }
 }
 
-const allowedMentorModels = new Set(['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5-mini', 'gpt-5-nano']);
+for (const key of optional) {
+  const value = process.env[key];
+  if (value && badTokens.some((token) => value.includes(token))) {
+    errors.push(`${key} still contains a placeholder`);
+  }
+}
+
+const allowedMentorModels = new Set([
+  'gpt-4o-mini',
+  'gpt-4.1-mini',
+  'gpt-5.4-mini',
+  'gpt-5.4-nano',
+  'gpt-5-mini',
+  'gpt-5-nano',
+]);
 const mentorModel = process.env.AI_MENTOR_MODEL;
 const mentorFallbackModel = process.env.AI_MENTOR_FALLBACK_MODEL;
-if (mentorModel && !allowedMentorModels.has(mentorModel)) errors.push(`AI_MENTOR_MODEL is not in the approved TecPey model allowlist: ${mentorModel}`);
-if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) errors.push(`AI_MENTOR_FALLBACK_MODEL is not in the approved TecPey model allowlist: ${mentorFallbackModel}`);
+if (mentorModel && !allowedMentorModels.has(mentorModel)) {
+  errors.push(`AI_MENTOR_MODEL is not in the approved TecPey model allowlist: ${mentorModel}`);
+}
+if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) {
+  errors.push(`AI_MENTOR_FALLBACK_MODEL is not in the approved TecPey model allowlist: ${mentorFallbackModel}`);
+}
 
-// Production Redis REST check — coordinated rate limiting requires Redis REST.
-// Skipped when TECPEY_ALLOW_MEMORY_RATE_LIMIT=1 is set (single-instance opt-in).
 if (process.env.NODE_ENV === 'production' && process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {
   const hasUpstash = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
   const hasRedisRest = process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN;
