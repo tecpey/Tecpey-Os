@@ -218,6 +218,66 @@ test(
 );
 
 test(
+  "database rejects a notification whose principal belongs to another tenant",
+  { skip: !databaseUrl },
+  async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const client = await pool.connect();
+    try {
+      await applyDatabaseMigrationsWithLock(client);
+      await client.query("BEGIN");
+
+      const studentId = crypto.randomUUID();
+      const accountId = `academy:tenant-bound-${studentId}@test.local`;
+      const otherTenantId = `notification-tenant-${studentId}`;
+      await client.query(
+        `INSERT INTO academy_students (id, locale, email)
+         VALUES ($1, 'fa', $2)`,
+        [studentId, `${studentId}@notification.test`],
+      );
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan)
+         VALUES ($1, $1, 'Notification Isolation Test', 'enterprise')`,
+        [otherTenantId],
+      );
+
+      const principal = await resolveNotificationPrincipal(
+        client,
+        identity(studentId, accountId),
+        "tecpey",
+      );
+
+      await assert.rejects(
+        client.query(
+          `INSERT INTO platform_notifications
+            (tenant_id, principal_id, notification_class, source_type, title, body,
+             correlation_key, policy_decision, policy_reason)
+           VALUES ($1, $2, 'academy', 'tenant_isolation_test', 'Isolation test',
+                   'This insert must fail.', $3, 'allow', 'test')`,
+          [otherTenantId, principal.id, `tenant-isolation:${studentId}`],
+        ),
+        (error: unknown) => {
+          assert.equal((error as { code?: string }).code, "23503");
+          return true;
+        },
+      );
+
+      await client.query("ROLLBACK");
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the original assertion or database failure.
+      }
+      throw error;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  },
+);
+
+test(
   "principal resolution fails closed when account and student already belong to different principals",
   { skip: !databaseUrl },
   async () => {
