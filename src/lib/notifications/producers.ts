@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import type { NotificationCreationResult } from "./creation";
 import { createInAppNotification } from "./creation";
@@ -161,6 +162,10 @@ function integer(
     Number(value) <= maximum
     ? Number(value)
     : null;
+}
+
+function validatedPayloadHash(payload: Record<string, unknown>): string {
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
 function parseRoot(value: unknown) {
@@ -348,6 +353,7 @@ export function buildNotificationRequest(event: NotificationProducerEvent) {
       producerEventType: event.type,
       producerEventVersion: event.version,
       producerOccurredAt: event.occurredAt,
+      producerPayloadHash: validatedPayloadHash(event.payload),
     },
   };
 
