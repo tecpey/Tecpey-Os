@@ -65,6 +65,7 @@ jobs:
       TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
       TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      TECPEY_WITHDRAWAL_PRICE_SECRET: ci-placeholder-withdrawal-price-secret-32-min
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
@@ -163,6 +164,23 @@ jobs:
         with:
           name: auth-session-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-auth-session-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Withdrawal admission authority guard
+        run: npm run withdrawals:check
+
+      - name: Withdrawal admission integration tests
+        run: |
+          set -o pipefail
+          npm run test:withdrawal-admission 2>&1 | tee /tmp/tecpey-withdrawal-admission-tests.log
+
+      - name: Upload withdrawal admission diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: withdrawal-admission-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-withdrawal-admission-tests.log
           if-no-files-found: ignore
           retention-days: 7
 
