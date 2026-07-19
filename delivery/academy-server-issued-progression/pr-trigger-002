@@ -1,0 +1,1 @@
+Auditable delivery trigger after pull_request activation. Delivery-only branch; never merge.
