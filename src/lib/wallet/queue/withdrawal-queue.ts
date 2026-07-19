@@ -2,6 +2,7 @@
 // BullMQ queue definitions: main, retry, DLQ, recovery, confirmation queues.
 // All queues backed by Redis (shared connection with app Redis).
 
+import { randomUUID } from "crypto";
 import { Queue, QueueEvents } from "bullmq";
 import type { WithdrawalJobData, ConfirmationJobData } from "../types";
 import { WITHDRAWAL_QUEUE_NAMES } from "./names";
@@ -10,6 +11,7 @@ import {
   CONFIRMATION_POLL_DELAY_MS,
   MAX_CONFIRMATION_ATTEMPTS,
   createWalletQueueJobId,
+  type WalletQueueJobKind,
 } from "./policy";
 
 function redisConnection() {
@@ -22,6 +24,20 @@ function redisConnection() {
     tls: parsed.protocol === "rediss:" ? {} : undefined,
     maxRetriesPerRequest: null,
   };
+}
+
+function queueIdentity(
+  kind: WalletQueueJobKind,
+  withdrawalId: string,
+  semanticDiscriminator = "",
+): { jobId: string; deduplicationId: string } {
+  const deduplicationId = createWalletQueueJobId(kind, withdrawalId, semanticDiscriminator);
+  const jobId = createWalletQueueJobId(
+    kind,
+    withdrawalId,
+    JSON.stringify([semanticDiscriminator, randomUUID()]),
+  );
+  return { jobId, deduplicationId };
 }
 
 const connection = redisConnection();
@@ -77,74 +93,51 @@ export const recoveryQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES
 
 export const withdrawalQueueEvents = new QueueEvents(WITHDRAWAL_QUEUE_NAMES.execution, { connection });
 
-/**
- * Preserve deduplication for waiting/delayed/active jobs, but remove retained
- * terminal jobs so an authoritative retry can schedule real work again.
- */
-async function prepareRestorableJobSlot<T>(queue: Queue<T>, jobId: string): Promise<boolean> {
-  const existing = await queue.getJob(jobId);
-  if (!existing) return true;
-
-  const state = await existing.getState();
-  if (state === "unknown") return true;
-  if (state !== "completed" && state !== "failed") return false;
-
-  try {
-    await existing.remove();
-    return true;
-  } catch (error) {
-    const current = await queue.getJob(jobId);
-    if (!current) return true;
-    const currentState = await current.getState();
-    if (currentState !== "completed" && currentState !== "failed") return false;
-    throw error;
-  }
-}
-
 export async function enqueueWithdrawal(
   data: WithdrawalJobData,
   opts?: { priority?: number; delay?: number },
 ): Promise<string> {
-  const jobId = createWalletQueueJobId("withdrawal", data.withdrawalId);
-  const mayAdd = await prepareRestorableJobSlot(withdrawalQueue, jobId);
-  if (!mayAdd) return jobId;
-
+  const identity = queueIdentity("withdrawal", data.withdrawalId);
   const job = await withdrawalQueue.add("process", data, {
     priority: opts?.priority ?? data.priority,
     delay: opts?.delay ?? 0,
-    jobId,
+    jobId: identity.jobId,
+    deduplication: { id: identity.deduplicationId },
   });
-  return job.id ?? jobId;
+  return job.id ?? identity.jobId;
 }
 
-export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<void> {
-  const jobId = createWalletQueueJobId("confirmation", data.withdrawalId, data.txHash);
-  const mayAdd = await prepareRestorableJobSlot(confirmationQueue, jobId);
-  if (!mayAdd) return;
-
-  await confirmationQueue.add("watch", data, {
-    jobId,
+export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<string> {
+  const identity = queueIdentity("confirmation", data.withdrawalId, data.txHash);
+  const job = await confirmationQueue.add("watch", data, {
+    jobId: identity.jobId,
+    deduplication: { id: identity.deduplicationId },
     delay: CONFIRMATION_INITIAL_DELAY_MS,
     attempts: MAX_CONFIRMATION_ATTEMPTS,
     backoff: { type: "fixed", delay: CONFIRMATION_POLL_DELAY_MS },
   });
+  return job.id ?? identity.jobId;
 }
 
 export async function moveToDeadLetter(data: WithdrawalJobData, reason: string): Promise<void> {
   await withdrawalDlq.add(
     "failed",
     { ...data, _failReason: reason } as WithdrawalJobData & { _failReason: string },
-    { jobId: createWalletQueueJobId("dead-letter", data.withdrawalId, reason) },
+    {
+      jobId: createWalletQueueJobId(
+        "dead-letter",
+        data.withdrawalId,
+        JSON.stringify([reason, randomUUID()]),
+      ),
+    },
   );
 }
 
 export async function enqueueRecovery(data: WithdrawalJobData): Promise<void> {
-  const jobId = createWalletQueueJobId("recovery", data.withdrawalId);
-  const mayAdd = await prepareRestorableJobSlot(recoveryQueue, jobId);
-  if (!mayAdd) return;
-
+  const identity = queueIdentity("recovery", data.withdrawalId);
   await recoveryQueue.add("recover", data, {
-    jobId,
+    jobId: identity.jobId,
+    deduplication: { id: identity.deduplicationId },
     delay: 60_000,
   });
 }
