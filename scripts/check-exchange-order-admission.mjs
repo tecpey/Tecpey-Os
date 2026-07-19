@@ -22,6 +22,9 @@ for (const [text, message] of [
   ["holdOrderFundsTx", "order route must use the exact atomic hold boundary"],
   ["D(available).lt(hold.amount)", "order preflight must compare Decimal values"],
   ["holdAmount: hold.amount", "audit evidence must retain the exact hold string"],
+  ['typeof body.quantity !== "string"', "quantity must be supplied as an exact JSON string"],
+  ['body.price !== undefined && typeof body.price !== "string"', "price must be supplied as an exact JSON string"],
+  ['body.stopPrice !== undefined && typeof body.stopPrice !== "string"', "stopPrice must be supplied as an exact JSON string"],
 ]) requireText(route, text, message);
 
 for (const forbidden of [
@@ -30,7 +33,10 @@ for (const forbidden of [
   "1e-10",
   "holdAmount.toFixed",
   "available < holdAmount",
-]) rejectText(route, forbidden, `order route contains forbidden floating-point authority: ${forbidden}`);
+  "String(body.quantity",
+  "String(body.price",
+  "String(body.stopPrice",
+]) rejectText(route, forbidden, `order route contains forbidden floating-point/coercion authority: ${forbidden}`);
 
 for (const forbidden of ["parseFloat(", "Math.round(", "1e-10", "Number.isFinite("]) {
   rejectText(validation, forbidden, `order validation contains forbidden floating-point logic: ${forbidden}`);
