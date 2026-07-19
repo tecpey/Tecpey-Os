@@ -40,7 +40,25 @@ jobs:
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
       - name: Verify exact manifest and governed exceptions
+        id: manifest-policy
         run: npm run api:security:check
 
       - name: Run manifest policy and response-cache tests
+        if: ${{ always() }}
         run: npm run test:api-security-manifest
+
+      - name: Generate exact diagnostic manifest
+        if: ${{ failure() }}
+        run: |
+          node scripts/generate-api-security-manifest.mjs --output=api-security-manifest.diagnostic.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=api-security-manifest.diagnostic.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=api-security-manifest.diagnostic.json
+
+      - name: Upload manifest diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-security-manifest-diagnostics-${{ github.sha }}
+          path: api-security-manifest.diagnostic.json
+          if-no-files-found: error
+          retention-days: 7
