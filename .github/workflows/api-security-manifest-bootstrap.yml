@@ -32,6 +32,9 @@ jobs:
       - name: Apply governed helper and alias contracts
         run: node scripts/postprocess-api-security-manifest.mjs --manifest=api-security-manifest.generated.json
 
+      - name: Apply exact operation contracts
+        run: node scripts/apply-api-security-operation-overrides.mjs --manifest=api-security-manifest.generated.json
+
       - name: Print inventory summary
         run: |
           node -e "const m=require('./api-security-manifest.generated.json'); console.log(JSON.stringify(m.totals,null,2))"
