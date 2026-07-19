@@ -115,14 +115,22 @@ async function claimApprovedWithdrawal(withdrawalId: string): Promise<Withdrawal
       `UPDATE withdrawals
           SET state = 'building_transaction', execution_error = NULL, updated_at = NOW()
         WHERE id = $1 AND state = 'approved' AND tx_hash IS NULL
-        RETURNING id, user_id, asset, amount::text, destination_address, network, state,
-                  tx_hash, idempotency_key, COALESCE(fee_speed, 'normal') AS fee_speed`,
+        RETURNING id,
+                  user_id AS "userId",
+                  asset,
+                  amount::text AS amount,
+                  destination_address AS "destinationAddress",
+                  network,
+                  state,
+                  tx_hash AS "txHash",
+                  idempotency_key AS "idempotencyKey",
+                  COALESCE(fee_speed, 'normal') AS "feeSpeed"`,
       [withdrawalId],
     );
     if (claimed.rows[0]) return claimed.rows[0];
 
     const existing = await db.query<{ state: string; txHash: string | null }>(
-      `SELECT state, tx_hash FROM withdrawals WHERE id = $1`,
+      `SELECT state, tx_hash AS "txHash" FROM withdrawals WHERE id = $1`,
       [withdrawalId],
     );
     const row = existing.rows[0];
