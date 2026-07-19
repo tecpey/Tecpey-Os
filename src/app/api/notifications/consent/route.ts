@@ -10,8 +10,6 @@ import {
 } from "@/lib/notifications/principal";
 import {
   getCurrentNotificationConsents,
-  MARKETING_CONSENT_POLICY_VERSION,
-  NOTIFICATION_CONSENT_SOURCE,
   parseNotificationConsentInput,
   recordNotificationConsent,
   validConsentIdempotencyKey,
@@ -93,9 +91,6 @@ export async function POST(req: NextRequest) {
         }
         const recorded = await recordNotificationConsent(client, principal.id, {
           ...consent,
-          policyVersion: MARKETING_CONSENT_POLICY_VERSION,
-          source: NOTIFICATION_CONSENT_SOURCE,
-          jurisdiction: null,
           idempotencyKey,
         });
         return {
