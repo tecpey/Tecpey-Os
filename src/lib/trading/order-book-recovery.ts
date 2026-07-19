@@ -2,9 +2,10 @@ import { getOrderBook } from "./order-book";
 import { getRedisClient, rebuildOrderBook } from "./order-book-store";
 
 /**
- * Rebuilds one market cache from PostgreSQL authority. Redis and both local book
- * representations are cleared first so a stale partial cache cannot survive a
- * command retry or process recovery.
+ * Rebuilds one market cache from PostgreSQL authority. The Redis price queues
+ * and both local book representations are cleared first so stale partial cache
+ * state cannot survive a command retry. Per-order Redis hashes are non-authority
+ * hints and expire naturally when the corresponding queues are rebuilt.
  */
 export async function rebuildMarketBookFromAuthority(market: string): Promise<void> {
   const normalized = market.toUpperCase();
@@ -13,15 +14,11 @@ export async function rebuildMarketBookFromAuthority(market: string): Promise<vo
 
   const redis = getRedisClient();
   if (redis) {
-    const orderKeys = await redis.keys("tecpey:order:*");
-    const pipeline = redis.pipeline()
+    await redis
+      .pipeline()
       .del(`tecpey:ob:${normalized}:bids`)
-      .del(`tecpey:ob:${normalized}:asks`);
-    for (const key of orderKeys) {
-      const storedMarket = await redis.hget(key, "market");
-      if (storedMarket === normalized) pipeline.del(key);
-    }
-    await pipeline.exec();
+      .del(`tecpey:ob:${normalized}:asks`)
+      .exec();
   }
 
   await rebuildOrderBook(normalized);
