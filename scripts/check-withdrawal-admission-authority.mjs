@@ -22,6 +22,8 @@ const files = {
   unitTests: "src/tests/security/withdrawal-admission.test.ts",
   postgresTests: "src/tests/security/withdrawal-admission-postgres.test.ts",
   replayTests: "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
+  reservationTests:
+    "src/tests/security/withdrawal-admission-reservation-metadata-postgres.test.ts",
 };
 
 const content = Object.fromEntries(
@@ -141,6 +143,9 @@ requireText("migration", "withdrawal_admission_outbox", "admission events need a
 requireText("migration", "withdrawals_user_idempotency_unique_idx", "user idempotency needs DB uniqueness");
 requireText("migration", "price_snapshot_id", "withdrawals must retain price evidence linkage");
 requireText("migration", "compliance_evidence", "withdrawals must retain compliance evidence");
+requireText("migration", "tecpey_clear_terminal_withdrawal_reservation", "terminal states need a database-owned metadata cleanup function");
+requireText("migration", "withdrawals_clear_terminal_reservation", "terminal reservation cleanup must run as a trigger");
+requireText("migration", "withdrawals_terminal_reservation_cleared", "database constraints must reject stale terminal reservation metadata");
 requireText("migrationPlan", "runWithdrawalAdmissionMigrations", "migration must be in the canonical plan");
 
 requireText("env", "TECPEY_WITHDRAWAL_PRICE_SECRET", "production must require price-signing authority");
@@ -162,10 +167,12 @@ requireText("postgresTests", "type = 'hold'", "tests must inspect the real ledge
 requireText("postgresTests", "type = 'release'", "tests must inspect the real ledger release type");
 requireText("replayTests", "resolves exact replay from PostgreSQL without external providers", "committed replay needs a provider-independent DB test");
 requireText("replayTests", "checks committed replay before authorization", "route ordering must be regression tested");
+requireText("reservationTests", "clears funds_reserved_at in PostgreSQL", "terminal states must prove reservation metadata is cleared");
+requireText("reservationTests", 'for (const terminalState of ["rejected", "blocked", "cancelled"]', "every terminal release state needs metadata coverage");
 
 if (failures.length) {
   console.error("Withdrawal admission authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; canonical commands, one-time TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, durable outbox and custody launch blocking are enforced.");
+console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; canonical commands, one-time TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and custody launch blocking are enforced.");
