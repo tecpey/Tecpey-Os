@@ -14,7 +14,7 @@ jobs:
     if: ${{ github.event.pull_request.number == 36 && github.head_ref == 'audit/academy-authority-call-sites-20260719' }}
     runs-on: ubuntu-latest
     env:
-      TARGET_BRANCH: feat/academy-server-issued-progress-20260719-v1
+      TARGET_BRANCH: feat/academy-server-issued-progress-20260719-v2
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
       NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
@@ -37,20 +37,20 @@ jobs:
         run: |
           set -euo pipefail
           cat \
-            audit/academy-p0-patch-parts/part-00 \
-            audit/academy-p0-patch-parts/part-01 \
-            audit/academy-p0-patch-parts/part-02a \
-            audit/academy-p0-patch-parts/part-02b \
-            audit/academy-p0-patch-parts/part-03 \
-            audit/academy-p0-patch-parts/part-04 \
+            audit/academy-p0-patch-parts-v2/part-00 \
+            audit/academy-p0-patch-parts-v2/part-01 \
+            audit/academy-p0-patch-parts-v2/part-02 \
+            audit/academy-p0-patch-parts-v2/part-03 \
+            audit/academy-p0-patch-parts-v2/part-04 \
+            audit/academy-p0-patch-parts-v2/part-05 \
             > /tmp/academy-p0.patch.gz.b64
 
-          test "$(wc -c < /tmp/academy-p0.patch.gz.b64)" -eq 33432
-          echo "66fce44e708ac3c704ee4381d43e084266cceb73f7e3cf59f2690a0d73540672  /tmp/academy-p0.patch.gz.b64" | sha256sum --check --strict
+          test "$(wc -c < /tmp/academy-p0.patch.gz.b64)" -eq 33476
+          echo "44c352e53c7ad64905959f58bbdd8960193f5473452e7dce93332091483a3b00  /tmp/academy-p0.patch.gz.b64" | sha256sum --check --strict
           base64 --decode /tmp/academy-p0.patch.gz.b64 > /tmp/academy-p0.patch.gz
           gzip --decompress --stdout /tmp/academy-p0.patch.gz > /tmp/academy-p0.patch
-          test "$(wc -c < /tmp/academy-p0.patch)" -eq 107161
-          echo "5a8c08f57f3b74fc91fb605ab04286b3740522806d36bbe20d122d17c802d363  /tmp/academy-p0.patch" | sha256sum --check --strict
+          test "$(wc -c < /tmp/academy-p0.patch)" -eq 103808
+          echo "decc045485f074b181a819b307f5ab00a1127fce38e696639dae80443c698b9e  /tmp/academy-p0.patch" | sha256sum --check --strict
 
       - name: Create clean branch from protected main
         shell: bash
@@ -62,6 +62,7 @@ jobs:
             exit 1
           fi
           git checkout -B "$TARGET_BRANCH" origin/main
+          test ! -e audit/academy-p0-patch-parts-v2
           test ! -e audit/academy-p0-patch-parts
           test ! -e audit/academy-server-issued-progress.patch.gz.b64
           test ! -e .github/workflows/academy-p0-publish.yml
