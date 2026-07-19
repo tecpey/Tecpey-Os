@@ -25,6 +25,7 @@ for (const [text, message] of [
   ['typeof body.quantity !== "string"', "quantity must be supplied as an exact JSON string"],
   ['body.price !== undefined && typeof body.price !== "string"', "price must be supplied as an exact JSON string"],
   ['body.stopPrice !== undefined && typeof body.stopPrice !== "string"', "stopPrice must be supplied as an exact JSON string"],
+  ['market_buy_depth_reservation_required', "market buys must fail closed until depth reservation exists"],
 ]) requireText(route, text, message);
 
 for (const forbidden of [
@@ -36,6 +37,7 @@ for (const forbidden of [
   "String(body.quantity",
   "String(body.price",
   "String(body.stopPrice",
+  "bestAskPrice",
 ]) rejectText(route, forbidden, `order route contains forbidden floating-point/coercion authority: ${forbidden}`);
 
 for (const forbidden of ["parseFloat(", "Math.round(", "1e-10", "Number.isFinite("]) {
@@ -44,28 +46,28 @@ for (const forbidden of ["parseFloat(", "Math.round(", "1e-10", "Number.isFinite
 requireText(validation, "isExactIncrement", "validation must enforce exact tick and step increments");
 requireText(validation, "parsePositiveOrderDecimal", "validation must reject non-canonical decimal input");
 requireText(validation, "multiplyOrderDecimals", "order-value bounds must use full-precision multiplication");
-requireText(
-  validation,
-  "parseOrderDecimal(market.maxOrderValue)",
-  "zero-formatted maxOrderValue must parse before unlimited comparison",
-);
+requireText(validation, "parseOrderDecimal(market.maxOrderValue)", "zero-formatted maxOrderValue must parse before unlimited comparison");
 
 requireText(financials, "Decimal.clone", "hold multiplication must use isolated sufficient precision");
-requireText(financials, "order_hold_scale_exceeded", "holds requiring database rounding must fail closed");
+requireText(financials, "toReserveAmount", "limit-buy hold must reserve at database scale");
+requireText(financials, "Decimal.ROUND_UP", "reservation must never underfund a permitted limit fill");
+requireText(financials, "maximumFeeRate", "buy holds must reserve the maximum configured fee rate");
+requireText(financials, "market_buy_depth_reservation_required", "financial hold helper must reject market buys");
 requireText(financials, "DATABASE_AMOUNT_SCALE = 10", "hold calculation must bind the database amount scale");
 requireText(financials, "DATABASE_AMOUNT_INTEGER_DIGITS = 20", "hold calculation must bind the database integer range");
 requireText(financials, "PLAIN_DECIMAL", "financial input must use a plain-decimal grammar");
-rejectText(financials, "Decimal.ROUND_UP", "admission must not create holds that downstream release cannot reproduce yet");
 
 requireText(wallet, "getAvailableBalanceAmount", "wallet service must expose an exact balance string");
 requireText(wallet, "holdOrderFundsTx", "wallet service must expose an exact order hold transaction");
 requireText(wallet, "order_hold_ledger_mismatch", "order hold must fail closed when ledger evidence diverges");
 requireText(wallet, "D(ledgerAmount).eq(canonical)", "order hold ledger evidence must match exactly");
+rejectText(wallet, "as unknown as number", "exact holds must not use a compile-time number cast");
 
 requireText(pureTest, "binary-unsafe decimal boundaries", "precision regression test is required");
-requireText(pureTest, "large exact product beyond the legacy global precision", "large-product regression evidence is required");
-requireText(pureTest, "fails closed when a hold would require scale rounding", "scale-rejection evidence is required");
+requireText(pureTest, "large exact product and its fee reserve", "large-product fee-reserve evidence is required");
+requireText(pureTest, "rounds reservation upward", "reservation rounding evidence is required");
 requireText(pureTest, "zero maxOrderValue as unlimited", "unlimited-cap regression evidence is required");
+requireText(pureTest, "market buys until depth reservation", "market-buy fail-closed evidence is required");
 requireText(postgresTest, "Promise.all", "concurrent PostgreSQL hold evidence is required");
 requireText(postgresTest, '"0.0500000000"', "exact available balance assertion is required");
 requireText(postgresTest, '"0.1000000001"', "exact held and ledger amount assertion is required");
