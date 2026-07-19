@@ -24,6 +24,8 @@ export type SectionEvidence = {
   section_key: string;
   completed: boolean;
   answer: string | null;
+  best_score: number;
+  authority_status: string;
   completed_at: string | null;
   answered_at: string | null;
   updated_at: string;
@@ -91,9 +93,12 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
   const rewardsByKey = new Map<string, RewardEvidence>();
   for (const reward of evidence.rewards) rewardsByKey.set(reward.reward_key, reward);
   const rewards = [...rewardsByKey.values()];
-  const rewardXp = rewards.reduce((total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)), 0);
-  const sectionXp = evidence.termSummaries.reduce((total, summary) => total + Math.max(0, Math.round(Number(summary.xp) || 0)), 0);
-  const xp = rewardXp + sectionXp;
+  // XP has exactly one source of truth: the immutable reward ledger. Term
+  // summaries remain useful UI projections but never add authority a second time.
+  const xp = rewards.reduce(
+    (total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)),
+    0,
+  );
 
   const completedLessons: Record<string, LessonCompletion> = {};
   const masteryScores: Record<string, number> = {};
@@ -113,15 +118,19 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
   }
 
   for (const section of evidence.sections) {
-    if (!section.completed) continue;
+    if (!section.completed || section.authority_status !== "server_checkpoint_v1") continue;
     const lessonId = `${section.term_slug}/${section.section_key}`;
     const completedAt = section.completed_at ?? section.answered_at ?? section.updated_at;
+    const score = Math.max(0, Math.min(100, Math.round(Number(section.best_score) || 0)));
     completedLessons[lessonId] = {
       lessonId,
       completedAt: new Date(completedAt).getTime(),
-      score: section.answer ? 100 : 80,
-      xpEarned: section.answer ? 15 : 10,
+      score,
+      xpEarned: rewards
+        .filter((reward) => reward.source_id === lessonId)
+        .reduce((total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)), 0),
     };
+    masteryScores[lessonId] = score;
   }
 
   const termStatus: Record<number, "unlocked" | "in_progress" | "passed"> = { 1: "unlocked" };
@@ -131,6 +140,16 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
   for (const assessment of evidence.lessonAssessments) {
     if (assessment.term_number >= 1 && assessment.term_number <= 7 && termStatus[assessment.term_number] !== "passed") {
       termStatus[assessment.term_number] = "in_progress";
+    }
+  }
+  for (const section of evidence.sections) {
+    if (
+      section.authority_status === "server_checkpoint_v1"
+      && section.term_number >= 1
+      && section.term_number <= 7
+      && termStatus[section.term_number] !== "passed"
+    ) {
+      termStatus[section.term_number] = "in_progress";
     }
   }
   const moduleScores: Record<string, number> = {};
@@ -148,7 +167,9 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
   const activityDays = [
     ...rewards.map((reward) => isoDay(reward.awarded_at)),
     ...evidence.lessonAssessments.map((item) => isoDay(item.passed_at ?? item.updated_at)),
-    ...evidence.sections.map((item) => isoDay(item.completed_at ?? item.answered_at ?? item.updated_at)),
+    ...evidence.sections
+      .filter((item) => item.authority_status === "server_checkpoint_v1")
+      .map((item) => isoDay(item.completed_at ?? item.answered_at ?? item.updated_at)),
     ...evidence.terms.map((item) => isoDay(item.passed_at ?? item.updated_at)),
   ].filter((item): item is string => Boolean(item));
 
@@ -188,9 +209,9 @@ export async function refreshAcademyProgressProjection(
     updated_at: string;
   }>(
     `SELECT progress, revision::text, progress_authority, projection_hash, updated_at
-     FROM academy_state_documents
-     WHERE student_id = $1::uuid AND locale = $2
-     FOR UPDATE`,
+       FROM academy_state_documents
+      WHERE student_id = $1::uuid AND locale = $2
+      FOR UPDATE`,
     [studentId, locale],
   );
   const current = currentResult.rows[0];
@@ -218,37 +239,40 @@ export async function refreshAcademyProgressProjection(
   const [rewardsResult, assessmentsResult, sectionsResult, summariesResult, termsResult] = await Promise.all([
     client.query<RewardEvidence>(
       `SELECT reward_key, source_id, xp, badge_code, awarded_at
-       FROM academy_reward_ledger
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY awarded_at ASC`,
+         FROM academy_reward_ledger
+        WHERE student_id = $1::uuid
+          AND locale = $2
+          AND revoked_at IS NULL
+        ORDER BY awarded_at ASC`,
       [studentId, locale],
     ),
     client.query<LessonAssessmentEvidence>(
       `SELECT lesson_id, term_number, best_score, passed_at, updated_at
-       FROM academy_lesson_assessments
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY updated_at ASC`,
+         FROM academy_lesson_assessments
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY updated_at ASC`,
       [studentId, locale],
     ),
     client.query<SectionEvidence>(
-      `SELECT term_number, term_slug, section_key, completed, answer, completed_at, answered_at, updated_at
-       FROM academy_lesson_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY updated_at ASC`,
+      `SELECT term_number, term_slug, section_key, completed, answer,
+              best_score, authority_status, completed_at, answered_at, updated_at
+         FROM academy_lesson_progress
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY updated_at ASC`,
       [studentId, locale],
     ),
     client.query<TermSummaryEvidence>(
       `SELECT term_number, xp, updated_at
-       FROM academy_term_learning_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY term_number ASC`,
+         FROM academy_term_learning_progress
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY term_number ASC`,
       [studentId, locale],
     ),
     client.query<TermProgressEvidence>(
       `SELECT term_number, status, score, percent, passed_at, updated_at
-       FROM academy_term_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY term_number ASC`,
+         FROM academy_term_progress
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY term_number ASC`,
       [studentId, locale],
     ),
   ]);
