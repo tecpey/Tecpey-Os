@@ -39,6 +39,7 @@ const optional = [
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
   'TECPEY_ADMIN_TOKEN',
+  'TECPEY_LEGACY_AUTH_UNTIL',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -88,6 +89,19 @@ for (const key of optional) {
   const value = process.env[key];
   if (value && badTokens.some((token) => value.includes(token))) {
     errors.push(`${key} still contains a placeholder`);
+  }
+}
+
+const legacyAuthUntil = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
+if (process.env.NODE_ENV === 'production' && legacyAuthUntil) {
+  const cutoff = Date.parse(legacyAuthUntil);
+  const maxLegacyWindowMs = 30 * 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(cutoff)) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL must be a valid ISO-8601 timestamp');
+  } else if (cutoff <= Date.now()) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL must be in the future or removed to disable legacy auth');
+  } else if (cutoff - Date.now() > maxLegacyWindowMs) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL may not extend legacy cookie compatibility beyond 30 days');
   }
 }
 
