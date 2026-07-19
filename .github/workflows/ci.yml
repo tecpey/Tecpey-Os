@@ -27,7 +27,7 @@ jobs:
             package.json \
             package-lock.json \
             docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
-          git rm src/app/crypto/'[symbol]'/ChartWrapper.tsx
+          git rm 'src/app/crypto/[symbol]/ChartWrapper.tsx'
           git rm src/components/crypto/LivePriceChart.tsx
           git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
 
@@ -51,16 +51,21 @@ jobs:
           NODE
           git diff --check
 
-      - name: Commit clean current-main result
+      - name: Commit exact clean current-main result
         run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/ci.yml \
-                  package.json \
-                  package-lock.json \
-                  docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md \
-                  src/app/crypto/'[symbol]'/ChartWrapper.tsx \
-                  src/components/crypto/LivePriceChart.tsx
+          git add -A
+          ACTUAL=$(git diff --cached --name-only | sort)
+          EXPECTED=$(printf '%s\n' \
+            '.github/workflows/ci.yml' \
+            'docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md' \
+            'package-lock.json' \
+            'package.json' \
+            'src/app/crypto/[symbol]/ChartWrapper.tsx' \
+            'src/components/crypto/LivePriceChart.tsx' | sort)
+          test "$ACTUAL" = "$EXPECTED"
           git diff --cached --check
           git commit -m 'chore(charts): remove superseded Chart.js path'
           git push origin HEAD:chore/remove-superseded-chartjs-final-20260719
