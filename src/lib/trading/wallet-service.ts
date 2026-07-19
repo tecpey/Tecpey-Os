@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
-import { D } from "./decimal";
+import { D, toFixed } from "./decimal";
 import { holdFunds, releaseFunds } from "./wallet-balance-service";
 import { postLedgerEntryTx } from "./ledger-service";
 import { parsePositiveOrderDecimal, toHoldAmount } from "./order-financials";
@@ -195,6 +195,136 @@ export async function assertOrderHoldClosedTx(
   if (!D(residual).isZero()) {
     throw new Error("order_terminal_hold_not_closed");
   }
+}
+
+async function strictLedgerMutationTx(input: {
+  client: PoolClient;
+  userId: string;
+  asset: string;
+  amount: number | string;
+  referenceId: string;
+  kind: "release" | "trade_debit" | "trade_credit" | "fee";
+}): Promise<void> {
+  const amount = toFixed(input.amount, 10);
+  if (!D(amount).isPositive()) return;
+  const asset = input.asset.toUpperCase();
+  if (input.kind === "trade_credit") {
+    await ensureWalletBalanceRowTx(input.client, input.userId, asset);
+  }
+
+  const balanceColumn = input.kind === "release" ? "held_balance" : "available_balance";
+  const update = input.kind === "release"
+    ? `UPDATE wallet_balances
+          SET available_balance = available_balance + $3::numeric,
+              held_balance = held_balance - $3::numeric,
+              updated_at = NOW()
+        WHERE user_id = $1 AND asset = $2 AND held_balance >= $3::numeric
+        RETURNING available_balance::text AS balance_after`
+    : input.kind === "trade_credit"
+      ? `UPDATE wallet_balances
+            SET available_balance = available_balance + $3::numeric,
+                updated_at = NOW()
+          WHERE user_id = $1 AND asset = $2
+          RETURNING available_balance::text AS balance_after`
+      : `UPDATE wallet_balances
+            SET available_balance = available_balance - $3::numeric,
+                updated_at = NOW()
+          WHERE user_id = $1 AND asset = $2 AND available_balance >= $3::numeric
+          RETURNING available_balance::text AS balance_after`;
+
+  const updated = await input.client.query<{ balance_after: string }>(update, [
+    input.userId,
+    asset,
+    amount,
+  ]);
+  if (!updated.rows[0]) {
+    throw new Error(
+      input.kind === "release"
+        ? "order_hold_balance_mismatch"
+        : `${input.kind}_${balanceColumn}_insufficient`,
+    );
+  }
+
+  const ledger = await postLedgerEntryTx(input.client, {
+    walletId: input.userId,
+    asset,
+    type: input.kind,
+    amount,
+    balanceAfter: updated.rows[0].balance_after,
+    referenceId: input.referenceId,
+    referenceType: input.kind === "release" ? "order" : "trade",
+  });
+  if (!ledger || !D(ledger.amount).eq(amount)) {
+    throw new Error(`${input.kind}_ledger_mismatch`);
+  }
+}
+
+export async function releaseMatchedOrderFundsTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number | string,
+  orderId: string,
+): Promise<void> {
+  await strictLedgerMutationTx({
+    client,
+    userId,
+    asset,
+    amount,
+    referenceId: orderId,
+    kind: "release",
+  });
+}
+
+export async function debitTradeFundsTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number | string,
+  tradeId: string,
+): Promise<void> {
+  await strictLedgerMutationTx({
+    client,
+    userId,
+    asset,
+    amount,
+    referenceId: tradeId,
+    kind: "trade_debit",
+  });
+}
+
+export async function creditTradeFundsTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number | string,
+  tradeId: string,
+): Promise<void> {
+  await strictLedgerMutationTx({
+    client,
+    userId,
+    asset,
+    amount,
+    referenceId: tradeId,
+    kind: "trade_credit",
+  });
+}
+
+export async function chargeTradeFeeTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number | string,
+  tradeId: string,
+): Promise<void> {
+  await strictLedgerMutationTx({
+    client,
+    userId,
+    asset,
+    amount,
+    referenceId: tradeId,
+    kind: "fee",
+  });
 }
 
 export async function postHold(
