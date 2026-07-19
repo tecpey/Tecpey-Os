@@ -4,14 +4,39 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   type-diagnostics:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          show-progress: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
       - run: npm ci --silent --no-audit --no-fund
-      - run: ./node_modules/.bin/tsc --noEmit --pretty false
+      - name: TypeScript and temporary PR diagnostic
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          ./node_modules/.bin/tsc --noEmit --pretty false > /tmp/tecpey-tsc.log 2>&1
+          CODE=$?
+          if [ "$CODE" -ne 0 ]; then
+            {
+              echo '### Temporary TypeScript diagnostics'
+              echo '```text'
+              head -c 50000 /tmp/tecpey-tsc.log
+              echo
+              echo '```'
+            } > /tmp/tecpey-tsc-comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/tecpey-tsc-comment.md
+          fi
+          cat /tmp/tecpey-tsc.log
+          exit "$CODE"
