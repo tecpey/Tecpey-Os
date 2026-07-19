@@ -21,11 +21,12 @@ import {
 import {
   applyArenaExecutionActionV2,
   computeArenaExecutionEquity,
-  normalizeArenaExecutionStateV2,
+  createArenaExecutionStateV2,
   type ArenaExecutionActionV2,
   type ArenaExecutionStateV2,
   type ArenaPriceSnapshot,
 } from "@/lib/trading-arena-execution-v2";
+import { validateArenaExecutionStateV2 } from "@/lib/trading-arena-execution-state-validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,8 +162,17 @@ async function ensureArenaContext(client: PoolClient, studentId: string): Promis
 function loadExecution(row: AttemptRow): { state: ArenaExecutionStateV2; revision: number } {
   const revision = Number(row.execution_revision);
   if (!Number.isSafeInteger(revision) || revision < 0) throw new Error("arena_revision_invalid");
+  const raw = row.execution_state;
+  const empty = Boolean(
+    raw &&
+    typeof raw === "object" &&
+    !Array.isArray(raw) &&
+    Object.keys(raw as Record<string, unknown>).length === 0,
+  );
   return {
-    state: normalizeArenaExecutionStateV2(row.execution_state, row.starting_balance),
+    state: empty
+      ? createArenaExecutionStateV2(row.starting_balance)
+      : validateArenaExecutionStateV2(raw),
     revision,
   };
 }
@@ -414,11 +424,14 @@ export async function POST(request: NextRequest) {
     if (!key) return apiError("idempotency_key_required", 400);
 
     let requestedMarket: ArenaPriceSnapshot | null = null;
+  if (action.type !== "cancel_order") {
     try {
       requestedMarket = await getArenaMarketPriceSnapshot();
     } catch {
-      if (action.type !== "cancel_order") return apiError("arena_price_feed_unavailable", 503);
+      // The transaction checks idempotent replay before a new
+      // price-dependent command fails closed.
     }
+  }
 
     const hash = requestHash(expectedRevision, action);
     const operationId = randomUUID();
@@ -464,6 +477,9 @@ export async function POST(request: NextRequest) {
           };
         }
 
+        if (!requestedMarket && action.type !== "cancel_order") {
+          return { error: "arena_price_feed_unavailable" as const };
+        }
         const market = requestedMarket ?? execution.state.lastMarket;
         if (!market) return { error: "arena_price_feed_unavailable" as const };
         const applied = applyArenaExecutionActionV2(execution.state, action, {
