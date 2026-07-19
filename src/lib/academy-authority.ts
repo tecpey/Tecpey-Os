@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { hashLearningCommand } from "@/lib/academy-assessment";
+import { enqueueAcademyAssessmentCompleted } from "@/lib/notifications/academy-domain-events";
 
 export type AcademyRewardInput = {
   studentId: string;
@@ -74,6 +75,18 @@ export async function readLearningCommand<T>(
   return { requestHash, response: null, idempotencyConflict: false };
 }
 
+function termAssessmentCommand(commandType: string): {
+  locale: "fa" | "en";
+  termNumber: number;
+} | null {
+  const match = /^term_assessment:(fa|en):([1-7])$/.exec(commandType);
+  if (!match) return null;
+  return {
+    locale: match[1] as "fa" | "en",
+    termNumber: Number.parseInt(match[2], 10),
+  };
+}
+
 export async function storeLearningCommand(
   client: PoolClient,
   input: {
@@ -84,11 +97,45 @@ export async function storeLearningCommand(
     result: Record<string, unknown>;
   },
 ): Promise<void> {
-  await client.query(
+  const inserted = await client.query<{ created_at: Date }>(
     `INSERT INTO academy_learning_commands
        (student_id, command_type, request_hash, idempotency_key, result_response)
      VALUES ($1::uuid, $2, $3, $4, $5::jsonb)
-     ON CONFLICT DO NOTHING`,
-    [input.studentId, input.commandType, input.requestHash, input.idempotencyKey ?? null, JSON.stringify(input.result)],
+     ON CONFLICT DO NOTHING
+     RETURNING created_at`,
+    [
+      input.studentId,
+      input.commandType,
+      input.requestHash,
+      input.idempotencyKey ?? null,
+      JSON.stringify(input.result),
+    ],
   );
+
+  const command = termAssessmentCommand(input.commandType);
+  const createdAt = inserted.rows[0]?.created_at;
+  if (!command || !createdAt) return;
+
+  const percent = input.result.percent;
+  const passed = input.result.passed;
+  const resultTermNumber = input.result.termNumber;
+  if (
+    !Number.isInteger(percent) ||
+    Number(percent) < 0 ||
+    Number(percent) > 100 ||
+    typeof passed !== "boolean" ||
+    resultTermNumber !== command.termNumber
+  ) {
+    throw new Error("academy_term_assessment_command_result_invalid");
+  }
+
+  await enqueueAcademyAssessmentCompleted(client, {
+    studentId: input.studentId,
+    locale: command.locale,
+    termNumber: command.termNumber,
+    percent: Number(percent),
+    passed,
+    requestHash: input.requestHash,
+    occurredAt: createdAt.toISOString(),
+  });
 }
