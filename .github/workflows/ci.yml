@@ -31,7 +31,7 @@ jobs:
               text = file.read_text()
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f"expected exactly one match in {path}, found {count}")
+                  raise SystemExit(f"expected exactly one match in {path}, found {count}: {old!r}")
               file.write_text(text.replace(old, new, 1))
 
           replace_once(
@@ -42,42 +42,42 @@ jobs:
 
           replace_once(
               "src/lib/trading-arena-execution-v2.ts",
-              '''  const equityBefore = input.state.lastMarket
-              ? decimal(computeArenaExecutionEquity(input.state, input.state.lastMarket))
-              : decimal(input.state.equity);''',
-              '''  const equityBefore = decimal(
-              computeArenaExecutionEquity(input.state, input.context.market),
-            );''',
+              "  const equityBefore = input.state.lastMarket\n"
+              "    ? decimal(computeArenaExecutionEquity(input.state, input.state.lastMarket))\n"
+              "    : decimal(input.state.equity);",
+              "  const equityBefore = decimal(\n"
+              "    computeArenaExecutionEquity(input.state, input.context.market),\n"
+              "  );",
           )
 
           replace_once(
               "src/lib/trading-arena-execution-v2.ts",
-              '  let next = { ...state, lastMarket: context.market, updatedAt: context.now };',
-              '  let next: ArenaExecutionStateV2 = { ...state, lastMarket: context.market, updatedAt: context.now };',
+              "  let next = { ...state, lastMarket: context.market, updatedAt: context.now };",
+              "  let next: ArenaExecutionStateV2 = { ...state, lastMarket: context.market, updatedAt: context.now };",
           )
 
           replace_once(
               "src/lib/trading-arena-execution-v2.ts",
-              '''    const candidateFill = buyFillPrice(context.market.prices[order.asset], context);
-              const fillPrice = Decimal.min(candidateFill, decimal(order.limitPrice));''',
-              '''    // Educational limit orders fill at their declared limit once the
-              // authoritative market reaches it. This avoids a gap-down fill making
-              // a previously valid stop-loss invalid relative to the fill price.
-              const fillPrice = decimal(order.limitPrice);''',
+              "    const candidateFill = buyFillPrice(context.market.prices[order.asset], context);\n"
+              "    const fillPrice = Decimal.min(candidateFill, decimal(order.limitPrice));",
+              "    // Educational limit orders fill at their declared limit once the\n"
+              "    // authoritative market reaches it. This avoids a gap-down fill making\n"
+              "    // a previously valid stop-loss invalid relative to the fill price.\n"
+              "    const fillPrice = decimal(order.limitPrice);",
           )
 
           replace_once(
               "src/tests/trading-arena-execution-v2.test.ts",
-              '''function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {
-              assert.equal(result.ok, true);
-              if (!result.ok) throw new Error(result.error);
-              return result;
-            }''',
-              '''function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {
-              if (!result.ok) throw new Error(result.error);
-              assert.equal(result.ok, true);
-              return result;
-            }''',
+              "function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {\n"
+              "  assert.equal(result.ok, true);\n"
+              "  if (!result.ok) throw new Error(result.error);\n"
+              "  return result;\n"
+              "}",
+              "function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {\n"
+              "  if (!result.ok) throw new Error(result.error);\n"
+              "  assert.equal(result.ok, true);\n"
+              "  return result;\n"
+              "}",
           )
 
           subprocess.run(["git", "fetch", "origin", "main", "--quiet"], check=True)
