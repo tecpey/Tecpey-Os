@@ -5,6 +5,8 @@ const DEFAULT_BINANCE_FEED =
   "https://api.binance.com/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22%5D";
 const CACHE_TTL_MS = 2_000;
 const REQUEST_TIMEOUT_MS = 2_500;
+const MAX_SNAPSHOT_AGE_MS = 15_000;
+const MAX_FUTURE_SKEW_MS = 5_000;
 
 let cached: { value: ArenaPriceSnapshot; expiresAt: number } | null = null;
 let inFlight: Promise<ArenaPriceSnapshot> | null = null;
@@ -111,7 +113,25 @@ export function parseArenaMarketPricePayload(
   };
 }
 
-async function requestSnapshot(): Promise<ArenaPriceSnapshot> {
+export function assertFreshArenaMarketPriceSnapshot(
+  snapshot: ArenaPriceSnapshot,
+  now = Date.now(),
+): ArenaPriceSnapshot {
+  const observedAt = Date.parse(snapshot.observedAt);
+  if (!Number.isFinite(observedAt)) {
+    throw new ArenaMarketPriceError("arena_price_feed_invalid_timestamp");
+  }
+  const age = now - observedAt;
+  if (age > MAX_SNAPSHOT_AGE_MS) {
+    throw new ArenaMarketPriceError("arena_price_feed_stale");
+  }
+  if (age < -MAX_FUTURE_SKEW_MS) {
+    throw new ArenaMarketPriceError("arena_price_feed_future_timestamp");
+  }
+  return snapshot;
+}
+
+async function requestSnapshot(now = Date.now()): Promise<ArenaPriceSnapshot> {
   const config = feedUrl();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (config.token) headers.Authorization = `Bearer ${config.token}`;
@@ -138,14 +158,19 @@ async function requestSnapshot(): Promise<ArenaPriceSnapshot> {
   } catch {
     throw new ArenaMarketPriceError("arena_price_feed_invalid_json");
   }
-  return parseArenaMarketPricePayload(payload, config.source);
+  return assertFreshArenaMarketPriceSnapshot(
+    parseArenaMarketPricePayload(payload, config.source, new Date(now).toISOString()),
+    now,
+  );
 }
 
 export async function getArenaMarketPriceSnapshot(now = Date.now()): Promise<ArenaPriceSnapshot> {
-  if (cached && cached.expiresAt > now) return cached.value;
+  if (cached && cached.expiresAt > now) {
+    return assertFreshArenaMarketPriceSnapshot(cached.value, now);
+  }
   if (inFlight) return inFlight;
 
-  inFlight = requestSnapshot()
+  inFlight = requestSnapshot(now)
     .then((value) => {
       cached = { value, expiresAt: Date.now() + CACHE_TTL_MS };
       return value;
