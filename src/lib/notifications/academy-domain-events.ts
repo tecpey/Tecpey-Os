@@ -4,14 +4,12 @@ import { resolveNotificationPrincipal } from "./principal";
 
 export type AcademyAssessmentNotificationInput = {
   studentId: string;
-  accountId: string | null;
-  email: string | null;
   locale: "fa" | "en";
   termNumber: number;
-  assessmentTitle: string;
   percent: number;
   passed: boolean;
   requestHash: string;
+  occurredAt: string;
 };
 
 /**
@@ -32,34 +30,36 @@ export async function enqueueAcademyAssessmentCompleted(
   if (!Number.isInteger(input.percent) || input.percent < 0 || input.percent > 100) {
     throw new Error("academy_assessment_notification_percent_invalid");
   }
+  if (!Number.isFinite(Date.parse(input.occurredAt))) {
+    throw new Error("academy_assessment_notification_time_invalid");
+  }
 
   const principal = await resolveNotificationPrincipal(client, {
-    accountId: input.accountId,
+    accountId: null,
     studentId: input.studentId,
-    email: input.email,
+    email: null,
     locale: input.locale,
   });
   if (principal.status !== "active") {
     throw new Error("notification_principal_inactive");
   }
 
-  const clock = await client.query<{ occurred_at: Date }>(
-    `SELECT CURRENT_TIMESTAMP AS occurred_at`,
-  );
-  const occurredAt = clock.rows[0]?.occurred_at;
-  if (!occurredAt) throw new Error("academy_assessment_notification_clock_missing");
+  const assessmentTitle =
+    input.locale === "fa"
+      ? `ارزیابی ترم ${input.termNumber.toLocaleString("fa-IR")}`
+      : `Term ${input.termNumber} assessment`;
 
   return enqueueNotificationDomainEvent(client, {
     id: `academy-assessment:${input.studentId}:${input.locale}:${input.termNumber}:${input.requestHash}`,
     tenantId: principal.tenantId,
     principalId: principal.id,
-    occurredAt: occurredAt.toISOString(),
+    occurredAt: new Date(input.occurredAt).toISOString(),
     locale: input.locale,
     version: 1,
     type: "academy.assessment_completed",
     payload: {
       assessmentId: `term-${input.termNumber}`,
-      title: input.assessmentTitle,
+      title: assessmentTitle,
       score: input.percent,
       passed: input.passed,
     },
