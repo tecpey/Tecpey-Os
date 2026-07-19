@@ -5,6 +5,7 @@ import type { ChainId, ConfirmationJobData } from "../types";
 import { getProvider } from "../providers/registry";
 import { withDb } from "@/lib/db";
 import { trackWalletMetric } from "../observability";
+import { settleConfirmedWithdrawal } from "@/lib/security/withdrawal-settlement-authority";
 
 const TIMEOUT_BY_CHAIN: Record<ChainId, number> = {
   bitcoin: 3_600_000,
@@ -55,15 +56,15 @@ export async function checkConfirmation(data: ConfirmationJobData): Promise<bool
   }
 
   if (
-    status.isComplete
-    && status.confirmations >= withdrawal.requiredConfirmations
+    status.isComplete &&
+    status.confirmations >= withdrawal.requiredConfirmations
   ) {
-    await markWithdrawalCompleted(
-      withdrawal.id,
-      withdrawal.txHash,
-      status.confirmations,
-      status.blockNumber,
-    );
+    await settleConfirmedWithdrawal({
+      withdrawalId: withdrawal.id,
+      txHash: withdrawal.txHash,
+      confirmations: status.confirmations,
+      blockNumber: status.blockNumber,
+    });
     return true;
   }
 
@@ -120,29 +121,6 @@ async function loadAuthoritativeConfirmation(
   return result.value;
 }
 
-async function markWithdrawalCompleted(
-  withdrawalId: string,
-  txHash: string,
-  confirmations: number,
-  blockNumber?: bigint,
-): Promise<void> {
-  await transitionConfirmationState(
-    withdrawalId,
-    txHash,
-    `UPDATE withdrawals SET
-       state = 'completed',
-       confirmation_count = $3,
-       block_number = $4,
-       completed_at = NOW(),
-       execution_error = NULL,
-       updated_at = NOW()
-     WHERE id = $1
-       AND tx_hash = $2
-       AND state IN ('broadcasted', 'confirming')`,
-    [withdrawalId, txHash, confirmations, blockNumber ? blockNumber.toString() : null],
-  );
-}
-
 async function markWithdrawalFailed(
   withdrawalId: string,
   txHash: string,
@@ -190,10 +168,12 @@ async function transitionConfirmationState(
   if (!result.enabled) throw new Error("Withdrawal database unavailable");
   if (result.value.rowCount === 1) return;
 
-  const current = await withDb(async (db) => db.query<{ state: string; txHash: string | null }>(
-    `SELECT state, tx_hash AS "txHash" FROM withdrawals WHERE id = $1`,
-    [withdrawalId],
-  ));
+  const current = await withDb(async (db) =>
+    db.query<{ state: string; txHash: string | null }>(
+      `SELECT state, tx_hash AS "txHash" FROM withdrawals WHERE id = $1`,
+      [withdrawalId],
+    ),
+  );
   const row = current.enabled ? current.value.rows[0] : null;
   if (row && row.txHash === txHash && ["completed", "failed", "timeout"].includes(row.state)) {
     return;
