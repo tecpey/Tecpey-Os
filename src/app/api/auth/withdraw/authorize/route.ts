@@ -77,9 +77,13 @@ export async function POST(req: NextRequest) {
       if (step === null) {
         writeAudit({
           actorId: userId,
-          action: "withdrawal_authorization_failed",
+          action: "wallet_withdrawal",
           ip: getClientIp(req),
-          metadata: { reason: "invalid_totp", requestHash: canonical.requestHash },
+          metadata: {
+            event: "withdrawal_authorization_failed",
+            reason: "invalid_totp",
+            requestHash: canonical.requestHash,
+          },
         });
         return apiError("invalid_totp_code", 401);
       }
@@ -107,10 +111,11 @@ export async function POST(req: NextRequest) {
 
         writeAudit({
           actorId: userId,
-          action: "withdrawal_authorized",
+          action: "wallet_withdrawal",
           ip: getClientIp(req),
           userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
           metadata: {
+            event: "withdrawal_authorized",
             authorizationId: issued.value.id,
             requestHash: canonical.requestHash,
             policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
