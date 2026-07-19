@@ -10,7 +10,7 @@ import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ArenaClosedTradeV2, ArenaExecutionStateV2 } from "@/lib/trading-arena-execution-v2";
-import { validateArenaExecutionStateV2 } from "@/lib/trading-arena-execution-state-validation";
+import { normalizeArenaReflectionExecutionState } from "@/lib/trading-arena-reflection-state";
 import {
   arenaReflectionEvidenceFromTrade,
   createArenaReflectionRequestHash,
@@ -40,6 +40,7 @@ const REFLECTION_SELECT = `
 type AttemptEvidenceRow = {
   id: string;
   attempt_number: number;
+  starting_balance: string;
   execution_state: unknown;
 };
 
@@ -76,7 +77,7 @@ async function loadOwnedAttempt(
   lock: boolean,
 ): Promise<{ attemptNumber: number; state: ArenaExecutionStateV2 } | null> {
   const result = await client.query<AttemptEvidenceRow>(
-    `SELECT id::text, attempt_number, execution_state
+    `SELECT id::text, attempt_number, starting_balance::text, execution_state
      FROM academy_trading_arena_attempts
      WHERE id = $1::uuid AND student_id = $2::uuid
      LIMIT 1
@@ -87,7 +88,10 @@ async function loadOwnedAttempt(
   if (!row) return null;
   return {
     attemptNumber: Number(row.attempt_number),
-    state: validateArenaExecutionStateV2(row.execution_state),
+    state: normalizeArenaReflectionExecutionState(
+      row.execution_state,
+      row.starting_balance,
+    ),
   };
 }
 
