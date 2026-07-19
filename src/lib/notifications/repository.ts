@@ -1,11 +1,6 @@
 import type { PoolClient } from "pg";
 import { Validate } from "../api-validation";
 import type { NotificationPrincipal } from "./principal";
-import {
-  NOTIFICATION_CADENCES,
-  NOTIFICATION_CHANNELS,
-  NOTIFICATION_CLASSES,
-} from "./types";
 import type {
   NotificationCadence,
   NotificationChannel,
@@ -105,11 +100,19 @@ export function encodeNotificationCursor(cursor: Cursor): string {
 }
 
 export function decodeNotificationCursor(value: unknown): Cursor | null {
-  if (typeof value !== "string" || value.length < 8 || value.length > 500) return null;
+  if (typeof value !== "string" || value.length < 8 || value.length > 500) {
+    return null;
+  }
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<Cursor>;
+    const parsed = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    ) as Partial<Cursor>;
     const id = Validate.uuid(parsed.id);
-    if (!id || typeof parsed.createdAt !== "string" || !Number.isFinite(Date.parse(parsed.createdAt))) {
+    if (
+      !id ||
+      typeof parsed.createdAt !== "string" ||
+      !Number.isFinite(Date.parse(parsed.createdAt))
+    ) {
       return null;
     }
     return { id, createdAt: new Date(parsed.createdAt).toISOString() };
@@ -224,7 +227,13 @@ export async function listInboxNotifications(
         AND ($3::timestamptz IS NULL OR (created_at, id) < ($3::timestamptz, $4::uuid))
       ORDER BY created_at DESC, id DESC
       LIMIT $5`,
-    [principal.tenantId, principal.id, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1],
+    [
+      principal.tenantId,
+      principal.id,
+      cursor?.createdAt ?? null,
+      cursor?.id ?? null,
+      limit + 1,
+    ],
   );
 
   const unreadResult = await client.query<{ count: string }>(
@@ -248,7 +257,10 @@ export async function listInboxNotifications(
     unread: Number.parseInt(unreadResult.rows[0]?.count ?? "0", 10),
     nextCursor:
       hasMore && last
-        ? encodeNotificationCursor({ createdAt: last.created_at.toISOString(), id: last.id })
+        ? encodeNotificationCursor({
+            createdAt: last.created_at.toISOString(),
+            id: last.id,
+          })
         : null,
   };
 }
@@ -288,7 +300,10 @@ export async function mutateInboxNotification(
 export async function getNotificationPreferences(
   client: PoolClient,
   principalId: string,
-): Promise<{ settings: NotificationSettings; preferences: NotificationPreference[] }> {
+): Promise<{
+  settings: NotificationSettings;
+  preferences: NotificationPreference[];
+}> {
   const settingsResult = await client.query<{
     timezone: string;
     quiet_start: string | null;
@@ -341,60 +356,4 @@ export async function getNotificationPreferences(
       updatedAt: row.updated_at.toISOString(),
     })),
   };
-}
-
-export function validNotificationPreferenceInput(input: {
-  notificationClass: unknown;
-  channel: unknown;
-  cadence: unknown;
-  enabled: unknown;
-}): input is {
-  notificationClass: NotificationClass;
-  channel: NotificationChannel;
-  cadence: NotificationCadence;
-  enabled: boolean;
-} {
-  return (
-    NOTIFICATION_CLASSES.includes(input.notificationClass as NotificationClass) &&
-    NOTIFICATION_CHANNELS.includes(input.channel as NotificationChannel) &&
-    NOTIFICATION_CADENCES.includes(input.cadence as NotificationCadence) &&
-    typeof input.enabled === "boolean"
-  );
-}
-
-export async function upsertNotificationPreference(
-  client: PoolClient,
-  principalId: string,
-  preference: {
-    notificationClass: NotificationClass;
-    channel: NotificationChannel;
-    enabled: boolean;
-    cadence: NotificationCadence;
-  },
-): Promise<void> {
-  if (
-    ["security_critical", "financial_transactional", "legal_compliance_service"].includes(
-      preference.notificationClass,
-    ) &&
-    !preference.enabled
-  ) {
-    throw new Error("mandatory_notification_class_cannot_be_disabled");
-  }
-
-  await client.query(
-    `INSERT INTO notification_preferences
-      (principal_id, notification_class, channel, enabled, cadence)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (principal_id, notification_class, channel)
-     DO UPDATE SET enabled = EXCLUDED.enabled,
-                   cadence = EXCLUDED.cadence,
-                   updated_at = NOW()`,
-    [
-      principalId,
-      preference.notificationClass,
-      preference.channel,
-      preference.enabled,
-      preference.cadence,
-    ],
-  );
 }
