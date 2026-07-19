@@ -67,7 +67,10 @@ requireText("client", "scopeToken: string", "every browser command must retain i
 requireText("client", "transportStorage", "all browser transport persistence must use one adapter");
 requireText("client", "never authoritative", "the browser adapter must declare its non-authoritative role");
 requireText("client", "refreshPrincipalScope", "the client must refresh current principal scope");
+requireText("client", "scopeRefreshInFlight", "concurrent scope bootstraps must share one request");
 requireText("client", "queueOfflineEvent", "offline producers must use one governed queue entry point");
+requireText("client", "enqueueScopedItem(baseItem, freshScope)", "the first event must enqueue after successful scope bootstrap");
+requireText("client", "setScopeRequired(true)", "scope failure must be visible rather than silently dropping an event");
 requireText("client", 'result.status === "committed"', "client may delete only committed commands");
 requireText("client", 'result.status === "rejected"', "terminal rejected commands may be removed explicitly");
 requireText("client", "including storage-unavailable 503", "client must preserve commands after unavailable responses");
@@ -77,6 +80,7 @@ requireText("client", "store.setItem(LEGACY_QUARANTINE_KEY, legacy)", "legacy da
 rejectText("client", "window.localStorage.", "direct browser storage calls outside the audited adapter are forbidden");
 rejectText("client", 'r.status === "accepted"', "legacy false-success deletion is forbidden");
 rejectText("client", "writeQueue([...readQueue(), ...legacy", "legacy unscoped commands may not enter a current principal queue");
+rejectText("client", 'return "";', "scope bootstrap races may not silently report an empty event identity");
 const localStorageLines = content.client
   .split(/\r?\n/)
   .filter((line) => line.includes("localStorage")).length;
@@ -134,6 +138,7 @@ for (const evidence of [
   "rejects expired principal scope",
   "does not acknowledge mismatched principal commands",
   "quarantines legacy unscoped commands",
+  "retries the first event after scope bootstrap instead of silently discarding it",
 ]) {
   requireText("scopeTests", evidence, `missing principal-scope evidence: ${evidence}`);
 }
@@ -146,4 +151,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, queue partitioning, legacy quarantine, stable command identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
+console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
