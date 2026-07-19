@@ -163,6 +163,9 @@ jobs:
       - name: Notification persistence authority guard
         run: npm run notifications:check
 
+      - name: Notification runtime authority guard
+        run: npm run notifications:runtime:check
+
       - name: Exchange order admission authority guard
         run: node scripts/check-exchange-order-admission.mjs
 
