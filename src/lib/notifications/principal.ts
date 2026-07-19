@@ -20,7 +20,6 @@ export type NotificationPrincipal = {
   studentId: string | null;
   status: "active" | "suspended" | "disabled" | "deleted";
   locale: "fa" | "en";
-  timezone: string;
 };
 
 type PrincipalRow = {
@@ -30,7 +29,6 @@ type PrincipalRow = {
   student_id: string | null;
   status: NotificationPrincipal["status"];
   locale: "fa" | "en";
-  timezone: string;
 };
 
 function normalizeLocale(value: unknown): "fa" | "en" {
@@ -103,7 +101,7 @@ export async function resolveNotificationPrincipal(
   }
 
   const existing = await client.query<PrincipalRow>(
-    `SELECT id, tenant_id, account_id, student_id, status, locale, timezone
+    `SELECT id, tenant_id, account_id, student_id, status, locale
        FROM platform_principals
       WHERE tenant_id = $1
         AND (($2::text IS NOT NULL AND account_id = $2)
@@ -142,7 +140,7 @@ export async function resolveNotificationPrincipal(
               locale = $5,
               updated_at = NOW()
         WHERE id = $1
-        RETURNING id, tenant_id, account_id, student_id, status, locale, timezone`,
+        RETURNING id, tenant_id, account_id, student_id, status, locale`,
       [
         current.id,
         identity.accountId,
@@ -157,7 +155,7 @@ export async function resolveNotificationPrincipal(
       `INSERT INTO platform_principals
         (tenant_id, account_id, student_id, email, locale)
        VALUES ($1, $2, $3::uuid, $4, $5)
-       RETURNING id, tenant_id, account_id, student_id, status, locale, timezone`,
+       RETURNING id, tenant_id, account_id, student_id, status, locale`,
       [tenantId, identity.accountId, identity.studentId, identity.email, identity.locale],
     );
     row = inserted.rows[0];
@@ -166,10 +164,10 @@ export async function resolveNotificationPrincipal(
   if (!row) throw new Error("notification_principal_resolution_failed");
 
   await client.query(
-    `INSERT INTO notification_settings (principal_id, timezone)
-     VALUES ($1, $2)
+    `INSERT INTO notification_settings (principal_id)
+     VALUES ($1)
      ON CONFLICT (principal_id) DO NOTHING`,
-    [row.id, row.timezone],
+    [row.id],
   );
 
   return {
@@ -179,6 +177,5 @@ export async function resolveNotificationPrincipal(
     studentId: row.student_id,
     status: row.status,
     locale: row.locale,
-    timezone: row.timezone,
   };
 }
