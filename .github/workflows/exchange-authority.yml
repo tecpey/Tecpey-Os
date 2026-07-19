@@ -95,7 +95,18 @@ jobs:
         run: npm run exchange:check
 
       - name: Exchange order authority tests
-        run: npm run test:exchange-order-authority
+        run: |
+          set -o pipefail
+          npm run test:exchange-order-authority 2>&1 | tee /tmp/tecpey-exchange-authority-tests.log
+
+      - name: Upload Exchange authority diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: exchange-authority-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-exchange-authority-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: TypeScript
         run: npm run typecheck
