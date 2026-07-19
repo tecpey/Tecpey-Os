@@ -1,8 +1,10 @@
 import type { PoolClient } from "pg";
 import type { NotificationDomainOutboxClaim } from "./domain-outbox";
+import { hashNotificationDomainEvent } from "./domain-event-hash";
 import {
   parseNotificationProducerEvent,
   produceDomainNotification,
+  type NotificationProducerEvent,
 } from "./producers";
 
 type AuthoritativeDomainRow = {
@@ -14,9 +16,33 @@ type AuthoritativeDomainRow = {
   occurred_at: Date;
   event_locale: "fa" | "en";
   payload: Record<string, unknown>;
+  payload_hash: string;
   principal_locale: "fa" | "en";
   principal_status: "active" | "suspended" | "disabled" | "deleted";
 };
+
+function withEffectiveLocale(
+  event: NotificationProducerEvent,
+  locale: "fa" | "en",
+): NotificationProducerEvent | null {
+  if (event.type === "academy.assessment_completed") {
+    const match = /^term-([1-7])$/.exec(event.payload.assessmentId);
+    if (!match) return null;
+    const termNumber = Number.parseInt(match[1], 10);
+    return parseNotificationProducerEvent({
+      ...event,
+      locale,
+      payload: {
+        ...event.payload,
+        title:
+          locale === "fa"
+            ? `ارزیابی ترم ${termNumber.toLocaleString("fa-IR")}`
+            : `Term ${termNumber} assessment`,
+      },
+    });
+  }
+  return parseNotificationProducerEvent({ ...event, locale });
+}
 
 /**
  * The claim object is only a lease reference. Event content is reloaded from
@@ -34,6 +60,7 @@ export async function processAuthoritativeNotificationDomainClaim(
   const authoritative = await client.query<AuthoritativeDomainRow>(
     `SELECT o.tenant_id, o.principal_id, o.event_type, o.event_version,
             o.event_id, o.occurred_at, o.locale AS event_locale, o.payload,
+            o.payload_hash,
             p.locale AS principal_locale, p.status AS principal_status
        FROM notification_domain_outbox o
        JOIN platform_principals p
@@ -53,19 +80,31 @@ export async function processAuthoritativeNotificationDomainClaim(
     throw new Error("notification_principal_inactive");
   }
 
-  const event = parseNotificationProducerEvent({
+  const occurrenceEvent = parseNotificationProducerEvent({
     id: row.event_id,
     tenantId: row.tenant_id,
     principalId: row.principal_id,
     occurredAt: row.occurred_at.toISOString(),
-    locale: row.principal_locale,
+    locale: row.event_locale,
     version: row.event_version,
     type: row.event_type,
     payload: row.payload,
   });
-  if (!event) throw new Error("notification_domain_outbox_event_invalid");
+  if (!occurrenceEvent) {
+    throw new Error("notification_domain_outbox_event_invalid");
+  }
+  if (hashNotificationDomainEvent(occurrenceEvent) !== row.payload_hash) {
+    throw new Error("notification_domain_event_fingerprint_mismatch");
+  }
 
-  const result = await produceDomainNotification(client, event);
+  const effectiveEvent = withEffectiveLocale(
+    occurrenceEvent,
+    row.principal_locale,
+  );
+  if (!effectiveEvent) {
+    throw new Error("notification_domain_effective_event_invalid");
+  }
+  const result = await produceDomainNotification(client, effectiveEvent);
 
   const updated = await client.query(
     `UPDATE notification_domain_outbox
@@ -99,7 +138,8 @@ export async function processAuthoritativeNotificationDomainClaim(
               'creationStatus', $5::text,
               'policyDecision', $6::text,
               'eventLocale', $7::text,
-              'effectiveLocale', $8::text
+              'effectiveLocale', $8::text,
+              'eventFingerprint', $9::text
             )
       WHERE domain_outbox_id = $1
         AND attempt_number = $2
@@ -114,6 +154,7 @@ export async function processAuthoritativeNotificationDomainClaim(
       result.decision,
       row.event_locale,
       row.principal_locale,
+      row.payload_hash,
     ],
   );
   if ((attempt.rowCount ?? 0) !== 1) {
