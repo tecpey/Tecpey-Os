@@ -1,9 +1,4 @@
-// JWT ID revocation store — Redis fast path plus PostgreSQL durable authority.
-//
-// Every issued access-session JTI must be registered in user_sessions. Logout
-// marks the durable row revoked and writes the Redis deny entry. Non-strict
-// requests may use Redis first but fall back to PostgreSQL during an outage;
-// strict requests require both stores to be available and consistent.
+// JWT ID revocation store — Redis deny cache plus PostgreSQL durable authority.
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -19,7 +14,7 @@ function getRedis() {
 async function durableSessionState(jti: string): Promise<DurableSessionState> {
   try {
     const result = await withDb(async (db) => {
-      const row = await db.query<{
+      const rows = await db.query<{
         is_revoked: boolean;
         expires_at: Date;
       }>(
@@ -29,7 +24,7 @@ async function durableSessionState(jti: string): Promise<DurableSessionState> {
           LIMIT 1`,
         [jti],
       );
-      const session = row.rows[0];
+      const session = rows.rows[0];
       if (!session) return "missing" as const;
       if (session.is_revoked || session.expires_at.getTime() <= Date.now()) {
         return "revoked" as const;
@@ -46,7 +41,7 @@ async function durableSessionState(jti: string): Promise<DurableSessionState> {
   }
 }
 
-/** Mark a JTI revoked in Redis. Returns false when the deny store is unavailable. */
+/** Mark a JTI revoked in Redis. False means the fast deny store is unavailable. */
 export async function revokeJti(jti: string, expiresAt: number): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
@@ -64,10 +59,8 @@ export async function revokeJti(jti: string, expiresAt: number): Promise<boolean
 }
 
 /**
- * Availability-oriented check for ordinary authenticated reads.
- * Redis is the fast path. If Redis is unavailable, a revoked/expired/missing
- * durable session is still rejected; only a confirmed active durable row may
- * pass. If both stores are unavailable this legacy-compatible path allows.
+ * Ordinary authenticated reads still require durable active-session evidence.
+ * Redis can immediately deny, but a Redis miss is not proof of validity.
  */
 export async function isJtiRevoked(jti: string): Promise<boolean> {
   const redis = getRedis();
@@ -75,7 +68,6 @@ export async function isJtiRevoked(jti: string): Promise<boolean> {
     try {
       const value = await redis.get(`${PREFIX}${jti}`);
       if (value !== null) return true;
-      return false;
     } catch (err) {
       logger.warn("[jti-store] Redis check failed; consulting durable session", {
         jti,
@@ -88,23 +80,21 @@ export async function isJtiRevoked(jti: string): Promise<boolean> {
   if (durable === "active") return false;
   if (durable === "revoked" || durable === "missing") return true;
 
-  logger.warn("[jti-store] all revocation stores unavailable — non-strict allow", {
+  logger.warn("[jti-store] durable revocation authority unavailable — blocking", {
     jti,
   });
-  return false;
+  return true;
 }
 
 /**
- * Security-sensitive revocation check. It fails closed unless PostgreSQL
- * confirms an active registered session and Redis is reachable with no deny
- * entry. Missing registration is rejected because strict operations require
- * durable session evidence.
+ * Security-sensitive check. PostgreSQL must confirm a registered active session
+ * and Redis must be reachable with no deny record.
  */
 export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
   const durable = await durableSessionState(jti);
   if (durable !== "active") {
     if (durable === "unavailable") {
-      logger.warn("[jti-store] strict durable session check unavailable — blocking", {
+      logger.warn("[jti-store] strict durable check unavailable — blocking", {
         jti,
       });
     }
@@ -114,8 +104,7 @@ export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return true;
   try {
-    const value = await redis.get(`${PREFIX}${jti}`);
-    return value !== null;
+    return (await redis.get(`${PREFIX}${jti}`)) !== null;
   } catch (err) {
     logger.warn("[jti-store] strict Redis check failed — blocking", {
       jti,
@@ -125,7 +114,7 @@ export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
   }
 }
 
-/** Revoke several JTIs. Returns false unless every Redis write succeeds. */
+/** Revoke several JTIs. False unless every Redis write succeeds. */
 export async function revokeMultiple(
   sessions: Array<{ jti: string; expiresAt: number }>,
 ): Promise<boolean> {
