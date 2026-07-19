@@ -16,6 +16,7 @@ import { runAcademyRewardLegacyReleaseMigrations } from "./db-migrate-academy-re
 import { runAcademySectionCommandMigrations } from "./db-migrate-academy-section-commands";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
+import { runAcademySectionUpsertGuardMigrations } from "./db-migrate-academy-section-upsert-guard";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
 
@@ -41,6 +42,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runAcademySectionCommandMigrations(client);
   await runWithdrawalAdmissionMigrations(client);
   await runWithdrawalSettlementMigrations(client);
+  await runAcademySectionUpsertGuardMigrations(client);
 }
 
 /**
