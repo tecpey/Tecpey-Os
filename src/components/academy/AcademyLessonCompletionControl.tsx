@@ -29,7 +29,7 @@ export function AcademyLessonCompletionControl({
           </p>
           <p className="mt-2 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
             {isFa
-              ? "برای جلوگیری از پیشرفت صوری، دکمه «کامل کردم» وجود ندارد. XP، قبولی و بازشدن ترم بعد فقط پس از ارزیابی رسمی و ثبت‌شده در سرور تک‌پی صادر می‌شود."
+              ? "امکان ثبت دستی تکمیل درس وجود ندارد. XP، قبولی و بازشدن ترم بعد فقط پس از ارزیابی رسمی و ثبت‌شده در سرور تک‌پی صادر می‌شود."
               : "There is no self-issued “complete” button. XP, completion, and the next term are granted only by an authenticated, server-graded assessment recorded by TecPey."}
           </p>
           <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
