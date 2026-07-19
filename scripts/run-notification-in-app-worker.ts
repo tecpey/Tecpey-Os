@@ -5,21 +5,32 @@ import {
   processInAppNotificationBatch,
 } from "../src/lib/notifications/outbox";
 
+function boundedIntegerEnv(
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  if (!/^\d+$/.test(raw.trim())) {
+    throw new Error(`${name.toLowerCase()}_invalid`);
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Error(`${name.toLowerCase()}_out_of_range`);
+  }
+  return parsed;
+}
+
 const workerId = `notification-in-app:${hostname()}:${process.pid}`;
-const pollMs = Math.min(
-  30_000,
-  Math.max(250, Number.parseInt(process.env.NOTIFICATION_POLL_MS ?? "1000", 10)),
-);
-const batchSize = Math.min(
-  100,
-  Math.max(1, Number.parseInt(process.env.NOTIFICATION_BATCH_SIZE ?? "20", 10)),
-);
-const leaseSeconds = Math.min(
+const pollMs = boundedIntegerEnv("NOTIFICATION_POLL_MS", 1_000, 250, 30_000);
+const batchSize = boundedIntegerEnv("NOTIFICATION_BATCH_SIZE", 20, 1, 100);
+const leaseSeconds = boundedIntegerEnv(
+  "NOTIFICATION_LEASE_SECONDS",
+  60,
+  15,
   300,
-  Math.max(
-    15,
-    Number.parseInt(process.env.NOTIFICATION_LEASE_SECONDS ?? "60", 10),
-  ),
 );
 
 let stopping = false;
