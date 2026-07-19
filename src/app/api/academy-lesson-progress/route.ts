@@ -162,31 +162,33 @@ export async function GET(req: NextRequest) {
     if (checkpoints.length === 0) return apiError("term_not_found", 404);
 
     const result = await withTx(async (client) => {
-      const [recordsResult, summariesResult, projection] = await Promise.all([
-        client.query<LessonRow>(
-          `SELECT locale, term_number, term_slug, section_key, section_heading,
-                  completed, answer, first_answer, completed_at, answered_at,
-                  updated_at, question_id, question_version, selected_option_id,
-                  last_answer_correct, best_score, attempt_count, passed_at,
-                  authority_status
-             FROM academy_lesson_progress
-            WHERE student_id = $1::uuid
-              AND locale = $2
-              AND term_slug = $3
-              AND authority_status = 'server_checkpoint_v1'
-            ORDER BY section_key ASC`,
-          [session.studentId, locale, requestedTermSlug],
-        ),
-        client.query<SummaryRow>(
-          `SELECT locale, term_number, term_slug, total_sections,
-                  completed_sections, answered_sections, percent, xp, updated_at
-             FROM academy_term_learning_progress
-            WHERE student_id = $1::uuid AND locale = $2 AND term_slug = $3
-            LIMIT 1`,
-          [session.studentId, locale, requestedTermSlug],
-        ),
-        refreshAcademyProgressProjection(client, session.studentId as string, locale),
-      ]);
+      const recordsResult = await client.query<LessonRow>(
+        `SELECT locale, term_number, term_slug, section_key, section_heading,
+                completed, answer, first_answer, completed_at, answered_at,
+                updated_at, question_id, question_version, selected_option_id,
+                last_answer_correct, best_score, attempt_count, passed_at,
+                authority_status
+           FROM academy_lesson_progress
+          WHERE student_id = $1::uuid
+            AND locale = $2
+            AND term_slug = $3
+            AND authority_status = 'server_checkpoint_v1'
+          ORDER BY section_key ASC`,
+        [session.studentId, locale, requestedTermSlug],
+      );
+      const summariesResult = await client.query<SummaryRow>(
+        `SELECT locale, term_number, term_slug, total_sections,
+                completed_sections, answered_sections, percent, xp, updated_at
+           FROM academy_term_learning_progress
+          WHERE student_id = $1::uuid AND locale = $2 AND term_slug = $3
+          LIMIT 1`,
+        [session.studentId, locale, requestedTermSlug],
+      );
+      const projection = await refreshAcademyProgressProjection(
+        client,
+        session.studentId as string,
+        locale,
+      );
       const termNumber = Number(requestedTermSlug.slice("term-".length));
       const summary = summariesResult.rows[0]
         ? toSummary(summariesResult.rows[0])
@@ -367,14 +369,27 @@ export async function PUT(req: NextRequest) {
          ON CONFLICT (student_id, locale, term_slug, section_key) DO UPDATE SET
            section_heading = EXCLUDED.section_heading,
            completed = academy_lesson_progress.completed OR EXCLUDED.completed,
-           answer = EXCLUDED.answer,
+           answer = CASE
+             WHEN academy_lesson_progress.completed THEN academy_lesson_progress.answer
+             ELSE EXCLUDED.answer
+           END,
            first_answer = COALESCE(academy_lesson_progress.first_answer, EXCLUDED.first_answer),
            completed_at = COALESCE(academy_lesson_progress.completed_at, EXCLUDED.completed_at),
            answered_at = NOW(),
-           question_id = EXCLUDED.question_id,
-           question_version = EXCLUDED.question_version,
-           selected_option_id = EXCLUDED.selected_option_id,
-           last_answer_correct = EXCLUDED.last_answer_correct,
+           question_id = CASE
+             WHEN academy_lesson_progress.completed THEN academy_lesson_progress.question_id
+             ELSE EXCLUDED.question_id
+           END,
+           question_version = CASE
+             WHEN academy_lesson_progress.completed THEN academy_lesson_progress.question_version
+             ELSE EXCLUDED.question_version
+           END,
+           selected_option_id = CASE
+             WHEN academy_lesson_progress.completed THEN academy_lesson_progress.selected_option_id
+             ELSE EXCLUDED.selected_option_id
+           END,
+           last_answer_correct = COALESCE(academy_lesson_progress.last_answer_correct, FALSE)
+             OR EXCLUDED.last_answer_correct,
            best_score = GREATEST(academy_lesson_progress.best_score, EXCLUDED.best_score),
            attempt_count = academy_lesson_progress.attempt_count + 1,
            passed_at = COALESCE(academy_lesson_progress.passed_at, EXCLUDED.passed_at),
