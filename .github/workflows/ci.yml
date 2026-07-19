@@ -7,6 +7,27 @@ on:
     branches: [main]
 
 jobs:
+  hygiene:
+    name: Repository Hygiene Inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate structured hygiene report
+        run: node scripts/audit-repository-hygiene.mjs --json > repository-hygiene.json
+
+      - name: Print hygiene summary
+        run: node scripts/audit-repository-hygiene.mjs
+
+      - name: Upload hygiene report
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-hygiene-${{ github.sha }}
+          path: repository-hygiene.json
+          if-no-files-found: error
+          retention-days: 14
+
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
