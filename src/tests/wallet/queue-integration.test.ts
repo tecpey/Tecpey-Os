@@ -33,7 +33,7 @@ async function waitForState(
 }
 
 describe("Withdrawal BullMQ runtime policy", () => {
-  it("deduplicates live watches and restores completed and failed watches", {
+  it("deduplicates live watches and allows new generations after completion or failure", {
     skip: !process.env.REDIS_URL,
     timeout: 30_000,
   }, async () => {
@@ -65,41 +65,43 @@ describe("Withdrawal BullMQ runtime policy", () => {
     try {
       await confirmationQueue.obliterate({ force: true });
 
-      const successJobId = createWalletQueueJobId(
-        "confirmation",
-        base.withdrawalId,
-        base.txHash,
-      );
-
       await enqueueConfirmationWatch(base);
       await enqueueConfirmationWatch(base);
-      assert.equal(await confirmationQueue.getDelayedCount(), 1, "a live delayed watch must be deduplicated");
+      const initialDelayed = await confirmationQueue.getDelayed();
+      assert.equal(initialDelayed.length, 1, "a live delayed watch must be atomically deduplicated");
+      const successJobId = initialDelayed[0]?.id;
+      assert.ok(successJobId, "deduplicated confirmation job must have an ID");
+      assert.equal(successJobId.includes(":"), false);
 
       successWorker = new Worker<ConfirmationJobData>(
         WITHDRAWAL_QUEUE_NAMES.confirmation,
         async () => true,
         { connection, concurrency: 1 },
       );
-      const delayed = await confirmationQueue.getJob(successJobId);
-      assert.ok(delayed, "confirmation job must exist");
-      await delayed.promote();
+      await initialDelayed[0].promote();
       await waitForState(confirmationQueue, successJobId, "completed");
       await successWorker.close();
       successWorker = null;
 
       await enqueueConfirmationWatch(base);
-      await waitForState(confirmationQueue, successJobId, "delayed");
-      assert.equal(await confirmationQueue.getDelayedCount(), 1, "a completed watch must be restored once");
-      await (await confirmationQueue.getJob(successJobId))?.remove();
+      const restoredAfterCompletion = await confirmationQueue.getDelayed();
+      assert.equal(restoredAfterCompletion.length, 1, "a completed watch must permit one new generation");
+      assert.notEqual(restoredAfterCompletion[0]?.id, successJobId);
+      await restoredAfterCompletion[0]?.remove();
 
       const failedData: ConfirmationJobData = {
         ...base,
         txHash: "0xconfirmation-failed",
       };
-      const failedJobId = createWalletQueueJobId(
+      const failedDeduplicationId = createWalletQueueJobId(
         "confirmation",
         failedData.withdrawalId,
         failedData.txHash,
+      );
+      const failedJobId = createWalletQueueJobId(
+        "confirmation",
+        failedData.withdrawalId,
+        "integration-failed-generation",
       );
 
       failureWorker = new Worker<ConfirmationJobData>(
@@ -111,6 +113,7 @@ describe("Withdrawal BullMQ runtime policy", () => {
       );
       await confirmationQueue.add("watch", failedData, {
         jobId: failedJobId,
+        deduplication: { id: failedDeduplicationId },
         attempts: 1,
         removeOnFail: false,
       });
@@ -119,8 +122,10 @@ describe("Withdrawal BullMQ runtime policy", () => {
       failureWorker = null;
 
       await enqueueConfirmationWatch(failedData);
-      await waitForState(confirmationQueue, failedJobId, "delayed");
-      assert.equal(await confirmationQueue.getDelayedCount(), 1, "a failed watch must be restored once");
+      const restoredAfterFailure = await confirmationQueue.getDelayed();
+      assert.equal(restoredAfterFailure.length, 1, "a failed watch must permit one new generation");
+      assert.notEqual(restoredAfterFailure[0]?.id, failedJobId);
+      assert.equal(restoredAfterFailure[0]?.id?.includes(":"), false);
     } finally {
       await successWorker?.close();
       await failureWorker?.close();
