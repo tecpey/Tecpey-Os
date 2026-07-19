@@ -7,6 +7,8 @@ import type {
   NotificationClass,
 } from "./types";
 
+export const LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE = 200;
+
 export type InboxNotification = {
   id: string;
   notificationClass: NotificationClass;
@@ -158,12 +160,27 @@ export async function migrateLegacyNotificationsForPrincipal(
     scheduled_for: Date;
     metadata: Record<string, unknown>;
   }>(
-    `SELECT id, type, title, body, action_url, priority, read_at, created_at,
-            scheduled_for, metadata
-       FROM notification_center
-      WHERE student_id = $1::uuid OR student_id IS NULL
-      ORDER BY created_at ASC`,
-    [principal.studentId],
+    `SELECT legacy.id, legacy.type, legacy.title, legacy.body, legacy.action_url,
+            legacy.priority, legacy.read_at, legacy.created_at,
+            legacy.scheduled_for, legacy.metadata
+       FROM notification_center AS legacy
+      WHERE (legacy.student_id = $1::uuid OR legacy.student_id IS NULL)
+        AND NOT EXISTS (
+          SELECT 1
+            FROM platform_notifications AS migrated
+           WHERE migrated.tenant_id = $2
+             AND migrated.principal_id = $3::uuid
+             AND migrated.correlation_key =
+                 'legacy:notification_center:' || legacy.id::text
+        )
+      ORDER BY legacy.created_at DESC, legacy.id DESC
+      LIMIT $4`,
+    [
+      principal.studentId,
+      principal.tenantId,
+      principal.id,
+      LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE,
+    ],
   );
 
   let inserted = 0;
