@@ -19,7 +19,10 @@ function decodeEncryptionKey(): Buffer {
   const encoded = process.env.TECPEY_CRM_PII_KEY_B64?.trim();
   if (!encoded) throw new Error("crm_pii_key_unavailable");
   const key = Buffer.from(encoded, "base64");
-  if (key.length !== 32) throw new Error("crm_pii_key_invalid");
+  if (key.length !== 32) {
+    key.fill(0);
+    throw new Error("crm_pii_key_invalid");
+  }
   return key;
 }
 
@@ -45,8 +48,13 @@ export function hashLeadValue(value: string): string {
   return createHmac("sha256", contactHashSecret()).update(value).digest("hex");
 }
 
-export function leadContactHash(phone: string, email?: string): string {
-  return hashLeadValue(`${normalizeLeadPhone(phone)}\u0000${normalizeLeadEmail(email)}`);
+/**
+ * Phone is required for every Academy lead and is the stable contact identity.
+ * Email remains separately searchable, but changing or adding an email must not
+ * create a second active CRM record for the same phone number.
+ */
+export function leadContactHash(phone: string): string {
+  return hashLeadValue(`phone:${normalizeLeadPhone(phone)}`);
 }
 
 export function encryptLeadPii(
@@ -54,21 +62,24 @@ export function encryptLeadPii(
   context: { tenantId: string; leadId: string },
 ): EncryptedLeadPii {
   const key = decodeEncryptionKey();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  cipher.setAAD(Buffer.from(`${context.tenantId}:${context.leadId}:v1`, "utf8"));
-  const ciphertext = Buffer.concat([
-    cipher.update(JSON.stringify(value), "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
-  key.fill(0);
-  return {
-    ciphertext: ciphertext.toString("base64"),
-    iv: iv.toString("base64"),
-    tag: tag.toString("base64"),
-    keyVersion: 1,
-  };
+  try {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    cipher.setAAD(Buffer.from(`${context.tenantId}:${context.leadId}:v1`, "utf8"));
+    const ciphertext = Buffer.concat([
+      cipher.update(JSON.stringify(value), "utf8"),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
+    return {
+      ciphertext: ciphertext.toString("base64"),
+      iv: iv.toString("base64"),
+      tag: tag.toString("base64"),
+      keyVersion: 1,
+    };
+  } finally {
+    key.fill(0);
+  }
 }
 
 export function decryptLeadPii(
@@ -77,13 +88,16 @@ export function decryptLeadPii(
 ): LeadPii {
   if (value.keyVersion !== 1) throw new Error("crm_pii_key_version_unsupported");
   const key = decodeEncryptionKey();
-  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(value.iv, "base64"));
-  decipher.setAAD(Buffer.from(`${context.tenantId}:${context.leadId}:v1`, "utf8"));
-  decipher.setAuthTag(Buffer.from(value.tag, "base64"));
-  const plaintext = Buffer.concat([
-    decipher.update(Buffer.from(value.ciphertext, "base64")),
-    decipher.final(),
-  ]);
-  key.fill(0);
-  return JSON.parse(plaintext.toString("utf8")) as LeadPii;
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(value.iv, "base64"));
+    decipher.setAAD(Buffer.from(`${context.tenantId}:${context.leadId}:v1`, "utf8"));
+    decipher.setAuthTag(Buffer.from(value.tag, "base64"));
+    const plaintext = Buffer.concat([
+      decipher.update(Buffer.from(value.ciphertext, "base64")),
+      decipher.final(),
+    ]);
+    return JSON.parse(plaintext.toString("utf8")) as LeadPii;
+  } finally {
+    key.fill(0);
+  }
 }
