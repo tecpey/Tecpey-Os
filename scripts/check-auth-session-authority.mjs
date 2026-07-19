@@ -112,8 +112,9 @@ for (const target of ["refreshRoute", "twoFactor", "webauthn", "password"]) {
 }
 requireText("refreshRoute", "verifyCsrfOrigin(req)", "refresh rotation must enforce same-origin mutation authority");
 requireText("refreshRoute", "if (!oldRevoked)", "refresh rotation must prove the old refresh token was revoked");
-requireText("password", "revokeSessionStrict", "password change must revoke the old access session");
+requireText("password", "revokeAllSessionsStrict", "password change must revoke every prior access session");
 requireText("password", "revokeAllRefreshTokensForUser", "password change must revoke old refresh authority");
+requireText("password", "revokedAccessSessions", "password-change evidence must disclose full access-session rotation");
 
 requireText("tests", "duplicate JTI registration", "integration tests must reject duplicate durable session identity");
 requireText("tests", "exact owner", "integration tests must prove owner-bound revocation");
@@ -137,4 +138,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, full password-change rotation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
