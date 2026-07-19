@@ -38,9 +38,8 @@ function coefficientDigits(value: string): number {
 }
 
 /**
- * Decimal's global precision is intentionally bounded for the legacy engine.
- * Admission multiplication uses an isolated constructor with enough significant
- * digits to preserve the complete finite-decimal product before scale checks.
+ * The admission product uses an isolated Decimal constructor with enough
+ * significant digits to preserve the complete finite-decimal product.
  */
 export function multiplyOrderDecimals(left: string, right: string): Decimal {
   const precision = coefficientDigits(left) + coefficientDigits(right) + 4;
@@ -51,12 +50,6 @@ export function multiplyOrderDecimals(left: string, right: string): Decimal {
   return new ExactDecimal(left).times(new ExactDecimal(right));
 }
 
-/**
- * The existing matching/release engine still serializes fills at scale 10.
- * Until that next #30 slice is Decimal-safe, admission rejects any hold that
- * would require rounding. This prevents both under-reservation and terminal
- * held-balance dust from asymmetric hold/release rounding.
- */
 export function toHoldAmount(value: Decimal): string {
   if (!value.isFinite() || value.lte(0)) throw new Error("invalid_order_hold_amount");
   if (value.decimalPlaces() > DATABASE_AMOUNT_SCALE) {
@@ -72,6 +65,7 @@ export function calculateOrderHold(input: {
   request: PlaceOrderRequest;
   market: Market;
   bestAskPrice?: string;
+  marketBuyMaxQuoteAmount?: string;
 }): OrderHold {
   const quantity = parsePositiveOrderDecimal(input.request.quantity);
   if (!quantity) throw new Error("invalid_quantity");
@@ -84,17 +78,36 @@ export function calculateOrderHold(input: {
     };
   }
 
-  const basisPrice = input.request.type === "market"
-    ? input.bestAskPrice
-    : input.request.price;
-  if (!basisPrice) throw new Error("order_hold_price_required");
+  if (input.request.type === "market") {
+    if (!input.marketBuyMaxQuoteAmount) {
+      throw new Error("market_buy_max_quote_required");
+    }
+    const maxQuote = parsePositiveOrderDecimal(input.marketBuyMaxQuoteAmount);
+    if (!maxQuote) throw new Error("invalid_market_buy_max_quote");
+    if (input.bestAskPrice) {
+      const minimumAtBestAsk = multiplyOrderDecimals(
+        input.request.quantity,
+        input.bestAskPrice,
+      );
+      if (maxQuote.lt(minimumAtBestAsk)) {
+        throw new Error("market_buy_max_quote_below_best_ask");
+      }
+    }
+    return {
+      asset: input.market.quoteAsset,
+      amount: toHoldAmount(maxQuote),
+      basisPrice: input.bestAskPrice ?? null,
+    };
+  }
 
-  const price = parsePositiveOrderDecimal(basisPrice);
+  if (!input.request.price) throw new Error("order_hold_price_required");
+  const price = parsePositiveOrderDecimal(input.request.price);
   if (!price) throw new Error("invalid_order_hold_price");
-
   return {
     asset: input.market.quoteAsset,
-    amount: toHoldAmount(multiplyOrderDecimals(input.request.quantity, basisPrice)),
-    basisPrice,
+    amount: toHoldAmount(
+      multiplyOrderDecimals(input.request.quantity, input.request.price),
+    ),
+    basisPrice: input.request.price,
   };
 }
