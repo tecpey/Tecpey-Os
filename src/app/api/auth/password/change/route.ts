@@ -4,11 +4,11 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import { withDb, withTx } from "@/lib/db";
+import { withTx } from "@/lib/db";
 import {
   hashPassword,
   verifyPassword,
-  isPasswordReused,
+  isPasswordReusedWithClient,
   recordPasswordHistoryBatchWithClient,
   assessPasswordStrength,
 } from "@/lib/security/passwords";
@@ -21,18 +21,35 @@ import {
   extractExpFromToken,
 } from "@/lib/unified-session";
 import {
-  registerSession,
-  revokeAllSessionsStrict,
+  registerSessionWithClient,
+  revokeAllSessionsWithClient,
+  type RevokedSessionEvidence,
 } from "@/lib/security/session-store";
+import { revokeMultiple } from "@/lib/security/jti-store";
 import {
-  issueRefreshToken,
+  prepareRefreshToken,
+  persistPreparedRefreshTokenWithClient,
   setRefreshCookie,
-  revokeAllRefreshTokensForUser,
+  clearRefreshCookie,
+  revokeAllRefreshTokensForUserWithClient,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 
 export const dynamic = "force-dynamic";
+
+type RotationTransactionResult =
+  | {
+      ok: true;
+      revokedAccessSessions: number;
+      revokedAccessEvidence: RevokedSessionEvidence[];
+      revokedRefreshTokens: number;
+    }
+  | {
+      ok: false;
+      status: 400 | 401;
+      error: "user_not_found" | "invalid_credentials" | "password_previously_used";
+    };
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/password/change" }, async () => {
@@ -74,59 +91,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const passwordResult = await withDb(async (db) => {
-      const result = await db.query<{ password_hash: string }>(
-        `SELECT password_hash
-           FROM academy_auth_accounts
-          WHERE id = $1`,
-        [userId],
-      );
-      const row = result.rows[0];
-      if (!row) return { ok: false as const, reason: "user_not_found" };
-      if (!verifyPassword(currentPassword, row.password_hash)) {
-        return { ok: false as const, reason: "invalid_credentials" };
-      }
-      return { ok: true as const, currentHash: row.password_hash };
-    });
-    if (!passwordResult.enabled) return apiError("db_unavailable", 503);
-    if (!passwordResult.value.ok) {
-      return apiError(passwordResult.value.reason, 401);
-    }
-    const currentHash = passwordResult.value.currentHash;
-
-    const reused = await isPasswordReused(userId, newPassword, 5);
-    if (reused) return apiError("password_previously_used", 400);
-
-    const newHash = hashPassword(newPassword);
-    const updateResult = await withTx(async (client) => {
-      await client.query(
-        `UPDATE academy_auth_accounts
-            SET password_hash = $1,
-                updated_at = NOW()
-          WHERE id = $2`,
-        [newHash, userId],
-      );
-      await recordPasswordHistoryBatchWithClient(client, userId, [
-        currentHash,
-        newHash,
-      ]);
-    });
-    if (!updateResult.enabled) return apiError("db_unavailable", 503);
-
-    // A credential rotation must invalidate every previously issued access and
-    // refresh credential, not only the browser that submitted the change.
-    const accessRevocation = await revokeAllSessionsStrict(userId);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-    if (!accessRevocation.ok || !refreshRevoked) {
-      return apiError("credential_rotation_unavailable", 503, {
-        accessReason: accessRevocation.ok ? null : accessRevocation.reason,
-        revokedAccessSessions: accessRevocation.revokedCount,
-        refreshRevoked,
-      });
-    }
-
     const ip = getClientIp(req);
     const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    const newHash = hashPassword(newPassword);
+
+    // Tokens are signed before the transaction, but are not valid until their
+    // durable rows are inserted and the transaction commits.
     const accessToken = await signUnifiedSession({
       accountId: session.academyAccountId ?? null,
       studentId: session.studentId ?? null,
@@ -134,28 +104,144 @@ export async function POST(req: NextRequest) {
       displayName: session.displayName ?? "",
       username: session.username ?? "",
     });
-    const jti = extractJtiFromToken(accessToken);
-    const exp = extractExpFromToken(accessToken);
-    if (!jti || !exp) return apiError("session_issue_failed", 503);
+    const accessJti = extractJtiFromToken(accessToken);
+    const accessExp = extractExpFromToken(accessToken);
+    if (!accessJti || !accessExp) return apiError("session_issue_failed", 503);
 
-    const refreshToken = await issueRefreshToken({
+    const preparedRefresh = await prepareRefreshToken({
       userId,
       familyId: crypto.randomUUID(),
       deviceInfo,
       ip,
     });
-    if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+    if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-    const registered = await registerSession({
-      jti,
-      userId,
-      deviceInfo,
-      ip,
-      expiresAt: new Date(exp * 1000),
-    });
-    if (!registered) {
-      await revokeAllRefreshTokensForUser(userId);
-      return apiError("session_registry_unavailable", 503);
+    let transaction;
+    try {
+      transaction = await withTx<RotationTransactionResult>(async (client) => {
+        const account = await client.query<{ password_hash: string }>(
+          `SELECT password_hash
+             FROM academy_auth_accounts
+            WHERE id = $1
+            FOR UPDATE`,
+          [userId],
+        );
+        const currentHash = account.rows[0]?.password_hash;
+        if (!currentHash) {
+          return { ok: false, status: 401, error: "user_not_found" };
+        }
+        if (!verifyPassword(currentPassword, currentHash)) {
+          return { ok: false, status: 401, error: "invalid_credentials" };
+        }
+
+        const reusedCurrent = verifyPassword(newPassword, currentHash);
+        const reusedHistory = await isPasswordReusedWithClient(
+          client,
+          userId,
+          newPassword,
+          5,
+        );
+        if (reusedCurrent || reusedHistory) {
+          return {
+            ok: false,
+            status: 400,
+            error: "password_previously_used",
+          };
+        }
+
+        await client.query(
+          `UPDATE academy_auth_accounts
+              SET password_hash = $1,
+                  updated_at = NOW()
+            WHERE id = $2`,
+          [newHash, userId],
+        );
+        await recordPasswordHistoryBatchWithClient(client, userId, [
+          currentHash,
+          newHash,
+        ]);
+
+        const revokedAccess = await revokeAllSessionsWithClient(client, userId);
+        const revokedRefreshTokens =
+          await revokeAllRefreshTokensForUserWithClient(client, userId);
+
+        const refreshInserted = await persistPreparedRefreshTokenWithClient(
+          client,
+          preparedRefresh,
+        );
+        if (!refreshInserted) throw new Error("replacement_refresh_insert_failed");
+
+        const accessInserted = await registerSessionWithClient(client, {
+          jti: accessJti,
+          userId,
+          deviceInfo,
+          ip,
+          expiresAt: new Date(accessExp * 1000),
+        });
+        if (!accessInserted) throw new Error("replacement_access_insert_failed");
+
+        return {
+          ok: true,
+          revokedAccessSessions: revokedAccess.revokedCount,
+          revokedAccessEvidence: revokedAccess.sessions,
+          revokedRefreshTokens,
+        };
+      });
+    } catch (err) {
+      writeAudit({
+        actorId: userId,
+        action: "password_changed",
+        ip,
+        userAgent: deviceInfo,
+        metadata: {
+          outcome: "rolled_back",
+          reason: err instanceof Error ? err.message : "transaction_failed",
+        },
+      });
+      return apiError("credential_rotation_unavailable", 503, {
+        rolledBack: true,
+      });
+    }
+
+    if (!transaction.enabled) {
+      return apiError("credential_rotation_unavailable", 503, {
+        rolledBack: true,
+        reason: "database_unavailable",
+      });
+    }
+    if (!transaction.value.ok) {
+      return apiError(transaction.value.error, transaction.value.status);
+    }
+
+    // PostgreSQL has already revoked every old credential. Redis is only fast
+    // deny evidence; if synchronization fails, clear browser credentials and
+    // require reauthentication rather than claiming a complete rotation.
+    const redisSynchronized = await revokeMultiple(
+      transaction.value.revokedAccessEvidence,
+    );
+    if (
+      !redisSynchronized &&
+      transaction.value.revokedAccessEvidence.length > 0
+    ) {
+      const response = apiError("credential_rotation_cache_unavailable", 503, {
+        changed: true,
+        credentialsRevoked: true,
+        reauthenticationRequired: true,
+      });
+      response.cookies.delete(COOKIES.SESSION);
+      clearRefreshCookie(response);
+      writeAudit({
+        actorId: userId,
+        action: "password_changed",
+        ip,
+        userAgent: deviceInfo,
+        metadata: {
+          outcome: "durable_success_cache_sync_failed",
+          revokedAccessSessions: transaction.value.revokedAccessSessions,
+          revokedRefreshTokens: transaction.value.revokedRefreshTokens,
+        },
+      });
+      return response;
     }
 
     trackAuthEvent("password_changed");
@@ -165,17 +251,22 @@ export async function POST(req: NextRequest) {
       ip,
       userAgent: deviceInfo,
       metadata: {
+        outcome: "success",
         strengthScore: strength.score,
         sessionsRotated: true,
-        revokedAccessSessions: accessRevocation.revokedCount,
+        revokedAccessSessions: transaction.value.revokedAccessSessions,
+        revokedRefreshTokens: transaction.value.revokedRefreshTokens,
         refreshScope: "all_user_tokens",
+        atomic: true,
       },
     });
 
     const response = apiOk({
       changed: true,
       sessionsRotated: true,
-      revokedAccessSessions: accessRevocation.revokedCount,
+      revokedAccessSessions: transaction.value.revokedAccessSessions,
+      revokedRefreshTokens: transaction.value.revokedRefreshTokens,
+      atomic: true,
     });
     response.cookies.set(COOKIES.SESSION, accessToken, {
       path: "/",
@@ -184,7 +275,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: ACCESS_COOKIE_TTL_S,
     });
-    setRefreshCookie(response, refreshToken);
+    setRefreshCookie(response, preparedRefresh.token);
     return response;
   });
 }

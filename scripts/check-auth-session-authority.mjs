@@ -22,6 +22,7 @@ const files = {
   jti: "src/lib/security/jti-store.ts",
   sessionStore: "src/lib/security/session-store.ts",
   refresh: "src/lib/security/refresh-tokens.ts",
+  passwords: "src/lib/security/passwords.ts",
   academyAuth: "src/app/api/academy-auth/route.ts",
   profileRoute: "src/app/api/academy-student-profile/route.ts",
   sessionsRoute: "src/app/api/auth/sessions/route.ts",
@@ -109,6 +110,8 @@ requireText("jti", "Redis miss is not proof of validity", "Redis misses must not
 requireText("jti", "durable revocation authority unavailable — blocking", "ordinary auth must block when no authority is available");
 requireText("jti", "strict Redis check failed — blocking", "strict Redis outages must fail closed");
 
+requireText("sessionStore", "registerSessionWithClient", "access-session registration must support caller-owned transactions");
+requireText("sessionStore", "revokeAllSessionsWithClient", "bulk access revocation must support caller-owned transactions");
 requireText("sessionStore", "revokeSessionStrict", "session revocation must expose explicit outcomes");
 requireText("sessionStore", "AND user_id = $2", "session revocation must bind the exact owner");
 requireText("sessionStore", "revocation_store_unavailable", "Redis deny-write failures must be explicit");
@@ -122,9 +125,16 @@ requireText("sessionStore", "listActiveSessionsStrict", "session listing must ex
 requireText("sessionStore", "revokeAllSessionsStrict", "bulk revocation must expose database and Redis failures");
 requireText("sessionStore", "evidenceCount", "bulk revocation retries must retain repair evidence");
 
+requireText("refresh", "prepareRefreshToken", "refresh tokens must be signable before transactional persistence");
+requireText("refresh", "persistPreparedRefreshTokenWithClient", "refresh-token persistence must support caller-owned transactions");
+requireText("refresh", "revokeAllRefreshTokensForUserWithClient", "refresh revocation must support caller-owned transactions");
 requireText("refresh", "refused to issue unstored refresh token", "refresh issuance must fail when DB persistence is unavailable");
-requireText("refresh", "if (!result.enabled)", "refresh token operations must inspect withDb availability");
+requireText("refresh", "if (!result.enabled", "refresh token operations must inspect withDb availability");
 requireText("refresh", "revokeAllRefreshTokensForUser", "credential changes/logout need durable refresh revocation");
+
+requireText("passwords", "isPasswordReusedWithClient", "password-history checks must run inside the credential transaction");
+requireText("passwords", 'throw new Error("password_history_unavailable")', "password-history authority must fail closed");
+rejectText("passwords", "if (!dbResult.enabled || !dbResult.value.length) return false", "database outages may not permit password reuse");
 
 requireText("academyAuth", "if (!verifyCsrfOrigin(req))", "logout and login mutations require CSRF protection");
 requireText("academyAuth", "verifyUnifiedSession(sessionToken)", "logout must verify the token before reading identity");
@@ -146,16 +156,26 @@ requireText("specificSessionRoute", "revokeAllRefreshTokensForUser", "device rev
 requireText("specificSessionRoute", "refreshScope", "device revocation must disclose broad refresh invalidation semantics");
 requireText("specificSessionRoute", 'return apiError("not_found", 404)', "unknown or foreign sessions must not revoke refresh authority");
 
-for (const target of ["refreshRoute", "twoFactor", "webauthn", "password"]) {
-  requireText(target, "if (!registered)", "every token-issuing path must fail on missing durable access-session evidence");
+for (const target of ["refreshRoute", "twoFactor", "webauthn"]) {
+  requireText(target, "if (!registered)", "every ordinary token-issuing path must fail on missing durable access-session evidence");
   rejectText(target, "void registerSession", "token issuance may not fire-and-forget session registration");
 }
 requireText("refreshRoute", "verifyCsrfOrigin(req)", "refresh rotation must enforce same-origin mutation authority");
 requireText("refreshRoute", "if (!oldRevoked)", "refresh rotation must prove the old refresh token was revoked");
-requireText("password", "revokeAllSessionsStrict", "password change must revoke every prior access session");
-rejectText("password", "revokeSessionStrict", "password change may not leave other access sessions alive");
-requireText("password", "revokeAllRefreshTokensForUser", "password change must revoke old refresh authority");
-requireText("password", "revokedAccessSessions", "password-change evidence must disclose full access-session rotation");
+
+requireText("password", "withTx<RotationTransactionResult>", "password and credential rotation must share one PostgreSQL transaction");
+requireText("password", "FOR UPDATE", "password rotation must lock the account row");
+requireText("password", "isPasswordReusedWithClient", "password reuse checks must run inside the transaction");
+requireText("password", "revokeAllSessionsWithClient", "all old access sessions must be revoked inside the transaction");
+requireText("password", "revokeAllRefreshTokensForUserWithClient", "all old refresh tokens must be revoked inside the transaction");
+requireText("password", "persistPreparedRefreshTokenWithClient", "replacement refresh persistence must be part of the transaction");
+requireText("password", "registerSessionWithClient", "replacement access persistence must be part of the transaction");
+requireText("password", "rolledBack: true", "transaction failures must disclose rollback semantics");
+requireText("password", "credential_rotation_cache_unavailable", "post-commit Redis failures must require reauthentication");
+requireText("password", "atomic: true", "successful password rotation must disclose atomic authority");
+rejectText("password", "isPasswordReused(userId", "password reuse may not run in a separate DB operation");
+rejectText("password", "revokeAllSessionsStrict(userId)", "password revocation may not run after the password transaction");
+rejectText("password", "issueRefreshToken({", "replacement refresh issuance may not persist outside the transaction");
 
 requireText("tests", "duplicate JTI registration", "integration tests must reject duplicate durable session identity");
 requireText("tests", "exact owner", "integration tests must prove owner-bound revocation");
@@ -175,8 +195,10 @@ requireText("sessionsTests", "repairs deny evidence on retry", "logout-all tests
 requireText("sessionsTests", "database unavailability", "bulk authority tests must reject false empty and zero-success results");
 requireText("specificSessionTests", "cannot mint a replacement", "device revocation tests must prove refresh-token resurrection is blocked");
 requireText("specificSessionTests", "does not belong to the principal", "foreign session IDs must not revoke the caller's refresh authority");
-requireText("passwordTests", "invalidates every old access and refresh credential", "password tests must prove complete credential rotation");
-requireText("passwordTests", "one fresh session", "password tests must prove only the replacement session remains active");
+requireText("passwordTests", "commits the password, all revocations and exactly one fresh credential pair together", "password tests must prove one atomic success state");
+requireText("passwordTests", "without mutating the password or credentials", "password reuse must leave all credential state unchanged");
+requireText("passwordTests", "rolls back the password and every revocation", "replacement persistence failures must roll back all credential changes");
+requireText("passwordTests", "password-history authority is unavailable", "password-history outages must fail closed");
 requireText("legacyTests", "disables legacy cookie authentication by default in production", "legacy authentication must be off by default in production");
 requireText("legacyTests", "explicit window before the immutable sunset", "legacy authentication must require a short pre-sunset migration window");
 requireText("legacyTests", "slide beyond the immutable sunset", "legacy compatibility tests must reject configuration-based extensions");
@@ -192,4 +214,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, aligned four-hour access lifetime, durable issuance and replacement cookies, strict shared Redis authority, disabled sliding access renewal, fail-closed profile claims, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, aligned four-hour access lifetime, durable issuance and replacement cookies, strict shared Redis authority, disabled sliding access renewal, fail-closed profile claims, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, atomic password and credential rotation, fail-closed password history, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis rollback tests and verified token forwarding are enforced.");

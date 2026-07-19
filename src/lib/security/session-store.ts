@@ -1,5 +1,6 @@
 // Server-side session registry — PostgreSQL durable authority with Redis deny cache.
 
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { revokeJti, revokeMultiple } from "./jti-store";
@@ -14,6 +15,24 @@ export type UserSession = {
   expiresAt: Date;
   isRevoked: boolean;
   revokedAt: Date | null;
+};
+
+export type SessionRegistrationOptions = {
+  jti: string;
+  userId: string;
+  deviceInfo: string;
+  ip: string;
+  expiresAt: Date;
+};
+
+export type RevokedSessionEvidence = {
+  jti: string;
+  expiresAt: number;
+};
+
+export type TransactionalBulkRevocation = {
+  revokedCount: number;
+  sessions: RevokedSessionEvidence[];
 };
 
 export type SessionRevocationResult =
@@ -35,31 +54,35 @@ export type BulkSessionRevocationResult =
       revokedCount: number;
     };
 
+/** Register a newly issued access token inside the caller's transaction. */
+export async function registerSessionWithClient(
+  db: PoolClient,
+  opts: SessionRegistrationOptions,
+): Promise<boolean> {
+  const inserted = await db.query<{ id: string }>(
+    `INSERT INTO user_sessions (id, user_id, device_info, ip, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (id) DO NOTHING
+     RETURNING id`,
+    [
+      opts.jti,
+      opts.userId,
+      opts.deviceInfo.slice(0, 500),
+      opts.ip.slice(0, 80),
+      opts.expiresAt,
+    ],
+  );
+  return (inserted.rowCount ?? 0) === 1;
+}
+
 /** Register a newly issued access token. False means the token lacks durable evidence. */
-export async function registerSession(opts: {
-  jti: string;
-  userId: string;
-  deviceInfo: string;
-  ip: string;
-  expiresAt: Date;
-}): Promise<boolean> {
+export async function registerSession(
+  opts: SessionRegistrationOptions,
+): Promise<boolean> {
   try {
-    const result = await withDb(async (db) => {
-      const inserted = await db.query<{ id: string }>(
-        `INSERT INTO user_sessions (id, user_id, device_info, ip, expires_at)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (id) DO NOTHING
-         RETURNING id`,
-        [
-          opts.jti,
-          opts.userId,
-          opts.deviceInfo.slice(0, 500),
-          opts.ip.slice(0, 80),
-          opts.expiresAt,
-        ],
-      );
-      return (inserted.rowCount ?? 0) === 1;
-    });
+    const result = await withDb(async (db) =>
+      registerSessionWithClient(db, opts),
+    );
     if (!result.enabled) {
       logger.warn("[session-store] registerSession: database unavailable", {
         jti: opts.jti,
@@ -238,46 +261,57 @@ export async function revokeSession(jti: string, userId: string): Promise<boolea
 }
 
 /**
+ * Revoke every unexpired access session for a user inside the caller's
+ * transaction. The evidence query includes already-revoked sessions so a later
+ * Redis repair can restore any deny keys missed during an earlier outage.
+ */
+export async function revokeAllSessionsWithClient(
+  db: PoolClient,
+  userId: string,
+  exceptJti?: string,
+): Promise<TransactionalBulkRevocation> {
+  const scope = exceptJti ? "AND id <> $2" : "";
+  const values = exceptJti ? [userId, exceptJti] : [userId];
+  const updated = await db.query(
+    `UPDATE user_sessions
+        SET is_revoked = TRUE,
+            revoked_at = COALESCE(revoked_at, NOW())
+      WHERE user_id = $1
+        AND is_revoked = FALSE
+        AND expires_at > NOW()
+        ${scope}`,
+    values,
+  );
+  const evidence = await db.query<{ id: string; expires_at: Date }>(
+    `SELECT id, expires_at
+       FROM user_sessions
+      WHERE user_id = $1
+        AND is_revoked = TRUE
+        AND expires_at > NOW()
+        ${scope}`,
+    values,
+  );
+  return {
+    revokedCount: updated.rowCount ?? 0,
+    sessions: evidence.rows.map((row) => ({
+      jti: row.id,
+      expiresAt: Math.floor(row.expires_at.getTime() / 1000),
+    })),
+  };
+}
+
+/**
  * Revoke every unexpired access session for a user except an optional current
- * JTI. PostgreSQL is authoritative. The subsequent SELECT intentionally
- * includes already-revoked sessions so a retry can repair missing Redis deny
- * evidence after a partial outage.
+ * JTI. PostgreSQL is authoritative; Redis receives repairable deny evidence.
  */
 export async function revokeAllSessionsStrict(
   userId: string,
   exceptJti?: string,
 ): Promise<BulkSessionRevocationResult> {
   try {
-    const result = await withDb(async (db) => {
-      const scope = exceptJti ? "AND id <> $2" : "";
-      const values = exceptJti ? [userId, exceptJti] : [userId];
-      const updated = await db.query(
-        `UPDATE user_sessions
-            SET is_revoked = TRUE,
-                revoked_at = COALESCE(revoked_at, NOW())
-          WHERE user_id = $1
-            AND is_revoked = FALSE
-            AND expires_at > NOW()
-            ${scope}`,
-        values,
-      );
-      const evidence = await db.query<{ id: string; expires_at: Date }>(
-        `SELECT id, expires_at
-           FROM user_sessions
-          WHERE user_id = $1
-            AND is_revoked = TRUE
-            AND expires_at > NOW()
-            ${scope}`,
-        values,
-      );
-      return {
-        revokedCount: updated.rowCount ?? 0,
-        sessions: evidence.rows.map((row) => ({
-          jti: row.id,
-          expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-        })),
-      };
-    });
+    const result = await withDb(async (db) =>
+      revokeAllSessionsWithClient(db, userId, exceptJti),
+    );
 
     if (!result.enabled) {
       return { ok: false, reason: "database_unavailable", revokedCount: 0 };
