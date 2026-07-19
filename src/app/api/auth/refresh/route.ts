@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import {
   verifyRefreshToken,
   revokeRefreshToken,
@@ -27,6 +28,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/refresh" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const limit = await rateLimit(req, {
       namespace: "auth-refresh",
       limit: 30,
