@@ -23,16 +23,33 @@ describe("API response cache authority", () => {
   it("keeps the safe defaults on rate-limit responses", () => {
     const response = apiRateLimited(17);
     assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+    assert.equal(response.headers.get("pragma"), "no-cache");
+    assert.equal(response.headers.get("expires"), "0");
     assert.equal(response.headers.get("retry-after"), "17");
   });
 
-  it("allows an explicit reviewed cache policy override", () => {
+  it("treats an explicit reviewed cache policy as a complete override", () => {
     const response = apiOk(
       { publicValue: true },
       200,
       { "Cache-Control": "public, max-age=60" },
     );
     assert.equal(response.headers.get("cache-control"), "public, max-age=60");
+    assert.equal(response.headers.get("pragma"), null);
+    assert.equal(response.headers.get("expires"), null);
     assert.equal(API_PRIVATE_RESPONSE_HEADERS["Cache-Control"].includes("no-store"), true);
+  });
+
+  it("recognizes Cache-Control overrides case-insensitively", () => {
+    const response = apiError(
+      "temporary_failure",
+      503,
+      undefined,
+      { "cache-control": "no-store", "Retry-After": "30" },
+    );
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("pragma"), null);
+    assert.equal(response.headers.get("expires"), null);
+    assert.equal(response.headers.get("retry-after"), "30");
   });
 });
