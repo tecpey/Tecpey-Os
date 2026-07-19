@@ -232,9 +232,13 @@ function validatedMentorFlags(value: unknown): ArenaExecutionMentorFlag[] {
 
 export function mapArenaReflectionRow(row: ArenaReflectionRow): ArenaReflectionRecord {
   const revision = Number(row.revision);
-  const tags = normalizeArenaReflectionMistakeTags(stringArray(row.mistake_tags));
+  const rawTags = stringArray(row.mistake_tags);
+  const tags = normalizeArenaReflectionMistakeTags(rawTags);
   const mentorFlags = validatedMentorFlags(row.evidence_mentor_flags);
-  if (!Number.isSafeInteger(revision) || revision < 1 || !tags) {
+  if (
+    !Number.isSafeInteger(revision) || revision < 1 || !tags ||
+    rawTags.length !== tags.length || rawTags.some((tag, index) => tag !== tags[index])
+  ) {
     throw new Error("arena_reflection_row_invalid");
   }
   if (row.evidence_asset !== "BTC" && row.evidence_asset !== "ETH") {
