@@ -8,10 +8,12 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { deviceFingerprint } from "@/lib/security/webauthn";
+import { canonicalizeWithdrawalCommand } from "@/lib/security/withdrawal-admission-authority";
 import {
   createAuthoritativeWithdrawal,
   listUserWithdrawalsStrict,
 } from "@/lib/security/withdrawal-admission-service";
+import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,42 @@ export async function POST(req: NextRequest) {
       return apiError("idempotency_key_mismatch", 400);
     }
 
+    const canonical = canonicalizeWithdrawalCommand({
+      userId,
+      asset: typeof body.asset === "string" ? body.asset : "",
+      amount: typeof body.amount === "string" ? body.amount : "",
+      destinationAddress:
+        typeof body.destinationAddress === "string" ? body.destinationAddress : "",
+      destinationTag:
+        typeof body.destinationTag === "string" ? body.destinationTag : null,
+      network: typeof body.network === "string" ? body.network : "",
+      idempotencyKey,
+    });
+    if (!canonical.ok) return apiError(canonical.reason, 400);
+
+    // Resolve a committed response-loss replay before consulting price, risk or
+    // compliance providers. The immutable request hash is the only replay key.
+    const replay = await resolveWithdrawalReplay({
+      userId,
+      idempotencyKey,
+      requestHash: canonical.requestHash,
+    });
+    if (replay.status === "unavailable") {
+      return apiError("withdrawal_storage_unavailable", 503);
+    }
+    if (replay.status === "conflict") {
+      return apiError("idempotency_conflict", 409);
+    }
+    if (replay.status === "replay") {
+      if (replay.withdrawal.state === "blocked") {
+        return apiError("withdrawal_blocked", 403, {
+          withdrawalId: replay.withdrawal.id,
+          replayed: true,
+        });
+      }
+      return apiOk({ withdrawal: replay.withdrawal, replayed: true });
+    }
+
     const authorizationId =
       typeof body.authorizationId === "string" ? body.authorizationId.trim() : "";
     if (!authorizationId) {
@@ -59,15 +97,7 @@ export async function POST(req: NextRequest) {
     const fingerprint = deviceFingerprint(userAgent, ip);
 
     const result = await createAuthoritativeWithdrawal({
-      userId,
-      asset: typeof body.asset === "string" ? body.asset : "",
-      amount: typeof body.amount === "string" ? body.amount : "",
-      destinationAddress:
-        typeof body.destinationAddress === "string" ? body.destinationAddress : "",
-      destinationTag:
-        typeof body.destinationTag === "string" ? body.destinationTag : null,
-      network: typeof body.network === "string" ? body.network : "",
-      idempotencyKey,
+      ...canonical.command,
       authorizationId,
       deviceFingerprint: fingerprint,
       ip,
@@ -80,8 +110,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // An idempotent replay preserves the original security decision. A blocked
-    // withdrawal must never become a successful API response on retry.
     if (result.withdrawal.state === "blocked") {
       return apiError("withdrawal_blocked", 403, {
         withdrawalId: result.withdrawal.id,
