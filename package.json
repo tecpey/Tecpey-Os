@@ -35,7 +35,7 @@
     "withdrawals:check": "node scripts/check-withdrawal-admission-authority.mjs && node scripts/check-withdrawal-runtime-authority.mjs",
     "test:withdrawal-admission": "node --import tsx --test 'src/tests/security/withdrawal-admission*.test.ts' 'src/tests/security/withdrawal-price-producer.test.ts' 'src/tests/security/withdrawal-settlement-postgres.test.ts'",
     "offline:check": "node scripts/check-offline-sync-authority.mjs",
-    "test:offline-sync": "node --import tsx --test 'src/tests/security/offline-sync*.test.ts'",
+    "test:offline-sync": "NODE_ENV=test node --import tsx --test 'src/tests/security/offline-sync*.test.ts'",
     "offline:reconcile": "tsx scripts/reconcile-offline-sync-commands.ts",
     "audit:hygiene": "node scripts/audit-repository-hygiene.mjs",
     "audit:hygiene:json": "node scripts/audit-repository-hygiene.mjs --json",
