@@ -72,7 +72,7 @@ describe("Committed withdrawal replay authority", () => {
     }
   });
 
-  it("checks committed replay and authorization before external admission", async () => {
+  it("checks committed replay before authorization preflight and external admission", async () => {
     const source = await readFile("src/app/api/auth/withdraw/route.ts", "utf8");
     const replayIndex = source.indexOf("resolveWithdrawalReplay({");
     const authorizationIdIndex = source.indexOf("const authorizationId");
