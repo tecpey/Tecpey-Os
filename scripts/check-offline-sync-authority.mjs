@@ -4,6 +4,7 @@ const files = {
   package: "package.json",
   workflow: ".github/workflows/ci.yml",
   env: "scripts/validate-env.mjs",
+  browserGuard: "scripts/check-browser-persistence.mjs",
   route: "src/app/api/offline-sync/route.ts",
   client: "src/components/offline/OfflineSyncManager.tsx",
   types: "src/lib/offline-sync.ts",
@@ -44,6 +45,7 @@ requireText("workflow", "npm run test:offline-sync", "CI must invoke the governe
 requireText("env", "TECPEY_OFFLINE_SYNC_SECRET", "production must require the offline scope secret");
 requireText("env", "signingSecretNames", "offline secret must participate in secret-class isolation");
 requireText("env", "must be distinct", "signing secrets must remain pairwise distinct");
+requireText("browserGuard", '"src/components/offline/OfflineSyncManager.tsx": 1', "offline transport must use one audited browser storage boundary");
 
 requireText("route", "strictRevocation: true", "offline synchronization requires a strict durable session");
 requireText("route", "resolvePlatformContext", "offline authority must resolve the canonical tenant");
@@ -62,6 +64,8 @@ rejectText("route", 'status: "accepted"', "pre-commit acknowledgement is forbidd
 
 requireText("client", 'const STORAGE_KEY = "tecpey_offline_queue_v2"', "scoped commands need a new queue generation");
 requireText("client", "scopeToken: string", "every browser command must retain its signed scope");
+requireText("client", "transportStorage", "all browser transport persistence must use one adapter");
+requireText("client", "never authoritative", "the browser adapter must declare its non-authoritative role");
 requireText("client", "refreshPrincipalScope", "the client must refresh current principal scope");
 requireText("client", "queueOfflineEvent", "offline producers must use one governed queue entry point");
 requireText("client", 'result.status === "committed"', "client may delete only committed commands");
@@ -69,9 +73,16 @@ requireText("client", 'result.status === "rejected"', "terminal rejected command
 requireText("client", "including storage-unavailable 503", "client must preserve commands after unavailable responses");
 requireText("client", "LEGACY_QUARANTINE_KEY", "legacy unscoped commands must be quarantined");
 requireText("client", "quarantineLegacyQueue", "legacy queue migration must preserve evidence without attribution");
-requireText("client", "window.localStorage.setItem(LEGACY_QUARANTINE_KEY, legacy)", "legacy data must be preserved before removal");
+requireText("client", "store.setItem(LEGACY_QUARANTINE_KEY, legacy)", "legacy data must be preserved before removal");
+rejectText("client", "window.localStorage.", "direct browser storage calls outside the audited adapter are forbidden");
 rejectText("client", 'r.status === "accepted"', "legacy false-success deletion is forbidden");
 rejectText("client", "writeQueue([...readQueue(), ...legacy", "legacy unscoped commands may not enter a current principal queue");
+const localStorageLines = content.client
+  .split(/\r?\n/)
+  .filter((line) => line.includes("localStorage")).length;
+if (localStorageLines !== 1) {
+  failures.push(`${files.client}: expected exactly one audited localStorage adapter line, found ${localStorageLines}`);
+}
 
 requireText("types", 'status: "committed" | "rejected" | "retryable"', "result states must distinguish durable and retryable outcomes");
 requireText("types", 'reason: "missing_id"', "commands without stable identity must be rejected");
@@ -135,4 +146,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Offline sync authority check passed: signed principal scope, browser queue partitioning, legacy quarantine, stable command identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
+console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, queue partitioning, legacy quarantine, stable command identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
