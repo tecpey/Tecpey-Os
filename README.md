@@ -1,1492 +1,312 @@
 <div align="center">
 
+<img src="./docs/assets/brand/tecpey-logo-official.webp" alt="TecPey official logo" width="144" />
+
 # TecPey OS
 
-### The Financial Education & Digital Asset Operating System
+### Financial Education, Trading Intelligence & Digital Asset Infrastructure
+### سیستم‌عامل آموزش مالی، هوش معاملاتی و زیرساخت دارایی‌های دیجیتال
 
-### سیستم‌عامل آموزش مالی و خدمات دارایی‌های دیجیتال
+**Education First · Server Authoritative · Intelligence Native · Enterprise Ready by Design**
 
-<br>
+> **تک‌پی، نقطه امن ورود به بازار رمزارز**
 
-**Education First • Intelligence Native • Production Hardening**
+[Website](https://tecpey.ir) · [Exchange](https://my.tecpey.ir) · [English](#english) · [فارسی](#persian)
 
-<br>
-
-> **"تک‌پی، نقطه امن ورود به بازار رمزارز"**
-
----
-
-[English](#english) • [فارسی](#فارسی)
-
----
-
-![Status](https://img.shields.io/badge/status-active%20development-0ea5e9)
-
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
-
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
-
+![Status](https://img.shields.io/badge/stage-production%20hardening-0ea5e9)
+![Core readiness](https://img.shields.io/badge/core%20soft--launch-70%25-0284c7)
+![Full vision](https://img.shields.io/badge/full%20TecPey%20OS-40%25-7c3aed)
+![Next.js](https://img.shields.io/badge/Next.js-16.2-black)
+![React](https://img.shields.io/badge/React-19.2-149eca)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
+![CI](https://img.shields.io/github/actions/workflow/status/tecpey/Tecpey-Os/ci.yml?branch=main&label=quality%20gate)
 ![License](https://img.shields.io/badge/license-proprietary-red)
 
-![Architecture](https://img.shields.io/badge/architecture-single--tenant%20core-f59e0b)
-
-![Roadmap](https://img.shields.io/badge/roadmap-multi--tenant%20%2F%20white--label-8b5cf6)
-
-![CI](https://img.shields.io/github/actions/workflow/status/tecpey/Tecpey-Os/ci.yml)
-
 </div>
 
----
-
-## Implementation Reality
-
-TecPey OS is under active production hardening. The current deployment foundation is intentionally single-tenant while multi-tenant and white-label isolation remain open platform gates. A capability is treated as production-ready only after its server-side authority, security, recovery, CI, integration and runtime evidence are complete.
+> [!IMPORTANT]
+> TecPey is an actively hardened platform, not a production-certified real-money exchange. The evidence-weighted baseline dated **2026-07-19** estimates **70% Core Soft Launch readiness** and **40% completion of the full TecPey OS vision**. Real-money activation remains **NO-GO** while any P0 financial, custody, compliance or operational gate is open.
 
 ---
 
-# English
+<a id="english"></a>
 
-# TecPey OS
+## What TecPey Is
 
-TecPey is building the next generation of financial infrastructure.
+TecPey is building a multilingual **Financial Education & Digital Asset Operating System** that unifies structured learning, simulated trading, behavioral intelligence, exchange infrastructure, wallet operations, identity, reputation, administration and future enterprise services.
 
-Rather than creating another cryptocurrency exchange, TecPey is designed as a complete operating system where education, intelligence, trading, identity, infrastructure and enterprise services work together as a single platform.
+The initial product is focused on the Iranian market, while the architecture and product strategy are designed to evolve toward:
 
-Our mission is simple:
+- multilingual regional and global operation;
+- enterprise-grade security and observability;
+- SaaS and multi-tenant deployment;
+- white-label Academy, Arena, Mentor and Exchange products;
+- public APIs, SDKs, webhooks and AI-host distribution;
+- compliant financial products built on one governed platform core.
 
-> **Build trust before transactions.**
+TecPey is not positioned as “another crypto exchange.” Its defining product loop is:
 
-We believe technology alone cannot solve the biggest challenges of digital finance.
-
-Education can.
-
-Transparency can.
-
-Intelligence can.
-
-Responsible product design can.
-
-TecPey exists to combine all of them.
+**Learn → Practice → Receive intelligent feedback → Build discipline and reputation → Access safer financial services**
 
 ---
 
-# Why TecPey Exists
+## Current Engineering Reality
 
-Millions of people enter digital asset markets every year.
+| Area | Current state | Evidence and remaining boundary |
+|---|---|---|
+| **Core Soft Launch** | **70%** | Major authority remediations are merged; production verification and P0 financial gates remain. |
+| **Full TecPey OS vision** | **40%** | Multi-tenancy, white-label operations, developer platform and broader ecosystem are later phases. |
+| **Academy** | Integrated / hardening | Official progress, XP, achievements and term outcomes are server-issued and cross-device. Content, assessment and staging Golden Path QA remain. |
+| **Trading Arena** | Authoritative Phase A | PostgreSQL execution aggregate, positions, orders, fees, PnL, revision, idempotency, server market data, production dashboard and server-evidence journal are merged. Historical replay, server scenarios and post-trade reflection writes remain. |
+| **Mentor AI** | Implemented foundation | Server memory, conversations and Academy/Arena behavioral context exist. Provider governance, durable-write guarantees, versioning, cost controls and deeper Exchange evidence remain. |
+| **Exchange Core** | Implemented / P0 hardening | Authenticated orders, holds, matching, trades, ledger and audit foundations exist. Decimal-safe completion, deterministic recovery, order-book reconstruction and financial reconciliation remain P0. |
+| **Wallet & Withdrawals** | Pipeline implemented / custody NO-GO | Database-authoritative execution, signed-transaction persistence before broadcast, confirmation workers and Redis-backed BullMQ lifecycle evidence are merged. Production HSM/MPC custody, per-chain certification and on-chain reconciliation remain P0. |
+| **Identity, Security & Admin** | Strong foundation | Unified sessions, CSRF, revocation foundations, individual Admin identities, RBAC, passkey-focused control plane and immutable audit foundations exist. Privileged-route inventory, dual control and operational completion remain. |
+| **Multi-tenant / White-label** | Strategic target | Current core runtime is intentionally not represented as fully tenant-isolated. Tenant data, configuration, keys, billing and operational isolation remain a dedicated platform program. |
 
-Unfortunately, many of them face the same problems:
+### Current P0 critical path
 
-- Lack of financial education
-- Scam projects
-- Emotional trading
-- Poor risk management
-- No structured learning path
-- No intelligent guidance
-- No measurable reputation
-- Fragmented financial services
+1. **Decimal-safe Exchange matching and reconciliation** — remove unsafe numeric correctness paths and prove conservation across orders, holds, fills, fees, balances and ledger.
+2. **Production custody and chain certification** — HSM/MPC, deterministic provider fixtures, testnet evidence, ambiguous-RPC recovery and withdrawal/ledger/on-chain reconciliation.
+3. **Compliance activation** — production KYC/AML providers, jurisdiction and legal approval, negative tests and evidence retention.
+4. **Strict QA and operational proof** — staging Golden Path, backup/restore, rollback, disaster recovery, alert delivery and incident runbooks.
 
-Most platforms attempt to solve only one of these problems.
-
-TecPey is designed to solve all of them through a unified ecosystem.
-
----
-
-# Our Philosophy
-
-Traditional exchanges usually start with trading.
-
-TecPey starts with education.
-
-Instead of asking users to trade immediately, we help them understand markets, learn risk management, build confidence and develop long-term financial skills before entering live markets.
-
-We believe informed users create healthier ecosystems.
-
-That philosophy influences every product inside TecPey.
+See [`docs/launch/TECPEY_COMPLETION_BASELINE_20260719.md`](./docs/launch/TECPEY_COMPLETION_BASELINE_20260719.md) for the evidence-weighted scoring model.
 
 ---
 
-# Beyond an Exchange
+## Product System
 
-TecPey is not simply a cryptocurrency exchange.
-
-It is a Financial Education & Digital Asset Operating System.
-
-Every component is designed to reinforce the others.
-
-Education improves trading.
-
-Trading improves AI.
-
-AI improves decision making.
-
-Decision making improves reputation.
-
-Reputation unlocks new opportunities.
-
-The platform continuously evolves with the user rather than serving as a single-purpose application.
+| Platform | Responsibility |
+|---|---|
+| **TecPey Academy** | Structured financial education, lessons, assessments, flashcards, challenges, certificates and progression. |
+| **Trading Arena** | Risk-free execution practice with virtual capital, three-attempt cycles, behavioral evidence and server-owned state. |
+| **Mentor AI** | Personalized learning and trading intelligence built from authorized user history and behavioral signals. |
+| **Exchange Core** | Spot order intake, holds, matching, trades, fees, ledger, market data, risk and audit boundaries. |
+| **Wallet & Custody** | Deposit/withdrawal workflows, chain providers, signing boundary, broadcast, confirmation and recovery. |
+| **Identity & Reputation** | Cross-product profile, achievements, trust, learning record and future professional reputation. |
+| **Admin Control Plane** | Individual administrator identities, permissions, audit, security operations and future dual-control workflows. |
+| **Developer Platform** | Planned APIs, SDKs, webhooks, MCP server and AI-host integrations. |
+| **Business & White-label Platform** | Planned tenant control plane, branding, configuration, billing, analytics and enterprise operations. |
 
 ---
 
-# Platform Overview
+## Architecture
 
-TecPey OS consists of multiple integrated systems.
+```mermaid
+flowchart TB
+    U[Web / Mobile / AI Hosts] --> APP[Next.js Application & Product Surfaces]
+    APP --> API[Authenticated API & Domain Services]
 
-| Platform | Purpose |
-|-----------|---------|
-| Academy | Financial education |
-| Exchange | Digital asset trading |
-| AI Mentor | Personalized trading intelligence |
-| Trading Arena | Risk-free market simulation |
-| Identity & Reputation | Long-term trust and achievements |
-| Business Platform | Enterprise services |
-| Developer Platform | APIs, SDKs and integrations |
-| Financial Ecosystem | Future financial products |
+    API --> ACADEMY[Academy Authority]
+    API --> ARENA[Trading Arena Authority]
+    API --> EXCHANGE[Exchange Core]
+    API --> WALLET[Wallet & Withdrawal Engine]
+    API --> MENTOR[Mentor AI]
+    API --> ADMIN[Admin Control Plane]
 
-Each platform is designed independently while operating as part of one ecosystem.
+    ACADEMY --> PG[(PostgreSQL)]
+    ARENA --> PG
+    EXCHANGE --> PG
+    WALLET --> PG
+    MENTOR --> PG
+    ADMIN --> PG
 
-The architecture is being hardened so TecPey can evolve from its initial single-tenant product into enterprise and white-label deployments without weakening core security and data-authority boundaries.
-
----
-
-# Design Principles
-
-Every engineering and product decision follows a common philosophy.
-
-- Education First
-- Security First
-- API First
-- AI Native
-- Cloud Native
-- Multi-Tenant Architecture
-- Continuous Quality Assurance
-- Documentation Driven Development
-- Enterprise Scalability
-- Long-Term Maintainability
-
-These principles influence both technical implementation and product experience.
-
----
-
-# Our Long-Term Vision
-
-TecPey is being built as infrastructure rather than a single application.
-
-Our long-term objective is to create a platform capable of supporting:
-
-- Financial education
-- Digital asset trading
-- Enterprise infrastructure
-- AI-driven financial guidance
-- Developer ecosystems
-- White-label financial products
-- Future digital financial services
-
-The exchange is only one component of that vision.
-
-The operating system is the real product.
-
----
-
----
-
-# فارسی
-
-# سیستم‌عامل TecPey
-
-تک‌پی با هدف ساخت نسل جدیدی از زیرساخت‌های مالی دیجیتال ایجاد شده است.
-
-هدف ما صرفاً ساخت یک صرافی رمزارز نیست.
-
-ما در حال توسعه یک **سیستم‌عامل خدمات مالی دیجیتال** هستیم؛ پلتفرمی که آموزش، هوش مصنوعی، معامله، اعتبار حرفه‌ای، زیرساخت سازمانی و خدمات توسعه‌دهندگان را در قالب یک اکوسیستم واحد ارائه می‌کند.
-
----
-
-# چرا TecPey ایجاد شد؟
-
-سالانه میلیون‌ها نفر وارد بازار دارایی‌های دیجیتال می‌شوند.
-
-بخش بزرگی از آن‌ها با مشکلات مشابهی روبه‌رو هستند:
-
-- نبود آموزش استاندارد
-- کلاهبرداری و پروژه‌های غیرشفاف
-- تصمیم‌گیری احساسی
-- مدیریت ریسک ضعیف
-- نبود مسیر آموزشی مشخص
-- نبود راهنمای هوشمند
-- نبود اعتبار حرفه‌ای
-- پراکندگی سرویس‌های مالی
-
-اکثر محصولات موجود تنها یکی از این مشکلات را حل می‌کنند.
-
-TecPey تلاش می‌کند همه آن‌ها را در یک اکوسیستم یکپارچه برطرف کند.
-
----
-
-# فلسفه تک‌پی
-
-در بسیاری از پلتفرم‌ها، کاربر از همان روز اول وارد معامله می‌شود.
-
-در TecPey، آموزش اولین محصول است.
-
-ما معتقدیم معامله‌گر خوب ساخته می‌شود؛ نه اینکه به صورت اتفاقی به وجود بیاید.
-
-به همین دلیل، آموزش، مدیریت ریسک، تمرین، تحلیل رفتار و هوش مصنوعی همگی پیش از معامله واقعی در کنار کاربر قرار می‌گیرند.
-
----
-
-# فراتر از یک صرافی
-
-TecPey تنها یک صرافی رمزارز نیست.
-
-بلکه یک سیستم‌عامل مالی است.
-
-در این اکوسیستم:
-
-آکادمی کاربران را آموزش می‌دهد.
-
-Trading Arena تجربه ایجاد می‌کند.
-
-AI Mentor رفتار را تحلیل می‌کند.
-
-Exchange زیرساخت معاملات را فراهم می‌کند.
-
-سیستم اعتبار حرفه‌ای مسیر رشد کاربر را ثبت می‌کند.
-
-تمام این اجزا به صورت یکپارچه با یکدیگر کار می‌کنند.
-
----
-
-# چشم‌انداز
-
-هدف بلندمدت TecPey ایجاد زیرساختی است که بتواند خدمات متنوع مالی دیجیتال را روی یک هسته مشترک ارائه کند.
-
-این چشم‌انداز شامل:
-
-- آموزش مالی
-- معاملات دارایی دیجیتال
-- خدمات سازمانی
-- هوش مصنوعی مالی
-- API و SDK
-- راهکارهای White-label
-- محصولات مالی آینده
-
-خواهد بود.
-
-صرافی تنها یکی از اجزای این مسیر است.
-
-محصول اصلی، **TecPey OS** است. ---
-
-# Architecture
-
-TecPey is designed as an operating system rather than a standalone application.
-
-Instead of treating education, trading, intelligence and infrastructure as independent products, TecPey integrates them into a unified platform where every system continuously reinforces the others.
-
-The architecture follows a modular approach that allows each subsystem to evolve independently while remaining part of a common ecosystem.
-
-```
-                         TecPey OS
-                               │
-      ┌────────────────────────┼────────────────────────┐
-      │                        │                        │
-      │                        │                        │
-  Financial Academy       Exchange Core          AI Platform
-      │                        │                        │
-      │                        │                        │
-      ├──────────────┐         │         ┌──────────────┤
-      │              │         │         │              │
-Learning OS     Trading Arena  │   Behavioral AI   Knowledge Engine
-      │              │         │         │              │
-      └──────────────┼─────────┼─────────┼──────────────┘
-                     │
-             Identity & Reputation
-                     │
-      ┌──────────────┼──────────────┐
-      │                             │
-Developer Platform          Business Platform
-      │                             │
-      └──────────────┬──────────────┘
-                     │
-          Financial Ecosystem
+    WALLET --> REDIS[(Redis / BullMQ)]
+    EXCHANGE --> REDIS
+    API --> OBS[Logs · Metrics · Alerts · Audit]
+    WALLET --> CHAINS[Blockchain Providers / Future HSM-MPC]
+    MENTOR --> AI[Governed AI Providers]
 ```
 
----
+### Permanent architecture principles
 
-# Platform Components
-
-TecPey OS is organized around multiple independent platforms.
-
-Each platform has its own responsibilities while contributing to the overall ecosystem.
-
----
-
-## Financial Academy
-
-The Academy is the entry point for most users.
-
-Rather than encouraging immediate trading, TecPey begins with structured financial education.
-
-Its objective is to help users understand markets before exposing them to financial risk.
-
-Core capabilities include:
-
-- Structured learning paths
-- Interactive lessons
-- Quizzes
-- Flashcards
-- Certificates
-- AI-assisted learning
-- Progress tracking
-- Career development
+- **Server-side persistence is the source of truth.** Browser `localStorage` or `sessionStorage` must never own durable user, financial, progression or Mentor state.
+- **Financial and privileged actions fail closed.** Missing database, Redis, provider, price, authorization or replay protection cannot silently downgrade safety.
+- **Commands are revisioned and idempotent.** Ambiguous outcomes must be recoverable without producing a second semantic action.
+- **Financial arithmetic must be deterministic.** Decimal strings and governed precision rules are required; floating-point approximations are not an acceptable accounting boundary.
+- **API-first and AI-distribution-ready.** Product capabilities should be reusable by web, mobile, enterprise, MCP and future AI hosts.
+- **Multi-tenant is a target architecture, not a marketing claim.** Tenant isolation must be proven across data, keys, queues, cache, storage, observability and operations.
+- **Bilingual and accessible by design.** Persian RTL and English LTR parity, accessibility and visual regression are product-quality gates.
+- **Evidence defines completion.** Code volume or UI appearance does not equal production readiness; CI, integration, concurrency, recovery and runtime proof are required.
 
 ---
 
-## Exchange Core
-
-The Exchange provides the execution layer of the platform.
-
-Its responsibility is secure order execution, asset management and market infrastructure.
-
-Core responsibilities:
-
-- Spot trading
-- Wallet management
-- Order matching
-- Market data
-- Trading engine
-- Settlement
-- Risk controls
-- Audit logging
-
----
-
-## AI Platform
-
-Artificial Intelligence is treated as platform infrastructure rather than a standalone feature.
-
-Instead of acting only as a chatbot, the AI layer continuously assists users across learning, trading and decision making.
-
-Primary responsibilities:
-
-- Personalized mentoring
-- Behavioral analysis
-- Learning assistance
-- Trading guidance
-- Knowledge retrieval
-- Context-aware recommendations
-
----
-
-## Trading Arena
-
-Trading Arena provides a simulated market environment.
-
-Its purpose is to allow users to gain practical experience before entering live markets.
-
-Capabilities include:
-
-- Virtual capital
-- Performance evaluation
-- Trading journal
-- Scenario simulation
-- Risk analysis
-- Psychology training
-
----
-
-## Identity & Reputation
-
-Reputation is designed as a long-term asset.
-
-The platform records educational achievements, learning progress and trading history to build measurable credibility over time.
-
-Rather than rewarding activity alone, TecPey rewards consistent improvement.
-
----
-
-## Business Platform
-
-The Business Platform enables organizations to integrate TecPey services into their own products.
-
-Future capabilities include:
-
-- Enterprise administration
-- White-label deployment
-- Multi-tenant management
-- Compliance integrations
-- Operational analytics
-
----
-
-## Developer Platform
-
-TecPey is being designed with developers in mind.
-
-Future APIs and SDKs will enable external applications to integrate with the ecosystem without depending on internal implementation details.
-
----
-
-# Engineering Principles
-
-Every engineering decision follows a consistent set of principles.
-
-| Principle | Description |
-|-----------|-------------|
-| Security First | Security is considered before features. |
-| Education First | Knowledge precedes trading. |
-| API First | Every capability should be service-oriented. |
-| AI Native | Intelligence is built into the platform architecture. |
-| Multi-Tenant Ready | Enterprise scalability is considered from the beginning. |
-| Documentation Driven | Documentation evolves together with implementation. |
-| Continuous QA | Quality assurance is part of development, not a final step. |
-| Long-Term Maintainability | Technical debt is actively minimized. |
-
----
-
-# Technology Stack
-
-Current implementation is based on modern production-ready technologies.
+## Technology Stack
 
 | Layer | Technology |
-|--------|------------|
-| Frontend | Next.js |
-| Language | TypeScript |
-| Runtime | Node.js |
-| Database | PostgreSQL |
-| ORM | Prisma |
-| Queue | BullMQ |
-| Cache | Redis |
-| Authentication | JWT · Passkeys · TOTP |
-| Realtime | WebSockets |
-| Infrastructure | Docker |
-| CI/CD | GitHub Actions |
-
-Technology choices may evolve as the platform matures.
+|---|---|
+| Application | Next.js 16.2, React 19.2, TypeScript 5 |
+| UI | Tailwind CSS 4, Lucide, Chart.js, Recharts |
+| Internationalization | next-intl, Persian RTL and English LTR foundations |
+| Database | PostgreSQL via `pg`, advisory-locked canonical migrations and clean/idempotent CI verification |
+| Queue & Recovery | Redis, BullMQ, Redis-backed lifecycle tests |
+| Financial Precision | `decimal.js` with ongoing Exchange precision hardening |
+| Authentication | `jose`, httpOnly cookie sessions, CSRF and step-up/passkey foundations |
+| Blockchain | Noble cryptography packages and chain-provider abstractions |
+| Testing | Node test runner with TypeScript through `tsx` |
+| Runtime | Custom TypeScript server, Node.js 20+, npm 10 |
 
 ---
 
-# Production Readiness
+## Quality Gate
 
-The repository is under active development with continuous hardening.
+Every pull request targeting `main` is expected to pass the exact-head quality pipeline:
 
-Current priorities include:
+1. dependency installation with locked npm policy;
+2. production environment contract;
+3. clean PostgreSQL migration execution;
+4. database migration idempotency and critical-schema verification;
+5. TypeScript type checking;
+6. ESLint with zero warnings;
+7. browser-persistence authority guard;
+8. Admin authentication boundary guard;
+9. Academy authority boundary guard;
+10. Trading Arena authority boundary guard;
+11. Wallet authority boundary guard;
+12. database migration authority guard;
+13. complete automated tests, including PostgreSQL migration and Redis-backed wallet lifecycle coverage;
+14. production Next.js build.
 
-- Production stability
-- Security improvements
-- Infrastructure reliability
-- Testing expansion
-- Performance optimization
-- Developer experience
-- Enterprise readiness
+Useful local commands:
 
-TecPey favors long-term reliability over short-term feature velocity.
-
----
-
-# Repository Structure
-
-```
-src/
-├── app/
-├── components/
-├── data/
-├── hooks/
-├── i18n/
-├── lib/
-├── services/
-├── workers/
-└── tests/
-
-docs/
-deploy/
-scripts/
-public/
+```bash
+npm run env:check
+npm run db:migrate
+npm run typecheck
+npm run lint
+npm test
+npm run build
 ```
 
-The repository is organized around clear separation of responsibilities to support long-term scalability.
-
----
----
-
-# Why TecPey Is Different
-
-TecPey was never intended to become another cryptocurrency exchange.
-
-From the first architectural decision, the objective has been much broader:
-
-To build an operating system capable of making digital financial services more accessible, more transparent and more responsible.
-
-Most financial platforms optimize for transactions.
-
-TecPey optimizes for people.
-
-Instead of asking:
-
-> "How can we increase trading volume?"
-
-We ask:
-
-> "How can we help users make better decisions?"
-
-This difference influences every engineering decision across the platform.
+A green build alone does not authorize release. The production release gate also requires security, financial reconciliation, custody, compliance, operations and staging evidence.
 
 ---
 
-# What Makes TecPey Different
-
-## Education Before Trading
-
-Most exchanges assume users already understand markets.
-
-TecPey assumes learning never ends.
-
-Education is not a marketing feature.
-
-It is platform infrastructure.
-
-Every future product inside TecPey should improve the user's understanding rather than simply increasing activity.
-
----
-
-## Intelligence Before Automation
-
-Artificial Intelligence is becoming increasingly common.
-
-However, most implementations simply automate existing workflows.
-
-TecPey treats AI differently.
-
-The objective is not replacing human decisions.
-
-The objective is improving them.
-
-AI should explain.
-
-AI should educate.
-
-AI should reduce uncertainty.
-
-AI should never encourage irresponsible financial behavior.
-
----
-
-## Reputation Before Rewards
-
-Many platforms reward activity.
-
-TecPey intends to reward consistency.
-
-Long-term learning.
-
-Responsible trading.
-
-Professional growth.
-
-Measured improvement.
-
-Reputation should become one of the most valuable assets inside the ecosystem.
-
----
-
-## Platform Before Products
-
-Products change.
-
-Technology changes.
-
-Markets change.
-
-Infrastructure survives.
-
-TecPey is being built as infrastructure capable of supporting multiple financial services for many years rather than solving a single short-term market opportunity.
-
----
-
-# Engineering Culture
-
-Technology alone does not create reliable financial systems.
-
-Engineering culture does.
-
-Every contribution to TecPey should improve at least one of the following:
-
-- Reliability
-- Security
-- Simplicity
-- Performance
-- Maintainability
-- Transparency
-- User Trust
-
-Features are temporary.
-
-Engineering quality compounds over time.
-
----
-
-# Development Philosophy
-
-TecPey follows a small set of engineering principles.
-
-## Build for the next ten years.
-
-Avoid decisions that optimize only for today's requirements.
-
----
-
-## Simplicity scales.
-
-Simple systems are easier to understand, maintain and secure.
-
-Complexity must always justify its existence.
-
----
-
-## Security is continuous.
-
-Security is not a milestone.
-
-It is an ongoing engineering discipline.
-
-Every release should improve the overall security posture of the platform.
-
----
-
-## Documentation is part of the product.
-
-Documentation exists to reduce ambiguity.
-
-Well-written documentation improves engineering quality.
-
-It reduces onboarding time.
-
-It improves long-term maintainability.
-
-It enables better architectural decisions.
-
----
-
-## Quality is designed.
-
-Testing cannot compensate for poor architecture.
-
-Quality begins with engineering decisions.
-
-Automated testing validates those decisions.
-
----
-
-# Current Development Status
-
-TecPey is currently under active development.
-
-The repository represents the primary engineering branch of the platform.
-
-Current priorities include:
-
-- Platform hardening
-- Security improvements
-- Exchange core
-- Financial Academy
-- AI Mentor
-- Trading Arena
-- Infrastructure
-- Enterprise architecture
-
-The focus is long-term stability rather than rapid feature expansion.
-
----
-
-# Development Workflow
-
-Every change follows a consistent engineering workflow.
-
+## Local Development
+
+### Prerequisites
+
+- Node.js `>=20.11.0`
+- npm `>=10.0.0 <11.0.0`
+- PostgreSQL
+- Redis
+
+### Setup
+
+```bash
+git clone https://github.com/tecpey/Tecpey-Os.git
+cd Tecpey-Os
+npm ci
+cp .env.example .env.local
+# Configure the required local environment values.
+npm run env:check
+npm run db:migrate
+npm run dev
 ```
 
-Inspect
+The default development command starts the custom TecPey server through `tsx server.ts`. `npm run dev:next` is available for Next-only development, but production behavior must be verified through the governed custom-server path.
 
-↓
+> [!WARNING]
+> Never place real production secrets, private keys, user data or live custody material in local files, fixtures, commits, pull requests or CI logs.
 
-Implement
+---
 
-↓
+## Repository Map
 
-Review
-
-↓
-
-Test
-
-↓
-
-Build
-
-↓
-
-Commit
-
-↓
-
-Push
-
-↓
-
-GitHub Actions
-
-↓
-
-Production Ready
-
+```text
+src/app/          Next.js routes, product pages and API endpoints
+src/components/   Shared and domain UI components
+src/lib/          Domain logic, authority boundaries and infrastructure
+src/tests/        Automated unit, authority and integration tests
+scripts/          CI guards, environment validation and QA utilities
+docs/             Governance, architecture, security, product and launch evidence
+server.ts         Governed custom application server
 ```
 
-Engineering quality should improve continuously with every iteration.
+---
+
+## Authoritative Documentation
+
+Start with these documents before changing critical platform behavior:
+
+- [`docs/TECPEY_MASTER_BLUEPRINT.md`](./docs/TECPEY_MASTER_BLUEPRINT.md) — strategic platform blueprint.
+- [`docs/FINAL_IMPLEMENTATION_GATE.md`](./docs/FINAL_IMPLEMENTATION_GATE.md) — implementation and launch gate framework.
+- [`docs/architecture/TECPEY_BACKEND_AUTHORITY_MAP.md`](./docs/architecture/TECPEY_BACKEND_AUTHORITY_MAP.md) — runtime, database and domain authority map.
+- [`docs/launch/TECPEY_COMPLETION_BASELINE_20260719.md`](./docs/launch/TECPEY_COMPLETION_BASELINE_20260719.md) — current evidence-weighted completion baseline.
+- [`docs/arena/TRADING_ARENA_UI_AUTHORITY.md`](./docs/arena/TRADING_ARENA_UI_AUTHORITY.md) — Arena client/server authority and ambiguous-command recovery.
+
+Repository documentation must describe verified reality. Aspirational features should be marked as roadmap, not presented as implemented capability.
 
 ---
 
-# Long-Term Direction
+<a id="persian"></a>
 
-TecPey is not limited to cryptocurrency services.
+## خلاصه فارسی
 
-The platform is designed to evolve toward a broader financial ecosystem capable of supporting education, intelligent financial guidance, enterprise infrastructure and future financial technologies.
+### تک‌پی چیست؟
 
-The operating system will continue to expand while maintaining a consistent architectural foundation.
+تک‌پی یک **سیستم‌عامل آموزش مالی، هوش معاملاتی و خدمات دارایی‌های دیجیتال** است؛ نه صرفاً یک صرافی رمزارز. هدف پلتفرم این است که آموزش، تمرین بدون ریسک، منتور هوشمند، معامله، کیف پول، اعتبار حرفه‌ای، مدیریت سازمانی و سرویس‌های توسعه‌دهندگان را روی یک هسته مشترک و قابل‌اعتماد به هم متصل کند.
 
----
+مسیر اصلی تجربه کاربر در تک‌پی چنین تعریف شده است:
 
-# A Note From The Team
+**آموزش → تمرین در Trading Arena → دریافت بازخورد هوشمند → ساخت انضباط و اعتبار → استفاده امن‌تر از خدمات مالی**
 
-Building financial infrastructure requires patience.
+تمرکز نخست محصول بازار ایران است، اما از ابتدا برای چندزبانه‌بودن، API-first، مقیاس سازمانی، SaaS، Multi-tenant و White-label برنامه‌ریزی شده است.
 
-Trust cannot be shipped overnight.
+### وضعیت واقعی پروژه
 
-It is earned through thousands of engineering decisions.
+بر اساس خط مبنای مستندشده در تاریخ **۲۸ تیر ۱۴۰۵ / 19 July 2026**:
 
-Every commit.
+- آمادگی هسته برای سافت‌لانچ کنترل‌شده: **۷۰٪**
+- پیشرفت کل چشم‌انداز TecPey OS: **۴۰٪**
+- وضعیت فعال‌سازی پول واقعی: **NO-GO تا زمان بسته‌شدن همه P0ها**
 
-Every review.
+پیشرفت‌های مهمی که وارد `main` شده‌اند:
 
-Every test.
+- پیشرفت رسمی، XP، دستاوردها و نتایج دوره‌های Academy به‌صورت سروری صادر می‌شوند.
+- اجرای اصلی Trading Arena، سفارش‌ها، موقعیت‌ها، کارمزد، PnL، revision، idempotency و ژورنال شواهد به سرور و PostgreSQL منتقل شده‌اند.
+- نتیجه نامشخص فرمان Arena با همان payload، revision و idempotency بازیابی می‌شود و فرمان متفاوت تا تعیین تکلیف قبلی مسدود است.
+- اجرای برداشت وجه از داده معتبر PostgreSQL استفاده می‌کند و تراکنش امضاشده پیش از Broadcast به‌صورت پایدار ذخیره می‌شود.
+- زمان‌بندی BullMQ، deduplication و بازیابی watcherها با Redis integration test پوشش داده شده‌اند.
+- برنامه مایگریشن دیتابیس به‌صورت مرکزی، advisory-locked و با اجرای واقعی و تکرار idempotent روی PostgreSQL در CI کنترل می‌شود.
+- CI مرزهای Browser Persistence، Admin، Academy، Arena، Wallet و Database Migration را علاوه بر TypeScript، ESLint، تست‌ها و Build کنترل می‌کند.
 
-Every release.
+مهم‌ترین موانع باقی‌مانده:
 
-TecPey is being built with that philosophy in mind.
----
+1. تکمیل محاسبات Decimal-safe و reconciliation مالی صرافی؛
+2. راه‌اندازی واقعی HSM/MPC و گواهی مستقل هر شبکه بلاکچین؛
+3. فعال‌سازی عملیاتی KYC/AML و تأیید حقوقی حوزه فعالیت؛
+4. تست کامل Staging، Backup/Restore، Rollback، Disaster Recovery و Incident Response؛
+5. تکمیل جداسازی Multi-tenant و White-label برای چشم‌انداز سازمانی؛
+6. API سروری بازتاب پس از معامله و سناریوهای تاریخی Arena.
 
-# Trust Is Our Product
+### قواعد غیرقابل‌مذاکره توسعه
 
-Financial platforms are built on trust.
-
-Without trust, technology has little value.
-
-At TecPey, security is not considered a feature that can be added later.
-
-It is treated as a fundamental design principle that influences every architectural and engineering decision.
-
-Our objective is simple:
-
-> Build a platform that deserves trust before asking users to trust it.
-
----
-
-# Security Philosophy
-
-Security is not a milestone.
-
-Security is a continuous engineering process.
-
-Every release should improve one or more aspects of the platform's security posture.
-
-Instead of relying on a single protection layer, TecPey follows a defense-in-depth strategy where multiple independent security controls work together.
-
-Our engineering philosophy assumes that every layer can eventually fail.
-
-The platform is therefore designed so that no single failure can compromise the entire system.
+- منبع حقیقت تمام داده‌های پایدار باید Backend و Database باشد.
+- هیچ داده مالی، پیشرفت آموزشی، تاریخچه، حافظه Mentor یا وضعیت حساب نباید با `localStorage` به‌عنوان منبع اصلی نگهداری شود.
+- عملیات مالی و مدیریتی در نبود وابستگی یا مجوز معتبر باید Fail Closed شوند.
+- هیچ قابلیت مالی با محاسبات تقریبی JavaScript Number تأیید Production نمی‌شود.
+- هیچ PR فقط به دلیل سبز بودن Build قابل Merge نیست؛ تست خطا، هم‌زمانی، بازیابی و شواهد Runtime نیز لازم است.
+- طراحی UI/UX باید برندمحور، متمایز، دسترس‌پذیر و دارای برابری واقعی فارسی و انگلیسی باشد.
+- قابلیت‌های آینده باید صریحاً با عنوان Roadmap معرفی شوند و نباید به‌عنوان قابلیت آماده نمایش داده شوند.
 
 ---
 
-# Core Security Principles
+## Security, Brand & License
 
-Every security decision follows the same principles.
+This repository is proprietary. Source code, documentation, architecture, brand assets and product specifications remain the intellectual property of TecPey and may not be copied, redistributed, sublicensed or used to create competing products without explicit written authorization.
 
-| Principle | Objective |
-|-----------|-----------|
-| Least Privilege | Components receive only the permissions they require. |
-| Defense in Depth | Multiple independent protection layers. |
-| Zero Trust | Every request must be verified. |
-| Secure by Default | Safe defaults before convenience. |
-| Auditability | Every critical operation should be traceable. |
-| Fail Secure | Failures should reduce risk, not increase it. |
-| Continuous Hardening | Security continuously improves over time. |
+The logo in [`docs/assets/brand/tecpey-logo-official.webp`](./docs/assets/brand/tecpey-logo-official.webp) is the official TecPey mark. It must not be replaced, redrawn, recolored or used outside approved brand contexts without authorization.
 
----
-
-# Privacy
-
-Users should always understand:
-
-- what data is collected
-- why it is collected
-- how it is protected
-- how it is used
-
-Privacy is treated as an engineering responsibility rather than a legal checkbox.
-
----
-
-# Reliability
-
-Financial infrastructure must remain predictable under pressure.
-
-TecPey emphasizes:
-
-- deterministic behavior
-- graceful degradation
-- fault isolation
-- observability
-- recoverability
-
-Reliability is measured by consistency rather than optimism.
-
----
-
-# Operational Excellence
-
-Every production system should be observable.
-
-Engineering decisions prioritize:
-
-- logging
-- metrics
-- health checks
-- tracing
-- monitoring
-- alerting
-
-The objective is to detect problems before users experience them.
-
----
-
-# Engineering Quality
-
-TecPey follows a continuous quality model.
-
-Every change should improve one or more of the following:
-
-- Security
-- Performance
-- Maintainability
-- Reliability
-- Developer Experience
-- Test Coverage
-- Documentation
-
-Quality is considered part of implementation rather than a separate phase.
-
----
-
-# Enterprise Readiness
-
-TecPey is designed with long-term enterprise deployment in mind.
-
-Platform architecture is evolving toward:
-
-- Multi-tenant infrastructure
-- Enterprise administration
-- White-label deployments
-- API integrations
-- Audit logging
-- Compliance support
-- Operational analytics
-- Role-based access control
-
-The objective is to support organizations of different sizes without redesigning the core platform.
-
----
-
-# Compliance Strategy
-
-Regulatory environments continue to evolve.
-
-Rather than building around a single jurisdiction, TecPey aims to provide an architecture capable of adapting to future compliance requirements.
-
-Compliance should become part of platform infrastructure instead of an afterthought.
-
----
-
-# Production Standards
-
-Every production release should satisfy engineering quality gates before deployment.
-
-Typical quality gates include:
-
-- Static analysis
-- Type validation
-- Automated testing
-- Build verification
-- Security review
-- CI validation
-
-Releases should increase confidence rather than introduce uncertainty.
-
----
-
-# Long-Term Reliability
-
-Financial systems are expected to operate for years rather than months.
-
-For that reason, TecPey favors:
-
-- maintainable architecture
-- clear documentation
-- incremental evolution
-- backward compatibility where practical
-- operational simplicity
-
-Engineering sustainability is considered a competitive advantage.
-
----
-
-# Our Commitment
-
-Technology evolves.
-
-Markets evolve.
-
-Regulations evolve.
-
-User expectations evolve.
-
-Our commitment is that TecPey should evolve with them while preserving the principles on which it was built:
-
-- Transparency
-- Responsibility
-- Security
-- Education
-- Reliability
-
-These principles define the platform more than any individual feature ever could.
-
----
----
-
-# Repository
-
-The TecPey repository is organized around long-term maintainability rather than short-term development speed.
-
-Every major subsystem is isolated with clear responsibilities to reduce coupling, simplify testing and support future scalability.
-
-The repository is intended to grow together with the platform while preserving a consistent engineering structure.
-
----
-
-# Repository Organization
-
-```
-.
-├── docs/                  # Architecture, product, engineering and governance
-├── deploy/                # Deployment infrastructure
-├── migrations/            # Database migrations
-├── public/                # Static assets
-├── scripts/               # Engineering & operational scripts
-├── src/
-│   ├── app/               # Next.js App Router
-│   ├── components/        # UI components
-│   ├── data/              # Static datasets
-│   ├── hooks/             # React hooks
-│   ├── i18n/              # Internationalization
-│   ├── lib/               # Core platform libraries
-│   ├── services/          # Business services
-│   ├── workers/           # Background workers
-│   ├── tests/             # Automated tests
-│   └── utils/             # Shared utilities
-└── package.json
-```
-
-The structure is intentionally modular to support future expansion without requiring large-scale refactoring.
-
----
-
-# Development Workflow
-
-Every engineering task follows a consistent lifecycle.
-
-```
-Understand
-
-↓
-
-Design
-
-↓
-
-Implement
-
-↓
-
-Review
-
-↓
-
-Test
-
-↓
-
-Build
-
-↓
-
-Commit
-
-↓
-
-Push
-
-↓
-
-Continuous Integration
-
-↓
-
-Production
-```
-
-No feature is considered complete until it successfully passes the engineering quality gates.
-
----
-
-# Quality Gates
-
-Every production change should successfully complete:
-
-- Static analysis
-- Type checking
-- Build verification
-- Automated tests
-- Code review
-- Continuous Integration
-
-The objective is to prevent defects from reaching production rather than detecting them afterwards.
-
----
-
-# Documentation Strategy
-
-Documentation is treated as part of the product.
-
-Major documentation includes:
-
-- README
-- Master Blueprint
-- Whitepaper
-- Security Documentation
-- Deployment Guides
-- Architecture Documents
-- API Documentation
-- Developer Guides
-
-Documentation evolves together with implementation.
-
-Whenever architecture changes, documentation should evolve accordingly.
-
----
-
-# Engineering Standards
-
-TecPey follows several long-term engineering standards.
-
-### Readability
-
-Code should be understandable before it is clever.
-
----
-
-### Maintainability
-
-Future contributors should be able to improve the platform without unnecessary complexity.
-
----
-
-### Consistency
-
-Similar problems should be solved using similar patterns.
-
----
-
-### Simplicity
-
-Complexity should only exist when it delivers measurable value.
-
----
-
-### Scalability
-
-Architecture should support future growth without redesigning the platform.
-
----
-
-### Continuous Improvement
-
-Every commit should improve the platform in some measurable way.
-
----
-
-# Internationalization
-
-TecPey is designed for multilingual operation.
-
-Current development includes:
-
-- Persian
-- English
-
-The architecture also supports future expansion to additional languages.
-
-Internationalization is considered part of the platform architecture rather than a later enhancement.
-
----
-
-# Open Architecture
-
-TecPey is being designed as an extensible platform.
-
-Future capabilities include:
-
-- Public APIs
-- SDKs
-- Webhooks
-- Enterprise integrations
-- White-label deployments
-- Third-party extensions
-
-The goal is to enable an ecosystem rather than a closed application.
-
----
-
-# For Developers
-
-If you are joining the project for the first time:
-
-1. Read the README.
-2. Read the Master Blueprint.
-3. Understand the platform architecture.
-4. Review engineering standards.
-5. Build the project locally.
-6. Run all quality checks before contributing.
-
-Engineering consistency is valued more than implementation speed.
-
----
-
-# For Partners
-
-TecPey is being designed to support long-term partnerships.
-
-Future partnership models include:
-
-- Enterprise deployment
-- White-label platforms
-- Educational institutions
-- Financial organizations
-- Technology integrations
-
-The architecture is intentionally designed to accommodate different deployment models while preserving a unified engineering foundation.
-
----
-
-# For Investors
-
-TecPey should be evaluated as a long-term financial technology platform rather than solely as a cryptocurrency exchange.
-
-The repository reflects ongoing investment in:
-
-- Platform architecture
-- Engineering quality
-- Security
-- Education
-- Artificial Intelligence
-- Enterprise infrastructure
-
-The objective is sustainable value creation through disciplined engineering and responsible product development.
-
----
----
-
-# Looking Forward
-
-Technology evolves continuously.
-
-Financial markets evolve continuously.
-
-Artificial Intelligence evolves continuously.
-
-User expectations evolve continuously.
-
-TecPey is designed with the understanding that the platform must evolve alongside them.
-
-Our objective is not to predict every future requirement.
-
-Our objective is to build an architecture capable of adapting to future opportunities without compromising the principles that define the platform.
-
-The technology stack may change.
-
-The implementation details may evolve.
-
-Individual services may be redesigned.
-
-Our principles should remain stable.
-
----
-
-# Beyond Cryptocurrency
-
-Although TecPey currently focuses on digital asset infrastructure, the long-term vision extends beyond cryptocurrency itself.
-
-The platform is being designed as a foundation capable of supporting future financial products, educational services, intelligent financial guidance and enterprise infrastructure.
-
-We believe that responsible financial technology should combine:
-
-- Education
-- Intelligence
-- Transparency
-- Security
-- Accessibility
-- Continuous Learning
-
-Rather than optimizing for short-term market trends, TecPey is being built for long-term sustainability.
-
----
-
-# Building With Purpose
-
-Every engineering decision carries long-term consequences.
-
-Every architectural decision influences future scalability.
-
-Every security decision influences user trust.
-
-Every educational improvement influences financial responsibility.
-
-We believe software should improve people's ability to make informed decisions rather than simply increasing activity.
-
-That belief guides every subsystem inside TecPey.
-
----
-
-# Engineering Over Hype
-
-Financial technology is full of promises.
-
-Trust is built through execution.
-
-For that reason, TecPey values:
-
-- disciplined engineering
-- measurable progress
-- continuous improvement
-- transparent development
-- long-term thinking
-
-More than marketing.
-
-More than speculation.
-
-More than trends.
-
----
-
-# Open Evolution
-
-TecPey is not intended to become a static product.
-
-The platform is expected to evolve continuously through engineering improvements, architectural refinement, security hardening and product innovation.
-
-Every release should leave the platform stronger than it was before.
-
-Small improvements accumulate.
-
-Quality compounds.
-
-Trust compounds.
-
-Knowledge compounds.
-
----
-
-# A Platform Built To Grow
-
-TecPey is designed to grow with its users.
-
-From the first educational lesson…
-
-to the first simulated trade…
-
-to the first live transaction…
-
-to enterprise deployment…
-
-the platform should provide a consistent experience built on the same engineering principles.
-
-Growth should never require abandoning the architectural foundation.
-
----
-
-# Final Thoughts
-
-Financial technology should not only make transactions easier.
-
-It should make financial decisions better.
-
-We believe education creates confidence.
-
-Confidence creates responsibility.
-
-Responsibility creates trust.
-
-Trust creates sustainable ecosystems.
-
-That belief is the foundation of TecPey.
-
----
-
-# Our Commitment
-
-As the platform evolves, one commitment will remain unchanged:
-
-We will continue building TecPey with discipline, transparency and long-term thinking.
-
-Every lesson.
-
-Every API.
-
-Every security improvement.
-
-Every architectural decision.
-
-Every line of code.
-
-Should move the platform one step closer to becoming the trusted operating system for digital financial services.
-
----
-
-# Join the Journey
-
-TecPey is still under active development.
-
-Every contribution, every review, every discussion and every improvement helps shape the future of the platform.
-
-Whether you are:
-
-- a developer,
-- an educator,
-- a designer,
-- a researcher,
-- an enterprise partner,
-- or someone who simply believes financial technology can be built more responsibly,
-
-you are welcome to follow the journey.
-
-The future of digital finance should not only be faster.
-
-It should also be safer.
-
-Smarter.
-
-More transparent.
-
-And more human.
+Security reports should be disclosed privately through the authorized TecPey security channel rather than public issues. General contact: **info@tecpey.ir**.
 
 ---
 
 <div align="center">
 
-## TecPey OS
+**Build trust before transactions.**
 
-### Financial Education & Digital Asset Operating System
-
-**Education First.  
-Trust by Design.  
-Built for the Future.**
-
----
-
-**"تک‌پی، نقطه امن ورود به بازار رمزارز"**
-
-</div>
-
----
-
-# فارسی
-
-## آینده
-
-فناوری تغییر می‌کند.
-
-بازارهای مالی تغییر می‌کنند.
-
-هوش مصنوعی تغییر می‌کند.
-
-نیازهای کاربران نیز همواره در حال تغییر هستند.
-
-TecPey بر این اساس طراحی شده است که بتواند بدون از دست دادن اصول بنیادی خود، همراه با این تغییرات رشد کند.
-
-ممکن است فناوری‌ها تغییر کنند.
-
-ممکن است معماری تکامل پیدا کند.
-
-اما اصولی که این پلتفرم بر پایه آن‌ها ساخته شده، ثابت خواهند ماند.
-
----
-
-## فراتر از رمزارز
-
-اگرچه امروز تمرکز TecPey بر زیرساخت‌های دارایی‌های دیجیتال است، اما چشم‌انداز آن بسیار فراتر از یک صرافی رمزارز است.
-
-هدف ما ایجاد زیرساختی است که بتواند آموزش مالی، خدمات هوشمند، محصولات سازمانی و نسل جدید خدمات مالی دیجیتال را در یک اکوسیستم واحد ارائه کند.
-
----
-
-## تعهد ما
-
-ما باور داریم اعتماد با شعار ساخته نمی‌شود.
-
-اعتماد نتیجه هزاران تصمیم مهندسی صحیح است.
-
-هر Commit.
-
-هر بازبینی.
-
-هر تست.
-
-هر بهبود امنیت.
-
-هر تصمیم معماری.
-
-TecPey با همین نگاه توسعه پیدا می‌کند.
-
----
-
-## سخن پایانی
-
-هدف ما صرفاً ساخت یک محصول نیست.
-
-هدف ما ساخت زیرساختی است که سال‌ها بعد نیز قابل اعتماد، قابل توسعه و مفید باقی بماند.
-
-اگر روزی TecPey بتواند به افراد بیشتری کمک کند تا با دانش بیشتر، مسئولانه‌تر و مطمئن‌تر وارد دنیای خدمات مالی دیجیتال شوند، مأموریت خود را موفق می‌دانیم.
-
----
-
-<div align="center">
-
-## TecPey OS
-
-### سیستم‌عامل آموزش مالی و خدمات دارایی‌های دیجیتال
-
-**آموزش پیش از معامله  
-اعتماد در طراحی  
-ساخته‌شده برای آینده**
-
----
-
-**تک‌پی، نقطه امن ورود به بازار رمزارز**
+**اول اعتماد؛ بعد معامله.**
 
 </div>
