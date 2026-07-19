@@ -1,6 +1,10 @@
 import { createHash } from "crypto";
+import Decimal from "decimal.js";
 import { cleanText } from "@/lib/student-cartax";
-import type { ArenaClosedTradeV2 } from "@/lib/trading-arena-execution-v2";
+import type {
+  ArenaClosedTradeV2,
+  ArenaExecutionMentorFlag,
+} from "@/lib/trading-arena-execution-v2";
 
 export const ARENA_REFLECTION_MISTAKE_TAGS = [
   "late-entry",
@@ -78,6 +82,16 @@ export type ArenaReflectionRow = {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_RE = /^[A-Za-z0-9._:-]{8,120}$/;
 const TAG_SET = new Set<string>(ARENA_REFLECTION_MISTAKE_TAGS);
+const MENTOR_FLAGS = new Set<ArenaExecutionMentorFlag>([
+  "no-stop-loss",
+  "over-risk",
+  "impulse-entry",
+  "revenge-trade",
+  "fomo-entry",
+  "good-discipline",
+  "proper-sizing",
+  "target-hit",
+]);
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -183,17 +197,42 @@ function stringArray(value: unknown): string[] {
   return value;
 }
 
+function canonicalEvidenceAmount(value: string, places: number): string {
+  if (!/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) {
+    throw new Error("arena_reflection_evidence_invalid");
+  }
+  const parsed = new Decimal(value);
+  if (!parsed.isFinite()) throw new Error("arena_reflection_evidence_invalid");
+  return parsed.toDecimalPlaces(places, Decimal.ROUND_DOWN).toFixed(places);
+}
+
+function validatedMentorFlags(value: unknown): ArenaExecutionMentorFlag[] {
+  const flags = stringArray(value);
+  if (
+    flags.length > MENTOR_FLAGS.size ||
+    new Set(flags).size !== flags.length ||
+    flags.some((flag) => !MENTOR_FLAGS.has(flag as ArenaExecutionMentorFlag))
+  ) {
+    throw new Error("arena_reflection_evidence_invalid");
+  }
+  return flags as ArenaExecutionMentorFlag[];
+}
+
 export function mapArenaReflectionRow(row: ArenaReflectionRow): ArenaReflectionRecord {
   const revision = Number(row.revision);
   const tags = normalizeArenaReflectionMistakeTags(stringArray(row.mistake_tags));
-  const mentorFlags = stringArray(row.evidence_mentor_flags) as ArenaClosedTradeV2["mentorFlags"];
+  const mentorFlags = validatedMentorFlags(row.evidence_mentor_flags);
   if (!Number.isSafeInteger(revision) || revision < 1 || !tags) {
     throw new Error("arena_reflection_row_invalid");
   }
   if (row.evidence_asset !== "BTC" && row.evidence_asset !== "ETH") {
     throw new Error("arena_reflection_evidence_invalid");
   }
-  if (!["manual", "stop-loss", "take-profit"].includes(row.evidence_closure_reason)) {
+  if (![
+    "manual",
+    "stop-loss",
+    "take-profit",
+  ].includes(row.evidence_closure_reason)) {
     throw new Error("arena_reflection_evidence_invalid");
   }
 
@@ -210,8 +249,8 @@ export function mapArenaReflectionRow(row: ArenaReflectionRow): ArenaReflectionR
     nextActionCommitment: row.next_action_commitment,
     evidence: {
       asset: row.evidence_asset,
-      realizedPnl: row.evidence_realized_pnl,
-      realizedPnlRate: row.evidence_realized_pnl_rate,
+      realizedPnl: canonicalEvidenceAmount(row.evidence_realized_pnl, 10),
+      realizedPnlRate: canonicalEvidenceAmount(row.evidence_realized_pnl_rate, 8),
       closureReason: row.evidence_closure_reason,
       closedAt: iso(row.evidence_closed_at),
       mentorFlags,
