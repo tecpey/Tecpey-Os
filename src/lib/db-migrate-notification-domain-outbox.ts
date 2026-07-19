@@ -114,6 +114,28 @@ CREATE TABLE IF NOT EXISTS notification_domain_dead_letters (
   CHECK (char_length(terminal_reason) BETWEEN 1 AND 100),
   CHECK (jsonb_typeof(snapshot) = 'object')
 );
+
+CREATE OR REPLACE FUNCTION tecpey_block_notification_domain_dead_letter_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'notification_domain_dead_letters is append-only'
+    USING ERRCODE = '55000';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS notification_domain_dead_letters_no_update
+  ON notification_domain_dead_letters;
+CREATE TRIGGER notification_domain_dead_letters_no_update
+  BEFORE UPDATE ON notification_domain_dead_letters
+  FOR EACH ROW EXECUTE FUNCTION tecpey_block_notification_domain_dead_letter_mutation();
+
+DROP TRIGGER IF EXISTS notification_domain_dead_letters_no_delete
+  ON notification_domain_dead_letters;
+CREATE TRIGGER notification_domain_dead_letters_no_delete
+  BEFORE DELETE ON notification_domain_dead_letters
+  FOR EACH ROW EXECUTE FUNCTION tecpey_block_notification_domain_dead_letter_mutation();
 `;
 
 function checksum(sql: string): string {
