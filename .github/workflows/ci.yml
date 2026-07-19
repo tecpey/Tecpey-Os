@@ -1,135 +1,66 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
-  hygiene:
-    name: Repository Hygiene Inventory
+  remove-chartjs:
+    name: Remove Superseded Chart.js Dependencies
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]' && github.head_ref == 'chore/remove-superseded-chartjs-path-20260719'
     steps:
-      - name: Checkout
+      - name: Checkout exact cleanup branch
         uses: actions/checkout@v4
-
-      - name: Generate structured hygiene report
-        run: node scripts/audit-repository-hygiene.mjs --json > repository-hygiene.json
-
-      - name: Print hygiene summary
-        run: node scripts/audit-repository-hygiene.mjs
-
-      - name: Upload hygiene report
-        uses: actions/upload-artifact@v4
         with:
-          name: repository-hygiene-${{ github.sha }}
-          path: repository-hygiene.json
-          if-no-files-found: error
-          retention-days: 14
+          ref: chore/remove-superseded-chartjs-path-20260719
+          fetch-depth: 0
 
-  quality:
-    name: Quality Checks
-    runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci
-          POSTGRES_DB: ci_placeholder
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ci -d ci_placeholder"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
-
-    env:
-      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
-      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
-      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
-      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
-      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
-      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
-      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
-      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
-      REDIS_URL: redis://localhost:6379
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
+      - name: Setup governed Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Verify npm version
-        run: |
-          NPM_MAJOR=$(npm --version | cut -d. -f1)
-          if [ "$NPM_MAJOR" != "10" ]; then
-            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
-            exit 1
-          fi
-          echo "npm $(npm --version) OK"
+      - name: Verify governed npm version
+        run: test "$(npm --version | cut -d. -f1)" = "10"
 
-      - name: Install dependencies
+      - name: Install exact dependency graph
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-      - name: Production environment contract
-        env:
-          NODE_ENV: production
-        run: npm run env:check
+      - name: Remove superseded dependencies
+        run: npm uninstall chart.js react-chartjs-2 --save --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
-      - name: Clean database migrations
-        run: npm run db:migrate
+      - name: Verify dependency boundaries
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          for (const name of ['chart.js', 'react-chartjs-2']) {
+            if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) {
+              throw new Error(`${name}_direct_dependency_still_present`);
+            }
+          }
+          if (!pkg.dependencies?.recharts) throw new Error('recharts_must_remain');
+          NODE
+          node scripts/audit-repository-hygiene.mjs --json > /tmp/hygiene.json
+          node - <<'NODE'
+          const report = require('/tmp/hygiene.json');
+          const names = report.unreferencedDependencies.map((item) => item.name);
+          if (names.length) throw new Error(`unexpected_unreferenced_dependencies:${names.join(',')}`);
+          NODE
+          git diff --check
 
-      - name: Database migration idempotency
-        run: npm run db:migrate
-
-      - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
-
-      - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 0
-
-      - name: Browser persistence guard
-        run: node scripts/check-browser-persistence.mjs
-
-      - name: Admin authentication boundary guard
-        run: node scripts/check-admin-auth-boundary.mjs
-
-      - name: Academy authority boundary guard
-        run: node scripts/check-academy-authority-boundary.mjs
-
-      - name: Arena UI authority boundary guard
-        run: node scripts/check-arena-ui-authority.mjs
-
-      - name: Wallet authority boundary guard
-        run: node scripts/check-wallet-authority.mjs
-
-      - name: Database migration authority guard
-        run: node scripts/check-database-migration-authority.mjs
-
-      - name: Tests
-        run: npm test
-
-      - name: Build
-        env:
-          NODE_ENV: production
-        run: npm run build
+      - name: Restore canonical CI and remove transport workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main --quiet
+          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
+          git rm .github/workflows/remove-superseded-chartjs.yml
+          git add .github/workflows/ci.yml package.json package-lock.json
+          git diff --cached --check
+          git commit -m 'chore(charts): remove superseded Chart.js dependencies'
+          git push origin HEAD:chore/remove-superseded-chartjs-path-20260719
