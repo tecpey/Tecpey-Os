@@ -1,12 +1,13 @@
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
-import { holdFunds, releaseFunds } from "./wallet-balance-service";
+import { D } from "./decimal";
+import { holdFunds, holdFundsTx, releaseFunds } from "./wallet-balance-service";
+import { parsePositiveOrderDecimal, toHoldAmount } from "./order-financials";
 
 // ── Available balance ─────────────────────────────────────────────────────────
-//
-// Phase 30: O(1) read from wallet_balances — no longer a full ledger aggregate.
-// Returns 0 if no balance row exists (new user, untouched asset).
 
-export async function getAvailableBalance(userId: string, asset: string): Promise<number> {
+/** Exact financial value for authorization, comparison and mutation decisions. */
+export async function getAvailableBalanceAmount(userId: string, asset: string): Promise<string> {
   const result = await withDb(async (client) => {
     const rows = await client.query<{ available_balance: string }>(
       `SELECT available_balance FROM wallet_balances WHERE user_id = $1 AND asset = $2`,
@@ -14,14 +15,64 @@ export async function getAvailableBalance(userId: string, asset: string): Promis
     );
     return rows.rows[0]?.available_balance ?? "0";
   });
-  if (!result.enabled) return 0;
-  return parseFloat(result.value ?? "0");
+  return result.enabled ? (result.value ?? "0") : "0";
 }
 
-// ── Hold / release ────────────────────────────────────────────────────────────
-//
-// Delegates to wallet-balance-service for atomic single-SQL operations.
-// Kept here so existing call sites (e.g. orders/route.ts) need no import changes.
+/** Compatibility/display helper. Never use this number for financial authority. */
+export async function getAvailableBalance(userId: string, asset: string): Promise<number> {
+  return D(await getAvailableBalanceAmount(userId, asset)).toNumber();
+}
+
+// ── Authoritative order hold ──────────────────────────────────────────────────
+
+/**
+ * Executes the existing atomic wallet hold with an exact decimal string, then
+ * proves the immutable ledger evidence exists with the same canonical amount.
+ * Any mismatch throws so the caller's order+hold transaction rolls back.
+ */
+export async function holdOrderFundsTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: string,
+  orderId: string,
+): Promise<boolean> {
+  const parsed = parsePositiveOrderDecimal(amount);
+  if (!parsed) throw new Error("invalid_order_hold_amount");
+  const canonical = toHoldAmount(parsed);
+
+  // holdFundsTx canonicalizes through Decimal/toFixed at runtime. The cast is
+  // compile-time compatibility until all legacy matching balance APIs migrate
+  // from number inputs in the next #30 slice; no numeric conversion occurs.
+  const held = await holdFundsTx(
+    client,
+    userId,
+    asset,
+    canonical as unknown as number,
+    orderId,
+  );
+  if (!held) return false;
+
+  const ledger = await client.query<{ amount: string }>(
+    `SELECT amount::text AS amount
+       FROM wallet_ledger
+      WHERE wallet_id = $1
+        AND asset = $2
+        AND type = 'hold'
+        AND reference_type = 'order'
+        AND reference_id = $3
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [userId, asset.toUpperCase(), orderId],
+  );
+  const ledgerAmount = ledger.rows[0]?.amount;
+  if (!ledgerAmount || !D(ledgerAmount).eq(canonical)) {
+    throw new Error("order_hold_ledger_mismatch");
+  }
+  return true;
+}
+
+// ── Legacy hold / release compatibility ───────────────────────────────────────
 
 export async function postHold(
   userId: string,
