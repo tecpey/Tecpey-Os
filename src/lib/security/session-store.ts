@@ -33,10 +33,11 @@ export async function registerSession(opts: {
 }): Promise<boolean> {
   try {
     const result = await withDb(async (db) => {
-      await db.query(
+      const inserted = await db.query<{ id: string }>(
         `INSERT INTO user_sessions (id, user_id, device_info, ip, expires_at)
          VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT (id) DO NOTHING
+         RETURNING id`,
         [
           opts.jti,
           opts.userId,
@@ -45,11 +46,18 @@ export async function registerSession(opts: {
           opts.expiresAt,
         ],
       );
-      return true;
+      return (inserted.rowCount ?? 0) === 1;
     });
     if (!result.enabled) {
       logger.warn("[session-store] registerSession: database unavailable", {
         jti: opts.jti,
+      });
+      return false;
+    }
+    if (!result.value) {
+      logger.warn("[session-store] registerSession: duplicate JTI rejected", {
+        jti: opts.jti,
+        userId: opts.userId,
       });
       return false;
     }
