@@ -21,6 +21,19 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
 
     env:
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
@@ -62,6 +75,12 @@ jobs:
           NODE_ENV: production
         run: npm run env:check
 
+      - name: Clean database migrations
+        run: npm run db:migrate
+
+      - name: Database migration idempotency
+        run: npm run db:migrate
+
       - name: TypeScript
         run: ./node_modules/.bin/tsc --noEmit
 
@@ -82,6 +101,9 @@ jobs:
 
       - name: Wallet authority boundary guard
         run: node scripts/check-wallet-authority.mjs
+
+      - name: Database migration authority guard
+        run: node scripts/check-database-migration-authority.mjs
 
       - name: Tests
         run: npm test
