@@ -65,7 +65,7 @@
     "@types/pg": "^8.11.10",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.4",
