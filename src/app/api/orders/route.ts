@@ -19,7 +19,6 @@ import {
 } from "@/lib/trading/wallet-service";
 import { calculateOrderHold } from "@/lib/trading/order-financials";
 import { D } from "@/lib/trading/decimal";
-import { getOrderBook } from "@/lib/trading/order-book";
 import { getMatchingEngine } from "@/lib/trading/engine";
 import type { Order, OrderSide, OrderStatus, OrderType, PlaceOrderRequest, TimeInForce } from "@/lib/trading/types";
 
@@ -51,9 +50,6 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST financial authority:
-// require exact JSON strings → validate Decimal values → calculate exact hold →
-// compare exact balance → atomically create order + hold + ledger evidence.
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/orders" }, async () => {
     const start = Date.now();
@@ -79,8 +75,6 @@ export async function POST(req: NextRequest) {
     const side = body.side;
     const type = body.type;
 
-    // JSON numbers have already passed through IEEE-754 before this route sees
-    // them. Financial fields are therefore accepted only as exact strings.
     if (typeof body.quantity !== "string") return apiError("quantity_must_be_string", 400);
     if (body.price !== undefined && typeof body.price !== "string") {
       return apiError("price_must_be_string", 400);
@@ -127,16 +121,15 @@ export async function POST(req: NextRequest) {
     const validation = validatePlaceOrderRequest(request, marketDef);
     if (!validation.ok) return apiError(validation.error, 400, { detail: validation.detail });
 
-    let bestAskPrice: string | undefined;
+    // A best-ask snapshot cannot reserve a multi-level market buy safely.
+    // Market sells remain bounded by the exact base quantity already held.
     if (side === "buy" && type === "market") {
-      const bestAsk = getOrderBook(market).bestAsk();
-      if (!bestAsk) return apiError("no_liquidity", 422);
-      bestAskPrice = bestAsk.price;
+      return apiError("market_buy_depth_reservation_required", 422);
     }
 
     let hold: ReturnType<typeof calculateOrderHold>;
     try {
-      hold = calculateOrderHold({ request, market: marketDef, bestAskPrice });
+      hold = calculateOrderHold({ request, market: marketDef });
     } catch (error) {
       logger.error("[orders] exact hold calculation failed", { userId, market, error });
       return apiError("invalid_order_hold", 400);
