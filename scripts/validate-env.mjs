@@ -168,15 +168,23 @@ if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) {
   errors.push(`AI_MENTOR_FALLBACK_MODEL is not in the approved TecPey model allowlist: ${mentorFallbackModel}`);
 }
 
-if (process.env.NODE_ENV === 'production' && process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {
-  const hasUpstash = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
-  const hasRedisRest = process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN;
-  if (!hasUpstash && !hasRedisRest) {
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.REDIS_URL) {
     errors.push(
-      'Redis REST must be configured in production for coordinated rate limiting. ' +
-      'Set UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN or REDIS_REST_URL/REDIS_REST_TOKEN, ' +
-      'or set TECPEY_ALLOW_MEMORY_RATE_LIMIT=1 for single-instance deployments with per-instance limiting.'
+      'REDIS_URL is required in production because strict session revocation uses the shared ioredis client; Redis REST credentials alone are insufficient.'
     );
+  }
+
+  if (process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {
+    const hasUpstash = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
+    const hasRedisRest = process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN;
+    if (!hasUpstash && !hasRedisRest) {
+      errors.push(
+        'Redis REST must be configured in production for coordinated rate limiting. ' +
+        'Set UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN or REDIS_REST_URL/REDIS_REST_TOKEN, ' +
+        'or set TECPEY_ALLOW_MEMORY_RATE_LIMIT=1 for single-instance deployments with per-instance limiting.'
+      );
+    }
   }
 }
 
