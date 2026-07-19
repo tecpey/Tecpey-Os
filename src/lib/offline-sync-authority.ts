@@ -47,6 +47,14 @@ export function offlineLearningEventId(args: {
   return `OFFLINE-${digest}`;
 }
 
+function offlineCommandLockKey(args: {
+  tenantId: string;
+  studentId: string;
+  clientEventId: string;
+}): string {
+  return `${args.tenantId}\u0000${args.studentId}\u0000${args.clientEventId}`;
+}
+
 type ExistingCommandRow = {
   id: string;
   command_hash: string;
@@ -120,9 +128,22 @@ export async function processOfflineSyncCommand(args: {
     studentId: args.studentId,
     clientEventId: args.item.id,
   });
+  const lockKey = offlineCommandLockKey({
+    tenantId: args.tenantId,
+    studentId: args.studentId,
+    clientEventId: args.item.id,
+  });
 
   try {
     const transaction = await withTx(async (client) => {
+      // Serialize every attempt for the exact tenant/student/client command.
+      // This avoids speculative unique-index contention and guarantees that
+      // retries observe the committed result produced by the prior holder.
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
+        [lockKey],
+      );
+
       const claimed = await client.query<{ id: string }>(
         `INSERT INTO offline_sync_commands
           (tenant_id, student_id, client_event_id, command_hash, event_type,
