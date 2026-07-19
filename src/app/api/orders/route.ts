@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
 }
 
 // POST financial authority:
-// validate Decimal strings → calculate no-under-reservation hold → compare exact
-// available balance → atomically create order + hold + immutable ledger evidence.
+// require exact JSON strings → validate Decimal values → calculate exact hold →
+// compare exact balance → atomically create order + hold + ledger evidence.
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/orders" }, async () => {
     const start = Date.now();
@@ -78,9 +78,20 @@ export async function POST(req: NextRequest) {
     const market = String(body.market ?? "").toUpperCase().trim();
     const side = body.side;
     const type = body.type;
-    const quantity = String(body.quantity ?? "");
-    const price = body.price ? String(body.price) : undefined;
-    const stopPrice = body.stopPrice ? String(body.stopPrice) : undefined;
+
+    // JSON numbers have already passed through IEEE-754 before this route sees
+    // them. Financial fields are therefore accepted only as exact strings.
+    if (typeof body.quantity !== "string") return apiError("quantity_must_be_string", 400);
+    if (body.price !== undefined && typeof body.price !== "string") {
+      return apiError("price_must_be_string", 400);
+    }
+    if (body.stopPrice !== undefined && typeof body.stopPrice !== "string") {
+      return apiError("stop_price_must_be_string", 400);
+    }
+
+    const quantity = body.quantity;
+    const price = body.price as string | undefined;
+    const stopPrice = body.stopPrice as string | undefined;
     const clientOrderId = body.clientOrderId ? String(body.clientOrderId).slice(0, 64) : undefined;
     const rawTIF = body.timeInForce ? String(body.timeInForce).toUpperCase() : undefined;
 
