@@ -147,8 +147,7 @@ async function seedWithdrawal(userId: string): Promise<string> {
     ip: "127.0.0.1",
     userAgent: "tecpey-withdrawal-admin-test",
   });
-  assert.equal(created.ok, true);
-  if (!created.ok) throw new Error(created.reason);
+  if (!created.ok) throw new Error("withdrawal seed failed");
   assert.equal(created.withdrawal.state, "compliance_review");
   return created.withdrawal.id;
 }
