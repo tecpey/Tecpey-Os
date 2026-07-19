@@ -105,6 +105,7 @@ for (const entry of manifest.routes) {
     method: scoped.method,
     resolved: scoped.resolved,
   };
+  entry.controls.explicitPublicCachePolicy = false;
 
   // The canonical Academy authentication route is credential authority even
   // though its path segment is `academy-auth` rather than `/auth/...`.
@@ -131,8 +132,9 @@ for (const entry of manifest.routes) {
     /from\s+["']@\/lib\/api-validation["']/.test(scoped.evidence)
     && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(scoped.evidence)
   ) {
-    entry.controls.noStore = !hasExplicitPublicCachePolicy(scoped.evidence);
-    entry.controls.explicitPublicCachePolicy = hasExplicitPublicCachePolicy(scoped.evidence);
+    const explicitPublicCachePolicy = hasExplicitPublicCachePolicy(scoped.evidence);
+    entry.controls.noStore = !explicitPublicCachePolicy;
+    entry.controls.explicitPublicCachePolicy = explicitPublicCachePolicy;
   }
 
   // Notification response builders wrap the same central contract with an
@@ -177,6 +179,7 @@ if (logoutAlias && logoutAuthority) {
     ...logoutAuthority.controls,
     csrf: logoutAlias.controls.csrf || logoutAuthority.controls.csrf,
     noStore: true,
+    explicitPublicCachePolicy: false,
   };
   logoutAlias.evidenceSource = {
     sourcePath: logoutAuthority.sourcePath,
