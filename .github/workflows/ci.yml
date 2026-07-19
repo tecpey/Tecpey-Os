@@ -5,13 +5,13 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  transfer-chart-cleanup:
-    name: Diagnose Verified Chart.js Cleanup Transfer
+  diagnose-chart-cleanup:
+    name: Diagnose Chart.js Cleanup Transfer
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]' && github.head_ref == 'chore/remove-superseded-chartjs-final-20260719'
+    if: github.head_ref == 'chore/remove-superseded-chartjs-final-20260719'
     steps:
       - name: Checkout exact final branch
         uses: actions/checkout@v4
@@ -19,50 +19,35 @@ jobs:
           ref: chore/remove-superseded-chartjs-final-20260719
           fetch-depth: 0
 
-      - name: Transfer and stage permanent cleanup files
-        run: |
-          set -euo pipefail
-          git fetch origin chore/remove-superseded-chartjs-path-20260719 --quiet
-          git checkout origin/chore/remove-superseded-chartjs-path-20260719 -- \
-            package.json \
-            package-lock.json \
-            docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
-          git rm 'src/app/crypto/[symbol]/ChartWrapper.tsx'
-          git rm src/components/crypto/LivePriceChart.tsx
-          git add package.json package-lock.json docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
-          git diff --check
-          git diff --cached --check
-
-      - name: Capture commit and push diagnostics
+      - name: Run each transfer command without early exit
         shell: bash
         run: |
           set +e
-          {
-            echo '=== STATUS ==='
-            git status --short
-            echo '=== STAGED ==='
-            git diff --cached --name-only | sort
-            echo '=== UNSTAGED ==='
-            git diff --name-only | sort
-            echo '=== COMMIT ==='
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m 'chore(charts): remove superseded Chart.js path'
-            COMMIT_STATUS=$?
-            echo "COMMIT_STATUS=$COMMIT_STATUS"
-            if [ "$COMMIT_STATUS" -eq 0 ]; then
-              echo '=== PUSH ==='
-              git push origin HEAD:chore/remove-superseded-chartjs-final-20260719
-              PUSH_STATUS=$?
-              echo "PUSH_STATUS=$PUSH_STATUS"
-            else
-              PUSH_STATUS=99
-            fi
-            echo "FINAL_COMMIT_STATUS=$COMMIT_STATUS"
-            echo "FINAL_PUSH_STATUS=$PUSH_STATUS"
-          } > chart-transfer-diagnostic.txt 2>&1
+          : > chart-transfer-diagnostic.txt
+          run() {
+            echo "=== $1 ===" >> chart-transfer-diagnostic.txt
+            shift
+            "$@" >> chart-transfer-diagnostic.txt 2>&1
+            STATUS=$?
+            echo "STATUS=$STATUS" >> chart-transfer-diagnostic.txt
+            return 0
+          }
+          run fetch git fetch origin chore/remove-superseded-chartjs-path-20260719 --quiet
+          run checkout-package git checkout origin/chore/remove-superseded-chartjs-path-20260719 -- package.json
+          run checkout-lock git checkout origin/chore/remove-superseded-chartjs-path-20260719 -- package-lock.json
+          run checkout-doc git checkout origin/chore/remove-superseded-chartjs-path-20260719 -- docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
+          run rm-wrapper git rm 'src/app/crypto/[symbol]/ChartWrapper.tsx'
+          run rm-live-chart git rm src/components/crypto/LivePriceChart.tsx
+          run add-package git add package.json
+          run add-lock git add package-lock.json
+          run add-doc git add docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
+          echo '=== STATUS ===' >> chart-transfer-diagnostic.txt
+          git status --short >> chart-transfer-diagnostic.txt 2>&1
+          echo '=== STAGED ===' >> chart-transfer-diagnostic.txt
+          git diff --cached --name-only | sort >> chart-transfer-diagnostic.txt 2>&1
+          echo '=== UNSTAGED ===' >> chart-transfer-diagnostic.txt
+          git diff --name-only | sort >> chart-transfer-diagnostic.txt 2>&1
           cat chart-transfer-diagnostic.txt
-          exit 0
 
       - name: Upload transfer diagnostic
         uses: actions/upload-artifact@v4
