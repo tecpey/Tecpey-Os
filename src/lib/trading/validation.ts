@@ -2,6 +2,8 @@ import type Decimal from "decimal.js";
 import { D } from "./decimal";
 import {
   isExactIncrement,
+  multiplyOrderDecimals,
+  parseOrderDecimal,
   parsePositiveOrderDecimal,
 } from "./order-financials";
 import type { Asset, Market, OrderSide, OrderType, PlaceOrderRequest } from "./types";
@@ -86,9 +88,9 @@ export function validatePlaceOrderRequest(
       };
     }
 
-    const value = price.times(quantity);
+    const value = multiplyOrderDecimals(request.price, request.quantity);
     const minValue = parsePositiveOrderDecimal(market.minOrderValue);
-    const maxValue = market.maxOrderValue === "0" ? D(0) : parsePositiveOrderDecimal(market.maxOrderValue);
+    const maxValue = parseOrderDecimal(market.maxOrderValue);
     if (!minValue || !maxValue) {
       return { ok: false, error: "market_configuration_invalid", detail: "invalid order-value bounds" };
     }
