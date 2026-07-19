@@ -49,6 +49,8 @@ export function gradeQuizAnswer(question: QuizQuestion, submitted: unknown): boo
       return value.length > 0 && accepted.includes(value);
     }
   }
+
+  return false;
 }
 
 export function gradeQuizSubmission(questions: QuizQuestion[], submission: QuizSubmission) {
