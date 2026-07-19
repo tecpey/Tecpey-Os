@@ -40,7 +40,7 @@ function runLegacySession(cutoff?: string): {
     }));
   `;
 
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: "production",
     NEXT_PUBLIC_SITE_URL: "https://tecpey.ir",
