@@ -3,37 +3,237 @@
   "$id": "https://tecpey.ir/schemas/api-security-manifest.schema.json",
   "title": "TecPey API Security Manifest",
   "type": "object",
+  "additionalProperties": false,
   "required": ["schemaVersion", "authority", "methods", "totals", "routes"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "authority": { "const": "generated-from-src-app-api-route-ts" },
     "methods": {
+      "const": ["POST", "PUT", "PATCH", "DELETE"]
+    },
+    "totals": { "$ref": "#/$defs/totals" },
+    "routes": {
       "type": "array",
-      "items": { "enum": ["POST", "PUT", "PATCH", "DELETE"] },
-      "minItems": 4,
-      "maxItems": 4,
-      "uniqueItems": true
+      "items": { "$ref": "#/$defs/operation" }
+    }
+  },
+  "$defs": {
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "sourcePath": {
+      "type": "string",
+      "pattern": "^src/app/api/.+/route\\.ts$"
+    },
+    "sourceHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{24}$"
     },
     "totals": {
       "type": "object",
-      "required": ["routeFiles", "mutatingOperations", "operationsWithFindings", "findings"]
+      "additionalProperties": false,
+      "required": [
+        "routeFiles",
+        "mutatingOperations",
+        "activeOperations",
+        "denyOnlyOperations",
+        "operationsWithFindings",
+        "findings",
+        "findingCounts"
+      ],
+      "properties": {
+        "routeFiles": { "type": "integer", "minimum": 1 },
+        "mutatingOperations": { "type": "integer", "minimum": 0 },
+        "activeOperations": { "type": "integer", "minimum": 0 },
+        "denyOnlyOperations": { "type": "integer", "minimum": 0 },
+        "operationsWithFindings": { "type": "integer", "minimum": 0 },
+        "findings": { "type": "integer", "minimum": 0 },
+        "findingCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
+          }
+        }
+      }
     },
-    "routes": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "route",
-          "method",
-          "sourcePath",
-          "sourceHash",
-          "classification",
-          "risk",
-          "controls",
-          "domainOwner",
-          "testReferences",
-          "findings"
-        ]
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "csrf",
+        "strictRevocation",
+        "rateLimit",
+        "rateLimitNamespace",
+        "expectsBody",
+        "bodySizeLimit",
+        "contentTypeCheck",
+        "inputParser",
+        "idempotency",
+        "transaction",
+        "verifiedPrincipal",
+        "tenantFromVerifiedContext",
+        "noStore",
+        "audit",
+        "redaction",
+        "failClosed",
+        "serviceIdentity",
+        "setsCookie",
+        "headerBodySizeHint",
+        "bodySizeLimitAuthority"
+      ],
+      "properties": {
+        "csrf": { "type": "boolean" },
+        "strictRevocation": { "type": "boolean" },
+        "rateLimit": { "type": "boolean" },
+        "rateLimitNamespace": { "$ref": "#/$defs/nullableString" },
+        "expectsBody": { "type": "boolean" },
+        "bodySizeLimit": { "type": "boolean" },
+        "contentTypeCheck": { "type": "boolean" },
+        "inputParser": { "$ref": "#/$defs/nullableString" },
+        "idempotency": { "type": "boolean" },
+        "transaction": { "type": "boolean" },
+        "verifiedPrincipal": { "type": "boolean" },
+        "tenantFromVerifiedContext": { "type": "boolean" },
+        "noStore": { "type": "boolean" },
+        "audit": { "type": "boolean" },
+        "redaction": { "type": "boolean" },
+        "failClosed": { "type": "boolean" },
+        "serviceIdentity": { "type": "boolean" },
+        "setsCookie": { "type": "boolean" },
+        "headerBodySizeHint": { "type": "boolean" },
+        "bodySizeLimitAuthority": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "csrf",
+        "strictRevocation",
+        "rateLimit",
+        "bodySizeLimit",
+        "idempotency",
+        "verifiedPrincipal",
+        "noStore",
+        "audit",
+        "redaction",
+        "serviceIdentity"
+      ],
+      "properties": {
+        "csrf": { "type": "boolean" },
+        "strictRevocation": { "type": "boolean" },
+        "rateLimit": { "type": "boolean" },
+        "bodySizeLimit": { "type": "boolean" },
+        "idempotency": { "type": "boolean" },
+        "verifiedPrincipal": { "type": "boolean" },
+        "noStore": { "type": "boolean" },
+        "audit": { "type": "boolean" },
+        "redaction": { "type": "boolean" },
+        "serviceIdentity": { "type": "boolean" }
+      }
+    },
+    "evidenceSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcePath", "method", "resolved"],
+      "properties": {
+        "sourcePath": { "$ref": "#/$defs/sourcePath" },
+        "method": { "enum": ["POST", "PUT", "PATCH", "DELETE"] },
+        "resolved": { "const": true }
+      }
+    },
+    "operationOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authorityType", "reason", "issue"],
+      "properties": {
+        "authorityType": {
+          "enum": [
+            "pre-authentication",
+            "compatibility-pre-authentication",
+            "admin-pre-authentication",
+            "bootstrap-credential",
+            "live-principal",
+            "compatibility-alias"
+          ]
+        },
+        "reason": { "type": "string", "minLength": 30 },
+        "issue": {
+          "type": "string",
+          "pattern": "^(?:#[0-9]+|https://github\\.com/[^/]+/[^/]+/issues/[0-9]+)$"
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "method",
+        "sourcePath",
+        "sourceHash",
+        "delegatedTo",
+        "delegatedSourceHash",
+        "mutationMode",
+        "classification",
+        "principalSource",
+        "tenantSource",
+        "risk",
+        "controls",
+        "requirements",
+        "domainOwner",
+        "testReferences",
+        "findings",
+        "evidenceSource"
+      ],
+      "properties": {
+        "route": {
+          "type": "string",
+          "pattern": "^/api/[^*]+$"
+        },
+        "method": { "enum": ["POST", "PUT", "PATCH", "DELETE"] },
+        "sourcePath": { "$ref": "#/$defs/sourcePath" },
+        "sourceHash": { "$ref": "#/$defs/sourceHash" },
+        "delegatedTo": { "$ref": "#/$defs/nullableString" },
+        "delegatedSourceHash": {
+          "oneOf": [
+            { "$ref": "#/$defs/sourceHash" },
+            { "type": "null" }
+          ]
+        },
+        "mutationMode": { "enum": ["active", "deny-only"] },
+        "classification": { "enum": ["public", "authenticated", "admin", "internal"] },
+        "principalSource": { "$ref": "#/$defs/nullableString" },
+        "tenantSource": { "$ref": "#/$defs/nullableString" },
+        "risk": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["admin", "ai-memory", "credential", "financial", "privacy", "progress"]
+          }
+        },
+        "controls": { "$ref": "#/$defs/controls" },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "domainOwner": { "type": "string", "minLength": 1 },
+        "testReferences": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "findings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"
+          }
+        },
+        "evidenceSource": { "$ref": "#/$defs/evidenceSource" },
+        "operationOverride": { "$ref": "#/$defs/operationOverride" }
       }
     }
   }
