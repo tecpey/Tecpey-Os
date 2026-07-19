@@ -31,6 +31,7 @@ import {
   parseArenaReflectionMutation,
   reflectionDraftFromAuthoritative,
   resolveArenaReflectionIdentity,
+  shouldApplyArenaReflectionMutation,
   type ArenaPendingReflectionIdentity,
   type ArenaReflectionDraft,
   type ArenaReflectionTag,
@@ -408,10 +409,12 @@ export function JournalView() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const mountedRef = useRef(true);
   const snapshotRef = useRef<ArenaExecutionSnapshot | null>(null);
+  const reflectionsRef = useRef<Record<string, ArenaReflectionView>>({});
   const pendingRef = useRef<Record<string, ArenaPendingReflectionIdentity | undefined>>({});
   const sequenceRef = useRef(0);
   const lastAppliedSequenceRef = useRef(0);
   const reflectionSequenceRef = useRef(0);
+  const reflectionMutationSequenceRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -481,7 +484,14 @@ export function JournalView() {
       if (!parsed || parsed.attemptId !== activeAttemptId) throw new Error("arena_reflection_list_invalid");
       if (!mountedRef.current || responseSequence !== reflectionSequenceRef.current) return;
 
-      const next = Object.fromEntries(parsed.reflections.map((item) => [item.closedTradeId, item]));
+      const next = { ...reflectionsRef.current };
+      for (const incoming of parsed.reflections) {
+        const current = next[incoming.closedTradeId];
+        if (!current || incoming.revision >= current.revision) {
+          next[incoming.closedTradeId] = incoming;
+        }
+      }
+      reflectionsRef.current = next;
       setReflections(next);
       setDrafts((current) => {
         const result = { ...current };
@@ -515,16 +525,21 @@ export function JournalView() {
   useEffect(() => {
     const activeAttemptId = snapshot?.activeAttempt.id;
     if (!activeAttemptId) return;
+    reflectionsRef.current = {};
+    reflectionMutationSequenceRef.current = {};
+    pendingRef.current = {};
     setReflections({});
     setDrafts({});
-    pendingRef.current = {};
+    setReflectionErrors({});
+    setSaving({});
     void loadReflections(activeAttemptId);
   }, [snapshot?.activeAttempt.id, loadReflections]);
 
   const saveReflection = useCallback(async (trade: ArenaClosedTradeV2) => {
     const active = snapshotRef.current?.activeAttempt;
     if (!active) return;
-    const draft = drafts[trade.id] ?? reflectionDraftFromAuthoritative(reflections[trade.id] ?? null);
+    const projected = reflectionsRef.current[trade.id] ?? null;
+    const draft = drafts[trade.id] ?? reflectionDraftFromAuthoritative(projected);
     if (!draft.decisionReview.trim() || !draft.learnedLesson.trim() || !draft.emotionalReview.trim()) {
       setReflectionErrors((current) => ({
         ...current,
@@ -537,7 +552,7 @@ export function JournalView() {
       pending: pendingRef.current[trade.id] ?? null,
       attemptId: active.id,
       closedTradeId: trade.id,
-      expectedRevision: reflections[trade.id]?.revision ?? 0,
+      expectedRevision: projected?.revision ?? 0,
       draft,
     });
     if (decision.kind === "blocked") {
@@ -547,6 +562,26 @@ export function JournalView() {
       }));
       return;
     }
+
+    const responseSequence = (reflectionMutationSequenceRef.current[trade.id] ?? 0) + 1;
+    reflectionMutationSequenceRef.current[trade.id] = responseSequence;
+    const isLatestResponse = () =>
+      reflectionMutationSequenceRef.current[trade.id] === responseSequence;
+    const applyIncoming = (incoming: ArenaReflectionView): boolean => {
+      const current = reflectionsRef.current[trade.id] ?? null;
+      if (!shouldApplyArenaReflectionMutation({
+        current,
+        incoming,
+        responseSequence,
+        latestResponseSequence: reflectionMutationSequenceRef.current[trade.id] ?? 0,
+      })) {
+        return false;
+      }
+      const next = { ...reflectionsRef.current, [trade.id]: incoming };
+      reflectionsRef.current = next;
+      setReflections(next);
+      return true;
+    };
 
     pendingRef.current[trade.id] = decision.identity;
     setSaving((current) => ({ ...current, [trade.id]: true }));
@@ -566,11 +601,15 @@ export function JournalView() {
       });
       const body = await response.json().catch(() => ({})) as { error?: unknown };
       if (!response.ok) {
+        if (!isLatestResponse()) return;
         const conflict = response.status === 409 ? parseArenaReflectionMutation(body) : null;
-        if (conflict?.reflection) {
-          setReflections((current) => ({ ...current, [trade.id]: conflict.reflection }));
+        if (conflict?.reflection) applyIncoming(conflict.reflection);
+        if (
+          response.status < 500 &&
+          pendingRef.current[trade.id]?.idempotencyKey === decision.identity.idempotencyKey
+        ) {
+          delete pendingRef.current[trade.id];
         }
-        if (response.status < 500) delete pendingRef.current[trade.id];
         setReflectionErrors((current) => ({
           ...current,
           [trade.id]: arenaReflectionUiError(body.error, response.status),
@@ -582,22 +621,31 @@ export function JournalView() {
       if (!parsed || parsed.attemptId !== active.id || parsed.reflection.closedTradeId !== trade.id) {
         throw new Error("arena_reflection_response_invalid");
       }
-      delete pendingRef.current[trade.id];
-      setReflections((current) => ({ ...current, [trade.id]: parsed.reflection }));
-      setDrafts((current) => ({
-        ...current,
-        [trade.id]: reflectionDraftFromAuthoritative(parsed.reflection),
-      }));
+      if (!isLatestResponse()) return;
+      const applied = applyIncoming(parsed.reflection);
+      if (pendingRef.current[trade.id]?.idempotencyKey === decision.identity.idempotencyKey) {
+        delete pendingRef.current[trade.id];
+      }
+      if (applied) {
+        setDrafts((current) => ({
+          ...current,
+          [trade.id]: reflectionDraftFromAuthoritative(parsed.reflection),
+        }));
+      }
       setReflectionErrors((current) => ({ ...current, [trade.id]: null }));
     } catch {
-      setReflectionErrors((current) => ({
-        ...current,
-        [trade.id]: arenaReflectionUiError("arena_reflections_unavailable"),
-      }));
+      if (isLatestResponse()) {
+        setReflectionErrors((current) => ({
+          ...current,
+          [trade.id]: arenaReflectionUiError("arena_reflections_unavailable"),
+        }));
+      }
     } finally {
-      if (mountedRef.current) setSaving((current) => ({ ...current, [trade.id]: false }));
+      if (mountedRef.current && isLatestResponse()) {
+        setSaving((current) => ({ ...current, [trade.id]: false }));
+      }
     }
-  }, [drafts, reflections]);
+  }, [drafts]);
 
   const stats = useMemo(() => {
     const closed = snapshot?.state.closedTrades ?? [];
