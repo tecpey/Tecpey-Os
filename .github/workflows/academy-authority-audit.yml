@@ -47,6 +47,23 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      - name: Package reviewed source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf tecpey-source-snapshot.tgz \
+            src scripts docs .github/workflows/ci.yml \
+            package.json package-lock.json server.ts tsconfig.json \
+            next.config.ts eslint.config.mjs Dockerfile ecosystem.config.cjs
+
+      - name: Upload reviewed source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tecpey-source-snapshot
+          path: tecpey-source-snapshot.tgz
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Guard audit-only execution
         env:
           AUDIT_HEAD: ${{ github.head_ref }}
