@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { evaluateBodyBoundaryStages } from "./api-security-body-boundary.mjs";
+import { runtimeEvidenceSource } from "./api-security-runtime-evidence.mjs";
 import { methodEvidenceSource } from "./api-security-source-evidence.mjs";
 
 const root = process.cwd();
@@ -121,6 +122,7 @@ async function scopedEvidence(entry) {
 
 for (const entry of manifest.routes) {
   const scoped = await scopedEvidence(entry);
+  const runtime = runtimeEvidenceSource(scoped.evidence);
   entry.evidenceSource = {
     sourcePath: scoped.sourcePath,
     method: scoped.method,
@@ -146,34 +148,34 @@ for (const entry of manifest.routes) {
 
   // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
   // no-store contract only when the effective handler does not provide a
-  // complete explicit public Cache-Control override. A public override must
-  // remain visible to policy evaluation rather than being masked by the helper.
+  // complete explicit public Cache-Control override. Runtime comments cannot
+  // manufacture either the helper call or a public cache policy.
   if (
-    /from\s+["']@\/lib\/api-validation["']/.test(scoped.evidence)
-    && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(scoped.evidence)
+    /from\s+["']@\/lib\/api-validation["']/.test(runtime)
+    && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(runtime)
   ) {
-    const explicitPublicCachePolicy = hasExplicitPublicCachePolicy(scoped.evidence);
+    const explicitPublicCachePolicy = hasExplicitPublicCachePolicy(runtime);
     entry.controls.noStore = !explicitPublicCachePolicy;
     entry.controls.explicitPublicCachePolicy = explicitPublicCachePolicy;
   }
 
   // Notification response builders wrap the same central contract with an
   // explicit private header set.
-  if (/notificationApi(?:Ok|Error)\s*\(/.test(scoped.evidence)) {
+  if (/\bnotificationApi(?:Ok|Error)\s*\(/.test(runtime)) {
     entry.controls.noStore = true;
     entry.controls.redaction = true;
   }
 
   // The admin control-plane helper loads the live database session, checks
   // revocation/expiry/status/permission version, RBAC and optional step-up.
-  if (/authorizeAdminRequest\s*\(/.test(scoped.evidence)) {
+  if (/\bauthorizeAdminRequest\s*\(/.test(runtime)) {
     entry.classification = "admin";
     entry.principalSource = "authorizeAdminRequest";
     entry.controls.verifiedPrincipal = true;
     entry.controls.strictRevocation = true;
   }
 
-  const principalHelper = scoped.evidence.match(
+  const principalHelper = runtime.match(
     /\b(getNotificationIdentityFromRequest|getAcademyAuthFromRequest|getStudentSessionFromRequest|getUnifiedSessionFromRequest|verifyUnifiedSession|setCurrentPublicVisibility)\s*\(/,
   )?.[1];
   if (principalHelper && entry.classification !== "public") {
