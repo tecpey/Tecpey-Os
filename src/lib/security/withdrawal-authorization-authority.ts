@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { withDb } from "@/lib/db";
 import {
   WITHDRAWAL_ADMISSION_POLICY_VERSION,
   WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
@@ -37,6 +38,40 @@ export async function issueWithdrawalAuthorizationTx(
   return id ? { id, expiresAt } : null;
 }
 
+/**
+ * Cheap PostgreSQL preflight used before any external price/risk/compliance
+ * work. It does not consume the authorization; the admission transaction must
+ * still perform the authoritative atomic consume.
+ */
+export async function inspectWithdrawalAuthorization(input: {
+  authorizationId: string;
+  userId: string;
+  requestHash: string;
+}): Promise<"valid" | "invalid" | "unavailable"> {
+  const result = await withDb(async (client) => {
+    const rows = await client.query(
+      `SELECT 1
+         FROM withdrawal_authorizations
+        WHERE id = $1
+          AND user_id = $2
+          AND request_hash = $3
+          AND policy_version = $4
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        LIMIT 1`,
+      [
+        input.authorizationId,
+        input.userId,
+        input.requestHash,
+        WITHDRAWAL_ADMISSION_POLICY_VERSION,
+      ],
+    );
+    return (rows.rowCount ?? 0) === 1;
+  });
+  if (!result.enabled) return "unavailable";
+  return result.value ? "valid" : "invalid";
+}
+
 export async function consumeWithdrawalAuthorizationTx(
   client: PoolClient,
   input: { authorizationId: string; userId: string; requestHash: string },
@@ -47,10 +82,16 @@ export async function consumeWithdrawalAuthorizationTx(
       WHERE id = $1
         AND user_id = $2
         AND request_hash = $3
+        AND policy_version = $4
         AND consumed_at IS NULL
         AND expires_at > NOW()
       RETURNING id`,
-    [input.authorizationId, input.userId, input.requestHash],
+    [
+      input.authorizationId,
+      input.userId,
+      input.requestHash,
+      WITHDRAWAL_ADMISSION_POLICY_VERSION,
+    ],
   );
   return (consumed.rowCount ?? 0) === 1;
 }
