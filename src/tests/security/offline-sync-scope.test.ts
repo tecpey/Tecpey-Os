@@ -100,18 +100,20 @@ describe("Offline principal scope authority", () => {
       "src/components/offline/OfflineSyncManager.tsx",
       "utf8",
     );
-    const readLegacyIndex = client.indexOf(
-      "window.localStorage.getItem(LEGACY_STORAGE_KEY)",
-    );
+    const adapterIndex = client.indexOf("function transportStorage()");
+    const readLegacyIndex = client.indexOf("store.getItem(LEGACY_STORAGE_KEY)");
     const quarantineIndex = client.indexOf(
-      "window.localStorage.setItem(LEGACY_QUARANTINE_KEY, legacy)",
+      "store.setItem(LEGACY_QUARANTINE_KEY, legacy)",
     );
-    const removeIndex = client.indexOf(
-      "window.localStorage.removeItem(LEGACY_STORAGE_KEY)",
-    );
-    assert.ok(readLegacyIndex >= 0);
+    const removeIndex = client.indexOf("store.removeItem(LEGACY_STORAGE_KEY)");
+    assert.ok(adapterIndex >= 0);
+    assert.ok(readLegacyIndex > adapterIndex);
     assert.ok(quarantineIndex > readLegacyIndex);
     assert.ok(removeIndex > quarantineIndex);
     assert.equal(client.includes("writeQueue([...readQueue(), ...legacy"), false);
+    assert.equal(
+      client.split(/\r?\n/).filter((line) => line.includes("localStorage")).length,
+      1,
+    );
   });
 });
