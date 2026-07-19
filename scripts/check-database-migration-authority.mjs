@@ -31,6 +31,8 @@ for (const directImport of [
   'from "./db-migrate-notification-domain-outbox"',
   'from "./db-migrate-crm-leads"',
   'from "./db-migrate-crm-leads-hardening"',
+  'from "./db-migrate-academy-section-authority"',
+  'from "./db-migrate-academy-reward-release"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -50,6 +52,8 @@ const orderedCalls = [
   "await runNotificationDomainOutboxMigrations(client)",
   "await runCrmLeadMigrations(client)",
   "await runCrmLeadHardeningMigrations(client)",
+  "await runAcademySectionAuthorityMigrations(client)",
+  "await runAcademyRewardLegacyReleaseMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -79,6 +83,8 @@ for (const migration of [
   "0024_notification_domain_outbox.sql",
   "0025_crm_lead_authority.sql",
   "0026_crm_lead_hardening.sql",
+  "0027_academy_section_checkpoint_authority.sql",
+  "0028_academy_reward_legacy_release.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ]) {
@@ -92,6 +98,8 @@ for (const table of [
   "crm_lead_commands",
   "crm_lead_delivery_outbox",
   "crm_lead_audit_events",
+  "academy_section_attempts",
+  "academy_section_legacy_snapshots",
 ]) {
   requireText(integration, table, `migration integration must verify ${table}`);
 }
@@ -103,10 +111,19 @@ for (const trigger of [
   "crm_leads_no_delete",
   "crm_lead_commands_no_update",
   "crm_lead_audit_no_update",
+  "academy_section_attempts_no_update",
+  "academy_section_attempts_no_delete",
 ]) {
   requireText(integration, trigger, `migration integration must verify ${trigger}`);
 }
-requireText(integration, "crm_leads_legal_basis_consent_check", "migration integration must verify CRM consent/legal-basis integrity");
+for (const constraint of [
+  "crm_leads_legal_basis_consent_check",
+  "academy_lesson_progress_checkpoint_completion_check",
+  "academy_lesson_progress_authority_status_check",
+  "academy_reward_ledger_revocation_reason_check",
+]) {
+  requireText(integration, constraint, `migration integration must verify ${constraint}`);
+}
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 
 if (failures.length) {
