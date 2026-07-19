@@ -97,20 +97,10 @@ describe("Decimal-safe Exchange order admission", () => {
     );
   });
 
-  it("calculates exact limit-buy, market-buy and sell holds", () => {
+  it("reserves exact limit-buy gross plus maximum fee and exact sell base", () => {
     assert.deepEqual(calculateOrderHold({ request: request(), market }), {
       asset: "USDT",
-      amount: "0.0300000000",
-      basisPrice: "0.10",
-    });
-
-    assert.deepEqual(calculateOrderHold({
-      request: request({ type: "market", price: undefined }),
-      market,
-      bestAskPrice: "0.10",
-    }), {
-      asset: "USDT",
-      amount: "0.0300000000",
+      amount: "0.0300300000",
       basisPrice: "0.10",
     });
 
@@ -124,22 +114,39 @@ describe("Decimal-safe Exchange order admission", () => {
     });
   });
 
-  it("preserves a large exact product beyond the legacy global precision", () => {
+  it("fails closed for market buys until depth reservation exists", () => {
+    assert.throws(
+      () => calculateOrderHold({
+        request: request({ type: "market", price: undefined }),
+        market,
+      }),
+      /market_buy_depth_reservation_required/,
+    );
+  });
+
+  it("preserves a large exact product and its fee reserve", () => {
     const hold = calculateOrderHold({
       request: request({ quantity: "9999999999.12345", price: "999999999.12345" }),
       market,
     });
-    assert.equal(hold.amount, "9999999990357950000.7683399025");
+    assert.equal(hold.amount, "10009999990248295000.7691082425");
   });
 
-  it("fails closed when a hold would require scale rounding", () => {
-    assert.throws(
-      () => calculateOrderHold({
-        request: request({ type: "market", quantity: "1", price: undefined }),
-        market,
-        bestAskPrice: "1.00000000001",
-      }),
-      /order_hold_scale_exceeded/,
-    );
+  it("rounds reservation upward at the database scale", () => {
+    const reserveMarket = {
+      ...market,
+      makerFee: "0",
+      takerFee: "0",
+      pricePrecision: 11,
+      quantityPrecision: 1,
+      tickSize: "0.00000000001",
+      stepSize: "1",
+      minOrderValue: "0.00000000001",
+    };
+    const hold = calculateOrderHold({
+      request: request({ quantity: "1", price: "1.00000000001" }),
+      market: reserveMarket,
+    });
+    assert.equal(hold.amount, "1.0000000001");
   });
 });
