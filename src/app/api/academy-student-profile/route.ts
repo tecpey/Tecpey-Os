@@ -11,8 +11,6 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-// TODO(cookie-migration): remove getStudentSessionFromRequest / getAcademyAuthFromRequest
-//   imports once canonical session replaces all per-cookie reads.
 
 type LocalProfile = {
   id: string;
@@ -53,21 +51,23 @@ function localStorePath() {
 
 function canUseLocalProfileStorage() {
   return (
-    process.env.NODE_ENV !== "production" ||
+    process.env.NODE_ENV !== "production" &&
     process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true"
   );
 }
 
 async function readLocalStore(): Promise<LocalStore> {
-  if (!canUseLocalProfileStorage())
+  if (!canUseLocalProfileStorage()) {
     return { byAccount: {}, profiles: {} };
+  }
   try {
     const raw = await readFile(localStorePath(), "utf8");
     const parsed = JSON.parse(raw) as LocalStore;
     return {
+      accountsByEmail: undefined,
       byAccount: parsed.byAccount || {},
       profiles: parsed.profiles || {},
-    };
+    } as LocalStore;
   } catch {
     return { byAccount: {}, profiles: {} };
   }
@@ -140,143 +140,198 @@ async function upsertLocalProfile(input: {
   };
   store.profiles[id] = profile;
   await writeLocalStore(store);
-  return { studentId: id, publicStudentId: profile.public_student_id, profile };
+  return {
+    studentId: id,
+    publicStudentId: profile.public_student_id,
+    profile,
+  };
 }
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/academy-student-profile" }, async () => {
-  const limit = await rateLimit(req, {
-    namespace: "academy-student-profile-read",
-    limit: 60,
-    windowMs: 60_000,
-  });
-  if (!limit.ok)
-    return apiRateLimited(limit.retryAfterSeconds);
+  return withObservability(
+    req,
+    { route: "/api/academy-student-profile" },
+    async () => {
+      const limit = await rateLimit(req, {
+        namespace: "academy-student-profile-read",
+        limit: 60,
+        windowMs: 60_000,
+      });
+      if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-  const session = await getCanonicalSession(req);
-  const authenticated = session.isAcademyUser || Boolean(session.studentId);
-  const studentId = session.studentId;
+      const session = await getCanonicalSession(req);
+      const authenticated = session.isAcademyUser || Boolean(session.studentId);
+      const studentId = session.studentId;
 
-  try {
-    const result = await withDb(async (client) => {
-      const values: unknown[] = [];
-      const filters: string[] = [];
-      if (studentId) {
-        values.push(studentId);
-        filters.push(`s.id = $${values.length}::uuid`);
+      try {
+        const result = await withDb(async (client) => {
+          const values: unknown[] = [];
+          const filters: string[] = [];
+          if (studentId) {
+            values.push(studentId);
+            filters.push(`s.id = $${values.length}::uuid`);
+          }
+          if (session.email) {
+            values.push(session.email);
+            filters.push(`s.email = $${values.length}`);
+          }
+          if (!filters.length) return null;
+          const query = await client.query(
+            `SELECT s.id, s.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar, s.learning_goal, s.locale, s.streak_days, s.last_active_day,
+                    c.progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
+                    c.total_xp, c.completed_terms, c.overall_progress, c.identity_score, c.retention_score, c.community_score, c.updated_at
+               FROM academy_students s
+               LEFT JOIN academy_student_cartax c ON c.student_id = s.id
+              WHERE ${filters.join(" OR ")}
+              LIMIT 1`,
+            values,
+          );
+          return query.rows[0] || null;
+        });
+        if (result.enabled) {
+          return apiOk({ authenticated, profile: result.value });
+        }
+
+        if (!canUseLocalProfileStorage()) {
+          return apiError("academy_profile_service_unavailable", 503);
+        }
+        const local = await getLocalProfile(
+          studentId,
+          session.academyAccountId,
+        );
+        return apiOk({ authenticated, profile: local });
+      } catch {
+        if (!canUseLocalProfileStorage()) {
+          return apiError("academy_profile_service_unavailable", 503);
+        }
+        const local = await getLocalProfile(
+          studentId,
+          session.academyAccountId,
+        );
+        return apiOk({ authenticated, profile: local });
       }
-      if (session.email) {
-        values.push(session.email);
-        filters.push(`s.email = $${values.length}`);
-      }
-      if (!filters.length) return null;
-      const query = await client.query(
-        `SELECT s.id, s.public_student_id, s.email, s.phone, s.display_name, s.username, s.avatar, s.learning_goal, s.locale, s.streak_days, s.last_active_day,
-                c.progress, c.earned_badges, c.mentor_snapshot, c.simulator_snapshot,
-                c.total_xp, c.completed_terms, c.overall_progress, c.identity_score, c.retention_score, c.community_score, c.updated_at
-         FROM academy_students s
-         LEFT JOIN academy_student_cartax c ON c.student_id = s.id
-         WHERE ${filters.join(" OR ")}
-         LIMIT 1`,
-        values,
-      );
-      return query.rows[0] || null;
-    });
-    if (result.enabled)
-      return apiOk({ authenticated, profile: result.value });
-
-    const local = await getLocalProfile(studentId, session.academyAccountId);
-    return apiOk({ authenticated, profile: local });
-  } catch {
-    const local = await getLocalProfile(studentId, session.academyAccountId);
-    return apiOk({ authenticated, profile: local });
-  }
-  }); // end withObservability
+    },
+  );
 }
 
 export async function POST(req: NextRequest) {
-  return withObservability(req, { route: "/api/academy-student-profile" }, async () => {
-  if (!verifyCsrfOrigin(req))
-    return apiError("forbidden", 403);
-  const limit = await rateLimit(req, {
-    namespace: "academy-student-profile-write",
-    limit: 30,
-    windowMs: 60_000,
-  });
-  if (!limit.ok)
-    return apiRateLimited(limit.retryAfterSeconds);
+  return withObservability(
+    req,
+    { route: "/api/academy-student-profile" },
+    async () => {
+      if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+      const limit = await rateLimit(req, {
+        namespace: "academy-student-profile-write",
+        limit: 30,
+        windowMs: 60_000,
+      });
+      if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-  try {
-    const raw = await req.text();
-    if (raw.length > 20_000)
-      return apiError("payload_too_large", 413);
-    const body = JSON.parse(raw);
-    if (!isSessionConfigured())
-      return apiError("session_service_not_configured", 503);
+      try {
+        const raw = await req.text();
+        if (raw.length > 20_000) return apiError("payload_too_large", 413);
+        const body = JSON.parse(raw);
+        if (!isSessionConfigured()) {
+          return apiError("session_service_not_configured", 503);
+        }
 
-    const session = await getCanonicalSession(req);
-    if (!session.studentId && !session.isAcademyUser) {
-      return apiError("academy_login_required", 401);
-    }
+        const session = await getCanonicalSession(req, {
+          strictRevocation: true,
+        });
+        if (!session.studentId && !session.isAcademyUser) {
+          return apiError("academy_login_required", 401);
+        }
 
-    const email = body.email || session.email;
-    const result = await withDb(async (client) =>
-      upsertStudentCartax(
-        client,
-        {
-          locale: body.locale,
+        const ip = getClientIp(req);
+        const userAgent = (req.headers.get("user-agent") || "").slice(0, 500);
+        const email = body.email || session.email;
+        const result = await withDb(async (client) =>
+          upsertStudentCartax(
+            client,
+            {
+              locale: body.locale,
+              email,
+              phone: body.phone,
+              googleId: body.googleId,
+              appleId: body.appleId,
+              displayName: body.displayName || session.displayName,
+              username: body.username || session.username,
+              avatar: body.avatar,
+              learningGoal: body.learningGoal,
+              source: body.source || "academy-onboarding",
+              ip,
+              userAgent,
+            },
+            session.studentId ?? undefined,
+          ),
+        );
+
+        if (result.enabled && result.value) {
+          const response = apiOk({
+            storage: "cloud" as const,
+            authenticated: true as const,
+            ...(result.value as Record<string, unknown>),
+          });
+          await setUnifiedSessionCookieAsync(
+            response,
+            {
+              accountId: session.academyAccountId,
+              studentId: result.value.studentId,
+              email: session.email,
+              displayName: session.displayName,
+              username: session.username,
+            },
+            { deviceInfo: userAgent, ip },
+          );
+          return response;
+        }
+
+        if (!canUseLocalProfileStorage()) {
+          return apiError("academy_profile_service_unavailable", 503);
+        }
+        const local = await upsertLocalProfile({
+          accountKey: session.academyAccountId || null,
+          studentId: session.studentId || null,
           email,
           phone: body.phone,
-          googleId: body.googleId,
-          appleId: body.appleId,
           displayName: body.displayName || session.displayName,
           username: body.username || session.username,
           avatar: body.avatar,
           learningGoal: body.learningGoal,
-          source: body.source || "academy-onboarding",
-          ip: getClientIp(req),
-          userAgent: req.headers.get("user-agent") || "",
-        },
-        session.studentId ?? undefined,
-      ),
-    );
-
-    if (result.enabled && result.value) {
-      const response = apiOk({ storage: "cloud" as const, authenticated: true as const, ...result.value as Record<string, unknown> });
-      await setUnifiedSessionCookieAsync(response, {
-        accountId: session.academyAccountId,
-        studentId: result.value.studentId,
-        email: session.email,
-        displayName: session.displayName,
-        username: session.username,
-      });
-      return response;
-    }
-
-    if (!canUseLocalProfileStorage())
-      return apiError("academy_profile_service_unavailable", 503);
-    const local = await upsertLocalProfile({
-      accountKey: session.academyAccountId || null,
-      studentId: session.studentId || null,
-      email,
-      phone: body.phone,
-      displayName: body.displayName || session.displayName,
-      username: body.username || session.username,
-      avatar: body.avatar,
-      learningGoal: body.learningGoal,
-      locale: body.locale,
-    });
-    const response = apiOk({ storage: "local-dev" as const, authenticated: true as const, studentId: local.studentId, publicStudentId: local.publicStudentId, profile: local.profile });
-    await setUnifiedSessionCookieAsync(response, {
-      accountId: session.academyAccountId,
-      studentId: local.studentId,
-      email: session.email,
-      displayName: session.displayName,
-      username: session.username,
-    });
-    return response;
-  } catch {
-    return apiError("server_error", 500);
-  }
-  }); // end withObservability
+          locale: body.locale,
+        });
+        const response = apiOk({
+          storage: "local-dev" as const,
+          authenticated: true as const,
+          studentId: local.studentId,
+          publicStudentId: local.publicStudentId,
+          profile: local.profile,
+        });
+        await setUnifiedSessionCookieAsync(
+          response,
+          {
+            accountId: session.academyAccountId,
+            studentId: local.studentId,
+            email: session.email,
+            displayName: session.displayName,
+            username: session.username,
+          },
+          { deviceInfo: userAgent, ip },
+        );
+        return response;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          [
+            "session_registry_unavailable",
+            "session_owner_missing",
+            "session_issue_failed",
+          ].includes(error.message)
+        ) {
+          return apiError("session_registry_unavailable", 503);
+        }
+        return apiError("server_error", 500);
+      }
+    },
+  );
 }
