@@ -46,7 +46,12 @@ jobs:
             payload/delivery/academy-server-issued-progression/part-003-05 \
             payload/delivery/academy-server-issued-progression/part-004 \
             payload/delivery/academy-server-issued-progression/part-005 \
-            payload/delivery/academy-server-issued-progression/part-006 \
+            payload/delivery/academy-server-issued-progression/part-006-00 \
+            payload/delivery/academy-server-issued-progression/part-006-01 \
+            payload/delivery/academy-server-issued-progression/part-006-02 \
+            payload/delivery/academy-server-issued-progression/part-006-03 \
+            payload/delivery/academy-server-issued-progression/part-006-04 \
+            payload/delivery/academy-server-issued-progression/part-006-05 \
             payload/delivery/academy-server-issued-progression/part-007 \
             payload/delivery/academy-server-issued-progression/part-008 \
             | base64 --decode > academy-patch.tgz
