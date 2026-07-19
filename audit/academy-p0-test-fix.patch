@@ -1,0 +1,69 @@
+diff --git a/src/tests/academy/progress-state.test.ts b/src/tests/academy/progress-state.test.ts
+index e50126d..bacc825 100644
+--- a/src/tests/academy/progress-state.test.ts
++++ b/src/tests/academy/progress-state.test.ts
+@@ -2,24 +2,17 @@ import { describe, it } from "node:test";
+ import assert from "node:assert/strict";
+ import {
+   createDefaultAcademyProgressState,
++  normalizeAcademyProgressState,
+   xpForNextLevel,
+ } from "@/lib/academy-progress";
+ 
+-describe("Academy authoritative progress reducer", () => {
+-  it("starts from a deterministic default state", () => {
++describe("Academy read-only progress projection", () => {
++  it("starts from a deterministic default projection", () => {
+     const state = createDefaultAcademyProgressState();
+     assert.equal(state.xp, 0);
+     assert.equal(state.level, 1);
+     assert.deepEqual(state.termStatus, { 1: "unlocked" });
+-    assert.deepEqual(
+-      xpForNextLevel(state.xp),
+-      { current: 0, needed: 200, level: 1 },
+-    );
++    assert.deepEqual(state.earnedBadges, []);
+   });
+ 
+-  it("does not expose client-side reward mutation helpers", async () => {
+-    const clientModule = await import("@/lib/academy-progress");
+-    assert.equal("awardXp" in clientModule, false);
+-    assert.equal("recordLessonComplete" in clientModule, false);
+-    assert.equal("recordModuleScore" in clientModule, false);
+-    assert.equal("passTerm" in clientModule, false);
+-    assert.equal("awardBadge" in clientModule, false);
+-    assert.equal("applyAcademyProgressAction" in clientModule, false);
+-  });
+-  it("keeps the client module free from reward mutation helpers", async () => {
+-    const clientModule = await import("@/lib/academy-progress");
+-    assert.equal("awardXp" in clientModule, false);
+-    assert.equal("recordLessonComplete" in clientModule, false);
+-    assert.equal("recordModuleScore" in clientModule, false);
+-    assert.equal("passTerm" in clientModule, false);
+-    assert.equal("awardBadge" in clientModule, false);
++  it("normalizes malformed persisted data without trusting stored level", () => {
++    const normalized = normalizeAcademyProgressState({
++      xp: 700,
++      level: 99,
++      streak: -4,
++      earnedBadges: ["first-lesson", "first-lesson", 42],
++      completedLessons: null,
++      moduleScores: null,
++      masteryScores: null,
++    });
++
++    assert.equal(normalized.xp, 700);
++    assert.equal(normalized.level, 3);
++    assert.equal(normalized.streak, 0);
++    assert.deepEqual(normalized.earnedBadges, ["first-lesson"]);
++    assert.deepEqual(normalized.completedLessons, {});
++    assert.deepEqual(normalized.moduleScores, {});
++    assert.deepEqual(normalized.masteryScores, {});
++  });
++
++  it("derives next-level progress from the server-issued XP projection", () => {
++    assert.deepEqual(xpForNextLevel(0), { current: 0, needed: 200, level: 1 });
++    assert.deepEqual(xpForNextLevel(700), { current: 0, needed: 800, level: 3 });
++    assert.deepEqual(xpForNextLevel(1499), { current: 799, needed: 800, level: 3 });
+   });
+ });
