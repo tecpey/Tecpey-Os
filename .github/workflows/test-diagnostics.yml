@@ -56,14 +56,21 @@ jobs:
           npm test > /tmp/tecpey-tests.log 2>&1
           CODE=$?
           if [ "$CODE" -ne 0 ]; then
+            awk '
+              /^not ok / { show=1; remaining=60 }
+              show { print; remaining-- }
+              show && remaining <= 0 { show=0 }
+            ' /tmp/tecpey-tests.log > /tmp/tecpey-failures.log
             {
-              echo '### Temporary test diagnostics'
+              echo '### Temporary focused test diagnostics'
               echo '```text'
-              tail -c 50000 /tmp/tecpey-tests.log
+              cat /tmp/tecpey-failures.log
               echo
+              echo '--- final summary ---'
+              tail -n 40 /tmp/tecpey-tests.log
               echo '```'
             } > /tmp/tecpey-tests-comment.md
             gh pr comment "$PR_NUMBER" --body-file /tmp/tecpey-tests-comment.md
           fi
-          tail -c 50000 /tmp/tecpey-tests.log
+          cat /tmp/tecpey-failures.log 2>/dev/null || true
           exit "$CODE"
