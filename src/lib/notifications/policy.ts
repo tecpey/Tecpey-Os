@@ -1,3 +1,12 @@
+import {
+  NOTIFICATION_AUDIENCE_SCOPES,
+  NOTIFICATION_CADENCES,
+  NOTIFICATION_CHANNELS,
+  NOTIFICATION_CLASSES,
+  NOTIFICATION_DISPATCH_MODES,
+  NOTIFICATION_LOCALES,
+  NOTIFICATION_URGENCIES,
+} from "./types";
 import type {
   NotificationAudienceScope,
   NotificationClass,
@@ -5,6 +14,7 @@ import type {
   NotificationPolicyInput,
   NotificationPolicyResult,
   NotificationUrgency,
+  RecipientNotificationPolicy,
 } from "./types";
 
 const URGENCY_RANK: Record<NotificationUrgency, number> = {
@@ -14,9 +24,7 @@ const URGENCY_RANK: Record<NotificationUrgency, number> = {
   critical: 3,
 };
 
-export const NOTIFICATION_CLASS_POLICIES: Readonly<
-  Record<NotificationClass, NotificationClassPolicy>
-> = {
+const classPolicies: Record<NotificationClass, NotificationClassPolicy> = {
   security_critical: {
     notificationClass: "security_critical",
     mandatory: true,
@@ -96,6 +104,11 @@ export const NOTIFICATION_CLASS_POLICIES: Readonly<
   },
 };
 
+for (const policy of Object.values(classPolicies)) Object.freeze(policy);
+export const NOTIFICATION_CLASS_POLICIES: Readonly<
+  Record<NotificationClass, Readonly<NotificationClassPolicy>>
+> = Object.freeze(classPolicies);
+
 function result(
   decision: NotificationPolicyResult["decision"],
   reason: NotificationPolicyResult["reason"],
@@ -106,6 +119,17 @@ function result(
   > = { notBefore: null, shouldTryFallbackChannel: false },
 ): NotificationPolicyResult {
   return { decision, reason, mandatory, ...options };
+}
+
+function invalidResult(mandatory = false): NotificationPolicyResult {
+  return result("suppress", "invalid_request", mandatory);
+}
+
+function oneOf<T extends readonly string[]>(
+  values: T,
+  value: unknown,
+): value is T[number] {
+  return typeof value === "string" && values.includes(value);
 }
 
 function requiredApprovals(
@@ -144,6 +168,58 @@ function validIsoTimestamp(value: string): boolean {
   return value.trim().length > 0 && Number.isFinite(Date.parse(value));
 }
 
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function validRecipientShape(
+  value: unknown,
+): value is RecipientNotificationPolicy {
+  if (!value || typeof value !== "object") return false;
+  const recipient = value as Partial<RecipientNotificationPolicy>;
+  return (
+    isBoolean(recipient.eligible) &&
+    isBoolean(recipient.jurisdictionAllowed) &&
+    isBoolean(recipient.categoryEnabled) &&
+    isBoolean(recipient.channelEnabled) &&
+    isBoolean(recipient.destinationVerified) &&
+    isBoolean(recipient.marketingConsent) &&
+    isBoolean(recipient.muted) &&
+    isBoolean(recipient.inQuietHours) &&
+    (recipient.quietHoursEndAt === null ||
+      typeof recipient.quietHoursEndAt === "string") &&
+    isBoolean(recipient.instantEnabled) &&
+    isBoolean(recipient.digestEnabled) &&
+    isBoolean(recipient.duplicateSeen) &&
+    Number.isInteger(recipient.recentCategoryDeliveries) &&
+    (recipient.categoryFrequencyCap === null ||
+      Number.isInteger(recipient.categoryFrequencyCap))
+  );
+}
+
+function validRuntimeShape(input: unknown): input is NotificationPolicyInput {
+  if (!input || typeof input !== "object") return false;
+  const candidate = input as Partial<NotificationPolicyInput>;
+  if (!candidate.intent || typeof candidate.intent !== "object") return false;
+  if (!validRecipientShape(candidate.recipient)) return false;
+
+  const intent = candidate.intent as Record<string, unknown>;
+  return (
+    typeof candidate.now === "string" &&
+    oneOf(NOTIFICATION_CLASSES, intent.notificationClass) &&
+    oneOf(NOTIFICATION_CHANNELS, intent.channel) &&
+    oneOf(NOTIFICATION_AUDIENCE_SCOPES, intent.audienceScope) &&
+    oneOf(NOTIFICATION_DISPATCH_MODES, intent.dispatchMode) &&
+    oneOf(NOTIFICATION_URGENCIES, intent.urgency) &&
+    oneOf(NOTIFICATION_CADENCES, intent.cadence) &&
+    oneOf(NOTIFICATION_LOCALES, intent.locale) &&
+    typeof intent.correlationKey === "string" &&
+    (intent.expiresAt === null || typeof intent.expiresAt === "string") &&
+    typeof intent.templateAvailable === "boolean" &&
+    Number.isInteger(intent.grantedApprovals)
+  );
+}
+
 /**
  * Deterministic notification policy authority.
  *
@@ -154,6 +230,8 @@ function validIsoTimestamp(value: string): boolean {
 export function evaluateNotificationPolicy(
   input: NotificationPolicyInput,
 ): NotificationPolicyResult {
+  if (!validRuntimeShape(input)) return invalidResult();
+
   const { intent, recipient } = input;
   const classPolicy = NOTIFICATION_CLASS_POLICIES[intent.notificationClass];
   const mandatory = classPolicy.mandatory;
@@ -161,14 +239,13 @@ export function evaluateNotificationPolicy(
   if (
     !validIsoTimestamp(input.now) ||
     intent.correlationKey.trim().length < 8 ||
-    !Number.isInteger(intent.grantedApprovals) ||
     intent.grantedApprovals < 0 ||
     recipient.recentCategoryDeliveries < 0 ||
     (recipient.categoryFrequencyCap !== null &&
       recipient.categoryFrequencyCap < 0) ||
     (intent.expiresAt !== null && !validIsoTimestamp(intent.expiresAt))
   ) {
-    return result("suppress", "invalid_request", mandatory);
+    return invalidResult(mandatory);
   }
 
   if (!recipient.eligible) {
@@ -207,10 +284,6 @@ export function evaluateNotificationPolicy(
       mandatory ? "escalate" : "suppress",
       "template_unavailable",
       mandatory,
-      {
-        notBefore: null,
-        shouldTryFallbackChannel: false,
-      },
     );
   }
 
@@ -267,7 +340,7 @@ export function evaluateNotificationPolicy(
       recipient.quietHoursEndAt === null ||
       !validIsoTimestamp(recipient.quietHoursEndAt)
     ) {
-      return result("suppress", "invalid_request", mandatory);
+      return invalidResult(mandatory);
     }
     return result("defer", "quiet_hours", mandatory, {
       notBefore: recipient.quietHoursEndAt,
