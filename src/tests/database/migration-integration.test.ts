@@ -40,6 +40,9 @@ const REQUIRED_COLUMNS = [
   ["academy_trading_arena_attempts", "execution_state"],
   ["academy_state_documents", "reflection_revision"],
   ["admin_audit_events", "chain_sequence"],
+  ["learning_events", "event_id"],
+  ["learning_events", "source"],
+  ["learning_events", "locale"],
   ["offline_sync_commands", "command_hash"],
   ["offline_sync_commands", "domain_event_id"],
   ["offline_sync_commands", "retain_until"],
@@ -47,6 +50,7 @@ const REQUIRED_COLUMNS = [
 
 const REQUIRED_INDEXES = [
   "uq_wallet_ledger_withdrawal_phase",
+  "learning_events_offline_event_id_idx",
   "offline_sync_commands_reconcile_idx",
   "offline_sync_commands_retention_idx",
   "withdrawals_user_idempotency_unique_idx",
