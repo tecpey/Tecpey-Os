@@ -14,14 +14,21 @@ const REQUIRED_MIGRATIONS = [
   "0019_admin_control_plane_hardening.sql",
   "0020_trading_arena_execution.sql",
   "0021_academy_progress_authority.sql",
+  "0023_offline_sync_command_authority.sql",
+  "0030_withdrawal_admission_authority.sql",
+  "0031_withdrawal_settlement_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
   "academy_students",
   "academy_state_documents",
   "academy_trading_arena_commands",
+  "offline_sync_commands",
   "orders",
   "withdrawals",
+  "withdrawal_price_snapshots",
+  "withdrawal_authorizations",
+  "withdrawal_admission_outbox",
   "admin_sessions",
   "admin_audit_events",
 ] as const;
@@ -29,9 +36,20 @@ const REQUIRED_TABLES = [
 const REQUIRED_COLUMNS = [
   ["withdrawals", "raw_tx"],
   ["withdrawals", "required_confirmations"],
+  ["withdrawals", "request_hash"],
   ["academy_trading_arena_attempts", "execution_state"],
   ["academy_state_documents", "reflection_revision"],
   ["admin_audit_events", "chain_sequence"],
+  ["offline_sync_commands", "command_hash"],
+  ["offline_sync_commands", "domain_event_id"],
+  ["offline_sync_commands", "retain_until"],
+] as const;
+
+const REQUIRED_INDEXES = [
+  "uq_wallet_ledger_withdrawal_phase",
+  "offline_sync_commands_reconcile_idx",
+  "offline_sync_commands_retention_idx",
+  "withdrawals_user_idempotency_unique_idx",
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -92,10 +110,13 @@ describe("PostgreSQL migration authority", () => {
         assert.ok(columnSet.has(`${table}.${column}`), `required column missing: ${table}.${column}`);
       }
 
-      const indexResult = await client.query<{ name: string | null }>(
-        "SELECT to_regclass('public.uq_wallet_ledger_withdrawal_phase')::text AS name",
-      );
-      assert.equal(indexResult.rows[0]?.name, "uq_wallet_ledger_withdrawal_phase");
+      for (const indexName of REQUIRED_INDEXES) {
+        const indexResult = await client.query<{ name: string | null }>(
+          "SELECT to_regclass($1)::text AS name",
+          [`public.${indexName}`],
+        );
+        assert.equal(indexResult.rows[0]?.name, indexName, `required index missing: ${indexName}`);
+      }
 
       const triggerResult = await client.query<{ tgname: string }>(
         `SELECT tgname
@@ -106,9 +127,11 @@ describe("PostgreSQL migration authority", () => {
           "admin_audit_events_no_update",
           "admin_audit_events_no_delete",
           "admin_audit_events_validate_chain",
+          "withdrawals_verify_price_evidence",
+          "withdrawals_clear_terminal_reservation",
         ]],
       );
-      assert.equal(triggerResult.rows.length, 3, "admin audit immutability triggers must exist");
+      assert.equal(triggerResult.rows.length, 5, "critical database authority triggers must exist");
     } finally {
       client.release();
       await pool.end();
