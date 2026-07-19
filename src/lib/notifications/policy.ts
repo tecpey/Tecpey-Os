@@ -129,7 +129,10 @@ function oneOf<T extends readonly string[]>(
   values: T,
   value: unknown,
 ): value is T[number] {
-  return typeof value === "string" && values.includes(value);
+  return (
+    typeof value === "string" &&
+    (values as readonly string[]).includes(value)
+  );
 }
 
 function requiredApprovals(
@@ -191,9 +194,11 @@ function validRecipientShape(
     isBoolean(recipient.instantEnabled) &&
     isBoolean(recipient.digestEnabled) &&
     isBoolean(recipient.duplicateSeen) &&
+    typeof recipient.recentCategoryDeliveries === "number" &&
     Number.isInteger(recipient.recentCategoryDeliveries) &&
     (recipient.categoryFrequencyCap === null ||
-      Number.isInteger(recipient.categoryFrequencyCap))
+      (typeof recipient.categoryFrequencyCap === "number" &&
+        Number.isInteger(recipient.categoryFrequencyCap)))
   );
 }
 
@@ -216,6 +221,7 @@ function validRuntimeShape(input: unknown): input is NotificationPolicyInput {
     typeof intent.correlationKey === "string" &&
     (intent.expiresAt === null || typeof intent.expiresAt === "string") &&
     typeof intent.templateAvailable === "boolean" &&
+    typeof intent.grantedApprovals === "number" &&
     Number.isInteger(intent.grantedApprovals)
   );
 }
