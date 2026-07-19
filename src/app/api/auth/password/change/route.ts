@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
     if (!passwordResult.value.ok) {
       return apiError(passwordResult.value.reason, 401);
     }
+    const currentHash = passwordResult.value.currentHash;
 
     const reused = await isPasswordReused(userId, newPassword, 5);
     if (reused) return apiError("password_previously_used", 400);
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
         [newHash, userId],
       );
       await recordPasswordHistoryBatchWithClient(client, userId, [
-        passwordResult.value.currentHash,
+        currentHash,
         newHash,
       ]);
     });
