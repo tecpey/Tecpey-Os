@@ -9,7 +9,6 @@ export type NotificationDomainOutboxClaim = {
   outboxId: string;
   attemptNumber: number;
   maxAttempts: number;
-  event: NotificationProducerEvent;
 };
 
 export type NotificationDomainOutboxFailure = {
@@ -18,18 +17,10 @@ export type NotificationDomainOutboxFailure = {
   retryable: boolean;
 };
 
-type DomainOutboxRow = {
+type DomainOutboxClaimRow = {
   id: string;
   attempt_count: number;
   max_attempts: number;
-  tenant_id: string;
-  principal_id: string;
-  event_type: NotificationProducerEvent["type"];
-  event_version: 1;
-  event_id: string;
-  occurred_at: Date;
-  locale: "fa" | "en";
-  payload: Record<string, unknown>;
 };
 
 function validateWorkerId(workerId: string): void {
@@ -72,26 +63,6 @@ function canonicalEventHash(event: NotificationProducerEvent): string {
       }),
     )
     .digest("hex");
-}
-
-function mapClaim(row: DomainOutboxRow): NotificationDomainOutboxClaim {
-  const event = parseNotificationProducerEvent({
-    id: row.event_id,
-    tenantId: row.tenant_id,
-    principalId: row.principal_id,
-    occurredAt: row.occurred_at.toISOString(),
-    locale: row.locale,
-    version: row.event_version,
-    type: row.event_type,
-    payload: row.payload,
-  });
-  if (!event) throw new Error("notification_domain_outbox_event_invalid");
-  return {
-    outboxId: row.id,
-    attemptNumber: row.attempt_count,
-    maxAttempts: row.max_attempts,
-    event,
-  };
 }
 
 async function insertDeadLetter(
@@ -244,6 +215,11 @@ export async function recoverExpiredNotificationDomainLeases(
   };
 }
 
+/**
+ * Claim returns only lease coordinates. Event payload is deliberately not
+ * materialized here: malformed/poison rows must still be claimable so the
+ * authoritative processor can classify them terminal and move them to DLQ.
+ */
 export async function claimNotificationDomainOutbox(
   client: PoolClient,
   options: { workerId: string; limit?: number; leaseSeconds?: number },
@@ -253,7 +229,7 @@ export async function claimNotificationDomainOutbox(
   const leaseSeconds = Math.min(300, Math.max(15, options.leaseSeconds ?? 60));
   await recoverExpiredNotificationDomainLeases(client, limit);
 
-  const claimed = await client.query<DomainOutboxRow>(
+  const claimed = await client.query<DomainOutboxClaimRow>(
     `WITH candidates AS (
        SELECT id
          FROM notification_domain_outbox
@@ -275,9 +251,7 @@ export async function claimNotificationDomainOutbox(
               updated_at = NOW()
          FROM candidates c
         WHERE o.id = c.id
-       RETURNING o.id, o.attempt_count, o.max_attempts, o.tenant_id,
-                 o.principal_id, o.event_type, o.event_version, o.event_id,
-                 o.occurred_at, o.locale, o.payload
+       RETURNING o.id, o.attempt_count, o.max_attempts
      )
      SELECT * FROM updated ORDER BY id`,
     [limit, options.workerId, leaseSeconds],
@@ -292,7 +266,11 @@ export async function claimNotificationDomainOutbox(
     );
   }
 
-  return claimed.rows.map(mapClaim);
+  return claimed.rows.map((row) => ({
+    outboxId: row.id,
+    attemptNumber: row.attempt_count,
+    maxAttempts: row.max_attempts,
+  }));
 }
 
 export async function failNotificationDomainEvent(
