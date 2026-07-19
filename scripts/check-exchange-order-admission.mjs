@@ -20,6 +20,7 @@ const pureTest = read("src/tests/trading/order-admission.test.ts");
 const commandTest = read("src/tests/security/exchange-order-command.test.ts");
 const postgresHoldTest = read("src/tests/trading/order-admission-postgres.test.ts");
 const postgresAuthorityTest = read("src/tests/security/exchange-order-authority-postgres.test.ts");
+const orderBookAuthorityTest = read("src/tests/security/exchange-order-book-authority.test.ts");
 const migrationTest = read("src/tests/database/migration-integration.test.ts");
 
 const failures = [];
@@ -79,7 +80,9 @@ requireText(financials, "order_hold_scale_exceeded", "holds requiring database r
 requireText(financials, "DATABASE_AMOUNT_SCALE = 10", "hold calculation must bind database scale");
 requireText(financials, "market_buy_max_quote_required", "market buys must be bounded by an explicit quote maximum");
 requireText(financials, "market_buy_max_quote_below_best_ask", "known best ask may not exceed the declared quote authority");
-rejectText(financials, "Decimal.ROUND_UP", "admission must not create holds downstream release cannot reproduce");
+requireText(financials, "maximumBuyFeeRate", "limit-buy holds must reserve the greater possible maker/taker fee");
+requireText(financials, "buyReserve", "buy holds must bind notional and fee reserve atomically");
+rejectText(financials, "Decimal.ROUND_UP", "admission must not create asymmetric hold rounding");
 
 requireText(market, "getActiveMarketStrict", "strict active-market authority is required");
 requireText(market, "market_storage_unavailable", "strict market reads must fail closed on storage outage");
@@ -90,6 +93,7 @@ for (const text of [
   "releaseOrderHoldResidualTx",
   "assertOrderHoldClosedTx",
   "releaseMatchedOrderFundsTx",
+  "matchedReleaseAmountTx",
   "debitTradeFundsTx",
   "creditTradeFundsTx",
   "chargeTradeFeeTx",
@@ -99,6 +103,8 @@ for (const text of [
   "order_terminal_hold_not_closed",
   "wallet_storage_unavailable",
 ]) requireText(wallet, text, `wallet authority is missing invariant: ${text}`);
+requireText(wallet, "Decimal.ROUND_UP", "per-fill buy release must make the fee reserve spendable before fee debit");
+requireText(wallet, "maker_fee", "matched limit-buy release must cover the maximum reserved fee rate");
 rejectText(wallet, "GREATEST(0, held_balance", "order release may not conceal held-balance skew");
 
 for (const [text, message] of [
@@ -133,7 +139,9 @@ for (const forbidden of [
 requireText(marketLock, "pg_try_advisory_lock", "market ownership must be shared across processes");
 requireText(marketLock, "pg_advisory_unlock", "market ownership must always be released");
 requireText(recovery, "tecpeyEngineBooks?.delete", "local matching cache must be cleared before rebuild");
-requireText(recovery, "rebuildOrderBook", "cache must be rebuilt from committed open orders");
+requireText(recovery, "JOIN exchange_order_commands", "maker liquidity must be joined to durable command authority");
+requireText(recovery, "command.state = 'final'", "non-final admitted commands must be excluded from maker liquidity");
+requireText(recovery, "command.result->>'accepted'", "only accepted final commands may become maker liquidity");
 rejectText(recovery, '.keys("tecpey:order:*"', "book recovery may not scan the Redis keyspace");
 
 for (const text of [
@@ -168,6 +176,7 @@ for (const evidence of [
   "fails closed when a hold would require scale rounding",
   "zero maxOrderValue as unlimited",
   "requires explicit market-buy maximum quote authority",
+  "reserves the greater maker or taker fee",
 ]) requireText(pureTest, evidence, `missing decimal regression evidence: ${evidence}`);
 requireText(commandTest, "stable canonical hash", "exact retry identity evidence is required");
 requireText(commandTest, "financial or principal fact changes", "changed command identity evidence is required");
@@ -182,6 +191,8 @@ for (const evidence of [
   "one cross-instance owner for a market critical section",
   "serializes cancellation and closes the remaining hold exactly once",
 ]) requireText(postgresAuthorityTest, evidence, `missing adversarial PostgreSQL evidence: ${evidence}`);
+requireText(orderBookAuthorityTest, "excludes admitted or processing commands", "non-final maker exclusion evidence is required");
+requireText(orderBookAuthorityTest, "getLevels(market, \"buy\").length, 0", "pre-final order-book exclusion assertion is required");
 requireText(migrationTest, "0027_exchange_order_admission_authority.sql", "migration integration must verify exchange command migration");
 requireText(migrationTest, "exchange_order_commands_identity_no_update", "migration integration must verify immutable command evidence");
 requireText(migrationTest, "exchange_order_command_attempts_no_update", "migration integration must verify immutable attempt evidence");
@@ -192,4 +203,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Exchange order admission authority check passed: strict sessions, exact protected financial admission, immutable idempotency, crash recovery, distributed market ownership, authoritative cache rebuild and terminal hold closure are enforced.");
+console.log("Exchange order admission authority check passed: strict sessions, exact fee-covered financial admission, immutable idempotency, crash recovery, distributed market ownership, final-command maker liquidity and terminal hold closure are enforced.");
