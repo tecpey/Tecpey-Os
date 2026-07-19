@@ -197,7 +197,7 @@ function ReflectionEditor({
   };
 
   return (
-    <section className="mt-5 border-t border-white/10 pt-5" aria-labelledby={`reflection-${trade.id}`}>
+    <section className="mt-5 border-t border-white/10 pt-5" aria-labelledby={`reflection-${trade.id}`} aria-busy={saving}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id={`reflection-${trade.id}`} className="font-black text-violet-100">
@@ -242,9 +242,10 @@ function ReflectionEditor({
           <textarea
             value={draft.decisionReview}
             onChange={(event) => onChange({ ...draft, decisionReview: event.target.value })}
+            disabled={saving}
             maxLength={4_000}
             rows={4}
-            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50"
+            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="چه تصمیمی گرفتم و اجرای من نسبت به برنامه چگونه بود؟"
           />
         </label>
@@ -253,9 +254,10 @@ function ReflectionEditor({
           <textarea
             value={draft.learnedLesson}
             onChange={(event) => onChange({ ...draft, learnedLesson: event.target.value })}
+            disabled={saving}
             maxLength={4_000}
             rows={4}
-            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50"
+            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="از این معامله چه چیزی یاد گرفتم؟"
           />
         </label>
@@ -264,9 +266,10 @@ function ReflectionEditor({
           <textarea
             value={draft.emotionalReview}
             onChange={(event) => onChange({ ...draft, emotionalReview: event.target.value })}
+            disabled={saving}
             maxLength={2_000}
             rows={3}
-            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50"
+            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="پیش و هنگام خروج چه احساسی داشتم و چه اثری روی تصمیمم گذاشت؟"
           />
         </label>
@@ -275,15 +278,16 @@ function ReflectionEditor({
           <textarea
             value={draft.nextActionCommitment}
             onChange={(event) => onChange({ ...draft, nextActionCommitment: event.target.value })}
+            disabled={saving}
             maxLength={2_000}
             rows={3}
-            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50"
+            className="mt-2 w-full resize-y rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm font-bold leading-7 text-white outline-none transition focus:border-violet-300/50 disabled:cursor-not-allowed disabled:opacity-60"
             placeholder="در معامله بعدی دقیقاً چه رفتاری را تغییر می‌دهم؟"
           />
         </label>
       </div>
 
-      <fieldset className="mt-4">
+      <fieldset className="mt-4" disabled={saving}>
         <legend className="text-xs font-black text-slate-400">خطاها یا الگوهای قابل اصلاح</legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {ARENA_REFLECTION_TAG_OPTIONS.map((tag) => {
