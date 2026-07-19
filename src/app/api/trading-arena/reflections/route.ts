@@ -404,7 +404,6 @@ export async function POST(request: NextRequest) {
       if (result.value.error === "arena_closed_trade_not_found") {
         return fail("arena_closed_trade_not_found", 404);
       }
-      if (result.value.error) return fail(result.value.error, 400);
 
       if (!result.value.replay) {
         scheduleMentorProfileUpdate(studentId, "reflection_updated");
