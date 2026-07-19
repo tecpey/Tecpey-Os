@@ -15,6 +15,6 @@ Before this branch can leave draft status:
 - [x] operation overrides cannot manufacture body-limit, idempotency, audit, CSRF, service-identity, or other security evidence;
 - [x] manifest totals, hashes, controls, requirements, findings, evidence resolution, cache-policy evidence, and allowed keys are validated;
 - [x] negative tests cover stale totals, forged findings, unresolved evidence, import/comment-only evidence, blanket overrides, unsafe caching, wildcard exceptions, and unbounded bodies;
-- [ ] API Security Manifest passes on the exact owner-authored PR head;
-- [ ] Full Suite Diagnostics, Exchange Authority, and repository CI pass on the exact owner-authored PR head;
+- [ ] API Security Manifest passes in a fresh run on the exact final owner-authored PR head;
+- [ ] Full Suite Diagnostics, Exchange Authority, and repository CI pass in fresh runs on that same head;
 - [x] `main` remains unchanged until approved merge.
