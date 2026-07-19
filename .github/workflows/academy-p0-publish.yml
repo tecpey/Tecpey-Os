@@ -5,7 +5,7 @@ on:
     branches:
       - audit/academy-authority-call-sites-20260719
     paths:
-      - audit/academy-server-issued-progress.patch.gz.b64
+      - audit/academy-p0-patch-parts/**
       - .github/workflows/academy-p0-publish.yml
 
 permissions:
@@ -34,14 +34,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Decode reviewed patch outside worktree
+      - name: Reassemble and verify reviewed patch outside worktree
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode audit/academy-server-issued-progress.patch.gz.b64 > /tmp/academy-p0.patch.gz
+          cat \
+            audit/academy-p0-patch-parts/part-00 \
+            audit/academy-p0-patch-parts/part-01 \
+            audit/academy-p0-patch-parts/part-02a \
+            audit/academy-p0-patch-parts/part-02b \
+            audit/academy-p0-patch-parts/part-03 \
+            audit/academy-p0-patch-parts/part-04 \
+            > /tmp/academy-p0.patch.gz.b64
+
+          test "$(wc -c < /tmp/academy-p0.patch.gz.b64)" -eq 33432
+          echo "66fce44e708ac3c704ee4381d43e084266cceb73f7e3cf59f2690a0d73540672  /tmp/academy-p0.patch.gz.b64" | sha256sum --check --strict
+
+          base64 --decode /tmp/academy-p0.patch.gz.b64 > /tmp/academy-p0.patch.gz
           gzip --decompress --stdout /tmp/academy-p0.patch.gz > /tmp/academy-p0.patch
-          test -s /tmp/academy-p0.patch
-          sha256sum /tmp/academy-p0.patch
+          test "$(wc -c < /tmp/academy-p0.patch)" -eq 107161
+          echo "5a8c08f57f3b74fc91fb605ab04286b3740522806d36bbe20d122d17c802d363  /tmp/academy-p0.patch" | sha256sum --check --strict
 
       - name: Create clean branch from protected main
         shell: bash
@@ -53,8 +65,10 @@ jobs:
             exit 1
           fi
           git checkout -B "$TARGET_BRANCH" origin/main
+          test ! -e audit/academy-p0-patch-parts
           test ! -e audit/academy-server-issued-progress.patch.gz.b64
           test ! -e .github/workflows/academy-p0-publish.yml
+          test ! -e .github/workflows/academy-authority-audit.yml
 
       - name: Apply reviewed implementation patch
         shell: bash
