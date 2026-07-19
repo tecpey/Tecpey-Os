@@ -17,6 +17,12 @@ export type NotificationConsentPurpose =
 export const MARKETING_CONSENT_POLICY_VERSION = "marketing-v1";
 export const NOTIFICATION_CONSENT_SOURCE = "notification-preference-center";
 
+const MANDATORY_NOTIFICATION_CLASSES: readonly NotificationClass[] = [
+  "security_critical",
+  "financial_transactional",
+  "legal_compliance_service",
+];
+
 export type NotificationSettingsPatch = {
   timezone: string;
   quietStart: string | null;
@@ -39,6 +45,7 @@ export type NotificationConsentRecord = {
   policyVersion: string;
   source: string;
   jurisdiction: string | null;
+  idempotencyKey: string;
   occurredAt: string;
 };
 
@@ -54,6 +61,15 @@ function validTimezone(value: string): boolean {
 
 function validTime(value: string): boolean {
   return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+export function validConsentIdempotencyKey(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 8 &&
+    value.length <= 200 &&
+    /^[A-Za-z0-9._:-]+$/.test(value)
+  );
 }
 
 export function parseNotificationPreferencePatch(
@@ -91,7 +107,12 @@ export function parseNotificationSettingsPatch(
 
   if (!validTimezone(timezone) || !validTime(digestTime)) return null;
   if ((quietStart === null) !== (quietEnd === null)) return null;
-  if (quietStart !== null && (!validTime(quietStart) || !validTime(quietEnd as string))) {
+  if (
+    quietStart !== null &&
+    (!validTime(quietStart) ||
+      !validTime(quietEnd as string) ||
+      quietStart === quietEnd)
+  ) {
     return null;
   }
   if (muteUntil !== null && !Number.isFinite(Date.parse(muteUntil))) return null;
@@ -150,13 +171,13 @@ export async function upsertNotificationPreference(
   principalId: string,
   preference: NotificationPreferencePatch,
 ): Promise<void> {
-  if (
-    ["security_critical", "financial_transactional", "legal_compliance_service"].includes(
-      preference.notificationClass,
-    ) &&
-    !preference.enabled
-  ) {
-    throw new Error("mandatory_notification_class_cannot_be_disabled");
+  if (MANDATORY_NOTIFICATION_CLASSES.includes(preference.notificationClass)) {
+    if (!preference.enabled) {
+      throw new Error("mandatory_notification_class_cannot_be_disabled");
+    }
+    if (preference.cadence !== "instant") {
+      throw new Error("mandatory_notification_class_requires_instant_delivery");
+    }
   }
 
   await client.query(
@@ -186,8 +207,13 @@ export async function recordNotificationConsent(
     policyVersion: string;
     source: string;
     jurisdiction: string | null;
+    idempotencyKey: string;
   },
 ): Promise<NotificationConsentRecord> {
+  if (!validConsentIdempotencyKey(consent.idempotencyKey)) {
+    throw new Error("invalid_notification_consent_idempotency_key");
+  }
+
   const result = await client.query<{
     id: string;
     purpose: NotificationConsentPurpose;
@@ -195,12 +221,29 @@ export async function recordNotificationConsent(
     policy_version: string;
     source: string;
     jurisdiction: string | null;
+    idempotency_key: string;
     occurred_at: Date;
   }>(
-    `INSERT INTO notification_consents
-      (principal_id, purpose, status, policy_version, source, jurisdiction)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, purpose, status, policy_version, source, jurisdiction, occurred_at`,
+    `WITH inserted AS (
+       INSERT INTO notification_consents
+        (principal_id, purpose, status, policy_version, source, jurisdiction, idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (principal_id, purpose, idempotency_key) DO NOTHING
+       RETURNING id, purpose, status, policy_version, source, jurisdiction,
+                 idempotency_key, occurred_at
+     )
+     SELECT id, purpose, status, policy_version, source, jurisdiction,
+            idempotency_key, occurred_at
+       FROM inserted
+     UNION ALL
+     SELECT id, purpose, status, policy_version, source, jurisdiction,
+            idempotency_key, occurred_at
+       FROM notification_consents
+      WHERE principal_id = $1
+        AND purpose = $2
+        AND idempotency_key = $7
+        AND NOT EXISTS (SELECT 1 FROM inserted)
+      LIMIT 1`,
     [
       principalId,
       consent.purpose,
@@ -208,10 +251,20 @@ export async function recordNotificationConsent(
       consent.policyVersion,
       consent.source,
       consent.jurisdiction,
+      consent.idempotencyKey,
     ],
   );
   const row = result.rows[0];
   if (!row) throw new Error("notification_consent_insert_failed");
+
+  if (
+    row.status !== consent.status ||
+    row.policy_version !== consent.policyVersion ||
+    row.source !== consent.source ||
+    row.jurisdiction !== consent.jurisdiction
+  ) {
+    throw new Error("notification_consent_idempotency_conflict");
+  }
 
   return {
     id: row.id,
@@ -220,6 +273,7 @@ export async function recordNotificationConsent(
     policyVersion: row.policy_version,
     source: row.source,
     jurisdiction: row.jurisdiction,
+    idempotencyKey: row.idempotency_key,
     occurredAt: row.occurred_at.toISOString(),
   };
 }
@@ -235,10 +289,12 @@ export async function getCurrentNotificationConsents(
     policy_version: string;
     source: string;
     jurisdiction: string | null;
+    idempotency_key: string;
     occurred_at: Date;
   }>(
     `SELECT DISTINCT ON (purpose)
-            id, purpose, status, policy_version, source, jurisdiction, occurred_at
+            id, purpose, status, policy_version, source, jurisdiction,
+            idempotency_key, occurred_at
        FROM notification_consents
       WHERE principal_id = $1
       ORDER BY purpose, event_sequence DESC`,
@@ -252,6 +308,7 @@ export async function getCurrentNotificationConsents(
     policyVersion: row.policy_version,
     source: row.source,
     jurisdiction: row.jurisdiction,
+    idempotencyKey: row.idempotency_key,
     occurredAt: row.occurred_at.toISOString(),
   }));
 }
