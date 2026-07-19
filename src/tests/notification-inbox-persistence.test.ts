@@ -201,22 +201,17 @@ test(
       const granted = await recordNotificationConsent(client, first.id, {
         purpose: "marketing",
         status: "granted",
-        policyVersion: MARKETING_CONSENT_POLICY_VERSION,
-        source: NOTIFICATION_CONSENT_SOURCE,
-        jurisdiction: null,
         idempotencyKey: grantKey,
       });
       assert.equal(granted.status, "granted");
       assert.equal(granted.policyVersion, MARKETING_CONSENT_POLICY_VERSION);
       assert.equal(granted.source, NOTIFICATION_CONSENT_SOURCE);
+      assert.equal(granted.jurisdiction, null);
       assert.equal(granted.idempotencyKey, grantKey);
 
       const replayedGrant = await recordNotificationConsent(client, first.id, {
         purpose: "marketing",
         status: "granted",
-        policyVersion: MARKETING_CONSENT_POLICY_VERSION,
-        source: NOTIFICATION_CONSENT_SOURCE,
-        jurisdiction: null,
         idempotencyKey: grantKey,
       });
       assert.equal(replayedGrant.id, granted.id);
@@ -225,9 +220,6 @@ test(
         recordNotificationConsent(client, first.id, {
           purpose: "marketing",
           status: "revoked",
-          policyVersion: MARKETING_CONSENT_POLICY_VERSION,
-          source: NOTIFICATION_CONSENT_SOURCE,
-          jurisdiction: null,
           idempotencyKey: grantKey,
         }),
         /notification_consent_idempotency_conflict/,
@@ -237,9 +229,6 @@ test(
       const revoked = await recordNotificationConsent(client, first.id, {
         purpose: "marketing",
         status: "revoked",
-        policyVersion: MARKETING_CONSENT_POLICY_VERSION,
-        source: NOTIFICATION_CONSENT_SOURCE,
-        jurisdiction: null,
         idempotencyKey: revokeKey,
       });
       assert.equal(revoked.status, "revoked");
@@ -256,6 +245,7 @@ test(
         MARKETING_CONSENT_POLICY_VERSION,
       );
       assert.equal(currentConsents[0]?.source, NOTIFICATION_CONSENT_SOURCE);
+      assert.equal(currentConsents[0]?.jurisdiction, null);
       assert.equal(currentConsents[0]?.idempotencyKey, revokeKey);
 
       assert.equal(decodeNotificationCursor("not-a-valid-cursor"), null);
