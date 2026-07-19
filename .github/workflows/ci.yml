@@ -62,6 +62,9 @@ jobs:
       - name: Admin authentication boundary guard
         run: node scripts/check-admin-auth-boundary.mjs
 
+      - name: Academy progress authority guard
+        run: node scripts/check-academy-authority.mjs
+
       - name: Tests
         run: npm test
 
