@@ -2,7 +2,6 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import {
   parseNotificationProducerEvent,
-  produceDomainNotification,
   type NotificationProducerEvent,
 } from "./producers";
 
@@ -294,88 +293,6 @@ export async function claimNotificationDomainOutbox(
   }
 
   return claimed.rows.map(mapClaim);
-}
-
-/**
- * Call inside a new transaction after a claim was committed. Notification
- * intent creation and marking the domain event processed commit atomically.
- */
-export async function processClaimedNotificationDomainEvent(
-  client: PoolClient,
-  claim: NotificationDomainOutboxClaim,
-  workerId: string,
-): Promise<{ intentId: string; status: string; decision: string }> {
-  validateWorkerId(workerId);
-
-  const lease = await client.query(
-    `SELECT 1
-       FROM notification_domain_outbox
-      WHERE id = $1
-        AND status = 'processing'
-        AND locked_by = $2
-        AND attempt_count = $3
-        AND lease_expires_at > NOW()
-      FOR UPDATE`,
-    [claim.outboxId, workerId, claim.attemptNumber],
-  );
-  if (!lease.rows[0]) throw new Error("notification_domain_outbox_lease_lost");
-
-  const result = await produceDomainNotification(client, claim.event);
-
-  const updated = await client.query(
-    `UPDATE notification_domain_outbox
-        SET status = 'processed',
-            notification_intent_id = $4::uuid,
-            processed_at = NOW(),
-            terminal_at = NOW(),
-            locked_at = NULL,
-            locked_by = NULL,
-            lease_expires_at = NULL,
-            last_error_code = NULL,
-            last_error_detail = NULL,
-            updated_at = NOW()
-      WHERE id = $1
-        AND status = 'processing'
-        AND locked_by = $2
-        AND attempt_count = $3
-        AND lease_expires_at > NOW()`,
-    [claim.outboxId, workerId, claim.attemptNumber, result.intentId],
-  );
-  if ((updated.rowCount ?? 0) !== 1) {
-    throw new Error("notification_domain_outbox_lease_lost");
-  }
-
-  const attempt = await client.query(
-    `UPDATE notification_domain_outbox_attempts
-        SET status = 'processed',
-            completed_at = NOW(),
-            metadata = jsonb_build_object(
-              'intentId', $4::text,
-              'creationStatus', $5::text,
-              'policyDecision', $6::text
-            )
-      WHERE domain_outbox_id = $1
-        AND attempt_number = $2
-        AND worker_id = $3
-        AND status = 'claimed'`,
-    [
-      claim.outboxId,
-      claim.attemptNumber,
-      workerId,
-      result.intentId,
-      result.status,
-      result.decision,
-    ],
-  );
-  if ((attempt.rowCount ?? 0) !== 1) {
-    throw new Error("notification_domain_attempt_state_missing");
-  }
-
-  return {
-    intentId: result.intentId,
-    status: result.status,
-    decision: result.decision,
-  };
 }
 
 export async function failNotificationDomainEvent(
