@@ -1,0 +1,79 @@
+name: Sync Main Into Exchange Branch
+
+on:
+  push:
+    branches:
+      - fix/exchange-order-admission-authority
+    paths:
+      - .github/workflows/sync-main-into-exchange.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync-main:
+    name: Merge current main with controlled conflict policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full branch history
+        uses: actions/checkout@v4
+        with:
+          ref: fix/exchange-order-admission-authority
+          fetch-depth: 0
+
+      - name: Merge current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "tecpey-ci"
+          git config user.email "ci@tecpey.ir"
+          git fetch origin main
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "Current main is already an ancestor."
+            exit 0
+          fi
+
+          set +e
+          git merge --no-ff --no-commit origin/main
+          merge_status=$?
+          set -e
+
+          if [ "$merge_status" -ne 0 ]; then
+            allowed_conflicts=(
+              ".github/workflows/ci.yml"
+              "package.json"
+              "scripts/check-database-migration-authority.mjs"
+              "src/lib/db-migration-plan.ts"
+              "src/tests/database/migration-integration.test.ts"
+            )
+
+            unresolved="$(git diff --name-only --diff-filter=U)"
+            while IFS= read -r file; do
+              [ -z "$file" ] && continue
+              allowed=false
+              for candidate in "${allowed_conflicts[@]}"; do
+                if [ "$file" = "$candidate" ]; then
+                  allowed=true
+                  break
+                fi
+              done
+              if [ "$allowed" != "true" ]; then
+                echo "Unexpected merge conflict: $file"
+                exit 1
+              fi
+              git checkout --ours -- "$file"
+              git add "$file"
+            done <<< "$unresolved"
+          fi
+
+          if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+            echo "Unresolved conflicts remain."
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+
+          git add -A
+          git commit -m "chore(exchange): merge current main before final validation"
+          git push origin HEAD:fix/exchange-order-admission-authority
