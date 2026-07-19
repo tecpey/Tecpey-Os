@@ -80,6 +80,9 @@ for (const [target, pattern, reason] of [
   ["journal", "parseArenaReflectionList", "reflection lists must pass runtime validation"],
   ["journal", "parseArenaReflectionMutation", "reflection writes and conflicts must pass runtime validation"],
   ["journal", "resolveArenaReflectionIdentity", "ambiguous reflection writes must preserve one identity"],
+  ["journal", "shouldApplyArenaReflectionMutation", "reflection mutation responses must be monotonic"],
+  ["journal", "reflectionMutationSequenceRef", "each trade requires ordered mutation response tracking"],
+  ["journal", "incoming.revision >= current.revision", "reflection list refreshes must not roll back projected revisions"],
   ["journal", "\"Idempotency-Key\"", "reflection writes must carry an idempotency header"],
   ["journal", "expectedRevision", "reflection writes must carry optimistic revision"],
   ["journalPage", "max-w-5xl", "journal needs a responsive production width"],
@@ -91,6 +94,7 @@ for (const [target, pattern, reason] of [
   ["reflectionRoute", "validateArenaExecutionStateV2", "closed-trade evidence must come from validated Execution V2 state"],
   ["reflectionRoute", "pg_advisory_xact_lock", "reflection commands require transaction-scoped serialization"],
   ["reflectionRoute", "academy_trading_arena_reflection_commands", "reflection writes require immutable command replay evidence"],
+  ["reflectionRoute", "if (trade && !reflectionEvidenceMatchesTrade(reflection, trade))", "archived reflections must survive live trade pruning while present trades stay reconciled"],
   ["reflectionRoute", "academy_student_events", "committed reflection writes must append student evidence"],
   ["reflectionRoute", "recordLearningEvent", "committed reflection writes must append learning evidence"],
   ["reflectionRoute", "scheduleMentorProfileUpdate", "Mentor refresh must use the governed dispatcher"],
@@ -98,9 +102,19 @@ for (const [target, pattern, reason] of [
   ["reflectionDomain", "createArenaReflectionRequestHash", "normalized reflection requests require canonical SHA-256 hashing"],
   ["reflectionDomain", "ARENA_REFLECTION_MISTAKE_TAGS", "reflection tags require a controlled server enum"],
   ["reflectionClient", "resolveArenaReflectionIdentity", "client reflection retry rules require a pure identity helper"],
+  ["reflectionClient", "shouldApplyArenaReflectionMutation", "client must reject stale and out-of-order reflection results"],
+  ["reflectionClient", "input.incoming.revision >= input.current.revision", "client projection must never lower the authoritative revision"],
   ["migrations", "0022_trading_arena_reflections.sql", "authoritative reflection schema must be registered after 0021"],
   ["migrations", "FOREIGN KEY (attempt_id, student_id)", "database schema must enforce attempt ownership"],
 ]) requireText(target, pattern, reason);
+
+const replayLookup = content.reflectionRoute.indexOf("const command = await client.query<ReflectionCommandRow>");
+const liveAttemptLookup = content.reflectionRoute.indexOf(
+  "const attempt = await loadOwnedAttempt(client, studentId, input.attemptId, true)",
+);
+if (replayLookup < 0 || liveAttemptLookup < 0 || replayLookup >= liveAttemptLookup) {
+  failures.push(`${files.reflectionRoute}: immutable command replay must occur before prunable live trade lookup`);
+}
 
 for (const forbidden of [
   "evidenceAsset: input",
@@ -115,4 +129,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Arena UI authority boundary OK: execution, journal reflections and scenario routes respect server authority.");
+console.log("Arena UI authority boundary OK: execution, journal reflections and scenario routes respect server authority, immutable replay and monotonic client projection.");
