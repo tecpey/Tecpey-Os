@@ -315,6 +315,78 @@ CREATE INDEX IF NOT EXISTS academy_trading_arena_execution_events_student_idx
   ON academy_trading_arena_execution_events(student_id, created_at DESC);
 `;
 
+export const TRADING_ARENA_REFLECTIONS_SQL = `
+CREATE UNIQUE INDEX IF NOT EXISTS academy_trading_arena_attempts_id_student_idx
+  ON academy_trading_arena_attempts(id, student_id);
+
+CREATE TABLE IF NOT EXISTS academy_trading_arena_reflections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  attempt_id UUID NOT NULL,
+  closed_trade_id TEXT NOT NULL,
+  revision BIGINT NOT NULL DEFAULT 1 CHECK (revision >= 1),
+  decision_review TEXT NOT NULL,
+  learned_lesson TEXT NOT NULL,
+  emotional_review TEXT NOT NULL,
+  mistake_tags JSONB NOT NULL,
+  next_action_commitment TEXT,
+  evidence_asset TEXT NOT NULL CHECK (evidence_asset IN ('BTC', 'ETH')),
+  evidence_realized_pnl NUMERIC(30,10) NOT NULL,
+  evidence_realized_pnl_rate NUMERIC(30,18) NOT NULL,
+  evidence_closure_reason TEXT NOT NULL
+    CHECK (evidence_closure_reason IN ('manual', 'stop-loss', 'take-profit')),
+  evidence_closed_at TIMESTAMPTZ NOT NULL,
+  evidence_mentor_flags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, attempt_id, closed_trade_id),
+  FOREIGN KEY (attempt_id, student_id)
+    REFERENCES academy_trading_arena_attempts(id, student_id)
+    ON DELETE CASCADE,
+  CHECK (char_length(closed_trade_id) BETWEEN 1 AND 160),
+  CHECK (char_length(decision_review) BETWEEN 1 AND 4000),
+  CHECK (char_length(learned_lesson) BETWEEN 1 AND 4000),
+  CHECK (char_length(emotional_review) BETWEEN 1 AND 2000),
+  CHECK (next_action_commitment IS NULL OR char_length(next_action_commitment) BETWEEN 1 AND 2000),
+  CHECK (jsonb_typeof(mistake_tags) = 'array'),
+  CHECK (jsonb_array_length(mistake_tags) BETWEEN 1 AND 5),
+  CHECK (mistake_tags <@ '["late-entry","early-exit","oversized-position","missing-stop-loss","moved-stop-loss","fomo-entry","revenge-trade","ignored-plan","poor-risk-reward","overtrading","none"]'::jsonb),
+  CHECK (NOT (mistake_tags ? 'none') OR jsonb_array_length(mistake_tags) = 1),
+  CHECK (jsonb_typeof(evidence_mentor_flags) = 'array')
+);
+
+CREATE INDEX IF NOT EXISTS academy_trading_arena_reflections_student_idx
+  ON academy_trading_arena_reflections(student_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS academy_trading_arena_reflections_attempt_idx
+  ON academy_trading_arena_reflections(attempt_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS academy_trading_arena_reflections_mentor_idx
+  ON academy_trading_arena_reflections(student_id, evidence_closed_at DESC);
+
+CREATE TABLE IF NOT EXISTS academy_trading_arena_reflection_commands (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  attempt_id UUID NOT NULL,
+  closed_trade_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  expected_revision BIGINT NOT NULL CHECK (expected_revision >= 0),
+  request_hash CHAR(64) NOT NULL,
+  result_revision BIGINT NOT NULL CHECK (result_revision >= 1),
+  result_response JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, attempt_id, idempotency_key),
+  FOREIGN KEY (attempt_id, student_id)
+    REFERENCES academy_trading_arena_attempts(id, student_id)
+    ON DELETE CASCADE,
+  CHECK (char_length(closed_trade_id) BETWEEN 1 AND 160),
+  CHECK (char_length(idempotency_key) BETWEEN 8 AND 120),
+  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  CHECK (jsonb_typeof(result_response) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS academy_trading_arena_reflection_commands_student_idx
+  ON academy_trading_arena_reflection_commands(student_id, created_at DESC);
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
@@ -323,6 +395,7 @@ const MIGRATIONS: Migration[] = [
   { filename: "0017_academy_lesson_progress.sql", sql: ACADEMY_LESSON_PROGRESS_SQL },
   { filename: "0020_trading_arena_execution.sql", sql: TRADING_ARENA_EXECUTION_SQL },
   { filename: "0021_academy_progress_authority.sql", sql: ACADEMY_PROGRESS_AUTHORITY_SQL },
+  { filename: "0022_trading_arena_reflections.sql", sql: TRADING_ARENA_REFLECTIONS_SQL },
 ];
 
 function checksum(sql: string): string {
