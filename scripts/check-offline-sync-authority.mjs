@@ -113,6 +113,10 @@ requireText("authority", "reconcileStaleOfflineCommands", "stale processing comm
 requireText("authority", "purgeExpiredOfflineCommands", "terminal command retention needs bounded cleanup");
 requireText("authority", 'status: "retryable"', "database failures may not become acknowledgements");
 
+requireText("migration", "ADD COLUMN IF NOT EXISTS event_id TEXT", "learning events require a stable domain-event identity column");
+requireText("migration", "ADD COLUMN IF NOT EXISTS source TEXT", "learning events must retain offline source provenance");
+requireText("migration", "ADD COLUMN IF NOT EXISTS locale TEXT", "learning events must retain offline locale provenance");
+requireText("migration", "learning_events_offline_event_id_idx", "learning event identity must be database-unique");
 requireText("migration", "offline_sync_commands", "a relational command inbox is required");
 requireText("migration", "UNIQUE (tenant_id, student_id, client_event_id)", "database uniqueness must scope tenant, student and client ID");
 requireText("migration", "command_hash", "changed-payload detection requires durable evidence");
@@ -120,6 +124,8 @@ requireText("migration", "retain_until", "command evidence needs a retention bou
 requireText("migration", "offline_sync_commands_reconcile_idx", "reconciliation requires a bounded index");
 requireText("plan", "runOfflineSyncMigrations", "canonical migration plan must include offline authority");
 requireText("migrationTests", "0023_offline_sync_command_authority.sql", "migration integration must verify the offline migration ledger entry");
+requireText("migrationTests", '["learning_events", "event_id"]', "migration integration must verify stable learning event identity");
+requireText("migrationTests", "learning_events_offline_event_id_idx", "migration integration must verify learning event uniqueness");
 requireText("migrationTests", "offline_sync_commands", "migration integration must verify the command table");
 
 for (const evidence of [
@@ -151,4 +157,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
+console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command and learning-event identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
