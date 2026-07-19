@@ -30,6 +30,9 @@ const failures = [];
 const requireText = (target, text, reason) => {
   if (!content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
 };
+const requirePattern = (target, pattern, reason) => {
+  if (!pattern.test(content[target])) failures.push(`${files[target]}: ${reason}`);
+};
 const rejectText = (target, text, reason) => {
   if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
 };
@@ -52,7 +55,7 @@ requireText("migration", "notification_domain_dead_letters_no_delete", "domain d
 requireText("migration", "REFERENCES platform_principals(tenant_id, id)", "events must be tenant/principal scoped");
 requireText("migration", "lease_expires_at", "worker claims require expiring leases");
 
-requireText("hash", "Object.keys(record).sort()", "event fingerprints must survive JSONB key normalization");
+requirePattern("hash", /Object\.keys\(record\)\s*\.sort\(\)/, "event fingerprints must survive JSONB key normalization");
 requireText("hash", "hashNotificationDomainEvent", "one canonical domain event fingerprint authority is required");
 requireText("outbox", "parseNotificationProducerEvent(rawEvent)", "enqueue must runtime-validate producer events");
 requireText("outbox", "hashNotificationDomainEvent(event)", "enqueue must use canonical event fingerprints");
