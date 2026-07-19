@@ -21,6 +21,7 @@
     "prod:start": "NODE_ENV=production tsx server.ts",
     "health": "node scripts/check-health.mjs",
     "env:check": "node scripts/validate-env.mjs",
+    "db:migrate": "tsx scripts/run-database-migrations.ts",
     "npm:registry:fix": "npm config set registry https://registry.npmjs.org/ && npm config delete proxy || true && npm config delete https-proxy || true",
     "clean": "rm -rf node_modules .next",
     "clean:hard": "rm -rf node_modules .next package-lock.json && npm cache clean --force",
