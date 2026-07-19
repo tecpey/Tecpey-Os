@@ -83,6 +83,9 @@ jobs:
       - name: Wallet authority boundary guard
         run: node scripts/check-wallet-authority.mjs
 
+      - name: Repository hygiene inventory
+        run: npm run audit:hygiene
+
       - name: Tests
         run: npm test
 
