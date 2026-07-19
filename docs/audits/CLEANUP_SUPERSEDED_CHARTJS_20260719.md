@@ -20,6 +20,10 @@ The active crypto detail route imports and renders `TradingViewChart` directly. 
 
 The governed npm removal must therefore remove both direct dependencies and regenerate `package-lock.json`.
 
+## Dependency mutation boundary
+
+The package graph is changed only by npm 10 on Node.js 22. The automation commits only `package.json` and `package-lock.json`; CI/workflow cleanup is performed separately so generated dependency output is never mixed with transport mechanics.
+
 ## Preserved chart paths
 
 This cleanup does not change:
