@@ -94,7 +94,15 @@ export async function POST(req: NextRequest) {
         idempotencyKey,
       );
       if (command.idempotencyConflict) return { idempotencyConflict: true as const };
-      if (command.response) return { ...command.response, replayed: true };
+      if (command.response) {
+        const projection = await refreshAcademyProgressProjection(client, session.studentId as string, locale);
+        return {
+          ...command.response,
+          state: projection.state,
+          revision: projection.revision,
+          replayed: true,
+        };
+      }
 
       if (assessment.termNumber > 1) {
         const previous = await client.query(
@@ -221,7 +229,10 @@ export async function POST(req: NextRequest) {
       return apiError("idempotency_key_conflict", 409);
     }
     if ("blocked" in result.value && result.value.blocked) return apiError("previous_term_required", 403);
-    scheduleMentorProfileUpdate(session.studentId, "authoritative_lesson_assessment");
-    return apiOk(result.value as Record<string, unknown>, 200, { "Cache-Control": "no-store, max-age=0" });
+    const responseBody = result.value as Record<string, unknown>;
+    if (responseBody.replayed !== true) {
+      scheduleMentorProfileUpdate(session.studentId, "authoritative_lesson_assessment");
+    }
+    return apiOk(responseBody, 200, { "Cache-Control": "no-store, max-age=0" });
   });
 }

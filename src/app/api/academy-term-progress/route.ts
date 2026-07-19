@@ -173,7 +173,15 @@ export async function POST(req: NextRequest) {
           idempotencyKey,
         );
         if (command.idempotencyConflict) return { idempotencyConflict: true as const };
-        if (command.response) return { ...command.response, replayed: true };
+        if (command.response) {
+          const projection = await refreshAcademyProgressProjection(client, studentId, locale);
+          return {
+            ...command.response,
+            state: projection.state,
+            revision: projection.revision,
+            replayed: true,
+          };
+        }
 
         const previousPassed = await hasPreviousTermPassed(client, studentId, termNumber, locale);
         if (!previousPassed) return { blocked: true as const };
@@ -294,8 +302,11 @@ export async function POST(req: NextRequest) {
         return apiError("idempotency_key_conflict", 409);
       }
       if ("blocked" in result.value && result.value.blocked) return apiError("previous_term_required", 403, { score, percent, passed: false, termNumber });
-      scheduleMentorProfileUpdate(studentId, "authoritative_term_assessment");
-      return apiOk(result.value as Record<string, unknown>);
+      const responseBody = result.value as Record<string, unknown>;
+      if (responseBody.replayed !== true) {
+        scheduleMentorProfileUpdate(studentId, "authoritative_term_assessment");
+      }
+      return apiOk(responseBody);
     } catch {
       return apiError("server_error", 500);
     }
