@@ -14,7 +14,9 @@ export type OfflineSyncScope = {
 
 export type OfflineSyncScopeVerification =
   | { status: "valid"; scope: OfflineSyncScope }
-  | { status: "invalid" | "expired" | "unavailable" };
+  | { status: "invalid" }
+  | { status: "expired" }
+  | { status: "unavailable" };
 
 function scopeSecret(): Buffer | null {
   const raw = process.env.TECPEY_OFFLINE_SYNC_SECRET?.trim();
