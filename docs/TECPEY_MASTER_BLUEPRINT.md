@@ -1,8 +1,3 @@
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # TECPEY OS — Master Blueprint
 
 **Version:** 1.0 (Permanent Strategic Baseline)  
