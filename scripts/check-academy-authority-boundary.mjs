@@ -3,27 +3,70 @@ import path from "node:path";
 
 const root = process.cwd();
 const stateRoute = await readFile(path.join(root, "src/app/api/academy-state/route.ts"), "utf8");
-const lessonRoute = await readFile(path.join(root, "src/app/api/academy-lesson-assessment/route.ts"), "utf8");
-const migration = await readFile(path.join(root, "src/lib/db-migrate-user-state.ts"), "utf8");
+const lessonAssessmentRoute = await readFile(path.join(root, "src/app/api/academy-lesson-assessment/route.ts"), "utf8");
+const sectionRoute = await readFile(path.join(root, "src/app/api/academy-lesson-progress/route.ts"), "utf8");
+const sectionAuthority = await readFile(path.join(root, "src/lib/academy-section-authority.ts"), "utf8");
+const userStateMigration = await readFile(path.join(root, "src/lib/db-migrate-user-state.ts"), "utf8");
+const sectionMigration = await readFile(path.join(root, "src/lib/db-migrate-academy-section-authority.ts"), "utf8");
 
 const failures = [];
 const genericMutations = ["award_xp", "pass_term", "award_badge", "lesson_complete", "module_score"];
 for (const mutation of genericMutations) {
   if (stateRoute.includes(mutation)) failures.push(`/api/academy-state still contains generic mutation: ${mutation}`);
 }
-if (!stateRoute.includes("academy_state_read_only") || !stateRoute.includes('Allow: "GET"')) {
-  failures.push("/api/academy-state POST must fail closed as a GET-only projection");
+
+for (const contract of [
+  "legacySnapshot",
+  "authorityApplied: false",
+  'reconciliationStatus: "quarantined"',
+  "academy_progress_legacy_snapshots",
+  "refreshAcademyProgressProjection",
+]) {
+  if (!stateRoute.includes(contract)) {
+    failures.push(`/api/academy-state missing bounded quarantine contract: ${contract}`);
+  }
 }
-if (!lessonRoute.includes("gradeCanonicalLesson") || !lessonRoute.includes("readLearningCommand")) {
+for (const forbidden of ["body.progress", "body.xp", "body.completed", "body.termStatus"]) {
+  if (stateRoute.includes(forbidden)) {
+    failures.push(`/api/academy-state may not apply client progression field: ${forbidden}`);
+  }
+}
+
+if (!lessonAssessmentRoute.includes("gradeCanonicalLesson") || !lessonAssessmentRoute.includes("readLearningCommand")) {
   failures.push("official lesson assessment must be server-graded and command-idempotent");
 }
+for (const contract of [
+  "submitAcademySectionCheckpoint",
+  "strictRevocation: true",
+  "academy_lesson_progress_put_only",
+]) {
+  if (!sectionRoute.includes(contract)) failures.push(`section route missing authority boundary: ${contract}`);
+}
+for (const contract of [
+  "gradeAcademySectionCheckpoint",
+  "readLearningCommand",
+  "academy_section_attempts",
+  "awardAcademyReward",
+  "previousOfficialTermPassed",
+]) {
+  if (!sectionAuthority.includes(contract)) failures.push(`section authority missing contract: ${contract}`);
+}
+
 for (const contract of [
   "UNIQUE (student_id, locale, reward_key)",
   "UNIQUE (student_id, command_type, request_hash)",
   "academy_progress_legacy_snapshots",
   "progress_authority",
 ]) {
-  if (!migration.includes(contract)) failures.push(`missing Academy authority migration contract: ${contract}`);
+  if (!userStateMigration.includes(contract)) failures.push(`missing Academy authority migration contract: ${contract}`);
+}
+for (const contract of [
+  "academy_section_legacy_snapshots",
+  "academy_section_attempts",
+  "academy_section_attempts_no_update",
+  "academy_lesson_progress_checkpoint_completion_check",
+]) {
+  if (!sectionMigration.includes(contract)) failures.push(`missing Academy section authority migration contract: ${contract}`);
 }
 
 async function walk(dir) {
@@ -48,4 +91,4 @@ if (failures.length > 0) {
   console.error("Academy authority boundary failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
-console.log("Academy authority boundary OK: progression is server-issued and generic state is read-only.");
+console.log("Academy authority boundary OK: progression is server-issued; generic state accepts only non-authoritative legacy quarantine.");
