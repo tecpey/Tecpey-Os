@@ -30,7 +30,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rebuild payload and capture diagnostics
-        id: rebuild
         shell: bash
         run: |
           set -euo pipefail
@@ -97,6 +96,7 @@ jobs:
           EOF
           sort -o expected-files.txt expected-files.txt
           diff -u expected-files.txt archive-files.txt
+          grep -v '^\.github/workflows/ci.yml$' expected-files.txt > push-files.txt
 
       - name: Apply payload and run dependency-free authority guard
         shell: bash
@@ -106,16 +106,16 @@ jobs:
           cd work
           node scripts/check-academy-authority-boundary.mjs
 
-      - name: Commit exact reviewed scope
+      - name: Commit and push exact product scope
         shell: bash
         run: |
           set -euo pipefail
           cd work
           git config user.name 'tecpey-delivery-bot'
           git config user.email 'actions@users.noreply.github.com'
-          while IFS= read -r file; do git add -- "$file"; done < ../expected-files.txt
+          while IFS= read -r file; do git add -- "$file"; done < ../push-files.txt
           git diff --cached --name-only | sort > ../staged-files.txt
-          diff -u ../expected-files.txt ../staged-files.txt
+          diff -u ../push-files.txt ../staged-files.txt
           test -n "$(git diff --cached --name-only)"
           git commit -m 'feat(academy): make progression and rewards server-issued'
           git push origin HEAD:agent/academy-server-issued-progression
