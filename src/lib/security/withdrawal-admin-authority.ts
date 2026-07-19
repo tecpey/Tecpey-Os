@@ -1,5 +1,10 @@
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import {
+  claimApiCommandTx,
+  completeApiCommandTx,
+  type ApiCommandScope,
+} from "./api-command-idempotency";
 import { trackAuthEvent } from "./auth-metrics";
 import { writeAudit } from "./audit-log";
 
@@ -12,6 +17,13 @@ export type AuthoritativeAdminWithdrawalAction =
 export type AuthoritativeAdminWithdrawalResult =
   | { ok: true; replayed: boolean; state: string; userId: string; asset: string; amount: string }
   | { ok: false; reason: string; code: number };
+
+type AdminWithdrawalReceipt = {
+  state: string;
+  userId: string;
+  asset: string;
+  amount: string;
+};
 
 class AdminWithdrawalError extends Error {
   constructor(
@@ -93,6 +105,8 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
   action: AuthoritativeAdminWithdrawalAction;
   notes?: string;
   metadata?: Record<string, unknown>;
+  idempotencyKey: string;
+  requestHash: string;
 }): Promise<AuthoritativeAdminWithdrawalResult> {
   const stateMap: Record<AuthoritativeAdminWithdrawalAction, string> = {
     approve: "approved",
@@ -101,9 +115,27 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
     flag_review: "compliance_review",
   };
   const requestedState = stateMap[input.action];
+  const receiptScope: ApiCommandScope = {
+    principalType: "admin",
+    principalId: input.adminId,
+    operation: "withdrawal.admin_action",
+    idempotencyKey: input.idempotencyKey,
+    requestHash: input.requestHash,
+  };
 
   try {
     const result = await withTx(async (client) => {
+      const claim = await claimApiCommandTx<AdminWithdrawalReceipt>(client, receiptScope);
+      if (claim.status === "conflict") {
+        throw new AdminWithdrawalError("idempotency_conflict", 409);
+      }
+      if (claim.status === "in_progress") {
+        throw new AdminWithdrawalError("idempotency_in_progress", 409);
+      }
+      if (claim.status === "replayed") {
+        return { ...claim.response, replayed: true };
+      }
+
       const current = await client.query<{
         user_id: string;
         asset: string;
@@ -123,13 +155,23 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       if (!row) throw new AdminWithdrawalError("withdrawal_not_found", 404);
 
       if (row.state === requestedState) {
-        return {
+        const response = {
           replayed: true,
           state: row.state,
           userId: row.user_id,
           asset: row.asset,
           amount: row.amount,
         };
+        await completeApiCommandTx(client, receiptScope, {
+          httpStatus: 200,
+          response: {
+            state: response.state,
+            userId: response.userId,
+            asset: response.asset,
+            amount: response.amount,
+          },
+        });
+        return response;
       }
 
       if (!["pending", "compliance_review"].includes(row.state)) {
@@ -197,13 +239,23 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
         [input.withdrawalId, input.action],
       );
 
-      return {
+      const response = {
         replayed: false,
         state: requestedState,
         userId: row.user_id,
         asset: row.asset,
         amount: row.amount,
       };
+      await completeApiCommandTx(client, receiptScope, {
+        httpStatus: 200,
+        response: {
+          state: response.state,
+          userId: response.userId,
+          asset: response.asset,
+          amount: response.amount,
+        },
+      });
+      return response;
     });
 
     if (!result.enabled) {
