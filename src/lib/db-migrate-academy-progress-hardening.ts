@@ -92,7 +92,7 @@ INSERT INTO academy_progress_legacy_snapshots (
   reconciliation_status, reconciliation_report
 )
 SELECT student_id, locale, progress,
-       encode(digest(progress::text, 'sha256'), 'hex'),
+       md5(progress::text) || md5('tecpey-academy-v2:' || progress::text),
        'quarantined',
        jsonb_build_object(
          'reason', 'server_projection_v1_included_client_section_evidence',
