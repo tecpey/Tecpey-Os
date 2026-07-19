@@ -1,7 +1,6 @@
 // Canonical session helper — edge-compatible (no "use server", no "next/headers").
-// Reads the unified session cookie first and normalizes legacy cookies only for
-// non-sensitive compatibility reads. Security-sensitive callers require a
-// registered unified session and a fresh fail-closed revocation decision.
+// Unified sessions are authoritative. Legacy cookies are compatibility-only and
+// never accepted by security-sensitive strict-revocation callers.
 
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
@@ -13,7 +12,7 @@ import { hasAdminAccess } from "./admin-auth";
 
 const JTI_CACHE_TTL_MS = 30_000;
 const JTI_CACHE_MAX = 2_000;
-type JtiCacheEntry = { revoked: boolean; ts: number };
+type JtiCacheEntry = { revoked: true; ts: number };
 const jtiCache = new Map<string, JtiCacheEntry>();
 
 function pruneJtiCache(): void {
@@ -26,27 +25,19 @@ function pruneJtiCache(): void {
 }
 
 /**
- * Strict checks never trust a cached allow from a prior non-strict request.
- * A fresh strict backend decision is required; only a cached revoked=true result
- * may short-circuit because deny evidence is safe to reuse for the short TTL.
+ * Only deny decisions are cached. A previous allow can never survive logout,
+ * password rotation or another instance's revocation write.
  */
 async function checkJtiRevoked(jti: string, strict = false): Promise<boolean> {
   const cached = jtiCache.get(jti);
-  const cacheFresh = Boolean(cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS);
+  if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) return true;
 
-  if (strict) {
-    if (cacheFresh && cached?.revoked) return true;
-    const revoked = await isJtiRevokedStrict(jti);
-    pruneJtiCache();
-    if (revoked) jtiCache.set(jti, { revoked: true, ts: Date.now() });
-    else jtiCache.delete(jti);
-    return revoked;
-  }
-
-  if (cacheFresh && cached) return cached.revoked;
-  const revoked = await isJtiRevoked(jti);
+  const revoked = strict
+    ? await isJtiRevokedStrict(jti)
+    : await isJtiRevoked(jti);
   pruneJtiCache();
-  jtiCache.set(jti, { revoked, ts: Date.now() });
+  if (revoked) jtiCache.set(jti, { revoked: true, ts: Date.now() });
+  else jtiCache.delete(jti);
   return revoked;
 }
 
@@ -167,8 +158,7 @@ export async function getCanonicalSession(
 
     if (unified.jti) {
       try {
-        const revoked = await checkJtiRevoked(unified.jti, strict);
-        if (revoked) {
+        if (await checkJtiRevoked(unified.jti, strict)) {
           logger.info("[auth-session] jti revoked — rejecting session", {
             jti: unified.jti,
             strict,
@@ -176,15 +166,11 @@ export async function getCanonicalSession(
           return guestSession();
         }
       } catch (err) {
-        if (strict) {
-          logger.warn("[auth-session] strict revocation check failed — blocking", {
-            err: String(err),
-          });
-          return guestSession();
-        }
-        logger.warn("[auth-session] non-strict revocation check failed — allowing", {
+        logger.warn("[auth-session] revocation check failed — blocking", {
+          strict,
           err: String(err),
         });
+        return guestSession();
       }
     }
 
@@ -201,7 +187,6 @@ export async function getCanonicalSession(
     };
   }
 
-  // Security-sensitive operations do not accept legacy unregistered cookies.
   if (strict) return guestSession();
 
   const [academyAuth, studentSession, userSession] = await Promise.all([
