@@ -169,8 +169,8 @@ export function hashLessonAssessmentRequest(input: {
 
 export function resolveV2Lesson(locale: AcademyLocale, lessonId: string): Lesson | null {
   if (locale !== "fa") return null;
-  for (const module of TERM1.modules) {
-    const lesson = module.lessons.find((item) => item.id === lessonId);
+  for (const moduleEntry of TERM1.modules) {
+    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);
     if (lesson) return lesson;
   }
   return null;
