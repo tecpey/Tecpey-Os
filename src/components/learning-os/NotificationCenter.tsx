@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 type Locale = "fa" | "en";
+type LoadState = "loading" | "ready" | "error";
 type NotificationClass =
   | "security_critical"
   | "financial_transactional"
@@ -124,9 +125,15 @@ export function NotificationCenter({
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [brain, setBrain] = useState<BrainSnapshot | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
 
   useEffect(() => {
     let active = true;
+    setItems([]);
+    setUnread(0);
+    setBrain(null);
+    setLoadState("loading");
+
     const load = () => {
       Promise.all([
         fetch(`/api/notifications?locale=${locale}`, { cache: "no-store" }).then(
@@ -149,9 +156,13 @@ export function NotificationCenter({
           setItems(notifications);
           setUnread(Number.isFinite(Number(data?.unread)) ? Math.max(0, Number(data.unread)) : 0);
           setBrain(brainData?.brain || null);
+          setLoadState("ready");
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (active) setLoadState("error");
+        });
     };
+
     load();
     const timer = window.setInterval(load, 45_000);
     return () => {
@@ -268,7 +279,25 @@ export function NotificationCenter({
             </div>
           )}
           <div className="max-h-[420px] space-y-2 overflow-y-auto p-3">
-            {topItems.length === 0 && (
+            {loadState === "loading" && (
+              <div
+                className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-slate-300"
+                role="status"
+              >
+                {isFa ? "در حال دریافت اعلان‌ها…" : "Loading notifications…"}
+              </div>
+            )}
+            {loadState === "error" && (
+              <div
+                className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-4 text-sm font-bold leading-6 text-amber-100"
+                role="alert"
+              >
+                {isFa
+                  ? "مرکز اعلان‌ها موقتاً در دسترس نیست. وضعیت خالی نمایش داده نمی‌شود تا اطلاعات نادرست نبینی."
+                  : "The notification center is temporarily unavailable. We are not showing a false empty state."}
+              </div>
+            )}
+            {loadState === "ready" && topItems.length === 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-bold text-slate-300">
                 {isFa
                   ? "اعلان تازه‌ای نداری؛ مسیر آکادمی همیشه آماده ادامه است."
