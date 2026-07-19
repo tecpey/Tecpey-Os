@@ -37,17 +37,38 @@ function coefficientDigits(value: string): number {
   return Math.max(1, digits.length);
 }
 
-/**
- * The admission product uses an isolated Decimal constructor with enough
- * significant digits to preserve the complete finite-decimal product.
- */
-export function multiplyOrderDecimals(left: string, right: string): Decimal {
-  const precision = coefficientDigits(left) + coefficientDigits(right) + 4;
-  const ExactDecimal = Decimal.clone({
+function exactDecimalFor(values: string[]): typeof Decimal {
+  const precision = values.reduce(
+    (sum, value) => sum + coefficientDigits(value),
+    8 + values.length * 2,
+  );
+  return Decimal.clone({
     precision: Math.max(40, precision),
     rounding: Decimal.ROUND_HALF_UP,
   });
+}
+
+/** Preserve the complete finite-decimal product used by validation and holds. */
+export function multiplyOrderDecimals(left: string, right: string): Decimal {
+  const ExactDecimal = exactDecimalFor([left, right]);
   return new ExactDecimal(left).times(new ExactDecimal(right));
+}
+
+function buyReserve(
+  quantity: string,
+  price: string,
+  feeRate: string,
+): Decimal {
+  const ExactDecimal = exactDecimalFor([quantity, price, feeRate]);
+  const notional = new ExactDecimal(quantity).times(new ExactDecimal(price));
+  return notional.times(new ExactDecimal(1).plus(new ExactDecimal(feeRate)));
+}
+
+function maximumBuyFeeRate(market: Market): string {
+  const maker = parseOrderDecimal(market.makerFee);
+  const taker = parseOrderDecimal(market.takerFee);
+  if (!maker || !taker) throw new Error("invalid_market_fee_rate");
+  return Decimal.max(maker, taker).toFixed();
 }
 
 export function toHoldAmount(value: Decimal): string {
@@ -85,9 +106,10 @@ export function calculateOrderHold(input: {
     const maxQuote = parsePositiveOrderDecimal(input.marketBuyMaxQuoteAmount);
     if (!maxQuote) throw new Error("invalid_market_buy_max_quote");
     if (input.bestAskPrice) {
-      const minimumAtBestAsk = multiplyOrderDecimals(
+      const minimumAtBestAsk = buyReserve(
         input.request.quantity,
         input.bestAskPrice,
+        input.market.takerFee,
       );
       if (maxQuote.lt(minimumAtBestAsk)) {
         throw new Error("market_buy_max_quote_below_best_ask");
@@ -106,7 +128,11 @@ export function calculateOrderHold(input: {
   return {
     asset: input.market.quoteAsset,
     amount: toHoldAmount(
-      multiplyOrderDecimals(input.request.quantity, input.request.price),
+      buyReserve(
+        input.request.quantity,
+        input.request.price,
+        maximumBuyFeeRate(input.market),
+      ),
     ),
     basisPrice: input.request.price,
   };
