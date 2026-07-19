@@ -22,13 +22,13 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
-import { QuizEngineV2 } from "./QuizEngineV2";
+import { QuizEngineV2, type QuizSubmission } from "./QuizEngineV2";
 import { FlashcardDeck } from "./FlashcardDeck";
 import { ReflectionPrompt } from "./ReflectionPrompt";
 import {
   loadProgress,
   onProgressChange,
-  recordLessonComplete,
+  refreshProgress,
   xpForNextLevel,
   XP_TABLE,
 } from "@/lib/academy-progress";
@@ -278,12 +278,16 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
   const [phase, setPhase] = useState<Phase>("reading");
   const [readProgress, setReadProgress] = useState(0);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [assessmentStatus, setAssessmentStatus] = useState<"idle" | "saving" | "error">("idle");
+  const assessmentKeyRef = useRef<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = loadProgress();
     const completed = p.completedLessons[lesson.id];
     setAlreadyCompleted(!!completed);
+    setAssessmentStatus("idle");
+    assessmentKeyRef.current = null;
   }, [lesson.id]);
 
   // Track reading scroll progress
@@ -309,13 +313,50 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
   }, []);
 
   const handleQuizPass = useCallback(
-    (score: number) => {
-      recordLessonComplete(lesson.id, score, lesson.termNumber);
-      setAlreadyCompleted(true);
-      setPhase("complete");
-      onComplete?.(score);
+    async (_clientScore: number, submission: QuizSubmission) => {
+      if (assessmentStatus === "saving") return;
+      setAssessmentStatus("saving");
+      const idempotencyKey = assessmentKeyRef.current
+        ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${lesson.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      assessmentKeyRef.current = idempotencyKey;
+
+      try {
+        const response = await fetch("/api/academy-lesson-assessment", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify({
+            locale: "fa",
+            lessonId: lesson.id,
+            answers: submission.answers,
+          }),
+        });
+        const body = await response.json().catch(() => ({})) as {
+          score?: number;
+          passed?: boolean;
+          state?: unknown;
+          error?: string;
+        };
+        if (!response.ok || !body.passed) {
+          throw new Error(body.error ?? "authoritative_lesson_assessment_failed");
+        }
+        await refreshProgress("fa");
+        setAlreadyCompleted(true);
+        setAssessmentStatus("idle");
+        setPhase("complete");
+        onComplete?.(Number(body.score ?? 0));
+      } catch {
+        setAssessmentStatus("error");
+      }
     },
-    [lesson.id, lesson.termNumber, onComplete],
+    [assessmentStatus, lesson.id, onComplete],
   );
 
   const handleQuizFail = useCallback((_score: number) => {
@@ -457,6 +498,16 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
             </div>
           </div>
         </div>
+        {assessmentStatus === "saving" && (
+          <div className="rounded-2xl border border-cyan-300/30 bg-cyan-400/10 p-4 text-sm font-black text-cyan-200" role="status">
+            در حال ثبت و ارزیابی رسمی پاسخ‌ها در سرور تک‌پی…
+          </div>
+        )}
+        {assessmentStatus === "error" && (
+          <div className="rounded-2xl border border-red-300/30 bg-red-400/10 p-4 text-sm font-black text-red-200" role="alert">
+            ثبت رسمی نتیجه انجام نشد. پاسخ‌ها ذخیره نشده‌اند؛ دوباره روی ادامه مسیر بزنید.
+          </div>
+        )}
         <QuizEngineV2
           questions={lesson.knowledgeChecks}
           mode="knowledge-check"

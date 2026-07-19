@@ -134,6 +134,130 @@ CREATE INDEX IF NOT EXISTS academy_term_learning_progress_student_idx
   ON academy_term_learning_progress(student_id, locale, term_number);
 `;
 
+
+export const ACADEMY_PROGRESS_AUTHORITY_SQL = `
+ALTER TABLE academy_state_documents
+  ADD COLUMN IF NOT EXISTS progress_authority TEXT NOT NULL DEFAULT 'legacy',
+  ADD COLUMN IF NOT EXISTS projection_hash CHAR(64),
+  ADD COLUMN IF NOT EXISTS projection_updated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS academy_progress_legacy_snapshots (
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  snapshot JSONB NOT NULL,
+  snapshot_hash CHAR(64) NOT NULL,
+  reconciliation_status TEXT NOT NULL DEFAULT 'quarantined'
+    CHECK (reconciliation_status IN ('quarantined', 'reviewed', 'accepted', 'rejected')),
+  reconciliation_report JSONB NOT NULL DEFAULT '{}'::jsonb,
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  PRIMARY KEY (student_id, locale),
+  CHECK (jsonb_typeof(snapshot) = 'object'),
+  CHECK (snapshot_hash ~ '^[0-9a-f]{64}$')
+);
+
+CREATE TABLE IF NOT EXISTS academy_reward_ledger (
+  id BIGSERIAL PRIMARY KEY,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  reward_key TEXT NOT NULL,
+  reward_type TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
+  badge_code TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  awarded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, locale, reward_key),
+  CHECK (char_length(reward_key) BETWEEN 3 AND 220),
+  CHECK (char_length(source_id) BETWEEN 1 AND 220),
+  CHECK (jsonb_typeof(metadata) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS academy_reward_ledger_student_idx
+  ON academy_reward_ledger(student_id, locale, awarded_at DESC);
+
+CREATE TABLE IF NOT EXISTS academy_lesson_assessments (
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  lesson_id TEXT NOT NULL,
+  term_number SMALLINT NOT NULL CHECK (term_number BETWEEN 1 AND 7),
+  module_id TEXT NOT NULL,
+  best_score SMALLINT NOT NULL DEFAULT 0 CHECK (best_score BETWEEN 0 AND 100),
+  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  last_score SMALLINT NOT NULL DEFAULT 0 CHECK (last_score BETWEEN 0 AND 100),
+  passed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (student_id, locale, lesson_id),
+  CHECK (char_length(lesson_id) BETWEEN 3 AND 180),
+  CHECK (char_length(module_id) BETWEEN 3 AND 180)
+);
+
+CREATE INDEX IF NOT EXISTS academy_lesson_assessments_term_idx
+  ON academy_lesson_assessments(student_id, locale, term_number, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS academy_learning_commands (
+  id BIGSERIAL PRIMARY KEY,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  command_type TEXT NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  idempotency_key TEXT,
+  result_response JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, command_type, request_hash),
+  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  CHECK (idempotency_key IS NULL OR char_length(idempotency_key) BETWEEN 8 AND 120),
+  CHECK (jsonb_typeof(result_response) = 'object')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS academy_learning_commands_idempotency_idx
+  ON academy_learning_commands(student_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
+
+-- Reconcile already-authoritative normalized history into the new reward ledger.
+INSERT INTO academy_reward_ledger
+  (student_id, locale, reward_key, reward_type, source_type, source_id, xp, metadata, awarded_at)
+SELECT student_id, locale,
+       'term:' || term_number::text || ':passed',
+       'term_pass', 'term_assessment', 'term-' || term_number::text,
+       500, jsonb_build_object('backfilled', TRUE, 'percent', percent),
+       COALESCE(passed_at, updated_at, NOW())
+FROM academy_term_progress
+WHERE status = 'passed'
+ON CONFLICT (student_id, locale, reward_key) DO NOTHING;
+
+INSERT INTO academy_reward_ledger
+  (student_id, locale, reward_key, reward_type, source_type, source_id, xp, badge_code, metadata, awarded_at)
+SELECT DISTINCT ON (student_id, locale)
+       student_id, locale, 'badge:first-quiz', 'badge', 'term_assessment',
+       'term-' || term_number::text, 0, 'first-quiz',
+       jsonb_build_object('backfilled', TRUE), updated_at
+FROM academy_term_progress
+ORDER BY student_id, locale, updated_at ASC
+ON CONFLICT (student_id, locale, reward_key) DO NOTHING;
+
+INSERT INTO academy_reward_ledger
+  (student_id, locale, reward_key, reward_type, source_type, source_id, xp, badge_code, metadata, awarded_at)
+SELECT DISTINCT ON (student_id, locale)
+       student_id, locale, 'badge:first-lesson', 'badge', 'official_section',
+       term_slug || '/' || section_key, 0, 'first-lesson',
+       jsonb_build_object('backfilled', TRUE), COALESCE(completed_at, updated_at)
+FROM academy_lesson_progress
+WHERE completed = TRUE
+ORDER BY student_id, locale, COALESCE(completed_at, updated_at) ASC
+ON CONFLICT (student_id, locale, reward_key) DO NOTHING;
+
+INSERT INTO academy_reward_ledger
+  (student_id, locale, reward_key, reward_type, source_type, source_id, xp, badge_code, metadata, awarded_at)
+SELECT student_id, locale, 'badge:academy-graduate', 'badge', 'term_assessment',
+       'term-7', 0, 'academy-graduate', jsonb_build_object('backfilled', TRUE),
+       COALESCE(passed_at, updated_at, NOW())
+FROM academy_term_progress
+WHERE term_number = 7 AND status = 'passed'
+ON CONFLICT (student_id, locale, reward_key) DO NOTHING;
+`;
+
 export const TRADING_ARENA_EXECUTION_SQL = `
 ALTER TABLE academy_trading_arena_attempts
   ADD COLUMN IF NOT EXISTS execution_schema_version SMALLINT NOT NULL DEFAULT 2,
@@ -198,6 +322,7 @@ const MIGRATIONS: Migration[] = [
   { filename: "0016_trading_arena_account.sql", sql: TRADING_ARENA_ACCOUNT_SQL },
   { filename: "0017_academy_lesson_progress.sql", sql: ACADEMY_LESSON_PROGRESS_SQL },
   { filename: "0020_trading_arena_execution.sql", sql: TRADING_ARENA_EXECUTION_SQL },
+  { filename: "0021_academy_progress_authority.sql", sql: ACADEMY_PROGRESS_AUTHORITY_SQL },
 ];
 
 function checksum(sql: string): string {

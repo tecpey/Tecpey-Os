@@ -1,13 +1,10 @@
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { withDb } from "@/lib/db";
+import { withTx } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import {
-  createDefaultAcademyProgressState,
-  normalizeAcademyProgressState,
-} from "@/lib/academy-progress";
+import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,32 +22,17 @@ export async function GET(req: NextRequest) {
     if (!session.studentId) return apiError("complete_account_required", 401);
     const locale = parseLocale(new URL(req.url).searchParams.get("locale"));
 
-    const result = await withDb(async (client) => {
-      const row = await client.query<{ progress: unknown; revision: string; updated_at: string }>(
-        `SELECT progress, revision::text, updated_at
-         FROM academy_state_documents
-         WHERE student_id = $1::uuid AND locale = $2
-         LIMIT 1`,
-        [session.studentId, locale],
-      );
-      const found = row.rows[0];
-      return {
-        state: found ? normalizeAcademyProgressState(found.progress) : createDefaultAcademyProgressState(),
-        revision: found ? Number(found.revision) : 0,
-        updatedAt: found?.updated_at ?? null,
-      };
-    });
-
+    const result = await withTx((client) => refreshAcademyProgressProjection(client, session.studentId as string, locale));
     if (!result.enabled) return apiError("progress_service_not_configured", 503);
     return apiOk(result.value, 200, { "Cache-Control": "no-store, max-age=0" });
   });
 }
 
 export async function POST(req: NextRequest) {
-  return withObservability(req, { route: "/api/academy-state" }, async () =>
-    apiError("academy_state_is_read_only", 405, {
-      allowed: ["GET"],
-      message: "Academy progress can only be issued by server-verified learning events.",
-    }),
-  );
+  return withObservability(req, { route: "/api/academy-state" }, async () => apiError(
+    "academy_state_read_only",
+    405,
+    { authority: "server_projection_v1" },
+    { Allow: "GET", "Cache-Control": "no-store, max-age=0" },
+  ));
 }
