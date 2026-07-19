@@ -37,7 +37,9 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm .github/workflows/fix-arena-command-recovery.yml scripts/_apply_arena_command_recovery.py
+          git rm .github/workflows/fix-arena-command-recovery.yml \
+                 scripts/_apply_arena_command_recovery.py \
+                 .github/ARENA_COMMAND_RECOVERY_TRIGGER
           git add src/lib/trading-arena-client.ts \
                   src/components/academy/trading-arena/TradingArenaExecutionClient.tsx \
                   src/tests/arena/client-authority.test.ts \
