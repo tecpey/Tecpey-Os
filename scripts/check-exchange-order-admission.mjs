@@ -48,7 +48,7 @@ requireText(wallet, "order_hold_ledger_mismatch", "order hold must fail closed w
 requireText(wallet, "D(ledgerAmount).eq(canonical)", "order hold ledger evidence must match exactly");
 
 requireText(pureTest, "binary-unsafe decimal boundaries", "precision regression test is required");
-requireText(pureTest, "ROUND", "hold rounding regression evidence is required");
+requireText(pureTest, "rounds holds upward", "hold rounding regression evidence is required");
 requireText(postgresTest, "Promise.all", "concurrent PostgreSQL hold evidence is required");
 requireText(postgresTest, '"0.0500000000"', "exact available balance assertion is required");
 requireText(postgresTest, '"0.1000000001"', "exact held and ledger amount assertion is required");
