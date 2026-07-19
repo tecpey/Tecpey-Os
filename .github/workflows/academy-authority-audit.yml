@@ -141,7 +141,22 @@ jobs:
           retention-days: 1
 
       - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 0
+        id: eslint
+        shell: bash
+        run: |
+          set +e
+          ./node_modules/.bin/eslint . --max-warnings 0 2>&1 | tee /tmp/academy-p0-eslint.log
+          STATUS=${PIPESTATUS[0]}
+          exit "$STATUS"
+
+      - name: Upload ESLint diagnostics
+        if: ${{ always() && steps.eslint.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-p0-eslint-diagnostics
+          path: /tmp/academy-p0-eslint.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Browser persistence guard
         run: node scripts/check-browser-persistence.mjs
