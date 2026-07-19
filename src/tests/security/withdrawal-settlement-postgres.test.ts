@@ -53,7 +53,7 @@ describe("Confirmed withdrawal settlement authority", () => {
             withdrawalId,
             txHash,
             confirmations: 3,
-            blockNumber: 12345n,
+            blockNumber: BigInt(12345),
           }),
           "settled",
         );
@@ -62,7 +62,7 @@ describe("Confirmed withdrawal settlement authority", () => {
             withdrawalId,
             txHash,
             confirmations: 4,
-            blockNumber: 12346n,
+            blockNumber: BigInt(12346),
           }),
           "replayed",
         );
