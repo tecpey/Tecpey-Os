@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   hygiene:
     name: Repository Hygiene Inventory
@@ -189,6 +193,7 @@ jobs:
         run: npm run offline:check
 
       - name: Offline sync PostgreSQL integration tests
+        timeout-minutes: 5
         run: |
           set -o pipefail
           npm run test:offline-sync 2>&1 | tee /tmp/tecpey-offline-sync-tests.log
