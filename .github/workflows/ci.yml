@@ -71,6 +71,11 @@ jobs:
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
       TECPEY_WITHDRAWAL_PRICE_SECRET: ci-placeholder-withdrawal-price-secret-32-min
       TECPEY_OFFLINE_SYNC_SECRET: ci-placeholder-offline-scope-secret-32-min
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: ci-placeholder-crm-contact-hash-secret-32-min
+      TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: '1'
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
@@ -204,6 +209,24 @@ jobs:
         with:
           name: offline-sync-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-offline-sync-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: CRM lead authority guard
+        run: npm run crm:check
+
+      - name: CRM lead PostgreSQL integration tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:crm-leads 2>&1 | tee /tmp/tecpey-crm-lead-tests.log
+
+      - name: Upload CRM lead diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: crm-lead-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-crm-lead-tests.log
           if-no-files-found: ignore
           retention-days: 7
 
