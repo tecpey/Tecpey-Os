@@ -178,10 +178,7 @@ export async function getAuthoritativeUsdValuation(
   amount: string,
 ): Promise<ValuationResult> {
   const existing = await readAuthoritativeUsdValuation(asset, amount);
-  if (
-    existing.ok ||
-    !["price_snapshot_unavailable", "price_snapshot_stale"].includes(existing.reason)
-  ) {
+  if (existing.ok || existing.reason !== "price_snapshot_unavailable") {
     return existing;
   }
 
