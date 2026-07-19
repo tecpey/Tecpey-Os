@@ -43,7 +43,8 @@ export async function processAuthoritativeNotificationDomainClaim(
         AND o.locked_by = $2
         AND o.attempt_count = $3
         AND o.lease_expires_at > NOW()
-      FOR UPDATE OF o`,
+      FOR UPDATE OF o
+      FOR SHARE OF p`,
     [claim.outboxId, workerId, claim.attemptNumber],
   );
   const row = authoritative.rows[0];
