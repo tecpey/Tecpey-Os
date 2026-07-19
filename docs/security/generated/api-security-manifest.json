@@ -74,7 +74,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-auth",
@@ -131,6 +136,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "pre-authentication",
         "reason": "Login and signup create the first authenticated session; no prior session exists to revoke-check.",
@@ -189,7 +199,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-certificates/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-flashcards",
@@ -241,7 +256,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-flashcards/route.ts",
+        "method": "PUT",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-lead",
@@ -297,7 +317,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-lead/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-lesson-assessment",
@@ -351,7 +376,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-lesson-progress",
@@ -403,7 +433,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-lesson-progress/route.ts",
+        "method": "PUT",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-reflections",
@@ -455,7 +490,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-reflections/route.ts",
+        "method": "PUT",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-simulator-decision",
@@ -507,7 +547,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-specialized-lead",
@@ -561,7 +606,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-specialized-lead/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-state",
@@ -615,7 +665,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-state/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-student-profile",
@@ -669,7 +724,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-student-profile/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy-term-progress",
@@ -723,7 +783,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-term-progress/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy/auth/login",
@@ -790,6 +855,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "compatibility-pre-authentication",
         "reason": "Compatibility login delegates to the canonical first-session authentication authority.",
@@ -858,7 +928,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/academy/auth/register",
@@ -925,6 +1000,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "compatibility-pre-authentication",
         "reason": "Compatibility registration delegates to the canonical first-session authentication authority.",
@@ -985,7 +1065,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/admin/security-metrics/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/admin/withdrawals/[id]",
@@ -1045,7 +1130,12 @@
       "findings": [
         "parsed_body_without_size_limit",
         "replayable_command_without_idempotency"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/ai-mentor",
@@ -1100,7 +1190,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/ai-mentor-v2",
@@ -1156,6 +1251,11 @@
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/ai-mentor/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "compatibility-alias",
         "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
@@ -1212,7 +1312,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/api-keys/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/api-keys/[id]",
@@ -1262,7 +1367,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/api-keys/[id]",
@@ -1314,7 +1424,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/2fa/backup",
@@ -1369,7 +1484,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/2fa/backup/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/2fa/disable",
@@ -1424,7 +1544,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/2fa/disable/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/2fa/enroll",
@@ -1479,7 +1604,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/2fa/enroll/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/2fa/verify",
@@ -1533,7 +1663,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/2fa/verify/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/devices/[id]",
@@ -1588,7 +1723,12 @@
       },
       "findings": [
         "required_strict_revocation_missing"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/devices/[id]",
@@ -1644,7 +1784,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/password/change",
@@ -1700,7 +1845,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/password/change/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/refresh",
@@ -1756,7 +1906,12 @@
       },
       "findings": [
         "required_strict_revocation_missing"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/refresh/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/sessions",
@@ -1811,7 +1966,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/sessions/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/sessions/[id]",
@@ -1865,7 +2025,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/sessions/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/webauthn/auth/challenge",
@@ -1920,6 +2085,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/auth/challenge/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "pre-authentication",
         "reason": "Discoverable-passkey challenge generation intentionally precedes user authentication and sets no session cookie.",
@@ -1979,6 +2149,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/auth/verify/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "pre-authentication",
         "reason": "Passkey assertion verification establishes the first session after server-side ceremony and credential validation.",
@@ -2038,7 +2213,12 @@
       },
       "findings": [
         "required_strict_revocation_missing"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/webauthn/credentials/[id]",
@@ -2094,7 +2274,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/webauthn/register/challenge",
@@ -2146,7 +2331,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/register/challenge/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/webauthn/register/verify",
@@ -2201,7 +2391,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/webauthn/register/verify/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/withdraw",
@@ -2259,7 +2454,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/withdraw/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/withdraw/[id]",
@@ -2314,7 +2514,12 @@
       },
       "findings": [
         "replayable_command_without_idempotency"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/withdraw/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/auth/withdraw/authorize",
@@ -2369,7 +2574,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/command-center/auth/bootstrap/challenge",
@@ -2427,6 +2637,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/auth/bootstrap/challenge/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "bootstrap-credential",
         "reason": "Initial control-plane bootstrap is authorized by the one-time bootstrap credential before any admin session exists.",
@@ -2487,6 +2702,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/auth/bootstrap/verify/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "bootstrap-credential",
         "reason": "Initial control-plane bootstrap verifies the one-time bootstrap credential and creates the first admin session.",
@@ -2547,6 +2767,11 @@
       "findings": [
         "required_strict_revocation_missing"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/auth/logout/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "live-principal",
         "reason": "The handler loads the live database-backed admin principal before attempting server-side session revocation.",
@@ -2605,6 +2830,11 @@
         "serviceIdentity": false
       },
       "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/auth/passkey/challenge/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "admin-pre-authentication",
         "reason": "Admin passkey challenge generation intentionally precedes authentication and creates no active admin authority.",
@@ -2665,6 +2895,11 @@
       "findings": [
         "parsed_body_without_size_limit"
       ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/auth/passkey/verify/route.ts",
+        "method": "POST",
+        "resolved": true
+      },
       "operationOverride": {
         "authorityType": "admin-pre-authentication",
         "reason": "Admin passkey assertion verification establishes a new database-backed admin session after credential validation.",
@@ -2723,7 +2958,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/command-center/campaign/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/community/profile",
@@ -2778,7 +3018,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/community/profile/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/device-token",
@@ -2835,7 +3080,12 @@
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit",
         "missing_audit_or_observability_evidence"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/device-token/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/internal/price-feed-status",
@@ -2885,7 +3135,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/internal/price-feed-status/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/learning-events",
@@ -2937,7 +3192,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/learning-events/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/mentor-challenge",
@@ -2989,7 +3249,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/mentor-conversations/migrate",
@@ -3045,7 +3310,12 @@
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit",
         "missing_audit_or_observability_evidence"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/mentor-memory",
@@ -3099,7 +3369,12 @@
       },
       "findings": [
         "required_strict_revocation_missing"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/mentor-memory/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/mentor-memory",
@@ -3154,7 +3429,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/mentor-memory/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/mentor-profile/recompute",
@@ -3210,7 +3490,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "missing_audit_or_observability_evidence"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notification-brain",
@@ -3260,7 +3545,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notification-brain/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notifications",
@@ -3310,7 +3600,12 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": []
+      "findings": [],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notifications/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notifications/[id]",
@@ -3362,7 +3657,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notifications/[id]/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notifications/consent",
@@ -3417,7 +3717,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notifications/consent/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notifications/preferences",
@@ -3472,7 +3777,12 @@
       "findings": [
         "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notifications/preferences/route.ts",
+        "method": "PATCH",
+        "resolved": true
+      }
     },
     {
       "route": "/api/notifications/read",
@@ -3524,7 +3834,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/notifications/read/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/offline-sync",
@@ -3581,7 +3896,12 @@
       "findings": [
         "parsed_body_without_size_limit",
         "replayable_command_without_idempotency"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/offline-sync/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/orders",
@@ -3635,7 +3955,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/orders/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/orders/[id]",
@@ -3689,7 +4014,12 @@
       },
       "findings": [
         "replayable_command_without_idempotency"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/orders/[id]/route.ts",
+        "method": "DELETE",
+        "resolved": true
+      }
     },
     {
       "route": "/api/trading-arena",
@@ -3747,7 +4077,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/trading-arena/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/trading-arena/execution",
@@ -3804,7 +4139,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     },
     {
       "route": "/api/trading-arena/reflections",
@@ -3862,7 +4202,12 @@
       },
       "findings": [
         "parsed_body_without_size_limit"
-      ]
+      ],
+      "evidenceSource": {
+        "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
+        "method": "POST",
+        "resolved": true
+      }
     }
   ]
 }
