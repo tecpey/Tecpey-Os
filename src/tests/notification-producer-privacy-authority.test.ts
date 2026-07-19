@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Pool } from "pg";
@@ -30,19 +31,24 @@ function supportEvent(
   };
 }
 
-test("producer metadata keeps only minimal governed provenance", () => {
+test("producer metadata keeps minimal provenance and a non-reversible payload fingerprint", () => {
   const event = supportEvent(crypto.randomUUID());
   const request = buildNotificationRequest(event);
+  const expectedPayloadHash = createHash("sha256")
+    .update(JSON.stringify(event.payload))
+    .digest("hex");
 
   assert.deepEqual(request.metadata, {
     producerEventId: event.id,
     producerEventType: event.type,
     producerEventVersion: 1,
     producerOccurredAt: event.occurredAt,
+    producerPayloadHash: expectedPayloadHash,
     templateId: "support.ticket-status-changed.v1",
   });
   assert.equal("producerPayload" in request.metadata, false);
   assert.equal(JSON.stringify(request.metadata).includes(event.payload.ticketId), false);
+  assert.match(String(request.metadata.producerPayloadHash), /^[0-9a-f]{64}$/);
 });
 
 test(
