@@ -23,6 +23,10 @@ export type WithdrawalPriceFeedPayload = {
   observedAt: string;
 };
 
+type ValuationResult =
+  | { ok: true; evidence: WithdrawalPriceEvidence }
+  | { ok: false; reason: string };
+
 function priceSecret(): Buffer | null {
   const raw = process.env.TECPEY_WITHDRAWAL_PRICE_SECRET?.trim();
   if (raw && raw.length >= 32) return Buffer.from(raw, "utf8");
@@ -213,13 +217,10 @@ export async function produceWithdrawalPriceSnapshot(
   }
 }
 
-export async function getAuthoritativeUsdValuation(
+async function readAuthoritativeUsdValuation(
   asset: string,
   amount: string,
-): Promise<
-  | { ok: true; evidence: WithdrawalPriceEvidence }
-  | { ok: false; reason: string }
-> {
+): Promise<ValuationResult> {
   const result = await withDb(async (db) => {
     const rows = await db.query<{
       id: string;
@@ -281,11 +282,11 @@ export async function getAuthoritativeUsdValuation(
   };
 }
 
-export async function getOrProduceAuthoritativeUsdValuation(
+export async function getAuthoritativeUsdValuation(
   asset: string,
   amount: string,
-): ReturnType<typeof getAuthoritativeUsdValuation> {
-  const existing = await getAuthoritativeUsdValuation(asset, amount);
+): Promise<ValuationResult> {
+  const existing = await readAuthoritativeUsdValuation(asset, amount);
   if (
     existing.ok ||
     !["price_snapshot_unavailable", "price_snapshot_stale"].includes(existing.reason)
@@ -295,5 +296,5 @@ export async function getOrProduceAuthoritativeUsdValuation(
 
   const produced = await produceWithdrawalPriceSnapshot(asset);
   if (!produced.ok) return produced;
-  return getAuthoritativeUsdValuation(asset, amount);
+  return readAuthoritativeUsdValuation(asset, amount);
 }
