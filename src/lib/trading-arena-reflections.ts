@@ -100,11 +100,14 @@ function record(value: unknown): Record<string, unknown> | null {
 }
 
 function requiredText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
   const normalized = cleanText(value, max);
   return normalized.length > 0 ? normalized : null;
 }
 
-function optionalText(value: unknown, max: number): string | null {
+function optionalText(value: unknown, max: number): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return undefined;
   const normalized = cleanText(value, max);
   return normalized.length > 0 ? normalized : null;
 }
@@ -112,7 +115,10 @@ function optionalText(value: unknown, max: number): string | null {
 export function normalizeArenaReflectionMistakeTags(
   value: unknown,
 ): ArenaReflectionMistakeTag[] | null {
-  if (!Array.isArray(value) || value.length < 1 || value.length > 5) return null;
+  if (
+    !Array.isArray(value) || value.length < 1 || value.length > 5 ||
+    value.some((item) => typeof item !== "string")
+  ) return null;
   const normalized = [...new Set(value.map((item) => cleanText(item, 40).toLowerCase()))]
     .sort();
   if (normalized.length < 1 || normalized.length > 5) return null;
@@ -129,7 +135,9 @@ export function parseArenaReflectionInput(value: unknown): ArenaReflectionInput 
     ? raw.attemptId.toLowerCase()
     : null;
   const closedTradeId = requiredText(raw.closedTradeId, 160);
-  const expectedRevision = Number(raw.expectedRevision);
+  const expectedRevision = typeof raw.expectedRevision === "number"
+    ? raw.expectedRevision
+    : Number.NaN;
   const decisionReview = requiredText(raw.decisionReview, 4_000);
   const learnedLesson = requiredText(raw.learnedLesson, 4_000);
   const emotionalReview = requiredText(raw.emotionalReview, 2_000);
@@ -139,7 +147,7 @@ export function parseArenaReflectionInput(value: unknown): ArenaReflectionInput 
   if (
     !attemptId || !closedTradeId || !Number.isSafeInteger(expectedRevision) ||
     expectedRevision < 0 || !decisionReview || !learnedLesson ||
-    !emotionalReview || !mistakeTags
+    !emotionalReview || !mistakeTags || nextActionCommitment === undefined
   ) return null;
 
   return {
