@@ -6,7 +6,7 @@
  *  - All error responses must use { ok: false, error: string, details?: unknown }.
  *  - All success responses must use { ok: true, ...payload }.
  *  - API responses are private and non-cacheable unless a route explicitly
- *    overrides the cache policy with reviewed response headers.
+ *    supplies a complete reviewed Cache-Control policy.
  *
  * Phase 21 will introduce Zod schemas tied to these validators.
  */
@@ -21,10 +21,22 @@ export const API_PRIVATE_RESPONSE_HEADERS = Object.freeze({
   Expires: "0",
 });
 
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  const normalized = name.toLowerCase();
+  return Object.keys(headers).some((key) => key.toLowerCase() === normalized);
+}
+
 function responseHeaders(headers?: Record<string, string>): Record<string, string> {
+  const explicit = headers ?? {};
+
+  // An explicit Cache-Control value is a complete reviewed cache decision. Do
+  // not combine a public policy with inherited `Pragma: no-cache`/`Expires: 0`,
+  // which would make the override contradictory and browser-dependent.
+  if (hasHeader(explicit, "cache-control")) return { ...explicit };
+
   return {
     ...API_PRIVATE_RESPONSE_HEADERS,
-    ...(headers ?? {}),
+    ...explicit,
   };
 }
 
