@@ -22,7 +22,7 @@ const originalWebhookUrl = process.env.ACADEMY_LEADS_WEBHOOK_URL;
 const originalWebhookSecret = process.env.TECPEY_CRM_WEBHOOK_SECRET;
 
 function uniquePhone(): string {
-  const suffix = Math.floor(Math.random() * 90_000_000 + 10_000_000).toString();
+  const suffix = Math.floor(Math.random() * 900_000_000 + 100_000_000).toString();
   return `+989${suffix}`;
 }
 
@@ -70,11 +70,12 @@ before(async () => {
   process.env.TECPEY_CRM_CONTACT_HASH_SECRET ||= "crm-postgres-test-contact-hash-secret-32-min";
   process.env.TECPEY_CRM_WEBHOOK_SECRET ||= "crm-postgres-test-webhook-secret-32-minimum";
   pool = new Pool({ connectionString: databaseUrl, max: 16 });
-  await inTransaction(async (client) => {
-    await client.query("COMMIT");
+  const client = await pool.connect();
+  try {
     await applyDatabaseMigrationsWithLock(client);
-    await client.query("BEGIN");
-  });
+  } finally {
+    client.release();
+  }
 });
 
 after(async () => {
@@ -111,12 +112,13 @@ describe("CRM lead PostgreSQL authority", () => {
     }
     assert.deepEqual(conflict, { status: "conflict" });
 
+    const leadId = first.status === "committed" ? first.result.id : randomUUID();
     const evidence = await pool!.query<{ commands: string; leads: string; outbox: string }>(
       `SELECT
          (SELECT COUNT(*)::text FROM crm_lead_commands WHERE idempotency_key = $1) AS commands,
          (SELECT COUNT(*)::text FROM crm_leads WHERE id = $2::uuid) AS leads,
          (SELECT COUNT(*)::text FROM crm_lead_delivery_outbox WHERE lead_id = $2::uuid) AS outbox`,
-      [original.idempotencyKey, first.status === "committed" ? first.result.id : randomUUID()],
+      [original.idempotencyKey, leadId],
     );
     assert.deepEqual(evidence.rows[0], { commands: "1", leads: "1", outbox: "1" });
   });
@@ -138,9 +140,9 @@ describe("CRM lead PostgreSQL authority", () => {
     );
     const results = await Promise.all(commands.map((entry) => ingestAcademyLead(entry)));
     assert.equal(results.every((entry) => entry.status === "committed"), true);
-    const ids = results
-      .filter((entry): entry is Extract<typeof entry, { status: "committed" }> => entry.status === "committed")
-      .map((entry) => entry.result.id);
+    const ids = results.flatMap((entry) =>
+      entry.status === "committed" ? [entry.result.id] : [],
+    );
     assert.equal(new Set(ids).size, 1);
     const leadId = ids[0]!;
 
@@ -192,23 +194,26 @@ describe("CRM lead PostgreSQL authority", () => {
     if (created.status !== "committed") return;
 
     const workerId = `crm-worker-${randomUUID()}`;
-    const claims = await inTransaction((client) => claimCrmLeadDeliveries(client, workerId, 100));
+    const claims = await inTransaction((client) =>
+      claimCrmLeadDeliveries(client, workerId, 100),
+    );
     const claim = claims.find((entry) => entry.lead_id === created.result.id);
     assert.ok(claim);
 
     process.env.ACADEMY_LEADS_WEBHOOK_URL = "https://crm.example.test/academy-leads";
     process.env.TECPEY_CRM_WEBHOOK_SECRET = "crm-postgres-test-webhook-secret-32-minimum";
     let requestBody = "";
-    let requestHeaders: Headers | null = null;
+    let requestHeaders: Headers | undefined;
     globalThis.fetch = async (_input, init) => {
       requestBody = String(init?.body ?? "");
       requestHeaders = new Headers(init?.headers);
       return new Response(null, { status: 204 });
     };
 
-    await deliverCrmLeadClaim(claim!, workerId);
-    const timestamp = requestHeaders!.get("X-TecPey-Timestamp");
-    const signature = requestHeaders!.get("X-TecPey-Signature");
+    await deliverCrmLeadClaim(claim, workerId);
+    assert.ok(requestHeaders);
+    const timestamp = requestHeaders.get("X-TecPey-Timestamp");
+    const signature = requestHeaders.get("X-TecPey-Signature");
     assert.ok(timestamp);
     assert.equal(
       signature,
@@ -216,7 +221,7 @@ describe("CRM lead PostgreSQL authority", () => {
         .update(`${timestamp}.${requestBody}`)
         .digest("hex")}`,
     );
-    assert.equal(requestHeaders!.get("Idempotency-Key"), claim!.id);
+    assert.equal(requestHeaders.get("Idempotency-Key"), claim.id);
     assert.equal(JSON.parse(requestBody).leadId, created.result.id);
 
     const state = await pool!.query<{ status: string; successes: string }>(
@@ -225,7 +230,7 @@ describe("CRM lead PostgreSQL authority", () => {
                 WHERE lead_id = $1::uuid AND action = 'delivery_succeeded') AS successes
          FROM crm_lead_delivery_outbox
         WHERE id = $2::uuid`,
-      [created.result.id, claim!.id],
+      [created.result.id, claim.id],
     );
     assert.deepEqual(state.rows[0], { status: "delivered", successes: "1" });
   });
@@ -240,7 +245,9 @@ describe("CRM lead PostgreSQL authority", () => {
     if (first.status !== "committed") return;
 
     const workerId = `crm-stale-${randomUUID()}`;
-    const claims = await inTransaction((client) => claimCrmLeadDeliveries(client, workerId, 100));
+    const claims = await inTransaction((client) =>
+      claimCrmLeadDeliveries(client, workerId, 100),
+    );
     const staleClaim = claims.find((entry) => entry.lead_id === first.result.id);
     assert.ok(staleClaim);
 
@@ -255,12 +262,12 @@ describe("CRM lead PostgreSQL authority", () => {
       calls += 1;
       return new Response(null, { status: 204 });
     };
-    await deliverCrmLeadClaim(staleClaim!, workerId);
+    await deliverCrmLeadClaim(staleClaim, workerId);
     assert.equal(calls, 0);
 
     const staleState = await pool!.query<{ status: string; last_error_code: string }>(
       "SELECT status, last_error_code FROM crm_lead_delivery_outbox WHERE id = $1::uuid",
-      [staleClaim!.id],
+      [staleClaim.id],
     );
     assert.deepEqual(staleState.rows[0], {
       status: "terminal",
@@ -387,8 +394,12 @@ describe("CRM lead PostgreSQL authority", () => {
       },
     );
     assert.equal(child.status, 0, child.stderr);
-    const line = child.stdout.split(/\r?\n/).find((entry) => entry.startsWith("CRM_RESULT="));
+    const line = child.stdout
+      .split(/\r?\n/)
+      .find((entry) => entry.startsWith("CRM_RESULT="));
     assert.ok(line, child.stdout);
-    assert.deepEqual(JSON.parse(line.slice("CRM_RESULT=".length)), { status: "unavailable" });
+    assert.deepEqual(JSON.parse(line.slice("CRM_RESULT=".length)), {
+      status: "unavailable",
+    });
   });
 });
