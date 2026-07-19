@@ -6,6 +6,7 @@ const files = {
   principal: "src/lib/notifications/principal.ts",
   repository: "src/lib/notifications/repository.ts",
   preferences: "src/lib/notifications/preferences.ts",
+  http: "src/lib/notifications/http.ts",
   inboxRoute: "src/app/api/notifications/route.ts",
   mutationRoute: "src/app/api/notifications/[id]/route.ts",
   preferenceRoute: "src/app/api/notifications/preferences/route.ts",
@@ -49,16 +50,26 @@ requireText("principal", "getUnifiedSessionFromRequest", "principal identity mus
 requireText("principal", "pg_advisory_xact_lock", "concurrent principal linking must be serialized");
 requireText("principal", "notification_principal_identity_conflict", "conflicting identities must fail closed");
 
+requireText("http", '"Cache-Control": "private, no-store, max-age=0, must-revalidate"', "notification responses must not be cached by browsers or intermediaries");
+requireText("http", 'Vary: "Cookie"', "session-varying notification responses must declare Cookie variance");
+requireText("http", "notificationApiOk", "private success response helper is required");
+requireText("http", "notificationApiError", "private error response helper is required");
+
 rejectText("inboxRoute", "fallbackNotifications", "inbox must never fabricate notifications on auth/database failure");
-requireText("inboxRoute", 'apiError("authentication_required", 401)', "unauthenticated inbox access must be denied");
+requireText("inboxRoute", 'notificationApiError("authentication_required", 401)', "unauthenticated inbox access must be denied");
 requireText("inboxRoute", "resolveNotificationPrincipal", "inbox ownership must use canonical principal resolution");
-requireText("inboxRoute", 'apiError("notification_inbox_unavailable", 503)', "database failure must be explicit rather than fabricated success");
+requireText("inboxRoute", 'notificationApiError("notification_inbox_unavailable", 503)', "database failure must be explicit rather than fabricated success");
+requireText("inboxRoute", 'dynamic = "force-dynamic"', "inbox route must remain dynamically evaluated");
 
 requireText("mutationRoute", "resolveNotificationPrincipal", "notification mutations must resolve the canonical authenticated principal");
 requireText("mutationRoute", "mutateInboxNotification", "notification mutations must delegate to the principal-scoped repository boundary");
 requireText("mutationRoute", "verifyCsrfOrigin", "notification lifecycle mutations must enforce same-origin CSRF protection");
 requireText("preferenceRoute", "verifyCsrfOrigin", "notification preference mutations must enforce same-origin CSRF protection");
 requireText("consentRoute", "verifyCsrfOrigin", "notification consent mutations must enforce same-origin CSRF protection");
+for (const target of ["inboxRoute", "mutationRoute", "preferenceRoute", "consentRoute"]) {
+  requireText(target, "notificationApiError", "all notification API errors must be private and non-cacheable");
+  requireText(target, "notificationApiOk", "all notification API success responses must be private and non-cacheable");
+}
 requireText("repository", "AND tenant_id = $2", "mutation SQL must enforce tenant ownership");
 requireText("repository", "AND principal_id = $3", "mutation SQL must enforce principal ownership");
 requireText("repository", "[notificationId, principal.tenantId, principal.id]", "mutation parameters must bind the resolved tenant and principal identities");
@@ -87,11 +98,11 @@ rejectText("consentRoute", "MARKETING_CONSENT_POLICY_VERSION", "consent route mu
 rejectText("consentRoute", "NOTIFICATION_CONSENT_SOURCE", "consent route must not own or accept source provenance");
 rejectText("consentRoute", "raw.policyVersion", "client-controlled consent policy versions are forbidden");
 rejectText("consentRoute", "raw.source", "client-controlled consent sources are forbidden");
-requireText("consentRoute", 'apiError("authentication_required", 401)', "consent endpoints must require authentication");
+requireText("consentRoute", 'notificationApiError("authentication_required", 401)', "consent endpoints must require authentication");
 
 if (failures.length) {
   console.error("Notification persistence authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, serialized idempotent consent, CSRF and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
