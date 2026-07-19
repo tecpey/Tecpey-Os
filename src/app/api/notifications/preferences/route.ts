@@ -93,7 +93,10 @@ export async function PATCH(req: NextRequest) {
       ? null
       : parseNotificationSettingsPatch(record.settings);
 
-    if ((record.preference !== undefined && !preference) || (record.settings !== undefined && !settings)) {
+    if (
+      (record.preference !== undefined && !preference) ||
+      (record.settings !== undefined && !settings)
+    ) {
       return apiError("invalid_preferences_payload", 400);
     }
     if ((preference ? 1 : 0) + (settings ? 1 : 0) !== 1) {
@@ -124,7 +127,10 @@ export async function PATCH(req: NextRequest) {
       return apiOk(result.value);
     } catch (error) {
       const code = error instanceof Error ? error.message : "notification_preferences_failed";
-      if (code === "mandatory_notification_class_cannot_be_disabled") {
+      if (
+        code === "mandatory_notification_class_cannot_be_disabled" ||
+        code === "mandatory_notification_class_requires_instant_delivery"
+      ) {
         return apiError(code, 409);
       }
       if (code === "notification_principal_inactive") {
