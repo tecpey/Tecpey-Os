@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import { encryptLeadPii, hashLeadValue, leadContactHash, normalizeLeadPhone } from "./crm/lead-pii";
 import { logger } from "./logger";
+import { PLATFORM } from "./platform-config";
 
 const FILENAME = "0025_crm_lead_authority.sql";
 
@@ -141,6 +143,20 @@ CREATE TRIGGER crm_lead_audit_no_delete
   FOR EACH ROW EXECUTE FUNCTION tecpey_block_crm_lead_audit_mutation();
 `;
 
+const LEGACY_ACADEMY_LEADS_LOCK_SQL = `
+CREATE OR REPLACE FUNCTION tecpey_block_legacy_academy_leads_write()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'academy_leads is legacy read-only; use crm_leads authority'
+    USING ERRCODE = '55000';
+END;
+$$;
+DROP TRIGGER IF EXISTS academy_leads_legacy_read_only ON academy_leads;
+CREATE TRIGGER academy_leads_legacy_read_only
+  BEFORE INSERT OR UPDATE OR DELETE ON academy_leads
+  FOR EACH ROW EXECUTE FUNCTION tecpey_block_legacy_academy_leads_write();
+`;
+
 function checksum(sql: string): string {
   return createHash("sha256")
     .update(sql.replace(/\s+/g, " ").trim())
@@ -148,8 +164,108 @@ function checksum(sql: string): string {
     .slice(0, 16);
 }
 
+async function migrateLegacyAcademyLeads(client: PoolClient): Promise<void> {
+  const legacy = await client.query<{
+    id: string;
+    name: string;
+    phone: string;
+    locale: string;
+    term_number: number;
+    created_at: Date;
+  }>(
+    `SELECT id::text, name, phone, locale, term_number, created_at
+       FROM academy_leads
+      WHERE name <> '[migrated-redacted]' OR phone <> '[redacted]'
+      ORDER BY id`,
+  );
+
+  for (const row of legacy.rows) {
+    const phone = normalizeLeadPhone(row.phone);
+    const contactHash = leadContactHash(phone);
+    const provisionalLeadId = randomUUID();
+    const encrypted = encryptLeadPii(
+      { name: row.name, phone },
+      { tenantId: PLATFORM.DEFAULT_TENANT_ID, leadId: provisionalLeadId },
+    );
+    const upserted = await client.query<{ id: string; revision: number; created: boolean }>(
+      `INSERT INTO crm_leads
+        (id, tenant_id, lead_kind, source, contact_hash, phone_hash,
+         pii_ciphertext, pii_iv, pii_tag, pii_key_version, attributes,
+         locale, consent_status, legal_basis, privacy_notice_version,
+         retention_class, revision, retain_until, created_at, updated_at)
+       VALUES
+        ($1::uuid, $2, 'academy_interest', 'legacy-academy-leads', $3, $4,
+         $5, $6, $7, $8, $9::jsonb, $10, TRUE, 'pre_contract',
+         'legacy-migration-v1', 'academy_lead_12m', 1,
+         GREATEST($11::timestamptz + INTERVAL '12 months', NOW() + INTERVAL '30 days'),
+         $11::timestamptz, NOW())
+       ON CONFLICT (tenant_id, lead_kind, contact_hash) WHERE status = 'active'
+       DO UPDATE SET
+         revision = crm_leads.revision + 1,
+         updated_at = NOW(),
+         retain_until = GREATEST(crm_leads.retain_until, NOW() + INTERVAL '30 days')
+       RETURNING id, revision, (xmax = 0) AS created`,
+      [
+        provisionalLeadId,
+        PLATFORM.DEFAULT_TENANT_ID,
+        contactHash,
+        hashLeadValue(phone),
+        encrypted.ciphertext,
+        encrypted.iv,
+        encrypted.tag,
+        encrypted.keyVersion,
+        JSON.stringify({ termNumber: row.term_number, legacyLeadId: row.id }),
+        row.locale === "en" ? "en" : "fa",
+        row.created_at,
+      ],
+    );
+    const lead = upserted.rows[0];
+    if (!lead) throw new Error("crm_legacy_lead_migration_failed");
+    const idempotencyKey = `legacy-academy-lead-${row.id}`;
+    const requestHash = createHash("sha256")
+      .update(`${row.id}:${contactHash}:${row.created_at.toISOString()}`)
+      .digest("hex");
+    const result = { id: lead.id, created: lead.created, replayed: false, revision: lead.revision };
+    await client.query(
+      `INSERT INTO crm_lead_commands
+        (tenant_id, idempotency_key, request_hash, lead_id, result)
+       VALUES ($1, $2, $3, $4::uuid, $5::jsonb)
+       ON CONFLICT (tenant_id, idempotency_key) DO NOTHING`,
+      [PLATFORM.DEFAULT_TENANT_ID, idempotencyKey, requestHash, lead.id, JSON.stringify(result)],
+    );
+    await client.query(
+      `INSERT INTO crm_lead_delivery_outbox
+        (tenant_id, lead_id, lead_revision, destination)
+       VALUES ($1, $2::uuid, $3, 'academy_webhook')
+       ON CONFLICT (lead_id, lead_revision, destination) DO NOTHING`,
+      [PLATFORM.DEFAULT_TENANT_ID, lead.id, lead.revision],
+    );
+    await client.query(
+      `INSERT INTO crm_lead_audit_events
+        (tenant_id, lead_id, action, actor_type, metadata)
+       VALUES ($1, $2::uuid, $3, 'retention', $4::jsonb)`,
+      [
+        PLATFORM.DEFAULT_TENANT_ID,
+        lead.id,
+        lead.created ? "created" : "updated",
+        JSON.stringify({ migratedFrom: "academy_leads", legacyLeadId: row.id }),
+      ],
+    );
+  }
+
+  await client.query(
+    `UPDATE academy_leads
+        SET name = '[migrated-redacted]',
+            phone = '[redacted]',
+            ip = NULL,
+            user_agent = NULL
+      WHERE name <> '[migrated-redacted]' OR phone <> '[redacted]'`,
+  );
+  await client.query(LEGACY_ACADEMY_LEADS_LOCK_SQL);
+}
+
 export async function runCrmLeadMigrations(client: PoolClient): Promise<void> {
-  const cs = checksum(CRM_LEAD_AUTHORITY_SQL);
+  const cs = checksum(`${CRM_LEAD_AUTHORITY_SQL}\n${LEGACY_ACADEMY_LEADS_LOCK_SQL}`);
   const applied = await client.query<{ checksum: string }>(
     "SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1",
     [FILENAME],
@@ -165,6 +281,7 @@ export async function runCrmLeadMigrations(client: PoolClient): Promise<void> {
   await client.query("BEGIN");
   try {
     await client.query(CRM_LEAD_AUTHORITY_SQL);
+    await migrateLegacyAcademyLeads(client);
     await client.query("INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)", [FILENAME, cs]);
     await client.query("COMMIT");
   } catch (error) {
