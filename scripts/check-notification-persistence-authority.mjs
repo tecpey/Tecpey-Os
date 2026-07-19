@@ -8,6 +8,7 @@ const files = {
   preferences: "src/lib/notifications/preferences.ts",
   http: "src/lib/notifications/http.ts",
   notificationCenter: "src/components/learning-os/NotificationCenter.tsx",
+  englishNotificationPage: "src/app/en/academy/notifications/page.tsx",
   inboxRoute: "src/app/api/notifications/route.ts",
   mutationRoute: "src/app/api/notifications/[id]/route.ts",
   preferenceRoute: "src/app/api/notifications/preferences/route.ts",
@@ -86,18 +87,24 @@ requireText("repository", "dismissed_at IS NULL", "dismissed notifications must 
 rejectText("repository", "export async function upsertNotificationPreference", "preference writes must have one authoritative implementation");
 rejectText("repository", "validNotificationPreferenceInput", "preference parsing must not be duplicated in the inbox repository");
 
-requireText("notificationCenter", "notificationClass", "Smart Center must consume the durable notification class contract");
-requireText("notificationCenter", "actionUrl", "Smart Center must consume the durable action URL contract");
-requireText("notificationCenter", "readAt", "Smart Center must consume the durable lifecycle contract");
-requireText("notificationCenter", "loadState === \"error\"", "Smart Center must expose inbox failures rather than fabricate an empty state");
-requireText("notificationCenter", "loadState === \"ready\" && topItems.length === 0", "Smart Center may show an empty state only after a successful inbox read");
-requireText("notificationCenter", "setLoadState(\"error\")", "Smart Center must preserve explicit failure state on inbox errors");
-requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Smart Center must mutate the authoritative platform notification endpoint");
-requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Smart Center must use the typed read lifecycle mutation");
-rejectText("notificationCenter", ".catch(() => undefined)", "Smart Center must not silently swallow authoritative inbox failures");
-rejectText("notificationCenter", "/api/notifications/read", "Smart Center must not write to the retired legacy notification table");
-rejectText("notificationCenter", "action_url", "Smart Center must not depend on the legacy action URL field");
-rejectText("notificationCenter", "read_at", "Smart Center must not depend on the legacy read timestamp field");
+requireText("notificationCenter", "notificationClass", "Notification Center must consume the durable notification class contract");
+requireText("notificationCenter", "actionUrl", "Notification Center must consume the durable action URL contract");
+requireText("notificationCenter", "readAt", "Notification Center must consume the durable lifecycle contract");
+requireText("notificationCenter", "loadState === \"error\"", "Notification Center must expose inbox failures rather than fabricate an empty state");
+requireText("notificationCenter", "loadState === \"ready\" && topItems.length === 0", "Notification Center may show an empty state only after a successful inbox read");
+requireText("notificationCenter", "setLoadState(\"error\")", "Notification Center must preserve explicit failure state on inbox errors");
+requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Notification Center must mutate the authoritative platform notification endpoint");
+requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Notification Center must use the typed read lifecycle mutation");
+requireText("notificationCenter", "aria-expanded={open}", "Notification Center trigger must expose open state");
+requireText("notificationCenter", 'event.key !== "Escape"', "Notification Center must support Escape dismissal");
+requireText("notificationCenter", 'credentials: "same-origin"', "Notification Center requests must remain session-bound");
+rejectText("notificationCenter", "/api/notification-brain", "AI output may enter the UI only through the governed notification policy and durable inbox");
+rejectText("notificationCenter", "churnRisk", "raw churn scoring must not be exposed in the user notification surface");
+rejectText("notificationCenter", ".catch(() => undefined)", "Notification Center must not silently swallow authoritative inbox failures");
+rejectText("notificationCenter", "/api/notifications/read", "Notification Center must not write to the retired legacy notification table");
+rejectText("notificationCenter", "action_url", "Notification Center must not depend on the legacy action URL field");
+rejectText("notificationCenter", "read_at", "Notification Center must not depend on the legacy read timestamp field");
+requireText("englishNotificationPage", '<NotificationCenter locale="en" compact />', "English Notification Center route must render the durable English inbox");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
 requireText("preferences", "mandatory_notification_class_requires_instant_delivery", "mandatory notification classes must not be downgraded to digest");
@@ -126,4 +133,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, truthful Smart Center states, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, policy-only AI entry, accessible current inbox, tenant ownership, mandatory cadence, serialized idempotent consent, private no-store responses and CSRF are enforced.");
