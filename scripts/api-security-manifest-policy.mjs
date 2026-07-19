@@ -3,6 +3,14 @@ const METHOD_ORDER = ["POST", "PUT", "PATCH", "DELETE"];
 const CLASSIFICATIONS = new Set(["public", "authenticated", "admin", "internal"]);
 const MUTATION_MODES = new Set(["active", "deny-only"]);
 const RISK_CLASSES = new Set(["admin", "ai-memory", "credential", "financial", "privacy", "progress"]);
+const OVERRIDE_AUTHORITY_TYPES = new Set([
+  "pre-authentication",
+  "compatibility-pre-authentication",
+  "admin-pre-authentication",
+  "bootstrap-credential",
+  "live-principal",
+  "compatibility-alias",
+]);
 const FINDING_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 const OWNER_PATTERN = /^[a-z0-9][a-z0-9._/-]{1,100}$/i;
 const ISSUE_PATTERN = /^(?:#\d+|https:\/\/github\.com\/[^/]+\/[^/]+\/issues\/\d+)$/;
@@ -27,7 +35,14 @@ const CONTROL_BOOLEAN_KEYS = [
   "serviceIdentity",
   "setsCookie",
   "headerBodySizeHint",
+  "explicitPublicCachePolicy",
 ];
+const CONTROL_KEYS = new Set([
+  ...CONTROL_BOOLEAN_KEYS,
+  "rateLimitNamespace",
+  "inputParser",
+  "bodySizeLimitAuthority",
+]);
 const REQUIREMENT_KEYS = [
   "csrf",
   "strictRevocation",
@@ -40,6 +55,36 @@ const REQUIREMENT_KEYS = [
   "redaction",
   "serviceIdentity",
 ];
+const REQUIREMENT_KEY_SET = new Set(REQUIREMENT_KEYS);
+const TOTAL_KEYS = new Set([
+  "routeFiles",
+  "mutatingOperations",
+  "activeOperations",
+  "denyOnlyOperations",
+  "operationsWithFindings",
+  "findings",
+  "findingCounts",
+]);
+const OPERATION_KEYS = new Set([
+  "route",
+  "method",
+  "sourcePath",
+  "sourceHash",
+  "delegatedTo",
+  "delegatedSourceHash",
+  "mutationMode",
+  "classification",
+  "principalSource",
+  "tenantSource",
+  "risk",
+  "controls",
+  "requirements",
+  "domainOwner",
+  "testReferences",
+  "findings",
+  "evidenceSource",
+  "operationOverride",
+]);
 const FINDING_RULES = [
   ["csrf", "csrf", "required_csrf_missing"],
   ["strictRevocation", "strictRevocation", "required_strict_revocation_missing"],
@@ -85,6 +130,13 @@ function uniqueStrings(values) {
     && new Set(values).size === values.length;
 }
 
+function rejectUnknownKeys(value, allowed, prefix, errors) {
+  if (!object(value)) return;
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`${prefix}.${key} is not allowed`);
+  }
+}
+
 function expectedFindings(entry) {
   return FINDING_RULES
     .filter(([requirement, control]) => entry.requirements?.[requirement] === true && entry.controls?.[control] !== true)
@@ -97,6 +149,7 @@ function validateControls(entry, prefix, errors) {
     errors.push(`${prefix}.controls must be an object`);
     return;
   }
+  rejectUnknownKeys(entry.controls, CONTROL_KEYS, `${prefix}.controls`, errors);
   for (const key of CONTROL_BOOLEAN_KEYS) {
     if (typeof entry.controls[key] !== "boolean") errors.push(`${prefix}.controls.${key} must be boolean`);
   }
@@ -112,6 +165,9 @@ function validateControls(entry, prefix, errors) {
   if (entry.controls.bodySizeLimit === true && !entry.controls.bodySizeLimitAuthority) {
     errors.push(`${prefix}.controls.bodySizeLimit requires named enforceable authority`);
   }
+  if (entry.controls.explicitPublicCachePolicy === true && entry.controls.noStore === true) {
+    errors.push(`${prefix}.controls cannot claim both explicit public caching and no-store`);
+  }
 }
 
 function validateRequirements(entry, prefix, errors) {
@@ -119,6 +175,7 @@ function validateRequirements(entry, prefix, errors) {
     errors.push(`${prefix}.requirements must be an object`);
     return;
   }
+  rejectUnknownKeys(entry.requirements, REQUIREMENT_KEY_SET, `${prefix}.requirements`, errors);
   for (const key of REQUIREMENT_KEYS) {
     if (typeof entry.requirements[key] !== "boolean") errors.push(`${prefix}.requirements.${key} must be boolean`);
   }
@@ -129,6 +186,7 @@ function validateEvidence(entry, prefix, errors) {
     errors.push(`${prefix}.evidenceSource must be an object`);
     return;
   }
+  rejectUnknownKeys(entry.evidenceSource, new Set(["sourcePath", "method", "resolved"]), `${prefix}.evidenceSource`, errors);
   if (!SOURCE_PATH_PATTERN.test(entry.evidenceSource.sourcePath ?? "")) {
     errors.push(`${prefix}.evidenceSource.sourcePath is invalid`);
   }
@@ -146,7 +204,13 @@ function validateOperationOverride(entry, prefix, errors) {
     errors.push(`${prefix}.operationOverride must be an object`);
     return;
   }
-  if (typeof entry.operationOverride.authorityType !== "string" || entry.operationOverride.authorityType.length < 3) {
+  rejectUnknownKeys(
+    entry.operationOverride,
+    new Set(["authorityType", "reason", "issue"]),
+    `${prefix}.operationOverride`,
+    errors,
+  );
+  if (!OVERRIDE_AUTHORITY_TYPES.has(entry.operationOverride.authorityType)) {
     errors.push(`${prefix}.operationOverride.authorityType is invalid`);
   }
   if (typeof entry.operationOverride.reason !== "string" || entry.operationOverride.reason.trim().length < 30) {
@@ -162,6 +226,7 @@ function validateManifestTotals(manifest, errors) {
     errors.push("manifest.totals must be an object");
     return;
   }
+  rejectUnknownKeys(manifest.totals, TOTAL_KEYS, "manifest.totals", errors);
   const routes = manifest.routes ?? [];
   const findingCounts = {};
   for (const entry of routes) {
@@ -180,8 +245,17 @@ function validateManifestTotals(manifest, errors) {
   for (const [key, value] of Object.entries(expected)) {
     if (manifest.totals[key] !== value) errors.push(`manifest.totals.${key} must equal ${value}`);
   }
+  if (!object(manifest.totals.findingCounts)) {
+    errors.push("manifest.totals.findingCounts must be an object");
+    return;
+  }
+  for (const [finding, count] of Object.entries(manifest.totals.findingCounts)) {
+    if (!FINDING_PATTERN.test(finding) || !Number.isInteger(count) || count < 1) {
+      errors.push(`manifest.totals.findingCounts.${finding} is invalid`);
+    }
+  }
   const normalizedActual = JSON.stringify(
-    Object.fromEntries(Object.entries(manifest.totals.findingCounts ?? {}).sort(([left], [right]) => left.localeCompare(right))),
+    Object.fromEntries(Object.entries(manifest.totals.findingCounts).sort(([left], [right]) => left.localeCompare(right))),
   );
   const normalizedExpected = JSON.stringify(
     Object.fromEntries(Object.entries(findingCounts).sort(([left], [right]) => left.localeCompare(right))),
@@ -192,6 +266,7 @@ function validateManifestTotals(manifest, errors) {
 function validateManifestShape(manifest) {
   const errors = [];
   if (!object(manifest) || manifest.schemaVersion !== 1) errors.push("manifest.schemaVersion must equal 1");
+  rejectUnknownKeys(manifest, new Set(["schemaVersion", "authority", "methods", "totals", "routes"]), "manifest", errors);
   if (manifest?.authority !== "generated-from-src-app-api-route-ts") errors.push("manifest.authority is invalid");
   if (JSON.stringify(manifest?.methods) !== JSON.stringify(METHOD_ORDER)) {
     errors.push("manifest.methods must exactly equal POST, PUT, PATCH, DELETE");
@@ -206,6 +281,7 @@ function validateManifestShape(manifest) {
       errors.push(`${prefix} must be an object`);
       continue;
     }
+    rejectUnknownKeys(entry, OPERATION_KEYS, prefix, errors);
     if (typeof entry.route !== "string" || !entry.route.startsWith("/api/") || entry.route.includes("*")) {
       errors.push(`${prefix}.route must be an exact /api path without wildcards`);
     }
@@ -281,6 +357,12 @@ function validateException(exception, index) {
   const errors = [];
   const prefix = `exceptions[${index}]`;
   if (!object(exception)) return [`${prefix} must be an object`];
+  rejectUnknownKeys(
+    exception,
+    new Set(["id", "route", "method", "finding", "owner", "issue", "reason", "compensatingControls", "expiresOn"]),
+    prefix,
+    errors,
+  );
   if (typeof exception.id !== "string" || !/^[a-z0-9][a-z0-9._:-]{5,160}$/i.test(exception.id)) {
     errors.push(`${prefix}.id is invalid`);
   }
@@ -304,12 +386,16 @@ function expandRegistry(registry, errors) {
     return [];
   }
 
-  if (registry.schemaVersion === 1 && Array.isArray(registry.exceptions)) return registry.exceptions;
+  if (registry.schemaVersion === 1 && Array.isArray(registry.exceptions)) {
+    rejectUnknownKeys(registry, new Set(["schemaVersion", "exceptions"]), "registry", errors);
+    return registry.exceptions;
+  }
 
   if (registry.schemaVersion !== 2 || !Array.isArray(registry.groups)) {
     errors.push("exception registry must use schemaVersion 1/exceptions or schemaVersion 2/groups");
     return [];
   }
+  rejectUnknownKeys(registry, new Set(["schemaVersion", "groups"]), "registry", errors);
 
   const exceptions = [];
   const groupIds = new Set();
@@ -319,6 +405,12 @@ function expandRegistry(registry, errors) {
       errors.push(`${prefix} must be an object`);
       continue;
     }
+    rejectUnknownKeys(
+      group,
+      new Set(["id", "finding", "issue", "reason", "compensatingControls", "expiresOn", "operations"]),
+      prefix,
+      errors,
+    );
     if (typeof group.id !== "string" || !/^[a-z0-9][a-z0-9._:-]{2,80}$/i.test(group.id)) {
       errors.push(`${prefix}.id is invalid`);
     } else if (groupIds.has(group.id)) {
@@ -339,6 +431,7 @@ function expandRegistry(registry, errors) {
         errors.push(`${operationPrefix} must be an object`);
         continue;
       }
+      rejectUnknownKeys(operation, new Set(["route", "method", "owner"]), operationPrefix, errors);
       if (typeof operation.route !== "string" || !operation.route.startsWith("/api/") || operation.route.includes("*")) {
         errors.push(`${operationPrefix}.route must be an exact /api path without wildcards`);
       }
