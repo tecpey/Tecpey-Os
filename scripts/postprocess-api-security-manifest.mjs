@@ -78,6 +78,12 @@ async function sourceFor(entry) {
 for (const entry of manifest.routes) {
   const source = await sourceFor(entry);
 
+  // The canonical Academy authentication route is credential authority even
+  // though its path segment is `academy-auth` rather than `/auth/...`.
+  if (entry.route === "/api/academy-auth" && !entry.risk.includes("credential")) {
+    entry.risk = [...entry.risk, "credential"].sort();
+  }
+
   // Content-Length can be absent, forged, or bypassed by chunked transfer. It is
   // useful for an early rejection only and must never satisfy the governed body
   // limit requirement. Only a reader that stops consuming bytes at the limit is
