@@ -13,6 +13,7 @@ const IGNORED_DIRECTORIES = new Set([
   ".turbo",
   ".cache",
 ]);
+const IGNORED_FILES = new Set(["repository-hygiene.json"]);
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const RESOLUTION_EXTENSIONS = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json"];
 const ENTRYPOINT_BASENAMES = new Set([
@@ -24,9 +25,17 @@ const ENTRYPOINT_BASENAMES = new Set([
   "route.tsx",
   "loading.tsx",
   "error.tsx",
+  "global-error.tsx",
   "not-found.tsx",
   "template.tsx",
   "default.tsx",
+  "robots.ts",
+  "sitemap.ts",
+  "manifest.ts",
+  "opengraph-image.tsx",
+  "twitter-image.tsx",
+  "icon.tsx",
+  "apple-icon.tsx",
 ]);
 const BUILTINS = new Set([
   ...builtinModules,
@@ -37,6 +46,13 @@ const IMPORT_PATTERNS = [
   /import\(\s*["']([^"']+)["']\s*\)/g,
   /require\(\s*["']([^"']+)["']\s*\)/g,
 ];
+const PACKAGE_BINARIES = {
+  eslint: ["eslint"],
+  next: ["next"],
+  tailwindcss: ["tailwindcss"],
+  tsx: ["tsx"],
+  typescript: ["tsc"],
+};
 
 function relative(filePath) {
   return path.relative(ROOT, filePath).split(path.sep).join("/");
@@ -48,8 +64,9 @@ function walk(directory) {
   for (const entry of entries) {
     if (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name)) continue;
     const absolute = path.join(directory, entry.name);
+    const rel = relative(absolute);
     if (entry.isDirectory()) files.push(...walk(absolute));
-    else if (entry.isFile()) files.push(absolute);
+    else if (entry.isFile() && !IGNORED_FILES.has(rel)) files.push(absolute);
   }
   return files;
 }
@@ -60,6 +77,10 @@ function readText(filePath) {
   } catch {
     return "";
   }
+}
+
+function isReferenceSource(filePath) {
+  return relative(filePath).startsWith("docs/");
 }
 
 function externalPackageRoot(specifier) {
@@ -98,7 +119,8 @@ function isEntrypoint(filePath) {
   const rel = relative(filePath);
   const base = path.basename(filePath);
   if (ENTRYPOINT_BASENAMES.has(base) && rel.startsWith("src/app/")) return true;
-  if (rel === "server.ts" || rel === "middleware.ts" || rel === "src/middleware.ts") return true;
+  if (["server.ts", "middleware.ts", "src/middleware.ts", "src/proxy.ts", "src/instrumentation.ts"].includes(rel)) return true;
+  if (rel === "src/i18n/request.ts") return true;
   if (rel.startsWith("scripts/") || rel.startsWith("src/tests/")) return true;
   if (/^(next|postcss|eslint|tailwind|instrumentation)\.config\./.test(base)) return true;
   return false;
@@ -128,6 +150,7 @@ function reachableSourceFiles(sourceFiles, allFileSet) {
 
 function suspiciousArtifactReason(rel) {
   const base = path.basename(rel);
+  if (rel.startsWith("src/app/") && base === "route.ts") return null;
   if (/\.(?:bak|backup|old|orig|rej|tmp|temp|swp|swo)$/i.test(base)) return "backup-or-editor-artifact";
   if (/~$/.test(base)) return "editor-backup";
   if (/(?:^|[-_. ])(?:copy|duplicate|backup)(?:[-_. ]|\d|$)/i.test(base)) return "copy-or-duplicate-name";
@@ -173,9 +196,41 @@ function duplicateBasenames(files) {
     .sort((left, right) => right.files.length - left.files.length || left.basename.localeCompare(right.basename));
 }
 
+function configOwnershipFiles(allFiles) {
+  return allFiles.filter((filePath) => {
+    const rel = relative(filePath);
+    return rel === "package.json" ||
+      rel === "tsconfig.json" ||
+      rel === "src/app/globals.css" ||
+      /^(?:next|postcss|eslint|tailwind)\.config\./.test(path.basename(filePath));
+  });
+}
+
+function implicitDependencyOwners(name, declaredDependencies) {
+  const owners = [];
+  if (name.startsWith("@types/") && fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
+    owners.push("tsconfig.json#compiler-types");
+  }
+  if (name === "typescript" && fs.existsSync(path.join(ROOT, "tsconfig.json"))) {
+    owners.push("tsconfig.json#compiler");
+  }
+  if (name === "postcss" && fs.existsSync(path.join(ROOT, "postcss.config.mjs"))) {
+    owners.push("postcss.config.mjs#processor-runtime");
+  }
+  if (name === "react-dom" && declaredDependencies.next && declaredDependencies.react) {
+    owners.push("next#react-runtime-peer");
+  }
+  if (name === "@swc/helpers" && declaredDependencies.next) {
+    owners.push("next#swc-runtime");
+  }
+  return owners;
+}
+
 const allFiles = walk(ROOT);
 const allFileSet = new Set(allFiles);
-const sourceFiles = allFiles.filter((filePath) => SOURCE_EXTENSIONS.has(path.extname(filePath)));
+const allSourceFiles = allFiles.filter((filePath) => SOURCE_EXTENSIONS.has(path.extname(filePath)));
+const referenceSourceFiles = allSourceFiles.filter(isReferenceSource);
+const sourceFiles = allSourceFiles.filter((filePath) => !isReferenceSource(filePath));
 const packageJson = JSON.parse(readText(path.join(ROOT, "package.json")) || "{}");
 const declaredDependencies = {
   ...(packageJson.dependencies ?? {}),
@@ -190,11 +245,19 @@ for (const filePath of sourceFiles) {
   }
 }
 
-const scriptText = JSON.stringify(packageJson.scripts ?? {});
+const packageScripts = JSON.stringify(packageJson.scripts ?? {});
 for (const packageName of Object.keys(declaredDependencies)) {
-  const executable = packageName.startsWith("@") ? packageName.split("/")[1] : packageName;
-  if (scriptText.includes(packageName) || (executable && scriptText.includes(executable))) {
-    usage.get(packageName).add("package.json#scripts");
+  if (packageScripts.includes(packageName)) usage.get(packageName).add("package.json#scripts");
+  for (const binary of PACKAGE_BINARIES[packageName] ?? []) {
+    if (new RegExp(`(?:^|[\\s;&|])${binary}(?:[\\s;&|]|$)`).test(packageScripts)) {
+      usage.get(packageName).add(`package.json#binary:${binary}`);
+    }
+  }
+  for (const configFile of configOwnershipFiles(allFiles)) {
+    if (readText(configFile).includes(packageName)) usage.get(packageName).add(relative(configFile));
+  }
+  for (const owner of implicitDependencyOwners(packageName, declaredDependencies)) {
+    usage.get(packageName).add(owner);
   }
 }
 
@@ -210,6 +273,7 @@ const suspiciousArtifacts = allFiles
   .filter((item) => item.reason)
   .sort((left, right) => left.file.localeCompare(right.file));
 const zeroByteFiles = allFiles
+  .filter((filePath) => path.basename(filePath) !== ".gitkeep")
   .filter((filePath) => fs.statSync(filePath).size === 0)
   .map(relative)
   .sort();
@@ -227,7 +291,8 @@ const report = {
   generatedAt: new Date().toISOString(),
   scope: {
     files: allFiles.length,
-    sourceFiles: sourceFiles.length,
+    runtimeSourceFiles: sourceFiles.length,
+    referenceSourceFiles: referenceSourceFiles.length,
     entrypoints: sourceFiles.filter(isEntrypoint).length,
   },
   warning: "Candidates are not deletion approval. Dynamic imports, framework conventions, generated consumers and operational usage require manual verification.",
@@ -247,15 +312,16 @@ if (process.argv.includes("--json")) {
   console.log("Repository Hygiene Inventory");
   console.log(`Schema version: ${report.schemaVersion}`);
   console.log(`Files scanned: ${report.scope.files}`);
-  console.log(`Source files: ${report.scope.sourceFiles}`);
+  console.log(`Runtime source files: ${report.scope.runtimeSourceFiles}`);
+  console.log(`Reference source files: ${report.scope.referenceSourceFiles}`);
   console.log(`Entrypoints: ${report.scope.entrypoints}`);
   console.log(`Suspicious artifacts: ${suspiciousArtifacts.length}`);
   console.log(`Zero-byte files: ${zeroByteFiles.length}`);
   console.log(`Large files (>=250KB): ${largeFiles.length}`);
-  console.log(`Declared dependencies without detected direct usage: ${unreferencedDependencies.length}`);
-  console.log(`Unreachable source candidates: ${orphanCandidates.length}`);
-  console.log(`Duplicate non-framework basenames: ${report.duplicateBasenames.length}`);
-  console.log(`Source markers: ${JSON.stringify(report.sourceMarkers)}`);
+  console.log(`Declared dependencies without detected ownership: ${unreferencedDependencies.length}`);
+  console.log(`Unreachable runtime source candidates: ${orphanCandidates.length}`);
+  console.log(`Duplicate non-framework runtime basenames: ${report.duplicateBasenames.length}`);
+  console.log(`Runtime source markers: ${JSON.stringify(report.sourceMarkers)}`);
 
   if (suspiciousArtifacts.length) {
     console.log("\nSuspicious artifact candidates:");
@@ -266,7 +332,7 @@ if (process.argv.includes("--json")) {
     for (const item of unreferencedDependencies) console.log(`- ${item.name}`);
   }
   if (orphanCandidates.length) {
-    console.log("\nUnreachable source candidates (manual review required):");
+    console.log("\nUnreachable runtime source candidates (manual review required):");
     for (const file of orphanCandidates.slice(0, 80)) console.log(`- ${file}`);
     if (orphanCandidates.length > 80) console.log(`- ... ${orphanCandidates.length - 80} more`);
   }
