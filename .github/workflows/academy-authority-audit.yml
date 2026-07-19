@@ -32,7 +32,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Reassemble and verify reviewed patch outside worktree
+      - name: Reassemble and verify reviewed patches outside worktree
         shell: bash
         run: |
           set -euo pipefail
@@ -65,6 +65,10 @@ jobs:
           test "$(wc -c < /tmp/academy-p0.patch)" -eq 103808
           echo "decc045485f074b181a819b307f5ab00a1127fce38e696639dae80443c698b9e  /tmp/academy-p0.patch" | sha256sum --check --strict
 
+          test "$(wc -c < audit/academy-p0-mentor-reason.patch)" -eq 608
+          echo "cd517e57818b1f5a0ece778ce04109a150a25f23923e27fdf0df34458e683f09  audit/academy-p0-mentor-reason.patch" | sha256sum --check --strict
+          cp audit/academy-p0-mentor-reason.patch /tmp/academy-p0-mentor-reason.patch
+
       - name: Create clean branch from protected main
         shell: bash
         run: |
@@ -78,15 +82,18 @@ jobs:
           test ! -e audit/academy-p0-patch-parts-v2
           test ! -e audit/academy-p0-patch-parts
           test ! -e audit/academy-server-issued-progress.patch.gz.b64
+          test ! -e audit/academy-p0-mentor-reason.patch
           test ! -e .github/workflows/academy-p0-publish.yml
           test ! -e .github/workflows/academy-authority-audit.yml
 
-      - name: Apply reviewed implementation patch
+      - name: Apply reviewed implementation patches
         shell: bash
         run: |
           set -euo pipefail
           git apply --check /tmp/academy-p0.patch
           git apply /tmp/academy-p0.patch
+          git apply --check /tmp/academy-p0-mentor-reason.patch
+          git apply /tmp/academy-p0-mentor-reason.patch
           git diff --check
           if git status --short | grep -E '(^| )audit/|academy-p0-publish|academy-authority-audit'; then
             echo "Audit-only material leaked into the product branch."
@@ -169,6 +176,7 @@ jobs:
             src/lib/academy-progress-authority.ts \
             src/lib/academy-progress.ts \
             src/lib/db-migrate-user-state.ts \
+            src/lib/mentor-events.ts \
             src/tests/academy/lesson-assessment.test.ts \
             src/tests/academy/progress-authority-boundary.test.ts \
             src/tests/academy/progress-authority.test.ts \
