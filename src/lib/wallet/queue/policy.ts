@@ -38,7 +38,12 @@ export function createWalletQueueJobId(
   return id;
 }
 
-/** The final attempt must occur after the authoritative chain timeout. */
+/**
+ * BullMQ `attempts` includes the first processor execution. The resulting final
+ * scheduled execution must occur after the authoritative chain timeout, with
+ * extra safety polls so normal Bitcoin confirmation latency cannot exhaust the
+ * watcher before the confirmation engine's own timeout boundary.
+ */
 export function confirmationAttemptBudget(timeoutMs: number): number {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error("confirmation_timeout_invalid");
