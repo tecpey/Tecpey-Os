@@ -82,9 +82,34 @@ process.once("SIGTERM", () => stop("SIGTERM"));
 
 async function processClaim(claim: NotificationDomainOutboxClaim): Promise<void> {
   try {
-    const processed = await withTx((client) =>
-      processClaimedNotificationDomainEvent(client, claim, workerId),
-    );
+    const processed = await withTx(async (client) => {
+      const principal = await client.query<{
+        locale: "fa" | "en";
+        status: "active" | "suspended" | "disabled" | "deleted";
+      }>(
+        `SELECT locale, status
+           FROM platform_principals
+          WHERE tenant_id = $1 AND id = $2::uuid
+          LIMIT 1
+          FOR SHARE`,
+        [claim.event.tenantId, claim.event.principalId],
+      );
+      const current = principal.rows[0];
+      if (!current) throw new Error("notification_principal_not_found");
+      if (current.status !== "active") {
+        throw new Error("notification_principal_inactive");
+      }
+
+      const effectiveClaim: NotificationDomainOutboxClaim = {
+        ...claim,
+        event: { ...claim.event, locale: current.locale },
+      };
+      return processClaimedNotificationDomainEvent(
+        client,
+        effectiveClaim,
+        workerId,
+      );
+    });
     if (!processed.enabled) {
       throw new Error("notification_database_unavailable");
     }
