@@ -33,7 +33,9 @@
       "classification": "authenticated",
       "principalSource": "getAcademyAuthFromRequest",
       "tenantSource": null,
-      "risk": [],
+      "risk": [
+        "credential"
+      ],
       "controls": {
         "csrf": true,
         "strictRevocation": true,
@@ -62,13 +64,13 @@
       ],
       "requirements": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": false,
         "bodySizeLimit": false,
         "idempotency": false,
         "verifiedPrincipal": true,
         "noStore": true,
-        "audit": false,
+        "audit": true,
         "redaction": true,
         "serviceIdentity": false
       },
@@ -85,7 +87,9 @@
       "classification": "public",
       "principalSource": null,
       "tenantSource": null,
-      "risk": [],
+      "risk": [
+        "credential"
+      ],
       "controls": {
         "csrf": true,
         "strictRevocation": false,
@@ -120,7 +124,7 @@
         "idempotency": false,
         "verifiedPrincipal": false,
         "noStore": true,
-        "audit": false,
+        "audit": true,
         "redaction": true,
         "serviceIdentity": false
       },
@@ -128,6 +132,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "pre-authentication",
         "reason": "Login and signup create the first authenticated session; no prior session exists to revoke-check.",
         "issue": "#108"
       }
@@ -786,6 +791,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "compatibility-pre-authentication",
         "reason": "Compatibility login delegates to the canonical first-session authentication authority.",
         "issue": "#108"
       }
@@ -920,6 +926,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "compatibility-pre-authentication",
         "reason": "Compatibility registration delegates to the canonical first-session authentication authority.",
         "issue": "#108"
       }
@@ -1150,6 +1157,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "compatibility-alias",
         "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
         "issue": "#108"
       }
@@ -1913,6 +1921,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "pre-authentication",
         "reason": "Discoverable-passkey challenge generation intentionally precedes user authentication and sets no session cookie.",
         "issue": "#108"
       }
@@ -1971,6 +1980,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "pre-authentication",
         "reason": "Passkey assertion verification establishes the first session after server-side ceremony and credential validation.",
         "issue": "#108"
       }
@@ -2418,6 +2428,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "bootstrap-credential",
         "reason": "Initial control-plane bootstrap is authorized by the one-time bootstrap credential before any admin session exists.",
         "issue": "#108"
       }
@@ -2477,6 +2488,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "bootstrap-credential",
         "reason": "Initial control-plane bootstrap verifies the one-time bootstrap credential and creates the first admin session.",
         "issue": "#108"
       }
@@ -2536,6 +2548,7 @@
         "required_strict_revocation_missing"
       ],
       "operationOverride": {
+        "authorityType": "live-principal",
         "reason": "The handler loads the live database-backed admin principal before attempting server-side session revocation.",
         "issue": "#108"
       }
@@ -2593,6 +2606,7 @@
       },
       "findings": [],
       "operationOverride": {
+        "authorityType": "admin-pre-authentication",
         "reason": "Admin passkey challenge generation intentionally precedes authentication and creates no active admin authority.",
         "issue": "#108"
       }
@@ -2652,6 +2666,7 @@
         "parsed_body_without_size_limit"
       ],
       "operationOverride": {
+        "authorityType": "admin-pre-authentication",
         "reason": "Admin passkey assertion verification establishes a new database-backed admin session after credential validation.",
         "issue": "#108"
       }
