@@ -83,7 +83,8 @@
         "serviceIdentity",
         "setsCookie",
         "headerBodySizeHint",
-        "bodySizeLimitAuthority"
+        "bodySizeLimitAuthority",
+        "explicitPublicCachePolicy"
       ],
       "properties": {
         "csrf": { "type": "boolean" },
@@ -105,7 +106,15 @@
         "serviceIdentity": { "type": "boolean" },
         "setsCookie": { "type": "boolean" },
         "headerBodySizeHint": { "type": "boolean" },
-        "bodySizeLimitAuthority": { "$ref": "#/$defs/nullableString" }
+        "bodySizeLimitAuthority": { "$ref": "#/$defs/nullableString" },
+        "explicitPublicCachePolicy": { "type": "boolean" }
+      },
+      "not": {
+        "properties": {
+          "noStore": { "const": true },
+          "explicitPublicCachePolicy": { "const": true }
+        },
+        "required": ["noStore", "explicitPublicCachePolicy"]
       }
     },
     "requirements": {
