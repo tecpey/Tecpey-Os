@@ -23,10 +23,10 @@ rejectText(executor, "job.chainId", "executor must not use queue-provided chain 
 rejectText(executor, "job.amount", "executor must not use queue-provided amount authority");
 rejectText(executor, "job.destinationAddress", "executor must not use queue-provided destination authority");
 
-const persistIndex = executor.indexOf("raw_tx = $2");
-const broadcastIndex = executor.indexOf("await broadcastTransaction(");
-if (persistIndex < 0 || broadcastIndex < 0 || persistIndex > broadcastIndex) {
-  failures.push("persist-before-broadcast ordering is not enforced");
+const prepareCallIndex = executor.indexOf("await buildSignAndPersist(");
+const broadcastCallIndex = executor.indexOf("await broadcastTransaction(");
+if (prepareCallIndex < 0 || broadcastCallIndex < 0 || prepareCallIndex > broadcastCallIndex) {
+  failures.push("execution must durably prepare before invoking broadcast");
 }
 
 requireText(confirmation, "tx_hash AS \"txHash\"", "confirmation must hydrate tx hash from PostgreSQL");
