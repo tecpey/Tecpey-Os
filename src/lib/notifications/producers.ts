@@ -1,502 +1,490 @@
-import { createHash } from "crypto";
 import type { PoolClient } from "pg";
-import { Validate } from "../api-validation";
-import {
-  createInAppNotification,
-  type InAppNotificationRequest,
-  type NotificationCreationResult,
-} from "./creation";
+import type { NotificationCreationResult } from "./creation";
+import { createInAppNotification } from "./creation";
 import type { NotificationPrincipal } from "./principal";
 
-export const DOMAIN_NOTIFICATION_EVENT_TYPES = [
-  "academy.lesson_available",
-  "academy.assessment_completed",
-  "academy.certificate_issued",
-  "security.new_login",
-  "security.credentials_changed",
-  "security.session_revoked",
-  "support.ticket_status_changed",
-] as const;
-
-export type DomainNotificationEventType =
-  (typeof DOMAIN_NOTIFICATION_EVENT_TYPES)[number];
-
-type BaseDomainEvent = {
-  eventType: DomainNotificationEventType;
-  eventId: string;
+type NotificationProducerEventBase = {
+  id: string;
   tenantId: string;
   principalId: string;
   occurredAt: string;
   locale: "fa" | "en";
+  version: 1;
 };
 
-export type DomainNotificationEvent =
-  | (BaseDomainEvent & {
-      eventType: "academy.lesson_available";
-      payload: { termId: string; lessonId: string };
-    })
-  | (BaseDomainEvent & {
-      eventType: "academy.assessment_completed";
-      payload: {
-        assessmentId: string;
-        outcome: "passed" | "failed";
-      };
-    })
-  | (BaseDomainEvent & {
-      eventType: "academy.certificate_issued";
-      payload: { certificateId: string };
-    })
-  | (BaseDomainEvent & {
-      eventType: "security.new_login";
-      payload: Record<string, never>;
-    })
-  | (BaseDomainEvent & {
-      eventType: "security.credentials_changed";
-      payload: {
-        credential: "password" | "passkey" | "two_factor";
-      };
-    })
-  | (BaseDomainEvent & {
-      eventType: "security.session_revoked";
-      payload: { scope: "single_session" | "all_other_sessions" };
-    })
-  | (BaseDomainEvent & {
-      eventType: "support.ticket_status_changed";
-      payload: {
-        ticketId: string;
-        status: "received" | "in_progress" | "waiting_for_user" | "resolved";
-      };
-    });
+export type AcademyLessonAvailableEvent = NotificationProducerEventBase & {
+  type: "academy.lesson_available";
+  payload: {
+    termNumber: number;
+    lessonSlug: string;
+    lessonTitle: string;
+  };
+};
 
-const SAFE_IDENTIFIER = /^[A-Za-z0-9._:-]+$/;
-const TENANT_ID = /^[a-z0-9][a-z0-9-]{1,62}$/;
+export type AcademyAssessmentCompletedEvent = NotificationProducerEventBase & {
+  type: "academy.assessment_completed";
+  payload: {
+    assessmentId: string;
+    title: string;
+    score: number;
+    passed: boolean;
+  };
+};
+
+export type AcademyCertificateIssuedEvent = NotificationProducerEventBase & {
+  type: "academy.certificate_issued";
+  payload: {
+    certificateId: string;
+    title: string;
+  };
+};
+
+export type SecurityNewLoginEvent = NotificationProducerEventBase & {
+  type: "security.new_login";
+  payload: Record<string, never>;
+};
+
+export type SecurityCredentialChangedEvent = NotificationProducerEventBase & {
+  type: "security.credential_changed";
+  payload: {
+    credential: "password" | "passkey" | "two_factor";
+  };
+};
+
+export type SecuritySessionRevokedEvent = NotificationProducerEventBase & {
+  type: "security.session_revoked";
+  payload: {
+    scope: "one" | "all_other" | "all";
+  };
+};
+
+export type SupportTicketStatusChangedEvent = NotificationProducerEventBase & {
+  type: "support.ticket_status_changed";
+  payload: {
+    ticketId: string;
+    status: "received" | "in_progress" | "waiting_for_user" | "resolved" | "closed";
+  };
+};
+
+export type NotificationProducerEvent =
+  | AcademyLessonAvailableEvent
+  | AcademyAssessmentCompletedEvent
+  | AcademyCertificateIssuedEvent
+  | SecurityNewLoginEvent
+  | SecurityCredentialChangedEvent
+  | SecuritySessionRevokedEvent
+  | SupportTicketStatusChangedEvent;
+
+const ROOT_KEYS = [
+  "id",
+  "tenantId",
+  "principalId",
+  "occurredAt",
+  "locale",
+  "version",
+  "type",
+  "payload",
+] as const;
+
+const TEMPLATE_IDS = {
+  lessonAvailable: "academy.lesson-available.v1",
+  assessmentCompleted: "academy.assessment-completed.v1",
+  certificateIssued: "academy.certificate-issued.v1",
+  securityNewLogin: "security.new-login.v1",
+  securityCredentialChanged: "security.credential-changed.v1",
+  securitySessionRevoked: "security.session-revoked.v1",
+  supportTicketStatusChanged: "support.ticket-status-changed.v1",
+} as const;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function hasExactKeys(
   value: Record<string, unknown>,
-  required: readonly string[],
+  keys: readonly string[],
 ): boolean {
-  const keys = Object.keys(value).sort();
-  return (
-    keys.length === required.length &&
-    keys.every((key, index) => key === [...required].sort()[index])
-  );
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index]);
 }
 
-function validIdentifier(value: unknown, minimum = 1, maximum = 220): value is string {
-  return (
-    typeof value === "string" &&
-    value.length >= minimum &&
-    value.length <= maximum &&
-    SAFE_IDENTIFIER.test(value)
-  );
+function text(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length >= minimum && normalized.length <= maximum
+    ? normalized
+    : null;
 }
 
-function validOccurredAt(value: unknown): value is string {
-  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
-    return false;
-  }
-  return Date.parse(value) <= Date.now() + 5 * 60_000;
+function uuid(value: unknown): string | null {
+  const normalized = text(value, 36, 36);
+  return normalized &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized.toLowerCase()
+    : null;
 }
 
-function parsePayload(
-  eventType: DomainNotificationEventType,
-  payload: unknown,
-): DomainNotificationEvent["payload"] | null {
-  if (!isPlainObject(payload)) return null;
-
-  switch (eventType) {
-    case "academy.lesson_available":
-      if (
-        !hasExactKeys(payload, ["lessonId", "termId"]) ||
-        !validIdentifier(payload.lessonId, 1, 120) ||
-        !validIdentifier(payload.termId, 1, 120)
-      ) {
-        return null;
-      }
-      return { lessonId: payload.lessonId, termId: payload.termId };
-
-    case "academy.assessment_completed":
-      if (
-        !hasExactKeys(payload, ["assessmentId", "outcome"]) ||
-        !validIdentifier(payload.assessmentId, 1, 120) ||
-        (payload.outcome !== "passed" && payload.outcome !== "failed")
-      ) {
-        return null;
-      }
-      return {
-        assessmentId: payload.assessmentId,
-        outcome: payload.outcome,
-      };
-
-    case "academy.certificate_issued":
-      if (
-        !hasExactKeys(payload, ["certificateId"]) ||
-        !validIdentifier(payload.certificateId, 1, 160)
-      ) {
-        return null;
-      }
-      return { certificateId: payload.certificateId };
-
-    case "security.new_login":
-      return hasExactKeys(payload, []) ? {} : null;
-
-    case "security.credentials_changed":
-      if (
-        !hasExactKeys(payload, ["credential"]) ||
-        !["password", "passkey", "two_factor"].includes(
-          String(payload.credential),
-        )
-      ) {
-        return null;
-      }
-      return {
-        credential: payload.credential as
-          | "password"
-          | "passkey"
-          | "two_factor",
-      };
-
-    case "security.session_revoked":
-      if (
-        !hasExactKeys(payload, ["scope"]) ||
-        !["single_session", "all_other_sessions"].includes(
-          String(payload.scope),
-        )
-      ) {
-        return null;
-      }
-      return {
-        scope: payload.scope as "single_session" | "all_other_sessions",
-      };
-
-    case "support.ticket_status_changed":
-      if (
-        !hasExactKeys(payload, ["status", "ticketId"]) ||
-        !validIdentifier(payload.ticketId, 1, 160) ||
-        ![
-          "received",
-          "in_progress",
-          "waiting_for_user",
-          "resolved",
-        ].includes(String(payload.status))
-      ) {
-        return null;
-      }
-      return {
-        ticketId: payload.ticketId,
-        status: payload.status as
-          | "received"
-          | "in_progress"
-          | "waiting_for_user"
-          | "resolved",
-      };
-  }
+function eventId(value: unknown): string | null {
+  const normalized = text(value, 8, 180);
+  return normalized && /^[A-Za-z0-9._:-]+$/.test(normalized)
+    ? normalized
+    : null;
 }
 
-export function parseDomainNotificationEvent(
-  input: unknown,
-): DomainNotificationEvent | null {
-  if (!isPlainObject(input)) return null;
+function occurredAt(value: unknown): string | null {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return null;
+  const normalized = new Date(value).toISOString();
+  if (normalized !== value) return null;
+  if (Date.parse(normalized) > Date.now() + 5 * 60_000) return null;
+  return normalized;
+}
+
+function locale(value: unknown): "fa" | "en" | null {
+  return value === "fa" || value === "en" ? value : null;
+}
+
+function integer(value: unknown, minimum: number, maximum: number): number | null {
+  return Number.isInteger(value) && Number(value) >= minimum && Number(value) <= maximum
+    ? Number(value)
+    : null;
+}
+
+function parseRoot(value: unknown) {
+  if (!isPlainObject(value) || !hasExactKeys(value, ROOT_KEYS)) return null;
+  const id = eventId(value.id);
+  const tenantId = text(value.tenantId, 1, 100);
+  const principalId = uuid(value.principalId);
+  const occurred = occurredAt(value.occurredAt);
+  const selectedLocale = locale(value.locale);
   if (
-    !hasExactKeys(input, [
-      "eventId",
-      "eventType",
-      "locale",
-      "occurredAt",
-      "payload",
-      "principalId",
-      "tenantId",
-    ]) ||
-    !DOMAIN_NOTIFICATION_EVENT_TYPES.includes(
-      input.eventType as DomainNotificationEventType,
-    ) ||
-    !validIdentifier(input.eventId, 8, 200) ||
-    typeof input.tenantId !== "string" ||
-    !TENANT_ID.test(input.tenantId) ||
-    !Validate.uuid(input.principalId) ||
-    !validOccurredAt(input.occurredAt) ||
-    (input.locale !== "fa" && input.locale !== "en")
+    !id ||
+    !tenantId ||
+    !principalId ||
+    !occurred ||
+    !selectedLocale ||
+    value.version !== 1 ||
+    typeof value.type !== "string" ||
+    !isPlainObject(value.payload)
   ) {
     return null;
   }
-
-  const eventType = input.eventType as DomainNotificationEventType;
-  const payload = parsePayload(eventType, input.payload);
-  if (!payload) return null;
-
   return {
-    eventType,
-    eventId: input.eventId,
-    tenantId: input.tenantId,
-    principalId: input.principalId,
-    occurredAt: new Date(input.occurredAt).toISOString(),
-    locale: input.locale,
-    payload,
-  } as DomainNotificationEvent;
+    id,
+    tenantId,
+    principalId,
+    occurredAt: occurred,
+    locale: selectedLocale,
+    version: 1 as const,
+    type: value.type,
+    payload: value.payload,
+  };
 }
 
-function expiresAt(occurredAt: string, days: number): string {
-  return new Date(Date.parse(occurredAt) + days * 86_400_000).toISOString();
+export function parseNotificationProducerEvent(
+  value: unknown,
+): NotificationProducerEvent | null {
+  const root = parseRoot(value);
+  if (!root) return null;
+
+  switch (root.type) {
+    case "academy.lesson_available": {
+      if (!hasExactKeys(root.payload, ["termNumber", "lessonSlug", "lessonTitle"])) return null;
+      const termNumber = integer(root.payload.termNumber, 1, 100);
+      const lessonSlug = text(root.payload.lessonSlug, 1, 120);
+      const lessonTitle = text(root.payload.lessonTitle, 1, 160);
+      return termNumber && lessonSlug && lessonTitle
+        ? { ...root, type: root.type, payload: { termNumber, lessonSlug, lessonTitle } }
+        : null;
+    }
+    case "academy.assessment_completed": {
+      if (!hasExactKeys(root.payload, ["assessmentId", "title", "score", "passed"])) return null;
+      const assessmentId = text(root.payload.assessmentId, 1, 180);
+      const title = text(root.payload.title, 1, 160);
+      const score = integer(root.payload.score, 0, 100);
+      return assessmentId && title && score !== null && typeof root.payload.passed === "boolean"
+        ? {
+            ...root,
+            type: root.type,
+            payload: { assessmentId, title, score, passed: root.payload.passed },
+          }
+        : null;
+    }
+    case "academy.certificate_issued": {
+      if (!hasExactKeys(root.payload, ["certificateId", "title"])) return null;
+      const certificateId = text(root.payload.certificateId, 1, 180);
+      const title = text(root.payload.title, 1, 160);
+      return certificateId && title
+        ? { ...root, type: root.type, payload: { certificateId, title } }
+        : null;
+    }
+    case "security.new_login":
+      return hasExactKeys(root.payload, [])
+        ? { ...root, type: root.type, payload: {} }
+        : null;
+    case "security.credential_changed": {
+      if (!hasExactKeys(root.payload, ["credential"])) return null;
+      const credential = root.payload.credential;
+      return credential === "password" || credential === "passkey" || credential === "two_factor"
+        ? { ...root, type: root.type, payload: { credential } }
+        : null;
+    }
+    case "security.session_revoked": {
+      if (!hasExactKeys(root.payload, ["scope"])) return null;
+      const scope = root.payload.scope;
+      return scope === "one" || scope === "all_other" || scope === "all"
+        ? { ...root, type: root.type, payload: { scope } }
+        : null;
+    }
+    case "support.ticket_status_changed": {
+      if (!hasExactKeys(root.payload, ["ticketId", "status"])) return null;
+      const ticketId = text(root.payload.ticketId, 1, 180);
+      const status = root.payload.status;
+      return ticketId && (
+        status === "received" ||
+        status === "in_progress" ||
+        status === "waiting_for_user" ||
+        status === "resolved" ||
+        status === "closed"
+      )
+        ? { ...root, type: root.type, payload: { ticketId, status } }
+        : null;
+    }
+    default:
+      return null;
+  }
 }
 
-function correlationKey(event: DomainNotificationEvent): string {
-  const digest = createHash("sha256").update(event.eventId).digest("hex");
-  return `domain:${event.eventType}:${digest.slice(0, 40)}`;
+function expiresAt(event: NotificationProducerEvent, milliseconds: number): string {
+  return new Date(Date.parse(event.occurredAt) + milliseconds).toISOString();
 }
 
 function credentialLabel(
-  credential: "password" | "passkey" | "two_factor",
-  locale: "fa" | "en",
+  localeValue: "fa" | "en",
+  credential: SecurityCredentialChangedEvent["payload"]["credential"],
 ): string {
   const labels = {
-    password: locale === "fa" ? "گذرواژه" : "password",
-    passkey: locale === "fa" ? "کلید عبور" : "passkey",
-    two_factor:
-      locale === "fa" ? "ورود دومرحله‌ای" : "two-factor authentication",
-  };
-  return labels[credential];
+    fa: {
+      password: "رمز عبور",
+      passkey: "کلید عبور",
+      two_factor: "تأیید دومرحله‌ای",
+    },
+    en: {
+      password: "password",
+      passkey: "passkey",
+      two_factor: "two-factor authentication",
+    },
+  } as const;
+  return labels[localeValue][credential];
 }
 
-function buildNotificationRequest(
-  event: DomainNotificationEvent,
-): InAppNotificationRequest {
-  const isFa = event.locale === "fa";
-  const common = {
-    sourceType: event.eventType,
-    sourceId: event.eventId,
-    locale: event.locale,
-    correlationKey: correlationKey(event),
-    templateAvailable: true,
+function supportStatusLabel(
+  localeValue: "fa" | "en",
+  status: SupportTicketStatusChangedEvent["payload"]["status"],
+): string {
+  const labels = {
+    fa: {
+      received: "دریافت شد",
+      in_progress: "در حال بررسی است",
+      waiting_for_user: "منتظر پاسخ شماست",
+      resolved: "حل شد",
+      closed: "بسته شد",
+    },
+    en: {
+      received: "was received",
+      in_progress: "is under review",
+      waiting_for_user: "is waiting for your response",
+      resolved: "was resolved",
+      closed: "was closed",
+    },
   } as const;
+  return labels[localeValue][status];
+}
 
-  switch (event.eventType) {
+export function buildNotificationRequest(event: NotificationProducerEvent) {
+  const fa = event.locale === "fa";
+  const base = {
+    sourceType: event.type,
+    sourceId: event.id,
+    locale: event.locale,
+    cadence: "instant" as const,
+    correlationKey: `${event.type}:${event.id}`,
+    templateAvailable: true,
+    metadata: {
+      producerEventId: event.id,
+      producerEventType: event.type,
+      producerEventVersion: event.version,
+      producerOccurredAt: event.occurredAt,
+    },
+  };
+
+  switch (event.type) {
     case "academy.lesson_available":
       return {
-        ...common,
-        notificationClass: "academy",
-        title: isFa ? "درس بعدی آماده است" : "Your next lesson is ready",
-        body: isFa
-          ? "می‌توانی مسیر یادگیری آکادمی را از همان نقطه ادامه بدهی."
-          : "Continue your Academy learning journey from where you stopped.",
-        actionUrl: "/academy/profile",
-        urgency: "normal",
+        ...base,
+        notificationClass: "academy" as const,
+        title: fa ? "درس بعدی آکادمی آماده است" : "Your next Academy lesson is ready",
+        body: fa
+          ? `«${event.payload.lessonTitle}» در ترم ${event.payload.termNumber.toLocaleString("fa-IR")} آماده ادامه است.`
+          : `“${event.payload.lessonTitle}” is ready in term ${event.payload.termNumber}.`,
+        actionUrl: `/academy/term-${event.payload.termNumber}/${encodeURIComponent(event.payload.lessonSlug)}`,
+        urgency: "normal" as const,
         priority: 3,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 30),
-        metadata: {
-          templateId: "academy.lesson_available.v1",
-          eventOccurredAt: event.occurredAt,
-          termId: event.payload.termId,
-          lessonId: event.payload.lessonId,
-        },
+        expiresAt: expiresAt(event, 7 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.lessonAvailable },
       };
-
-    case "academy.assessment_completed": {
-      const passed = event.payload.outcome === "passed";
+    case "academy.assessment_completed":
       return {
-        ...common,
-        notificationClass: "academy",
-        title: isFa
-          ? passed
-            ? "ارزیابی با موفقیت ثبت شد"
-            : "نتیجه ارزیابی آماده است"
-          : passed
-            ? "Assessment completed successfully"
-            : "Your assessment result is ready",
-        body: isFa
-          ? passed
-            ? "نتیجه در پیشرفت آکادمی ثبت شد و قدم بعدی آماده است."
-            : "پاسخ‌ها را مرور کن و با تمرکز بیشتر دوباره ادامه بده."
-          : passed
-            ? "Your result is recorded and the next learning step is available."
-            : "Review your answers and continue when you are ready.",
-        actionUrl: "/academy/profile",
-        urgency: "normal",
-        priority: passed ? 4 : 3,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 30),
-        metadata: {
-          templateId: "academy.assessment_completed.v1",
-          eventOccurredAt: event.occurredAt,
-          assessmentId: event.payload.assessmentId,
-          outcome: event.payload.outcome,
-        },
+        ...base,
+        notificationClass: "academy" as const,
+        title: fa ? "نتیجه ارزیابی ثبت شد" : "Assessment result recorded",
+        body: fa
+          ? `نتیجه «${event.payload.title}» با امتیاز ${event.payload.score.toLocaleString("fa-IR")} ثبت شد${event.payload.passed ? " و با موفقیت گذرانده شد." : "."}`
+          : `Your result for “${event.payload.title}” was recorded with a score of ${event.payload.score}${event.payload.passed ? " and marked as passed." : "."}`,
+        actionUrl: `/academy/assessment/${encodeURIComponent(event.payload.assessmentId)}`,
+        urgency: "normal" as const,
+        priority: event.payload.passed ? 3 : 4,
+        expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.assessmentCompleted },
       };
-    }
-
     case "academy.certificate_issued":
       return {
-        ...common,
-        notificationClass: "academy",
-        title: isFa ? "گواهی آکادمی صادر شد" : "Your Academy certificate is ready",
-        body: isFa
-          ? "گواهی جدیدت در پروفایل آکادمی در دسترس است."
-          : "Your new certificate is available in your Academy profile.",
-        actionUrl: "/academy/certificates",
-        urgency: "normal",
-        priority: 5,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 90),
-        metadata: {
-          templateId: "academy.certificate_issued.v1",
-          eventOccurredAt: event.occurredAt,
-          certificateId: event.payload.certificateId,
-        },
+        ...base,
+        notificationClass: "academy" as const,
+        title: fa ? "گواهی آکادمی صادر شد" : "Academy certificate issued",
+        body: fa
+          ? `گواهی «${event.payload.title}» صادر شد و در پروفایل آموزشی شما آماده مشاهده است.`
+          : `Your “${event.payload.title}” certificate is ready in your learning profile.`,
+        actionUrl: `/academy/certificate/${encodeURIComponent(event.payload.certificateId)}`,
+        urgency: "normal" as const,
+        priority: 4,
+        expiresAt: expiresAt(event, 365 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.certificateIssued },
       };
-
     case "security.new_login":
       return {
-        ...common,
-        notificationClass: "security_critical",
-        title: isFa ? "ورود جدید به حساب" : "New account login",
-        body: isFa
-          ? "یک ورود جدید ثبت شد. اگر این فعالیت متعلق به تو نیست، فوراً نشست‌ها و امنیت حساب را بررسی کن."
-          : "A new login was recorded. If this was not you, review sessions and account security immediately.",
-        actionUrl: "/security",
-        urgency: "high",
-        priority: 9,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 14),
-        metadata: {
-          templateId: "security.new_login.v1",
-          eventOccurredAt: event.occurredAt,
-        },
-      };
-
-    case "security.credentials_changed": {
-      const label = credentialLabel(event.payload.credential, event.locale);
-      return {
-        ...common,
-        notificationClass: "security_critical",
-        title: isFa ? "تنظیمات امنیتی تغییر کرد" : "Security settings changed",
-        body: isFa
-          ? `${label} حساب تغییر کرد. اگر این تغییر را انجام ندادی، فوراً امنیت حساب را بررسی کن.`
-          : `Your account ${label} changed. If you did not make this change, review account security immediately.`,
-        actionUrl: "/security",
-        urgency: "critical",
+        ...base,
+        notificationClass: "security_critical" as const,
+        title: fa ? "ورود جدید به حساب تک‌پی" : "New sign-in to your TecPey account",
+        body: fa
+          ? "یک ورود جدید ثبت شد. اگر این فعالیت متعلق به شما نیست، نشست‌ها و تنظیمات امنیتی را بررسی کنید."
+          : "A new sign-in was recorded. If this was not you, review your sessions and security settings.",
+        actionUrl: "/academy/settings/security",
+        urgency: "critical" as const,
         priority: 10,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 30),
-        metadata: {
-          templateId: "security.credentials_changed.v1",
-          eventOccurredAt: event.occurredAt,
-          credential: event.payload.credential,
-        },
+        expiresAt: expiresAt(event, 7 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securityNewLogin },
+      };
+    case "security.credential_changed": {
+      const label = credentialLabel(event.locale, event.payload.credential);
+      return {
+        ...base,
+        notificationClass: "security_critical" as const,
+        title: fa ? `${label} تغییر کرد` : `Your ${label} changed`,
+        body: fa
+          ? "اگر این تغییر را انجام نداده‌اید، فوراً نشست‌های فعال و امنیت حساب را بررسی کنید."
+          : "If you did not make this change, review active sessions and account security immediately.",
+        actionUrl: "/academy/settings/security",
+        urgency: "critical" as const,
+        priority: 10,
+        expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securityCredentialChanged },
       };
     }
-
     case "security.session_revoked":
       return {
-        ...common,
-        notificationClass: "security_critical",
-        title: isFa ? "نشست حساب بسته شد" : "Account session revoked",
-        body: isFa
-          ? "یک تغییر در نشست‌های فعال حساب ثبت شد. نشست‌های باقی‌مانده را بررسی کن."
-          : "A change to active account sessions was recorded. Review the remaining sessions.",
-        actionUrl: "/security",
-        urgency: "high",
-        priority: 8,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 14),
-        metadata: {
-          templateId: "security.session_revoked.v1",
-          eventOccurredAt: event.occurredAt,
-          scope: event.payload.scope,
-        },
+        ...base,
+        notificationClass: "security_critical" as const,
+        title: fa ? "نشست حساب لغو شد" : "Account session revoked",
+        body: fa
+          ? "یک یا چند نشست حساب بر اساس درخواست امنیتی لغو شد. فهرست دستگاه‌ها را بررسی کنید."
+          : "One or more account sessions were revoked following a security action. Review your devices.",
+        actionUrl: "/academy/settings/sessions",
+        urgency: "critical" as const,
+        priority: 9,
+        expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.securitySessionRevoked },
       };
-
     case "support.ticket_status_changed": {
-      const statusLabels = {
-        received: isFa ? "دریافت شد" : "received",
-        in_progress: isFa ? "در حال بررسی" : "in progress",
-        waiting_for_user: isFa ? "منتظر پاسخ تو" : "waiting for your reply",
-        resolved: isFa ? "حل شد" : "resolved",
-      };
+      const status = supportStatusLabel(event.locale, event.payload.status);
       return {
-        ...common,
-        notificationClass: "product_support",
-        title: isFa ? "وضعیت درخواست پشتیبانی تغییر کرد" : "Support request updated",
-        body: isFa
-          ? `وضعیت درخواست پشتیبانی به «${statusLabels[event.payload.status]}» تغییر کرد.`
-          : `Your support request is now ${statusLabels[event.payload.status]}.`,
-        actionUrl: `/support/tickets/${encodeURIComponent(event.payload.ticketId)}`,
-        urgency:
-          event.payload.status === "waiting_for_user" ? "high" : "normal",
+        ...base,
+        notificationClass: "product_support" as const,
+        title: fa ? "وضعیت درخواست پشتیبانی تغییر کرد" : "Support request status changed",
+        body: fa
+          ? `درخواست پشتیبانی ${event.payload.ticketId.slice(0, 8)} اکنون «${status}».`
+          : `Support request ${event.payload.ticketId.slice(0, 8)} ${status}.`,
+        actionUrl: `/academy/support/tickets/${encodeURIComponent(event.payload.ticketId)}`,
+        urgency: event.payload.status === "waiting_for_user" ? "high" as const : "normal" as const,
         priority: event.payload.status === "waiting_for_user" ? 6 : 4,
-        cadence: "instant",
-        expiresAt: expiresAt(event.occurredAt, 60),
-        metadata: {
-          templateId: "support.ticket_status_changed.v1",
-          eventOccurredAt: event.occurredAt,
-          ticketId: event.payload.ticketId,
-          status: event.payload.status,
-        },
+        expiresAt: expiresAt(event, 30 * 24 * 60 * 60_000),
+        metadata: { ...base.metadata, templateId: TEMPLATE_IDS.supportTicketStatusChanged },
       };
     }
   }
 }
+
+type PrincipalRow = {
+  id: string;
+  tenant_id: string;
+  account_id: string | null;
+  student_id: string | null;
+  status: NotificationPrincipal["status"];
+  locale: "fa" | "en";
+};
 
 async function loadPrincipalForEvent(
   client: PoolClient,
-  event: DomainNotificationEvent,
+  tenantId: string,
+  principalId: string,
 ): Promise<NotificationPrincipal> {
-  const result = await client.query<{
-    id: string;
-    tenant_id: string;
-    account_id: string | null;
-    student_id: string | null;
-    email: string | null;
-    status: NotificationPrincipal["status"];
-    locale: "fa" | "en";
-  }>(
-    `SELECT id, tenant_id, account_id, student_id, email, status, locale
+  const result = await client.query<PrincipalRow>(
+    `SELECT id, tenant_id, account_id, student_id, status, locale
        FROM platform_principals
       WHERE tenant_id = $1 AND id = $2::uuid
+      LIMIT 1
       FOR SHARE`,
-    [event.tenantId, event.principalId],
+    [tenantId, principalId],
   );
   const row = result.rows[0];
-  if (!row) throw new Error("notification_event_principal_not_found");
-  if (row.status !== "active") {
-    throw new Error("notification_principal_inactive");
-  }
-
+  if (!row) throw new Error("notification_principal_not_found");
+  if (row.status !== "active") throw new Error("notification_principal_inactive");
   return {
     id: row.id,
     tenantId: row.tenant_id,
     accountId: row.account_id,
     studentId: row.student_id,
-    email: row.email,
     status: row.status,
     locale: row.locale,
   };
 }
 
 /**
- * Trusted internal producer boundary. It accepts only a runtime-validated domain
- * event and maps it to a controlled template before the policy/outbox runtime.
- * API routes, queue payloads and AI agents must not call createInAppNotification
- * directly with arbitrary title/body/class/urgency values.
+ * Trusted internal producer boundary. Callers provide only a versioned domain
+ * event; templates, class, urgency, action URL, expiry, policy evaluation and
+ * outbox creation remain server-owned.
  */
 export async function produceDomainNotification(
   client: PoolClient,
-  input: unknown,
-  options: { now?: string } = {},
+  rawEvent: unknown,
 ): Promise<NotificationCreationResult> {
-  const event = parseDomainNotificationEvent(input);
+  const event = parseNotificationProducerEvent(rawEvent);
   if (!event) throw new Error("notification_domain_event_invalid");
-
-  const principal = await loadPrincipalForEvent(client, event);
-  return createInAppNotification(
+  const principal = await loadPrincipalForEvent(
     client,
-    principal,
-    buildNotificationRequest(event),
-    options,
+    event.tenantId,
+    event.principalId,
   );
+  if (event.locale !== principal.locale) {
+    throw new Error("notification_event_locale_mismatch");
+  }
+  const request = buildNotificationRequest(event);
+  return createInAppNotification(client, principal, request, {
+    now: event.occurredAt,
+  });
 }
