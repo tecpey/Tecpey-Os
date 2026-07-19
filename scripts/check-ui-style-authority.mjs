@@ -25,7 +25,7 @@ requireText("globals", '@import "tailwindcss";', "Tailwind v4 entry import is re
 requireText("postcss", '"@tailwindcss/postcss"', "Tailwind PostCSS plugin is required");
 requireText("landing", 'className="tecpey-enterprise', "active landing must expose the governed UI scope");
 
-for (const token of [
+const consumedLandingTokens = [
   "--tp-bg",
   "--tp-surface",
   "--tp-card",
@@ -33,9 +33,20 @@ for (const token of [
   "--tp-muted",
   "--tp-primary",
   "--tp-border",
+];
+
+const governedTokens = [
+  ...consumedLandingTokens,
   "--tp-focus",
-]) {
+  "--tp-success",
+  "--tp-danger",
+];
+
+for (const token of consumedLandingTokens) {
   requireText("landing", `var(${token})`, `active landing must consume ${token}`);
+}
+
+for (const token of governedTokens) {
   const declarations = content.tokens.match(new RegExp(`${token.replaceAll("-", "\\-")}\\s*:`, "g")) ?? [];
   if (declarations.length < 2) {
     failures.push(`${files.tokens}: ${token} must be defined for both light and dark modes`);
@@ -47,6 +58,7 @@ for (const required of [
   ":focus-visible",
   "background: var(--tp-bg)",
   "color: var(--tp-text)",
+  "outline: 3px solid var(--tp-focus)",
 ]) {
   requireText("tokens", required, "TecPey rendered-surface contract is incomplete");
 }
