@@ -204,15 +204,16 @@ export async function recordNotificationConsent(
   consent: {
     purpose: NotificationConsentPurpose;
     status: "granted" | "revoked";
-    policyVersion: string;
-    source: string;
-    jurisdiction: string | null;
     idempotencyKey: string;
   },
 ): Promise<NotificationConsentRecord> {
   if (!validConsentIdempotencyKey(consent.idempotencyKey)) {
     throw new Error("invalid_notification_consent_idempotency_key");
   }
+
+  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+    `notification-consent:${principalId}:${consent.purpose}:${consent.idempotencyKey}`,
+  ]);
 
   const result = await client.query<{
     id: string;
@@ -227,7 +228,7 @@ export async function recordNotificationConsent(
     `WITH inserted AS (
        INSERT INTO notification_consents
         (principal_id, purpose, status, policy_version, source, jurisdiction, idempotency_key)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, NULL, $6)
        ON CONFLICT (principal_id, purpose, idempotency_key) DO NOTHING
        RETURNING id, purpose, status, policy_version, source, jurisdiction,
                  idempotency_key, occurred_at
@@ -241,16 +242,15 @@ export async function recordNotificationConsent(
        FROM notification_consents
       WHERE principal_id = $1
         AND purpose = $2
-        AND idempotency_key = $7
+        AND idempotency_key = $6
         AND NOT EXISTS (SELECT 1 FROM inserted)
       LIMIT 1`,
     [
       principalId,
       consent.purpose,
       consent.status,
-      consent.policyVersion,
-      consent.source,
-      consent.jurisdiction,
+      MARKETING_CONSENT_POLICY_VERSION,
+      NOTIFICATION_CONSENT_SOURCE,
       consent.idempotencyKey,
     ],
   );
@@ -259,9 +259,9 @@ export async function recordNotificationConsent(
 
   if (
     row.status !== consent.status ||
-    row.policy_version !== consent.policyVersion ||
-    row.source !== consent.source ||
-    row.jurisdiction !== consent.jurisdiction
+    row.policy_version !== MARKETING_CONSENT_POLICY_VERSION ||
+    row.source !== NOTIFICATION_CONSENT_SOURCE ||
+    row.jurisdiction !== null
   ) {
     throw new Error("notification_consent_idempotency_conflict");
   }
