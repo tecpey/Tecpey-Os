@@ -3,10 +3,16 @@ import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
 import {
-  parseDomainNotificationEvent,
+  parseNotificationProducerEvent,
   produceDomainNotification,
+  type AcademyLessonAvailableEvent,
+  type SecurityNewLoginEvent,
+  type SupportTicketStatusChangedEvent,
 } from "../lib/notifications/producers";
-import { claimNotificationOutbox, acceptInAppNotificationDelivery } from "../lib/notifications/outbox";
+import {
+  claimNotificationOutbox,
+  acceptInAppNotificationDelivery,
+} from "../lib/notifications/outbox";
 import { resolveNotificationPrincipal } from "../lib/notifications/principal";
 import { listInboxNotifications } from "../lib/notifications/repository";
 import {
@@ -56,48 +62,91 @@ async function createPrincipal(client: PoolClient, prefix: string) {
   });
 }
 
-function baseEvent(
+function lessonEvent(
   principal: { tenantId: string; id: string },
-  overrides: Record<string, unknown> = {},
-) {
+  overrides: Partial<AcademyLessonAvailableEvent> = {},
+): AcademyLessonAvailableEvent {
   return {
-    eventType: "academy.lesson_available",
-    eventId: `academy-event:${crypto.randomUUID()}`,
+    id: `academy-event:${crypto.randomUUID()}`,
     tenantId: principal.tenantId,
     principalId: principal.id,
     occurredAt: new Date().toISOString(),
     locale: "fa",
-    payload: { termId: "term-1", lessonId: "lesson-2" },
+    version: 1,
+    type: "academy.lesson_available",
+    payload: {
+      termNumber: 1,
+      lessonSlug: "lesson-2",
+      lessonTitle: "مدیریت ریسک مقدماتی",
+    },
     ...overrides,
+  };
+}
+
+function supportEvent(
+  principal: { tenantId: string; id: string },
+): SupportTicketStatusChangedEvent {
+  return {
+    id: `support-event:${crypto.randomUUID()}`,
+    tenantId: principal.tenantId,
+    principalId: principal.id,
+    occurredAt: new Date().toISOString(),
+    locale: "fa",
+    version: 1,
+    type: "support.ticket_status_changed",
+    payload: {
+      ticketId: `ticket-${crypto.randomUUID()}`,
+      status: "waiting_for_user",
+    },
+  };
+}
+
+function securityEvent(
+  principal: { tenantId: string; id: string },
+  occurredAt: string,
+): SecurityNewLoginEvent {
+  return {
+    id: `security-event:${crypto.randomUUID()}`,
+    tenantId: principal.tenantId,
+    principalId: principal.id,
+    occurredAt,
+    locale: "fa",
+    version: 1,
+    type: "security.new_login",
+    payload: {},
   };
 }
 
 test("runtime parser rejects unknown fields, arbitrary copy and invalid enums", () => {
   const principal = { tenantId: "tecpey", id: crypto.randomUUID() };
-  const valid = baseEvent(principal);
-  assert.ok(parseDomainNotificationEvent(valid));
+  const valid = lessonEvent(principal);
+  assert.ok(parseNotificationProducerEvent(valid));
 
   assert.equal(
-    parseDomainNotificationEvent({ ...valid, title: "Injected title" }),
+    parseNotificationProducerEvent({ ...valid, title: "Injected title" }),
     null,
   );
   assert.equal(
-    parseDomainNotificationEvent({ ...valid, eventType: "ai.unapproved_send" }),
+    parseNotificationProducerEvent({ ...valid, type: "ai.unapproved_send" }),
     null,
   );
   assert.equal(
-    parseDomainNotificationEvent({ ...valid, locale: "unknown" }),
+    parseNotificationProducerEvent({ ...valid, locale: "unknown" }),
     null,
   );
   assert.equal(
-    parseDomainNotificationEvent({
+    parseNotificationProducerEvent({
       ...valid,
-      payload: { termId: "term-1", lessonId: "lesson-2", body: "Injected" },
+      payload: { ...valid.payload, body: "Injected" },
     }),
     null,
   );
   assert.equal(
-    parseDomainNotificationEvent({
+    parseNotificationProducerEvent({ ...valid, version: 2 }),
+    null,
+  );
+  assert.equal(
+    parseNotificationProducerEvent({
       ...valid,
       occurredAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     }),
@@ -111,7 +160,7 @@ test(
   async () => {
     await withRolledBackTest(async (client) => {
       const principal = await createPrincipal(client, "producer-academy");
-      const event = baseEvent(principal);
+      const event = lessonEvent(principal);
 
       const created = await produceDomainNotification(client, event);
       assert.equal(created.status, "created");
@@ -126,7 +175,7 @@ test(
       await assert.rejects(
         produceDomainNotification(client, {
           ...event,
-          payload: { termId: "term-1", lessonId: "lesson-3" },
+          payload: { ...event.payload, lessonSlug: "lesson-3" },
         }),
         /notification_correlation_payload_conflict/,
       );
@@ -144,11 +193,12 @@ test(
       );
       assert.equal(intent.rows[0]?.source_type, "academy.lesson_available");
       assert.equal(intent.rows[0]?.notification_class, "academy");
-      assert.equal(intent.rows[0]?.title, "درس بعدی آماده است");
+      assert.equal(intent.rows[0]?.title, "درس بعدی آکادمی آماده است");
       assert.equal(
         intent.rows[0]?.metadata.templateId,
-        "academy.lesson_available.v1",
+        "academy.lesson-available.v1",
       );
+      assert.equal("producerPayload" in (intent.rows[0]?.metadata ?? {}), false);
 
       const before = await listInboxNotifications(client, principal, {
         limit: 20,
@@ -197,18 +247,10 @@ test(
         enabled: false,
         cadence: "instant",
       });
-      const support = await produceDomainNotification(client, {
-        eventType: "support.ticket_status_changed",
-        eventId: `support-event:${crypto.randomUUID()}`,
-        tenantId: principal.tenantId,
-        principalId: principal.id,
-        occurredAt: new Date().toISOString(),
-        locale: "fa",
-        payload: {
-          ticketId: `ticket:${crypto.randomUUID()}`,
-          status: "waiting_for_user",
-        },
-      });
+      const support = await produceDomainNotification(
+        client,
+        supportEvent(principal),
+      );
       assert.equal(support.status, "suppressed");
       assert.equal(support.reason, "category_disabled");
 
@@ -229,16 +271,7 @@ test(
 
       const security = await produceDomainNotification(
         client,
-        {
-          eventType: "security.new_login",
-          eventId: `security-event:${crypto.randomUUID()}`,
-          tenantId: principal.tenantId,
-          principalId: principal.id,
-          occurredAt: now.toISOString(),
-          locale: "fa",
-          payload: {},
-        },
-        { now: now.toISOString() },
+        securityEvent(principal, now.toISOString()),
       );
       assert.equal(security.status, "created");
       assert.equal(security.decision, "allow");
@@ -262,10 +295,10 @@ test(
 
       await assert.rejects(
         produceDomainNotification(client, {
-          ...baseEvent(principal),
+          ...lessonEvent(principal),
           tenantId: otherTenantId,
         }),
-        /notification_event_principal_not_found/,
+        /notification_principal_not_found/,
       );
     });
   },
