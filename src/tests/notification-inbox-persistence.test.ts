@@ -153,6 +153,15 @@ test(
         }),
         /mandatory_notification_class_cannot_be_disabled/,
       );
+      await assert.rejects(
+        upsertNotificationPreference(client, first.id, {
+          notificationClass: "financial_transactional",
+          channel: "in_app",
+          enabled: true,
+          cadence: "digest",
+        }),
+        /mandatory_notification_class_requires_instant_delivery/,
+      );
 
       await updateNotificationSettings(client, first.id, {
         timezone: "Asia/Tehran",
@@ -188,25 +197,53 @@ test(
         },
       );
 
+      const grantKey = `consent-grant:${studentId}`;
       const granted = await recordNotificationConsent(client, first.id, {
         purpose: "marketing",
         status: "granted",
         policyVersion: MARKETING_CONSENT_POLICY_VERSION,
         source: NOTIFICATION_CONSENT_SOURCE,
         jurisdiction: null,
+        idempotencyKey: grantKey,
       });
       assert.equal(granted.status, "granted");
       assert.equal(granted.policyVersion, MARKETING_CONSENT_POLICY_VERSION);
       assert.equal(granted.source, NOTIFICATION_CONSENT_SOURCE);
+      assert.equal(granted.idempotencyKey, grantKey);
 
+      const replayedGrant = await recordNotificationConsent(client, first.id, {
+        purpose: "marketing",
+        status: "granted",
+        policyVersion: MARKETING_CONSENT_POLICY_VERSION,
+        source: NOTIFICATION_CONSENT_SOURCE,
+        jurisdiction: null,
+        idempotencyKey: grantKey,
+      });
+      assert.equal(replayedGrant.id, granted.id);
+
+      await assert.rejects(
+        recordNotificationConsent(client, first.id, {
+          purpose: "marketing",
+          status: "revoked",
+          policyVersion: MARKETING_CONSENT_POLICY_VERSION,
+          source: NOTIFICATION_CONSENT_SOURCE,
+          jurisdiction: null,
+          idempotencyKey: grantKey,
+        }),
+        /notification_consent_idempotency_conflict/,
+      );
+
+      const revokeKey = `consent-revoke:${studentId}`;
       const revoked = await recordNotificationConsent(client, first.id, {
         purpose: "marketing",
         status: "revoked",
         policyVersion: MARKETING_CONSENT_POLICY_VERSION,
         source: NOTIFICATION_CONSENT_SOURCE,
         jurisdiction: null,
+        idempotencyKey: revokeKey,
       });
       assert.equal(revoked.status, "revoked");
+      assert.equal(revoked.idempotencyKey, revokeKey);
 
       const currentConsents = await getCurrentNotificationConsents(
         client,
@@ -219,6 +256,7 @@ test(
         MARKETING_CONSENT_POLICY_VERSION,
       );
       assert.equal(currentConsents[0]?.source, NOTIFICATION_CONSENT_SOURCE);
+      assert.equal(currentConsents[0]?.idempotencyKey, revokeKey);
 
       assert.equal(decodeNotificationCursor("not-a-valid-cursor"), null);
 
@@ -228,6 +266,57 @@ test(
         await client.query("ROLLBACK");
       } catch {
         // Preserve the original assertion or database failure.
+      }
+      throw error;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  },
+);
+
+test(
+  "database rejects weakened mandatory preferences",
+  { skip: !databaseUrl },
+  async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const client = await pool.connect();
+    try {
+      await applyDatabaseMigrationsWithLock(client);
+      await client.query("BEGIN");
+
+      const studentId = crypto.randomUUID();
+      await client.query(
+        `INSERT INTO academy_students (id, locale, email)
+         VALUES ($1, 'fa', $2)`,
+        [studentId, `${studentId}@notification.test`],
+      );
+      const principal = await resolveNotificationPrincipal(client, {
+        accountId: null,
+        studentId,
+        email: null,
+        locale: "fa",
+      });
+
+      await assert.rejects(
+        client.query(
+          `INSERT INTO notification_preferences
+            (principal_id, notification_class, channel, enabled, cadence)
+           VALUES ($1, 'security_critical', 'email', TRUE, 'digest')`,
+          [principal.id],
+        ),
+        (error: unknown) => {
+          assert.equal((error as { code?: string }).code, "23514");
+          return true;
+        },
+      );
+
+      await client.query("ROLLBACK");
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the original failure.
       }
       throw error;
     } finally {
