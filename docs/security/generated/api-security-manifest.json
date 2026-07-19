@@ -12,13 +12,13 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 56,
+    "operationsWithFindings": 55,
     "findings": 75,
     "findingCounts": {
       "missing_audit_or_observability_evidence": 3,
       "parsed_body_without_size_limit": 48,
-      "replayable_command_without_idempotency": 4,
-      "required_strict_revocation_missing": 20
+      "replayable_command_without_idempotency": 5,
+      "required_strict_revocation_missing": 19
     }
   },
   "routes": [
@@ -31,7 +31,7 @@
       "delegatedSourceHash": null,
       "mutationMode": "active",
       "classification": "authenticated",
-      "principalSource": "getAcademyAuthFromRequest",
+      "principalSource": "verifyUnifiedSession",
       "tenantSource": null,
       "risk": [
         "credential"
@@ -397,8 +397,8 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "deny-only",
-      "classification": "authenticated",
-      "principalSource": "getCanonicalSession",
+      "classification": "public",
+      "principalSource": null,
       "tenantSource": null,
       "risk": [
         "progress"
@@ -414,10 +414,10 @@
         "inputParser": null,
         "idempotency": false,
         "transaction": false,
-        "verifiedPrincipal": true,
+        "verifiedPrincipal": false,
         "tenantFromVerifiedContext": false,
         "noStore": true,
-        "audit": true,
+        "audit": false,
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
@@ -631,8 +631,8 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "deny-only",
-      "classification": "authenticated",
-      "principalSource": "getCanonicalSession",
+      "classification": "public",
+      "principalSource": null,
       "tenantSource": null,
       "risk": [
         "progress"
@@ -648,7 +648,7 @@
         "inputParser": null,
         "idempotency": false,
         "transaction": false,
-        "verifiedPrincipal": true,
+        "verifiedPrincipal": false,
         "tenantFromVerifiedContext": false,
         "noStore": true,
         "audit": true,
@@ -889,7 +889,7 @@
       "delegatedSourceHash": "5d445a69802a71c980fdd71a",
       "mutationMode": "active",
       "classification": "authenticated",
-      "principalSource": "getAcademyAuthFromRequest",
+      "principalSource": "verifyUnifiedSession",
       "tenantSource": null,
       "risk": [
         "credential"
@@ -1058,7 +1058,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -1121,7 +1121,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": false,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -1185,8 +1185,8 @@
         "noStore": true,
         "audit": true,
         "redaction": true,
-        "failClosed": true,
-        "serviceIdentity": true,
+        "failClosed": false,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -1246,8 +1246,8 @@
         "noStore": true,
         "audit": true,
         "redaction": true,
-        "failClosed": true,
-        "serviceIdentity": true,
+        "failClosed": false,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -1705,11 +1705,10 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
-      "classification": "admin",
+      "classification": "authenticated",
       "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
-        "admin",
         "credential"
       ],
       "controls": {
@@ -1766,11 +1765,10 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
-      "classification": "admin",
+      "classification": "authenticated",
       "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
-        "admin",
         "credential"
       ],
       "controls": {
@@ -1890,8 +1888,8 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
-      "classification": "authenticated",
-      "principalSource": "authenticated",
+      "classification": "public",
+      "principalSource": null,
       "tenantSource": null,
       "risk": [
         "credential"
@@ -1907,7 +1905,7 @@
         "inputParser": null,
         "idempotency": false,
         "transaction": true,
-        "verifiedPrincipal": true,
+        "verifiedPrincipal": false,
         "tenantFromVerifiedContext": false,
         "noStore": true,
         "audit": true,
@@ -1925,19 +1923,17 @@
       ],
       "requirements": {
         "csrf": true,
-        "strictRevocation": true,
-        "rateLimit": false,
+        "strictRevocation": false,
+        "rateLimit": true,
         "bodySizeLimit": false,
         "idempotency": false,
-        "verifiedPrincipal": true,
+        "verifiedPrincipal": false,
         "noStore": true,
         "audit": true,
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/refresh/route.ts",
         "method": "POST",
@@ -2107,7 +2103,7 @@
       "requirements": {
         "csrf": false,
         "strictRevocation": false,
-        "rateLimit": false,
+        "rateLimit": true,
         "bodySizeLimit": true,
         "idempotency": false,
         "verifiedPrincipal": false,
@@ -2203,11 +2199,10 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
-      "classification": "admin",
+      "classification": "authenticated",
       "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
-        "admin",
         "credential"
       ],
       "controls": {
@@ -2264,11 +2259,10 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
-      "classification": "admin",
+      "classification": "authenticated",
       "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
-        "admin",
         "credential"
       ],
       "controls": {
@@ -2469,7 +2463,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -2586,7 +2580,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "json",
-        "idempotency": true,
+        "idempotency": false,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -2594,7 +2588,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -2615,7 +2609,8 @@
         "serviceIdentity": false
       },
       "findings": [
-        "parsed_body_without_size_limit"
+        "parsed_body_without_size_limit",
+        "replayable_command_without_idempotency"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
@@ -2789,7 +2784,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -2984,7 +2979,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -3166,7 +3161,7 @@
         "audit": true,
         "redaction": true,
         "failClosed": true,
-        "serviceIdentity": true,
+        "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
@@ -3618,8 +3613,8 @@
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "deny-only",
-      "classification": "authenticated",
-      "principalSource": "getNotificationIdentityFromRequest",
+      "classification": "public",
+      "principalSource": null,
       "tenantSource": null,
       "risk": [],
       "controls": {
@@ -3633,10 +3628,10 @@
         "inputParser": null,
         "idempotency": false,
         "transaction": false,
-        "verifiedPrincipal": true,
+        "verifiedPrincipal": false,
         "tenantFromVerifiedContext": false,
         "noStore": true,
-        "audit": true,
+        "audit": false,
         "redaction": true,
         "failClosed": false,
         "serviceIdentity": false,
