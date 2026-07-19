@@ -26,6 +26,7 @@ const files = {
   clientTests: "src/tests/security/academy-progress-client-authority.test.ts",
   projectionTests: "src/tests/security/academy-progress-projection-authority.test.ts",
   postgresTests: "src/tests/security/academy-progress-authority-postgres.test.ts",
+  idempotencyTests: "src/tests/security/academy-progress-idempotency-postgres.test.ts",
 };
 const content = Object.fromEntries(
   await Promise.all(
@@ -177,6 +178,13 @@ for (const evidence of [
   "builds durable progress only from canonical assessments, rewards and term status",
   "keeps historical quarantine and legacy tables immutable",
 ]) requireText("postgresTests", evidence, `missing PostgreSQL evidence ${evidence}`);
+requireText(
+  "idempotencyTests",
+  "does not duplicate XP when the same authoritative reward is retried concurrently",
+  "missing concurrent reward idempotency evidence",
+);
+requireText("idempotencyTests", "Array.from({ length: 12 }", "reward idempotency test must exercise concurrent retries");
+requireText("idempotencyTests", 'assert.deepEqual(ledger.rows[0], { count: "1", xp: "25" })', "reward retry evidence must prove exactly one ledger row and XP grant");
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -202,4 +210,4 @@ if (failures.length) {
   console.error("Academy authority boundary failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
-console.log("Academy authority boundary OK: browser and legacy section surfaces issue no progress, XP or unlocks; official lesson/term assessments, reward ledger and server projection v2 are the only authorities.");
+console.log("Academy authority boundary OK: browser and legacy section surfaces issue no progress, XP or unlocks; official lesson/term assessments, immutable reward ledger and server projection v2 are the only authorities.");
