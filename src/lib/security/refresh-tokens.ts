@@ -2,6 +2,7 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import {
@@ -32,13 +33,32 @@ type RefreshPayload = {
   v: 1;
 };
 
-export async function issueRefreshToken(opts: {
+export type RefreshTokenIssueOptions = {
   userId: string;
   familyId: string;
   parentId?: string;
   deviceInfo: string;
   ip: string;
-}): Promise<string | null> {
+};
+
+export type PreparedRefreshToken = {
+  token: string;
+  jti: string;
+  familyId: string;
+  userId: string;
+  parentId: string | null;
+  deviceInfo: string;
+  ip: string;
+  expiresAt: Date;
+};
+
+/**
+ * Sign a refresh token without publishing it as valid. The token becomes valid
+ * only after persistPreparedRefreshTokenWithClient commits its durable row.
+ */
+export async function prepareRefreshToken(
+  opts: RefreshTokenIssueOptions,
+): Promise<PreparedRefreshToken | null> {
   const secret = refreshSecret();
   if (!secret) return null;
 
@@ -52,40 +72,68 @@ export async function issueRefreshToken(opts: {
     .setExpirationTime("30d")
     .sign(secret);
 
+  return {
+    token,
+    jti,
+    familyId: opts.familyId,
+    userId: opts.userId,
+    parentId: opts.parentId ?? null,
+    deviceInfo: opts.deviceInfo.slice(0, 500),
+    ip: opts.ip.slice(0, 80),
+    expiresAt,
+  };
+}
+
+/** Persist one previously signed refresh token inside the caller's transaction. */
+export async function persistPreparedRefreshTokenWithClient(
+  db: PoolClient,
+  prepared: PreparedRefreshToken,
+): Promise<boolean> {
+  const inserted = await db.query<{ id: string }>(
+    `INSERT INTO refresh_tokens
+      (id, family_id, user_id, parent_id, device_info, ip, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id) DO NOTHING
+     RETURNING id`,
+    [
+      prepared.jti,
+      prepared.familyId,
+      prepared.userId,
+      prepared.parentId,
+      prepared.deviceInfo,
+      prepared.ip,
+      prepared.expiresAt,
+    ],
+  );
+  return (inserted.rowCount ?? 0) === 1;
+}
+
+export async function issueRefreshToken(
+  opts: RefreshTokenIssueOptions,
+): Promise<string | null> {
+  const prepared = await prepareRefreshToken(opts);
+  if (!prepared) return null;
+
   try {
-    const result = await withDb(async (db) => {
-      await db.query(
-        `INSERT INTO refresh_tokens
-          (id, family_id, user_id, parent_id, device_info, ip, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          jti,
-          opts.familyId,
-          opts.userId,
-          opts.parentId ?? null,
-          opts.deviceInfo.slice(0, 500),
-          opts.ip.slice(0, 80),
-          expiresAt,
-        ],
-      );
-      return true;
-    });
-    if (!result.enabled) {
+    const result = await withDb(async (db) =>
+      persistPreparedRefreshTokenWithClient(db, prepared),
+    );
+    if (!result.enabled || !result.value) {
       logger.error("[refresh-tokens] refused to issue unstored refresh token", {
-        jti,
+        jti: prepared.jti,
         userId: opts.userId,
       });
       return null;
     }
   } catch (err) {
     logger.warn("[refresh-tokens] DB persist failed", {
-      jti,
+      jti: prepared.jti,
       err: String(err),
     });
     return null;
   }
 
-  return token;
+  return prepared.token;
 }
 
 type RefreshVerifyResult =
@@ -227,17 +275,26 @@ export async function revokeFamily(familyId: string): Promise<boolean> {
   }
 }
 
+/** Revoke all durable refresh authority inside the caller's transaction. */
+export async function revokeAllRefreshTokensForUserWithClient(
+  db: PoolClient,
+  userId: string,
+): Promise<number> {
+  const updated = await db.query(
+    `UPDATE refresh_tokens
+        SET is_revoked = TRUE,
+            revoked_at = COALESCE(revoked_at, NOW())
+      WHERE user_id = $1
+        AND is_revoked = FALSE`,
+    [userId],
+  );
+  return updated.rowCount ?? 0;
+}
+
 export async function revokeAllRefreshTokensForUser(userId: string): Promise<boolean> {
   try {
     const result = await withDb(async (db) => {
-      await db.query(
-        `UPDATE refresh_tokens
-            SET is_revoked = TRUE,
-                revoked_at = COALESCE(revoked_at, NOW())
-          WHERE user_id = $1
-            AND is_revoked = FALSE`,
-        [userId],
-      );
+      await revokeAllRefreshTokensForUserWithClient(db, userId);
       return true;
     });
     return result.enabled && result.value;

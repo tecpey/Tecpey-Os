@@ -22,28 +22,51 @@ export function verifyPassword(password: string, stored: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Checks the last N password hashes in password_history for reuse.
-export async function isPasswordReused(userId: string, newPassword: string, limit = 5): Promise<boolean> {
-  const dbResult = await withDb(async (db) => {
-    const res = await db.query<{ password_hash: string }>(
-      `SELECT password_hash FROM password_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-      [userId, limit],
-    );
-    return res.rows;
-  });
+/** Check the last N durable password hashes using the caller's DB transaction. */
+export async function isPasswordReusedWithClient(
+  client: PoolClient,
+  userId: string,
+  newPassword: string,
+  limit = 5,
+): Promise<boolean> {
+  const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
+  const result = await client.query<{ password_hash: string }>(
+    `SELECT password_hash
+       FROM password_history
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2`,
+    [userId, safeLimit],
+  );
+  return result.rows.some((row) =>
+    verifyPassword(newPassword, row.password_hash),
+  );
+}
 
-  if (!dbResult.enabled || !dbResult.value.length) return false;
-
-  for (const row of dbResult.value) {
-    if (verifyPassword(newPassword, row.password_hash)) return true;
+/**
+ * Compatibility wrapper. Database unavailability is an authority failure and
+ * must throw rather than silently treating an unknown history as "not reused".
+ */
+export async function isPasswordReused(
+  userId: string,
+  newPassword: string,
+  limit = 5,
+): Promise<boolean> {
+  const dbResult = await withDb((db) =>
+    isPasswordReusedWithClient(db, userId, newPassword, limit),
+  );
+  if (!dbResult.enabled) {
+    throw new Error("password_history_unavailable");
   }
-  return false;
+  return dbResult.value;
 }
 
 export async function recordPasswordHistory(userId: string, passwordHash: string): Promise<void> {
-  await withDb(async (db) => {
+  const result = await withDb(async (db) => {
     await recordPasswordHistoryWithClient(db, userId, passwordHash);
+    return true;
   });
+  if (!result.enabled) throw new Error("password_history_unavailable");
 }
 
 /** Client-aware variant for use inside withTx() — inserts and prunes in one call. */
