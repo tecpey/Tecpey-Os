@@ -80,6 +80,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // An idempotent replay preserves the original security decision. A blocked
+    // withdrawal must never become a successful API response on retry.
+    if (result.withdrawal.state === "blocked") {
+      return apiError("withdrawal_blocked", 403, {
+        withdrawalId: result.withdrawal.id,
+        replayed: result.replayed,
+      });
+    }
+
     return apiOk(
       {
         withdrawal: result.withdrawal,
