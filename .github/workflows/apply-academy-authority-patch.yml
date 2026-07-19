@@ -58,13 +58,34 @@ jobs:
           rm -f .github/ACADEMY_AUTHORITY_TRANSFER_*.md
           rm -f .github/workflows/apply-academy-authority-patch.yml
 
-      - name: Commit authoritative Academy implementation
+      - name: Commit and publish authoritative Academy implementation
+        id: publish
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git diff --cached --check
-          git commit -m 'feat(academy): enforce server-issued progress authority'
-          git push origin HEAD:feat/academy-server-reward-authority
+          set +e
+          {
+            set -x
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add --all
+            git diff --cached --check
+            git commit -m 'feat(academy): enforce server-issued progress authority'
+            git push origin HEAD:feat/academy-server-reward-authority
+          } > /tmp/academy-authority-publish.log 2>&1
+          status=$?
+          cat /tmp/academy-authority-publish.log
+          exit "$status"
+
+      - name: Upload publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-authority-publication-evidence
+          path: /tmp/academy-authority-publish.log
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Enforce successful publication
+        if: steps.publish.outcome == 'failure'
+        run: exit 1
