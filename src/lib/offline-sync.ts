@@ -17,8 +17,11 @@ export type OfflineSyncItem = {
 
 export type OfflineSyncResult = {
   id: string;
-  status: "accepted" | "rejected";
+  status: "committed" | "rejected" | "retryable";
   reason?: string;
+  replayed?: boolean;
+  learningEventId?: string;
+  committedAt?: string;
 };
 
 export const offlineClientEvents: OfflineEventType[] = [
@@ -40,6 +43,8 @@ const serverOnlyEvents = new Set([
   "final_exam_passed",
   "arena_trade_verified",
 ]);
+const OFFLINE_ID_PATTERN = /^[A-Za-z0-9._:-]{8,160}$/;
+const MAX_PAYLOAD_BYTES = 16 * 1024;
 
 export function sanitizeOfflineText(value: unknown, max = 500) {
   return String(value ?? "")
@@ -49,39 +54,86 @@ export function sanitizeOfflineText(value: unknown, max = 500) {
     .slice(0, max);
 }
 
-function sanitizePayload(payload: unknown): Record<string, unknown> {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
-  const safe: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload as Record<string, unknown>).slice(0, 30)) {
-    const cleanKey = sanitizeOfflineText(key, 60).replace(/[^a-zA-Z0-9_.:-]/g, "_");
-    if (!cleanKey) continue;
-    if (typeof value === "string") safe[cleanKey] = sanitizeOfflineText(value, 1200);
-    else if (typeof value === "number" && Number.isFinite(value)) safe[cleanKey] = value;
-    else if (typeof value === "boolean") safe[cleanKey] = value;
-    else if (value === null) safe[cleanKey] = null;
-    else if (typeof value === "object") safe[cleanKey] = JSON.parse(JSON.stringify(value).slice(0, 1200));
+function sanitizeJsonValue(value: unknown, depth = 0): unknown {
+  if (depth > 4) return null;
+  if (typeof value === "string") return sanitizeOfflineText(value, 1200);
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean" || value === null) return value;
+  if (Array.isArray(value)) {
+    return value.slice(0, 50).map((entry) => sanitizeJsonValue(entry, depth + 1));
   }
-  return safe;
+  if (value && typeof value === "object") {
+    const safe: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>).slice(0, 30)) {
+      const cleanKey = sanitizeOfflineText(key, 60).replace(/[^a-zA-Z0-9_.:-]/g, "_");
+      if (cleanKey) safe[cleanKey] = sanitizeJsonValue(entry, depth + 1);
+    }
+    return safe;
+  }
+  return null;
 }
 
-export function normalizeOfflineSyncItem(input: unknown): { ok: true; item: OfflineSyncItem } | { ok: false; reason: string; id?: string } {
+function sanitizePayload(
+  payload: unknown,
+): { ok: true; value: Record<string, unknown> } | { ok: false; reason: string } {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: true, value: {} };
+  }
+  try {
+    const raw = JSON.stringify(payload);
+    if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
+      return { ok: false, reason: "payload_too_large" };
+    }
+  } catch {
+    return { ok: false, reason: "invalid_payload" };
+  }
+  return {
+    ok: true,
+    value: sanitizeJsonValue(payload) as Record<string, unknown>,
+  };
+}
+
+export function normalizeOfflineSyncItem(
+  input: unknown,
+):
+  | { ok: true; item: OfflineSyncItem }
+  | { ok: false; reason: string; id?: string } {
   const raw = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const id = sanitizeOfflineText(raw.id, 120) || cryptoSafeId();
+  const id = sanitizeOfflineText(raw.id, 160);
+  if (!id) return { ok: false, reason: "missing_id" };
+  if (!OFFLINE_ID_PATTERN.test(id)) return { ok: false, reason: "invalid_id", id };
+
   const eventType = sanitizeOfflineText(raw.eventType, 80) as OfflineEventType;
   if (serverOnlyEvents.has(eventType)) return { ok: false, reason: "server_event_only", id };
   if (!allowedOfflineEvents.has(eventType)) return { ok: false, reason: "invalid_event", id };
+
   const locale = sanitizeOfflineText(raw.locale, 8) === "en" ? "en" : "fa";
   const sourceRaw = sanitizeOfflineText(raw.source, 24);
-  const source = sourceRaw === "android" || sourceRaw === "ios" || sourceRaw === "pwa" ? sourceRaw : "web";
-  const clientCreatedAt = sanitizeOfflineText(raw.clientCreatedAt, 40) || new Date().toISOString();
+  const source =
+    sourceRaw === "android" || sourceRaw === "ios" || sourceRaw === "pwa"
+      ? sourceRaw
+      : "web";
+
+  const rawCreatedAt = sanitizeOfflineText(raw.clientCreatedAt, 40);
+  const parsedCreatedAt = Date.parse(rawCreatedAt);
+  if (!rawCreatedAt || !Number.isFinite(parsedCreatedAt)) {
+    return { ok: false, reason: "invalid_client_created_at", id };
+  }
+  const clientCreatedAt = new Date(parsedCreatedAt).toISOString();
+
   const payload = sanitizePayload(raw.payload);
-  return { ok: true, item: { id, eventType, source, locale, clientCreatedAt, payload } };
+  if (!payload.ok) return { ok: false, reason: payload.reason, id };
+
+  return {
+    ok: true,
+    item: { id, eventType, source, locale, clientCreatedAt, payload: payload.value },
+  };
 }
 
 export function offlineManifest(locale: "fa" | "en" = "fa") {
   const isFa = locale === "fa";
   return {
-    version: "phase4-offline-foundation-v1",
+    version: "phase4-offline-foundation-v2",
     locale,
     offlineReady: [
       { key: "lessons", label: isFa ? "درس‌های ذخیره‌شده" : "Saved lessons", requiresServerValidation: false },
@@ -98,9 +150,4 @@ export function offlineManifest(locale: "fa" | "en" = "fa") {
     ],
     allowedClientEvents: offlineClientEvents,
   };
-}
-
-function cryptoSafeId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `offline_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
