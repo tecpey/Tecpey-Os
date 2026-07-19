@@ -1,0 +1,47 @@
+name: Apply Academy Authority Patch — Temporary
+
+on:
+  push:
+    branches:
+      - feat/academy-server-issued-progress-v1
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/academy-server-issued-progress-v1
+          fetch-depth: 0
+
+      - name: Decode and verify patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .github/academy-authority.patch.gz.b64 | gzip -d > /tmp/academy-authority.patch
+          test -s /tmp/academy-authority.patch
+          git apply --check /tmp/academy-authority.patch
+
+      - name: Apply patch and remove transport files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply /tmp/academy-authority.patch
+          rm -f .github/academy-authority.patch.gz.b64
+          rm -f .github/workflows/apply-academy-authority-patch.yml
+          node scripts/check-academy-authority.mjs
+
+      - name: Commit final implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(academy): issue progress from server-graded events'
+          git push origin HEAD:feat/academy-server-issued-progress-v1
