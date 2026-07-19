@@ -5,6 +5,14 @@ import { logger } from "./logger";
 const FILENAME = "0021_notification_creation_outbox_runtime.sql";
 
 export const NOTIFICATION_CREATION_OUTBOX_RUNTIME_SQL = `
+ALTER TABLE platform_notifications
+  ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
+UPDATE platform_notifications
+   SET delivered_at = COALESCE(delivered_at, created_at)
+ WHERE source_type = 'legacy_notification_center'
+   AND delivered_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS notification_intents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_sequence BIGSERIAL NOT NULL UNIQUE,
@@ -182,6 +190,9 @@ CREATE INDEX IF NOT EXISTS notification_outbox_active_lease_idx
 CREATE INDEX IF NOT EXISTS notification_outbox_terminal_idx
   ON notification_outbox (terminal_at DESC)
   WHERE status IN ('failed_terminal', 'expired', 'cancelled');
+CREATE INDEX IF NOT EXISTS platform_notifications_delivered_inbox_idx
+  ON platform_notifications (principal_id, delivered_at DESC, created_at DESC)
+  WHERE delivered_at IS NOT NULL AND dismissed_at IS NULL;
 `;
 
 function checksum(sql: string): string {
