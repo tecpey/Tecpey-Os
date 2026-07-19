@@ -1,100 +1,186 @@
-import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
-import { recordLearningEvent } from "@/lib/learning-os";
-import { withDb } from "@/lib/db";
-import { normalizeOfflineSyncItem, offlineManifest, type OfflineSyncItem, type OfflineSyncResult } from "@/lib/offline-sync";
+import {
+  normalizeOfflineSyncItem,
+  offlineManifest,
+  type OfflineSyncResult,
+} from "@/lib/offline-sync";
+import { processOfflineSyncCommand } from "@/lib/offline-sync-authority";
+import {
+  issueOfflineSyncScope,
+  verifyOfflineSyncScope,
+} from "@/lib/offline-sync-scope";
+import { resolvePlatformContext } from "@/lib/tenant-service";
+import { writeAudit } from "@/lib/security/audit-log";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 
-function canUseLocal() {
-  if (process.env.NODE_ENV === "production") return false;
-  return process.env.TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE === "true";
-}
+export const dynamic = "force-dynamic";
 
-function localPath() {
-  return path.join(process.cwd(), "storage", "offline-sync.local.json");
-}
-
-async function readLocal(): Promise<Record<string, OfflineSyncItem[]>> {
-  if (!canUseLocal()) return {};
-  try {
-    const parsed = JSON.parse(await readFile(localPath(), "utf8"));
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-async function writeLocal(store: Record<string, OfflineSyncItem[]>) {
-  if (!canUseLocal()) return;
-  await mkdir(path.dirname(localPath()), { recursive: true });
-  await writeFile(localPath(), JSON.stringify(store, null, 2), "utf8");
+function resultId(input: unknown): string {
+  if (!input || typeof input !== "object") return "unknown";
+  return cleanText((input as Record<string, unknown>).id, 160) || "unknown";
 }
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/offline-sync" }, async () => {
+  return withObservability(req, { route: "/api/offline-sync GET" }, async () => {
     const url = new URL(req.url);
     const locale = cleanText(url.searchParams.get("locale") || "fa", 8) === "en" ? "en" : "fa";
-    return apiOk({ manifest: offlineManifest(locale) });
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+
+    let scope: { token: string; expiresAt: string } | null = null;
+    if (session.studentId) {
+      const platform = await resolvePlatformContext(session);
+      scope = issueOfflineSyncScope({
+        tenantId: platform.tenantId,
+        studentId: session.studentId,
+      });
+      if (!scope) return apiError("offline_scope_authority_unavailable", 503);
+    }
+
+    const response = apiOk({
+      manifest: offlineManifest(locale),
+      scopeToken: scope?.token ?? null,
+      scopeExpiresAt: scope?.expiresAt ?? null,
+    });
+    response.headers.set("Cache-Control", "no-store, private");
+    return response;
   });
 }
 
 export async function POST(req: NextRequest) {
-  return withObservability(req, { route: "/api/offline-sync" }, async () => {
-    if (!verifyCsrfOrigin(req))
-      return apiError("forbidden", 403);
-    const limit = await rateLimit(req, { namespace: "offline-sync", limit: 30, windowMs: 60_000 });
-    if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getCanonicalSession(req);
+  return withObservability(req, { route: "/api/offline-sync POST" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    const platform = await resolvePlatformContext(session);
+
+    const limit = await rateLimit(req, {
+      namespace: "offline-sync",
+      identity: `${platform.tenantId}:${session.studentId}`,
+      limit: 30,
+      windowMs: 60_000,
+    });
+    if (!limit.ok) return apiError("rate_limited", 429);
 
     try {
       const raw = await req.text();
       if (raw.length > 80_000) return apiError("payload_too_large", 413);
       const body = JSON.parse(raw || "{}");
       const items = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
-      if (!items.length) return apiOk({ accepted: 0, rejected: 0, results: [] });
+      if (!items.length) return apiError("items_required", 400);
 
-      const normalized: OfflineSyncItem[] = [];
       const results: OfflineSyncResult[] = [];
-      for (const item of items) {
-        const parsed = normalizeOfflineSyncItem(item);
-        if (!parsed.ok) results.push({ id: parsed.id || "unknown", status: "rejected", reason: parsed.reason });
-        else {
-          normalized.push(parsed.item);
-          results.push({ id: parsed.item.id, status: "accepted" });
+      for (const input of items) {
+        const record =
+          input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+        const id = resultId(input);
+        const scopeToken = typeof record.scopeToken === "string" ? record.scopeToken : "";
+        const scope = verifyOfflineSyncScope(scopeToken);
+
+        if (scope.status === "unavailable") {
+          results.push({
+            id,
+            status: "retryable",
+            reason: "scope_authority_unavailable",
+          });
+          continue;
         }
+        if (scope.status === "invalid" || scope.status === "expired") {
+          results.push({
+            id,
+            status: "rejected",
+            reason:
+              scope.status === "expired"
+                ? "principal_scope_expired"
+                : "principal_scope_invalid",
+          });
+          continue;
+        }
+        if (
+          scope.scope.tenantId !== platform.tenantId ||
+          scope.scope.studentId !== session.studentId
+        ) {
+          // Keep another principal's command in the browser queue until that
+          // principal signs in again; never apply it to the current account.
+          results.push({
+            id,
+            status: "retryable",
+            reason: "principal_scope_mismatch",
+          });
+          continue;
+        }
+
+        const normalized = normalizeOfflineSyncItem(input);
+        if (!normalized.ok) {
+          results.push({
+            id: normalized.id || id,
+            status: "rejected",
+            reason: normalized.reason,
+          });
+          continue;
+        }
+
+        results.push(
+          await processOfflineSyncCommand({
+            tenantId: platform.tenantId,
+            studentId: session.studentId,
+            item: normalized.item,
+          }),
+        );
       }
 
-      const db = await withDb(async (client) => {
-        for (const item of normalized) {
-          await recordLearningEvent(client, {
-            studentId,
-            eventType: item.eventType as any,
-            source: item.source,
-            locale: item.locale,
-            payload: { ...item.payload, offlineEventId: item.id, clientCreatedAt: item.clientCreatedAt, syncedAt: new Date().toISOString() },
-          });
-        }
-        return true;
+      const committed = results.filter((result) => result.status === "committed").length;
+      const replayed = results.filter(
+        (result) => result.status === "committed" && result.replayed === true,
+      ).length;
+      const rejected = results.filter((result) => result.status === "rejected").length;
+      const retryable = results.filter((result) => result.status === "retryable").length;
+
+      writeAudit({
+        actorId: session.studentId,
+        action: "offline_sync",
+        ip: getClientIp(req),
+        userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
+        metadata: {
+          tenantId: platform.tenantId,
+          attempted: items.length,
+          committed,
+          replayed,
+          rejected,
+          retryable,
+        },
       });
 
-      if (!db.enabled && normalized.length) {
-        const store = await readLocal();
-        const current = store[studentId] || [];
-        const seen = new Set(current.map((item) => item.id));
-        store[studentId] = [...current, ...normalized.filter((item) => !seen.has(item.id))].slice(-500);
-        await writeLocal(store);
+      const payload = {
+        attempted: items.length,
+        accepted: committed,
+        committed,
+        replayed,
+        rejected,
+        retryable,
+        results,
+      };
+      const authorityUnavailable = results.every(
+        (result) =>
+          result.status === "retryable" &&
+          ["storage_unavailable", "scope_authority_unavailable"].includes(
+            result.reason ?? "",
+          ),
+      );
+      if (authorityUnavailable) {
+        return apiError("offline_sync_storage_unavailable", 503, payload);
       }
 
-      return apiOk({ accepted: normalized.length, rejected: results.filter((r) => r.status === "rejected").length, results });
-    } catch {
+      const response = apiOk(payload, retryable > 0 ? 207 : 200);
+      response.headers.set("Cache-Control", "no-store, private");
+      return response;
+    } catch (error) {
+      if (error instanceof SyntaxError) return apiError("invalid_json", 400);
       return apiError("server_error", 500);
     }
   });

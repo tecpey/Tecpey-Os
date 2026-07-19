@@ -19,6 +19,9 @@ function getPool(): Pool | null {
       max: 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      // Test workers import the shared DB authority directly. Once assertions
+      // complete, idle sockets must not keep the Node test process alive.
+      allowExitOnIdle: process.env.NODE_ENV === "test",
     });
     pool.on("error", (err) => {
       logger.error("[db] pool error", { message: err.message });
