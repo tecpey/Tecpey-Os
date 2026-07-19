@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -7,10 +6,9 @@ import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowLeft, Clock3, BookOpen } from "lucide-react";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
-import { AcademyLessonPlayer } from "@/components/academy/AcademyLessonPlayer";
+import { AcademyArticleLearningCompanion } from "@/components/academy/AcademyArticleLearningCompanion";
 
 type Props = { params: Promise<{ slug: string }> };
-
 
 const termQuizData: Record<string, { title: string; questions: { q: string; options: string[] }[] }> = {};
 
@@ -89,7 +87,7 @@ export default async function AcademyArticlePage({ params }: Props) {
         inLanguage: "fa-IR",
         educationalLevel: "Beginner to Advanced",
         teaches: [article.title, article.description],
-        hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", location: { "@type": "VirtualLocation", url: `https://tecpey.ir/academy/${article.slug}` } }
+        hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", location: { "@type": "VirtualLocation", url: `https://tecpey.ir/academy/${article.slug}` } },
       }) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
@@ -123,9 +121,9 @@ export default async function AcademyArticlePage({ params }: Props) {
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {[
-                ["این ترم برای چه کسانی مناسب است؟", "برای کارمند، دانشجو، والدین، کاربر تازه‌کار یا حتی کسی که فقط اسم بیت‌کوین و تتر را شنیده و می‌خواهد بدون ترس مفاهیم را بفهمد."],
-                ["چطور بخوانید؟", "اول متن را ساده و آرام بخوانید، بعد مثال‌ها را برای خودتان توضیح دهید، سپس آزمون پایان ترم را بزنید و پاسخ‌های اشتباه را مرور کنید."],
-                ["بعد از این ترم چه می‌شود؟", "اگر حداقل ۳ پاسخ از ۴ سؤال را درست بزنید، از نظر آموزشی آماده‌اید وارد ترم بعد شوید؛ اگر نه، همین صفحه را دوباره مرور کنید."],
+                ["این محتوا برای چه کسانی مناسب است؟", "برای کارمند، دانشجو، والدین، کاربر تازه‌کار یا هر کسی که می‌خواهد مفاهیم بازار را بدون عجله و ادعای سود بفهمد."],
+                ["چطور بخوانید؟", "متن و مثال‌ها را مرور کنید و سپس برای پیشرفت رسمی، وارد مسیر احراز‌شده و سرورمحور آکادمی شوید."],
+                ["آیا این صفحه XP می‌دهد؟", "خیر. مقاله‌های عمومی منبع مطالعه‌اند. XP، قبولی و بازشدن مسیر فقط از ارزیابی رسمی حساب آکادمی صادر می‌شود."],
               ].map(([title, text]) => (
                 <div key={title} className="rounded-[26px] border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-cyan-300/10 dark:bg-white/[0.04]">
                   <h3 className="font-black text-slate-950 dark:text-white">{title}</h3>
@@ -134,7 +132,7 @@ export default async function AcademyArticlePage({ params }: Props) {
               ))}
             </div>
 
-            <AcademyLessonPlayer slug={article.slug} sections={[...article.sections]} locale="fa" />
+            <AcademyArticleLearningCompanion slug={article.slug} sections={[...article.sections]} locale="fa" />
 
             <TermQuizBox slug={article.slug} />
 
