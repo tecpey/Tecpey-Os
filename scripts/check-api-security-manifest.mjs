@@ -15,6 +15,11 @@ const exceptionsPath = path.resolve(
   process.argv.find((arg) => arg.startsWith("--exceptions="))?.slice("--exceptions=".length)
     ?? "config/api-security-exceptions.json",
 );
+const operationOverridesPath = path.resolve(
+  root,
+  process.argv.find((arg) => arg.startsWith("--operation-overrides="))?.slice("--operation-overrides=".length)
+    ?? "config/api-security-operation-overrides.json",
+);
 const checkDate = process.env.API_SECURITY_CHECK_DATE
   ? new Date(`${process.env.API_SECURITY_CHECK_DATE}T00:00:00.000Z`)
   : new Date();
@@ -35,6 +40,15 @@ try {
   execFileSync(
     process.execPath,
     ["scripts/postprocess-api-security-manifest.mjs", `--manifest=${generatedPath}`],
+    { cwd: root, stdio: "inherit" },
+  );
+  execFileSync(
+    process.execPath,
+    [
+      "scripts/apply-api-security-operation-overrides.mjs",
+      `--manifest=${generatedPath}`,
+      `--overrides=${operationOverridesPath}`,
+    ],
     { cwd: root, stdio: "inherit" },
   );
 
