@@ -37,41 +37,63 @@ function coefficientDigits(value: string): number {
   return Math.max(1, digits.length);
 }
 
-/**
- * Decimal's global precision is intentionally bounded for the legacy engine.
- * Admission multiplication uses an isolated constructor with enough significant
- * digits to preserve the complete finite-decimal product before scale checks.
- */
-export function multiplyOrderDecimals(left: string, right: string): Decimal {
-  const precision = coefficientDigits(left) + coefficientDigits(right) + 4;
+/** Preserve the complete finite-decimal product before database rounding. */
+export function multiplyOrderDecimals(...values: string[]): Decimal {
+  if (values.length < 2) throw new Error("decimal_product_requires_two_values");
+  const precision = values.reduce((sum, value) => sum + coefficientDigits(value), 4);
   const ExactDecimal = Decimal.clone({
     precision: Math.max(40, precision),
     rounding: Decimal.ROUND_HALF_UP,
   });
-  return new ExactDecimal(left).times(new ExactDecimal(right));
+  return values.reduce(
+    (product, value) => product.times(new ExactDecimal(value)),
+    new ExactDecimal(1),
+  );
 }
 
-/**
- * The existing matching/release engine still serializes fills at scale 10.
- * Until that next #30 slice is Decimal-safe, admission rejects any hold that
- * would require rounding. This prevents both under-reservation and terminal
- * held-balance dust from asymmetric hold/release rounding.
- */
+function assertDatabaseRange(value: Decimal): void {
+  if (!value.isFinite() || value.lt(0)) throw new Error("invalid_database_amount");
+  if (value.gte(`1e${DATABASE_AMOUNT_INTEGER_DIGITS}`)) {
+    throw new Error("database_amount_range_exceeded");
+  }
+}
+
+/** Settlement truncates at asset scale so a fill can never debit/create more value. */
+export function toSettlementAmount(value: Decimal): string {
+  assertDatabaseRange(value);
+  return value.toDecimalPlaces(DATABASE_AMOUNT_SCALE, Decimal.ROUND_DOWN)
+    .toFixed(DATABASE_AMOUNT_SCALE);
+}
+
+/** Reservation rounds upward so the worst permitted limit fill is fully covered. */
+export function toReserveAmount(value: Decimal): string {
+  assertDatabaseRange(value);
+  return value.toDecimalPlaces(DATABASE_AMOUNT_SCALE, Decimal.ROUND_UP)
+    .toFixed(DATABASE_AMOUNT_SCALE);
+}
+
+/** Exact database-scale value; no rounding is accepted. */
 export function toHoldAmount(value: Decimal): string {
   if (!value.isFinite() || value.lte(0)) throw new Error("invalid_order_hold_amount");
   if (value.decimalPlaces() > DATABASE_AMOUNT_SCALE) {
     throw new Error("order_hold_scale_exceeded");
   }
-  if (value.gte(`1e${DATABASE_AMOUNT_INTEGER_DIGITS}`)) {
-    throw new Error("order_hold_range_exceeded");
-  }
+  assertDatabaseRange(value);
   return value.toFixed(DATABASE_AMOUNT_SCALE);
+}
+
+export function maximumFeeRate(market: Market): string {
+  const maker = parseOrderDecimal(market.makerFee);
+  const taker = parseOrderDecimal(market.takerFee);
+  if (!maker || !taker || maker.lt(0) || taker.lt(0)) {
+    throw new Error("market_fee_configuration_invalid");
+  }
+  return Decimal.max(maker, taker).toString();
 }
 
 export function calculateOrderHold(input: {
   request: PlaceOrderRequest;
   market: Market;
-  bestAskPrice?: string;
 }): OrderHold {
   const quantity = parsePositiveOrderDecimal(input.request.quantity);
   if (!quantity) throw new Error("invalid_quantity");
@@ -84,17 +106,26 @@ export function calculateOrderHold(input: {
     };
   }
 
-  const basisPrice = input.request.type === "market"
-    ? input.bestAskPrice
-    : input.request.price;
-  if (!basisPrice) throw new Error("order_hold_price_required");
+  if (input.request.type === "market") {
+    throw new Error("market_buy_depth_reservation_required");
+  }
+  const basisPrice = input.request.price;
+  if (!basisPrice || !parsePositiveOrderDecimal(basisPrice)) {
+    throw new Error("invalid_order_hold_price");
+  }
 
-  const price = parsePositiveOrderDecimal(basisPrice);
-  if (!price) throw new Error("invalid_order_hold_price");
+  const grossExact = multiplyOrderDecimals(input.request.quantity, basisPrice);
+  const feeExact = multiplyOrderDecimals(
+    grossExact.toFixed(grossExact.decimalPlaces()),
+    maximumFeeRate(input.market),
+  );
+  const grossReserve = toReserveAmount(grossExact);
+  const feeReserve = toReserveAmount(feeExact);
+  const totalReserve = D(grossReserve).plus(D(feeReserve));
 
   return {
     asset: input.market.quoteAsset,
-    amount: toHoldAmount(multiplyOrderDecimals(input.request.quantity, basisPrice)),
+    amount: toHoldAmount(totalReserve),
     basisPrice,
   };
 }
