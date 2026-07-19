@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { detectBodyLimitEvidence } from "./api-security-body-limit-policy.mjs";
+import { methodEvidenceSource } from "./api-security-source-evidence.mjs";
 
 const root = process.cwd();
 const manifestPath = path.resolve(
@@ -68,15 +69,38 @@ function findings(entry) {
 }
 
 const sourceCache = new Map();
-async function sourceFor(entry) {
-  if (!sourceCache.has(entry.sourcePath)) {
-    sourceCache.set(entry.sourcePath, await readFile(path.join(root, entry.sourcePath), "utf8"));
+async function readSource(sourcePath) {
+  if (!sourceCache.has(sourcePath)) {
+    sourceCache.set(sourcePath, await readFile(path.join(root, sourcePath), "utf8"));
   }
-  return sourceCache.get(entry.sourcePath);
+  return sourceCache.get(sourcePath);
+}
+
+async function scopedEvidence(entry) {
+  const delegated = typeof entry.delegatedTo === "string" && !entry.delegatedTo.includes(":unresolved")
+    ? entry.delegatedTo
+    : null;
+  const [delegatedPath, delegatedMethod] = delegated?.split("#") ?? [];
+  const sourcePath = delegatedPath || entry.sourcePath;
+  const method = delegatedMethod || entry.method;
+  const source = await readSource(sourcePath);
+  const evidence = methodEvidenceSource(source, method);
+  return {
+    sourcePath,
+    method,
+    source,
+    evidence: evidence ?? "",
+    resolved: evidence !== null,
+  };
 }
 
 for (const entry of manifest.routes) {
-  const source = await sourceFor(entry);
+  const scoped = await scopedEvidence(entry);
+  entry.evidenceSource = {
+    sourcePath: scoped.sourcePath,
+    method: scoped.method,
+    resolved: scoped.resolved,
+  };
 
   // The canonical Academy authentication route is credential authority even
   // though its path segment is `academy-auth` rather than `/auth/...`.
@@ -86,41 +110,42 @@ for (const entry of manifest.routes) {
 
   // Content-Length can be absent, forged, or bypassed by chunked transfer. It is
   // useful for an early rejection only and must never satisfy the governed body
-  // limit requirement. Only a reader that stops consuming bytes at the limit is
-  // accepted as enforceable evidence.
-  const bodyEvidence = detectBodyLimitEvidence(source);
+  // limit requirement. Evidence is deliberately scoped to the effective method,
+  // so another handler in the same route file cannot lend its controls.
+  const bodyEvidence = detectBodyLimitEvidence(scoped.evidence);
   entry.controls.headerBodySizeHint = bodyEvidence.headerHint;
   entry.controls.bodySizeLimitAuthority = bodyEvidence.authority;
   if (entry.controls.expectsBody) {
-    entry.controls.bodySizeLimit = bodyEvidence.enforceable;
+    entry.controls.bodySizeLimit = scoped.resolved && bodyEvidence.enforceable;
   }
 
   // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
-  // no-store contract from src/lib/api-validation.ts.
+  // no-store contract from src/lib/api-validation.ts. Both the import and the
+  // response call must occur in the effective method evidence.
   if (
-    /from\s+["']@\/lib\/api-validation["']/.test(source)
-    && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(source)
+    /from\s+["']@\/lib\/api-validation["']/.test(scoped.evidence)
+    && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(scoped.evidence)
   ) {
     entry.controls.noStore = true;
   }
 
   // Notification response builders wrap the same central contract with an
   // explicit private header set.
-  if (/notificationApi(?:Ok|Error)\s*\(/.test(source)) {
+  if (/notificationApi(?:Ok|Error)\s*\(/.test(scoped.evidence)) {
     entry.controls.noStore = true;
     entry.controls.redaction = true;
   }
 
   // The admin control-plane helper loads the live database session, checks
   // revocation/expiry/status/permission version, RBAC and optional step-up.
-  if (/authorizeAdminRequest\s*\(/.test(source)) {
+  if (/authorizeAdminRequest\s*\(/.test(scoped.evidence)) {
     entry.classification = "admin";
     entry.principalSource = "authorizeAdminRequest";
     entry.controls.verifiedPrincipal = true;
     entry.controls.strictRevocation = true;
   }
 
-  const principalHelper = source.match(
+  const principalHelper = scoped.evidence.match(
     /\b(getNotificationIdentityFromRequest|getAcademyAuthFromRequest|getStudentSessionFromRequest|getUnifiedSessionFromRequest|verifyUnifiedSession|setCurrentPublicVisibility)\s*\(/,
   )?.[1];
   if (principalHelper && entry.classification !== "public") {
@@ -146,6 +171,11 @@ if (logoutAlias && logoutAuthority) {
     ...logoutAuthority.controls,
     csrf: logoutAlias.controls.csrf || logoutAuthority.controls.csrf,
     noStore: true,
+  };
+  logoutAlias.evidenceSource = {
+    sourcePath: logoutAuthority.sourcePath,
+    method: "DELETE",
+    resolved: true,
   };
 }
 
