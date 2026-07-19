@@ -126,9 +126,7 @@ function canonicalOrThrow(input: {
     network: "ethereum",
     idempotencyKey: input.idempotencyKey,
   });
-  if (!result.ok) {
-    throw new Error(`canonicalization failed: ${result.reason}`);
-  }
+  if (!result.ok) throw new Error(`canonicalization failed: ${result.reason}`);
   return result;
 }
 
@@ -170,16 +168,12 @@ async function createAuthorization(input: {
   return inserted.value.id;
 }
 
-async function seedPrice(input?: {
-  observedAt?: Date;
-  ttlSeconds?: number;
-}): Promise<void> {
+async function seedPrice(): Promise<void> {
   const id = await recordWithdrawalPriceSnapshot({
     asset: "USDT",
     priceUsd: "1",
     source: "ci-authoritative-price-feed",
-    observedAt: input?.observedAt,
-    ttlSeconds: input?.ttlSeconds ?? 120,
+    ttlSeconds: 120,
   });
   assert.ok(id);
 }
@@ -388,13 +382,13 @@ describe("PostgreSQL withdrawal admission authority", () => {
             "SELECT COUNT(*)::text AS count FROM withdrawals WHERE user_id = $1",
             [userId],
           );
-          const authorization = await client.query<{ consumed_at: Date | null }>(
+          const auth = await client.query<{ consumed_at: Date | null }>(
             "SELECT consumed_at FROM withdrawal_authorizations WHERE id = $1",
             [authorizationId],
           );
           return {
             withdrawalCount: Number(withdrawals.rows[0]?.count ?? "0"),
-            consumedAt: authorization.rows[0]?.consumed_at ?? null,
+            consumedAt: auth.rows[0]?.consumed_at ?? null,
           };
         });
         assert.equal(evidence.enabled, true);
@@ -417,10 +411,16 @@ describe("PostgreSQL withdrawal admission authority", () => {
       const keyB = `withdrawal-concurrent-b-${randomUUID()}`;
       await seedBalance(userId, "1.5");
       await seedPrice();
-      const [authorizationA, authorizationB] = await Promise.all([
-        createAuthorization({ userId, amount: "1", idempotencyKey: keyA }),
-        createAuthorization({ userId, amount: "1", idempotencyKey: keyB }),
-      ]);
+      const authorizationA = await createAuthorization({
+        userId,
+        amount: "1",
+        idempotencyKey: keyA,
+      });
+      const authorizationB = await createAuthorization({
+        userId,
+        amount: "1",
+        idempotencyKey: keyB,
+      });
       try {
         const results = await Promise.all([
           create({ userId, amount: "1", key: keyA, authorizationId: authorizationA }),
@@ -443,13 +443,26 @@ describe("PostgreSQL withdrawal admission authority", () => {
     "stale price evidence cannot authorize valuation",
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
-      await seedPrice({
+      const asset = "DOGE";
+      await withDb(async (client) => {
+        await client.query("DELETE FROM withdrawal_price_snapshots WHERE asset = $1", [asset]);
+        return true;
+      });
+      const staleId = await recordWithdrawalPriceSnapshot({
+        asset,
+        priceUsd: "0.25",
+        source: "ci-stale-price-feed",
         observedAt: new Date(Date.now() - 3 * 60_000),
         ttlSeconds: 300,
       });
-      assert.deepEqual(await getAuthoritativeUsdValuation("USDT", "1"), {
+      assert.ok(staleId);
+      assert.deepEqual(await getAuthoritativeUsdValuation(asset, "1"), {
         ok: false,
         reason: "price_snapshot_stale",
+      });
+      await withDb(async (client) => {
+        await client.query("DELETE FROM withdrawal_price_snapshots WHERE id = $1", [staleId]);
+        return true;
       });
     },
   );
