@@ -14,6 +14,8 @@ type OfflineQueueItem = {
   scopeToken: string;
 };
 
+type PendingOfflineQueueItem = Omit<OfflineQueueItem, "scopeToken">;
+
 type OfflineSyncResponse = {
   results?: OfflineSyncResult[];
 };
@@ -33,6 +35,7 @@ const LEGACY_STORAGE_KEY = "tecpey_offline_queue_v1";
 const LEGACY_QUARANTINE_KEY = "tecpey_offline_queue_unscoped_quarantine_v1";
 const LAST_SYNC_KEY = "tecpey_offline_last_sync_v1";
 const SCOPE_KEY = "tecpey_offline_principal_scope_v1";
+let scopeRefreshInFlight: Promise<StoredScope | null> | null = null;
 
 // Single audited browser-storage boundary. Values here are transport-only and
 // never authoritative; PostgreSQL commit evidence remains the source of truth.
@@ -56,6 +59,10 @@ function writeQueue(items: OfflineQueueItem[]) {
   if (!store) return;
   store.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
   window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
+}
+
+function enqueueScopedItem(item: PendingOfflineQueueItem, scope: StoredScope) {
+  writeQueue([...readQueue(), { ...item, scopeToken: scope.token }]);
 }
 
 function quarantineLegacyQueue() {
@@ -97,7 +104,7 @@ function writeScope(scope: StoredScope | null) {
   else store.setItem(SCOPE_KEY, JSON.stringify(scope));
 }
 
-async function refreshPrincipalScope(): Promise<StoredScope | null> {
+async function fetchPrincipalScope(): Promise<StoredScope | null> {
   if (!navigator.onLine) return readScope();
   try {
     const response = await fetch("/api/offline-sync?locale=fa", {
@@ -127,18 +134,21 @@ async function refreshPrincipalScope(): Promise<StoredScope | null> {
   }
 }
 
+function refreshPrincipalScope(): Promise<StoredScope | null> {
+  if (!scopeRefreshInFlight) {
+    scopeRefreshInFlight = fetchPrincipalScope().finally(() => {
+      scopeRefreshInFlight = null;
+    });
+  }
+  return scopeRefreshInFlight;
+}
+
 export function queueOfflineEvent(
   eventType: OfflineEventType,
   payload: Record<string, unknown> = {},
   locale: "fa" | "en" = "fa",
 ): string {
-  const scope = readScope();
-  if (!scope) {
-    window.dispatchEvent(new CustomEvent("tecpey-offline-scope-required"));
-    return "";
-  }
-
-  const item: OfflineQueueItem = {
+  const baseItem: PendingOfflineQueueItem = {
     id:
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -148,10 +158,27 @@ export function queueOfflineEvent(
     locale,
     clientCreatedAt: new Date().toISOString(),
     payload,
-    scopeToken: scope.token,
   };
-  writeQueue([...readQueue(), item]);
-  return item.id;
+  const scope = readScope();
+  if (scope) {
+    enqueueScopedItem(baseItem, scope);
+  } else {
+    // The first event may arrive before the global manager finishes loading the
+    // signed principal scope. Resolve that race before deciding the event cannot
+    // be recorded; never attribute an unscoped event to a later account.
+    void refreshPrincipalScope().then((freshScope) => {
+      if (freshScope) {
+        enqueueScopedItem(baseItem, freshScope);
+        return;
+      }
+      window.dispatchEvent(
+        new CustomEvent("tecpey-offline-scope-required", {
+          detail: { eventId: baseItem.id },
+        }),
+      );
+    });
+  }
+  return baseItem.id;
 }
 
 async function syncQueue() {
@@ -189,13 +216,15 @@ export function OfflineSyncManager() {
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [scopeRequired, setScopeRequired] = useState(false);
 
   const label = useMemo(() => {
+    if (scopeRequired) return "برای ثبت آفلاین، ابتدا وارد حساب آکادمی شوید";
     if (!online) return "حالت آفلاین فعال است؛ داده‌ها بعداً همگام می‌شوند";
     if (syncing) return "در حال همگام‌سازی تمرین‌های ذخیره‌شده…";
     if (pending > 0) return `${pending} رویداد آماده همگام‌سازی`;
     return "همگام‌سازی آماده";
-  }, [online, pending, syncing]);
+  }, [online, pending, scopeRequired, syncing]);
 
   useEffect(() => {
     // Legacy commands had no principal binding. Preserve them in quarantine for
@@ -209,12 +238,14 @@ export function OfflineSyncManager() {
       setOnline(navigator.onLine);
       setPending(readQueue().length);
     };
+    const requireScope = () => setScopeRequired(true);
     const runSync = async () => {
       refresh();
       if (!navigator.onLine) return;
       setSyncing(true);
       try {
-        await refreshPrincipalScope();
+        const scope = await refreshPrincipalScope();
+        setScopeRequired(!scope);
         await syncQueue();
       } finally {
         setSyncing(false);
@@ -227,21 +258,25 @@ export function OfflineSyncManager() {
     window.addEventListener("online", runSync);
     window.addEventListener("offline", refresh);
     window.addEventListener("tecpey-offline-queue-changed", refresh);
+    window.addEventListener("tecpey-offline-scope-required", requireScope);
     window.addEventListener("focus", runSync);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("online", runSync);
       window.removeEventListener("offline", refresh);
       window.removeEventListener("tecpey-offline-queue-changed", refresh);
+      window.removeEventListener("tecpey-offline-scope-required", requireScope);
       window.removeEventListener("focus", runSync);
     };
   }, []);
 
-  if (online && pending === 0) return null;
+  if (online && pending === 0 && !scopeRequired) return null;
   return (
     <div
       className="fixed bottom-4 left-4 z-[70] max-w-[calc(100vw-2rem)] rounded-2xl border border-cyan-300/20 bg-slate-950/92 px-4 py-3 text-xs font-black text-white shadow-2xl shadow-cyan-500/10 backdrop-blur-xl"
       dir="rtl"
+      role="status"
+      aria-live="polite"
     >
       <div className="flex items-center gap-2">
         {syncing ? (
