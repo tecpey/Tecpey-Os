@@ -2,11 +2,11 @@ import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 import {
+  accessSessionMaxAgeSeconds,
   COOKIES,
   shouldUseSecureCookie,
-  sessionMaxAge,
-  sessionMaxAgeSeconds,
 } from "./platform-config";
+import { registerSession } from "./security/session-store";
 
 export const UNIFIED_SESSION_COOKIE = COOKIES.SESSION;
 
@@ -22,6 +22,11 @@ export type UnifiedSessionPayload = UnifiedSessionData & {
   role: "unified";
   v: 1;
   jti?: string;
+};
+
+export type UnifiedSessionRegistration = {
+  deviceInfo?: string;
+  ip?: string;
 };
 
 function unifiedSecret(): Uint8Array | null {
@@ -44,6 +49,7 @@ export async function signUnifiedSession(
   const key = unifiedSecret();
   if (!key) throw new Error("unified_session_secret_missing");
   const jti = crypto.randomUUID();
+  const expiresAt = Math.floor(Date.now() / 1000) + accessSessionMaxAgeSeconds();
   return new SignJWT({
     role: "unified" as const,
     v: 1 as const,
@@ -57,7 +63,7 @@ export async function signUnifiedSession(
     .setSubject(data.studentId ?? data.accountId ?? "anon")
     .setJti(jti)
     .setIssuedAt()
-    .setExpirationTime(sessionMaxAge())
+    .setExpirationTime(expiresAt)
     .sign(key);
 }
 
@@ -128,17 +134,39 @@ export function setUnifiedSessionCookie(
   throw new Error("setUnifiedSessionCookie_async_required");
 }
 
+/**
+ * Issue a replacement access cookie only after its JTI has durable session
+ * evidence. This protects profile-link/update callers from minting a cookie
+ * that the revocation authority immediately rejects.
+ */
 export async function setUnifiedSessionCookieAsync(
   response: NextResponse,
   data: UnifiedSessionData,
+  registration: UnifiedSessionRegistration = {},
 ): Promise<void> {
+  const userId = data.accountId ?? data.studentId;
+  if (!userId) throw new Error("session_owner_missing");
+
   const token = await signUnifiedSession(data);
+  const jti = extractJtiFromToken(token);
+  const exp = extractExpFromToken(token);
+  if (!jti || !exp) throw new Error("session_issue_failed");
+
+  const registered = await registerSession({
+    jti,
+    userId,
+    deviceInfo: (registration.deviceInfo ?? "session-claim-refresh").slice(0, 500),
+    ip: (registration.ip ?? "unknown").slice(0, 80),
+    expiresAt: new Date(exp * 1000),
+  });
+  if (!registered) throw new Error("session_registry_unavailable");
+
   response.cookies.set(UNIFIED_SESSION_COOKIE, token, {
     path: "/",
     httpOnly: true,
     secure: shouldUseSecureCookie(),
     sameSite: "lax",
-    maxAge: sessionMaxAgeSeconds(),
+    maxAge: accessSessionMaxAgeSeconds(),
   });
 }
 
