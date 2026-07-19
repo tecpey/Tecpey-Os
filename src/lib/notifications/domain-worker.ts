@@ -8,6 +8,8 @@ export function isTerminalNotificationDomainError(code: string): boolean {
   return [
     "notification_domain_event_invalid",
     "notification_domain_outbox_event_invalid",
+    "notification_domain_event_fingerprint_mismatch",
+    "notification_domain_effective_event_invalid",
     "notification_principal_not_found",
     "notification_principal_inactive",
     "notification_event_locale_mismatch",
