@@ -8,8 +8,10 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { deviceFingerprint } from "@/lib/security/webauthn";
-import { listUserWithdrawals } from "@/lib/security/withdrawal-service";
-import { createAuthoritativeWithdrawal } from "@/lib/security/withdrawal-admission-service";
+import {
+  createAuthoritativeWithdrawal,
+  listUserWithdrawalsStrict,
+} from "@/lib/security/withdrawal-admission-service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +19,17 @@ export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/withdraw POST" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
+    if (!userId) return apiError("authentication_required", 401);
+
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-create",
+      identity: userId,
       limit: 5,
       windowMs: 60_000,
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
-
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
 
     const body = await req.json().catch(() => ({}));
     if (
@@ -89,16 +92,17 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/withdraw GET" }, async () => {
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
+    if (!userId) return apiError("authentication_required", 401);
+
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-list",
+      identity: userId,
       limit: 30,
       windowMs: 60_000,
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
-
-    const session = await getCanonicalSession(req, { strictRevocation: true });
-    const userId = session.academyAccountId ?? session.userId ?? session.studentId;
-    if (!userId) return apiError("authentication_required", 401);
 
     const url = new URL(req.url);
     const limit = Math.min(
@@ -110,7 +114,8 @@ export async function GET(req: NextRequest) {
       0,
     );
 
-    const withdrawals = await listUserWithdrawals(userId, limit, offset);
-    return apiOk({ withdrawals, limit, offset });
+    const result = await listUserWithdrawalsStrict(userId, limit, offset);
+    if (!result.ok) return apiError(result.reason, 503);
+    return apiOk({ withdrawals: result.withdrawals, limit, offset });
   });
 }
