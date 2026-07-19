@@ -3,13 +3,15 @@ name: API Security Manifest Bootstrap
 on:
   push:
     branches: [fix/api-security-manifest]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: api-security-manifest-bootstrap-${{ github.ref }}
+  group: api-security-manifest-bootstrap-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
