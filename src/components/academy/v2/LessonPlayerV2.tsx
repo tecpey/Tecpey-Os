@@ -22,13 +22,13 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
-import { QuizEngineV2 } from "./QuizEngineV2";
+import { QuizEngineV2, type QuizSubmissionAnswers } from "./QuizEngineV2";
 import { FlashcardDeck } from "./FlashcardDeck";
 import { ReflectionPrompt } from "./ReflectionPrompt";
 import {
+  acceptProgressProjection,
   loadProgress,
   onProgressChange,
-  recordLessonComplete,
   xpForNextLevel,
   XP_TABLE,
 } from "@/lib/academy-progress";
@@ -64,7 +64,7 @@ function LessonHeader({ lesson }: { lesson: Lesson }) {
         </div>
         <div className="flex items-center gap-1.5 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-black text-cyan-300">
           <Zap className="h-3.5 w-3.5" />
-          {XP_TABLE.LESSON_COMPLETE} XP
+          {XP_TABLE.LESSON_COMPLETE}–{XP_TABLE.LESSON_COMPLETE + XP_TABLE.LESSON_PERFECT_BONUS} XP
         </div>
       </div>
 
@@ -266,6 +266,13 @@ function XPProgressWidget() {
 
 type Phase = "reading" | "knowledge-check" | "flashcards" | "quiz" | "complete";
 
+function createAssessmentIdempotencyKey(lessonId: string): string {
+  const nonce = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `lesson:${lessonId}:${nonce}`.slice(0, 120);
+}
+
 // ─── Main LessonPlayerV2 ──────────────────────────────────────────────────────
 
 type LessonPlayerV2Props = {
@@ -278,12 +285,19 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
   const [phase, setPhase] = useState<Phase>("reading");
   const [readProgress, setReadProgress] = useState(0);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [assessmentPending, setAssessmentPending] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [earnedXp, setEarnedXp] = useState(0);
+  const assessmentIdempotencyKey = useRef(createAssessmentIdempotencyKey(lesson.id));
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = loadProgress();
     const completed = p.completedLessons[lesson.id];
     setAlreadyCompleted(!!completed);
+    setAssessmentError(null);
+    setEarnedXp(0);
+    assessmentIdempotencyKey.current = createAssessmentIdempotencyKey(lesson.id);
   }, [lesson.id]);
 
   // Track reading scroll progress
@@ -309,13 +323,51 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
   }, []);
 
   const handleQuizPass = useCallback(
-    (score: number) => {
-      recordLessonComplete(lesson.id, score, lesson.termNumber);
-      setAlreadyCompleted(true);
-      setPhase("complete");
-      onComplete?.(score);
+    async (_clientScore: number, answers: QuizSubmissionAnswers) => {
+      if (assessmentPending) return;
+      setAssessmentPending(true);
+      setAssessmentError(null);
+      try {
+        const response = await fetch("/api/academy-lesson-assessment", {
+          method: "POST",
+          credentials: "include",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            locale: "fa",
+            lessonId: lesson.id,
+            idempotencyKey: assessmentIdempotencyKey.current,
+            answers,
+          }),
+        });
+        const body = await response.json().catch(() => ({})) as {
+          error?: string;
+          score?: number;
+          passed?: boolean;
+          rewardDelta?: number;
+          state?: unknown;
+        };
+        if (!response.ok) throw new Error(body.error ?? `lesson_assessment_failed:${response.status}`);
+        if (!body.passed) {
+          setAssessmentError("نتیجه در سرور تأیید نشد. پاسخ‌ها را مرور و دوباره تلاش کنید.");
+          setPhase("reading");
+          return;
+        }
+
+        acceptProgressProjection(body.state, "fa");
+        const score = Math.max(0, Math.min(100, Math.round(Number(body.score) || 0)));
+        setEarnedXp(Math.max(0, Math.round(Number(body.rewardDelta) || 0)));
+        setAlreadyCompleted(true);
+        setPhase("complete");
+        assessmentIdempotencyKey.current = createAssessmentIdempotencyKey(lesson.id);
+        onComplete?.(score);
+      } catch {
+        setAssessmentError("ثبت نتیجه در سرور انجام نشد. بدون ثبت رسمی، XP یا تکمیل درس صادر نمی‌شود.");
+      } finally {
+        setAssessmentPending(false);
+      }
     },
-    [lesson.id, lesson.termNumber, onComplete],
+    [assessmentPending, lesson.id, onComplete],
   );
 
   const handleQuizFail = useCallback((_score: number) => {
@@ -327,6 +379,11 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
     return (
       <div className="space-y-6" dir="rtl">
         <XPProgressWidget />
+        {assessmentError && (
+          <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold text-red-200" role="alert">
+            {assessmentError}
+          </div>
+        )}
         <LessonHeader lesson={lesson} />
 
         {/* Reading progress */}
@@ -466,6 +523,8 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
           onPass={handleQuizPass}
           onFail={handleQuizFail}
           onReviewRequested={() => setPhase("reading")}
+          resultPending={assessmentPending}
+          resultError={assessmentError}
         />
       </div>
     );
@@ -486,7 +545,9 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
         {/* XP earned */}
         <div className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-slate-800 p-3">
           <Zap className="h-5 w-5 text-amber-300" />
-          <span className="font-black text-amber-200">+{XP_TABLE.LESSON_COMPLETE} XP کسب شد</span>
+          <span className="font-black text-amber-200">
+            {earnedXp > 0 ? `+${earnedXp} XP تأیید و ثبت شد` : "تکمیل درس قبلاً در سرور ثبت شده بود"}
+          </span>
         </div>
 
         {/* Action buttons */}

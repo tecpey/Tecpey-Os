@@ -5,6 +5,12 @@ import { withDb, withTx } from "@/lib/db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { XP_TABLE } from "@/lib/academy-progress";
+import {
+  ensureLegacyProgressSnapshot,
+  issueAcademyReward,
+  rebuildAcademyProgressProjection,
+} from "@/lib/academy-progress-authority";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import {
   appendAttempt,
@@ -198,6 +204,7 @@ export async function PUT(req: NextRequest) {
          )`,
         [`${session.studentId}:${locale}:${definition.termSlug}`],
       );
+      await ensureLegacyProgressSnapshot(client, session.studentId as string, locale);
 
       const allowed = await previousOfficialTermPassed(
         client,
@@ -220,6 +227,8 @@ export async function PUT(req: NextRequest) {
         [session.studentId, locale, definition.termSlug, definition.sectionKey],
       );
       const existing = existingResult.rows[0];
+      const newlyCompleted = !existing?.completed;
+      const newlyAnswered = action === "answer" && Boolean(answer) && !existing?.answer;
       const attempts = action === "answer" && answer
         ? appendAttempt(existing?.answer_attempts, answer)
         : normalizeAttempts(existing?.answer_attempts);
@@ -334,10 +343,35 @@ export async function PUT(req: NextRequest) {
         })],
       );
 
+      let rewardDelta = 0;
+      const sourceKey = `${definition.termSlug}:${definition.sectionKey}`;
+      if (newlyCompleted && await issueAcademyReward(client, {
+        studentId: session.studentId as string,
+        locale,
+        rewardType: "lesson_section_complete",
+        sourceType: "lesson_progress",
+        sourceKey,
+        amount: XP_TABLE.LESSON_SECTION_COMPLETE,
+        payload: { termNumber: definition.termNumber, termSlug: definition.termSlug, sectionKey: definition.sectionKey },
+      })) rewardDelta += XP_TABLE.LESSON_SECTION_COMPLETE;
+
+      if (newlyAnswered && await issueAcademyReward(client, {
+        studentId: session.studentId as string,
+        locale,
+        rewardType: "lesson_answered",
+        sourceType: "lesson_progress",
+        sourceKey,
+        amount: XP_TABLE.LESSON_ANSWERED,
+        payload: { termNumber: definition.termNumber, termSlug: definition.termSlug, sectionKey: definition.sectionKey },
+      })) rewardDelta += XP_TABLE.LESSON_ANSWERED;
+
+      const projection = await rebuildAcademyProgressProjection(client, session.studentId as string, locale);
       return {
         blocked: false as const,
         record: toLessonRecord(savedResult.rows[0]),
         summary: toSummary(savedSummaryResult.rows[0]),
+        rewardDelta,
+        projection,
       };
     });
 
@@ -348,6 +382,10 @@ export async function PUT(req: NextRequest) {
     return apiOk({
       record: result.value.record,
       summary: result.value.summary,
+      rewardDelta: result.value.rewardDelta,
+      state: result.value.projection.state,
+      revision: result.value.projection.revision,
+      updatedAt: result.value.projection.updatedAt,
     }, 200, { "Cache-Control": "no-store, max-age=0" });
   });
 }

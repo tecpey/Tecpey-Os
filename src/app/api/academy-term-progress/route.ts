@@ -10,10 +10,16 @@ import { getCanonicalSession } from "@/lib/auth-session";
 //   replaces all per-cookie reads in academy routes.
 import { cleanText } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
-import { withDb } from "@/lib/db";
+import { withDb, withTx } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { XP_TABLE } from "@/lib/academy-progress";
+import {
+  ensureLegacyProgressSnapshot,
+  issueAcademyReward,
+  rebuildAcademyProgressProjection,
+} from "@/lib/academy-progress-authority";
 
 type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 type LocalTermRow = {
@@ -114,7 +120,7 @@ export async function POST(req: NextRequest) {
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "academy-term-progress-submit", limit: 30, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getCanonicalSession(req);
+  const session = await getCanonicalSession(req, { strictRevocation: true });
   if (!session.studentId) return apiError("complete_account_required", 401);
   const studentId = session.studentId;
 
@@ -149,9 +155,24 @@ export async function POST(req: NextRequest) {
     const allFinalCorrect = total > 0 && score === total;
     const passed = allFinalCorrect && percent >= Number(process.env.ACADEMY_TERM_PASS_PERCENT || 80);
 
-    const result = await withDb(async (client) => {
+    const result = await withTx(async (client) => {
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext('academy_term_progress'), hashtext($1))`,
+        [`${studentId}:${locale}:${termNumber}`],
+      );
+      await ensureLegacyProgressSnapshot(client, studentId, locale);
+
       const previousPassed = await hasPreviousTermPassed(client, studentId, termNumber, locale);
-      if (!previousPassed) return { blocked: true, score, percent, passed: false, termNumber };
+      if (!previousPassed) return { blocked: true as const, score, percent, passed: false, termNumber };
+
+      const existingTerm = await client.query<{ status: string }>(
+        `SELECT status
+         FROM academy_term_progress
+         WHERE student_id = $1::uuid AND term_number = $2 AND locale = $3
+         FOR UPDATE`,
+        [studentId, termNumber, locale],
+      );
+      const wasPassed = existingTerm.rows[0]?.status === "passed";
       await client.query(
         `INSERT INTO academy_term_progress (student_id, term_number, locale, score, percent, status, passed_at)
          VALUES ($1::uuid, $2, $3, $4, $5, $6, CASE WHEN $6 = 'passed' THEN NOW() ELSE NULL END)
@@ -169,13 +190,39 @@ export async function POST(req: NextRequest) {
         [studentId, JSON.stringify({ termNumber, locale, score, percent, passed, attemptLog, firstTryCorrect: evaluation.firstTryCorrect, wrongAttempts: evaluation.wrongAttempts, ip: getClientIp(req) })],
       );
       await recordLearningEvent(client, {
-        studentId: studentId,
+        studentId,
         eventType: "quiz_attempt_recorded",
         payload: { termNumber, locale, score, percent, passed, attemptLog, firstTryCorrect: evaluation.firstTryCorrect, wrongAttempts: evaluation.wrongAttempts, ip: getClientIp(req) },
       });
       await maybeAwardAchievement(client, studentId, "first-quiz", { termNumber });
-      if (passed) await maybeAwardAchievement(client, studentId, termNumber >= 7 ? "first-certificate" : "first-lesson", { termNumber });
-      return { blocked: false, score, percent, passed, termNumber };
+
+      let rewardDelta = 0;
+      if (passed) {
+        if (!wasPassed && await issueAcademyReward(client, {
+          studentId,
+          locale,
+          rewardType: "term_pass",
+          sourceType: "term_assessment",
+          sourceKey: `term-${termNumber}`,
+          amount: XP_TABLE.TERM_PASS,
+          payload: { termNumber, score, percent },
+        })) rewardDelta += XP_TABLE.TERM_PASS;
+
+        const badgeCode = termNumber >= 7 ? "first-certificate" : `term-${termNumber}-passed`;
+        await issueAcademyReward(client, {
+          studentId,
+          locale,
+          rewardType: "badge",
+          sourceType: "achievement",
+          sourceKey: badgeCode,
+          amount: 0,
+          payload: { badgeCode, termNumber },
+        });
+        await maybeAwardAchievement(client, studentId, termNumber >= 7 ? "first-certificate" : "first-lesson", { termNumber });
+      }
+
+      const projection = await rebuildAcademyProgressProjection(client, studentId, locale);
+      return { blocked: false as const, score, percent, passed, termNumber, rewardDelta, projection };
     });
 
     if (!result.enabled) {
@@ -207,7 +254,16 @@ export async function POST(req: NextRequest) {
     }
     if (result.value?.blocked) return apiError("previous_term_required", 403, result.value ?? undefined);
     scheduleMentorProfileUpdate(studentId, "quiz_submitted");
-    return apiOk({ ...result.value });
+    return apiOk({
+      score: result.value.score,
+      percent: result.value.percent,
+      passed: result.value.passed,
+      termNumber: result.value.termNumber,
+      rewardDelta: result.value.rewardDelta,
+      state: result.value.projection.state,
+      revision: result.value.projection.revision,
+      updatedAt: result.value.projection.updatedAt,
+    });
   } catch {
     return apiError("server_error", 500);
   }

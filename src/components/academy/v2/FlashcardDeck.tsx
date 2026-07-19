@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Zap } from "lucide-react";
+import { BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, RotateCcw, Sparkles } from "lucide-react";
 import {
   type CardState,
   type ReviewGrade,
@@ -12,7 +12,6 @@ import {
   saveDeck,
   upsertCard,
 } from "@/lib/spaced-repetition";
-import { awardXp, XP_TABLE } from "@/lib/academy-progress";
 import type { Flashcard } from "@/data/academy/term1Curriculum";
 
 // ─── Session stats ────────────────────────────────────────────────────────────
@@ -184,10 +183,7 @@ function SessionComplete({ stats, onClose }: { stats: SessionStats; onClose: () 
       </div>
 
       <div className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 p-4">
-        <div className="flex items-center justify-center gap-2 text-sm font-black text-cyan-300">
-          <Zap className="h-4 w-4" />
-          +{XP_TABLE.FLASHCARD_SESSION} XP امروز
-        </div>
+        <p className="text-sm font-black text-cyan-300">مرور کارت‌ها در برنامه یادگیری شما ذخیره شد.</p>
       </div>
 
       <button
@@ -234,7 +230,6 @@ export function FlashcardDeck({ flashcards, dueOnly = true, onClose }: Flashcard
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(false);
-  const [xpAwarded, setXpAwarded] = useState(false);
   const [stats, setStats] = useState<SessionStats>({
     reviewed: 0, easy: 0, medium: 0, hard: 0, again: 0,
   });
@@ -293,18 +288,13 @@ export function FlashcardDeck({ flashcards, dueOnly = true, onClose }: Flashcard
 
       const next = currentIndex + 1;
       if (next >= queue.length) {
-        // Award XP once per day
-        if (!xpAwarded) {
-          awardXp(XP_TABLE.FLASHCARD_SESSION);
-          setXpAwarded(true);
-        }
         setDone(true);
       } else {
         setCurrentIndex(next);
         setFlipped(false);
       }
     },
-    [currentIndex, deck, queue, xpAwarded],
+    [currentIndex, deck, queue],
   );
 
   const currentCard = queue[currentIndex];

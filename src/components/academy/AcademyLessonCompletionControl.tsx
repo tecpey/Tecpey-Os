@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, Cloud, LoaderCircle, RefreshCw } from "lucide-react";
+import { acceptProgressProjection } from "@/lib/academy-progress";
 import type {
   AcademyLocale,
   LessonProgressRecord,
@@ -116,6 +117,7 @@ export function AcademyLessonCompletionControl({
         error?: string;
         record?: LessonProgressRecord;
         summary?: TermLearningSummary;
+        state?: unknown;
       };
 
       if (response.status === 401) {
@@ -131,11 +133,9 @@ export function AcademyLessonCompletionControl({
       }
 
       updateCachedRecord(locale, termSlug, body.record, body.summary);
+      acceptProgressProjection(body.state, locale);
       setCompleted(body.record.completed);
       setStatus("saved");
-      window.dispatchEvent(new CustomEvent("tecpey-academy-progress-updated", {
-        detail: { locale, termSlug, sectionKey, summary: body.summary },
-      }));
     } catch {
       setStatus("error");
     }

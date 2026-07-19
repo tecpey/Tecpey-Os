@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { acceptProgressProjection } from "@/lib/academy-progress";
 
 type Question = {
   q: string;
@@ -104,7 +105,7 @@ export function TermQuizClient({
         const data = await response.json().catch(() => ({}));
         if (response.ok) {
           setOfficialResult({ score: Number(data?.score || 0), percent: Number(data?.percent || 0), passed: Boolean(data?.passed) });
-          window.dispatchEvent(new Event("tecpey-academy-progress-updated"));
+          acceptProgressProjection(data?.state, locale);
           setOfficialMessage(data?.passed ? (locale === "fa" ? "نتیجه آزمون به‌صورت رسمی در پرونده آموزشی ثبت شد." : "Your assessment result was officially saved to your learning record.") : (locale === "fa" ? "نیاز به مرور دارید؛ نتیجه رسمی در پرونده آموزشی ثبت شد." : "Review needed; your official result was saved."));
         } else if (data?.error === "complete_account_required") setOfficialMessage(locale === "fa" ? "برای ثبت رسمی نتیجه، ابتدا حساب آکادمی را کامل کن." : "Complete your academy account to save this result officially.");
         else setOfficialMessage(locale === "fa" ? "نتیجه فقط پس از بررسی رسمی در پرونده آموزشی ثبت می‌شود." : "Results are saved only after official verification.");

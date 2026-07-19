@@ -21,7 +21,8 @@ export type MentorUpdateReason =
   | "academy_progress_updated"
   | "flashcards_updated"
   | "reflection_updated"
-  | "lesson_progress_updated";
+  | "lesson_progress_updated"
+  | "lesson_assessment_submitted";
 
 // ── Safe runner ───────────────────────────────────────────────────────────────
 

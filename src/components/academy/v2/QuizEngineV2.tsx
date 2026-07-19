@@ -8,6 +8,9 @@ import type { QuizQuestion } from "@/data/academy/term1Curriculum";
 
 type QuizMode = "module" | "term-exam" | "knowledge-check";
 
+export type QuizSubmissionAnswer = string | string[] | Record<string, string>;
+export type QuizSubmissionAnswers = Record<string, QuizSubmissionAnswer>;
+
 type QuizState = {
   phase: "intro" | "question" | "feedback" | "result" | "locked";
   questionIndex: number;
@@ -103,6 +106,14 @@ const initialState: QuizState = {
 };
 
 // ─── Grading helpers ──────────────────────────────────────────────────────────
+
+function answerForSubmission(q: QuizQuestion, state: QuizState): QuizSubmissionAnswer {
+  if (q.type === "multi") return [...((state.answers.current as string[] | undefined) ?? [])];
+  if (q.type === "ordering") return [...state.orderingSelection];
+  if (q.type === "matching") return { ...state.matchingPairs };
+  if (q.type === "fillblank") return state.fillBlankValue;
+  return String(state.answers.current ?? "");
+}
 
 function gradeAnswer(q: QuizQuestion, state: QuizState): boolean {
   switch (q.type) {
@@ -443,6 +454,8 @@ function ResultScreen({
   onRetry,
   onContinue,
   cooldownHours,
+  pending,
+  error,
 }: {
   score: number;
   total: number;
@@ -452,6 +465,8 @@ function ResultScreen({
   onRetry: () => void;
   onContinue: () => void;
   cooldownHours: number;
+  pending: boolean;
+  error: string | null;
 }) {
   const pct = Math.round((score / total) * 100);
   const minutes = Math.floor(elapsedSeconds / 60);
@@ -479,12 +494,18 @@ function ResultScreen({
       {passed ? (
         <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
           <p className="font-black text-emerald-300">🎉 عالی! مسیر بعدی باز شد.</p>
+          {error && (
+            <p className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm font-bold text-red-200" role="alert">
+              {error}
+            </p>
+          )}
           <button
             onClick={onContinue}
-            className="mt-4 w-full rounded-xl bg-emerald-500 py-3 font-black text-white hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            disabled={pending}
+            className="mt-4 w-full rounded-xl bg-emerald-500 py-3 font-black text-white hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
             aria-label="ادامه به مطالب بعدی"
           >
-            ادامه مسیر →
+            {pending ? "در حال تأیید نتیجه در سرور..." : "ادامه مسیر →"}
           </button>
         </div>
       ) : (
@@ -520,9 +541,11 @@ type QuizEngineV2Props = {
   /** Hours to wait before retake on fail. 0 = immediate. */
   retakeCooldownHours?: number;
   title?: string;
-  onPass?: (score: number) => void;
-  onFail?: (score: number) => void;
+  onPass?: (score: number, answers: QuizSubmissionAnswers) => void | Promise<void>;
+  onFail?: (score: number, answers: QuizSubmissionAnswers) => void | Promise<void>;
   onReviewRequested?: () => void;
+  resultPending?: boolean;
+  resultError?: string | null;
 };
 
 export function QuizEngineV2({
@@ -534,11 +557,14 @@ export function QuizEngineV2({
   onPass,
   onFail,
   onReviewRequested,
+  resultPending = false,
+  resultError = null,
 }: QuizEngineV2Props) {
   const threshold = passThreshold ?? (mode === "term-exam" ? 70 : mode === "module" ? 75 : 80);
   const [state, dispatch] = useReducer(quizReducer, initialState);
   const [showFeedback, setShowFeedback] = useState(false);
   const [lastCorrect, setLastCorrect] = useState(false);
+  const [submittedAnswers, setSubmittedAnswers] = useState<QuizSubmissionAnswers>({});
 
   // Timer
   useEffect(() => {
@@ -571,6 +597,10 @@ export function QuizEngineV2({
   const handleSubmit = useCallback(() => {
     if (!currentQ) return;
     const correct = gradeAnswer(currentQ, state);
+    setSubmittedAnswers((previous) => ({
+      ...previous,
+      [currentQ.id]: answerForSubmission(currentQ, state),
+    }));
     setLastCorrect(correct);
     setShowFeedback(true);
     dispatch({ type: "SUBMIT_ANSWER" });
@@ -578,17 +608,8 @@ export function QuizEngineV2({
 
   const handleNext = useCallback(() => {
     setShowFeedback(false);
-    if (isLastQuestion) {
-      const totalCorrect = state.correctCount + (lastCorrect ? 1 : 0);
-      const pct = Math.round((totalCorrect / questions.length) * 100);
-      if (pct >= threshold) onPass?.(pct);
-      else onFail?.(pct);
-      // Move to result
-      dispatch({ type: "NEXT_QUESTION", correct: lastCorrect });
-    } else {
-      dispatch({ type: "NEXT_QUESTION", correct: lastCorrect });
-    }
-  }, [isLastQuestion, state.correctCount, lastCorrect, questions.length, threshold, onPass, onFail]);
+    dispatch({ type: "NEXT_QUESTION", correct: lastCorrect });
+  }, [lastCorrect]);
 
   const totalCorrect =
     state.phase === "result" || isLastQuestion
@@ -641,9 +662,14 @@ export function QuizEngineV2({
         passed={isPassed}
         threshold={threshold}
         elapsedSeconds={state.elapsedSeconds}
-        onRetry={() => { onReviewRequested?.(); }}
-        onContinue={() => onPass?.(currentScore)}
+        onRetry={() => {
+          void onFail?.(currentScore, submittedAnswers);
+          onReviewRequested?.();
+        }}
+        onContinue={() => { void onPass?.(currentScore, submittedAnswers); }}
         cooldownHours={retakeCooldownHours}
+        pending={resultPending}
+        error={resultError}
       />
     );
   }

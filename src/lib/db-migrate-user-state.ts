@@ -191,6 +191,70 @@ CREATE INDEX IF NOT EXISTS academy_trading_arena_execution_events_student_idx
   ON academy_trading_arena_execution_events(student_id, created_at DESC);
 `;
 
+export const ACADEMY_REWARD_AUTHORITY_SQL = `
+CREATE TABLE IF NOT EXISTS academy_progress_legacy_snapshots (
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  schema_version SMALLINT NOT NULL DEFAULT 2,
+  progress JSONB NOT NULL DEFAULT '{}'::jsonb,
+  reward_event_cursor BIGINT NOT NULL DEFAULT 0 CHECK (reward_event_cursor >= 0),
+  captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (student_id, locale),
+  CHECK (jsonb_typeof(progress) = 'object')
+);
+
+CREATE TABLE IF NOT EXISTS academy_reward_events (
+  id BIGSERIAL PRIMARY KEY,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  reward_type TEXT NOT NULL CHECK (reward_type IN (
+    'lesson_complete',
+    'lesson_perfect_bonus',
+    'term_pass',
+    'lesson_section_complete',
+    'lesson_answered',
+    'badge'
+  )),
+  source_type TEXT NOT NULL,
+  source_key TEXT NOT NULL,
+  amount INTEGER NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, locale, reward_type, source_type, source_key),
+  CHECK (char_length(source_type) BETWEEN 1 AND 80),
+  CHECK (char_length(source_key) BETWEEN 1 AND 220),
+  CHECK (jsonb_typeof(payload) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS academy_reward_events_projection_idx
+  ON academy_reward_events(student_id, locale, id);
+
+CREATE TABLE IF NOT EXISTS academy_lesson_assessment_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
+  lesson_id TEXT NOT NULL,
+  term_number SMALLINT NOT NULL CHECK (term_number BETWEEN 1 AND 7),
+  idempotency_key TEXT NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+  score SMALLINT NOT NULL CHECK (score BETWEEN 0 AND 100),
+  passed BOOLEAN NOT NULL DEFAULT FALSE,
+  correct_count SMALLINT NOT NULL CHECK (correct_count >= 0),
+  question_count SMALLINT NOT NULL CHECK (question_count > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (student_id, locale, lesson_id, idempotency_key),
+  CHECK (char_length(lesson_id) BETWEEN 1 AND 160),
+  CHECK (char_length(idempotency_key) BETWEEN 8 AND 120),
+  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  CHECK (jsonb_typeof(answers) = 'object'),
+  CHECK (correct_count <= question_count)
+);
+
+CREATE INDEX IF NOT EXISTS academy_lesson_assessment_best_idx
+  ON academy_lesson_assessment_attempts(student_id, locale, lesson_id, passed, score DESC, created_at ASC);
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
@@ -198,6 +262,7 @@ const MIGRATIONS: Migration[] = [
   { filename: "0016_trading_arena_account.sql", sql: TRADING_ARENA_ACCOUNT_SQL },
   { filename: "0017_academy_lesson_progress.sql", sql: ACADEMY_LESSON_PROGRESS_SQL },
   { filename: "0020_trading_arena_execution.sql", sql: TRADING_ARENA_EXECUTION_SQL },
+  { filename: "0021_academy_reward_authority.sql", sql: ACADEMY_REWARD_AUTHORITY_SQL },
 ];
 
 function checksum(sql: string): string {
