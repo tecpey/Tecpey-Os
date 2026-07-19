@@ -23,6 +23,16 @@ export type NotificationPrincipal = {
   timezone: string;
 };
 
+type PrincipalRow = {
+  id: string;
+  tenant_id: string;
+  account_id: string | null;
+  student_id: string | null;
+  status: NotificationPrincipal["status"];
+  locale: "fa" | "en";
+  timezone: string;
+};
+
 function normalizeLocale(value: unknown): "fa" | "en" {
   return value === "en" ? "en" : "fa";
 }
@@ -92,15 +102,7 @@ export async function resolveNotificationPrincipal(
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [key]);
   }
 
-  const existing = await client.query<{
-    id: string;
-    tenant_id: string;
-    account_id: string | null;
-    student_id: string | null;
-    status: NotificationPrincipal["status"];
-    locale: "fa" | "en";
-    timezone: string;
-  }>(
+  const existing = await client.query<PrincipalRow>(
     `SELECT id, tenant_id, account_id, student_id, status, locale, timezone
        FROM platform_principals
       WHERE tenant_id = $1
@@ -114,24 +116,25 @@ export async function resolveNotificationPrincipal(
     throw new Error("notification_principal_identity_conflict");
   }
 
-  let row = existing.rows[0];
-  if (row) {
+  let row: PrincipalRow;
+  const current = existing.rows[0];
+  if (current) {
     if (
       identity.accountId &&
-      row.account_id &&
-      row.account_id !== identity.accountId
+      current.account_id &&
+      current.account_id !== identity.accountId
     ) {
       throw new Error("notification_principal_account_conflict");
     }
     if (
       identity.studentId &&
-      row.student_id &&
-      row.student_id !== identity.studentId
+      current.student_id &&
+      current.student_id !== identity.studentId
     ) {
       throw new Error("notification_principal_student_conflict");
     }
 
-    const updated = await client.query<typeof row>(
+    const updated = await client.query<PrincipalRow>(
       `UPDATE platform_principals
           SET account_id = COALESCE(account_id, $2),
               student_id = COALESCE(student_id, $3::uuid),
@@ -140,11 +143,17 @@ export async function resolveNotificationPrincipal(
               updated_at = NOW()
         WHERE id = $1
         RETURNING id, tenant_id, account_id, student_id, status, locale, timezone`,
-      [row.id, identity.accountId, identity.studentId, identity.email, identity.locale],
+      [
+        current.id,
+        identity.accountId,
+        identity.studentId,
+        identity.email,
+        identity.locale,
+      ],
     );
     row = updated.rows[0];
   } else {
-    const inserted = await client.query<typeof existing.rows[0]>(
+    const inserted = await client.query<PrincipalRow>(
       `INSERT INTO platform_principals
         (tenant_id, account_id, student_id, email, locale)
        VALUES ($1, $2, $3::uuid, $4, $5)
@@ -153,6 +162,8 @@ export async function resolveNotificationPrincipal(
     );
     row = inserted.rows[0];
   }
+
+  if (!row) throw new Error("notification_principal_resolution_failed");
 
   await client.query(
     `INSERT INTO notification_settings (principal_id, timezone)
