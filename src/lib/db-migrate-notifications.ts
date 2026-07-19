@@ -14,13 +14,11 @@ CREATE TABLE IF NOT EXISTS platform_principals (
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'suspended', 'disabled', 'deleted')),
   locale TEXT NOT NULL DEFAULT 'fa' CHECK (locale IN ('fa', 'en')),
-  timezone TEXT NOT NULL DEFAULT 'UTC',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (tenant_id, id),
   CHECK (account_id IS NULL OR char_length(account_id) BETWEEN 3 AND 220),
-  CHECK (email IS NULL OR char_length(email) BETWEEN 3 AND 254),
-  CHECK (char_length(timezone) BETWEEN 1 AND 100)
+  CHECK (email IS NULL OR char_length(email) BETWEEN 3 AND 254)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS platform_principals_account_unique_idx
