@@ -14,6 +14,7 @@ import {
   NOTIFICATION_CONSENT_SOURCE,
   parseNotificationConsentInput,
   recordNotificationConsent,
+  validConsentIdempotencyKey,
 } from "@/lib/notifications/preferences";
 
 export async function GET(req: NextRequest) {
@@ -69,6 +70,11 @@ export async function POST(req: NextRequest) {
     const identity = await getNotificationIdentityFromRequest(req);
     if (!identity) return apiError("authentication_required", 401);
 
+    const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? null;
+    if (!validConsentIdempotencyKey(idempotencyKey)) {
+      return apiError("invalid_or_missing_idempotency_key", 400);
+    }
+
     let raw: unknown;
     try {
       raw = await req.json();
@@ -90,6 +96,7 @@ export async function POST(req: NextRequest) {
           policyVersion: MARKETING_CONSENT_POLICY_VERSION,
           source: NOTIFICATION_CONSENT_SOURCE,
           jurisdiction: null,
+          idempotencyKey,
         });
         return {
           recorded,
@@ -101,6 +108,9 @@ export async function POST(req: NextRequest) {
       return apiOk(result.value, 201);
     } catch (error) {
       const code = error instanceof Error ? error.message : "notification_consent_failed";
+      if (code === "notification_consent_idempotency_conflict") {
+        return apiError(code, 409);
+      }
       if (code === "notification_principal_inactive") {
         return apiError("account_inactive", 403);
       }
