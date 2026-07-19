@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import { withDb } from "../../lib/db";
 import { D } from "../../lib/trading/decimal";
 import {
@@ -8,6 +8,10 @@ import {
   processExchangeOrderCommand,
 } from "../../lib/trading/order-command-service";
 import { PLATFORM } from "../../lib/platform-config";
+import { isolateExchangeOrderTestCache } from "./exchange-order-test-environment";
+
+const restoreTestCache = isolateExchangeOrderTestCache();
+after(restoreTestCache);
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -129,8 +133,14 @@ describe("Exchange market-buy total-spend protection", () => {
     });
     assert.equal(evidence.enabled, true);
     if (!evidence.enabled) return;
-    assert.equal(D(evidence.value.balance?.available_balance ?? "NaN").eq("10.005"), true);
-    assert.equal(D(evidence.value.balance?.held_balance ?? "NaN").isZero(), true);
+    assert.equal(
+      D(evidence.value.balance?.available_balance ?? "NaN").eq("10.005"),
+      true,
+    );
+    assert.equal(
+      D(evidence.value.balance?.held_balance ?? "NaN").isZero(),
+      true,
+    );
     assert.equal(evidence.value.trades, "0");
     assert.equal(D(evidence.value.residual).isZero(), true);
   });
