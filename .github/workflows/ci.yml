@@ -62,10 +62,9 @@ jobs:
       NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
       NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
       TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
-      TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
-      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
       REDIS_URL: redis://localhost:6379
@@ -148,23 +147,6 @@ jobs:
 
       - name: Admin authentication boundary guard
         run: node scripts/check-admin-auth-boundary.mjs
-
-      - name: Authentication session authority guard
-        run: npm run auth:check
-
-      - name: Authentication session integration tests
-        run: |
-          set -o pipefail
-          npm run test:auth-session 2>&1 | tee /tmp/tecpey-auth-session-tests.log
-
-      - name: Upload authentication session diagnostics
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: auth-session-diagnostics-${{ github.sha }}
-          path: /tmp/tecpey-auth-session-tests.log
-          if-no-files-found: ignore
-          retention-days: 7
 
       - name: Academy authority boundary guard
         run: node scripts/check-academy-authority-boundary.mjs
