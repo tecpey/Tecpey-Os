@@ -1,20 +1,13 @@
-/**
- * Unified session — single JWT cookie replacing the legacy multi-cookie system.
- *
- * Cookie: tecpey_session (COOKIES.SESSION)
- * Secret: TECPEY_SESSION_SECRET
- * Role claim: "unified" — distinguishes from legacy "student" / "academy_user" tokens
- *
- * Phase 22: Introduced alongside legacy cookies.
- * Phase 23: Legacy cookies retired — only tecpey_session is issued on new logins.
- */
-
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
-import { COOKIES, shouldUseSecureCookie, sessionMaxAge, sessionMaxAgeSeconds } from "./platform-config";
+import {
+  COOKIES,
+  shouldUseSecureCookie,
+  sessionMaxAge,
+  sessionMaxAgeSeconds,
+} from "./platform-config";
 
-/** Cookie name for the unified session. Re-exported for backward compatibility. */
 export const UNIFIED_SESSION_COOKIE = COOKIES.SESSION;
 
 export type UnifiedSessionData = {
@@ -32,22 +25,25 @@ export type UnifiedSessionPayload = UnifiedSessionData & {
 };
 
 function unifiedSecret(): Uint8Array | null {
-  const raw =
-    process.env.TECPEY_SESSION_SECRET ||
-    process.env.TECPEY_ACADEMY_AUTH_SECRET ||
-    process.env.JWT_SECRET;
+  const raw = process.env.TECPEY_SESSION_SECRET;
   if (raw && raw.length >= 24) return new TextEncoder().encode(raw);
   if (process.env.NODE_ENV !== "production") {
-    return new TextEncoder().encode("tecpey-local-unified-session-dev-secret-please-set-env");
+    return new TextEncoder().encode(
+      "tecpey-local-unified-session-dev-secret-please-set-env",
+    );
   }
-  logger.error("[unified-session] TECPEY_SESSION_SECRET missing or too short — unified sessions disabled.");
+  logger.error(
+    "[unified-session] TECPEY_SESSION_SECRET missing or too short — unified sessions disabled.",
+  );
   return null;
 }
 
-export async function signUnifiedSession(data: UnifiedSessionData): Promise<string> {
+export async function signUnifiedSession(
+  data: UnifiedSessionData,
+): Promise<string> {
   const key = unifiedSecret();
   if (!key) throw new Error("unified_session_secret_missing");
-  const jti = crypto.randomUUID(); // jti enables per-token revocation
+  const jti = crypto.randomUUID();
   return new SignJWT({
     role: "unified" as const,
     v: 1 as const,
@@ -65,20 +61,20 @@ export async function signUnifiedSession(data: UnifiedSessionData): Promise<stri
     .sign(key);
 }
 
-/** Extract jti from a JWT without verifying the signature. For revocation on logout. */
+/** Extract JTI only after the caller has verified the same token when security matters. */
 export function extractJtiFromToken(token: string): string | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    // base64url → base64 → JSON
     const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = atob(padded);
-    const payload = JSON.parse(decoded) as Record<string, unknown>;
+    const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
     return typeof payload.jti === "string" ? payload.jti : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-/** Extract expiration timestamp (seconds since epoch) from a JWT without verifying. */
+/** Extract expiry only after the caller has verified the same token when security matters. */
 export function extractExpFromToken(token: string): number | null {
   try {
     const parts = token.split(".");
@@ -86,7 +82,9 @@ export function extractExpFromToken(token: string): number | null {
     const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
     return typeof payload.exp === "number" ? payload.exp : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export async function verifyUnifiedSession(
@@ -96,7 +94,9 @@ export async function verifyUnifiedSession(
   const key = unifiedSecret();
   if (!key) return null;
   try {
-    const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ["HS256"],
+    });
     if (payload.role !== "unified" || (payload.v as unknown) !== 1) return null;
     return {
       role: "unified",
@@ -104,7 +104,8 @@ export async function verifyUnifiedSession(
       accountId: typeof payload.accountId === "string" ? payload.accountId : null,
       studentId: typeof payload.studentId === "string" ? payload.studentId : null,
       email: typeof payload.email === "string" ? payload.email : null,
-      displayName: typeof payload.displayName === "string" ? payload.displayName : null,
+      displayName:
+        typeof payload.displayName === "string" ? payload.displayName : null,
       username: typeof payload.username === "string" ? payload.username : null,
       jti: typeof payload.jti === "string" ? payload.jti : undefined,
     };
@@ -119,22 +120,14 @@ export async function getUnifiedSessionFromRequest(
   return verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
 }
 
-export function setUnifiedSessionCookie(response: NextResponse, data: UnifiedSessionData): void {
-  signUnifiedSession(data).then((token) => {
-    response.cookies.set(UNIFIED_SESSION_COOKIE, token, {
-      path: "/",
-      httpOnly: true,
-      secure: shouldUseSecureCookie(),
-      sameSite: "lax",
-      maxAge: sessionMaxAgeSeconds(),
-    });
-  }).catch((err) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error("[unified-session] failed to sign session cookie", { error: msg });
-  });
+/** @deprecated Route handlers must await setUnifiedSessionCookieAsync. */
+export function setUnifiedSessionCookie(
+  _response: NextResponse,
+  _data: UnifiedSessionData,
+): never {
+  throw new Error("setUnifiedSessionCookie_async_required");
 }
 
-/** Async version — prefer this over setUnifiedSessionCookie in route handlers. */
 export async function setUnifiedSessionCookieAsync(
   response: NextResponse,
   data: UnifiedSessionData,
