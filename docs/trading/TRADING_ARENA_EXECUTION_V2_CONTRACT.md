@@ -1,6 +1,6 @@
 # Trading Arena Authoritative Execution V2
 
-**Status:** Backend contract under review  
+**Status:** Backend merge candidate; client cutover remains a separate gated change  
 **Endpoint:** `/api/trading-arena/execution`  
 **Authority:** PostgreSQL active-attempt aggregate  
 **Related:** #26
@@ -163,6 +163,18 @@ After commit, meaningful non-market-refresh commands schedule a Mentor profile u
 - market-maker simulation beyond the controlled price authority;
 - Arena leagues, tournaments, rewards and prop allocation;
 - deletion of the legacy browser engine before the UI cutover is verified.
+
+## Client cutover gate
+
+The UI migration is a separate protected PR. It must:
+
+- hydrate only from `GET /api/trading-arena/execution`;
+- submit commands with a fresh idempotency key and current revision;
+- handle revision conflicts by replacing local display state with the server snapshot;
+- show price-feed unavailable, pending, rejected and degraded states;
+- never calculate authoritative fills, fees, balances, PnL or attempt outcomes;
+- remove Trading Arena and Trading Journal browser-persistence baselines only after successful cross-device verification;
+- retain the legacy engine only until the new path passes integration and rollback testing, then delete it in a dedicated cleanup PR.
 
 ## Evidence gate
 
