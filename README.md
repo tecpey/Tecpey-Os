@@ -139,7 +139,7 @@ flowchart TB
 | Application | Next.js 16.2, React 19.2, TypeScript 5 |
 | UI | Tailwind CSS 4, Lucide, Chart.js, Recharts |
 | Internationalization | next-intl, Persian RTL and English LTR foundations |
-| Database | PostgreSQL via `pg`, governed migrations and server-owned domain state |
+| Database | PostgreSQL via `pg`, advisory-locked canonical migrations and clean/idempotent CI verification |
 | Queue & Recovery | Redis, BullMQ, Redis-backed lifecycle tests |
 | Financial Precision | `decimal.js` with ongoing Exchange precision hardening |
 | Authentication | `jose`, httpOnly cookie sessions, CSRF and step-up/passkey foundations |
@@ -155,20 +155,24 @@ Every pull request targeting `main` is expected to pass the exact-head quality p
 
 1. dependency installation with locked npm policy;
 2. production environment contract;
-3. TypeScript type checking;
-4. ESLint with zero warnings;
-5. browser-persistence authority guard;
-6. Admin authentication boundary guard;
-7. Academy authority boundary guard;
-8. Trading Arena authority boundary guard;
-9. Wallet authority boundary guard;
-10. complete automated tests, including Redis-backed wallet lifecycle coverage;
-11. production Next.js build.
+3. clean PostgreSQL migration execution;
+4. database migration idempotency and critical-schema verification;
+5. TypeScript type checking;
+6. ESLint with zero warnings;
+7. browser-persistence authority guard;
+8. Admin authentication boundary guard;
+9. Academy authority boundary guard;
+10. Trading Arena authority boundary guard;
+11. Wallet authority boundary guard;
+12. database migration authority guard;
+13. complete automated tests, including PostgreSQL migration and Redis-backed wallet lifecycle coverage;
+14. production Next.js build.
 
 Useful local commands:
 
 ```bash
 npm run env:check
+npm run db:migrate
 npm run typecheck
 npm run lint
 npm test
@@ -197,6 +201,7 @@ npm ci
 cp .env.example .env.local
 # Configure the required local environment values.
 npm run env:check
+npm run db:migrate
 npm run dev
 ```
 
@@ -264,7 +269,8 @@ Repository documentation must describe verified reality. Aspirational features s
 - نتیجه نامشخص فرمان Arena با همان payload، revision و idempotency بازیابی می‌شود و فرمان متفاوت تا تعیین تکلیف قبلی مسدود است.
 - اجرای برداشت وجه از داده معتبر PostgreSQL استفاده می‌کند و تراکنش امضاشده پیش از Broadcast به‌صورت پایدار ذخیره می‌شود.
 - زمان‌بندی BullMQ، deduplication و بازیابی watcherها با Redis integration test پوشش داده شده‌اند.
-- CI مرزهای Browser Persistence، Admin، Academy، Arena و Wallet را علاوه بر TypeScript، ESLint، تست‌ها و Build کنترل می‌کند.
+- برنامه مایگریشن دیتابیس به‌صورت مرکزی، advisory-locked و با اجرای واقعی و تکرار idempotent روی PostgreSQL در CI کنترل می‌شود.
+- CI مرزهای Browser Persistence، Admin، Academy، Arena، Wallet و Database Migration را علاوه بر TypeScript، ESLint، تست‌ها و Build کنترل می‌کند.
 
 مهم‌ترین موانع باقی‌مانده:
 
