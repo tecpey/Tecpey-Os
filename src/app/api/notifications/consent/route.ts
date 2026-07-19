@@ -9,6 +9,8 @@ import {
 } from "@/lib/notifications/principal";
 import {
   getCurrentNotificationConsents,
+  MARKETING_CONSENT_POLICY_VERSION,
+  NOTIFICATION_CONSENT_SOURCE,
   parseNotificationConsentInput,
   recordNotificationConsent,
 } from "@/lib/notifications/preferences";
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
       windowMs: 60_000,
     });
     if (!rate.ok) return apiError("rate_limited", 429);
-    if (!checkBodySize(req.headers.get("content-length"), 8_192)) {
+    if (!checkBodySize(req.headers.get("content-length"), 2_048)) {
       return apiError("payload_too_large", 413);
     }
 
@@ -80,7 +82,12 @@ export async function POST(req: NextRequest) {
         if (principal.status !== "active") {
           throw new Error("notification_principal_inactive");
         }
-        const recorded = await recordNotificationConsent(client, principal.id, consent);
+        const recorded = await recordNotificationConsent(client, principal.id, {
+          ...consent,
+          policyVersion: MARKETING_CONSENT_POLICY_VERSION,
+          source: NOTIFICATION_CONSENT_SOURCE,
+          jurisdiction: null,
+        });
         return {
           recorded,
           consents: await getCurrentNotificationConsents(client, principal.id),
