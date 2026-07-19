@@ -66,6 +66,7 @@ jobs:
       TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
       TECPEY_WITHDRAWAL_PRICE_SECRET: ci-placeholder-withdrawal-price-secret-32-min
+      TECPEY_OFFLINE_SYNC_SECRET: ci-placeholder-offline-scope-secret-32-min
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
@@ -181,6 +182,23 @@ jobs:
         with:
           name: withdrawal-admission-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-withdrawal-admission-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Offline sync authority guard
+        run: npm run offline:check
+
+      - name: Offline sync PostgreSQL integration tests
+        run: |
+          set -o pipefail
+          npm run test:offline-sync 2>&1 | tee /tmp/tecpey-offline-sync-tests.log
+
+      - name: Upload offline sync diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-sync-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-offline-sync-tests.log
           if-no-files-found: ignore
           retention-days: 7
 
