@@ -5,13 +5,16 @@ on:
   push:
     branches:
       - feat/academy-server-issued-progress-v1
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.head_ref == 'feat/academy-server-issued-progress-v1' || github.ref_name == 'feat/academy-server-issued-progress-v1')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
