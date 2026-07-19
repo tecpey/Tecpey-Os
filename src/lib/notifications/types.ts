@@ -42,6 +42,12 @@ export type NotificationAudienceScope =
 
 export type NotificationUrgency = "low" | "normal" | "high" | "critical";
 export type NotificationCadence = "instant" | "digest";
+export type NotificationDispatchMode =
+  | "event"
+  | "automation"
+  | "campaign"
+  | "broadcast"
+  | "emergency";
 
 export type NotificationPolicyDecision =
   | "allow"
@@ -77,13 +83,13 @@ export type NotificationClassPolicy = {
   consentRequired: boolean;
   userCategoryOptOutAllowed: boolean;
   quietHoursBypassAt: NotificationUrgency | null;
-  minimumApprovalsForGroup: number;
 };
 
 export type NotificationIntent = {
   notificationClass: NotificationClass;
   channel: NotificationChannel;
   audienceScope: NotificationAudienceScope;
+  dispatchMode: NotificationDispatchMode;
   urgency: NotificationUrgency;
   cadence: NotificationCadence;
   correlationKey: string;
