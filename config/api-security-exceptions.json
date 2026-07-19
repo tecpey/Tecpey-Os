@@ -13,246 +13,54 @@
       ],
       "expiresOn": "2026-08-31",
       "operations": [
-        {
-          "route": "/api/academy-auth",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/academy-certificates",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-flashcards",
-          "method": "PUT",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-lead",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-lesson-assessment",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-reflections",
-          "method": "PUT",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-simulator-decision",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-specialized-lead",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-student-profile",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy-term-progress",
-          "method": "POST",
-          "owner": "academy-platform"
-        },
-        {
-          "route": "/api/academy/auth/login",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/academy/auth/register",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/admin/withdrawals/[id]",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/ai-mentor",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/ai-mentor-v2",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/api-keys",
-          "method": "POST",
-          "owner": "developer-platform-security"
-        },
-        {
-          "route": "/api/api-keys/[id]",
-          "method": "PATCH",
-          "owner": "developer-platform-security"
-        },
-        {
-          "route": "/api/auth/2fa/backup",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/2fa/disable",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/2fa/enroll",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/2fa/verify",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/devices/[id]",
-          "method": "PATCH",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/password/change",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/auth/challenge",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/auth/verify",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/credentials/[id]",
-          "method": "PATCH",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/register/verify",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/withdraw",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/withdraw/authorize",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/command-center/auth/bootstrap/challenge",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/command-center/auth/bootstrap/verify",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/command-center/auth/passkey/verify",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/command-center/campaign",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/community/profile",
-          "method": "PATCH",
-          "owner": "social-platform-security"
-        },
-        {
-          "route": "/api/device-token",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/learning-events",
-          "method": "POST",
-          "owner": "academy-event-platform"
-        },
-        {
-          "route": "/api/mentor-challenge",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-conversations/migrate",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-memory",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/notifications/[id]",
-          "method": "PATCH",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/notifications/consent",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/notifications/preferences",
-          "method": "PATCH",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/notifications/read",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/offline-sync",
-          "method": "POST",
-          "owner": "offline-sync-platform"
-        },
-        {
-          "route": "/api/orders",
-          "method": "POST",
-          "owner": "exchange-wallet-security"
-        },
-        {
-          "route": "/api/trading-arena",
-          "method": "POST",
-          "owner": "security-platform"
-        },
-        {
-          "route": "/api/trading-arena/execution",
-          "method": "POST",
-          "owner": "security-platform"
-        },
-        {
-          "route": "/api/trading-arena/reflections",
-          "method": "POST",
-          "owner": "security-platform"
-        }
+        { "route": "/api/academy-auth", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/academy-certificates", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-flashcards", "method": "PUT", "owner": "academy-platform" },
+        { "route": "/api/academy-lead", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-lesson-assessment", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-reflections", "method": "PUT", "owner": "academy-platform" },
+        { "route": "/api/academy-simulator-decision", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-specialized-lead", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-student-profile", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy-term-progress", "method": "POST", "owner": "academy-platform" },
+        { "route": "/api/academy/auth/login", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/academy/auth/register", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/admin/withdrawals/[id]", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/ai-mentor", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/ai-mentor-v2", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/api-keys", "method": "POST", "owner": "developer-platform-security" },
+        { "route": "/api/api-keys/[id]", "method": "PATCH", "owner": "developer-platform-security" },
+        { "route": "/api/auth/2fa/backup", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/2fa/disable", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/2fa/enroll", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/2fa/verify", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/devices/[id]", "method": "PATCH", "owner": "identity-security" },
+        { "route": "/api/auth/password/change", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/auth/challenge", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/auth/verify", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/credentials/[id]", "method": "PATCH", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/register/verify", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/withdraw", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/withdraw/authorize", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/command-center/auth/bootstrap/challenge", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/command-center/auth/bootstrap/verify", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/command-center/auth/passkey/verify", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/command-center/campaign", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/community/profile", "method": "PATCH", "owner": "social-platform-security" },
+        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/learning-events", "method": "POST", "owner": "academy-event-platform" },
+        { "route": "/api/mentor-challenge", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-memory", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/notifications/[id]", "method": "PATCH", "owner": "notification-platform-security" },
+        { "route": "/api/notifications/consent", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/notifications/preferences", "method": "PATCH", "owner": "notification-platform-security" },
+        { "route": "/api/notifications/read", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/offline-sync", "method": "POST", "owner": "offline-sync-platform" },
+        { "route": "/api/orders", "method": "POST", "owner": "exchange-wallet-security" },
+        { "route": "/api/trading-arena", "method": "POST", "owner": "trading-arena-platform" },
+        { "route": "/api/trading-arena/execution", "method": "POST", "owner": "trading-arena-platform" },
+        { "route": "/api/trading-arena/reflections", "method": "POST", "owner": "trading-arena-platform" }
       ]
     },
     {
@@ -267,106 +75,25 @@
       ],
       "expiresOn": "2026-08-12",
       "operations": [
-        {
-          "route": "/api/ai-mentor",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/ai-mentor-v2",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/auth/2fa/backup",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/2fa/disable",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/2fa/enroll",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/devices/[id]",
-          "method": "DELETE",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/devices/[id]",
-          "method": "PATCH",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/refresh",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/credentials/[id]",
-          "method": "DELETE",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/credentials/[id]",
-          "method": "PATCH",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/auth/webauthn/register/verify",
-          "method": "POST",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/command-center/auth/logout",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/community/profile",
-          "method": "PATCH",
-          "owner": "social-platform-security"
-        },
-        {
-          "route": "/api/device-token",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/mentor-conversations/migrate",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-memory",
-          "method": "DELETE",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-memory",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-profile/recompute",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/notifications/consent",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/notifications/preferences",
-          "method": "PATCH",
-          "owner": "notification-platform-security"
-        }
+        { "route": "/api/ai-mentor", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/ai-mentor-v2", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/auth/2fa/backup", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/2fa/disable", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/2fa/enroll", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/auth/devices/[id]", "method": "DELETE", "owner": "identity-security" },
+        { "route": "/api/auth/devices/[id]", "method": "PATCH", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/credentials/[id]", "method": "DELETE", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/credentials/[id]", "method": "PATCH", "owner": "identity-security" },
+        { "route": "/api/auth/webauthn/register/verify", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/command-center/auth/logout", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/community/profile", "method": "PATCH", "owner": "social-platform-security" },
+        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-memory", "method": "DELETE", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-memory", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/notifications/consent", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/notifications/preferences", "method": "PATCH", "owner": "notification-platform-security" }
       ]
     },
     {
@@ -381,26 +108,11 @@
       ],
       "expiresOn": "2026-08-12",
       "operations": [
-        {
-          "route": "/api/admin/withdrawals/[id]",
-          "method": "POST",
-          "owner": "admin-security-platform"
-        },
-        {
-          "route": "/api/auth/withdraw/[id]",
-          "method": "DELETE",
-          "owner": "identity-security"
-        },
-        {
-          "route": "/api/offline-sync",
-          "method": "POST",
-          "owner": "offline-sync-platform"
-        },
-        {
-          "route": "/api/orders/[id]",
-          "method": "DELETE",
-          "owner": "exchange-wallet-security"
-        }
+        { "route": "/api/admin/withdrawals/[id]", "method": "POST", "owner": "admin-security-platform" },
+        { "route": "/api/auth/withdraw/[id]", "method": "DELETE", "owner": "identity-security" },
+        { "route": "/api/auth/withdraw/authorize", "method": "POST", "owner": "identity-security" },
+        { "route": "/api/offline-sync", "method": "POST", "owner": "offline-sync-platform" },
+        { "route": "/api/orders/[id]", "method": "DELETE", "owner": "exchange-wallet-security" }
       ]
     },
     {
@@ -415,21 +127,9 @@
       ],
       "expiresOn": "2026-08-12",
       "operations": [
-        {
-          "route": "/api/device-token",
-          "method": "POST",
-          "owner": "notification-platform-security"
-        },
-        {
-          "route": "/api/mentor-conversations/migrate",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        },
-        {
-          "route": "/api/mentor-profile/recompute",
-          "method": "POST",
-          "owner": "mentor-ai-platform"
-        }
+        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
+        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
+        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" }
       ]
     }
   ]
