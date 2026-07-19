@@ -1,0 +1,159 @@
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+const root = process.cwd();
+const manifestPath = path.resolve(
+  root,
+  process.argv.find((arg) => arg.startsWith("--manifest="))?.slice("--manifest=".length)
+    ?? "api-security-manifest.generated.json",
+);
+
+const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+
+function highRisk(entry) {
+  return entry.risk.some((risk) =>
+    ["financial", "credential", "privacy", "admin", "ai-memory"].includes(risk),
+  );
+}
+
+function idempotencyRequired(route) {
+  return /\/(?:orders?|withdraw(?:al)?s?|offline-sync|trading-arena\/execution|academy-lesson-assessment|academy-term-progress|payments?)(?:\/|$)/i.test(route);
+}
+
+function requirements(entry) {
+  if (entry.mutationMode === "deny-only") {
+    return {
+      csrf: false,
+      strictRevocation: false,
+      rateLimit: false,
+      bodySizeLimit: false,
+      idempotency: false,
+      verifiedPrincipal: false,
+      noStore: true,
+      audit: false,
+      redaction: true,
+      serviceIdentity: false,
+    };
+  }
+  const cookieAuthenticated = ["authenticated", "admin"].includes(entry.classification);
+  return {
+    csrf: cookieAuthenticated || entry.controls.setsCookie,
+    strictRevocation: cookieAuthenticated && highRisk(entry),
+    rateLimit: entry.classification === "public",
+    bodySizeLimit: entry.controls.expectsBody,
+    idempotency: idempotencyRequired(entry.route),
+    verifiedPrincipal: cookieAuthenticated,
+    noStore: entry.classification !== "public" || highRisk(entry) || entry.controls.setsCookie,
+    audit: highRisk(entry) || ["admin", "internal"].includes(entry.classification),
+    redaction: true,
+    serviceIdentity: entry.classification === "internal",
+  };
+}
+
+function findings(entry) {
+  const output = [];
+  const required = entry.requirements;
+  if (required.csrf && !entry.controls.csrf) output.push("required_csrf_missing");
+  if (required.strictRevocation && !entry.controls.strictRevocation) output.push("required_strict_revocation_missing");
+  if (required.bodySizeLimit && !entry.controls.bodySizeLimit) output.push("parsed_body_without_size_limit");
+  if (required.rateLimit && !entry.controls.rateLimit) output.push("public_mutation_without_rate_limit");
+  if (required.idempotency && !entry.controls.idempotency) output.push("replayable_command_without_idempotency");
+  if (required.verifiedPrincipal && !entry.controls.verifiedPrincipal) output.push("missing_verified_principal_source");
+  if (required.noStore && !entry.controls.noStore) output.push("private_mutation_without_explicit_no_store");
+  if (required.audit && !entry.controls.audit) output.push("missing_audit_or_observability_evidence");
+  if (required.redaction && !entry.controls.redaction) output.push("missing_error_redaction_evidence");
+  if (required.serviceIdentity && !entry.controls.serviceIdentity) output.push("internal_route_without_service_identity_evidence");
+  return output;
+}
+
+const sourceCache = new Map();
+async function sourceFor(entry) {
+  if (!sourceCache.has(entry.sourcePath)) {
+    sourceCache.set(entry.sourcePath, await readFile(path.join(root, entry.sourcePath), "utf8"));
+  }
+  return sourceCache.get(entry.sourcePath);
+}
+
+for (const entry of manifest.routes) {
+  const source = await sourceFor(entry);
+
+  // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
+  // no-store contract from src/lib/api-validation.ts.
+  if (
+    /from\s+["']@\/lib\/api-validation["']/.test(source)
+    && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(source)
+  ) {
+    entry.controls.noStore = true;
+  }
+
+  // Notification response builders wrap the same central contract with an
+  // explicit private header set.
+  if (/notificationApi(?:Ok|Error)\s*\(/.test(source)) {
+    entry.controls.noStore = true;
+    entry.controls.redaction = true;
+  }
+
+  // The admin control-plane helper loads the live database session, checks
+  // revocation/expiry/status/permission version, RBAC and optional step-up.
+  if (/authorizeAdminRequest\s*\(/.test(source)) {
+    entry.classification = "admin";
+    entry.principalSource = "authorizeAdminRequest";
+    entry.controls.verifiedPrincipal = true;
+    entry.controls.strictRevocation = true;
+  }
+
+  const principalHelper = source.match(
+    /\b(getNotificationIdentityFromRequest|getAcademyAuthFromRequest|getStudentSessionFromRequest|getUnifiedSessionFromRequest|verifyUnifiedSession|setCurrentPublicVisibility)\s*\(/,
+  )?.[1];
+  if (principalHelper && entry.classification !== "public") {
+    entry.principalSource = entry.principalSource ?? principalHelper;
+    entry.controls.verifiedPrincipal = true;
+  }
+}
+
+// Compatibility POST delegates to the canonical DELETE logout authority.
+const logoutAlias = manifest.routes.find(
+  (entry) => entry.route === "/api/academy/auth/logout" && entry.method === "POST",
+);
+const logoutAuthority = manifest.routes.find(
+  (entry) => entry.route === "/api/academy-auth" && entry.method === "DELETE",
+);
+if (logoutAlias && logoutAuthority) {
+  logoutAlias.delegatedTo = `${logoutAuthority.sourcePath}#DELETE`;
+  logoutAlias.delegatedSourceHash = logoutAuthority.sourceHash;
+  logoutAlias.classification = logoutAuthority.classification;
+  logoutAlias.principalSource = logoutAuthority.principalSource;
+  logoutAlias.tenantSource = logoutAuthority.tenantSource;
+  logoutAlias.controls = {
+    ...logoutAuthority.controls,
+    csrf: logoutAlias.controls.csrf || logoutAuthority.controls.csrf,
+    noStore: true,
+  };
+}
+
+for (const entry of manifest.routes) {
+  entry.requirements = requirements(entry);
+  entry.findings = findings(entry);
+}
+
+const findingCounts = {};
+for (const entry of manifest.routes) {
+  for (const finding of entry.findings) findingCounts[finding] = (findingCounts[finding] ?? 0) + 1;
+}
+manifest.totals = {
+  routeFiles: manifest.totals.routeFiles,
+  mutatingOperations: manifest.routes.length,
+  activeOperations: manifest.routes.filter((entry) => entry.mutationMode === "active").length,
+  denyOnlyOperations: manifest.routes.filter((entry) => entry.mutationMode === "deny-only").length,
+  operationsWithFindings: manifest.routes.filter((entry) => entry.findings.length > 0).length,
+  findings: manifest.routes.reduce((sum, entry) => sum + entry.findings.length, 0),
+  findingCounts: Object.fromEntries(
+    Object.entries(findingCounts).sort(([left], [right]) => left.localeCompare(right)),
+  ),
+};
+
+await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+console.log(
+  `API security manifest postprocessed: ${path.relative(root, manifestPath)} `
+  + `(${manifest.totals.findings} findings)`,
+);
