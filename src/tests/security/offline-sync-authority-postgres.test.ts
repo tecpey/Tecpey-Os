@@ -56,10 +56,6 @@ async function cleanupStudent(
     [studentId],
   );
   await client.query(
-    "DELETE FROM academy_learning_brain WHERE student_id = $1::uuid",
-    [studentId],
-  );
-  await client.query(
     "DELETE FROM learning_brain_profiles WHERE student_id = $1::uuid",
     [studentId],
   );
