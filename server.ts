@@ -3,7 +3,7 @@
 
 import { loadEnvConfig } from "@next/env";
 
-// Load .env.local and .env before anything else.
+// Load .env.local and .env before environment-sensitive runtime modules.
 loadEnvConfig(process.cwd());
 
 import { createServer, type IncomingMessage, type ServerResponse } from "http";
@@ -14,29 +14,55 @@ import { getWsManager } from "./src/lib/ws/ws-manager";
 import { getRedisPubSub } from "./src/lib/redis-pubsub";
 import { wireRedisPublisher } from "./src/lib/event-bus";
 import { bootstrapComplianceProviders } from "./src/lib/compliance/index";
-import { startWithdrawalWorkers, stopWithdrawalWorkers } from "./src/workers/withdrawal-worker";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
-const dev  = process.env.NODE_ENV !== "production";
+const dev = process.env.NODE_ENV !== "production";
 
 const httpServer = createServer();
 const app = next({ dev, httpServer });
 const handle = app.getRequestHandler();
 
+type WithdrawalWorkerModule = typeof import("./src/workers/withdrawal-worker");
+let withdrawalWorkers: WithdrawalWorkerModule | null = null;
+
+function configuredRedisUrl(): string | null {
+  const raw = process.env.REDIS_URL?.trim();
+  if (!raw) {
+    if (!dev) throw new Error("redis_url_required_in_production");
+    return null;
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if ((parsed.protocol !== "redis:" && parsed.protocol !== "rediss:") || !parsed.hostname) {
+      throw new Error("unsupported");
+    }
+  } catch {
+    throw new Error("redis_url_invalid");
+  }
+
+  return raw;
+}
+
 app.prepare().then(async () => {
   // ── Compliance providers (Phase 36) ──────────────────────────────────────
   bootstrapComplianceProviders();
 
+  const redisUrl = configuredRedisUrl();
+
   // ── Withdrawal pipeline workers (Phase 38) ────────────────────────────────
-  if (process.env.REDIS_URL) {
-    startWithdrawalWorkers();
+  // Worker modules instantiate BullMQ queues at import time. Import them only
+  // after a non-empty Redis URL has been validated so local UI development does
+  // not crash merely because Redis is intentionally absent.
+  if (redisUrl) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
   }
 
   // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────
   // When REDIS_URL is set, wire up cross-instance event distribution.
   // Each instance publishes via EventBus → Redis and subscribes to receive
   // events from all instances (including itself) → WsManager broadcast.
-  const redisUrl = process.env.REDIS_URL;
   if (redisUrl) {
     const pubsub = getRedisPubSub();
     await pubsub.initialize(redisUrl);
@@ -47,9 +73,7 @@ app.prepare().then(async () => {
     // so running more than one web/matching application node causes stale order
     // books, spurious matching failures, and inconsistent realtime snapshots.
     // Fail closed rather than start silently in an unsafe mode.
-    // Workers run in-process and do not register a web node, so scaling them is
-    // unaffected; only the web/matching app is restricted to a single instance.
-    if (process.env.NODE_ENV === "production") {
+    if (!dev) {
       const webNodes = await pubsub.countActiveWebNodes();
       if (webNodes < 0) {
         console.error(
@@ -81,7 +105,7 @@ app.prepare().then(async () => {
 
     console.log("> Redis pub/sub active — multi-instance mode enabled");
   } else {
-    console.log("> No REDIS_URL — single-instance mode (local EventBus)");
+    console.log("> No REDIS_URL — development UI mode (local EventBus, wallet workers disabled)");
   }
 
   // ── HTTP: delegate to Next.js ─────────────────────────────────────────────
@@ -105,12 +129,12 @@ app.prepare().then(async () => {
 
   // ── Graceful shutdown ─────────────────────────────────────────────────────
   const shutdown = async () => {
-    await stopWithdrawalWorkers();
+    await withdrawalWorkers?.stopWithdrawalWorkers();
     if (redisUrl) await getRedisPubSub().shutdown();
     process.exit(0);
   };
   process.once("SIGTERM", () => void shutdown());
-  process.once("SIGINT",  () => void shutdown());
+  process.once("SIGINT", () => void shutdown());
 
   httpServer.listen(port, () => {
     console.log(
@@ -118,4 +142,8 @@ app.prepare().then(async () => {
       `(${dev ? "development" : "production"}) — WS at ws://localhost:${port}/ws`,
     );
   });
+}).catch((error) => {
+  const message = error instanceof Error ? error.message : "server_bootstrap_failed";
+  console.error(`FATAL: TecPey server bootstrap failed: ${message}`);
+  process.exit(1);
 });

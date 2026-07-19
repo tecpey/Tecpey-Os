@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./tecpey-brand-tokens.css";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import Providers from "./providers";
@@ -10,7 +11,6 @@ import { ThemeProvider } from "@/components/theme-provider";
 import HtmlLangDir from "@/components/seo/HtmlLangDir";
 import { GlobalAiMentorWidget } from "@/components/academy/GlobalAiMentorWidget";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
-
 
 const globalSeoSchemas = [
   {

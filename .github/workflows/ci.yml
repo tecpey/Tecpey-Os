@@ -119,6 +119,26 @@ jobs:
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
 
+      - name: Frontend style authority guard
+        run: npm run ui:check
+
+      - name: Runtime bootstrap authority guard
+        run: node scripts/check-runtime-bootstrap.mjs
+
+      - name: Frontend development runtime style smoke
+        run: |
+          set -o pipefail
+          npm run ui:runtime:dev 2>&1 | tee /tmp/tecpey-ui-runtime-dev.log
+
+      - name: Upload development UI runtime diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-runtime-development-${{ github.sha }}
+          path: /tmp/tecpey-ui-runtime-dev.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Browser persistence guard
         run: node scripts/check-browser-persistence.mjs
 
@@ -147,3 +167,17 @@ jobs:
         env:
           NODE_ENV: production
         run: npm run build
+
+      - name: Frontend production runtime style smoke
+        run: |
+          set -o pipefail
+          npm run ui:runtime:prod 2>&1 | tee /tmp/tecpey-ui-runtime-prod.log
+
+      - name: Upload production UI runtime diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-runtime-production-${{ github.sha }}
+          path: /tmp/tecpey-ui-runtime-prod.log
+          if-no-files-found: ignore
+          retention-days: 7
