@@ -46,8 +46,11 @@ requireText("inboxRoute", 'apiError("authentication_required", 401)', "unauthent
 requireText("inboxRoute", "resolveNotificationPrincipal", "inbox ownership must use canonical principal resolution");
 requireText("inboxRoute", 'apiError("notification_inbox_unavailable", 503)', "database failure must be explicit rather than fabricated success");
 
-requireText("mutationRoute", "principal.id", "notification lifecycle mutations must be principal-scoped");
+requireText("mutationRoute", "resolveNotificationPrincipal", "notification mutations must resolve the canonical authenticated principal");
+requireText("mutationRoute", "mutateInboxNotification", "notification mutations must delegate to the principal-scoped repository boundary");
+requireText("repository", "AND tenant_id = $2", "mutation SQL must enforce tenant ownership");
 requireText("repository", "AND principal_id = $3", "mutation SQL must enforce principal ownership");
+requireText("repository", "[notificationId, principal.tenantId, principal.id]", "mutation parameters must bind the resolved tenant and principal identities");
 requireText("repository", "ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING", "legacy migration must be idempotent");
 requireText("repository", "dismissed_at IS NULL", "dismissed notifications must be excluded from inbox projection");
 
