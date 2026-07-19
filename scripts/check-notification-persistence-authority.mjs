@@ -38,8 +38,12 @@ requireText("migration", "REFERENCES platform_principals(tenant_id, id) ON DELET
 requireText("migration", "UNIQUE (tenant_id, principal_id, correlation_key)", "visible notification dedupe must be database-enforced");
 requireText("migration", "CREATE TABLE IF NOT EXISTS notification_outbox", "transactional delivery outbox boundary is required");
 requireText("migration", "event_sequence BIGSERIAL NOT NULL UNIQUE", "consent history requires deterministic append ordering");
+requireText("migration", "UNIQUE (principal_id, purpose, idempotency_key)", "consent retries must be idempotent per principal and purpose");
+requireText("migration", "idempotency_key TEXT NOT NULL", "consent evidence must carry an idempotency key");
 requireText("migration", "notification_consents_no_update", "consent history must be append-only");
 requireText("migration", "notification_consents_no_delete", "consent history deletion must be blocked");
+requireText("migration", "OR (enabled = TRUE AND cadence = 'instant')", "mandatory notification classes must remain enabled and instant at the database layer");
+requireText("migration", "CHECK (quiet_start IS NULL OR quiet_start <> quiet_end)", "ambiguous equal quiet-hour boundaries must be rejected");
 
 requireText("principal", "getUnifiedSessionFromRequest", "principal identity must come from verified unified sessions");
 requireText("principal", "pg_advisory_xact_lock", "concurrent principal linking must be serialized");
@@ -64,11 +68,18 @@ rejectText("repository", "export async function upsertNotificationPreference", "
 rejectText("repository", "validNotificationPreferenceInput", "preference parsing must not be duplicated in the inbox repository");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
+requireText("preferences", "mandatory_notification_class_requires_instant_delivery", "mandatory notification classes must not be downgraded to digest");
+requireText("preferences", "validConsentIdempotencyKey", "consent idempotency keys must be validated");
+requireText("preferences", "ON CONFLICT (principal_id, purpose, idempotency_key) DO NOTHING", "consent retries must replay existing evidence rather than append duplicates");
+requireText("preferences", "notification_consent_idempotency_conflict", "changed consent payloads may not reuse an idempotency key");
 requireText("preferences", "ORDER BY purpose, event_sequence DESC", "current consent projection must use deterministic append order");
 requireText("preferences", 'MARKETING_CONSENT_POLICY_VERSION = "marketing-v1"', "consent policy version must be server-owned");
 requireText("preferences", 'NOTIFICATION_CONSENT_SOURCE = "notification-preference-center"', "consent source must be server-owned");
 requireText("preferenceRoute", "exactly_one_preferences_operation_required", "preference mutations must be unambiguous");
+requireText("preferenceRoute", "mandatory_notification_class_requires_instant_delivery", "preference API must expose mandatory cadence conflicts explicitly");
 requireText("consentRoute", "recordNotificationConsent", "consent changes must append evidence rather than overwrite state");
+requireText("consentRoute", 'req.headers.get("idempotency-key")', "consent writes must require a request idempotency key");
+requireText("consentRoute", "validConsentIdempotencyKey", "consent route must validate idempotency evidence");
 requireText("consentRoute", "MARKETING_CONSENT_POLICY_VERSION", "consent endpoint must apply the server-owned policy version");
 requireText("consentRoute", "NOTIFICATION_CONSENT_SOURCE", "consent endpoint must apply the server-owned source");
 rejectText("consentRoute", "raw.policyVersion", "client-controlled consent policy versions are forbidden");
@@ -80,4 +91,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, deterministic consent ordering, CSRF, server-owned consent and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, idempotent server-owned consent, CSRF and single preference authority are enforced.");
