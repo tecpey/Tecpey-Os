@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { withDb, withTx } from "../../lib/db";
+import { D } from "../../lib/trading/decimal";
 import { holdOrderFundsTx } from "../../lib/trading/wallet-service";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -76,10 +77,10 @@ describe("PostgreSQL exact order hold authority", () => {
 
       assert.equal(evidence.enabled, true);
       if (!evidence.enabled) return;
-      assert.equal(evidence.value.balance?.available_balance, "0.0500000000");
-      assert.equal(evidence.value.balance?.held_balance, "0.1000000001");
+      assert.equal(D(evidence.value.balance?.available_balance ?? "NaN").eq("0.0500000000"), true);
+      assert.equal(D(evidence.value.balance?.held_balance ?? "NaN").eq("0.1000000001"), true);
       assert.equal(evidence.value.ledger.length, 1);
-      assert.equal(evidence.value.ledger[0]?.amount, "0.1000000001");
+      assert.equal(D(evidence.value.ledger[0]?.amount ?? "NaN").eq("0.1000000001"), true);
       assert.ok(expectedOrderIds.has(evidence.value.ledger[0]?.reference_id ?? ""));
     } finally {
       await withDb(async (client) => {
