@@ -14,12 +14,15 @@ export async function POST(request: NextRequest) {
     if (!verifyCsrfOrigin(request)) return apiError("forbidden", 403);
 
     const trustedIp = getTrustedClientIp(request);
+    if (process.env.NODE_ENV === "production" && !trustedIp) {
+      return apiError("client_network_unresolved", 400);
+    }
     const networkFingerprint = trustedIp ? hashLeadValue(`ip:${trustedIp}`) : null;
     const limit = await rateLimit(request, {
       namespace: "academy-lead",
       limit: 10,
       windowMs: 60_000,
-      identity: networkFingerprint ?? "unresolved-client",
+      identity: networkFingerprint ?? "development-unresolved-client",
     });
     if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
