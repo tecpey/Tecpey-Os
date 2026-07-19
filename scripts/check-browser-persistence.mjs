@@ -6,14 +6,16 @@ const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const PERSISTENCE_PATTERN = /(?:localStorage|sessionStorage|indexedDB|IndexedDB|caches\.(?:open|match|put|delete)|CacheStorage)/;
 
 // Exact line-count baseline from the repository-wide audit on 2026-07-18.
-// Academy specialized lead browser persistence was removed on 2026-07-19.
+// Academy specialized lead persistence was removed on 2026-07-19.
+// The only Academy lesson-progress browser access now remaining is a bounded,
+// one-time read-and-delete quarantine bridge; it has no XP/completion authority.
 // Every remediation PR MUST lower the relevant number here in the same change.
 // Increasing a count or adding a new file fails CI.
 const expectedMatches = new Map(Object.entries({
   "src/app/api/ai-mentor-v2/route.ts": 1,
   "src/app/api/mentor-conversations/migrate/route.ts": 4,
   "src/components/academy/AcademyEngagementHub.tsx": 2,
-  "src/components/academy/AcademyLessonPlayer.tsx": 3,
+  "src/components/academy/AcademyLegacyProgressQuarantine.tsx": 2,
   "src/components/academy/AcademyMentorCoachCenter.tsx": 5,
   "src/components/academy/AcademySimulationWorld.tsx": 2,
   "src/components/academy/AiMentorExperience.tsx": 6,
