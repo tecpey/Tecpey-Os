@@ -81,8 +81,19 @@ type Claim = {
   maxAttempts: number;
 };
 
+type ClaimResult =
+  | { status: "claimed"; claim: Claim }
+  | { status: "final"; row: CommandRow }
+  | { status: "busy" }
+  | { status: "unavailable" };
+
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9._:-]{16,160}$/;
-const TERMINAL_ORDER_STATUSES = new Set(["FILLED", "CANCELLED", "EXPIRED", "REJECTED"]);
+const TERMINAL_ORDER_STATUSES = new Set([
+  "FILLED",
+  "CANCELLED",
+  "EXPIRED",
+  "REJECTED",
+]);
 const PROCESSED_EVENTS = [
   "OrderAccepted",
   "OrderPartiallyFilled",
@@ -105,7 +116,9 @@ function canonicalJson(value: unknown): string {
   return "null";
 }
 
-export function hashExchangeOrderCommand(input: ExchangeOrderAdmissionInput): string {
+export function hashExchangeOrderCommand(
+  input: ExchangeOrderAdmissionInput,
+): string {
   return createHash("sha256")
     .update(
       canonicalJson({
@@ -174,7 +187,9 @@ export async function admitExchangeOrderCommand(
     const transaction = await withTx(async (client) => {
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-        [`exchange-order-command:${input.tenantId}:${input.userId}:${input.idempotencyKey}`],
+        [
+          `exchange-order-command:${input.tenantId}:${input.userId}:${input.idempotencyKey}`,
+        ],
       );
 
       const existing = await client.query<CommandRow>(
@@ -312,11 +327,7 @@ async function recoverExpiredCommandLease(
 async function claimCommand(
   commandId: string,
   workerId: string,
-): Promise<
-  | { status: "claimed"; claim: Claim }
-  | { status: "final"; row: CommandRow }
-  | { status: "busy" | "unavailable" }
-> {
+): Promise<ClaimResult> {
   try {
     const transaction = await withTx(async (client) => {
       await recoverExpiredCommandLease(client, commandId, workerId);
@@ -368,7 +379,9 @@ async function claimCommand(
         },
       };
     });
-    return transaction.enabled ? transaction.value : { status: "unavailable" };
+    return transaction.enabled
+      ? transaction.value
+      : { status: "unavailable" as const };
   } catch (error) {
     logger.error("[exchange-order-command] claim failed", {
       commandId,
@@ -437,7 +450,9 @@ async function finalizeCommand(
       if (row.state === "final") {
         const order = await getOrderByIdTx(client, row.order_id);
         const outcome = parseOutcome(row.result);
-        if (!order || !outcome) throw new Error("order_command_final_result_invalid");
+        if (!order || !outcome) {
+          throw new Error("order_command_final_result_invalid");
+        }
         return { status: "final" as const, commandId: row.id, order, outcome };
       }
       if (row.state !== "processing" || row.locked_by !== workerId) {
@@ -445,7 +460,11 @@ async function finalizeCommand(
       }
 
       const order = await getOrderByIdTx(client, claim.orderId);
-      if (!order || order.userId !== claim.userId || order.market !== claim.market) {
+      if (
+        !order ||
+        order.userId !== claim.userId ||
+        order.market !== claim.market
+      ) {
         throw new Error("order_command_authority_corrupt");
       }
 
@@ -506,13 +525,19 @@ async function finalizeCommand(
           }),
         ],
       );
-      return { status: "final" as const, commandId: claim.id, order, outcome };
+      return {
+        status: "final" as const,
+        commandId: claim.id,
+        order,
+        outcome,
+      };
     });
     return transaction.enabled
       ? transaction.value
       : { status: "unavailable", commandId: claim.id };
   } catch (error) {
-    const code = error instanceof Error ? error.message : "order_finalization_failed";
+    const code =
+      error instanceof Error ? error.message : "order_finalization_failed";
     await failCommand(claim, workerId, code);
     return {
       status: "queued",
@@ -570,12 +595,15 @@ async function failCommand(
       );
     });
   } catch (error) {
-    logger.error("[exchange-order-command] failure evidence could not be persisted", {
-      commandId: claim.id,
-      workerId,
-      originalError: errorCode,
-      persistenceError: error instanceof Error ? error.message : "unknown",
-    });
+    logger.error(
+      "[exchange-order-command] failure evidence could not be persisted",
+      {
+        commandId: claim.id,
+        workerId,
+        originalError: errorCode,
+        persistenceError: error instanceof Error ? error.message : "unknown",
+      },
+    );
   }
 }
 
@@ -643,7 +671,9 @@ export async function processExchangeOrderCommand(
   }
 }
 
-export async function readExchangeOrderCommand(commandId: string): Promise<{
+export async function readExchangeOrderCommand(
+  commandId: string,
+): Promise<{
   commandId: string;
   state: string;
   order: Order | null;
