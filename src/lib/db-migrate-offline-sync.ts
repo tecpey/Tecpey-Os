@@ -25,7 +25,7 @@ export async function runOfflineSyncMigrations(
         source TEXT NOT NULL,
         locale TEXT NOT NULL,
         client_created_at TIMESTAMPTZ NOT NULL,
-        learning_event_id UUID NOT NULL REFERENCES learning_events(event_id) ON DELETE RESTRICT,
+        learning_event_id TEXT NOT NULL REFERENCES learning_events(event_id) ON DELETE RESTRICT,
         result JSONB NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT offline_sync_client_event_id_format
@@ -36,7 +36,7 @@ export async function runOfflineSyncMigrations(
         CONSTRAINT offline_sync_payload_hash_format
           CHECK (payload_hash ~ '^[a-f0-9]{64}$'),
         CONSTRAINT offline_sync_source_allowed
-          CHECK (source IN ('web', 'ios', 'android')),
+          CHECK (source IN ('web', 'pwa', 'ios', 'android')),
         CONSTRAINT offline_sync_locale_allowed
           CHECK (locale IN ('fa', 'en')),
         CONSTRAINT offline_sync_student_event_unique
