@@ -103,7 +103,18 @@ jobs:
         run: npm run db:migrate
 
       - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/tsc --noEmit 2>&1 | tee /tmp/tecpey-typescript-diagnostics.log
+
+      - name: Upload TypeScript diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-typescript-diagnostics.log
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
@@ -125,6 +136,9 @@ jobs:
 
       - name: Database migration authority guard
         run: node scripts/check-database-migration-authority.mjs
+
+      - name: Exchange order admission authority guard
+        run: node scripts/check-exchange-order-admission.mjs
 
       - name: Tests
         run: npm test
