@@ -14,6 +14,9 @@ export const NOTIFICATION_CONSENT_PURPOSES = ["marketing"] as const;
 export type NotificationConsentPurpose =
   (typeof NOTIFICATION_CONSENT_PURPOSES)[number];
 
+export const MARKETING_CONSENT_POLICY_VERSION = "marketing-v1";
+export const NOTIFICATION_CONSENT_SOURCE = "notification-preference-center";
+
 export type NotificationSettingsPatch = {
   timezone: string;
   quietStart: string | null;
@@ -105,27 +108,16 @@ export function parseNotificationSettingsPatch(
 export function parseNotificationConsentInput(input: unknown): {
   purpose: NotificationConsentPurpose;
   status: "granted" | "revoked";
-  policyVersion: string;
-  source: string;
-  jurisdiction: string | null;
 } | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const candidate = input as Record<string, unknown>;
   const purpose = candidate.purpose as NotificationConsentPurpose;
   const status = candidate.status;
-  const policyVersion = String(candidate.policyVersion ?? "").trim();
-  const source = String(candidate.source ?? "").trim();
-  const jurisdiction = candidate.jurisdiction == null
-    ? null
-    : String(candidate.jurisdiction).trim();
 
   if (!NOTIFICATION_CONSENT_PURPOSES.includes(purpose)) return null;
   if (status !== "granted" && status !== "revoked") return null;
-  if (policyVersion.length < 1 || policyVersion.length > 100) return null;
-  if (source.length < 1 || source.length > 100) return null;
-  if (jurisdiction !== null && jurisdiction.length > 20) return null;
 
-  return { purpose, status, policyVersion, source, jurisdiction };
+  return { purpose, status };
 }
 
 export async function updateNotificationSettings(
