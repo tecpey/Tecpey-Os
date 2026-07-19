@@ -8,8 +8,8 @@ permissions:
   contents: write
 
 jobs:
-  arena-command-recovery:
-    name: Arena Command Recovery Patch
+  arena-command-recovery-diagnostic:
+    name: Arena Command Recovery Diagnostic
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]' && github.head_ref == 'feat/trading-arena-authoritative-ui-v2'
     steps:
@@ -19,29 +19,20 @@ jobs:
           ref: feat/trading-arena-authoritative-ui-v2
           fetch-depth: 0
 
-      - name: Apply asserted source corrections
-        run: python scripts/_apply_arena_command_recovery.py
-
-      - name: Verify authority boundaries
+      - name: Capture exact patch result
+        shell: bash
         run: |
-          node scripts/check-arena-ui-authority.mjs
-          node --check scripts/check-arena-ui-authority.mjs
-          git diff --check
-
-      - name: Restore canonical CI and remove transport files
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin main --quiet
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git rm .github/workflows/fix-arena-command-recovery.yml \
-                 scripts/_apply_arena_command_recovery.py \
-                 .github/ARENA_COMMAND_RECOVERY_TRIGGER
-          git add .github/workflows/ci.yml \
-                  src/lib/trading-arena-client.ts \
-                  src/components/academy/trading-arena/TradingArenaExecutionClient.tsx \
-                  src/tests/arena/client-authority.test.ts \
-                  scripts/check-arena-ui-authority.mjs
-          git diff --cached --check
-          git commit -m 'fix(arena): preserve unresolved command identity across polling'
-          git push origin HEAD:feat/trading-arena-authoritative-ui-v2
+          set +e
+          python scripts/_apply_arena_command_recovery.py > /tmp/arena-patch.log 2>&1
+          STATUS=$?
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            cp /tmp/arena-patch.log .github/ARENA_COMMAND_RECOVERY_ERROR
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add .github/ARENA_COMMAND_RECOVERY_ERROR
+            git commit -m 'chore(arena): capture command recovery patch mismatch'
+            git push origin HEAD:feat/trading-arena-authoritative-ui-v2
+            exit 1
+          fi
+          echo 'patch unexpectedly succeeded; no diagnostic commit required'
