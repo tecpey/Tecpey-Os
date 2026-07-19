@@ -20,6 +20,7 @@ const REQUIRED_MIGRATIONS = [
   "0026_crm_lead_hardening.sql",
   "0027_academy_section_checkpoint_authority.sql",
   "0028_academy_reward_legacy_release.sql",
+  "0029_academy_section_command_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ] as const;
@@ -30,6 +31,7 @@ const REQUIRED_TABLES = [
   "academy_trading_arena_commands",
   "academy_section_attempts",
   "academy_section_legacy_snapshots",
+  "academy_section_commands",
   "offline_sync_commands",
   "notification_domain_outbox",
   "notification_domain_outbox_attempts",
@@ -62,6 +64,9 @@ const REQUIRED_COLUMNS = [
   ["academy_lesson_progress", "authority_status"],
   ["academy_section_attempts", "request_hash"],
   ["academy_section_attempts", "idempotency_key"],
+  ["academy_section_commands", "request_hash"],
+  ["academy_section_commands", "idempotency_key"],
+  ["academy_section_commands", "result_response"],
   ["academy_reward_ledger", "revoked_at"],
   ["academy_reward_ledger", "revocation_reason"],
   ["admin_audit_events", "chain_sequence"],
@@ -97,6 +102,7 @@ const REQUIRED_INDEXES = [
   "crm_lead_delivery_lease_idx",
   "academy_section_attempts_student_term_idx",
   "academy_section_attempts_question_idx",
+  "academy_section_commands_request_idx",
   "academy_reward_ledger_active_student_idx",
   "withdrawals_user_idempotency_unique_idx",
 ] as const;
@@ -119,6 +125,8 @@ const REQUIRED_TRIGGERS = [
   "crm_lead_audit_no_delete",
   "academy_section_attempts_no_update",
   "academy_section_attempts_no_delete",
+  "academy_section_commands_no_update",
+  "academy_section_commands_no_delete",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
