@@ -18,6 +18,11 @@ export type LessonAssessmentEvidence = {
   updated_at: string;
 };
 
+/**
+ * Legacy section-reading evidence is preserved for migration/history only.
+ * It is intentionally ignored by the official projection because it was
+ * produced from client-declared completion rather than canonical assessment.
+ */
 export type SectionEvidence = {
   term_number: number;
   term_slug: string;
@@ -29,6 +34,7 @@ export type SectionEvidence = {
   updated_at: string;
 };
 
+/** Legacy client-derived XP summary. Never include it in official XP. */
 export type TermSummaryEvidence = {
   term_number: number;
   xp: number;
@@ -47,8 +53,10 @@ export type TermProgressEvidence = {
 export type AcademyProjectionEvidence = {
   rewards: RewardEvidence[];
   lessonAssessments: LessonAssessmentEvidence[];
-  sections: SectionEvidence[];
-  termSummaries: TermSummaryEvidence[];
+  /** Accepted only for backwards-compatible callers; ignored by design. */
+  sections?: SectionEvidence[];
+  /** Accepted only for backwards-compatible callers; ignored by design. */
+  termSummaries?: TermSummaryEvidence[];
   terms: TermProgressEvidence[];
 };
 
@@ -87,13 +95,19 @@ export function computeCurrentStreak(days: string[], now = new Date()): number {
   return streak;
 }
 
-export function buildAcademyProgressProjection(evidence: AcademyProjectionEvidence): AcademyProgressState {
+export function buildAcademyProgressProjection(
+  evidence: AcademyProjectionEvidence,
+): AcademyProgressState {
   const rewardsByKey = new Map<string, RewardEvidence>();
   for (const reward of evidence.rewards) rewardsByKey.set(reward.reward_key, reward);
   const rewards = [...rewardsByKey.values()];
-  const rewardXp = rewards.reduce((total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)), 0);
-  const sectionXp = evidence.termSummaries.reduce((total, summary) => total + Math.max(0, Math.round(Number(summary.xp) || 0)), 0);
-  const xp = rewardXp + sectionXp;
+
+  // The reward ledger is the sole XP/badge authority. Historical section
+  // summaries were computed from browser-issued completion and are excluded.
+  const xp = rewards.reduce(
+    (total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)),
+    0,
+  );
 
   const completedLessons: Record<string, LessonCompletion> = {};
   const masteryScores: Record<string, number> = {};
@@ -107,39 +121,39 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
       score,
       xpEarned: rewards
         .filter((reward) => reward.source_id === assessment.lesson_id)
-        .reduce((total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)), 0),
+        .reduce(
+          (total, reward) => total + Math.max(0, Math.round(Number(reward.xp) || 0)),
+          0,
+        ),
     };
     masteryScores[assessment.lesson_id] = score;
   }
 
-  for (const section of evidence.sections) {
-    if (!section.completed) continue;
-    const lessonId = `${section.term_slug}/${section.section_key}`;
-    const completedAt = section.completed_at ?? section.answered_at ?? section.updated_at;
-    completedLessons[lessonId] = {
-      lessonId,
-      completedAt: new Date(completedAt).getTime(),
-      score: section.answer ? 100 : 80,
-      xpEarned: section.answer ? 15 : 10,
-    };
-  }
-
-  const termStatus: Record<number, "unlocked" | "in_progress" | "passed"> = { 1: "unlocked" };
-  for (const summary of evidence.termSummaries) {
-    if (summary.term_number >= 1 && summary.term_number <= 7) termStatus[summary.term_number] = "in_progress";
-  }
+  const termStatus: Record<number, "unlocked" | "in_progress" | "passed"> = {
+    1: "unlocked",
+  };
   for (const assessment of evidence.lessonAssessments) {
-    if (assessment.term_number >= 1 && assessment.term_number <= 7 && termStatus[assessment.term_number] !== "passed") {
+    if (
+      assessment.term_number >= 1
+      && assessment.term_number <= 7
+      && termStatus[assessment.term_number] !== "passed"
+    ) {
       termStatus[assessment.term_number] = "in_progress";
     }
   }
+
   const moduleScores: Record<string, number> = {};
   for (const term of evidence.terms) {
     const termNumber = Math.max(1, Math.min(7, Math.round(Number(term.term_number) || 1)));
-    moduleScores[`term-${termNumber}`] = Math.max(0, Math.min(100, Math.round(Number(term.percent) || 0)));
+    moduleScores[`term-${termNumber}`] = Math.max(
+      0,
+      Math.min(100, Math.round(Number(term.percent) || 0)),
+    );
     if (term.status === "passed") {
       termStatus[termNumber] = "passed";
-      if (termNumber < 7 && !termStatus[termNumber + 1]) termStatus[termNumber + 1] = "unlocked";
+      if (termNumber < 7 && !termStatus[termNumber + 1]) {
+        termStatus[termNumber + 1] = "unlocked";
+      }
     } else if (termStatus[termNumber] !== "passed") {
       termStatus[termNumber] = "in_progress";
     }
@@ -148,7 +162,6 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
   const activityDays = [
     ...rewards.map((reward) => isoDay(reward.awarded_at)),
     ...evidence.lessonAssessments.map((item) => isoDay(item.passed_at ?? item.updated_at)),
-    ...evidence.sections.map((item) => isoDay(item.completed_at ?? item.answered_at ?? item.updated_at)),
     ...evidence.terms.map((item) => isoDay(item.passed_at ?? item.updated_at)),
   ].filter((item): item is string => Boolean(item));
 
@@ -161,7 +174,13 @@ export function buildAcademyProgressProjection(evidence: AcademyProjectionEviden
     completedLessons,
     moduleScores,
     termStatus,
-    earnedBadges: [...new Set(rewards.map((reward) => reward.badge_code).filter((item): item is string => Boolean(item)))],
+    earnedBadges: [
+      ...new Set(
+        rewards
+          .map((reward) => reward.badge_code)
+          .filter((item): item is string => Boolean(item)),
+      ),
+    ],
     masteryScores,
   };
 }
@@ -179,7 +198,12 @@ export async function refreshAcademyProgressProjection(
   client: PoolClient,
   studentId: string,
   locale: "fa" | "en",
-): Promise<{ state: AcademyProgressState; revision: number; updatedAt: string; legacySnapshotCaptured: boolean }> {
+): Promise<{
+  state: AcademyProgressState;
+  revision: number;
+  updatedAt: string;
+  legacySnapshotCaptured: boolean;
+}> {
   const currentResult = await client.query<{
     progress: unknown;
     revision: string;
@@ -188,19 +212,25 @@ export async function refreshAcademyProgressProjection(
     updated_at: string;
   }>(
     `SELECT progress, revision::text, progress_authority, projection_hash, updated_at
-     FROM academy_state_documents
-     WHERE student_id = $1::uuid AND locale = $2
-     FOR UPDATE`,
+       FROM academy_state_documents
+      WHERE student_id = $1::uuid AND locale = $2
+      FOR UPDATE`,
     [studentId, locale],
   );
   const current = currentResult.rows[0];
   let legacySnapshotCaptured = false;
 
-  if (current && current.progress_authority !== "server_projection_v1" && nonEmptyLegacyProgress(current.progress)) {
-    const snapshotHash = createHash("sha256").update(JSON.stringify(current.progress)).digest("hex");
+  if (
+    current
+    && current.progress_authority !== "server_projection_v2"
+    && nonEmptyLegacyProgress(current.progress)
+  ) {
+    const snapshotHash = createHash("sha256")
+      .update(JSON.stringify(current.progress))
+      .digest("hex");
     const inserted = await client.query(
       `INSERT INTO academy_progress_legacy_snapshots
-         (student_id, locale, snapshot, snapshot_hash, reconciliation_status, reconciliation_report)
+        (student_id, locale, snapshot, snapshot_hash, reconciliation_status, reconciliation_report)
        VALUES ($1::uuid, $2, $3::jsonb, $4, 'quarantined', $5::jsonb)
        ON CONFLICT (student_id, locale) DO NOTHING
        RETURNING student_id`,
@@ -209,46 +239,35 @@ export async function refreshAcademyProgressProjection(
         locale,
         JSON.stringify(current.progress),
         snapshotHash,
-        JSON.stringify({ reason: "legacy_client_mutable_state", preservedAt: new Date().toISOString() }),
+        JSON.stringify({
+          reason: "legacy_or_section_client_mutable_state",
+          preservedAt: new Date().toISOString(),
+        }),
       ],
     );
     legacySnapshotCaptured = Boolean(inserted.rows[0]);
   }
 
-  const [rewardsResult, assessmentsResult, sectionsResult, summariesResult, termsResult] = await Promise.all([
+  const [rewardsResult, assessmentsResult, termsResult] = await Promise.all([
     client.query<RewardEvidence>(
       `SELECT reward_key, source_id, xp, badge_code, awarded_at
-       FROM academy_reward_ledger
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY awarded_at ASC`,
+         FROM academy_reward_ledger
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY awarded_at ASC`,
       [studentId, locale],
     ),
     client.query<LessonAssessmentEvidence>(
       `SELECT lesson_id, term_number, best_score, passed_at, updated_at
-       FROM academy_lesson_assessments
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY updated_at ASC`,
-      [studentId, locale],
-    ),
-    client.query<SectionEvidence>(
-      `SELECT term_number, term_slug, section_key, completed, answer, completed_at, answered_at, updated_at
-       FROM academy_lesson_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY updated_at ASC`,
-      [studentId, locale],
-    ),
-    client.query<TermSummaryEvidence>(
-      `SELECT term_number, xp, updated_at
-       FROM academy_term_learning_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY term_number ASC`,
+         FROM academy_lesson_assessments
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY updated_at ASC`,
       [studentId, locale],
     ),
     client.query<TermProgressEvidence>(
       `SELECT term_number, status, score, percent, passed_at, updated_at
-       FROM academy_term_progress
-       WHERE student_id = $1::uuid AND locale = $2
-       ORDER BY term_number ASC`,
+         FROM academy_term_progress
+        WHERE student_id = $1::uuid AND locale = $2
+        ORDER BY term_number ASC`,
       [studentId, locale],
     ),
   ]);
@@ -256,13 +275,14 @@ export async function refreshAcademyProgressProjection(
   const state = buildAcademyProgressProjection({
     rewards: rewardsResult.rows,
     lessonAssessments: assessmentsResult.rows,
-    sections: sectionsResult.rows,
-    termSummaries: summariesResult.rows,
     terms: termsResult.rows,
   });
   const hash = projectionHash(state);
 
-  if (current?.progress_authority === "server_projection_v1" && current.projection_hash === hash) {
+  if (
+    current?.progress_authority === "server_projection_v2"
+    && current.projection_hash === hash
+  ) {
     return {
       state,
       revision: Number(current.revision),
@@ -273,8 +293,10 @@ export async function refreshAcademyProgressProjection(
 
   const saved = await client.query<{ revision: string; updated_at: string }>(
     `INSERT INTO academy_state_documents
-       (student_id, locale, schema_version, revision, progress, progress_authority, projection_hash, projection_updated_at, created_at, updated_at)
-     VALUES ($1::uuid, $2, 2, 1, $3::jsonb, 'server_projection_v1', $4, NOW(), NOW(), NOW())
+      (student_id, locale, schema_version, revision, progress,
+       progress_authority, projection_hash, projection_updated_at,
+       created_at, updated_at)
+     VALUES ($1::uuid, $2, 2, 1, $3::jsonb, 'server_projection_v2', $4, NOW(), NOW(), NOW())
      ON CONFLICT (student_id, locale) DO UPDATE SET
        schema_version = 2,
        revision = academy_state_documents.revision + 1,
@@ -289,7 +311,8 @@ export async function refreshAcademyProgressProjection(
 
   await client.query(
     `INSERT INTO academy_student_cartax
-       (student_id, progress, total_xp, completed_terms, overall_progress, earned_badges, streak_days, updated_at)
+      (student_id, progress, total_xp, completed_terms, overall_progress,
+       earned_badges, streak_days, updated_at)
      VALUES ($1::uuid, $2::jsonb, $3, $4, $5, $6::jsonb, $7, NOW())
      ON CONFLICT (student_id) DO UPDATE SET
        progress = EXCLUDED.progress,
@@ -304,7 +327,10 @@ export async function refreshAcademyProgressProjection(
       JSON.stringify(state),
       state.xp,
       Object.values(state.termStatus).filter((status) => status === "passed").length,
-      Math.round((Object.values(state.termStatus).filter((status) => status === "passed").length / 7) * 100),
+      Math.round(
+        (Object.values(state.termStatus).filter((status) => status === "passed").length / 7)
+          * 100,
+      ),
       JSON.stringify(state.earnedBadges),
       state.streak,
     ],

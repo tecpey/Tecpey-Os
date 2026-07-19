@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { AcademyLocale, TermLearningSummary } from "@/lib/academy-lesson-progress";
+import type { AcademyLocale } from "@/lib/academy-lesson-progress";
 
 export type OfficialTermProgress = {
   term_number?: number;
@@ -10,6 +10,14 @@ export type OfficialTermProgress = {
   status?: string;
   passed_at?: string | null;
   updated_at?: string;
+};
+
+export type OfficialAcademyProjection = {
+  xp?: number;
+  streak?: number;
+  termStatus?: Record<number | string, "unlocked" | "in_progress" | "passed">;
+  moduleScores?: Record<string, number>;
+  earnedBadges?: string[];
 };
 
 export type AcademyPathProgressItem = {
@@ -30,29 +38,34 @@ function clampPercent(value: unknown): number {
 
 export function buildAcademyPathProgress(
   officialTerms: OfficialTermProgress[],
-  learningTerms: TermLearningSummary[],
+  projection: OfficialAcademyProjection = {},
 ): AcademyPathProgress {
   const progress: AcademyPathProgress = {};
+  const termStatus = projection.termStatus ?? {};
+  const moduleScores = projection.moduleScores ?? {};
 
   for (let termNumber = 1; termNumber <= 7; termNumber += 1) {
     const termSlug = `term-${termNumber}`;
     const official = officialTerms.find((item) => Number(item.term_number) === termNumber);
-    const learning = learningTerms.find((item) => item.termNumber === termNumber || item.termSlug === termSlug);
-    const previousPassed = termNumber === 1 || officialTerms.some(
-      (item) => Number(item.term_number) === termNumber - 1 && item.status === "passed",
+    const projectionStatus = termStatus[termNumber] ?? termStatus[String(termNumber)];
+    const previousPassed = termNumber === 1
+      || termStatus[termNumber - 1] === "passed"
+      || termStatus[String(termNumber - 1)] === "passed"
+      || officialTerms.some(
+        (item) => Number(item.term_number) === termNumber - 1 && item.status === "passed",
+      );
+    const completed = projectionStatus === "passed" || official?.status === "passed";
+    const officialPercent = clampPercent(
+      moduleScores[termSlug] ?? official?.percent,
     );
-    const completed = official?.status === "passed";
-    const officialPercent = clampPercent(official?.percent);
-    const learningPercent = clampPercent(learning?.percent);
-    const visibleProgress = previousPassed
-      ? (completed ? 100 : Math.max(officialPercent, Math.min(99, learningPercent)))
-      : 0;
 
     progress[termSlug] = {
-      progress: visibleProgress,
-      xp: previousPassed ? Math.max(0, Number(learning?.xp ?? 0)) + officialPercent : 0,
+      progress: previousPassed ? (completed ? 100 : Math.min(99, officialPercent)) : 0,
+      // Per-term XP is intentionally not reconstructed in the browser. Total XP
+      // is returned separately from the server projection.
+      xp: 0,
       completed,
-      answered: Math.max(0, Number(official?.score ?? learning?.answeredSections ?? 0)),
+      answered: previousPassed ? Math.max(0, Number(official?.score ?? 0)) : 0,
       locked: !previousPassed,
     };
   }
@@ -62,43 +75,70 @@ export function buildAcademyPathProgress(
 
 export function useAcademyPathProgress(locale: AcademyLocale) {
   const [termProgress, setTermProgress] = useState<AcademyPathProgress>({});
+  const [totalXp, setTotalXp] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoaded(false);
     try {
-      const [officialResponse, lessonResponse] = await Promise.all([
+      const [officialResponse, stateResponse] = await Promise.all([
         fetch(`/api/academy-term-progress?locale=${locale}`, {
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
         }),
-        fetch(`/api/academy-lesson-progress?locale=${locale}`, {
+        fetch(`/api/academy-state?locale=${locale}`, {
           credentials: "include",
           cache: "no-store",
           headers: { Accept: "application/json" },
         }),
       ]);
 
-      const [officialBody, lessonBody] = await Promise.all([
+      if (officialResponse.status === 401 || stateResponse.status === 401) {
+        setTermProgress(buildAcademyPathProgress([], {}));
+        setTotalXp(0);
+        setStreak(0);
+        setEarnedBadges([]);
+        setError(null);
+        return;
+      }
+
+      const [officialBody, stateBody] = await Promise.all([
         officialResponse.json().catch(() => ({})),
-        lessonResponse.json().catch(() => ({})),
+        stateResponse.json().catch(() => ({})),
       ]) as [
         { terms?: OfficialTermProgress[]; error?: string },
-        { terms?: TermLearningSummary[]; error?: string },
+        { state?: OfficialAcademyProjection; error?: string },
       ];
 
       if (!officialResponse.ok) {
-        throw new Error(officialBody.error ?? `official_progress_load_failed:${officialResponse.status}`);
+        throw new Error(
+          officialBody.error ?? `official_progress_load_failed:${officialResponse.status}`,
+        );
       }
-      if (!lessonResponse.ok && lessonResponse.status !== 401) {
-        throw new Error(lessonBody.error ?? `lesson_progress_load_failed:${lessonResponse.status}`);
+      if (!stateResponse.ok) {
+        throw new Error(
+          stateBody.error ?? `academy_projection_load_failed:${stateResponse.status}`,
+        );
       }
 
-      setTermProgress(buildAcademyPathProgress(
-        Array.isArray(officialBody.terms) ? officialBody.terms : [],
-        Array.isArray(lessonBody.terms) ? lessonBody.terms : [],
-      ));
+      const projection = stateBody.state ?? {};
+      setTermProgress(
+        buildAcademyPathProgress(
+          Array.isArray(officialBody.terms) ? officialBody.terms : [],
+          projection,
+        ),
+      );
+      setTotalXp(Math.max(0, Math.round(Number(projection.xp) || 0)));
+      setStreak(Math.max(0, Math.round(Number(projection.streak) || 0)));
+      setEarnedBadges(
+        Array.isArray(projection.earnedBadges)
+          ? projection.earnedBadges.filter((item): item is string => typeof item === "string")
+          : [],
+      );
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
@@ -125,5 +165,13 @@ export function useAcademyPathProgress(locale: AcademyLocale) {
     };
   }, [refresh]);
 
-  return { termProgress, loaded, error, refresh };
+  return {
+    termProgress,
+    totalXp,
+    streak,
+    earnedBadges,
+    loaded,
+    error,
+    refresh,
+  };
 }
