@@ -41,6 +41,8 @@ requireText("package", "src/tests/security/auth-*.test.ts", "focused auth test c
 requireText("package", "npm run test:auth-session", "release check must run focused auth integration tests");
 requireText("ci", "Authentication session authority guard", "pull-request CI must run the auth authority guard");
 requireText("ci", "npm run auth:check", "CI must invoke the governed auth command");
+requireText("ci", "Authentication session integration tests", "pull-request CI must expose focused auth integration evidence");
+requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
 
 for (const target of ["unified", "legacySession"]) {
@@ -117,4 +119,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable revocation, deny-only caching, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable revocation, deny-only caching, focused CI evidence, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
