@@ -17,6 +17,7 @@ const files = {
   migration: "src/lib/db-migrate-academy-section-authority.ts",
   rewardRelease: "src/lib/db-migrate-academy-reward-release.ts",
   commandMigration: "src/lib/db-migrate-academy-section-commands.ts",
+  upsertGuardMigration: "src/lib/db-migrate-academy-section-upsert-guard.ts",
   certificate: "src/lib/academy-certificates.ts",
   unitTests: "src/tests/academy/section-checkpoint.test.ts",
   projectionTests: "src/tests/academy/progress-state.test.ts",
@@ -123,6 +124,7 @@ rejectText("projection", "termXp", "term-summary XP must not be double counted")
 requireText("migrationPlan", "runAcademySectionAuthorityMigrations", "canonical migration plan must include section authority");
 requireText("migrationPlan", "runAcademyRewardLegacyReleaseMigrations", "canonical plan must release revoked legacy badge keys");
 requireText("migrationPlan", "runAcademySectionCommandMigrations", "canonical plan must include immutable section commands");
+requireText("migrationPlan", "runAcademySectionUpsertGuardMigrations", "canonical plan must include verified-pass upsert protection");
 requireText("migration", "academy_section_legacy_snapshots", "legacy relational state must be quarantined before reset");
 requireText("migration", "academy_section_attempts", "append-only attempt storage is required");
 requireText("migration", "academy_section_attempts_no_update", "attempt evidence must reject update");
@@ -135,6 +137,11 @@ requireText("commandMigration", "academy_section_commands", "durable section com
 requireText("commandMigration", "academy_section_commands_no_update", "section command evidence must reject update");
 requireText("commandMigration", "academy_section_commands_no_delete", "section command evidence must reject deletion");
 requireText("commandMigration", "academy_section_commands_request_idx", "same-request alias replay needs an indexed path");
+requireText("upsertGuardMigration", "academy_lesson_progress_preserve_verified_pass", "verified-pass preservation trigger is required");
+requireText("upsertGuardMigration", "authority_status = 'server_checkpoint_v1'", "only prior server-verified rows may rescue an upsert candidate");
+requireText("upsertGuardMigration", "last_answer_correct = TRUE", "the prior row must contain correct-answer evidence");
+requireText("upsertGuardMigration", "best_score = 100", "the prior row must contain a passing score");
+requireText("upsertGuardMigration", "passed_at IS NOT NULL", "the prior row must contain a pass timestamp");
 
 requireText("certificate", "p.status = 'passed'", "certificate issuance must consume official term pass evidence");
 for (const evidence of [
@@ -159,6 +166,7 @@ for (const evidence of [
 requireText("migrationTests", "0027_academy_section_checkpoint_authority.sql", "migration test must verify section authority");
 requireText("migrationTests", "0028_academy_reward_legacy_release.sql", "migration test must verify reward release");
 requireText("migrationTests", "0029_academy_section_command_authority.sql", "migration test must verify command authority");
+requireText("migrationTests", "0032_academy_section_upsert_guard.sql", "migration test must verify verified-pass upsert protection");
 
 if (failures.length) {
   console.error("Academy progress authority check failed:\n- " + failures.join("\n- "));
