@@ -76,15 +76,22 @@ function detectPrincipalSource(source) {
   return matchFirst(source, [
     /(getCanonicalSession)/,
     /(requireCanonicalSession)/,
+    /(getAcademyAuthFromRequest)/,
+    /(getStudentSessionFromRequest)/,
+    /(getUnifiedSessionFromRequest)/,
+    /(getNotificationIdentityFromRequest)/,
+    /(verifyUnifiedSession)/,
+    /(verifyAccessToken)/,
+    /(setCurrentPublicVisibility)/,
     /(requireAdmin[A-Za-z0-9_]*)/,
     /(requireAuth[A-Za-z0-9_]*)/,
     /(requireUser[A-Za-z0-9_]*)/,
     /(requireStudent[A-Za-z0-9_]*)/,
     /(getAcademy[A-Za-z0-9_]*Session)/,
-    /(verifyAccessToken)/,
     /(verifyInternal[A-Za-z0-9_]*)/,
     /(serviceIdentity[A-Za-z0-9_]*)/,
     /(authenticate[A-Za-z0-9_]*)/,
+    /((?:get|require|verify|resolve)[A-Za-z0-9_]*(?:Session|Identity|Principal|Auth|User|Account)[A-Za-z0-9_]*)\s*\(/,
   ]);
 }
 
@@ -95,6 +102,7 @@ function detectClassification(route, source) {
   if (
     detectPrincipalSource(source)
     || /studentId|userId|accountId|session\.|academySession|authSession|sessionCookie/i.test(source)
+    || (/verifyCsrfOrigin/.test(source) && /\b401\b/.test(source))
   ) return "authenticated";
   return "public";
 }
@@ -124,6 +132,12 @@ function detectInputParser(source) {
   return parser;
 }
 
+function detectMutationMode(handler) {
+  const denies = /\b405\b|method_not_allowed|read_only|put_only|creation_protected/i.test(handler);
+  const mutationEvidence = /\b(?:INSERT|UPDATE|DELETE)\b|withTx\s*\(|withDb\s*\(|\.json\s*\(|formData\s*\(/i.test(handler);
+  return denies && !mutationEvidence ? "deny-only" : "active";
+}
+
 function detectControls(handler, fullSource) {
   const context = `${importPrelude(fullSource)}\n${handler}`;
   const rateLimitNamespace = matchFirst(handler, [
@@ -133,7 +147,7 @@ function detectControls(handler, fullSource) {
   const inputParser = detectInputParser(handler);
   return {
     csrf: /verifyCsrfOrigin|verifyCsrfToken|assertSameOrigin|requireCsrf|csrfProtection/.test(context),
-    strictRevocation: /strictRevocation\s*:\s*true/.test(handler),
+    strictRevocation: /strictRevocation\s*:\s*true|revokeSessionStrict|requireStrictSession|assertSession.*Strict/i.test(handler),
     rateLimit: /rateLimit(?:User|Distributed)?\s*\(/.test(handler),
     rateLimitNamespace,
     expectsBody: Boolean(inputParser),
@@ -144,9 +158,9 @@ function detectControls(handler, fullSource) {
     transaction: /withTx\s*\(|withDb\s*\(|BEGIN|transaction\s*\(|\.tx\s*\(/.test(handler),
     verifiedPrincipal: Boolean(detectPrincipalSource(context)),
     tenantFromVerifiedContext: /tenantContext|session\.tenant|principal\.tenant|requireTenant|canonicalTenant/i.test(handler),
-    noStore: /Cache-Control[^\n]*(?:no-store|private)|cache:\s*["']no-store["']|noStore\s*\(/i.test(handler),
+    noStore: /Cache-Control[^\n]*(?:no-store|private)|cache:\s*["']no-store["']|noStore\s*\(|notificationApi(?:Ok|Error)|PRIVATE_HEADERS/i.test(context),
     audit: /audit|securityEvent|student_events|admin_events|logger\.(?:info|warn|error)|withObservability/i.test(context),
-    redaction: /redact|sanitize|safeError|apiError|withObservability/i.test(context),
+    redaction: /redact|sanitize|safeError|apiError|withObservability|notificationApiError/i.test(context),
     failClosed: /503|service_not_configured|unavailable|dependency|if\s*\(!result\.enabled\)|fail.closed/i.test(handler),
     serviceIdentity: /serviceIdentity|verifyInternal|INTERNAL_|Bearer|authorization/i.test(context),
     setsCookie: /Set-Cookie|\.cookies\.set\s*\(|cookies\(\)\.set\s*\(/i.test(handler),
@@ -154,6 +168,20 @@ function detectControls(handler, fullSource) {
 }
 
 function detectRequirements(entry) {
+  if (entry.mutationMode === "deny-only") {
+    return {
+      csrf: false,
+      strictRevocation: false,
+      rateLimit: false,
+      bodySizeLimit: false,
+      idempotency: false,
+      verifiedPrincipal: false,
+      noStore: true,
+      audit: false,
+      redaction: true,
+      serviceIdentity: false,
+    };
+  }
   const highRisk = entry.risk.some((risk) => ["financial", "credential", "privacy", "admin", "ai-memory"].includes(risk));
   const cookieAuthenticated = ["authenticated", "admin"].includes(entry.classification);
   const idempotencyRequired = /\/(?:orders?|withdraw(?:al)?s?|offline-sync|trading-arena\/execution|academy-lesson-assessment|academy-term-progress|payments?)(?:\/|$)/i.test(entry.route);
@@ -185,6 +213,18 @@ function policyFindings(entry) {
   if (requirements.redaction && !entry.controls.redaction) findings.push("missing_error_redaction_evidence");
   if (requirements.serviceIdentity && !entry.controls.serviceIdentity) findings.push("internal_route_without_service_identity_evidence");
   return findings;
+}
+
+function delegatedHandlerImport(source, method, handler) {
+  const pattern = new RegExp(
+    `import\\s*\\{\\s*${method}\\s+as\\s+([A-Za-z0-9_]+)\\s*\\}\\s*from\\s*["'](@/app/api/[^"']+/route)["']`,
+  );
+  const match = source.match(pattern);
+  if (!match || !handler.includes(`${match[1]}(`)) return null;
+  return {
+    alias: match[1],
+    sourcePath: match[2].replace(/^@\//, "src/") + ".ts",
+  };
 }
 
 async function loadTestIndex() {
@@ -225,22 +265,43 @@ for (const file of routeFiles) {
   const sourceHash = createHash("sha256").update(source).digest("hex").slice(0, 24);
   for (const method of mutationMethods) {
     if (!hasExport(source, method)) continue;
-    const handler = handlerSource(source, method);
-    const classification = detectClassification(route, `${importPrelude(source)}\n${handler}`);
+    const localHandler = handlerSource(source, method);
+    const delegation = delegatedHandlerImport(source, method, localHandler);
+    let effectiveSource = source;
+    let effectiveHandler = localHandler;
+    let delegatedTo = null;
+    let delegatedSourceHash = null;
+    if (delegation) {
+      try {
+        const delegatedAbsolute = path.join(root, delegation.sourcePath);
+        effectiveSource = await readFile(delegatedAbsolute, "utf8");
+        effectiveHandler = handlerSource(effectiveSource, method);
+        delegatedTo = delegation.sourcePath;
+        delegatedSourceHash = createHash("sha256").update(effectiveSource).digest("hex").slice(0, 24);
+      } catch {
+        delegatedTo = `${delegation.sourcePath}:unresolved`;
+      }
+    }
+
+    const effectiveContext = `${importPrelude(effectiveSource)}\n${effectiveHandler}`;
+    const classification = detectClassification(route, effectiveContext);
     const entry = {
       route,
       method,
       sourcePath,
       sourceHash,
+      delegatedTo,
+      delegatedSourceHash,
+      mutationMode: detectMutationMode(effectiveHandler),
       classification,
-      principalSource: detectPrincipalSource(`${importPrelude(source)}\n${handler}`),
-      tenantSource: matchFirst(handler, [
+      principalSource: detectPrincipalSource(effectiveContext),
+      tenantSource: matchFirst(effectiveHandler, [
         /(tenantContext[A-Za-z0-9_.]*)/,
         /(session\.tenant[A-Za-z0-9_.]*)/,
         /(requireTenant[A-Za-z0-9_]*)/,
       ]),
       risk: detectRisk(route, classification),
-      controls: detectControls(handler, source),
+      controls: detectControls(effectiveHandler, effectiveSource),
       domainOwner: route.split("/")[2] || "root",
       testReferences: testReferences(route, sourcePath, tests),
     };
@@ -258,6 +319,8 @@ for (const entry of routes) {
 const totals = {
   routeFiles: routeFiles.length,
   mutatingOperations: routes.length,
+  activeOperations: routes.filter((entry) => entry.mutationMode === "active").length,
+  denyOnlyOperations: routes.filter((entry) => entry.mutationMode === "deny-only").length,
   operationsWithFindings: routes.filter((entry) => entry.findings.length > 0).length,
   findings: routes.reduce((sum, entry) => sum + entry.findings.length, 0),
   findingCounts: Object.fromEntries(Object.entries(findingCounts).sort(([left], [right]) => left.localeCompare(right))),
