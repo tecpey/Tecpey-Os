@@ -17,9 +17,7 @@ function validDate(value) {
 function validateManifestShape(manifest) {
   const errors = [];
   if (!manifest || manifest.schemaVersion !== 1) errors.push("manifest.schemaVersion must equal 1");
-  if (manifest?.authority !== "generated-from-src-app-api-route-ts") {
-    errors.push("manifest.authority is invalid");
-  }
+  if (manifest?.authority !== "generated-from-src-app-api-route-ts") errors.push("manifest.authority is invalid");
   if (!Array.isArray(manifest?.routes)) errors.push("manifest.routes must be an array");
 
   const operations = new Set();
@@ -42,12 +40,29 @@ function validateManifestShape(manifest) {
   return errors;
 }
 
+function validateSharedMetadata(value, prefix) {
+  const errors = [];
+  if (typeof value.issue !== "string" || !ISSUE_PATTERN.test(value.issue)) {
+    errors.push(`${prefix}.issue must be #number or a GitHub issue URL`);
+  }
+  if (typeof value.reason !== "string" || value.reason.trim().length < 20) {
+    errors.push(`${prefix}.reason must contain at least 20 characters`);
+  }
+  if (!Array.isArray(value.compensatingControls) || value.compensatingControls.length === 0) {
+    errors.push(`${prefix}.compensatingControls must be a non-empty array`);
+  } else if (value.compensatingControls.some((item) => typeof item !== "string" || item.trim().length < 10)) {
+    errors.push(`${prefix}.compensatingControls contains an invalid entry`);
+  }
+  if (typeof value.expiresOn !== "string" || !validDate(value.expiresOn)) {
+    errors.push(`${prefix}.expiresOn must be a real YYYY-MM-DD date`);
+  }
+  return errors;
+}
+
 function validateException(exception, index) {
   const errors = [];
   const prefix = `exceptions[${index}]`;
-  if (!exception || typeof exception !== "object" || Array.isArray(exception)) {
-    return [`${prefix} must be an object`];
-  }
+  if (!exception || typeof exception !== "object" || Array.isArray(exception)) return [`${prefix} must be an object`];
   if (typeof exception.id !== "string" || !/^[a-z0-9][a-z0-9._:-]{5,160}$/i.test(exception.id)) {
     errors.push(`${prefix}.id is invalid`);
   }
@@ -61,34 +76,81 @@ function validateException(exception, index) {
   if (typeof exception.owner !== "string" || !OWNER_PATTERN.test(exception.owner)) {
     errors.push(`${prefix}.owner is invalid`);
   }
-  if (typeof exception.issue !== "string" || !ISSUE_PATTERN.test(exception.issue)) {
-    errors.push(`${prefix}.issue must be #number or a GitHub issue URL`);
-  }
-  if (typeof exception.reason !== "string" || exception.reason.trim().length < 20) {
-    errors.push(`${prefix}.reason must contain at least 20 characters`);
-  }
-  if (!Array.isArray(exception.compensatingControls) || exception.compensatingControls.length === 0) {
-    errors.push(`${prefix}.compensatingControls must be a non-empty array`);
-  } else if (exception.compensatingControls.some((value) => typeof value !== "string" || value.trim().length < 10)) {
-    errors.push(`${prefix}.compensatingControls contains an invalid entry`);
-  }
-  if (typeof exception.expiresOn !== "string" || !validDate(exception.expiresOn)) {
-    errors.push(`${prefix}.expiresOn must be a real YYYY-MM-DD date`);
-  }
+  errors.push(...validateSharedMetadata(exception, prefix));
   return errors;
+}
+
+function expandRegistry(registry, errors) {
+  if (!registry || typeof registry !== "object") {
+    errors.push("exception registry must be an object");
+    return [];
+  }
+
+  if (registry.schemaVersion === 1 && Array.isArray(registry.exceptions)) return registry.exceptions;
+
+  if (registry.schemaVersion !== 2 || !Array.isArray(registry.groups)) {
+    errors.push("exception registry must use schemaVersion 1/exceptions or schemaVersion 2/groups");
+    return [];
+  }
+
+  const exceptions = [];
+  const groupIds = new Set();
+  for (const [groupIndex, group] of registry.groups.entries()) {
+    const prefix = `groups[${groupIndex}]`;
+    if (!group || typeof group !== "object" || Array.isArray(group)) {
+      errors.push(`${prefix} must be an object`);
+      continue;
+    }
+    if (typeof group.id !== "string" || !/^[a-z0-9][a-z0-9._:-]{2,80}$/i.test(group.id)) {
+      errors.push(`${prefix}.id is invalid`);
+    } else if (groupIds.has(group.id)) {
+      errors.push(`duplicate exception group id: ${group.id}`);
+    }
+    groupIds.add(group.id);
+    if (typeof group.finding !== "string" || !FINDING_PATTERN.test(group.finding)) {
+      errors.push(`${prefix}.finding is invalid`);
+    }
+    errors.push(...validateSharedMetadata(group, prefix));
+    if (!Array.isArray(group.operations) || group.operations.length === 0) {
+      errors.push(`${prefix}.operations must be a non-empty array`);
+      continue;
+    }
+    for (const [operationIndex, operation] of group.operations.entries()) {
+      const operationPrefix = `${prefix}.operations[${operationIndex}]`;
+      if (!operation || typeof operation !== "object" || Array.isArray(operation)) {
+        errors.push(`${operationPrefix} must be an object`);
+        continue;
+      }
+      if (typeof operation.route !== "string" || !operation.route.startsWith("/api/") || operation.route.includes("*")) {
+        errors.push(`${operationPrefix}.route must be an exact /api path without wildcards`);
+      }
+      if (!METHODS.has(operation.method)) errors.push(`${operationPrefix}.method is invalid`);
+      if (typeof operation.owner !== "string" || !OWNER_PATTERN.test(operation.owner)) {
+        errors.push(`${operationPrefix}.owner is invalid`);
+      }
+      exceptions.push({
+        id: `${group.id}:${operation.method}:${operation.route}`,
+        route: operation.route,
+        method: operation.method,
+        finding: group.finding,
+        owner: operation.owner,
+        issue: group.issue,
+        reason: group.reason,
+        compensatingControls: group.compensatingControls,
+        expiresOn: group.expiresOn,
+      });
+    }
+  }
+  return exceptions;
 }
 
 export function evaluateApiSecurityPolicy({ manifest, registry, now = new Date() }) {
   const errors = validateManifestShape(manifest);
-  if (!registry || registry.schemaVersion !== 1 || !Array.isArray(registry.exceptions)) {
-    errors.push("exception registry must have schemaVersion 1 and an exceptions array");
-  }
+  const exceptions = expandRegistry(registry, errors);
 
   const currentFindings = new Set();
   for (const entry of manifest?.routes ?? []) {
-    for (const finding of entry.findings ?? []) {
-      currentFindings.add(findingKey(entry.route, entry.method, finding));
-    }
+    for (const finding of entry.findings ?? []) currentFindings.add(findingKey(entry.route, entry.method, finding));
   }
 
   const exceptionKeys = new Set();
@@ -98,7 +160,7 @@ export function evaluateApiSecurityPolicy({ manifest, registry, now = new Date()
   const duplicate = [];
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-  for (const [index, exception] of (registry?.exceptions ?? []).entries()) {
+  for (const [index, exception] of exceptions.entries()) {
     errors.push(...validateException(exception, index));
     if (!exception || typeof exception !== "object") continue;
     if (exceptionIds.has(exception.id)) duplicate.push(`duplicate exception id: ${exception.id}`);
