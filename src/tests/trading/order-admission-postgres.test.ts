@@ -46,7 +46,7 @@ describe("PostgreSQL exact order hold authority", () => {
 
       assert.equal(attempts.every((attempt) => attempt.enabled), true);
       assert.deepEqual(
-        attempts.map((attempt) => attempt.enabled && attempt.value).sort(),
+        attempts.map((attempt) => attempt.enabled ? attempt.value : false).sort(),
         [false, true],
       );
 
