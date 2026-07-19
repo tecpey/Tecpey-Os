@@ -45,7 +45,7 @@ describe("Trading Arena reflection evidence integrity", () => {
     );
     assert.throws(
       () => mapArenaReflectionRow(reflectionRow({
-        evidence_realized_pnl: "125.000000000100000000",
+        evidence_realized_pnl: "125.000000000010000000",
       })),
       /arena_reflection_evidence_invalid/,
     );
