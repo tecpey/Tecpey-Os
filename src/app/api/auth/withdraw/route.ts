@@ -16,6 +16,7 @@ import {
   createAuthoritativeWithdrawal,
   listUserWithdrawalsStrict,
 } from "@/lib/security/withdrawal-admission-service";
+import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 
 export const dynamic = "force-dynamic";
@@ -66,8 +67,6 @@ export async function POST(req: NextRequest) {
     });
     if (!canonical.ok) return apiError(canonical.reason, 400);
 
-    // Resolve a committed response-loss replay before consulting price, risk or
-    // compliance providers. The immutable request hash is the only replay key.
     const replay = await resolveWithdrawalReplay({
       userId,
       idempotencyKey,
@@ -95,8 +94,6 @@ export async function POST(req: NextRequest) {
       return apiError("withdrawal_authorization_required", 403);
     }
 
-    // Reject forged/expired/foreign authorization IDs before any external price,
-    // risk or compliance work. Admission still consumes it atomically later.
     const authorization = await inspectWithdrawalAuthorization({
       authorizationId,
       userId,
@@ -108,6 +105,11 @@ export async function POST(req: NextRequest) {
     if (authorization === "invalid") {
       return apiError("withdrawal_authorization_invalid", 403);
     }
+
+    // Normal admission owns its own price production. A fresh signed snapshot is
+    // reused; otherwise at least two direct-USD providers must reach consensus.
+    const priceReady = await ensureWithdrawalPriceSnapshot(canonical.command.asset);
+    if (!priceReady) return apiError("price_consensus_unavailable", 503);
 
     const ip = getClientIp(req);
     const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
