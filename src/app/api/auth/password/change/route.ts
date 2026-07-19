@@ -22,7 +22,7 @@ import {
 } from "@/lib/unified-session";
 import {
   registerSession,
-  revokeSessionStrict,
+  revokeAllSessionsStrict,
 } from "@/lib/security/session-store";
 import {
   issueRefreshToken,
@@ -113,14 +113,14 @@ export async function POST(req: NextRequest) {
     });
     if (!updateResult.enabled) return apiError("db_unavailable", 503);
 
-    const accessRevocation = await revokeSessionStrict(
-      verifiedCurrent.jti,
-      userId,
-    );
+    // A credential rotation must invalidate every previously issued access and
+    // refresh credential, not only the browser that submitted the change.
+    const accessRevocation = await revokeAllSessionsStrict(userId);
     const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
     if (!accessRevocation.ok || !refreshRevoked) {
       return apiError("credential_rotation_unavailable", 503, {
         accessReason: accessRevocation.ok ? null : accessRevocation.reason,
+        revokedAccessSessions: accessRevocation.revokedCount,
         refreshRevoked,
       });
     }
@@ -164,10 +164,19 @@ export async function POST(req: NextRequest) {
       action: "password_changed",
       ip,
       userAgent: deviceInfo,
-      metadata: { strengthScore: strength.score, sessionsRotated: true },
+      metadata: {
+        strengthScore: strength.score,
+        sessionsRotated: true,
+        revokedAccessSessions: accessRevocation.revokedCount,
+        refreshScope: "all_user_tokens",
+      },
     });
 
-    const response = apiOk({ changed: true });
+    const response = apiOk({
+      changed: true,
+      sessionsRotated: true,
+      revokedAccessSessions: accessRevocation.revokedCount,
+    });
     response.cookies.set(COOKIES.SESSION, accessToken, {
       path: "/",
       httpOnly: true,
