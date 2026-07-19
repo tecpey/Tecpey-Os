@@ -118,7 +118,9 @@ export function canonicalizeWithdrawalCommand(input: {
     if (parsed.decimalPlaces() > ASSET_DECIMALS[asset]) {
       return { ok: false, reason: "amount_precision_exceeded" };
     }
-    amount = parsed.toFixed(ASSET_DECIMALS[asset]).replace(/\.?0+$/, "");
+    // Decimal#toFixed() without a precision emits canonical fixed notation and
+    // never strips significant integer zeroes (for example, 100 remains 100).
+    amount = parsed.toFixed();
   } catch {
     return { ok: false, reason: "invalid_amount" };
   }
@@ -179,7 +181,9 @@ export function validateWithdrawalDestination(input: {
   let valid = false;
   switch (network) {
     case "bitcoin":
-      valid = /^(bc1[ac-hj-np-z02-9]{11,71}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/.test(address);
+      valid = /^(bc1[ac-hj-np-z02-9]{11,71}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/.test(
+        address,
+      );
       break;
     case "ethereum":
     case "bsc":
@@ -203,7 +207,9 @@ export function validateWithdrawalDestination(input: {
       valid = /^addr1[0-9a-z]{20,}$/.test(address);
       break;
     case "litecoin":
-      valid = /^(ltc1[ac-hj-np-z02-9]{11,71}|[LM3][a-km-zA-HJ-NP-Z1-9]{26,33})$/.test(address);
+      valid = /^(ltc1[ac-hj-np-z02-9]{11,71}|[LM3][a-km-zA-HJ-NP-Z1-9]{26,33})$/.test(
+        address,
+      );
       break;
   }
 
@@ -287,7 +293,15 @@ export async function recordWithdrawalPriceSnapshot(input: {
          (asset, quote_currency, price, source, observed_at, expires_at, signature, policy_version)
        VALUES ($1, 'USD', $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [asset, D(input.priceUsd).toFixed(18), source, observedAt, expiresAt, signature, policyVersion],
+      [
+        asset,
+        D(input.priceUsd).toFixed(18),
+        source,
+        observedAt,
+        expiresAt,
+        signature,
+        policyVersion,
+      ],
     );
     return inserted.rows[0]?.id ?? null;
   });
