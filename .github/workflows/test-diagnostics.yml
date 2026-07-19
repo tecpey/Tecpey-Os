@@ -50,7 +50,6 @@ jobs:
       - name: Tests and temporary PR diagnostic
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set +e
           npm test > /tmp/tecpey-tests.log 2>&1
@@ -70,7 +69,9 @@ jobs:
               tail -n 40 /tmp/tecpey-tests.log
               echo '```'
             } > /tmp/tecpey-tests-comment.md
-            gh pr comment "$PR_NUMBER" --body-file /tmp/tecpey-tests-comment.md
+            gh api --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/issues/comments/5014970385" \
+              --raw-field body="$(cat /tmp/tecpey-tests-comment.md)" > /dev/null
           fi
           cat /tmp/tecpey-failures.log 2>/dev/null || true
           exit "$CODE"
