@@ -89,7 +89,7 @@ const PROCESSED_EVENTS = [
   "OrderFilled",
   "OrderExpired",
   "OrderRejected",
-] as const;
+];
 
 function canonicalJson(value: unknown): string {
   if (value === null) return "null";
@@ -215,7 +215,7 @@ export async function admitExchangeOrderCommand(
         input.hold.amount,
         order.id,
       );
-      if (!held) return { status: "insufficient_balance" as const };
+      if (!held) throw new Error("insufficient_balance");
 
       const command = await client.query<{ id: string }>(
         `INSERT INTO exchange_order_commands
@@ -255,11 +255,15 @@ export async function admitExchangeOrderCommand(
 
     return transaction.enabled ? transaction.value : { status: "unavailable" };
   } catch (error) {
+    const code = error instanceof Error ? error.message : "unknown";
+    if (code === "insufficient_balance") {
+      return { status: "insufficient_balance" };
+    }
     logger.error("[exchange-order-command] admission failed", {
       tenantId: input.tenantId,
       userId: input.userId,
       market: input.request.market,
-      error: error instanceof Error ? error.message : "unknown",
+      error: code,
     });
     return { status: "unavailable" };
   }
@@ -681,5 +685,6 @@ export async function listRecoverableExchangeOrderCommands(
     );
     return rows.rows.map((row) => row.id);
   });
-  return result.enabled ? result.value : [];
+  if (!result.enabled) throw new Error("exchange_order_storage_unavailable");
+  return result.value;
 }
