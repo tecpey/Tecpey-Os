@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   createArenaReflectionRequestHash,
+  mapArenaReflectionRow,
   normalizeArenaReflectionMistakeTags,
   parseArenaReflectionInput,
+  type ArenaReflectionRow,
 } from "@/lib/trading-arena-reflections";
 import {
   createArenaReflectionIdempotencyKey,
@@ -51,6 +53,30 @@ function reflectionPayload() {
     },
     createdAt: "2026-07-19T06:01:00.000Z",
     updatedAt: "2026-07-19T06:02:00.000Z",
+  };
+}
+
+function reflectionRow(overrides: Partial<ArenaReflectionRow> = {}): ArenaReflectionRow {
+  return {
+    id: "44444444-4444-4444-8444-444444444444",
+    student_id: "11111111-1111-4111-8111-111111111111",
+    attempt_id: attemptId,
+    closed_trade_id: tradeId,
+    revision: "2",
+    decision_review: "مرور تصمیم",
+    learned_lesson: "درس معامله",
+    emotional_review: "مرور احساس",
+    mistake_tags: ["late-entry"],
+    next_action_commitment: null,
+    evidence_asset: "BTC",
+    evidence_realized_pnl: "125.0000000000",
+    evidence_realized_pnl_rate: "0.012500000000000000",
+    evidence_closure_reason: "take-profit",
+    evidence_closed_at: "2026-07-19T06:00:00.000Z",
+    evidence_mentor_flags: ["target-hit"],
+    created_at: "2026-07-19T06:01:00.000Z",
+    updated_at: "2026-07-19T06:02:00.000Z",
+    ...overrides,
   };
 }
 
@@ -179,6 +205,21 @@ describe("Trading Arena reflection domain authority", () => {
       expectedRevision: 0,
       draft: draft(),
     }).kind, "blocked");
+  });
+
+  it("canonicalizes PostgreSQL numeric scale and validates Mentor evidence flags", () => {
+    const mapped = mapArenaReflectionRow(reflectionRow());
+    assert.equal(mapped.evidence.realizedPnl, "125.0000000000");
+    assert.equal(mapped.evidence.realizedPnlRate, "0.01250000");
+    assert.deepEqual(mapped.evidence.mentorFlags, ["target-hit"]);
+    assert.throws(
+      () => mapArenaReflectionRow(reflectionRow({ evidence_mentor_flags: ["invented-flag"] })),
+      /arena_reflection_evidence_invalid/,
+    );
+    assert.throws(
+      () => mapArenaReflectionRow(reflectionRow({ evidence_mentor_flags: ["target-hit", "target-hit"] })),
+      /arena_reflection_evidence_invalid/,
+    );
   });
 
   it("parses authoritative lists, success responses and revision-conflict details", () => {
