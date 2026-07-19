@@ -115,6 +115,16 @@ requireText(
 );
 requireText(
   "producer",
+  "producerPayloadHash",
+  "validated payloads need a non-reversible replay-conflict fingerprint",
+);
+requireText(
+  "producer",
+  "validatedPayloadHash(event.payload)",
+  "payload fingerprints must be derived only after runtime validation",
+);
+requireText(
+  "producer",
   "templateId",
   "templates must remain version-addressable",
 );
@@ -149,7 +159,7 @@ for (const invalidRoute of [
 
 rejectText(
   "producer",
-  "producerPayload",
+  "producerPayload:",
   "raw domain payloads must not be copied into user-visible notification metadata",
 );
 rejectText(
@@ -253,5 +263,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Notification producer authority check passed: CI/release governance, exact versioned events, current-time policy, valid destinations, principal locale, minimal metadata, server-owned templates and anti-bypass boundaries are enforced.",
+  "Notification producer authority check passed: CI/release governance, exact versioned events, hashed replay provenance, current-time policy, valid destinations, principal locale, server-owned templates and anti-bypass boundaries are enforced.",
 );
