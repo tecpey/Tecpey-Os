@@ -5,6 +5,12 @@
 import { Queue, QueueEvents } from "bullmq";
 import type { WithdrawalJobData, ConfirmationJobData } from "../types";
 import { WITHDRAWAL_QUEUE_NAMES } from "./names";
+import {
+  CONFIRMATION_INITIAL_DELAY_MS,
+  CONFIRMATION_POLL_DELAY_MS,
+  MAX_CONFIRMATION_ATTEMPTS,
+  createWalletQueueJobId,
+} from "./policy";
 
 function redisConnection() {
   const url = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -52,8 +58,8 @@ export const withdrawalRetryQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEU
 export const confirmationQueue = new Queue<ConfirmationJobData>(WITHDRAWAL_QUEUE_NAMES.confirmation, {
   connection,
   defaultJobOptions: {
-    attempts: 50,
-    backoff: { type: "fixed", delay: 30_000 },
+    attempts: MAX_CONFIRMATION_ATTEMPTS,
+    backoff: { type: "fixed", delay: CONFIRMATION_POLL_DELAY_MS },
     removeOnComplete: { count: 500 },
     removeOnFail: false,
   },
@@ -71,22 +77,56 @@ export const recoveryQueue = new Queue<WithdrawalJobData>(WITHDRAWAL_QUEUE_NAMES
 
 export const withdrawalQueueEvents = new QueueEvents(WITHDRAWAL_QUEUE_NAMES.execution, { connection });
 
+/**
+ * Preserve deduplication for waiting/delayed/active jobs, but remove retained
+ * terminal jobs so an authoritative retry can schedule real work again.
+ */
+async function prepareRestorableJobSlot<T>(queue: Queue<T>, jobId: string): Promise<boolean> {
+  const existing = await queue.getJob(jobId);
+  if (!existing) return true;
+
+  const state = await existing.getState();
+  if (state === "unknown") return true;
+  if (state !== "completed" && state !== "failed") return false;
+
+  try {
+    await existing.remove();
+    return true;
+  } catch (error) {
+    const current = await queue.getJob(jobId);
+    if (!current) return true;
+    const currentState = await current.getState();
+    if (currentState !== "completed" && currentState !== "failed") return false;
+    throw error;
+  }
+}
+
 export async function enqueueWithdrawal(
   data: WithdrawalJobData,
   opts?: { priority?: number; delay?: number },
 ): Promise<string> {
+  const jobId = createWalletQueueJobId("withdrawal", data.withdrawalId);
+  const mayAdd = await prepareRestorableJobSlot(withdrawalQueue, jobId);
+  if (!mayAdd) return jobId;
+
   const job = await withdrawalQueue.add("process", data, {
     priority: opts?.priority ?? data.priority,
     delay: opts?.delay ?? 0,
-    jobId: `withdrawal:${data.withdrawalId}`,
+    jobId,
   });
-  return job.id ?? data.withdrawalId;
+  return job.id ?? jobId;
 }
 
 export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<void> {
+  const jobId = createWalletQueueJobId("confirmation", data.withdrawalId, data.txHash);
+  const mayAdd = await prepareRestorableJobSlot(confirmationQueue, jobId);
+  if (!mayAdd) return;
+
   await confirmationQueue.add("watch", data, {
-    jobId: `confirm:${data.withdrawalId}`,
-    delay: 15_000,
+    jobId,
+    delay: CONFIRMATION_INITIAL_DELAY_MS,
+    attempts: MAX_CONFIRMATION_ATTEMPTS,
+    backoff: { type: "fixed", delay: CONFIRMATION_POLL_DELAY_MS },
   });
 }
 
@@ -94,13 +134,17 @@ export async function moveToDeadLetter(data: WithdrawalJobData, reason: string):
   await withdrawalDlq.add(
     "failed",
     { ...data, _failReason: reason } as WithdrawalJobData & { _failReason: string },
-    { jobId: `dlq:${data.withdrawalId}` },
+    { jobId: createWalletQueueJobId("dead-letter", data.withdrawalId, reason) },
   );
 }
 
 export async function enqueueRecovery(data: WithdrawalJobData): Promise<void> {
+  const jobId = createWalletQueueJobId("recovery", data.withdrawalId);
+  const mayAdd = await prepareRestorableJobSlot(recoveryQueue, jobId);
+  if (!mayAdd) return;
+
   await recoveryQueue.add("recover", data, {
-    jobId: `recovery:${data.withdrawalId}`,
+    jobId,
     delay: 60_000,
   });
 }
