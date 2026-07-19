@@ -63,7 +63,9 @@ function cloneBoundedPayload(
   }
   try {
     const serialized = JSON.stringify(payload);
-    if (Buffer.byteLength(serialized, "utf8") > MAX_PAYLOAD_BYTES) return null;
+    if (new TextEncoder().encode(serialized).byteLength > MAX_PAYLOAD_BYTES) {
+      return null;
+    }
     const parsed = JSON.parse(serialized) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     return parsed as Record<string, unknown>;
