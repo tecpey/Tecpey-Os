@@ -14,12 +14,14 @@ const REQUIRED_MIGRATIONS = [
   "0019_admin_control_plane_hardening.sql",
   "0020_trading_arena_execution.sql",
   "0021_academy_progress_authority.sql",
+  "0023_offline_sync_command_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
   "academy_students",
   "academy_state_documents",
   "academy_trading_arena_commands",
+  "offline_sync_commands",
   "orders",
   "withdrawals",
   "admin_sessions",
@@ -32,6 +34,8 @@ const REQUIRED_COLUMNS = [
   ["academy_trading_arena_attempts", "execution_state"],
   ["academy_state_documents", "reflection_revision"],
   ["admin_audit_events", "chain_sequence"],
+  ["offline_sync_commands", "command_hash"],
+  ["offline_sync_commands", "retain_until"],
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -92,10 +96,34 @@ describe("PostgreSQL migration authority", () => {
         assert.ok(columnSet.has(`${table}.${column}`), `required column missing: ${table}.${column}`);
       }
 
-      const indexResult = await client.query<{ name: string | null }>(
-        "SELECT to_regclass('public.uq_wallet_ledger_withdrawal_phase')::text AS name",
+      const indexResult = await client.query<{
+        wallet_index: string | null;
+        offline_reconcile_index: string | null;
+      }>(
+        `SELECT
+           to_regclass('public.uq_wallet_ledger_withdrawal_phase')::text AS wallet_index,
+           to_regclass('public.offline_sync_commands_reconcile_idx')::text AS offline_reconcile_index`,
       );
-      assert.equal(indexResult.rows[0]?.name, "uq_wallet_ledger_withdrawal_phase");
+      assert.equal(indexResult.rows[0]?.wallet_index, "uq_wallet_ledger_withdrawal_phase");
+      assert.equal(
+        indexResult.rows[0]?.offline_reconcile_index,
+        "offline_sync_commands_reconcile_idx",
+      );
+
+      const offlineUnique = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1
+             FROM pg_constraint
+            WHERE conrelid = 'offline_sync_commands'::regclass
+              AND contype = 'u'
+              AND pg_get_constraintdef(oid) LIKE '%tenant_id, student_id, client_event_id%'
+         ) AS exists`,
+      );
+      assert.equal(
+        offlineUnique.rows[0]?.exists,
+        true,
+        "offline command identity must be database-unique per tenant and student",
+      );
 
       const triggerResult = await client.query<{ tgname: string }>(
         `SELECT tgname
