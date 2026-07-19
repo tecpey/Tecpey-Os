@@ -5,6 +5,7 @@ const executor = read("src/lib/wallet/withdrawal-executor.ts");
 const confirmation = read("src/lib/wallet/confirmation/engine.ts");
 const producer = read("src/lib/wallet/queue/withdrawal-queue.ts");
 const consumer = read("src/lib/wallet/queue/processor.ts");
+const queuePolicy = read("src/lib/wallet/queue/policy.ts");
 
 const failures = [];
 const requireText = (source, text, message) => {
@@ -40,6 +41,27 @@ requireText(consumer, "WITHDRAWAL_QUEUE_NAMES.confirmation", "confirmation worke
 requireText(consumer, "WITHDRAWAL_QUEUE_NAMES.recovery", "recovery worker must use shared queue name");
 rejectText(consumer, '"withdrawal:confirmation"', "legacy mismatched confirmation queue name is forbidden");
 rejectText(consumer, '"withdrawal:recovery"', "legacy mismatched recovery queue name is forbidden");
+
+requireText(queuePolicy, "createWalletQueueJobId", "wallet queues need one governed custom job-ID factory");
+requireText(queuePolicy, "confirmationAttemptBudget", "confirmation retry budget must derive from authoritative timeout coverage");
+requireText(producer, "deduplication: { id:", "active BullMQ jobs must use atomic simple deduplication");
+requireText(
+  producer,
+  'queueIdentity("confirmation", data.withdrawalId);',
+  "confirmation deduplication must bind one live watcher to the authoritative withdrawal ID",
+);
+requireText(producer, "MAX_CONFIRMATION_ATTEMPTS", "confirmation queue must cover the maximum authoritative timeout");
+rejectText(
+  producer,
+  'queueIdentity("confirmation", data.withdrawalId, data.txHash)',
+  "untrusted queue txHash must not create a parallel confirmation deduplication identity",
+);
+rejectText(producer, "prepareRestorableJobSlot", "terminal remove/re-add restoration is race-prone");
+rejectText(producer, ".remove()", "queue producers must not remove a possibly replaced job by shared ID");
+rejectText(producer, "attempts: 50", "fixed 50-attempt confirmation policy ends before the Bitcoin timeout");
+for (const forbidden of ["`withdrawal:${", "`confirm:${", "`dlq:${", "`recovery:${"]) {
+  rejectText(producer, forbidden, `BullMQ custom job IDs must not use reserved colon syntax: ${forbidden}`);
+}
 
 if (failures.length) {
   console.error("Wallet authority boundary check failed:");
