@@ -1,0 +1,52 @@
+name: Academy TypeScript Diagnostics — Never Merge
+
+on:
+  push:
+    branches:
+      - diagnostic/academy-ts-errors-20260719
+
+jobs:
+  diagnose:
+    name: Capture TypeScript diagnostics
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature candidate
+        uses: actions/checkout@v4
+        with:
+          ref: agent/academy-server-issued-progression
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install locked dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Capture TypeScript output
+        shell: bash
+        run: |
+          set +e
+          ./node_modules/.bin/tsc --noEmit > typescript-diagnostics.txt 2>&1
+          status=$?
+          echo "$status" > typescript-status.txt
+          cat typescript-diagnostics.txt
+          exit 0
+
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-typescript-diagnostics
+          path: |
+            typescript-diagnostics.txt
+            typescript-status.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Preserve failure signal
+        run: test "$(cat typescript-status.txt)" = '0'
+
+      - name: Safety notice
+        if: always()
+        run: echo 'DIAGNOSTIC-ONLY. Never merge this branch or workflow into main.'
