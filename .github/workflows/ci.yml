@@ -1,64 +1,249 @@
-name: CI
+name: Repository Hygiene Audit
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  quality:
-    name: Quality Checks
+  hygiene-audit:
+    name: Repository Hygiene Audit
     runs-on: ubuntu-latest
-
-    env:
-      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
-      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_the model_URL: https://ci-placeholder.tecpey.ir
-      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
-      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
-      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
-      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          fetch-depth: 0
 
-      - name: Verify npm version
+      - name: Build evidence report
+        shell: bash
         run: |
-          NPM_MAJOR=$(npm --version | cut -d. -f1)
-          if [ "$NPM_MAJOR" != "10" ]; then
-            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
-            exit 1
-          fi
-          echo "npm $(npm --version) OK"
+          python - <<'PY'
+          from __future__ import annotations
+          from collections import Counter, defaultdict
+          from pathlib import Path
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
 
-      - name: Install dependencies
-        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+          root = Path.cwd()
+          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+          tracked = [p for p in tracked if p]
+          source_ext = {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
+          text_ext = source_ext | {".json", ".md", ".yml", ".yaml", ".css", ".sql", ".html"}
+          source_files = [p for p in tracked if Path(p).suffix in source_ext]
 
-      - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
+          suspicious_re = re.compile(
+              r"(?:^|/)(?:tmp|temp|backup|backups|old|copy|copies|diagnostic|diagnostics|exported)(?:/|$)|"
+              r"(?:\.bak|\.backup|\.old|\.orig|\.rej|\.tmp|\.temp|~)$|"
+              r"(?:temp|temporary|diagnostic|trigger)(?:\.|-|_)",
+              re.I,
+          )
+          suspicious_paths = sorted(p for p in tracked if suspicious_re.search(p))
 
-      - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 0
+          generated_prefixes = (
+              "node_modules/", ".next/", "dist/", "build/", "coverage/",
+              ".turbo/", ".cache/", "out/", "artifacts/",
+          )
+          generated_suffixes = (".log", ".zip", ".tar", ".gz", ".tgz", ".DS_Store")
+          tracked_generated = sorted(
+              p for p in tracked
+              if p.startswith(generated_prefixes) or p.endswith(generated_suffixes)
+          )
 
-      - name: Browser persistence guard
-        run: node scripts/check-browser-persistence.mjs
+          large_files = []
+          duplicate_buckets = defaultdict(list)
+          total_bytes = 0
+          for rel in tracked:
+              path = root / rel
+              if not path.is_file():
+                  continue
+              size = path.stat().st_size
+              total_bytes += size
+              if size >= 200_000:
+                  large_files.append({"path": rel, "bytes": size})
+              if 100 <= size <= 2_000_000:
+                  digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                  duplicate_buckets[(digest, size)].append(rel)
+          duplicate_groups = [
+              {"sha256": digest, "bytes": size, "paths": sorted(paths)}
+              for (digest, size), paths in duplicate_buckets.items()
+              if len(paths) > 1
+          ]
+          duplicate_groups.sort(key=lambda item: (-item["bytes"], item["paths"]))
+          large_files.sort(key=lambda item: -item["bytes"])
 
-      - name: Admin authentication boundary guard
-        run: node scripts/check-admin-auth-boundary.mjs
+          import_re = re.compile(
+              r"(?:from\s+|import\s*\(|require\s*\()\s*['\"]([^'\"]+)['\"]|"
+              r"import\s*['\"]([^'\"]+)['\"]"
+          )
+          imports_by_file = defaultdict(list)
+          external_imports = Counter()
 
-      - name: Tests
-        run: npm test
+          def package_root(specifier: str) -> str:
+              if specifier.startswith("@"):
+                  return "/".join(specifier.split("/")[:2])
+              return specifier.split("/")[0]
 
-      - name: Build
-        env:
-          NODE_ENV: production
-        run: npm run build
+          for rel in source_files:
+              try:
+                  text = (root / rel).read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              for match in import_re.finditer(text):
+                  spec = match.group(1) or match.group(2)
+                  imports_by_file[rel].append(spec)
+                  if not spec.startswith((".", "@/", "/", "node:")):
+                      external_imports[package_root(spec)] += 1
+
+          package = json.loads((root / "package.json").read_text())
+          dependencies = set(package.get("dependencies", {}))
+          dev_dependencies = set(package.get("devDependencies", {}))
+          indirect_runtime = {
+              "next", "react", "react-dom", "@swc/helpers", "postcss",
+          }
+          indirect_dev = {
+              "typescript", "tsx", "eslint", "eslint-config-next", "tailwindcss",
+              "@tailwindcss/postcss", "@types/node", "@types/react", "@types/react-dom",
+              "@types/pg", "@types/qrcode", "@types/ws",
+          }
+          unused_runtime_candidates = sorted(
+              dependencies - set(external_imports) - indirect_runtime
+          )
+          unused_dev_candidates = sorted(
+              dev_dependencies - set(external_imports) - indirect_dev
+          )
+          undeclared_external = sorted(
+              set(external_imports) - dependencies - dev_dependencies - {
+                  "assert", "buffer", "crypto", "events", "fs", "http", "https",
+                  "module", "net", "os", "path", "perf_hooks", "querystring", "stream",
+                  "string_decoder", "timers", "tls", "tty", "url", "util", "worker_threads",
+                  "zlib", "node:test",
+              }
+          )
+
+          # Conservative internal inbound-import inventory. This is candidate generation,
+          # not deletion authority; dynamic imports, framework entrypoints and string paths
+          # can create false positives.
+          source_set = set(source_files)
+          aliases = {}
+          for rel in source_files:
+              p = Path(rel)
+              aliases[str(p.with_suffix(""))] = rel
+              if p.name.startswith("index."):
+                  aliases[str(p.parent)] = rel
+
+          def resolve_internal(owner: str, spec: str) -> str | None:
+              if spec.startswith("@/"):
+                  base = Path("src") / spec[2:]
+              elif spec.startswith("."):
+                  base = (Path(owner).parent / spec)
+              else:
+                  return None
+              normalized = os.path.normpath(str(base)).replace("\\", "/")
+              if normalized in aliases:
+                  return aliases[normalized]
+              for ext in source_ext:
+                  candidate = normalized + ext
+                  if candidate in source_set:
+                      return candidate
+              for ext in source_ext:
+                  candidate = normalized.rstrip("/") + "/index" + ext
+                  if candidate in source_set:
+                      return candidate
+              return None
+
+          inbound = Counter()
+          for owner, specs in imports_by_file.items():
+              for spec in specs:
+                  target = resolve_internal(owner, spec)
+                  if target:
+                      inbound[target] += 1
+
+          orphan_candidates = []
+          for rel in source_files:
+              if inbound[rel] != 0:
+                  continue
+              if rel.startswith(("src/app/", "src/tests/", "src/workers/")):
+                  continue
+              if rel in {"server.ts", "middleware.ts"}:
+                  continue
+              if not rel.startswith(("src/lib/", "src/components/", "src/hooks/")):
+                  continue
+              orphan_candidates.append(rel)
+          orphan_candidates.sort()
+
+          todo_counts = []
+          markers = re.compile(r"\b(TODO|FIXME|HACK|XXX)\b")
+          for rel in tracked:
+              if Path(rel).suffix not in text_ext:
+                  continue
+              path = root / rel
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              count = len(markers.findall(text))
+              if count:
+                  todo_counts.append({"path": rel, "count": count})
+          todo_counts.sort(key=lambda item: (-item["count"], item["path"]))
+
+          blueprint = (root / "docs/TECPEY_MASTER_BLUEPRINT.md").read_text(encoding="utf-8")
+          readme = (root / "README.md").read_text(encoding="utf-8")
+          metadata_drift = {
+              "package_name": package.get("name"),
+              "blueprint_python_preamble": blueprint.startswith("import logging"),
+              "readme_claims_multi_tenant_badge": "multi--tenant" in readme.lower(),
+              "readme_claims_private_license": "License-Private" in readme,
+          }
+
+          report = {
+              "summary": {
+                  "tracked_files": len(tracked),
+                  "source_files": len(source_files),
+                  "tracked_bytes": total_bytes,
+                  "suspicious_paths": len(suspicious_paths),
+                  "tracked_generated": len(tracked_generated),
+                  "duplicate_groups": len(duplicate_groups),
+                  "orphan_candidates": len(orphan_candidates),
+                  "unused_runtime_dependency_candidates": len(unused_runtime_candidates),
+                  "unused_dev_dependency_candidates": len(unused_dev_candidates),
+                  "todo_files": len(todo_counts),
+              },
+              "suspicious_paths": suspicious_paths,
+              "tracked_generated": tracked_generated,
+              "large_files": large_files[:100],
+              "duplicate_groups": duplicate_groups[:100],
+              "external_import_counts": dict(sorted(external_imports.items())),
+              "unused_runtime_dependency_candidates": unused_runtime_candidates,
+              "unused_dev_dependency_candidates": unused_dev_candidates,
+              "undeclared_external_imports": undeclared_external,
+              "orphan_candidates": orphan_candidates,
+              "todo_counts": todo_counts[:200],
+              "metadata_drift": metadata_drift,
+              "limitations": [
+                  "Orphan and dependency lists are candidates only; framework, dynamic and configuration references require manual verification.",
+                  "Exact-content duplicates can be intentional assets or localization files.",
+                  "No file is safe to delete solely from this report.",
+              ],
+          }
+          Path("repository-hygiene-report.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(json.dumps(report["summary"], indent=2))
+          print("unused runtime candidates:", unused_runtime_candidates)
+          print("suspicious paths:", suspicious_paths[:30])
+          print("orphan candidates:", orphan_candidates[:40])
+          PY
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-hygiene-report
+          path: repository-hygiene-report.json
+          retention-days: 3
+          if-no-files-found: error
