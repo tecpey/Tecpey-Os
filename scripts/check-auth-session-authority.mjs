@@ -5,6 +5,7 @@ const files = {
   ci: ".github/workflows/ci.yml",
   env: "scripts/validate-env.mjs",
   tests: "src/tests/security/auth-session-authority-postgres.test.ts",
+  logoutTests: "src/tests/security/auth-logout-route-postgres.test.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
@@ -36,6 +37,7 @@ const rejectText = (target, text, reason) => {
 requireText("package", '"auth:check"', "auth authority guard must have an npm command");
 requireText("package", "npm run auth:check", "release check must include auth authority");
 requireText("package", '"test:auth-session"', "focused auth integration tests need a governed command");
+requireText("package", "src/tests/security/auth-*.test.ts", "focused auth test command must include helper and route-level suites");
 requireText("package", "npm run test:auth-session", "release check must run focused auth integration tests");
 requireText("ci", "Authentication session authority guard", "pull-request CI must run the auth authority guard");
 requireText("ci", "npm run auth:check", "CI must invoke the governed auth command");
@@ -102,10 +104,14 @@ requireText("tests", "Redis deny persistence is unavailable", "integration tests
 requireText("tests", "prior non-strict allow", "integration tests must prevent strict cache bypass");
 requireText("tests", "without PostgreSQL authority", "integration tests must cover database-unavailable issuance");
 requireText("tests", "reuse one secret across token classes", "integration tests must prove secret isolation validation");
+requireText("logoutTests", "cross-origin logout", "route tests must prove CSRF rejection without revocation");
+requireText("logoutTests", "forged unified session", "route tests must reject attacker-signed session identity");
+requireText("logoutTests", "all durable refresh authority", "route tests must invalidate old access and refresh credentials");
+requireText("logoutTests", "Redis deny store is unavailable", "route tests must return explicit failure during revocation-store outage");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound revocation, deny-only caching, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound revocation, deny-only caching, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
