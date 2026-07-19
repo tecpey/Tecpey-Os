@@ -4,6 +4,7 @@
     {
       "route": "/api/academy-auth",
       "method": "POST",
+      "authorityType": "pre-authentication",
       "classification": "public",
       "principalSource": null,
       "controlOverrides": {
@@ -20,6 +21,7 @@
     {
       "route": "/api/academy/auth/login",
       "method": "POST",
+      "authorityType": "compatibility-pre-authentication",
       "classification": "public",
       "principalSource": null,
       "controlOverrides": {
@@ -36,6 +38,7 @@
     {
       "route": "/api/academy/auth/register",
       "method": "POST",
+      "authorityType": "compatibility-pre-authentication",
       "classification": "public",
       "principalSource": null,
       "controlOverrides": {
@@ -52,6 +55,7 @@
     {
       "route": "/api/auth/webauthn/auth/challenge",
       "method": "POST",
+      "authorityType": "pre-authentication",
       "classification": "public",
       "principalSource": null,
       "controlOverrides": {
@@ -69,6 +73,7 @@
     {
       "route": "/api/auth/webauthn/auth/verify",
       "method": "POST",
+      "authorityType": "pre-authentication",
       "classification": "public",
       "principalSource": null,
       "controlOverrides": {
@@ -85,6 +90,7 @@
     {
       "route": "/api/command-center/auth/bootstrap/challenge",
       "method": "POST",
+      "authorityType": "bootstrap-credential",
       "classification": "admin",
       "principalSource": "verifyAdminBootstrapToken",
       "controlOverrides": {
@@ -100,6 +106,7 @@
     {
       "route": "/api/command-center/auth/bootstrap/verify",
       "method": "POST",
+      "authorityType": "bootstrap-credential",
       "classification": "admin",
       "principalSource": "verifyAdminBootstrapToken",
       "controlOverrides": {
@@ -115,6 +122,7 @@
     {
       "route": "/api/command-center/auth/passkey/challenge",
       "method": "POST",
+      "authorityType": "admin-pre-authentication",
       "classification": "admin",
       "principalSource": null,
       "controlOverrides": {
@@ -131,6 +139,7 @@
     {
       "route": "/api/command-center/auth/passkey/verify",
       "method": "POST",
+      "authorityType": "admin-pre-authentication",
       "classification": "admin",
       "principalSource": null,
       "controlOverrides": {
@@ -147,6 +156,7 @@
     {
       "route": "/api/command-center/auth/logout",
       "method": "POST",
+      "authorityType": "live-principal",
       "classification": "admin",
       "principalSource": "loadAdminPrincipal",
       "controlOverrides": {
@@ -160,6 +170,7 @@
     {
       "route": "/api/ai-mentor-v2",
       "method": "POST",
+      "authorityType": "compatibility-alias",
       "classification": "authenticated",
       "principalSource": "canonical /api/ai-mentor handler",
       "controlOverrides": {
