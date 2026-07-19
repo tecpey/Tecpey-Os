@@ -26,6 +26,10 @@ import {
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import {
+  canonicalizeWithdrawalCommand,
+  issueWithdrawalAuthorization,
+} from "@/lib/security/withdrawal-admission-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -113,8 +117,57 @@ export async function POST(req: NextRequest) {
       actorId: userId,
       action: "2fa_verify_success",
       ip,
-      metadata: { event: "verify_ok" },
+      metadata: { event: "verify_ok", purpose: body.purpose ?? "session" },
     });
+
+    if (!isPreAuthFlow && body.purpose === "withdrawal") {
+      const idempotencyKey =
+        typeof body.idempotencyKey === "string" ? body.idempotencyKey : "";
+      const canonical = canonicalizeWithdrawalCommand({
+        userId,
+        asset: typeof body.asset === "string" ? body.asset : "",
+        amount: typeof body.amount === "string" ? body.amount : "",
+        destinationAddress:
+          typeof body.destinationAddress === "string"
+            ? body.destinationAddress
+            : "",
+        destinationTag:
+          typeof body.destinationTag === "string" ? body.destinationTag : null,
+        network: typeof body.network === "string" ? body.network : "",
+        idempotencyKey,
+      });
+      if (!canonical.ok) return apiError(canonical.reason, 400);
+
+      const authorization = await issueWithdrawalAuthorization({
+        userId,
+        requestHash: canonical.requestHash,
+      });
+      if (!authorization) {
+        return apiError("withdrawal_authorization_unavailable", 503);
+      }
+
+      writeAudit({
+        actorId: userId,
+        action: "wallet_withdrawal",
+        ip,
+        userAgent: deviceInfo,
+        metadata: {
+          event: "withdrawal_2fa_authorized",
+          authorizationId: authorization.id,
+          requestHash: canonical.requestHash,
+          expiresAt: authorization.expiresAt.toISOString(),
+        },
+      });
+
+      return apiOk({
+        verified: true,
+        userId,
+        withdrawalAuthorization: {
+          id: authorization.id,
+          expiresAt: authorization.expiresAt.toISOString(),
+        },
+      });
+    }
 
     if (!isPreAuthFlow) return apiOk({ verified: true, userId });
 
