@@ -24,10 +24,15 @@ rejectText(theme, "useState(theme ===", "Theme control must not freeze pre-hydra
 
 requireText(layout, "<PublicMentorEntry />", "Root layout must expose the public/locked Mentor entry");
 requireText(layout, "<GlobalAiMentorWidget />", "Root layout must preserve the personalized Mentor widget");
-requireText(publicMentor, "if (!checked || profileReady) return null", "Public Mentor entry must hand off only after profile readiness is known");
+requireText(publicMentor, 'type ProfileStatus = "checking" | "absent" | "ready" | "unavailable"', "Public Mentor must distinguish absent profile from API failure");
+requireText(publicMentor, 'if (profileStatus !== "absent") return null', "Public Mentor must show only after an authoritative absent-profile result");
+requireText(publicMentor, 'setProfileStatus("unavailable")', "Mentor profile-check failure must fail closed instead of creating a duplicate launcher");
 requireText(publicMentor, "منتور هوشمند تک‌پی", "Public Mentor CTA must be visible in Persian");
 requireText(publicMentor, "AI Learning Mentor", "Public Mentor CTA must be visible in English");
 requireText(publicMentor, "aria-modal=\"true\"", "Locked Mentor explanation must use dialog semantics");
+requireText(publicMentor, 'event.key === "Escape"', "Locked Mentor dialog must support Escape dismissal");
+requireText(publicMentor, 'event.key !== "Tab"', "Locked Mentor dialog must contain keyboard focus");
+requireText(publicMentor, 'document.body.style.overflow = "hidden"', "Locked Mentor dialog must prevent background scroll");
 
 requireText(navbar, "aria-haspopup=\"menu\"", "Knowledge Center must expose menu semantics");
 requireText(navbar, "aria-expanded={knowledgeOpen}", "Knowledge Center must expose open state");
