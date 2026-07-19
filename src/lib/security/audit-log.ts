@@ -17,6 +17,7 @@ export type AuditAction =
   | "api_key_created" | "api_key_rotated" | "api_key_disabled" | "api_key_deleted"
   | "order_placed" | "order_cancelled"
   | "wallet_deposit" | "wallet_withdrawal"
+  | "offline_sync"
   | "admin_action" | "permission_changed" | "risk_event"
   | "webauthn_registered" | "webauthn_registration_failed";
 
