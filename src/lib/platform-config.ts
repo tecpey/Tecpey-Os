@@ -32,20 +32,63 @@ export function shouldUseSecureCookie(): boolean {
   if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   if (siteUrl.startsWith("https://")) return true;
-  if (siteUrl.startsWith("http://localhost") || siteUrl.startsWith("http://127.0.0.1")) return false;
+  if (
+    siteUrl.startsWith("http://localhost") ||
+    siteUrl.startsWith("http://127.0.0.1")
+  ) {
+    return false;
+  }
   return false;
 }
 
 // ── Session expiry ────────────────────────────────────────────────────────────
 
-/** Session max age as a JWT duration string (e.g. "30d"). */
-export function sessionMaxAge(): string {
-  return process.env.TECPEY_SESSION_MAX_AGE || "30d";
+/**
+ * Access credentials must not outlive the browser cookie that carries them.
+ * Four hours is the hard ceiling; deployments may configure a shorter lifetime.
+ */
+export const ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60;
+const ACCESS_SESSION_MIN_AGE_SECONDS = 5 * 60;
+
+function parseDurationSeconds(value: string | undefined): number | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const match = /^(\d+)(s|m|h|d)$/.exec(raw);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  const multiplier =
+    match[2] === "s"
+      ? 1
+      : match[2] === "m"
+        ? 60
+        : match[2] === "h"
+          ? 60 * 60
+          : 24 * 60 * 60;
+  return Number.isSafeInteger(amount) ? amount * multiplier : null;
 }
 
-/** Session max age in seconds for the Set-Cookie maxAge attribute. */
+function configuredSessionMaxAgeSeconds(): number | null {
+  const explicitSeconds = process.env.TECPEY_SESSION_MAX_AGE_SECONDS?.trim();
+  if (explicitSeconds) {
+    const parsed = Number(explicitSeconds);
+    return Number.isFinite(parsed) ? Math.floor(parsed) : null;
+  }
+  return parseDurationSeconds(process.env.TECPEY_SESSION_MAX_AGE);
+}
+
+/** Session max age in seconds, bounded to 5 minutes–4 hours. */
 export function sessionMaxAgeSeconds(): number {
-  return Number(process.env.TECPEY_SESSION_MAX_AGE_SECONDS || 60 * 60 * 24 * 30);
+  const configured = configuredSessionMaxAgeSeconds();
+  if (configured === null) return ACCESS_SESSION_MAX_AGE_SECONDS;
+  return Math.min(
+    ACCESS_SESSION_MAX_AGE_SECONDS,
+    Math.max(ACCESS_SESSION_MIN_AGE_SECONDS, configured),
+  );
+}
+
+/** JWT duration derived from the exact cookie lifetime authority. */
+export function sessionMaxAge(): string {
+  return `${sessionMaxAgeSeconds()}s`;
 }
 
 // ── Platform metadata ─────────────────────────────────────────────────────────

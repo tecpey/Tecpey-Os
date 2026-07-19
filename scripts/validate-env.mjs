@@ -15,6 +15,23 @@ function loadEnvFile(file) {
   }
 }
 
+function parseDurationSeconds(value) {
+  const raw = value?.trim();
+  if (!raw) return null;
+  const match = /^(\d+)(s|m|h|d)$/.exec(raw);
+  if (!match) return Number.NaN;
+  const amount = Number(match[1]);
+  const multiplier =
+    match[2] === 's'
+      ? 1
+      : match[2] === 'm'
+        ? 60
+        : match[2] === 'h'
+          ? 60 * 60
+          : 24 * 60 * 60;
+  return Number.isSafeInteger(amount) ? amount * multiplier : Number.NaN;
+}
+
 loadEnvFile('.env.production');
 loadEnvFile('.env.local');
 loadEnvFile('.env');
@@ -39,6 +56,8 @@ const optional = [
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
   'TECPEY_ADMIN_TOKEN',
+  'TECPEY_SESSION_MAX_AGE',
+  'TECPEY_SESSION_MAX_AGE_SECONDS',
   'TECPEY_LEGACY_AUTH_UNTIL',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
@@ -92,15 +111,42 @@ for (const key of optional) {
   }
 }
 
+const configuredSessionSeconds = process.env.TECPEY_SESSION_MAX_AGE_SECONDS?.trim();
+const configuredSessionDuration = process.env.TECPEY_SESSION_MAX_AGE?.trim();
+if (configuredSessionSeconds && configuredSessionDuration) {
+  errors.push('Set only one of TECPEY_SESSION_MAX_AGE_SECONDS or TECPEY_SESSION_MAX_AGE');
+}
+let accessSessionLifetime = null;
+if (configuredSessionSeconds) {
+  accessSessionLifetime = Number(configuredSessionSeconds);
+} else if (configuredSessionDuration) {
+  accessSessionLifetime = parseDurationSeconds(configuredSessionDuration);
+}
+if (accessSessionLifetime !== null) {
+  if (!Number.isFinite(accessSessionLifetime) || !Number.isInteger(accessSessionLifetime)) {
+    errors.push('Access-session lifetime must be a valid integer seconds value or duration such as 30m or 4h');
+  } else if (accessSessionLifetime < 5 * 60) {
+    errors.push('Access-session lifetime must be at least 5 minutes');
+  } else if (accessSessionLifetime > 4 * 60 * 60) {
+    errors.push('Access-session lifetime may not exceed the 4-hour security ceiling');
+  }
+}
+
 const legacyAuthUntil = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
+const legacyAuthHardSunset = Date.parse('2026-08-18T00:00:00.000Z');
 if (process.env.NODE_ENV === 'production' && legacyAuthUntil) {
   const cutoff = Date.parse(legacyAuthUntil);
+  const now = Date.now();
   const maxLegacyWindowMs = 30 * 24 * 60 * 60 * 1000;
   if (!Number.isFinite(cutoff)) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL must be a valid ISO-8601 timestamp');
-  } else if (cutoff <= Date.now()) {
+  } else if (now >= legacyAuthHardSunset) {
+    errors.push('Legacy cookie compatibility has passed its immutable 2026-08-18 sunset and must be removed');
+  } else if (cutoff <= now) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL must be in the future or removed to disable legacy auth');
-  } else if (cutoff - Date.now() > maxLegacyWindowMs) {
+  } else if (cutoff > legacyAuthHardSunset) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL may not exceed the immutable 2026-08-18 legacy auth sunset');
+  } else if (cutoff - now > maxLegacyWindowMs) {
     errors.push('TECPEY_LEGACY_AUTH_UNTIL may not extend legacy cookie compatibility beyond 30 days');
   }
 }
