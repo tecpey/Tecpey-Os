@@ -1,0 +1,67 @@
+name: One-shot Body Chain Baseline Refresh
+
+on:
+  push:
+    branches: [fix/api-security-manifest]
+    paths:
+      - .github/workflows/api-security-body-chain-baseline-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-body-chain-baseline
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/api-security-manifest
+          fetch-depth: 2
+
+      - name: Verify immutable one-shot ancestry
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "515ed16024b055d22c2ac8a4c0ad6b732372f1e7"
+          test "$(git log -1 --pretty=%s)" = "chore(security): one-shot body-chain baseline refresh"
+
+      - name: Generate and validate exact body-chain manifest
+        run: |
+          set -euo pipefail
+          node scripts/generate-api-security-manifest.mjs --output=api-security-manifest.generated.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=api-security-manifest.generated.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=api-security-manifest.generated.json
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { evaluateApiSecurityPolicy } from './scripts/api-security-manifest-policy.mjs';
+          const manifest = JSON.parse(await readFile('api-security-manifest.generated.json', 'utf8'));
+          const registry = JSON.parse(await readFile('config/api-security-exceptions.json', 'utf8'));
+          const result = evaluateApiSecurityPolicy({ manifest, registry, now: new Date() });
+          if (!result.ok) {
+            console.error(JSON.stringify(result, null, 2));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({ totals: manifest.totals, exceptions: result.exceptionCount }, null, 2));
+          NODE
+
+      - name: Commit only baseline and self-deletion
+        run: |
+          set -euo pipefail
+          cp api-security-manifest.generated.json docs/security/generated/api-security-manifest.json
+          rm api-security-manifest.generated.json
+          git rm .github/workflows/api-security-body-chain-baseline-once.yml
+          git add docs/security/generated/api-security-manifest.json
+          mapfile -t changed < <(git diff --cached --name-only)
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | grep -Fx '.github/workflows/api-security-body-chain-baseline-once.yml'
+          printf '%s\n' "${changed[@]}" | grep -Fx 'docs/security/generated/api-security-manifest.json'
+          git diff --quiet -- config/api-security-exceptions.json config/api-security-operation-overrides.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(security): commit body-chain API baseline"
+          git push origin HEAD:fix/api-security-manifest
