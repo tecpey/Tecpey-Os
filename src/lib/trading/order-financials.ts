@@ -3,6 +3,7 @@ import { D } from "./decimal";
 import type { Market, PlaceOrderRequest } from "./types";
 
 export const DATABASE_AMOUNT_SCALE = 10;
+export const DATABASE_AMOUNT_INTEGER_DIGITS = 20;
 const PLAIN_DECIMAL = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 export type OrderHold = {
@@ -31,13 +32,40 @@ export function isExactIncrement(value: Decimal, increment: Decimal): boolean {
   return increment.gt(0) && value.mod(increment).isZero();
 }
 
+function coefficientDigits(value: string): number {
+  const digits = value.replace(".", "").replace(/^0+/, "");
+  return Math.max(1, digits.length);
+}
+
 /**
- * Balance NUMERIC columns have scale 10. Holds always round away from zero so a
- * multiplication with more than ten fractional digits can never under-reserve.
+ * Decimal's global precision is intentionally bounded for the legacy engine.
+ * Admission multiplication uses an isolated constructor with enough significant
+ * digits to preserve the complete finite-decimal product before scale checks.
+ */
+export function multiplyOrderDecimals(left: string, right: string): Decimal {
+  const precision = coefficientDigits(left) + coefficientDigits(right) + 4;
+  const ExactDecimal = Decimal.clone({
+    precision: Math.max(40, precision),
+    rounding: Decimal.ROUND_HALF_UP,
+  });
+  return new ExactDecimal(left).times(new ExactDecimal(right));
+}
+
+/**
+ * The existing matching/release engine still serializes fills at scale 10.
+ * Until that next #30 slice is Decimal-safe, admission rejects any hold that
+ * would require rounding. This prevents both under-reservation and terminal
+ * held-balance dust from asymmetric hold/release rounding.
  */
 export function toHoldAmount(value: Decimal): string {
   if (!value.isFinite() || value.lte(0)) throw new Error("invalid_order_hold_amount");
-  return value.toDecimalPlaces(DATABASE_AMOUNT_SCALE, Decimal.ROUND_UP).toFixed(DATABASE_AMOUNT_SCALE);
+  if (value.decimalPlaces() > DATABASE_AMOUNT_SCALE) {
+    throw new Error("order_hold_scale_exceeded");
+  }
+  if (value.gte(`1e${DATABASE_AMOUNT_INTEGER_DIGITS}`)) {
+    throw new Error("order_hold_range_exceeded");
+  }
+  return value.toFixed(DATABASE_AMOUNT_SCALE);
 }
 
 export function calculateOrderHold(input: {
@@ -66,7 +94,7 @@ export function calculateOrderHold(input: {
 
   return {
     asset: input.market.quoteAsset,
-    amount: toHoldAmount(quantity.times(price)),
+    amount: toHoldAmount(multiplyOrderDecimals(input.request.quantity, basisPrice)),
     basisPrice,
   };
 }
