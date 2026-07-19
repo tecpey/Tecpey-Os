@@ -34,6 +34,7 @@ for (const directImport of [
   'from "./db-migrate-academy-section-authority"',
   'from "./db-migrate-academy-reward-release"',
   'from "./db-migrate-academy-section-commands"',
+  'from "./db-migrate-academy-section-upsert-guard"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -58,6 +59,7 @@ const orderedCalls = [
   "await runAcademySectionCommandMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
+  "await runAcademySectionUpsertGuardMigrations(client)",
 ];
 let previousIndex = -1;
 for (const call of orderedCalls) {
@@ -90,6 +92,7 @@ for (const migration of [
   "0029_academy_section_command_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
+  "0032_academy_section_upsert_guard.sql",
 ]) {
   requireText(integration, migration, `migration integration must verify ${migration}`);
 }
@@ -119,6 +122,7 @@ for (const trigger of [
   "academy_section_attempts_no_delete",
   "academy_section_commands_no_update",
   "academy_section_commands_no_delete",
+  "academy_lesson_progress_preserve_verified_pass",
 ]) {
   requireText(integration, trigger, `migration integration must verify ${trigger}`);
 }
