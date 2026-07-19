@@ -33,7 +33,7 @@
     "notifications:worker:in-app": "tsx scripts/run-notification-in-app-worker.ts",
     "notifications:worker:domain": "tsx scripts/run-notification-domain-worker.ts",
     "auth:check": "node scripts/check-auth-session-authority.mjs",
-    "test:auth-session": "node --import tsx --test 'src/tests/security/auth-*.test.ts'",
+    "test:auth-session": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/auth-*.test.ts'",
     "withdrawals:check": "node scripts/check-withdrawal-admission-authority.mjs && node scripts/check-withdrawal-runtime-authority.mjs",
     "test:withdrawal-admission": "node --import tsx --test 'src/tests/security/withdrawal-admission*.test.ts' 'src/tests/security/withdrawal-price-producer.test.ts' 'src/tests/security/withdrawal-settlement-postgres.test.ts'",
     "offline:check": "node scripts/check-offline-sync-authority.mjs && node scripts/check-offline-queue-capacity.mjs",
