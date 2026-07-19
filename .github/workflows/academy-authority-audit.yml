@@ -69,6 +69,10 @@ jobs:
           echo "cd517e57818b1f5a0ece778ce04109a150a25f23923e27fdf0df34458e683f09  audit/academy-p0-mentor-reason.patch" | sha256sum --check --strict
           cp audit/academy-p0-mentor-reason.patch /tmp/academy-p0-mentor-reason.patch
 
+          test "$(wc -c < audit/academy-p0-eslint-fix.patch)" -eq 419
+          echo "ff4262cea154d2e0bb181bdf31793ef4786f26b5174fc49b15cbdcee54fe579e  audit/academy-p0-eslint-fix.patch" | sha256sum --check --strict
+          cp audit/academy-p0-eslint-fix.patch /tmp/academy-p0-eslint-fix.patch
+
       - name: Create clean branch from protected main
         shell: bash
         run: |
@@ -83,6 +87,7 @@ jobs:
           test ! -e audit/academy-p0-patch-parts
           test ! -e audit/academy-server-issued-progress.patch.gz.b64
           test ! -e audit/academy-p0-mentor-reason.patch
+          test ! -e audit/academy-p0-eslint-fix.patch
           test ! -e .github/workflows/academy-p0-publish.yml
           test ! -e .github/workflows/academy-authority-audit.yml
 
@@ -94,6 +99,8 @@ jobs:
           git apply /tmp/academy-p0.patch
           git apply --check /tmp/academy-p0-mentor-reason.patch
           git apply /tmp/academy-p0-mentor-reason.patch
+          git apply --check /tmp/academy-p0-eslint-fix.patch
+          git apply /tmp/academy-p0-eslint-fix.patch
           git diff --check
           if git status --short | grep -E '(^| )audit/|academy-p0-publish|academy-authority-audit'; then
             echo "Audit-only material leaked into the product branch."
