@@ -33,6 +33,7 @@ for (const directImport of [
   'from "./db-migrate-crm-leads-hardening"',
   'from "./db-migrate-academy-section-authority"',
   'from "./db-migrate-academy-reward-release"',
+  'from "./db-migrate-academy-section-commands"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -54,6 +55,7 @@ const orderedCalls = [
   "await runCrmLeadHardeningMigrations(client)",
   "await runAcademySectionAuthorityMigrations(client)",
   "await runAcademyRewardLegacyReleaseMigrations(client)",
+  "await runAcademySectionCommandMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -85,6 +87,7 @@ for (const migration of [
   "0026_crm_lead_hardening.sql",
   "0027_academy_section_checkpoint_authority.sql",
   "0028_academy_reward_legacy_release.sql",
+  "0029_academy_section_command_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ]) {
@@ -100,6 +103,7 @@ for (const table of [
   "crm_lead_audit_events",
   "academy_section_attempts",
   "academy_section_legacy_snapshots",
+  "academy_section_commands",
 ]) {
   requireText(integration, table, `migration integration must verify ${table}`);
 }
@@ -113,6 +117,8 @@ for (const trigger of [
   "crm_lead_audit_no_update",
   "academy_section_attempts_no_update",
   "academy_section_attempts_no_delete",
+  "academy_section_commands_no_update",
+  "academy_section_commands_no_delete",
 ]) {
   requireText(integration, trigger, `migration integration must verify ${trigger}`);
 }
@@ -124,6 +130,7 @@ for (const constraint of [
 ]) {
   requireText(integration, constraint, `migration integration must verify ${constraint}`);
 }
+requireText(integration, "academy_section_commands_request_idx", "migration integration must verify section command replay index");
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 
 if (failures.length) {
