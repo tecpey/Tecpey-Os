@@ -15,6 +15,7 @@ describe("PostgreSQL exact order hold authority", () => {
     const userId = `order-hold-${randomUUID()}`;
     const firstOrderId = randomUUID();
     const secondOrderId = randomUUID();
+    const expectedOrderIds = new Set<string>([firstOrderId, secondOrderId]);
 
     const seeded = await withDb(async (client) => {
       await client.query(
@@ -79,7 +80,7 @@ describe("PostgreSQL exact order hold authority", () => {
       assert.equal(evidence.value.balance?.held_balance, "0.1000000001");
       assert.equal(evidence.value.ledger.length, 1);
       assert.equal(evidence.value.ledger[0]?.amount, "0.1000000001");
-      assert.ok([firstOrderId, secondOrderId].includes(evidence.value.ledger[0]?.reference_id ?? ""));
+      assert.ok(expectedOrderIds.has(evidence.value.ledger[0]?.reference_id ?? ""));
     } finally {
       await withDb(async (client) => {
         await client.query("DELETE FROM wallet_ledger WHERE wallet_id = $1", [userId]);
