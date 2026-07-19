@@ -186,6 +186,16 @@ export function parseArenaReflectionMutation(value: unknown): {
   return { attemptId, reflection, idempotentReplay: raw.idempotentReplay === true };
 }
 
+export function shouldApplyArenaReflectionMutation(input: {
+  current: ArenaReflectionView | null;
+  incoming: ArenaReflectionView;
+  responseSequence: number;
+  latestResponseSequence: number;
+}): boolean {
+  return input.responseSequence === input.latestResponseSequence &&
+    (!input.current || input.incoming.revision >= input.current.revision);
+}
+
 function canonical(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
