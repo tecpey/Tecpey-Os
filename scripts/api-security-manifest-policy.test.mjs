@@ -5,18 +5,96 @@ import {
   findingKey,
 } from "./api-security-manifest-policy.mjs";
 
+function route(findings = ["required_csrf_missing"], overrides = {}) {
+  const csrfMissing = findings.includes("required_csrf_missing");
+  return {
+    route: "/api/example",
+    method: "POST",
+    sourcePath: "src/app/api/example/route.ts",
+    sourceHash: "0123456789abcdef01234567",
+    delegatedTo: null,
+    delegatedSourceHash: null,
+    mutationMode: "active",
+    classification: "authenticated",
+    principalSource: "getCanonicalSession",
+    tenantSource: null,
+    risk: [],
+    controls: {
+      csrf: !csrfMissing,
+      strictRevocation: false,
+      rateLimit: false,
+      rateLimitNamespace: null,
+      expectsBody: false,
+      bodySizeLimit: false,
+      contentTypeCheck: false,
+      inputParser: null,
+      idempotency: false,
+      transaction: false,
+      verifiedPrincipal: true,
+      tenantFromVerifiedContext: false,
+      noStore: true,
+      audit: false,
+      redaction: true,
+      failClosed: true,
+      serviceIdentity: false,
+      setsCookie: false,
+      headerBodySizeHint: false,
+      bodySizeLimitAuthority: null,
+    },
+    requirements: {
+      csrf: csrfMissing,
+      strictRevocation: false,
+      rateLimit: false,
+      bodySizeLimit: false,
+      idempotency: false,
+      verifiedPrincipal: true,
+      noStore: true,
+      audit: false,
+      redaction: true,
+      serviceIdentity: false,
+    },
+    domainOwner: "example",
+    testReferences: [],
+    findings,
+    evidenceSource: {
+      sourcePath: "src/app/api/example/route.ts",
+      method: "POST",
+      resolved: true,
+    },
+    ...overrides,
+  };
+}
+
+function withTotals(routes) {
+  const findingCounts = {};
+  for (const entry of routes) {
+    for (const finding of entry.findings) findingCounts[finding] = (findingCounts[finding] ?? 0) + 1;
+  }
+  return {
+    routeFiles: new Set(routes.map((entry) => entry.sourcePath)).size || 1,
+    mutatingOperations: routes.length,
+    activeOperations: routes.filter((entry) => entry.mutationMode === "active").length,
+    denyOnlyOperations: routes.filter((entry) => entry.mutationMode === "deny-only").length,
+    operationsWithFindings: routes.filter((entry) => entry.findings.length > 0).length,
+    findings: routes.reduce((sum, entry) => sum + entry.findings.length, 0),
+    findingCounts,
+  };
+}
+
 function manifest(findings = ["required_csrf_missing"]) {
+  const routes = [route(findings)];
   return {
     schemaVersion: 1,
     authority: "generated-from-src-app-api-route-ts",
     methods: ["POST", "PUT", "PATCH", "DELETE"],
-    totals: {},
-    routes: [{
-      route: "/api/example",
-      method: "POST",
-      findings,
-    }],
+    totals: withTotals(routes),
+    routes,
   };
+}
+
+function refreshTotals(value) {
+  value.totals = withTotals(value.routes);
+  return value;
 }
 
 function exception(overrides = {}) {
@@ -146,6 +224,7 @@ describe("API security manifest exception policy", () => {
   it("rejects duplicate operations in the manifest", () => {
     const duplicateManifest = manifest();
     duplicateManifest.routes.push({ ...duplicateManifest.routes[0] });
+    refreshTotals(duplicateManifest);
     const result = evaluateApiSecurityPolicy({
       manifest: duplicateManifest,
       registry: registry([exception()]),
@@ -153,5 +232,38 @@ describe("API security manifest exception policy", () => {
     });
     assert.equal(result.ok, false);
     assert.equal(result.errors.some((error) => error.includes("duplicate operation")), true);
+  });
+
+  it("rejects inconsistent totals", () => {
+    const value = manifest();
+    value.totals.findings = 99;
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([exception()]), now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("totals.findings")), true);
+  });
+
+  it("rejects findings that do not match requirements and controls", () => {
+    const value = manifest([]);
+    value.routes[0].findings = ["missing_audit_or_observability_evidence"];
+    refreshTotals(value);
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([]), now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("findings do not match")), true);
+  });
+
+  it("rejects unresolved method evidence", () => {
+    const value = manifest();
+    value.routes[0].evidenceSource.resolved = false;
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([exception()]), now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("must resolve")), true);
+  });
+
+  it("rejects body-limit claims without named authority", () => {
+    const value = manifest([]);
+    value.routes[0].controls.bodySizeLimit = true;
+    const result = evaluateApiSecurityPolicy({ manifest: value, registry: registry([]), now });
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.includes("requires named enforceable authority")), true);
   });
 });
