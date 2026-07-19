@@ -53,14 +53,11 @@ jobs:
           NODE
           git diff --check
 
-      - name: Restore canonical CI and remove transport workflow
+      - name: Commit npm-generated dependency graph only
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch origin main --quiet
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
-          git rm .github/workflows/remove-superseded-chartjs.yml
-          git add .github/workflows/ci.yml package.json package-lock.json
+          git add package.json package-lock.json
           git diff --cached --check
           git commit -m 'chore(charts): remove superseded Chart.js dependencies'
           git push origin HEAD:chore/remove-superseded-chartjs-path-20260719
