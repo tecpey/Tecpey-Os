@@ -228,6 +228,9 @@ jobs:
       - name: Notification producer authority guard
         run: npm run notifications:producers:check
 
+      - name: Notification domain outbox authority guard
+        run: npm run notifications:domain:check
+
       - name: Exchange order admission authority guard
         run: node scripts/check-exchange-order-admission.mjs
 

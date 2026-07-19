@@ -15,6 +15,7 @@ const REQUIRED_MIGRATIONS = [
   "0020_trading_arena_execution.sql",
   "0021_academy_progress_authority.sql",
   "0023_offline_sync_command_authority.sql",
+  "0024_notification_domain_outbox.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ] as const;
@@ -24,6 +25,9 @@ const REQUIRED_TABLES = [
   "academy_state_documents",
   "academy_trading_arena_commands",
   "offline_sync_commands",
+  "notification_domain_outbox",
+  "notification_domain_outbox_attempts",
+  "notification_domain_dead_letters",
   "orders",
   "withdrawals",
   "withdrawal_price_snapshots",
@@ -46,6 +50,9 @@ const REQUIRED_COLUMNS = [
   ["offline_sync_commands", "command_hash"],
   ["offline_sync_commands", "domain_event_id"],
   ["offline_sync_commands", "retain_until"],
+  ["notification_domain_outbox", "payload_hash"],
+  ["notification_domain_outbox", "lease_expires_at"],
+  ["notification_domain_outbox", "notification_intent_id"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -53,7 +60,21 @@ const REQUIRED_INDEXES = [
   "learning_events_offline_event_id_idx",
   "offline_sync_commands_reconcile_idx",
   "offline_sync_commands_retention_idx",
+  "notification_domain_outbox_claim_idx",
+  "notification_domain_outbox_lease_idx",
   "withdrawals_user_idempotency_unique_idx",
+] as const;
+
+const REQUIRED_TRIGGERS = [
+  "admin_audit_events_no_update",
+  "admin_audit_events_no_delete",
+  "admin_audit_events_validate_chain",
+  "withdrawals_verify_price_evidence",
+  "withdrawals_clear_terminal_reservation",
+  "notification_domain_outbox_identity_no_update",
+  "notification_domain_outbox_no_delete",
+  "notification_domain_dead_letters_no_update",
+  "notification_domain_dead_letters_no_delete",
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -127,15 +148,13 @@ describe("PostgreSQL migration authority", () => {
            FROM pg_trigger
           WHERE NOT tgisinternal
             AND tgname = ANY($1::text[])`,
-        [[
-          "admin_audit_events_no_update",
-          "admin_audit_events_no_delete",
-          "admin_audit_events_validate_chain",
-          "withdrawals_verify_price_evidence",
-          "withdrawals_clear_terminal_reservation",
-        ]],
+        [REQUIRED_TRIGGERS],
       );
-      assert.equal(triggerResult.rows.length, 5, "critical database authority triggers must exist");
+      assert.deepEqual(
+        new Set(triggerResult.rows.map((row) => row.tgname)),
+        new Set(REQUIRED_TRIGGERS),
+        "critical database authority triggers must exist",
+      );
     } finally {
       client.release();
       await pool.end();
