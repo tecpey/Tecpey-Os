@@ -58,12 +58,22 @@ describe("handler runtime security evidence", () => {
     assert.equal(detectRedactionCall(source), true);
   });
 
-  it("recognizes actual admin and service identity authority", () => {
+  it("recognizes actual admin and governed service authority calls", () => {
     const admin = `const authorization = await authorizeAdminRequest(req, "system.write");`;
-    const service = `const auth = request.headers.get("authorization");`;
+    const service = `const principal = await verifyInternalService(req);`;
     assert.equal(detectAdminAuthorityCall(admin), true);
     assert.equal(detectPrincipalCall(admin), "authorizeAdminRequest");
     assert.equal(detectServiceIdentityEvidence(service), true);
+  });
+
+  it("requires cryptographic validation after a raw authorization read", () => {
+    const readOnly = `const auth = request.headers.get("authorization");`;
+    const verified = `
+      const auth = request.headers.get("authorization");
+      const valid = timingSafeEqual(Buffer.from(auth), Buffer.from(expected));
+    `;
+    assert.equal(detectServiceIdentityEvidence(readOnly), false);
+    assert.equal(detectServiceIdentityEvidence(verified), true);
   });
 
   it("does not treat arbitrary authorization prose as service identity", () => {
