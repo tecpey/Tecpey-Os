@@ -1,0 +1,69 @@
+name: Test Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test-diagnostics:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --silent --no-audit --no-fund
+      - run: npm run db:migrate > /dev/null
+      - name: Tests and temporary PR diagnostic
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          npm test > /tmp/tecpey-tests.log 2>&1
+          CODE=$?
+          if [ "$CODE" -ne 0 ]; then
+            {
+              echo '### Temporary test diagnostics'
+              echo '```text'
+              tail -c 50000 /tmp/tecpey-tests.log
+              echo
+              echo '```'
+            } > /tmp/tecpey-tests-comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/tecpey-tests-comment.md
+          fi
+          tail -c 50000 /tmp/tecpey-tests.log
+          exit "$CODE"
