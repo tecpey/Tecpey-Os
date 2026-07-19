@@ -1,4 +1,3 @@
-
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -7,10 +6,9 @@ import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowLeft, Clock3, BookOpen } from "lucide-react";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
-import { AcademyLessonPlayer } from "@/components/academy/AcademyLessonPlayer";
+import { AcademyAuthoritativeLessonPlayer } from "@/components/academy/AcademyAuthoritativeLessonPlayer";
 
 type Props = { params: Promise<{ slug: string }> };
-
 
 const termQuizData: Record<string, { title: string; questions: { q: string; options: string[] }[] }> = {};
 
@@ -89,7 +87,7 @@ export default async function AcademyArticlePage({ params }: Props) {
         inLanguage: "fa-IR",
         educationalLevel: "Beginner to Advanced",
         teaches: [article.title, article.description],
-        hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", location: { "@type": "VirtualLocation", url: `https://tecpey.ir/academy/${article.slug}` } }
+        hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", location: { "@type": "VirtualLocation", url: `https://tecpey.ir/academy/${article.slug}` } },
       }) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
 
@@ -134,7 +132,7 @@ export default async function AcademyArticlePage({ params }: Props) {
               ))}
             </div>
 
-            <AcademyLessonPlayer slug={article.slug} sections={[...article.sections]} locale="fa" />
+            <AcademyAuthoritativeLessonPlayer slug={article.slug} sections={[...article.sections]} locale="fa" />
 
             <TermQuizBox slug={article.slug} />
 
