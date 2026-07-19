@@ -7,6 +7,7 @@ const files = {
   repository: "src/lib/notifications/repository.ts",
   preferences: "src/lib/notifications/preferences.ts",
   http: "src/lib/notifications/http.ts",
+  notificationCenter: "src/components/learning-os/NotificationCenter.tsx",
   inboxRoute: "src/app/api/notifications/route.ts",
   mutationRoute: "src/app/api/notifications/[id]/route.ts",
   preferenceRoute: "src/app/api/notifications/preferences/route.ts",
@@ -70,6 +71,13 @@ for (const target of ["inboxRoute", "mutationRoute", "preferenceRoute", "consent
   requireText(target, "notificationApiError", "all notification API errors must be private and non-cacheable");
   requireText(target, "notificationApiOk", "all notification API success responses must be private and non-cacheable");
 }
+
+requireText("repository", "LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE = 200", "legacy migration must have a bounded batch size");
+requireText("repository", "AND NOT EXISTS (", "legacy migration must anti-join already migrated notifications");
+requireText("repository", "migrated.tenant_id = $2", "legacy migration anti-join must remain tenant scoped");
+requireText("repository", "migrated.principal_id = $3::uuid", "legacy migration anti-join must remain principal scoped");
+requireText("repository", "'legacy:notification_center:' || legacy.id::text", "legacy migration anti-join must use the canonical correlation key");
+requireText("repository", "LIMIT $4", "legacy migration work must remain bounded per inbox request");
 requireText("repository", "AND tenant_id = $2", "mutation SQL must enforce tenant ownership");
 requireText("repository", "AND principal_id = $3", "mutation SQL must enforce principal ownership");
 requireText("repository", "[notificationId, principal.tenantId, principal.id]", "mutation parameters must bind the resolved tenant and principal identities");
@@ -77,6 +85,15 @@ requireText("repository", "ON CONFLICT (tenant_id, principal_id, correlation_key
 requireText("repository", "dismissed_at IS NULL", "dismissed notifications must be excluded from inbox projection");
 rejectText("repository", "export async function upsertNotificationPreference", "preference writes must have one authoritative implementation");
 rejectText("repository", "validNotificationPreferenceInput", "preference parsing must not be duplicated in the inbox repository");
+
+requireText("notificationCenter", "notificationClass", "Smart Center must consume the durable notification class contract");
+requireText("notificationCenter", "actionUrl", "Smart Center must consume the durable action URL contract");
+requireText("notificationCenter", "readAt", "Smart Center must consume the durable lifecycle contract");
+requireText("notificationCenter", "`/api/notifications/${encodeURIComponent(id)}`", "Smart Center must mutate the authoritative platform notification endpoint");
+requireText("notificationCenter", 'JSON.stringify({ action: "read" })', "Smart Center must use the typed read lifecycle mutation");
+rejectText("notificationCenter", "/api/notifications/read", "Smart Center must not write to the retired legacy notification table");
+rejectText("notificationCenter", "action_url", "Smart Center must not depend on the legacy action URL field");
+rejectText("notificationCenter", "read_at", "Smart Center must not depend on the legacy read timestamp field");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
 requireText("preferences", "mandatory_notification_class_requires_instant_delivery", "mandatory notification classes must not be downgraded to digest");
@@ -105,4 +122,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, bounded legacy migration, current Smart Center contract, tenant-bound inbox, mandatory cadence, serialized idempotent consent, private no-store responses, CSRF and single preference authority are enforced.");
