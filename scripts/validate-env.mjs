@@ -77,6 +77,7 @@ const optional = [
   'TECPEY_APNS_BUNDLE_ID',
   'TECPEY_APNS_PRIVATE_KEY',
   'ACADEMY_LEADS_WEBHOOK_URL',
+  'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 
 const badTokens = ['CHANGE_ME', 'your-real', 'admin-de', 'wss-dem', 'REPLACE_WITH'];
@@ -99,6 +100,7 @@ const signingSecretNames = [
   'TECPEY_OFFLINE_SYNC_SECRET',
   'TECPEY_CRM_PII_KEY_B64',
   'TECPEY_CRM_CONTACT_HASH_SECRET',
+  'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 for (const key of signingSecretNames) {
   const value = process.env[key] || '';
@@ -146,6 +148,7 @@ for (const key of optional) {
 }
 
 const academyWebhook = process.env.ACADEMY_LEADS_WEBHOOK_URL?.trim();
+const crmWebhookSecret = process.env.TECPEY_CRM_WEBHOOK_SECRET?.trim();
 if (academyWebhook) {
   try {
     const parsed = new URL(academyWebhook);
@@ -155,6 +158,12 @@ if (academyWebhook) {
   } catch {
     errors.push('ACADEMY_LEADS_WEBHOOK_URL must be a valid URL');
   }
+  if (!crmWebhookSecret) {
+    errors.push('TECPEY_CRM_WEBHOOK_SECRET is required when ACADEMY_LEADS_WEBHOOK_URL is configured');
+  }
+}
+if (crmWebhookSecret && !academyWebhook) {
+  errors.push('ACADEMY_LEADS_WEBHOOK_URL is required when TECPEY_CRM_WEBHOOK_SECRET is configured');
 }
 
 const configuredSessionSeconds = process.env.TECPEY_SESSION_MAX_AGE_SECONDS?.trim();
