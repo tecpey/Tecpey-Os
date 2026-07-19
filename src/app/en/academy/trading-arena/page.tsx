@@ -48,14 +48,14 @@ const capabilities = [
 export default function EnglishTradingArenaPage() {
   return (
     <EnglishShell>
-      <main className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+      <div className="px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="mx-auto max-w-7xl">
           <section className="relative overflow-hidden rounded-[38px] border border-cyan-300/15 bg-[#04101d] p-6 shadow-[0_35px_120px_rgba(34,211,238,.12)] sm:p-8 lg:p-12">
             <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" aria-hidden="true" />
             <div className="relative grid gap-10 lg:grid-cols-[1.08fr_.92fr] lg:items-center">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1.5 text-xs font-black text-cyan-200">
-                  <ChartNoAxesCombined className="h-4 w-4" />
+                  <ChartNoAxesCombined className="h-4 w-4" aria-hidden="true" />
                   TecPey Trading Arena
                 </div>
                 <h1 className="mt-5 max-w-4xl text-balance text-4xl font-black leading-[1.12] text-white sm:text-5xl lg:text-6xl">
@@ -71,7 +71,7 @@ export default function EnglishTradingArenaPage() {
                     className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                   >
                     Create Academy profile
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                   <Link
                     href="/en/academy"
@@ -84,7 +84,7 @@ export default function EnglishTradingArenaPage() {
 
               <div className="rounded-[30px] border border-white/10 bg-white/[0.045] p-5 sm:p-6">
                 <div className="flex items-start gap-3">
-                  <ShieldCheck className="mt-1 h-6 w-6 shrink-0 text-emerald-300" />
+                  <ShieldCheck className="mt-1 h-6 w-6 shrink-0 text-emerald-300" aria-hidden="true" />
                   <div>
                     <h2 className="text-lg font-black text-white">Current availability</h2>
                     <p className="mt-2 text-sm font-bold leading-7 text-slate-300">
@@ -114,7 +114,7 @@ export default function EnglishTradingArenaPage() {
             ))}
           </section>
         </div>
-      </main>
+      </div>
     </EnglishShell>
   );
 }
