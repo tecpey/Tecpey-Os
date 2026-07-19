@@ -16,6 +16,8 @@ const REQUIRED_MIGRATIONS = [
   "0021_academy_progress_authority.sql",
   "0023_offline_sync_command_authority.sql",
   "0024_notification_domain_outbox.sql",
+  "0025_crm_lead_authority.sql",
+  "0026_crm_lead_hardening.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ] as const;
@@ -28,6 +30,10 @@ const REQUIRED_TABLES = [
   "notification_domain_outbox",
   "notification_domain_outbox_attempts",
   "notification_domain_dead_letters",
+  "crm_leads",
+  "crm_lead_commands",
+  "crm_lead_delivery_outbox",
+  "crm_lead_audit_events",
   "orders",
   "withdrawals",
   "withdrawal_price_snapshots",
@@ -53,6 +59,13 @@ const REQUIRED_COLUMNS = [
   ["notification_domain_outbox", "payload_hash"],
   ["notification_domain_outbox", "lease_expires_at"],
   ["notification_domain_outbox", "notification_intent_id"],
+  ["crm_leads", "pii_ciphertext"],
+  ["crm_leads", "contact_hash"],
+  ["crm_leads", "privacy_notice_version"],
+  ["crm_leads", "retain_until"],
+  ["crm_lead_commands", "request_hash"],
+  ["crm_lead_delivery_outbox", "lease_expires_at"],
+  ["crm_lead_audit_events", "network_fingerprint"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -62,6 +75,11 @@ const REQUIRED_INDEXES = [
   "offline_sync_commands_retention_idx",
   "notification_domain_outbox_claim_idx",
   "notification_domain_outbox_lease_idx",
+  "crm_leads_active_contact_unique_idx",
+  "crm_leads_retention_idx",
+  "crm_lead_commands_lead_idx",
+  "crm_lead_delivery_claim_idx",
+  "crm_lead_delivery_lease_idx",
   "withdrawals_user_idempotency_unique_idx",
 ] as const;
 
@@ -75,6 +93,16 @@ const REQUIRED_TRIGGERS = [
   "notification_domain_outbox_no_delete",
   "notification_domain_dead_letters_no_update",
   "notification_domain_dead_letters_no_delete",
+  "academy_leads_legacy_read_only",
+  "crm_leads_no_delete",
+  "crm_lead_commands_no_update",
+  "crm_lead_commands_no_delete",
+  "crm_lead_audit_no_update",
+  "crm_lead_audit_no_delete",
+] as const;
+
+const REQUIRED_CONSTRAINTS = [
+  "crm_leads_legal_basis_consent_check",
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
@@ -154,6 +182,18 @@ describe("PostgreSQL migration authority", () => {
         new Set(triggerResult.rows.map((row) => row.tgname)),
         new Set(REQUIRED_TRIGGERS),
         "critical database authority triggers must exist",
+      );
+
+      const constraintResult = await client.query<{ conname: string }>(
+        `SELECT conname
+           FROM pg_constraint
+          WHERE conname = ANY($1::text[])`,
+        [REQUIRED_CONSTRAINTS],
+      );
+      assert.deepEqual(
+        new Set(constraintResult.rows.map((row) => row.conname)),
+        new Set(REQUIRED_CONSTRAINTS),
+        "critical CRM privacy constraints must exist",
       );
     } finally {
       client.release();
