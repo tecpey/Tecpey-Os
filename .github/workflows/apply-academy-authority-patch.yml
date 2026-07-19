@@ -42,7 +42,7 @@ jobs:
 
           git apply --check /tmp/academy-authority.patch
 
-      - name: Apply reviewed patch
+      - name: Apply reviewed product patch
         shell: bash
         run: |
           set -euo pipefail
@@ -50,15 +50,21 @@ jobs:
           git diff --check
           node scripts/check-academy-authority.mjs
 
-      - name: Remove one-shot transfer files
+          # GitHub App tokens cannot publish workflow-file mutations. Keep both
+          # workflow files unchanged in this bot-authored product commit; the
+          # connected maintainer applies the CI guard and removes this one-shot
+          # workflow in separate commits after the product push succeeds.
+          git checkout HEAD -- .github/workflows/ci.yml
+          git checkout HEAD -- .github/workflows/apply-academy-authority-patch.yml
+
+      - name: Remove non-workflow transfer files
         shell: bash
         run: |
           set -euo pipefail
           rm -f .github/academy-authority.patch.gz.b64.part*
           rm -f .github/ACADEMY_AUTHORITY_TRANSFER_*.md
-          rm -f .github/workflows/apply-academy-authority-patch.yml
 
-      - name: Commit and publish authoritative Academy implementation
+      - name: Commit and publish authoritative Academy product changes
         id: publish
         continue-on-error: true
         shell: bash
