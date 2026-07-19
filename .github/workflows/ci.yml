@@ -231,6 +231,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Academy progress authority guard
+        run: npm run academy:progress:check
+
+      - name: Academy progress PostgreSQL integration tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:academy-progress 2>&1 | tee /tmp/tecpey-academy-progress-tests.log
+
+      - name: Upload Academy progress diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-progress-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-academy-progress-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Academy authority boundary guard
         run: node scripts/check-academy-authority-boundary.mjs
 
