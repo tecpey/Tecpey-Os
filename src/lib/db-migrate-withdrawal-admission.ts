@@ -108,6 +108,25 @@ CREATE INDEX IF NOT EXISTS withdrawals_admission_state_idx
   ON withdrawals (state, admission_completed_at, created_at)
   WHERE state IN ('pending', 'compliance_review', 'approved');
 
+CREATE OR REPLACE FUNCTION tecpey_clear_terminal_withdrawal_reservation()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.state IN ('rejected', 'blocked', 'cancelled') THEN
+    NEW.funds_reserved_at := NULL;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS withdrawals_clear_terminal_reservation ON withdrawals;
+CREATE TRIGGER withdrawals_clear_terminal_reservation
+  BEFORE UPDATE OF state ON withdrawals
+  FOR EACH ROW
+  WHEN (NEW.state IS DISTINCT FROM OLD.state)
+  EXECUTE FUNCTION tecpey_clear_terminal_withdrawal_reservation();
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -136,6 +155,18 @@ BEGIN
     ALTER TABLE withdrawals
       ADD CONSTRAINT withdrawals_request_hash_format
       CHECK (request_hash IS NULL OR char_length(request_hash) = 64)
+      NOT VALID;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'withdrawals_terminal_reservation_cleared'
+  ) THEN
+    ALTER TABLE withdrawals
+      ADD CONSTRAINT withdrawals_terminal_reservation_cleared
+      CHECK (
+        state NOT IN ('rejected', 'blocked', 'cancelled')
+        OR funds_reserved_at IS NULL
+      )
       NOT VALID;
   END IF;
 END
