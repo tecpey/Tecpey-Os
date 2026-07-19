@@ -1,0 +1,40 @@
+name: API Security Manifest Bootstrap
+
+on:
+  push:
+    branches: [fix/api-security-manifest]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-security-manifest-bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate complete mutating route inventory
+        run: node scripts/generate-api-security-manifest.mjs --output=api-security-manifest.generated.json
+
+      - name: Print inventory summary
+        run: |
+          node -e "const m=require('./api-security-manifest.generated.json'); console.log(JSON.stringify(m.totals,null,2))"
+
+      - name: Upload generated manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-security-manifest-bootstrap-${{ github.sha }}
+          path: api-security-manifest.generated.json
+          if-no-files-found: error
+          retention-days: 7
