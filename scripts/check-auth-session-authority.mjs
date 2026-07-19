@@ -76,6 +76,8 @@ requireText("sessionStore", "Promise<boolean>", "session registration must repor
 requireText("sessionStore", "ON CONFLICT (id) DO NOTHING", "session registration must explicitly handle duplicate JTI conflicts");
 requireText("sessionStore", "RETURNING id", "session registration must prove that a durable row was inserted");
 requireText("sessionStore", "duplicate JTI rejected", "duplicate JTI registration must fail closed");
+requireText("sessionStore", "alreadyRevoked", "strict revocation must recognize an already-revoked owned session");
+requireText("sessionStore", "repairing Redis deny evidence", "strict revocation retries must repair missing Redis deny evidence");
 
 requireText("refresh", "refused to issue unstored refresh token", "refresh issuance must fail when DB persistence is unavailable");
 requireText("refresh", "if (!result.enabled)", "refresh token operations must inspect withDb availability");
@@ -107,11 +109,12 @@ requireText("tests", "reuse one secret across token classes", "integration tests
 requireText("logoutTests", "cross-origin logout", "route tests must prove CSRF rejection without revocation");
 requireText("logoutTests", "forged unified session", "route tests must reject attacker-signed session identity");
 requireText("logoutTests", "all durable refresh authority", "route tests must invalidate old access and refresh credentials");
-requireText("logoutTests", "Redis deny store is unavailable", "route tests must return explicit failure during revocation-store outage");
+requireText("logoutTests", "retry repairs deny evidence", "route tests must prove recovery after a Redis outage");
+requireText("logoutTests", "session_not_found", "route tests must prevent permanent logout failure after partial revocation");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound revocation, deny-only caching, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable revocation, deny-only caching, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
