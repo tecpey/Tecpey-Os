@@ -1,189 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Cloud, LoaderCircle, RefreshCw } from "lucide-react";
-import type {
-  AcademyLocale,
-  LessonProgressRecord,
-  TermLearningSummary,
-} from "@/lib/academy-lesson-progress";
+import { BookOpenCheck, ShieldCheck } from "lucide-react";
 
-type ProgressPayload = {
-  records: LessonProgressRecord[];
-  terms: TermLearningSummary[];
-};
-
-type ControlStatus = "loading" | "idle" | "saving" | "saved" | "error" | "account" | "blocked";
-
-const payloadCache = new Map<string, ProgressPayload>();
-const requestCache = new Map<string, Promise<ProgressPayload>>();
-
-function cacheKey(locale: AcademyLocale, termSlug: string): string {
-  return `${locale}:${termSlug}`;
-}
-
-async function loadTermProgress(locale: AcademyLocale, termSlug: string): Promise<ProgressPayload> {
-  const key = cacheKey(locale, termSlug);
-  const cached = payloadCache.get(key);
-  if (cached) return cached;
-  const pending = requestCache.get(key);
-  if (pending) return pending;
-
-  const request = fetch(
-    `/api/academy-lesson-progress?locale=${locale}&termSlug=${encodeURIComponent(termSlug)}`,
-    {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-    },
-  )
-    .then(async (response) => {
-      const body = await response.json().catch(() => ({})) as Partial<ProgressPayload> & { error?: string };
-      if (!response.ok) throw new Error(body.error ?? `lesson_progress_load_failed:${response.status}`);
-      const payload: ProgressPayload = {
-        records: Array.isArray(body.records) ? body.records : [],
-        terms: Array.isArray(body.terms) ? body.terms : [],
-      };
-      payloadCache.set(key, payload);
-      return payload;
-    })
-    .finally(() => requestCache.delete(key));
-
-  requestCache.set(key, request);
-  return request;
-}
-
-function updateCachedRecord(
-  locale: AcademyLocale,
-  termSlug: string,
-  record: LessonProgressRecord,
-  summary: TermLearningSummary,
-): void {
-  const key = cacheKey(locale, termSlug);
-  const current = payloadCache.get(key) ?? { records: [], terms: [] };
-  const records = current.records.filter((item) => item.sectionKey !== record.sectionKey);
-  const terms = current.terms.filter((item) => item.termSlug !== summary.termSlug);
-  payloadCache.set(key, {
-    records: [...records, record],
-    terms: [...terms, summary],
-  });
-}
-
+/**
+ * Reading a public term section is useful study activity, but it is not proof
+ * of mastery. This control intentionally issues no mutation, completion, XP,
+ * unlock, badge or certificate. Those outcomes are produced only by the
+ * authenticated server-graded assessment routes.
+ */
 export function AcademyLessonCompletionControl({
   locale,
-  termSlug,
-  sectionKey,
 }: {
-  locale: AcademyLocale;
+  locale: "fa" | "en";
   termSlug: string;
   sectionKey: string;
 }) {
   const isFa = locale === "fa";
-  const [completed, setCompleted] = useState(false);
-  const [status, setStatus] = useState<ControlStatus>("loading");
-
-  useEffect(() => {
-    let active = true;
-    setStatus("loading");
-    loadTermProgress(locale, termSlug)
-      .then((payload) => {
-        if (!active) return;
-        const record = payload.records.find((item) => item.sectionKey === sectionKey);
-        setCompleted(Boolean(record?.completed));
-        setStatus(record?.completed ? "saved" : "idle");
-      })
-      .catch(() => {
-        if (active) setStatus("error");
-      });
-    return () => {
-      active = false;
-    };
-  }, [locale, sectionKey, termSlug]);
-
-  const save = async () => {
-    if (completed || status === "saving") return;
-    setStatus("saving");
-    try {
-      const response = await fetch("/api/academy-lesson-progress", {
-        method: "PUT",
-        credentials: "include",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ locale, termSlug, sectionKey, action: "complete" }),
-      });
-      const body = await response.json().catch(() => ({})) as {
-        error?: string;
-        record?: LessonProgressRecord;
-        summary?: TermLearningSummary;
-      };
-
-      if (response.status === 401) {
-        setStatus("account");
-        return;
-      }
-      if (response.status === 403 && body.error === "previous_term_required") {
-        setStatus("blocked");
-        return;
-      }
-      if (!response.ok || !body.record || !body.summary) {
-        throw new Error(body.error ?? `lesson_progress_write_failed:${response.status}`);
-      }
-
-      updateCachedRecord(locale, termSlug, body.record, body.summary);
-      setCompleted(body.record.completed);
-      setStatus("saved");
-      window.dispatchEvent(new CustomEvent("tecpey-academy-progress-updated", {
-        detail: { locale, termSlug, sectionKey, summary: body.summary },
-      }));
-    } catch {
-      setStatus("error");
-    }
-  };
-
-  if (status === "loading") {
-    return (
-      <div className="mt-5 flex items-center gap-2 text-xs font-black text-slate-500" aria-live="polite">
-        <LoaderCircle className="h-4 w-4 animate-spin" />
-        {isFa ? "در حال بازیابی پیشرفت درس..." : "Loading lesson progress..."}
-      </div>
-    );
-  }
-
-  if (completed || status === "saved") {
-    return (
-      <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3" aria-live="polite">
-        <span className="flex items-center gap-2 text-sm font-black text-emerald-700 dark:text-emerald-200">
-          <CheckCircle2 className="h-5 w-5" />
-          {isFa ? "این درس در پرونده آموزشی شما ثبت شد" : "Lesson saved to your learning record"}
-        </span>
-        <Cloud className="h-4 w-4 shrink-0 text-emerald-500" />
-      </div>
-    );
-  }
-
-  const message = status === "account"
-    ? (isFa ? "برای ثبت پیشرفت، ابتدا وارد حساب آکادمی شوید." : "Sign in to save your progress.")
-    : status === "blocked"
-      ? (isFa ? "ابتدا ترم قبلی را با آزمون رسمی کامل کنید." : "Complete the previous term assessment first.")
-      : status === "error"
-        ? (isFa ? "ثبت پیشرفت انجام نشد؛ دوباره تلاش کنید." : "Progress was not saved. Try again.")
-        : null;
 
   return (
-    <div className="mt-5">
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={status === "saving" || status === "blocked" || status === "account"}
-        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-55 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2"
-      >
-        {status === "saving" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : status === "error" ? <RefreshCw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-        {status === "saving"
-          ? (isFa ? "در حال ثبت..." : "Saving...")
-          : (isFa ? "درس را کامل کردم · ثبت در حساب" : "Mark lesson complete · Save to account")}
-      </button>
-      {message && <p className="mt-2 text-xs font-bold text-amber-600 dark:text-amber-300" role="status">{message}</p>}
+    <div className="mt-5 rounded-2xl border border-cyan-300/20 bg-cyan-500/10 p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-600 dark:text-cyan-200">
+          <BookOpenCheck className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-sm font-black text-slate-950 dark:text-white">
+            {isFa ? "مطالعه این بخش، آماده‌سازی برای آزمون رسمی است" : "This section prepares you for the official assessment"}
+          </p>
+          <p className="mt-2 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
+            {isFa
+              ? "برای جلوگیری از پیشرفت صوری، دکمه «کامل کردم» وجود ندارد. XP، قبولی و بازشدن ترم بعد فقط پس از ارزیابی رسمی و ثبت‌شده در سرور تک‌پی صادر می‌شود."
+              : "There is no self-issued “complete” button. XP, completion, and the next term are granted only by an authenticated, server-graded assessment recorded by TecPey."}
+          </p>
+          <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {isFa ? "مرورگر مرجع پیشرفت آموزشی نیست" : "The browser is not the learning authority"}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
