@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withTx, withDb } from "@/lib/db";
+import { withTx } from "@/lib/db";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -14,6 +14,13 @@ import {
 } from "@/lib/security/withdrawal-admission-authority";
 
 export const dynamic = "force-dynamic";
+
+type AuthorizationTransactionResult =
+  | { status: "issued"; authorization: { id: string; expiresAt: Date } }
+  | { status: "2fa_required" }
+  | { status: "invalid_totp" }
+  | { status: "2fa_secret_corrupt" }
+  | { status: "authorization_store_unavailable" };
 
 export async function POST(req: NextRequest) {
   return withObservability(
@@ -52,61 +59,72 @@ export async function POST(req: NextRequest) {
       });
       if (!canonical.ok) return apiError(canonical.reason, 400);
 
-      const factor = await withDb(async (db) => {
-        const result = await db.query<{ encrypted_secret: string }>(
-          `SELECT encrypted_secret
-             FROM user_2fa
-            WHERE user_id = $1
-              AND enabled = TRUE`,
-          [userId],
-        );
-        return result.rows[0] ?? null;
-      });
-      if (!factor.enabled) return apiError("db_unavailable", 503);
-      if (!factor.value) return apiError("2fa_required", 403);
-
-      let step: number | null = null;
       try {
-        step = verifyTotpStep(
-          decryptTotpSecret(factor.value.encrypted_secret),
-          code,
-        );
-      } catch {
-        return apiError("2fa_secret_corrupt", 500);
-      }
-      if (step === null) {
-        writeAudit({
-          actorId: userId,
-          action: "wallet_withdrawal",
-          ip: getClientIp(req),
-          metadata: {
-            event: "withdrawal_authorization_failed",
-            reason: "invalid_totp",
-            requestHash: canonical.requestHash,
-          },
-        });
-        return apiError("invalid_totp_code", 401);
-      }
+        const issued = await withTx<AuthorizationTransactionResult>(async (db) => {
+          const factor = await db.query<{ encrypted_secret: string }>(
+            `SELECT encrypted_secret
+               FROM user_2fa
+              WHERE user_id = $1
+                AND enabled = TRUE
+              FOR UPDATE`,
+            [userId],
+          );
+          const row = factor.rows[0];
+          if (!row) return { status: "2fa_required" };
 
-      try {
-        const issued = await withTx(async (db) => {
+          let step: number | null;
+          try {
+            step = verifyTotpStep(decryptTotpSecret(row.encrypted_secret), code);
+          } catch {
+            return { status: "2fa_secret_corrupt" };
+          }
+          if (step === null) return { status: "invalid_totp" };
+
           const authorization = await issueWithdrawalAuthorizationTx(db, {
             userId,
             requestHash: canonical.requestHash,
             verificationStep: step,
           });
-          if (!authorization) return null;
-          await db.query(
+          if (!authorization) {
+            return { status: "authorization_store_unavailable" };
+          }
+
+          const touched = await db.query(
             `UPDATE user_2fa
                 SET last_used_at = NOW()
               WHERE user_id = $1
-                AND enabled = TRUE`,
+                AND enabled = TRUE
+              RETURNING user_id`,
             [userId],
           );
-          return authorization;
+          if ((touched.rowCount ?? 0) !== 1) {
+            throw new Error("withdrawal_2fa_disabled_during_authorization");
+          }
+          return { status: "issued", authorization };
         });
-        if (!issued.enabled || !issued.value) {
+        if (!issued.enabled) return apiError("db_unavailable", 503);
+
+        if (issued.value.status === "2fa_required") {
+          return apiError("2fa_required", 403);
+        }
+        if (issued.value.status === "2fa_secret_corrupt") {
+          return apiError("2fa_secret_corrupt", 500);
+        }
+        if (issued.value.status === "authorization_store_unavailable") {
           return apiError("authorization_store_unavailable", 503);
+        }
+        if (issued.value.status === "invalid_totp") {
+          writeAudit({
+            actorId: userId,
+            action: "wallet_withdrawal",
+            ip: getClientIp(req),
+            metadata: {
+              event: "withdrawal_authorization_failed",
+              reason: "invalid_totp",
+              requestHash: canonical.requestHash,
+            },
+          });
+          return apiError("invalid_totp_code", 401);
         }
 
         writeAudit({
@@ -116,16 +134,16 @@ export async function POST(req: NextRequest) {
           userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
           metadata: {
             event: "withdrawal_authorized",
-            authorizationId: issued.value.id,
+            authorizationId: issued.value.authorization.id,
             requestHash: canonical.requestHash,
             policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
-            expiresAt: issued.value.expiresAt.toISOString(),
+            expiresAt: issued.value.authorization.expiresAt.toISOString(),
           },
         });
         return apiOk({
-          authorizationId: issued.value.id,
+          authorizationId: issued.value.authorization.id,
           requestHash: canonical.requestHash,
-          expiresAt: issued.value.expiresAt.toISOString(),
+          expiresAt: issued.value.authorization.expiresAt.toISOString(),
         });
       } catch (error) {
         const codeValue =
