@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, describe, it } from "node:test";
 import { withDb } from "../../lib/db";
 import { rebuildMarketBookFromAuthority } from "../../lib/trading/order-book-recovery";
 import { getOrderBookStore } from "../../lib/trading/order-book-store";
@@ -9,6 +9,10 @@ import {
   processExchangeOrderCommand,
 } from "../../lib/trading/order-command-service";
 import { PLATFORM } from "../../lib/platform-config";
+import { isolateExchangeOrderTestCache } from "./exchange-order-test-environment";
+
+const restoreTestCache = isolateExchangeOrderTestCache();
+after(restoreTestCache);
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
