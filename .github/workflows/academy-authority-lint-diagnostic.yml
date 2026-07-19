@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - feat/academy-server-reward-authority
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
@@ -16,7 +20,7 @@ jobs:
   fix:
     name: Apply verified Next.js lint rename
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.head_ref == 'feat/academy-server-reward-authority')
     steps:
       - name: Checkout exact branch
         uses: actions/checkout@v4
