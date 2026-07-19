@@ -1,9 +1,6 @@
-name: Academy Authority Audit — Never Merge
+name: Academy P0 Verified Publisher — Never Merge
 
 on:
-  push:
-    branches:
-      - audit/academy-authority-call-sites-20260719
   pull_request:
     branches:
       - main
@@ -12,75 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  inventory:
-    name: Academy authority call-site inventory
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build complete authority inventory
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUTPUT=academy-authority-inventory.txt
-          : > "$OUTPUT"
-
-          {
-            echo '=== CLIENT MUTATION HELPERS AND CALL SITES ==='
-            git grep -n -E 'awardXp|recordLessonComplete|recordModuleScore|passTerm|awardBadge' -- 'src/**/*.ts' 'src/**/*.tsx' || true
-            echo
-            echo '=== ACADEMY STATE ENDPOINT USAGE ==='
-            git grep -n -E '/api/academy-state|AcademyProgressAction|applyAcademyProgressAction|XP_TABLE' -- 'src/**/*.ts' 'src/**/*.tsx' || true
-            echo
-            echo '=== AUTHORITATIVE ROUTES AND TABLES ==='
-            git grep -n -E 'academy_lesson_progress|academy_term_learning_progress|academy_term_progress|academy_quiz|academy_student_events|lesson_complete|module_score|pass_term|award_badge|award_xp' -- 'src/**/*.ts' 'src/**/*.tsx' || true
-            echo
-            echo '=== RELEVANT TEST FILES ==='
-            git ls-files 'src/tests/**' | grep -E 'academy|lesson|quiz|progress|term|badge|xp' || true
-          } | tee "$OUTPUT"
-
-          test -s "$OUTPUT"
-
-      - name: Upload inventory artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: academy-authority-inventory
-          path: academy-authority-inventory.txt
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Package reviewed source snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar -czf tecpey-source-snapshot.tgz \
-            src scripts docs .github/workflows/ci.yml \
-            package.json package-lock.json server.ts tsconfig.json \
-            next.config.ts eslint.config.mjs Dockerfile ecosystem.config.cjs
-
-      - name: Upload reviewed source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: tecpey-source-snapshot
-          path: tecpey-source-snapshot.tgz
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Guard audit-only execution
-        env:
-          AUDIT_HEAD: ${{ github.head_ref }}
-          AUDIT_REF: ${{ github.ref_name }}
-        run: |
-          if [ "$AUDIT_HEAD" != 'audit/academy-authority-call-sites-20260719' ] && [ "$AUDIT_REF" != 'audit/academy-authority-call-sites-20260719' ]; then
-            echo 'Refusing to execute outside the isolated audit branch.'
-            exit 1
-          fi
-          echo 'AUDIT-ONLY: this workflow and branch must never merge into main.'
-
   build-and-publish:
     name: Build clean Academy P0 branch
-    if: ${{ (github.event_name == 'push' && github.ref_name == 'audit/academy-authority-call-sites-20260719') || (github.event_name == 'pull_request' && github.event.pull_request.number == 36 && github.head_ref == 'audit/academy-authority-call-sites-20260719') }}
+    if: ${{ github.event.pull_request.number == 36 && github.head_ref == 'audit/academy-authority-call-sites-20260719' }}
     runs-on: ubuntu-latest
     env:
       TARGET_BRANCH: feat/academy-server-issued-progress-20260719-v1
@@ -116,7 +47,6 @@ jobs:
 
           test "$(wc -c < /tmp/academy-p0.patch.gz.b64)" -eq 33432
           echo "66fce44e708ac3c704ee4381d43e084266cceb73f7e3cf59f2690a0d73540672  /tmp/academy-p0.patch.gz.b64" | sha256sum --check --strict
-
           base64 --decode /tmp/academy-p0.patch.gz.b64 > /tmp/academy-p0.patch.gz
           gzip --decompress --stdout /tmp/academy-p0.patch.gz > /tmp/academy-p0.patch
           test "$(wc -c < /tmp/academy-p0.patch)" -eq 107161
@@ -172,7 +102,22 @@ jobs:
         run: npm run env:check
 
       - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
+        id: typescript
+        shell: bash
+        run: |
+          set +e
+          ./node_modules/.bin/tsc --noEmit 2>&1 | tee /tmp/academy-p0-tsc.log
+          STATUS=${PIPESTATUS[0]}
+          exit "$STATUS"
+
+      - name: Upload TypeScript diagnostics
+        if: ${{ always() && steps.typescript.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-p0-typescript-diagnostics
+          path: /tmp/academy-p0-tsc.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
