@@ -128,7 +128,8 @@ export async function listActiveSessions(userId: string): Promise<UserSession[]>
 /**
  * Revoke one exact session for one exact owner. PostgreSQL is updated first so
  * the durable fallback rejects the token even if Redis subsequently fails.
- * Callers receive an explicit unavailable result rather than false success.
+ * A retry for an already-revoked owned session repairs missing Redis deny
+ * evidence instead of becoming permanently stuck behind session_not_found.
  */
 export async function revokeSessionStrict(
   jti: string,
@@ -147,11 +148,35 @@ export async function revokeSessionStrict(
           RETURNING expires_at`,
         [jti, userId],
       );
-      return updated.rows[0]?.expires_at ?? null;
+      const newlyRevoked = updated.rows[0]?.expires_at;
+      if (newlyRevoked) {
+        return { expiresAt: newlyRevoked, alreadyRevoked: false };
+      }
+
+      const existing = await db.query<{
+        expires_at: Date;
+        is_revoked: boolean;
+      }>(
+        `SELECT expires_at, is_revoked
+           FROM user_sessions
+          WHERE id = $1
+            AND user_id = $2
+          LIMIT 1`,
+        [jti, userId],
+      );
+      const row = existing.rows[0];
+      if (!row?.is_revoked) return null;
+      return { expiresAt: row.expires_at, alreadyRevoked: true };
     });
     if (!result.enabled) return { ok: false, reason: "database_unavailable" };
     if (!result.value) return { ok: false, reason: "session_not_found" };
-    expiresAt = result.value;
+    expiresAt = result.value.expiresAt;
+    if (result.value.alreadyRevoked) {
+      logger.info("[session-store] repairing Redis deny evidence for revoked session", {
+        jti,
+        userId,
+      });
+    }
   } catch (err) {
     logger.warn("[session-store] durable revoke failed", {
       jti,
