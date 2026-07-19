@@ -7,6 +7,7 @@ import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowLeft, Clock3, BookOpen } from "lucide-react";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
 import { AcademyAuthoritativeLessonPlayer } from "@/components/academy/AcademyAuthoritativeLessonPlayer";
+import { AcademyLegacyProgressQuarantine } from "@/components/academy/AcademyLegacyProgressQuarantine";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -132,6 +133,7 @@ export default async function AcademyArticlePage({ params }: Props) {
               ))}
             </div>
 
+            <AcademyLegacyProgressQuarantine slug={article.slug} locale="fa" />
             <AcademyAuthoritativeLessonPlayer slug={article.slug} sections={[...article.sections]} locale="fa" />
 
             <TermQuizBox slug={article.slug} />
