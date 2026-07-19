@@ -1,6 +1,6 @@
 # Trading Arena UI Authority Contract
 
-**Status:** Phase A implementation candidate
+**Status:** Phase A merge candidate; unresolved-command recovery implemented
 **Scope:** Production Arena dashboard and server-evidence journal
 
 ## Source-of-truth hierarchy
@@ -46,15 +46,14 @@ The legacy scenario player invokes a browser execution engine whose trade helper
 
 - Missing Academy profile, unavailable database, missing active attempt and unavailable price feed are explicit states.
 - Price-dependent commands fail closed when the server feed is unavailable.
-- Transient failures preserve the user's order form.
+- Transient failures preserve the user's order form and unresolved command identity.
 - No browser fallback may create or mutate execution truth.
 
 ## Required merge evidence
 
 - production environment contract;
 - TypeScript and ESLint;
-- browser persistence and Admin boundary guards;
-- Academy and Arena UI authority guards;
-- stale-response/idempotency parser tests;
+- browser persistence, Admin, Academy, Arena and Wallet authority guards;
+- stale-response, idempotency and unresolved-command recovery tests;
 - complete automated tests;
 - production build on the exact merge head.
