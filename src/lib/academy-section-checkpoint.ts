@@ -33,6 +33,11 @@ type TermShape = {
   lessons: readonly LessonTuple[];
 };
 
+type InternalOption = {
+  key: "lesson_outcome" | "common_mistake" | "skip_evidence" | "guaranteed_result";
+  text: string;
+};
+
 function stableShuffle<T>(items: readonly T[], seedText: string): T[] {
   const values = [...items];
   let seed = 0;
@@ -82,6 +87,13 @@ function checkpointVersion(input: {
     .slice(0, 24);
 }
 
+function opaqueOptionId(questionVersion: string, key: InternalOption["key"]): string {
+  return `opt_${createHash("sha256")
+    .update(`academy_section_option_v1:${questionVersion}:${key}`)
+    .digest("hex")
+    .slice(0, 20)}`;
+}
+
 export function resolveAcademySectionCheckpoint(
   localeInput: unknown,
   termSlug: string,
@@ -113,23 +125,30 @@ export function resolveAcademySectionCheckpoint(
     outcome,
     commonMistake,
   });
-  const correctOptionId = "lesson-outcome";
-  const options = stableShuffle<AcademyCheckpointOption>([
-    { id: correctOptionId, text: outcome },
-    { id: "common-mistake", text: commonMistake },
+  const internalOptions: InternalOption[] = [
+    { key: "lesson_outcome", text: outcome },
+    { key: "common_mistake", text: commonMistake },
     {
-      id: "skip-evidence",
+      key: "skip_evidence",
       text: isFa
         ? "بدون تمرین و بدون بررسی منبع می‌توان بر اساس عنوان درس تصمیم مالی گرفت."
         : "The lesson title alone is enough to make a financial decision without practice or source review.",
     },
     {
-      id: "guaranteed-result",
+      key: "guaranteed_result",
       text: isFa
         ? "یادگیری این مفهوم، نتیجه مالی مثبت و بدون ریسک را تضمین می‌کند."
         : "Learning this concept guarantees a positive financial result without risk.",
     },
-  ], `${questionId}:${questionVersion}`);
+  ];
+  const correctOptionId = opaqueOptionId(questionVersion, "lesson_outcome");
+  const options = stableShuffle<AcademyCheckpointOption>(
+    internalOptions.map((option) => ({
+      id: opaqueOptionId(questionVersion, option.key),
+      text: option.text,
+    })),
+    `${questionId}:${questionVersion}`,
+  );
 
   return {
     definition,
