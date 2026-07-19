@@ -7,10 +7,10 @@ import {
   claimNotificationDomainOutbox,
   enqueueNotificationDomainEvent,
   failNotificationDomainEvent,
-  processClaimedNotificationDomainEvent,
   recoverExpiredNotificationDomainLeases,
+  type NotificationDomainOutboxClaim,
 } from "../lib/notifications/domain-outbox";
-import { loadEffectiveNotificationDomainClaim } from "../lib/notifications/domain-worker";
+import { processAuthoritativeNotificationDomainClaim } from "../lib/notifications/domain-processing";
 import { resolveNotificationPrincipal } from "../lib/notifications/principal";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -150,7 +150,7 @@ test(
 );
 
 test(
-  "domain worker processes an Academy event and records immutable intent linkage",
+  "authoritative worker reload ignores mutated claim payload and records intent linkage",
   { skip: !databaseUrl },
   async () => {
     await withRolledBackTest(async (client) => {
@@ -176,13 +176,22 @@ test(
         leaseSeconds: 120,
       });
       assert.equal(claims.length, 1);
-      const effective = await loadEffectiveNotificationDomainClaim(
+      const tamperedClaim = {
+        ...claims[0],
+        event: {
+          ...claims[0].event,
+          payload: {
+            assessmentId: "term-7",
+            title: "متن دست‌کاری‌شده",
+            score: 1,
+            passed: false,
+          },
+        },
+      } as NotificationDomainOutboxClaim;
+
+      const processed = await processAuthoritativeNotificationDomainClaim(
         client,
-        claims[0],
-      );
-      const processed = await processClaimedNotificationDomainEvent(
-        client,
-        effective,
+        tamperedClaim,
         "domain-worker-test",
       );
       assert.ok(processed.intentId);
@@ -199,6 +208,16 @@ test(
       );
       assert.equal(event.rows[0]?.status, "processed");
       assert.equal(event.rows[0]?.notification_intent_id, processed.intentId);
+
+      const intent = await client.query<{
+        body: string;
+        metadata: Record<string, unknown>;
+      }>(
+        `SELECT body, metadata FROM notification_intents WHERE id = $1`,
+        [processed.intentId],
+      );
+      assert.match(intent.rows[0]?.body ?? "", /۹۱/);
+      assert.equal((intent.rows[0]?.body ?? "").includes("دست‌کاری"), false);
 
       const attempt = await client.query<{
         status: string;
@@ -258,16 +277,9 @@ test(
           WHERE id = $1`,
         [principal.id],
       );
-      const effective = await loadEffectiveNotificationDomainClaim(
+      const processed = await processAuthoritativeNotificationDomainClaim(
         client,
         claims[0],
-      );
-      assert.equal(effective.event.locale, "en");
-      assert.equal(effective.event.occurredAt, occurredAt);
-
-      const processed = await processClaimedNotificationDomainEvent(
-        client,
-        effective,
         "domain-locale-worker",
       );
       const intent = await client.query<{
@@ -279,6 +291,17 @@ test(
       );
       assert.equal(intent.rows[0]?.locale, "en");
       assert.equal(intent.rows[0]?.action_url, "/en/academy/profile");
+
+      const attempt = await client.query<{
+        metadata: Record<string, unknown>;
+      }>(
+        `SELECT metadata
+           FROM notification_domain_outbox_attempts
+          WHERE domain_outbox_id = $1 AND attempt_number = 1`,
+        [claims[0].outboxId],
+      );
+      assert.equal(attempt.rows[0]?.metadata.eventLocale, "fa");
+      assert.equal(attempt.rows[0]?.metadata.effectiveLocale, "en");
 
       const stored = await client.query<{ locale: string; occurred_at: Date }>(
         `SELECT locale, occurred_at
@@ -330,7 +353,7 @@ test(
 );
 
 test(
-  "expired lease is recoverable and terminal failure creates one dead letter",
+  "expired lease is recoverable and terminal failure creates one immutable dead letter",
   { skip: !databaseUrl },
   async () => {
     await withRolledBackTest(async (client) => {
@@ -385,15 +408,21 @@ test(
         },
       );
       assert.equal(failed.terminal, true);
-      assert.equal(
-        await count(
-          client,
-          `SELECT COUNT(*)::text AS count
-             FROM notification_domain_dead_letters
-            WHERE domain_outbox_id = $1`,
-          [second[0].outboxId],
+      const deadLetter = await client.query<{ id: string }>(
+        `SELECT id
+           FROM notification_domain_dead_letters
+          WHERE domain_outbox_id = $1`,
+        [second[0].outboxId],
+      );
+      assert.ok(deadLetter.rows[0]?.id);
+      await assert.rejects(
+        client.query(
+          `UPDATE notification_domain_dead_letters
+              SET terminal_reason = 'tampered'
+            WHERE id = $1`,
+          [deadLetter.rows[0].id],
         ),
-        1,
+        /append-only/,
       );
     });
   },
