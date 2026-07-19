@@ -80,7 +80,7 @@ jobs:
 
   build-and-publish:
     name: Build clean Academy P0 branch
-    if: github.event_name == 'push'
+    if: ${{ (github.event_name == 'push' && github.ref_name == 'audit/academy-authority-call-sites-20260719') || (github.event_name == 'pull_request' && github.event.pull_request.number == 36 && github.head_ref == 'audit/academy-authority-call-sites-20260719') }}
     runs-on: ubuntu-latest
     env:
       TARGET_BRANCH: feat/academy-server-issued-progress-20260719-v1
