@@ -63,6 +63,7 @@ requireText("creation", "pg_advisory_xact_lock", "correlation replay must be ser
 requireText("creation", "notification_correlation_payload_conflict", "changed payloads may not reuse correlation keys");
 requireText("creation", "INSERT INTO platform_notifications", "allowed decisions must create the durable inbox record");
 requireText("creation", "INSERT INTO notification_outbox", "allowed decisions must create the delivery outbox atomically");
+requireText("creation", "CASE WHEN $5 = 'allow' THEN CURRENT_TIMESTAMP", "immediate outbox availability must use database transaction time");
 requireText("creation", "INSERT INTO notification_intents", "every policy decision must be recorded immutably");
 requireText("creation", "policy_snapshot", "policy facts must be auditable");
 requireText("creation", "AND n.delivered_at IS NOT NULL", "fatigue and frequency policy must count delivered notifications only");
@@ -99,4 +100,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification runtime authority check passed: CI/release governance, policy creation, immutable intent, delivered-only projection, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
+console.log("Notification runtime authority check passed: CI/release governance, policy creation, immutable intent, delivered-only projection, database-timed immediate availability, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
