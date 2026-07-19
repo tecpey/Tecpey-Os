@@ -1,12 +1,36 @@
+import Decimal from "decimal.js";
 import type { Asset, Market, OrderSide, OrderType, PlaceOrderRequest } from "./types";
-
-// ── Validation result ─────────────────────────────────────────────────────────
 
 export type ValidationResult =
   | { ok: true }
   | { ok: false; error: string; detail?: string };
 
-// ── Asset validation ──────────────────────────────────────────────────────────
+const DECIMAL_INPUT = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
+
+function decimal(value: string): Decimal | null {
+  if (typeof value !== "string" || value.length === 0 || value.length > 120) return null;
+  if (!DECIMAL_INPUT.test(value)) return null;
+  try {
+    const parsed = new Decimal(value);
+    return parsed.isFinite() ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function positiveDecimal(value: string): Decimal | null {
+  const parsed = decimal(value);
+  return parsed?.gt(0) ? parsed : null;
+}
+
+function nonNegativeDecimal(value: string): Decimal | null {
+  const parsed = decimal(value);
+  return parsed?.gte(0) ? parsed : null;
+}
+
+function isExactMultiple(value: Decimal, increment: Decimal): boolean {
+  return value.mod(increment).isZero();
+}
 
 export function validateAssetForDeposit(asset: Asset): ValidationResult {
   if (asset.status !== "active") return { ok: false, error: "asset_not_active", detail: asset.symbol };
@@ -20,16 +44,12 @@ export function validateAssetForWithdraw(asset: Asset): ValidationResult {
   return { ok: true };
 }
 
-// ── Market validation ─────────────────────────────────────────────────────────
-
 export function validateMarketActive(market: Market): ValidationResult {
   if (market.status !== "active") {
     return { ok: false, error: "market_not_active", detail: market.symbol };
   }
   return { ok: true };
 }
-
-// ── Order field validation ────────────────────────────────────────────────────
 
 export function validatePlaceOrderRequest(
   request: PlaceOrderRequest,
@@ -38,15 +58,16 @@ export function validatePlaceOrderRequest(
   const marketCheck = validateMarketActive(market);
   if (!marketCheck.ok) return marketCheck;
 
-  // Quantity
-  const qty = parseFloat(request.quantity);
-  if (!Number.isFinite(qty) || qty <= 0) {
-    return { ok: false, error: "invalid_quantity", detail: "quantity must be a positive number" };
+  const quantity = positiveDecimal(request.quantity);
+  if (!quantity) {
+    return { ok: false, error: "invalid_quantity", detail: "quantity must be a positive decimal string" };
   }
 
-  // Step size (quantity granularity)
-  const step = parseFloat(market.stepSize);
-  if (step > 0 && Math.abs(Math.round(qty / step) * step - qty) > 1e-10) {
+  const stepSize = positiveDecimal(market.stepSize);
+  if (!stepSize) {
+    return { ok: false, error: "invalid_market_step_size", detail: market.stepSize };
+  }
+  if (!isExactMultiple(quantity, stepSize)) {
     return {
       ok: false,
       error: "quantity_step_size_violation",
@@ -54,19 +75,21 @@ export function validatePlaceOrderRequest(
     };
   }
 
-  // Price — required for limit / stop_limit
   if (request.type === "limit" || request.type === "stop_limit") {
     if (!request.price) {
       return { ok: false, error: "price_required", detail: "price is required for limit orders" };
     }
-    const price = parseFloat(request.price);
-    if (!Number.isFinite(price) || price <= 0) {
-      return { ok: false, error: "invalid_price", detail: "price must be a positive number" };
+
+    const price = positiveDecimal(request.price);
+    if (!price) {
+      return { ok: false, error: "invalid_price", detail: "price must be a positive decimal string" };
     }
 
-    // Tick size (price granularity)
-    const tick = parseFloat(market.tickSize);
-    if (tick > 0 && Math.abs(Math.round(price / tick) * tick - price) > 1e-10) {
+    const tickSize = positiveDecimal(market.tickSize);
+    if (!tickSize) {
+      return { ok: false, error: "invalid_market_tick_size", detail: market.tickSize };
+    }
+    if (!isExactMultiple(price, tickSize)) {
       return {
         ok: false,
         error: "price_tick_size_violation",
@@ -74,33 +97,37 @@ export function validatePlaceOrderRequest(
       };
     }
 
-    // Order value bounds
-    const value = price * qty;
-    const minValue = parseFloat(market.minOrderValue);
-    const maxValue = parseFloat(market.maxOrderValue);
-    if (value < minValue) {
+    const minOrderValue = nonNegativeDecimal(market.minOrderValue);
+    const maxOrderValue = nonNegativeDecimal(market.maxOrderValue);
+    if (!minOrderValue) {
+      return { ok: false, error: "invalid_market_min_order_value", detail: market.minOrderValue };
+    }
+    if (!maxOrderValue) {
+      return { ok: false, error: "invalid_market_max_order_value", detail: market.maxOrderValue };
+    }
+
+    const orderValue = price.mul(quantity);
+    if (orderValue.lt(minOrderValue)) {
       return {
         ok: false,
         error: "order_value_too_small",
-        detail: `order value ${value} is below minimum ${market.minOrderValue}`,
+        detail: `order value ${orderValue.toFixed()} is below minimum ${market.minOrderValue}`,
       };
     }
-    if (maxValue > 0 && value > maxValue) {
+    if (maxOrderValue.gt(0) && orderValue.gt(maxOrderValue)) {
       return {
         ok: false,
         error: "order_value_too_large",
-        detail: `order value ${value} exceeds maximum ${market.maxOrderValue}`,
+        detail: `order value ${orderValue.toFixed()} exceeds maximum ${market.maxOrderValue}`,
       };
     }
   }
 
-  // Stop price — required for stop_limit
   if (request.type === "stop_limit") {
     if (!request.stopPrice) {
       return { ok: false, error: "stop_price_required", detail: "stopPrice is required for stop_limit orders" };
     }
-    const stopPrice = parseFloat(request.stopPrice);
-    if (!Number.isFinite(stopPrice) || stopPrice <= 0) {
+    if (!positiveDecimal(request.stopPrice)) {
       return { ok: false, error: "invalid_stop_price" };
     }
   }
@@ -108,10 +135,14 @@ export function validatePlaceOrderRequest(
   return { ok: true };
 }
 
-// ── Precision helpers ─────────────────────────────────────────────────────────
-
 export function roundToPrecision(value: string | number, precision: number): string {
-  return parseFloat(String(value)).toFixed(precision);
+  if (!Number.isSafeInteger(precision) || precision < 0 || precision > 30) {
+    throw new Error("invalid_precision");
+  }
+  const source = typeof value === "number" ? String(value) : value;
+  const parsed = decimal(source);
+  if (!parsed) throw new Error("invalid_decimal_value");
+  return parsed.toFixed(precision, Decimal.ROUND_HALF_UP);
 }
 
 export function isValidOrderSide(value: unknown): value is OrderSide {
