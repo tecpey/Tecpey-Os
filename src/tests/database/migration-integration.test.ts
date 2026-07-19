@@ -23,6 +23,7 @@ const REQUIRED_MIGRATIONS = [
   "0029_academy_section_command_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
+  "0032_academy_section_upsert_guard.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -127,6 +128,7 @@ const REQUIRED_TRIGGERS = [
   "academy_section_attempts_no_delete",
   "academy_section_commands_no_update",
   "academy_section_commands_no_delete",
+  "academy_lesson_progress_preserve_verified_pass",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
