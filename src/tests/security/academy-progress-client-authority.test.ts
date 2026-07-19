@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import {
   createDefaultAcademyProgressState,
-  hydrateProgressStrict,
   loadProgress,
   normalizeAcademyProgressState,
   refreshProgressStrict,
@@ -82,6 +81,6 @@ describe("Academy browser progress read model", () => {
     );
     assert.equal(/localStorage|sessionStorage|indexedDB|CacheStorage/.test(source), false);
     assert.equal(source.includes("hydrateProgressStrict"), true);
-    assert.equal(source.includes("method: \"GET\""), true);
+    assert.equal(source.includes('method: "GET"'), true);
   });
 });
