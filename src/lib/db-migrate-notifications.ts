@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
 
 CREATE TABLE IF NOT EXISTS notification_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_sequence BIGSERIAL NOT NULL UNIQUE,
   principal_id UUID NOT NULL REFERENCES platform_principals(id) ON DELETE CASCADE,
   purpose TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('granted', 'revoked')),
@@ -85,7 +86,7 @@ CREATE TABLE IF NOT EXISTS notification_consents (
 );
 
 CREATE INDEX IF NOT EXISTS notification_consents_principal_idx
-  ON notification_consents (principal_id, purpose, occurred_at DESC);
+  ON notification_consents (principal_id, purpose, event_sequence DESC);
 
 CREATE OR REPLACE FUNCTION tecpey_block_notification_consent_mutation()
 RETURNS trigger
