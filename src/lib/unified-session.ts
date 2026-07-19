@@ -7,6 +7,7 @@ import {
   sessionMaxAge,
   sessionMaxAgeSeconds,
 } from "./platform-config";
+import { registerSession } from "./security/session-store";
 
 export const UNIFIED_SESSION_COOKIE = COOKIES.SESSION;
 
@@ -22,6 +23,11 @@ export type UnifiedSessionPayload = UnifiedSessionData & {
   role: "unified";
   v: 1;
   jti?: string;
+};
+
+export type UnifiedSessionRegistration = {
+  deviceInfo?: string;
+  ip?: string;
 };
 
 function unifiedSecret(): Uint8Array | null {
@@ -128,11 +134,33 @@ export function setUnifiedSessionCookie(
   throw new Error("setUnifiedSessionCookie_async_required");
 }
 
+/**
+ * Issue a replacement access cookie only after the new JTI has durable session
+ * evidence. This prevents claim/profile updates from minting a cookie that the
+ * canonical revocation authority immediately treats as missing or unverifiable.
+ */
 export async function setUnifiedSessionCookieAsync(
   response: NextResponse,
   data: UnifiedSessionData,
+  registration: UnifiedSessionRegistration = {},
 ): Promise<void> {
+  const userId = data.accountId ?? data.studentId;
+  if (!userId) throw new Error("session_owner_missing");
+
   const token = await signUnifiedSession(data);
+  const jti = extractJtiFromToken(token);
+  const exp = extractExpFromToken(token);
+  if (!jti || !exp) throw new Error("session_issue_failed");
+
+  const registered = await registerSession({
+    jti,
+    userId,
+    deviceInfo: (registration.deviceInfo ?? "session-claim-refresh").slice(0, 500),
+    ip: (registration.ip ?? "unknown").slice(0, 80),
+    expiresAt: new Date(exp * 1000),
+  });
+  if (!registered) throw new Error("session_registry_unavailable");
+
   response.cookies.set(UNIFIED_SESSION_COOKIE, token, {
     path: "/",
     httpOnly: true,
