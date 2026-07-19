@@ -63,7 +63,7 @@ const TAG_LABEL: Record<ArenaReflectionTag, string> = {
   "oversized-position": "حجم بیش از حد",
   "missing-stop-loss": "نبود حد ضرر",
   "moved-stop-loss": "جابه‌جایی حد ضرر",
-  "fomo-entry": "ورود از ترس置ماندن",
+  "fomo-entry": "ورود از ترس جا ماندن",
   "revenge-trade": "معامله انتقامی",
   "ignored-plan": "نادیده‌گرفتن برنامه",
   "poor-risk-reward": "نسبت ریسک‌به‌بازده ضعیف",
