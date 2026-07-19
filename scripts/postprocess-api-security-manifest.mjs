@@ -68,6 +68,10 @@ function findings(entry) {
   return output;
 }
 
+function hasExplicitPublicCachePolicy(source) {
+  return /["']cache-control["']\s*:\s*["'][^"']*\bpublic\b/i.test(source);
+}
+
 const sourceCache = new Map();
 async function readSource(sourcePath) {
   if (!sourceCache.has(sourcePath)) {
@@ -120,13 +124,15 @@ for (const entry of manifest.routes) {
   }
 
   // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
-  // no-store contract from src/lib/api-validation.ts. Both the import and the
-  // response call must occur in the effective method evidence.
+  // no-store contract only when the effective handler does not provide a
+  // complete explicit public Cache-Control override. A public override must
+  // remain visible to policy evaluation rather than being masked by the helper.
   if (
     /from\s+["']@\/lib\/api-validation["']/.test(scoped.evidence)
     && /\b(?:apiOk|apiError|apiRateLimited)\s*\(/.test(scoped.evidence)
   ) {
-    entry.controls.noStore = true;
+    entry.controls.noStore = !hasExplicitPublicCachePolicy(scoped.evidence);
+    entry.controls.explicitPublicCachePolicy = hasExplicitPublicCachePolicy(scoped.evidence);
   }
 
   // Notification response builders wrap the same central contract with an
