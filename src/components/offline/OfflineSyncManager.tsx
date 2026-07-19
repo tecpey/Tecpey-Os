@@ -34,10 +34,17 @@ const LEGACY_QUARANTINE_KEY = "tecpey_offline_queue_unscoped_quarantine_v1";
 const LAST_SYNC_KEY = "tecpey_offline_last_sync_v1";
 const SCOPE_KEY = "tecpey_offline_principal_scope_v1";
 
+// Single audited browser-storage boundary. Values here are transport-only and
+// never authoritative; PostgreSQL commit evidence remains the source of truth.
+function transportStorage(): Storage | null {
+  return typeof window === "undefined" ? null : window.localStorage;
+}
+
 function readQueue(): OfflineQueueItem[] {
-  if (typeof window === "undefined") return [];
+  const store = transportStorage();
+  if (!store) return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(store.getItem(STORAGE_KEY) || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -45,25 +52,28 @@ function readQueue(): OfflineQueueItem[] {
 }
 
 function writeQueue(items: OfflineQueueItem[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
+  const store = transportStorage();
+  if (!store) return;
+  store.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
   window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
 }
 
 function quarantineLegacyQueue() {
-  if (typeof window === "undefined") return;
-  const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  const store = transportStorage();
+  if (!store) return;
+  const legacy = store.getItem(LEGACY_STORAGE_KEY);
   if (!legacy) return;
-  if (!window.localStorage.getItem(LEGACY_QUARANTINE_KEY)) {
-    window.localStorage.setItem(LEGACY_QUARANTINE_KEY, legacy);
+  if (!store.getItem(LEGACY_QUARANTINE_KEY)) {
+    store.setItem(LEGACY_QUARANTINE_KEY, legacy);
   }
-  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  store.removeItem(LEGACY_STORAGE_KEY);
 }
 
 function readScope(): StoredScope | null {
-  if (typeof window === "undefined") return null;
+  const store = transportStorage();
+  if (!store) return null;
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(SCOPE_KEY) || "null") as
+    const parsed = JSON.parse(store.getItem(SCOPE_KEY) || "null") as
       | StoredScope
       | null;
     if (
@@ -81,9 +91,10 @@ function readScope(): StoredScope | null {
 }
 
 function writeScope(scope: StoredScope | null) {
-  if (typeof window === "undefined") return;
-  if (!scope) window.localStorage.removeItem(SCOPE_KEY);
-  else window.localStorage.setItem(SCOPE_KEY, JSON.stringify(scope));
+  const store = transportStorage();
+  if (!store) return;
+  if (!scope) store.removeItem(SCOPE_KEY);
+  else store.setItem(SCOPE_KEY, JSON.stringify(scope));
 }
 
 async function refreshPrincipalScope(): Promise<StoredScope | null> {
@@ -170,7 +181,7 @@ async function syncQueue() {
       .map((result) => result.id),
   );
   writeQueue(queue.filter((item) => !terminal.has(item.id)));
-  window.localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  transportStorage()?.setItem(LAST_SYNC_KEY, new Date().toISOString());
   return { ok: true, pending: readQueue().length };
 }
 
