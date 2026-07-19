@@ -23,6 +23,18 @@ export type SessionRevocationResult =
       reason: "session_not_found" | "database_unavailable" | "revocation_store_unavailable";
     };
 
+export type SessionListResult =
+  | { ok: true; sessions: UserSession[] }
+  | { ok: false; reason: "database_unavailable" };
+
+export type BulkSessionRevocationResult =
+  | { ok: true; revokedCount: number }
+  | {
+      ok: false;
+      reason: "database_unavailable" | "revocation_store_unavailable";
+      revokedCount: number;
+    };
+
 /** Register a newly issued access token. False means the token lacks durable evidence. */
 export async function registerSession(opts: {
   jti: string;
@@ -87,42 +99,61 @@ export async function touchSession(jti: string): Promise<void> {
   }
 }
 
+export async function listActiveSessionsStrict(
+  userId: string,
+): Promise<SessionListResult> {
+  try {
+    const result = await withDb(async (db) => {
+      const rows = await db.query<{
+        id: string;
+        user_id: string;
+        device_info: string;
+        ip: string;
+        created_at: Date;
+        last_used_at: Date;
+        expires_at: Date;
+        is_revoked: boolean;
+        revoked_at: Date | null;
+      }>(
+        `SELECT id, user_id, device_info, ip, created_at, last_used_at, expires_at,
+                is_revoked, revoked_at
+           FROM user_sessions
+          WHERE user_id = $1
+            AND is_revoked = FALSE
+            AND expires_at > NOW()
+          ORDER BY last_used_at DESC
+          LIMIT 50`,
+        [userId],
+      );
+      return rows.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        deviceInfo: row.device_info,
+        ip: row.ip,
+        createdAt: row.created_at,
+        lastUsedAt: row.last_used_at,
+        expiresAt: row.expires_at,
+        isRevoked: row.is_revoked,
+        revokedAt: row.revoked_at,
+      }));
+    });
+    if (!result.enabled) {
+      return { ok: false, reason: "database_unavailable" };
+    }
+    return { ok: true, sessions: result.value };
+  } catch (err) {
+    logger.warn("[session-store] list active sessions failed", {
+      userId,
+      err: String(err),
+    });
+    return { ok: false, reason: "database_unavailable" };
+  }
+}
+
+/** Compatibility wrapper. Security-sensitive routes must use listActiveSessionsStrict. */
 export async function listActiveSessions(userId: string): Promise<UserSession[]> {
-  const result = await withDb(async (db) => {
-    const rows = await db.query<{
-      id: string;
-      user_id: string;
-      device_info: string;
-      ip: string;
-      created_at: Date;
-      last_used_at: Date;
-      expires_at: Date;
-      is_revoked: boolean;
-      revoked_at: Date | null;
-    }>(
-      `SELECT id, user_id, device_info, ip, created_at, last_used_at, expires_at,
-              is_revoked, revoked_at
-         FROM user_sessions
-        WHERE user_id = $1
-          AND is_revoked = FALSE
-          AND expires_at > NOW()
-        ORDER BY last_used_at DESC
-        LIMIT 50`,
-      [userId],
-    );
-    return rows.rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      deviceInfo: row.device_info,
-      ip: row.ip,
-      createdAt: row.created_at,
-      lastUsedAt: row.last_used_at,
-      expiresAt: row.expires_at,
-      isRevoked: row.is_revoked,
-      revokedAt: row.revoked_at,
-    }));
-  });
-  return result.enabled ? result.value : [];
+  const result = await listActiveSessionsStrict(userId);
+  return result.ok ? result.sessions : [];
 }
 
 /**
@@ -206,35 +237,81 @@ export async function revokeSession(jti: string, userId: string): Promise<boolea
   return (await revokeSessionStrict(jti, userId)).ok;
 }
 
+/**
+ * Revoke every unexpired access session for a user except an optional current
+ * JTI. PostgreSQL is authoritative. The subsequent SELECT intentionally
+ * includes already-revoked sessions so a retry can repair missing Redis deny
+ * evidence after a partial outage.
+ */
+export async function revokeAllSessionsStrict(
+  userId: string,
+  exceptJti?: string,
+): Promise<BulkSessionRevocationResult> {
+  try {
+    const result = await withDb(async (db) => {
+      const scope = exceptJti ? "AND id <> $2" : "";
+      const values = exceptJti ? [userId, exceptJti] : [userId];
+      const updated = await db.query(
+        `UPDATE user_sessions
+            SET is_revoked = TRUE,
+                revoked_at = COALESCE(revoked_at, NOW())
+          WHERE user_id = $1
+            AND is_revoked = FALSE
+            AND expires_at > NOW()
+            ${scope}`,
+        values,
+      );
+      const evidence = await db.query<{ id: string; expires_at: Date }>(
+        `SELECT id, expires_at
+           FROM user_sessions
+          WHERE user_id = $1
+            AND is_revoked = TRUE
+            AND expires_at > NOW()
+            ${scope}`,
+        values,
+      );
+      return {
+        revokedCount: updated.rowCount ?? 0,
+        sessions: evidence.rows.map((row) => ({
+          jti: row.id,
+          expiresAt: Math.floor(row.expires_at.getTime() / 1000),
+        })),
+      };
+    });
+
+    if (!result.enabled) {
+      return { ok: false, reason: "database_unavailable", revokedCount: 0 };
+    }
+
+    const redisOk = await revokeMultiple(result.value.sessions);
+    if (!redisOk && result.value.sessions.length > 0) {
+      logger.warn("[session-store] revoke-all durable update succeeded but Redis deny write failed", {
+        userId,
+        revokedCount: result.value.revokedCount,
+        evidenceCount: result.value.sessions.length,
+      });
+      return {
+        ok: false,
+        reason: "revocation_store_unavailable",
+        revokedCount: result.value.revokedCount,
+      };
+    }
+
+    return { ok: true, revokedCount: result.value.revokedCount };
+  } catch (err) {
+    logger.warn("[session-store] revoke-all failed", {
+      userId,
+      err: String(err),
+    });
+    return { ok: false, reason: "database_unavailable", revokedCount: 0 };
+  }
+}
+
+/** Compatibility wrapper. Security-sensitive routes must use revokeAllSessionsStrict. */
 export async function revokeAllSessions(
   userId: string,
   exceptJti?: string,
 ): Promise<number> {
-  const result = await withDb(async (db) => {
-    const updated = await db.query<{ id: string; expires_at: Date }>(
-      `UPDATE user_sessions
-          SET is_revoked = TRUE,
-              revoked_at = COALESCE(revoked_at, NOW())
-        WHERE user_id = $1
-          AND is_revoked = FALSE
-          AND expires_at > NOW()
-          ${exceptJti ? "AND id <> $2" : ""}
-        RETURNING id, expires_at`,
-      exceptJti ? [userId, exceptJti] : [userId],
-    );
-    return updated.rows.map((row) => ({
-      jti: row.id,
-      expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-    }));
-  });
-
-  if (!result.enabled) return 0;
-  const redisOk = await revokeMultiple(result.value);
-  if (!redisOk && result.value.length > 0) {
-    logger.warn("[session-store] revoke-all durable update succeeded but Redis deny write failed", {
-      userId,
-      count: result.value.length,
-    });
-  }
-  return result.value.length;
+  const result = await revokeAllSessionsStrict(userId, exceptJti);
+  return result.ok ? result.revokedCount : 0;
 }
