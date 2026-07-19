@@ -1,8 +1,5 @@
 import { D } from "@/lib/trading/decimal";
-import {
-  getAuthoritativeUsdValuation,
-  recordWithdrawalPriceSnapshot,
-} from "./withdrawal-price-authority";
+import { recordWithdrawalPriceSnapshot } from "./withdrawal-price-authority";
 
 const PROVIDER_TIMEOUT_MS = 3_000;
 const MAX_QUOTE_AGE_MS = 60_000;
@@ -163,16 +160,4 @@ export async function refreshWithdrawalPriceSnapshot(asset: string): Promise<boo
     ttlSeconds: 120,
   });
   return Boolean(id);
-}
-
-export async function ensureWithdrawalPriceSnapshot(asset: string): Promise<boolean> {
-  const current = await getAuthoritativeUsdValuation(asset, "1");
-  if (current.ok) return true;
-  if (![
-    "price_snapshot_unavailable",
-    "price_snapshot_stale",
-  ].includes(current.reason)) {
-    return false;
-  }
-  return refreshWithdrawalPriceSnapshot(asset);
 }
