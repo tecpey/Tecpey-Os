@@ -12,8 +12,10 @@ const files = {
   passwordTests: "src/tests/security/auth-password-change-postgres.test.ts",
   legacyTests: "src/tests/security/auth-legacy-cookie-cutoff.test.ts",
   ttlTests: "src/tests/security/auth-access-session-ttl.test.ts",
+  reviewTests: "src/tests/security/auth-session-review-followup.test.ts",
   platform: "src/lib/platform-config.ts",
   unified: "src/lib/unified-session.ts",
+  sessionRefresh: "src/lib/session-refresh.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
   authSession: "src/lib/auth-session.ts",
@@ -21,6 +23,7 @@ const files = {
   sessionStore: "src/lib/security/session-store.ts",
   refresh: "src/lib/security/refresh-tokens.ts",
   academyAuth: "src/app/api/academy-auth/route.ts",
+  profileRoute: "src/app/api/academy-student-profile/route.ts",
   sessionsRoute: "src/app/api/auth/sessions/route.ts",
   specificSessionRoute: "src/app/api/auth/sessions/[id]/route.ts",
   refreshRoute: "src/app/api/auth/refresh/route.ts",
@@ -54,6 +57,8 @@ requireText("ci", "Authentication session integration tests", "pull-request CI m
 requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
 requireText("env", "4-hour security ceiling", "production validation must reject overlong access sessions");
+requireText("env", "REDIS_URL is required in production", "strict session revocation must require the shared Redis authority");
+requireText("env", "Redis REST credentials alone are insufficient", "rate-limit Redis may not masquerade as revocation Redis");
 requireText("env", "TECPEY_LEGACY_AUTH_UNTIL", "legacy compatibility must have an explicit environment cutoff");
 requireText("env", "beyond 30 days", "legacy compatibility cutoff must remain locally bounded");
 requireText("env", "immutable 2026-08-18", "legacy compatibility must have a non-extendable production sunset");
@@ -72,10 +77,22 @@ rejectText("refresh", "process.env.TECPEY_SESSION_SECRET", "refresh tokens may n
 rejectText("refresh", "process.env.JWT_SECRET", "refresh tokens may not fall back to a generic JWT secret");
 
 requireText("unified", "setUnifiedSessionCookie_async_required", "unawaited cookie signing must fail explicitly");
+requireText("unified", "registerSession", "replacement access cookies require durable JTI registration");
+requireText("unified", "session_owner_missing", "replacement cookies require a canonical durable owner");
+requireText("unified", "session_registry_unavailable", "replacement cookies must fail when registration fails");
+requireText("unified", "if (!registered)", "replacement cookies may not be written before durable registration succeeds");
+requireText("sessionRefresh", "refresh_token_rotation_required", "legacy sliding access renewal must be disabled");
+rejectText("sessionRefresh", "setUnifiedSessionCookieAsync", "renewal helpers may not bypass refresh-token rotation");
 requireText("legacySession", "getSessionToken", "server-to-server forwarding needs a verified raw token contract");
 requireText("api", "getSessionToken", "API forwarding must use the verified raw access token");
 rejectText("api", "session as { user?: { token?: string } }", "legacy empty-bearer session shape is forbidden");
 requireText("api", "Authenticated session required", "API forwarding must not emit an empty Bearer header");
+
+requireText("profileRoute", 'process.env.NODE_ENV !== "production" &&', "profile filesystem fallback must never run in production");
+requireText("profileRoute", "strictRevocation: true", "profile claim mutations require strict revocation authority");
+requireText("profileRoute", "{ deviceInfo: userAgent, ip }", "profile replacement cookies require real device and IP evidence");
+requireText("profileRoute", "academy_profile_service_unavailable", "profile reads and writes must fail explicitly without durable storage");
+requireText("profileRoute", "session_registry_unavailable", "profile claim replacement must surface registration failure");
 
 requireText("authSession", "type JtiCacheEntry = { revoked: true", "only deny decisions may be cached");
 rejectText("authSession", "revoked: false", "cached allow decisions are forbidden");
@@ -166,10 +183,13 @@ requireText("legacyTests", "slide beyond the immutable sunset", "legacy compatib
 requireText("ttlTests", "one four-hour default for JWT", "access TTL tests must prove JWT and cookie alignment");
 requireText("ttlTests", "explicitly shorter lifetime aligned", "access TTL tests must preserve safe shorter deployments");
 requireText("ttlTests", "caps unsafe runtime configuration", "access TTL tests must reject or cap overlong sessions");
+requireText("reviewTests", "replacement access cookies are written only after durable JTI registration", "replacement-cookie tests must prove durable evidence before response use");
+requireText("reviewTests", "legacy sliding access-cookie refresh is disabled", "renewal tests must enforce refresh-token rotation");
+requireText("reviewTests", "Redis-REST-only auth deployments", "environment tests must distinguish rate-limit and revocation Redis");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, aligned four-hour access lifetime, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, aligned four-hour access lifetime, durable issuance and replacement cookies, strict shared Redis authority, disabled sliding access renewal, fail-closed profile claims, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests and verified token forwarding are enforced.");
