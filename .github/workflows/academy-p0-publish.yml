@@ -1,0 +1,140 @@
+name: Academy P0 Build and Publish — Audit Branch Only
+
+on:
+  push:
+    branches:
+      - audit/academy-authority-call-sites-20260719
+    paths:
+      - audit/academy-server-issued-progress.patch.gz.b64
+      - .github/workflows/academy-p0-publish.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    name: Build clean Academy P0 branch
+    runs-on: ubuntu-latest
+    env:
+      TARGET_BRANCH: feat/academy-server-issued-progress-20260719-v1
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
+
+    steps:
+      - name: Checkout isolated audit branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decode reviewed patch outside worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode audit/academy-server-issued-progress.patch.gz.b64 > /tmp/academy-p0.patch.gz
+          gzip --decompress --stdout /tmp/academy-p0.patch.gz > /tmp/academy-p0.patch
+          test -s /tmp/academy-p0.patch
+          sha256sum /tmp/academy-p0.patch
+
+      - name: Create clean branch from protected main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if git ls-remote --exit-code --heads origin "$TARGET_BRANCH" >/dev/null 2>&1; then
+            echo "Target branch already exists; refusing to overwrite reviewed history."
+            exit 1
+          fi
+          git checkout -B "$TARGET_BRANCH" origin/main
+          test ! -e audit/academy-server-issued-progress.patch.gz.b64
+          test ! -e .github/workflows/academy-p0-publish.yml
+
+      - name: Apply reviewed implementation patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check /tmp/academy-p0.patch
+          git apply /tmp/academy-p0.patch
+          git diff --check
+          if git status --short | grep -E '(^| )audit/|academy-p0-publish|academy-authority-audit'; then
+            echo "Audit-only material leaked into the product branch."
+            exit 1
+          fi
+          git status --short
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm version
+        shell: bash
+        run: |
+          set -euo pipefail
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          test "$NPM_MAJOR" = "10"
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Production environment contract
+        env:
+          NODE_ENV: production
+        run: npm run env:check
+
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: ESLint
+        run: ./node_modules/.bin/eslint . --max-warnings 0
+
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
+
+      - name: Admin authentication boundary guard
+        run: node scripts/check-admin-auth-boundary.mjs
+
+      - name: Full tests
+        run: npm test
+
+      - name: Production build
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "TecPey Engineering"
+          git config user.email "engineering@tecpey.ir"
+          git add \
+            docs/architecture/ACADEMY_PROGRESS_AUTHORITY.md \
+            src/app/api/academy-lesson-progress/route.ts \
+            src/app/api/academy-state/route.ts \
+            src/app/api/academy-term-progress/route.ts \
+            src/components/academy/v2/FlashcardDeck.tsx \
+            src/components/academy/v2/LessonPlayerV2.tsx \
+            src/components/academy/v2/QuizEngineV2.tsx \
+            src/lib/academy-lesson-assessment.ts \
+            src/lib/academy-lesson-progress.ts \
+            src/lib/academy-progress-authority.ts \
+            src/lib/academy-progress.ts \
+            src/lib/db-migrate-user-state.ts \
+            src/tests/academy/lesson-assessment.test.ts \
+            src/tests/academy/progress-authority-boundary.test.ts \
+            src/tests/academy/progress-authority.test.ts \
+            src/tests/academy/progress-state.test.ts
+          test -z "$(git status --short | grep '^??' || true)"
+          git commit -m "feat(academy): make progress and rewards server-issued"
+
+      - name: Push verified branch
+        run: git push --set-upstream origin "$TARGET_BRANCH"
