@@ -32,6 +32,10 @@ const orderedCalls = [
   "await runUserStateMigrations(client)",
   "await runAdminControlPlaneMigrations(client)",
   "await runAdminControlPlaneHardeningMigrations(client)",
+  "await runNotificationMigrations(client)",
+  "await runNotificationRuntimeMigrations(client)",
+  "await runNotificationDeliveryVisibilityMigrations(client)",
+  "await runOfflineSyncMigrations(client)",
 ];
 let previousIndex = -1;
 for (const call of orderedCalls) {
@@ -56,6 +60,8 @@ if (migrationRuns < 2) failures.push("CI must run db:migrate twice to prove idem
 requireText(integration, "applyDatabaseMigrationsWithLock", "migration integration test must execute the canonical plan");
 requireText(integration, "admin_audit_events_validate_chain", "migration integration test must verify critical database triggers");
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration test must verify wallet ledger idempotency schema");
+requireText(integration, "0023_offline_sync_command_authority.sql", "migration integration must verify offline command authority");
+requireText(integration, "offline_sync_commands_reconcile_idx", "migration integration must verify offline reconciliation indexing");
 
 if (failures.length) {
   console.error("Database migration authority check failed:");
