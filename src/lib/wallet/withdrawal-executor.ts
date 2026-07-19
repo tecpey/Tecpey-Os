@@ -1,7 +1,6 @@
-// Withdrawal Executor — Phase 38
-// Orchestrates: build → sign → broadcast → confirm.
-// Idempotency: if tx_hash already set on the withdrawal, broadcast is skipped.
-// State machine transitions tracked in the withdrawals table.
+// Withdrawal Executor — Phase 38 hardening.
+// Queue payloads are identity triggers only. Approved financial and destination values come from PostgreSQL.
+// Idempotency: an atomic state claim blocks concurrent workers; the expected signed hash recovers already-known broadcasts.
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -10,6 +9,7 @@ import { getProvider } from "./providers/registry";
 import { enqueueConfirmationWatch, moveToDeadLetter } from "./queue/withdrawal-queue";
 import { trackWalletMetric, recordLatency } from "./observability";
 import { buildTimeoutAt } from "./confirmation/engine";
+import { assertQueueIdentityMatchesRecord } from "./withdrawal-authority";
 import type { ChainId, FeeSpeed, WithdrawalJobData } from "./types";
 
 type WithdrawalRecord = {
@@ -22,194 +22,184 @@ type WithdrawalRecord = {
   state: string;
   txHash: string | null;
   idempotencyKey: string | null;
-  fromAddress: string | null;
   feeSpeed: FeeSpeed;
 };
 
-// ── Public: execute a withdrawal job from queue ───────────────────────────────
-
 export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
-  const { withdrawalId, chainId, amount, destinationAddress, asset, feeSpeed } = job;
+  const withdrawal = await claimApprovedWithdrawal(job.withdrawalId);
+  if (!withdrawal) return;
 
-  // Fetch the withdrawal record
-  const fetchResult = await withDb(async (db) => {
-    const res = await db.query<WithdrawalRecord>(
-      `SELECT id, user_id, asset, amount, destination_address, network, state,
-              tx_hash, idempotency_key
-       FROM withdrawals WHERE id = $1`,
-      [withdrawalId],
-    );
-    return res.rows[0] ?? null;
-  });
+  assertQueueIdentityMatchesRecord(job, withdrawal);
 
-  if (!fetchResult.enabled || !fetchResult.value) {
-    throw new Error(`Withdrawal ${withdrawalId} not found`);
-  }
-
-  const withdrawal = fetchResult.value;
-
-  // Only execute if in approved state
-  if (withdrawal.state !== "approved") {
-    logger.warn("[executor] skipping non-approved withdrawal", { withdrawalId, state: withdrawal.state });
-    return;
-  }
-
-  // Idempotency: check if already has tx_hash (in case of duplicate job)
-  if (withdrawal.txHash) {
-    trackWalletMetric("idempotency_duplicate_blocked");
-    logger.info("[executor] duplicate detected, already broadcasted", { withdrawalId, txHash: withdrawal.txHash });
-    return;
-  }
-
+  const { id: withdrawalId, network, asset, amount, destinationAddress, feeSpeed } = withdrawal;
   const keyStore = createKeyStore();
-  const provider = getProvider(chainId as ChainId);
-
-  // Get wallet address for this chain
-  const fromAddress = await keyStore.getAddress(chainId as ChainId);
+  const provider = getProvider(network);
+  const fromAddress = await keyStore.getAddress(network);
 
   try {
-    // ── 1. Build Transaction ──────────────────────────────────────────────────
-    await updateWithdrawalState(withdrawalId, "building_transaction");
     const buildStart = Date.now();
     const built = await provider.buildTransaction({
       withdrawalId,
-      chainId: chainId as ChainId,
+      chainId: network,
       asset,
       amount,
       destinationAddress,
-      feeConfig: { speed: feeSpeed ?? "normal" },
+      feeConfig: { speed: feeSpeed },
       fromAddress,
     });
     recordLatency("withdraw_build_ms", buildStart);
 
-    // ── 2. Sign ───────────────────────────────────────────────────────────────
     await updateWithdrawalState(withdrawalId, "signing");
     const signStart = Date.now();
-    const signature = await keyStore.sign(chainId as ChainId, built.signingHash);
-    const publicKey = await keyStore.getPublicKey(chainId as ChainId);
+    const signature = await keyStore.sign(network, built.signingHash);
+    const publicKey = await keyStore.getPublicKey(network);
     const signed = await provider.applySignature(built, signature, publicKey);
     recordLatency("withdraw_sign_ms", signStart);
 
-    // ── 3. Broadcast ─────────────────────────────────────────────────────────
     await updateWithdrawalState(withdrawalId, "broadcasting");
     const broadcastStart = Date.now();
-    const broadcastResult = await broadcastTransaction(chainId as ChainId, signed.rawTx, withdrawalId);
+    const expectedTxHash = signed.txHash || provider.computeTxHash(signed.rawTx);
+    const broadcastResult = await broadcastTransaction(
+      network,
+      signed.rawTx,
+      withdrawalId,
+      expectedTxHash,
+    );
     recordLatency("withdraw_broadcast_ms", broadcastStart);
 
-    // ── 4. Persist tx_hash (idempotency lock) ────────────────────────────────
-    await withDb(async (db) => {
-      await db.query(
-        `UPDATE withdrawals SET
-           state = 'broadcasted',
-           tx_hash = $2,
-           broadcast_attempts = COALESCE(broadcast_attempts, 0) + 1,
-           last_broadcast_at = NOW(),
-           network_fee = $3,
-           fee_currency = $4,
-           updated_at = NOW()
-         WHERE id = $1`,
-        [withdrawalId, broadcastResult.txHash, built.fee, built.feeCurrency],
-      );
-      return null;
-    });
+    const persisted = await withDb(async (db) => db.query(
+      `UPDATE withdrawals SET
+         state = 'broadcasted',
+         tx_hash = $2,
+         broadcast_attempts = COALESCE(broadcast_attempts, 0) + $3,
+         last_broadcast_at = NOW(),
+         network_fee = $4,
+         fee_currency = $5,
+         updated_at = NOW()
+       WHERE id = $1 AND tx_hash IS NULL AND state = 'broadcasting'`,
+      [withdrawalId, broadcastResult.txHash, broadcastResult.attempts, built.fee, built.feeCurrency],
+    ));
+    if (!persisted.enabled || persisted.value.rowCount !== 1) {
+      throw new Error(`Withdrawal ${withdrawalId} broadcast result could not be committed`);
+    }
 
-    // ── 5. Enqueue Confirmation Watch ────────────────────────────────────────
-    const confirmations = provider.requiredConfirmations("normal");
+    const confirmations = provider.requiredConfirmations(feeSpeed);
     await enqueueConfirmationWatch({
       withdrawalId,
       txHash: broadcastResult.txHash,
-      chainId: chainId as ChainId,
+      chainId: network,
       requiredConfirmations: confirmations,
       broadcastedAt: broadcastResult.broadcastedAt.toISOString(),
-      timeoutAt: buildTimeoutAt(chainId as ChainId),
+      timeoutAt: buildTimeoutAt(network),
     });
 
     await updateWithdrawalState(withdrawalId, "confirming");
-
     logger.info("[executor] withdrawal broadcasted", {
       withdrawalId,
       txHash: broadcastResult.txHash,
-      chainId,
+      chainId: network,
       fee: built.fee,
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     logger.error("[executor] withdrawal failed", { withdrawalId, error: errorMsg });
-
     await updateWithdrawalState(withdrawalId, "failed", errorMsg);
-
-    // Move to DLQ for manual review
     await moveToDeadLetter(job, errorMsg);
-    throw err; // rethrow so BullMQ marks job as failed
+    throw err;
   }
 }
 
-// ── Broadcast with retry ──────────────────────────────────────────────────────
+async function claimApprovedWithdrawal(withdrawalId: string): Promise<WithdrawalRecord | null> {
+  const result = await withDb(async (db) => {
+    const claimed = await db.query<WithdrawalRecord>(
+      `UPDATE withdrawals
+          SET state = 'building_transaction', execution_error = NULL, updated_at = NOW()
+        WHERE id = $1 AND state = 'approved' AND tx_hash IS NULL
+        RETURNING id,
+                  user_id AS "userId",
+                  asset,
+                  amount::text AS amount,
+                  destination_address AS "destinationAddress",
+                  network,
+                  state,
+                  tx_hash AS "txHash",
+                  idempotency_key AS "idempotencyKey",
+                  COALESCE(fee_speed, 'normal') AS "feeSpeed"`,
+      [withdrawalId],
+    );
+    if (claimed.rows[0]) return claimed.rows[0];
+
+    const existing = await db.query<{ state: string; txHash: string | null }>(
+      `SELECT state, tx_hash AS "txHash" FROM withdrawals WHERE id = $1`,
+      [withdrawalId],
+    );
+    const row = existing.rows[0];
+    if (!row) throw new Error(`Withdrawal ${withdrawalId} not found`);
+    if (row.txHash) {
+      trackWalletMetric("idempotency_duplicate_blocked");
+      logger.info("[executor] duplicate detected, already broadcasted", { withdrawalId, txHash: row.txHash });
+    } else {
+      logger.warn("[executor] skipping non-approved or already claimed withdrawal", {
+        withdrawalId,
+        state: row.state,
+      });
+    }
+    return null;
+  });
+
+  if (!result.enabled) throw new Error("Withdrawal database unavailable");
+  return result.value;
+}
 
 async function broadcastTransaction(
   chainId: ChainId,
   rawTx: Buffer,
   withdrawalId: string,
-): Promise<{ txHash: string; broadcastedAt: Date; rpcEndpoint: string; attempts: number }> {
+  expectedTxHash: string,
+): Promise<{ txHash: string; broadcastedAt: Date; attempts: number }> {
   const { getRpcClient } = await import("./rpc/client");
   const rpc = getRpcClient(chainId);
   const rawHex = "0x" + rawTx.toString("hex");
-
   let attempts = 0;
   let lastError: Error = new Error("Broadcast failed");
 
-  // 3 attempts with increasing delays
   for (const delay of [0, 5_000, 15_000]) {
     if (delay > 0) await sleep(delay);
     attempts++;
 
     try {
       let txHash: string;
-
-      switch (chainId) {
-        case "bitcoin": {
-          txHash = await rpc.call<string>("sendrawtransaction", [rawTx.toString("hex")]);
-          break;
-        }
-        case "solana": {
-          const { getProvider: getP } = await import("./providers/registry");
-          const p = getP(chainId);
-          txHash = p.computeTxHash(rawTx);
-          await rpc.call<string>("sendTransaction", [rawTx.toString("base64"), {
-            encoding: "base64",
-            preflightCommitment: "confirmed",
-          }]);
-          break;
-        }
-        default: {
-          // EVM chains: eth_sendRawTransaction
-          txHash = await rpc.call<string>("eth_sendRawTransaction", [rawHex]);
-          break;
-        }
+      if (chainId === "bitcoin") {
+        txHash = await rpc.call<string>("sendrawtransaction", [rawTx.toString("hex")]);
+      } else if (chainId === "solana") {
+        await rpc.call<string>("sendTransaction", [rawTx.toString("base64"), {
+          encoding: "base64",
+          preflightCommitment: "confirmed",
+        }]);
+        txHash = expectedTxHash;
+      } else {
+        txHash = await rpc.call<string>("eth_sendRawTransaction", [rawHex]);
       }
 
-      return { txHash, broadcastedAt: new Date(), rpcEndpoint: "primary", attempts };
+      if (txHash.toLowerCase() !== expectedTxHash.toLowerCase()) {
+        throw new Error(`Broadcast hash mismatch for ${withdrawalId}`);
+      }
+      return { txHash, broadcastedAt: new Date(), attempts };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       trackWalletMetric("rpc_failures");
       if (attempts > 1) trackWalletMetric("rebroadcast_count");
 
-      logger.warn("[executor] broadcast attempt failed", { withdrawalId, attempts, error: lastError.message });
-
-      // If already known (duplicate submission), extract tx hash
-      if (lastError.message.includes("already known") || lastError.message.includes("AlreadyProcessed")) {
-        // Transaction already in mempool — this is fine
-        logger.info("[executor] transaction already known", { withdrawalId });
-        // We can't recover the txHash here without the signed tx — callers should use idempotency
-        throw new Error(`Transaction already submitted for ${withdrawalId}`);
+      if (/already known|alreadyprocessed|txn-already-known/i.test(lastError.message)) {
+        logger.info("[executor] signed transaction already known", { withdrawalId, expectedTxHash });
+        return { txHash: expectedTxHash, broadcastedAt: new Date(), attempts };
       }
+      logger.warn("[executor] broadcast attempt failed", { withdrawalId, attempts, error: lastError.message });
     }
   }
 
   throw lastError;
 }
-
-// ── State machine helper ──────────────────────────────────────────────────────
 
 async function updateWithdrawalState(
   withdrawalId: string,
@@ -218,11 +208,7 @@ async function updateWithdrawalState(
 ): Promise<void> {
   await withDb(async (db) => {
     await db.query(
-      `UPDATE withdrawals SET
-         state = $2,
-         execution_error = $3,
-         updated_at = NOW()
-       WHERE id = $1`,
+      `UPDATE withdrawals SET state = $2, execution_error = $3, updated_at = NOW() WHERE id = $1`,
       [withdrawalId, state, error ?? null],
     );
     return null;
@@ -230,5 +216,5 @@ async function updateWithdrawalState(
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((res) => setTimeout(res, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
