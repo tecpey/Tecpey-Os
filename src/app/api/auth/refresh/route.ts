@@ -1,11 +1,5 @@
-// POST /api/auth/refresh — exchange a refresh token for a new access + refresh pair.
-//
-// The refresh cookie path is restricted to /api/auth/refresh (set by setRefreshCookie).
-// Browsers send it only to this endpoint — it never leaks to other routes.
-//
-// On success: new access + refresh tokens set via Set-Cookie.
-// On reuse (old/revoked token presented): entire family revoked, 401 returned.
-// On expired or invalid: 401 returned.
+// POST /api/auth/refresh — rotate one verified refresh token into a new
+// access/refresh pair. Cookies are set only after every durable write succeeds.
 
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -19,7 +13,11 @@ import {
   getRefreshTokenFromRequest,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
-import { signUnifiedSession, extractJtiFromToken, extractExpFromToken } from "@/lib/unified-session";
+import {
+  signUnifiedSession,
+  extractJtiFromToken,
+  extractExpFromToken,
+} from "@/lib/unified-session";
 import { registerSession } from "@/lib/security/session-store";
 import { writeAudit } from "@/lib/security/audit-log";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
@@ -29,55 +27,56 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/refresh" }, async () => {
-    const rlimit = await rateLimit(req, {
+    const limit = await rateLimit(req, {
       namespace: "auth-refresh",
       limit: 30,
       windowMs: 60_000,
     });
-    if (!rlimit.ok) return apiError("rate_limited", 429);
+    if (!limit.ok) return apiError("rate_limited", 429);
 
     const rawRefreshToken = getRefreshTokenFromRequest(req);
     if (!rawRefreshToken) return apiError("refresh_token_missing", 401);
 
     const ip = getClientIp(req);
     const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    const verified = await verifyRefreshToken(rawRefreshToken);
 
-    const result = await verifyRefreshToken(rawRefreshToken);
-
-    if (!result.ok) {
-      const reason = result.reason;
+    if (!verified.ok) {
       writeAudit({
         actorId: "unknown",
         action: "logout",
         ip,
         userAgent: deviceInfo,
-        metadata: { reason, action: "refresh_failed" },
+        metadata: { reason: verified.reason, action: "refresh_failed" },
       });
-      return apiError("refresh_token_invalid", 401, { reason });
+      return apiError("refresh_token_invalid", 401, {
+        reason: verified.reason,
+      });
     }
 
-    const { userId, jti: oldJti, familyId } = result;
-
-    // Fetch user data to re-sign the access token
-    type AccountRow = { id: string; email: string; username: string; display_name: string };
+    const { userId, jti: oldJti, familyId } = verified;
+    type AccountRow = {
+      id: string;
+      email: string;
+      username: string;
+      display_name: string;
+    };
     const accountResult = await withDb(async (db) => {
-      const res = await db.query<AccountRow>(
-        `SELECT id, email, username, display_name FROM academy_auth_accounts WHERE id = $1`,
+      const result = await db.query<AccountRow>(
+        `SELECT id, email, username, display_name
+           FROM academy_auth_accounts
+          WHERE id = $1`,
         [userId],
       );
-      return res.rows[0] ?? null;
+      return result.rows[0] ?? null;
     });
+    if (!accountResult.enabled) return apiError("auth_storage_unavailable", 503);
+    if (!accountResult.value) return apiError("user_not_found", 401);
 
-    if (!accountResult.enabled || !accountResult.value) {
-      return apiError("user_not_found", 401);
-    }
+    const oldRevoked = await revokeRefreshToken(oldJti);
+    if (!oldRevoked) return apiError("refresh_rotation_unavailable", 503);
 
     const account = accountResult.value;
-
-    // Revoke old refresh token (rotation)
-    await revokeRefreshToken(oldJti);
-
-    // Issue new access token
     const accessToken = await signUnifiedSession({
       accountId: account.id,
       studentId: null,
@@ -85,8 +84,10 @@ export async function POST(req: NextRequest) {
       displayName: account.display_name,
       username: account.username,
     });
+    const accessJti = extractJtiFromToken(accessToken);
+    const accessExp = extractExpFromToken(accessToken);
+    if (!accessJti || !accessExp) return apiError("session_issue_failed", 503);
 
-    // Issue new refresh token (same family)
     const newRefreshToken = await issueRefreshToken({
       userId: account.id,
       familyId,
@@ -94,12 +95,19 @@ export async function POST(req: NextRequest) {
       deviceInfo,
       ip,
     });
+    if (!newRefreshToken) return apiError("refresh_rotation_unavailable", 503);
 
-    // Register new access token session (fire-and-forget)
-    const jti = extractJtiFromToken(accessToken);
-    const exp = extractExpFromToken(accessToken);
-    if (jti && exp) {
-      void registerSession({ jti, userId: account.id, deviceInfo, ip, expiresAt: new Date(exp * 1000) });
+    const registered = await registerSession({
+      jti: accessJti,
+      userId: account.id,
+      deviceInfo,
+      ip,
+      expiresAt: new Date(accessExp * 1000),
+    });
+    if (!registered) {
+      const replacement = await verifyRefreshToken(newRefreshToken);
+      if (replacement.ok) await revokeRefreshToken(replacement.jti);
+      return apiError("session_registry_unavailable", 503);
     }
 
     writeAudit({
@@ -110,7 +118,6 @@ export async function POST(req: NextRequest) {
       metadata: { action: "token_refresh" },
     });
 
-    // Set cookies last — after all checks and observable side effects
     const response = apiOk({ authenticated: true });
     response.cookies.set(COOKIES.SESSION, accessToken, {
       path: "/",
@@ -119,8 +126,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: ACCESS_COOKIE_TTL_S,
     });
-    if (newRefreshToken) setRefreshCookie(response, newRefreshToken);
-
+    setRefreshCookie(response, newRefreshToken);
     return response;
   });
 }
