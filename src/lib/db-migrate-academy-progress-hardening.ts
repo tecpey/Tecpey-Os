@@ -48,6 +48,23 @@ DELETE FROM academy_reward_ledger
       AND metadata->>'backfilled' = 'true'
     );
 
+CREATE OR REPLACE FUNCTION tecpey_reject_client_section_reward()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.source_type = 'official_section' THEN
+    RAISE EXCEPTION 'client section completion cannot issue rewards'
+      USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS academy_reward_ledger_reject_client_section
+  ON academy_reward_ledger;
+CREATE TRIGGER academy_reward_ledger_reject_client_section
+  BEFORE INSERT OR UPDATE ON academy_reward_ledger
+  FOR EACH ROW EXECUTE FUNCTION tecpey_reject_client_section_reward();
+
 CREATE OR REPLACE FUNCTION tecpey_block_legacy_academy_progress_mutation()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
