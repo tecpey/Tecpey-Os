@@ -24,6 +24,8 @@ const files = {
   replayTests: "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
   reservationTests:
     "src/tests/security/withdrawal-admission-reservation-metadata-postgres.test.ts",
+  priceEvidenceTests:
+    "src/tests/security/withdrawal-admission-price-evidence-postgres.test.ts",
 };
 
 const content = Object.fromEntries(
@@ -64,10 +66,14 @@ rejectText("route", "twoFaVerified: body", "routes may not forward browser-owned
 requireText("authorizeRoute", "verifyCsrfOrigin", "authorization is a protected mutation");
 requireText("authorizeRoute", "strictRevocation: true", "authorization requires strict session authority");
 requireText("authorizeRoute", "canonicalizeWithdrawalCommand", "authorization must bind the canonical command");
+requireText("authorizeRoute", "withTx<AuthorizationTransactionResult>", "2FA verification and authorization issuance must share one transaction");
+requireText("authorizeRoute", "FOR UPDATE", "the enabled 2FA row must be locked during authorization");
 requireText("authorizeRoute", "verifyTotpStep", "authorization must retain the accepted TOTP step");
 requireText("authorizeRoute", "issueWithdrawalAuthorizationTx", "authorization issuance must be transactional");
+requireText("authorizeRoute", "withdrawal_2fa_disabled_during_authorization", "2FA disable races must roll back issuance");
 requireText("authorizeRoute", "totp_code_already_used", "one TOTP step may issue only one authorization");
 requireText("authorizeRoute", "requestHash", "authorization must bind a request hash");
+rejectText("authorizeRoute", "withDb", "authorization may not read 2FA outside the issuance transaction");
 rejectText("genericTwoFactor", 'body.purpose === "withdrawal"', "withdrawal TOTP must remain on one dedicated route");
 rejectText("genericTwoFactor", "issueWithdrawalAuthorization", "generic 2FA may not issue withdrawal evidence");
 
@@ -143,6 +149,10 @@ requireText("migration", "withdrawal_admission_outbox", "admission events need a
 requireText("migration", "withdrawals_user_idempotency_unique_idx", "user idempotency needs DB uniqueness");
 requireText("migration", "price_snapshot_id", "withdrawals must retain price evidence linkage");
 requireText("migration", "compliance_evidence", "withdrawals must retain compliance evidence");
+requireText("migration", "tecpey_verify_withdrawal_price_evidence", "PostgreSQL must revalidate price evidence at insertion");
+requireText("migration", "withdrawals_verify_price_evidence", "price validation must run as a database trigger");
+requireText("migration", "NEW.amount::numeric * snapshot.price", "database authority must recompute amountUsd");
+requireText("migration", "snapshot.observed_at < NOW() - INTERVAL '2 minutes'", "database authority must reject stale price evidence");
 requireText("migration", "tecpey_clear_terminal_withdrawal_reservation", "terminal states need a database-owned metadata cleanup function");
 requireText("migration", "withdrawals_clear_terminal_reservation", "terminal reservation cleanup must run as a trigger");
 requireText("migration", "withdrawals_terminal_reservation_cleared", "database constraints must reject stale terminal reservation metadata");
@@ -169,10 +179,13 @@ requireText("replayTests", "resolves exact replay from PostgreSQL without extern
 requireText("replayTests", "checks committed replay before authorization", "route ordering must be regression tested");
 requireText("reservationTests", "clears funds_reserved_at in PostgreSQL", "terminal states must prove reservation metadata is cleared");
 requireText("reservationTests", 'for (const terminalState of ["rejected", "blocked", "cancelled"]', "every terminal release state needs metadata coverage");
+requireText("priceEvidenceTests", "accepts a fresh matching snapshot", "database price validation needs a positive control");
+requireText("priceEvidenceTests", "rejects a stale snapshot", "database price validation must reject stale evidence");
+requireText("priceEvidenceTests", "rejects client-style amountUsd manipulation", "database price validation must recompute valuation");
 
 if (failures.length) {
   console.error("Withdrawal admission authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; canonical commands, one-time TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and custody launch blocking are enforced.");
+console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; 2FA issuance is atomic; canonical commands, one-time TOTP, signed fresh pricing, database price recomputation, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and custody launch blocking are enforced.");
