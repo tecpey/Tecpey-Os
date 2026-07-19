@@ -13,6 +13,7 @@ import { runCrmLeadMigrations } from "./db-migrate-crm-leads";
 import { runCrmLeadHardeningMigrations } from "./db-migrate-crm-leads-hardening";
 import { runAcademySectionAuthorityMigrations } from "./db-migrate-academy-section-authority";
 import { runAcademyRewardLegacyReleaseMigrations } from "./db-migrate-academy-reward-release";
+import { runAcademySectionCommandMigrations } from "./db-migrate-academy-section-commands";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
 
@@ -37,6 +38,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runCrmLeadHardeningMigrations(client);
   await runAcademySectionAuthorityMigrations(client);
   await runAcademyRewardLegacyReleaseMigrations(client);
+  await runAcademySectionCommandMigrations(client);
   await runWithdrawalAdmissionMigrations(client);
   await runWithdrawalSettlementMigrations(client);
 }
