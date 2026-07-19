@@ -134,12 +134,70 @@ CREATE INDEX IF NOT EXISTS academy_term_learning_progress_student_idx
   ON academy_term_learning_progress(student_id, locale, term_number);
 `;
 
+export const TRADING_ARENA_EXECUTION_SQL = `
+ALTER TABLE academy_trading_arena_attempts
+  ADD COLUMN IF NOT EXISTS execution_schema_version SMALLINT NOT NULL DEFAULT 2,
+  ADD COLUMN IF NOT EXISTS execution_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS execution_revision BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS execution_updated_at TIMESTAMPTZ;
+
+ALTER TABLE academy_trading_arena_attempts
+  DROP CONSTRAINT IF EXISTS academy_trading_arena_attempts_execution_schema_check;
+ALTER TABLE academy_trading_arena_attempts
+  ADD CONSTRAINT academy_trading_arena_attempts_execution_schema_check
+  CHECK (execution_schema_version = 2);
+
+ALTER TABLE academy_trading_arena_attempts
+  DROP CONSTRAINT IF EXISTS academy_trading_arena_attempts_execution_state_object_check;
+ALTER TABLE academy_trading_arena_attempts
+  ADD CONSTRAINT academy_trading_arena_attempts_execution_state_object_check
+  CHECK (jsonb_typeof(execution_state) = 'object');
+
+CREATE TABLE IF NOT EXISTS academy_trading_arena_commands (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attempt_id UUID NOT NULL REFERENCES academy_trading_arena_attempts(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  idempotency_key TEXT NOT NULL,
+  action_type TEXT NOT NULL
+    CHECK (action_type IN ('market_buy', 'limit_buy', 'close_position', 'cancel_order', 'refresh_market')),
+  expected_revision BIGINT NOT NULL CHECK (expected_revision >= 0),
+  request_hash CHAR(64) NOT NULL,
+  result_revision BIGINT NOT NULL CHECK (result_revision >= 1),
+  result_event_type TEXT NOT NULL,
+  result_response JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (attempt_id, idempotency_key),
+  CHECK (char_length(idempotency_key) BETWEEN 8 AND 120),
+  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  CHECK (jsonb_typeof(result_response) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS academy_trading_arena_commands_student_idx
+  ON academy_trading_arena_commands(student_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS academy_trading_arena_execution_events (
+  id BIGSERIAL PRIMARY KEY,
+  attempt_id UUID NOT NULL REFERENCES academy_trading_arena_attempts(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
+  revision BIGINT NOT NULL CHECK (revision >= 1),
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (attempt_id, revision),
+  CHECK (jsonb_typeof(payload) = 'object')
+);
+
+CREATE INDEX IF NOT EXISTS academy_trading_arena_execution_events_student_idx
+  ON academy_trading_arena_execution_events(student_id, created_at DESC);
+`;
+
 const MIGRATIONS: Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
   { filename: "0015_academy_reflection_memory.sql", sql: ACADEMY_REFLECTION_MEMORY_SQL },
   { filename: "0016_trading_arena_account.sql", sql: TRADING_ARENA_ACCOUNT_SQL },
   { filename: "0017_academy_lesson_progress.sql", sql: ACADEMY_LESSON_PROGRESS_SQL },
+  { filename: "0020_trading_arena_execution.sql", sql: TRADING_ARENA_EXECUTION_SQL },
 ];
 
 function checksum(sql: string): string {
