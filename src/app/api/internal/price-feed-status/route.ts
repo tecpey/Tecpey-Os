@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     req,
     { route: "/api/internal/price-feed-status" },
     async () => apiError(
-      "internal_price_feed_status_disabled",
+      "internal_price_feed_status_read_only",
       503,
       { authority: "server_price_feed_monitor_required" },
       { "Retry-After": "3600" },
