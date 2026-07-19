@@ -17,6 +17,7 @@ export type AuditAction =
   | "api_key_created" | "api_key_rotated" | "api_key_disabled" | "api_key_deleted"
   | "order_placed" | "order_cancelled"
   | "wallet_deposit" | "wallet_withdrawal"
+  | "offline_sync"
   | "admin_action" | "permission_changed" | "risk_event"
   | "webauthn_registered" | "webauthn_registration_failed";
 
@@ -80,19 +81,26 @@ export async function getAuditLog(opts: {
   limit?: number;
   before?: Date;
 }): Promise<AuditRecord[]> {
+  const limit = Math.max(1, Math.min(opts.limit ?? 50, 200));
   const conditions: string[] = [];
   const params: unknown[] = [];
-  let idx = 1;
 
-  if (opts.actorId) { conditions.push(`actor_id = $${idx++}`); params.push(opts.actorId); }
-  if (opts.action)  { conditions.push(`action = $${idx++}`);   params.push(opts.action);  }
-  if (opts.before)  { conditions.push(`created_at < $${idx++}`); params.push(opts.before); }
+  if (opts.actorId) {
+    params.push(opts.actorId);
+    conditions.push(`actor_id = $${params.length}`);
+  }
+  if (opts.action) {
+    params.push(opts.action);
+    conditions.push(`action = $${params.length}`);
+  }
+  if (opts.before) {
+    params.push(opts.before);
+    conditions.push(`created_at < $${params.length}`);
+  }
+  params.push(limit);
 
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const limit = Math.min(opts.limit ?? 50, 200);
-
-  const r = await withDb(async (db) => {
-    const result = await db.query<{
+  const result = await withDb(async (db) => {
+    const rows = await db.query<{
       id: string; actor_id: string; action: string;
       resource_type: string | null; resource_id: string | null;
       ip: string | null; user_agent: string | null;
@@ -100,17 +108,24 @@ export async function getAuditLog(opts: {
     }>(
       `SELECT id, actor_id, action, resource_type, resource_id,
               ip, user_agent, metadata, created_at
-       FROM audit_events ${where}
-       ORDER BY created_at DESC LIMIT ${limit}`,
+         FROM audit_events
+        ${conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""}
+        ORDER BY created_at DESC
+        LIMIT $${params.length}`,
       params,
     );
-    return result.rows.map((row) => ({
-      id: row.id, actorId: row.actor_id, action: row.action,
-      resourceType: row.resource_type, resourceId: row.resource_id,
-      ip: row.ip, userAgent: row.user_agent,
-      metadata: row.metadata, createdAt: row.created_at,
+    return rows.rows.map((row) => ({
+      id: row.id,
+      actorId: row.actor_id,
+      action: row.action,
+      resourceType: row.resource_type,
+      resourceId: row.resource_id,
+      ip: row.ip,
+      userAgent: row.user_agent,
+      metadata: row.metadata ?? {},
+      createdAt: row.created_at,
     }));
   });
 
-  return r.enabled ? r.value : [];
+  return result.enabled ? result.value : [];
 }
