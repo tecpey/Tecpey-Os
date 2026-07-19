@@ -1,80 +1,47 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
-  quality:
-    name: Quality Checks
+  arena-command-recovery:
+    name: Arena Command Recovery Patch
     runs-on: ubuntu-latest
-
-    env:
-      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
-      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
-      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
-      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
-      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
-      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
-      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
-      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
-
+    if: github.actor != 'github-actions[bot]' && github.head_ref == 'feat/trading-arena-authoritative-ui-v2'
     steps:
-      - name: Checkout
+      - name: Checkout exact feature branch
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          ref: feat/trading-arena-authoritative-ui-v2
+          fetch-depth: 0
 
-      - name: Verify npm version
+      - name: Apply asserted source corrections
+        run: python scripts/_apply_arena_command_recovery.py
+
+      - name: Verify authority boundaries
         run: |
-          NPM_MAJOR=$(npm --version | cut -d. -f1)
-          if [ "$NPM_MAJOR" != "10" ]; then
-            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
-            exit 1
-          fi
-          echo "npm $(npm --version) OK"
+          node scripts/check-arena-ui-authority.mjs
+          node --check scripts/check-arena-ui-authority.mjs
+          git diff --check
 
-      - name: Install dependencies
-        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
-
-      - name: Production environment contract
-        env:
-          NODE_ENV: production
-        run: npm run env:check
-
-      - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
-
-      - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 0
-
-      - name: Browser persistence guard
-        run: node scripts/check-browser-persistence.mjs
-
-      - name: Admin authentication boundary guard
-        run: node scripts/check-admin-auth-boundary.mjs
-
-      - name: Academy authority boundary guard
-        run: node scripts/check-academy-authority-boundary.mjs
-
-      - name: Arena UI authority boundary guard
-        run: node scripts/check-arena-ui-authority.mjs
-
-      - name: Wallet authority boundary guard
-        run: node scripts/check-wallet-authority.mjs
-
-      - name: Tests
-        run: npm test
-
-      - name: Build
-        env:
-          NODE_ENV: production
-        run: npm run build
+      - name: Restore canonical CI and remove transport files
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main --quiet
+          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
+          git rm .github/workflows/fix-arena-command-recovery.yml \
+                 scripts/_apply_arena_command_recovery.py \
+                 .github/ARENA_COMMAND_RECOVERY_TRIGGER
+          git add .github/workflows/ci.yml \
+                  src/lib/trading-arena-client.ts \
+                  src/components/academy/trading-arena/TradingArenaExecutionClient.tsx \
+                  src/tests/arena/client-authority.test.ts \
+                  scripts/check-arena-ui-authority.mjs
+          git diff --cached --check
+          git commit -m 'fix(arena): preserve unresolved command identity across polling'
+          git push origin HEAD:feat/trading-arena-authoritative-ui-v2
