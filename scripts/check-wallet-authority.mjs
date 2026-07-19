@@ -45,7 +45,17 @@ rejectText(consumer, '"withdrawal:recovery"', "legacy mismatched recovery queue 
 requireText(queuePolicy, "createWalletQueueJobId", "wallet queues need one governed custom job-ID factory");
 requireText(queuePolicy, "confirmationAttemptBudget", "confirmation retry budget must derive from authoritative timeout coverage");
 requireText(producer, "deduplication: { id:", "active BullMQ jobs must use atomic simple deduplication");
+requireText(
+  producer,
+  'queueIdentity("confirmation", data.withdrawalId);',
+  "confirmation deduplication must bind one live watcher to the authoritative withdrawal ID",
+);
 requireText(producer, "MAX_CONFIRMATION_ATTEMPTS", "confirmation queue must cover the maximum authoritative timeout");
+rejectText(
+  producer,
+  'queueIdentity("confirmation", data.withdrawalId, data.txHash)',
+  "untrusted queue txHash must not create a parallel confirmation deduplication identity",
+);
 rejectText(producer, "prepareRestorableJobSlot", "terminal remove/re-add restoration is race-prone");
 rejectText(producer, ".remove()", "queue producers must not remove a possibly replaced job by shared ID");
 rejectText(producer, "attempts: 50", "fixed 50-attempt confirmation policy ends before the Bitcoin timeout");
