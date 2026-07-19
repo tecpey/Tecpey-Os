@@ -5,6 +5,14 @@ import { logger } from "./logger";
 const FILENAME = "0030_withdrawal_admission_authority.sql";
 
 export const WITHDRAWAL_ADMISSION_AUTHORITY_SQL = `
+ALTER TABLE wallet_balances
+  ALTER COLUMN available_balance TYPE NUMERIC(38, 18) USING available_balance::numeric(38, 18),
+  ALTER COLUMN held_balance TYPE NUMERIC(38, 18) USING held_balance::numeric(38, 18);
+
+ALTER TABLE wallet_ledger
+  ALTER COLUMN amount TYPE NUMERIC(38, 18) USING amount::numeric(38, 18),
+  ALTER COLUMN balance_after TYPE NUMERIC(38, 18) USING balance_after::numeric(38, 18);
+
 CREATE TABLE IF NOT EXISTS withdrawal_price_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   asset TEXT NOT NULL,
