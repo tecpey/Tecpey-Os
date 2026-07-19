@@ -40,8 +40,12 @@ jobs:
             audit/academy-p0-patch-parts-v2/part-00 \
             audit/academy-p0-patch-parts-v2/part-01 \
             audit/academy-p0-patch-parts-v2/part-02 \
-            audit/academy-p0-patch-parts-v2/part-03 \
-            audit/academy-p0-patch-parts-v2/part-04 \
+            audit/academy-p0-patch-parts-v2/part-03-00 \
+            audit/academy-p0-patch-parts-v2/part-03-01 \
+            audit/academy-p0-patch-parts-v2/part-03-02 \
+            audit/academy-p0-patch-parts-v2/part-04-00 \
+            audit/academy-p0-patch-parts-v2/part-04-01 \
+            audit/academy-p0-patch-parts-v2/part-04-02 \
             audit/academy-p0-patch-parts-v2/part-05 \
             > /tmp/academy-p0.patch.gz.b64
 
