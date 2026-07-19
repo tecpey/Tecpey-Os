@@ -4,12 +4,11 @@ import {
   claimNotificationDomainOutbox,
   failNotificationDomainEvent,
   getNotificationDomainOutboxReconciliation,
-  processClaimedNotificationDomainEvent,
   type NotificationDomainOutboxClaim,
 } from "../src/lib/notifications/domain-outbox";
+import { processAuthoritativeNotificationDomainClaim } from "../src/lib/notifications/domain-processing";
 import {
   isTerminalNotificationDomainError,
-  loadEffectiveNotificationDomainClaim,
   notificationDomainWorkerErrorCode,
 } from "../src/lib/notifications/domain-worker";
 
@@ -44,9 +43,15 @@ const batchSize = boundedIntegerEnv(
   1,
   100,
 );
+const concurrency = boundedIntegerEnv(
+  "NOTIFICATION_DOMAIN_CONCURRENCY",
+  5,
+  1,
+  10,
+);
 const leaseSeconds = boundedIntegerEnv(
   "NOTIFICATION_DOMAIN_LEASE_SECONDS",
-  60,
+  120,
   15,
   300,
 );
@@ -69,17 +74,9 @@ process.once("SIGTERM", () => stop("SIGTERM"));
 
 async function processClaim(claim: NotificationDomainOutboxClaim): Promise<void> {
   try {
-    const processed = await withTx(async (client) => {
-      const effectiveClaim = await loadEffectiveNotificationDomainClaim(
-        client,
-        claim,
-      );
-      return processClaimedNotificationDomainEvent(
-        client,
-        effectiveClaim,
-        workerId,
-      );
-    });
+    const processed = await withTx((client) =>
+      processAuthoritativeNotificationDomainClaim(client, claim, workerId),
+    );
     if (!processed.enabled) {
       throw new Error("notification_database_unavailable");
     }
@@ -99,11 +96,21 @@ async function processClaim(claim: NotificationDomainOutboxClaim): Promise<void>
   }
 }
 
+async function processClaims(
+  claims: NotificationDomainOutboxClaim[],
+): Promise<void> {
+  for (let index = 0; index < claims.length; index += concurrency) {
+    if (stopping) return;
+    await Promise.all(claims.slice(index, index + concurrency).map(processClaim));
+  }
+}
+
 async function run(): Promise<void> {
   console.log("[notification-domain-worker] started", {
     workerId,
     pollMs,
     batchSize,
+    concurrency,
     leaseSeconds,
   });
 
@@ -120,10 +127,7 @@ async function run(): Promise<void> {
         throw new Error("notification_database_unavailable");
       }
 
-      for (const claim of claimed.value) {
-        if (stopping) break;
-        await processClaim(claim);
-      }
+      await processClaims(claimed.value);
 
       const now = Date.now();
       if (now - lastReconciliationAt >= 60_000) {
