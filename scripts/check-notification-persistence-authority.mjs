@@ -70,18 +70,21 @@ rejectText("repository", "validNotificationPreferenceInput", "preference parsing
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
 requireText("preferences", "mandatory_notification_class_requires_instant_delivery", "mandatory notification classes must not be downgraded to digest");
 requireText("preferences", "validConsentIdempotencyKey", "consent idempotency keys must be validated");
+requireText("preferences", "notification-consent:${principalId}", "concurrent consent retries must be transactionally serialized");
 requireText("preferences", "ON CONFLICT (principal_id, purpose, idempotency_key) DO NOTHING", "consent retries must replay existing evidence rather than append duplicates");
 requireText("preferences", "notification_consent_idempotency_conflict", "changed consent payloads may not reuse an idempotency key");
 requireText("preferences", "ORDER BY purpose, event_sequence DESC", "current consent projection must use deterministic append order");
 requireText("preferences", 'MARKETING_CONSENT_POLICY_VERSION = "marketing-v1"', "consent policy version must be server-owned");
 requireText("preferences", 'NOTIFICATION_CONSENT_SOURCE = "notification-preference-center"', "consent source must be server-owned");
+requireText("preferences", "MARKETING_CONSENT_POLICY_VERSION,", "consent repository must write the server-owned policy version");
+requireText("preferences", "NOTIFICATION_CONSENT_SOURCE,", "consent repository must write the server-owned source");
 requireText("preferenceRoute", "exactly_one_preferences_operation_required", "preference mutations must be unambiguous");
 requireText("preferenceRoute", "mandatory_notification_class_requires_instant_delivery", "preference API must expose mandatory cadence conflicts explicitly");
 requireText("consentRoute", "recordNotificationConsent", "consent changes must append evidence rather than overwrite state");
 requireText("consentRoute", 'req.headers.get("idempotency-key")', "consent writes must require a request idempotency key");
 requireText("consentRoute", "validConsentIdempotencyKey", "consent route must validate idempotency evidence");
-requireText("consentRoute", "MARKETING_CONSENT_POLICY_VERSION", "consent endpoint must apply the server-owned policy version");
-requireText("consentRoute", "NOTIFICATION_CONSENT_SOURCE", "consent endpoint must apply the server-owned source");
+rejectText("consentRoute", "MARKETING_CONSENT_POLICY_VERSION", "consent route must not own or accept policy-version provenance");
+rejectText("consentRoute", "NOTIFICATION_CONSENT_SOURCE", "consent route must not own or accept source provenance");
 rejectText("consentRoute", "raw.policyVersion", "client-controlled consent policy versions are forbidden");
 rejectText("consentRoute", "raw.source", "client-controlled consent sources are forbidden");
 requireText("consentRoute", 'apiError("authentication_required", 401)', "consent endpoints must require authentication");
@@ -91,4 +94,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, idempotent server-owned consent, CSRF and single preference authority are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, mandatory cadence, serialized idempotent consent, CSRF and single preference authority are enforced.");
