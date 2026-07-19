@@ -23,6 +23,7 @@ export type MentorUpdateReason =
   | "reflection_updated"
   | "lesson_progress_updated"
   | "authoritative_lesson_assessment"
+  | "authoritative_section_checkpoint"
   | "authoritative_term_assessment";
 
 // ── Safe runner ───────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ export async function runMentorProfileUpdateSafely(
  * Returns immediately; the update runs as a background microtask.
  *
  * TODO(mentor-queue): replace `void runMentorProfileUpdateSafely(...)` with a
- *   durable queue enqueue call once the infrastructure is available.
+ * durable queue enqueue call once the infrastructure is available.
  */
 export function scheduleMentorProfileUpdate(
   studentId: string,
