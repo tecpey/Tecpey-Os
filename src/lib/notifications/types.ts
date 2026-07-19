@@ -40,14 +40,31 @@ export const NOTIFICATION_AUDIENCE_SCOPES = [
 export type NotificationAudienceScope =
   (typeof NOTIFICATION_AUDIENCE_SCOPES)[number];
 
-export type NotificationUrgency = "low" | "normal" | "high" | "critical";
-export type NotificationCadence = "instant" | "digest";
+export const NOTIFICATION_URGENCIES = [
+  "low",
+  "normal",
+  "high",
+  "critical",
+] as const;
+
+export type NotificationUrgency = (typeof NOTIFICATION_URGENCIES)[number];
+
+export const NOTIFICATION_CADENCES = ["instant", "digest"] as const;
+export type NotificationCadence = (typeof NOTIFICATION_CADENCES)[number];
+
+export const NOTIFICATION_DISPATCH_MODES = [
+  "event",
+  "automation",
+  "campaign",
+  "broadcast",
+  "emergency",
+] as const;
+
 export type NotificationDispatchMode =
-  | "event"
-  | "automation"
-  | "campaign"
-  | "broadcast"
-  | "emergency";
+  (typeof NOTIFICATION_DISPATCH_MODES)[number];
+
+export const NOTIFICATION_LOCALES = ["fa", "en"] as const;
+export type NotificationLocale = (typeof NOTIFICATION_LOCALES)[number];
 
 export type NotificationPolicyDecision =
   | "allow"
@@ -95,7 +112,7 @@ export type NotificationIntent = {
   cadence: NotificationCadence;
   correlationKey: string;
   expiresAt: string | null;
-  locale: "fa" | "en";
+  locale: NotificationLocale;
   templateAvailable: boolean;
   grantedApprovals: number;
 };
@@ -136,7 +153,7 @@ export type NotificationProviderRequest = {
   idempotencyKey: string;
   channel: NotificationChannel;
   destination: string | null;
-  locale: "fa" | "en";
+  locale: NotificationLocale;
   title: string;
   body: string;
   actionUrl: string | null;
