@@ -118,7 +118,12 @@ async function requestProgress(locale: "fa" | "en"): Promise<AcademyProgressStat
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    if (response.status === 401) return loadProgress(locale);
+    if (response.status === 401) {
+      const anonymous = createDefaultAcademyProgressState();
+      memoryByLocale.set(locale, anonymous);
+      dispatchUpdate(locale);
+      return anonymous;
+    }
     throw new Error(`academy_state_load_failed:${response.status}`);
   }
   const body = await response.json() as { state?: unknown };
@@ -128,21 +133,43 @@ async function requestProgress(locale: "fa" | "en"): Promise<AcademyProgressStat
   return state;
 }
 
-export async function hydrateProgress(locale = localeFromBrowser()): Promise<AcademyProgressState> {
+/**
+ * Strict hydration is used by authoritative lesson surfaces. Infrastructure
+ * failure is propagated so the UI cannot silently render an empty account as
+ * though it were the learner's real server state.
+ */
+export async function hydrateProgressStrict(
+  locale = localeFromBrowser(),
+): Promise<AcademyProgressState> {
   const existing = hydrationByLocale.get(locale);
   if (existing) return existing;
   const request = requestProgress(locale).catch((error) => {
     hydrationByLocale.delete(locale);
     dispatchSyncError(locale, error);
-    return loadProgress(locale);
+    throw error;
   });
   hydrationByLocale.set(locale, request);
   return request;
 }
 
+export async function hydrateProgress(locale = localeFromBrowser()): Promise<AcademyProgressState> {
+  try {
+    return await hydrateProgressStrict(locale);
+  } catch {
+    return loadProgress(locale);
+  }
+}
+
 export async function refreshProgress(locale = localeFromBrowser()): Promise<AcademyProgressState> {
   hydrationByLocale.delete(locale);
   return hydrateProgress(locale);
+}
+
+export async function refreshProgressStrict(
+  locale = localeFromBrowser(),
+): Promise<AcademyProgressState> {
+  hydrationByLocale.delete(locale);
+  return hydrateProgressStrict(locale);
 }
 
 export function isLessonUnlocked(lessonId: string, minScore = 0): boolean {

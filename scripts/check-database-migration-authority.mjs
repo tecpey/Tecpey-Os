@@ -31,6 +31,7 @@ for (const directImport of [
   'from "./db-migrate-notification-domain-outbox"',
   'from "./db-migrate-crm-leads"',
   'from "./db-migrate-crm-leads-hardening"',
+  'from "./db-migrate-academy-progress-hardening"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -50,6 +51,7 @@ const orderedCalls = [
   "await runNotificationDomainOutboxMigrations(client)",
   "await runCrmLeadMigrations(client)",
   "await runCrmLeadHardeningMigrations(client)",
+  "await runAcademyProgressHardeningMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -79,6 +81,7 @@ for (const migration of [
   "0024_notification_domain_outbox.sql",
   "0025_crm_lead_authority.sql",
   "0026_crm_lead_hardening.sql",
+  "0027_academy_progress_authority_v2.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
 ]) {
@@ -92,6 +95,7 @@ for (const table of [
   "crm_lead_commands",
   "crm_lead_delivery_outbox",
   "crm_lead_audit_events",
+  "academy_progress_legacy_reward_quarantine",
 ]) {
   requireText(integration, table, `migration integration must verify ${table}`);
 }
@@ -103,6 +107,10 @@ for (const trigger of [
   "crm_leads_no_delete",
   "crm_lead_commands_no_update",
   "crm_lead_audit_no_update",
+  "academy_lesson_progress_read_only",
+  "academy_term_learning_progress_read_only",
+  "academy_reward_ledger_reject_client_section",
+  "academy_progress_legacy_reward_quarantine_no_update",
 ]) {
   requireText(integration, trigger, `migration integration must verify ${trigger}`);
 }
