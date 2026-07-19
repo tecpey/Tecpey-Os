@@ -22,14 +22,13 @@ jobs:
       - name: Transfer only permanent cleanup files
         run: |
           set -euo pipefail
-          git fetch origin chore/remove-superseded-chartjs-path-20260719 main --quiet
+          git fetch origin chore/remove-superseded-chartjs-path-20260719 --quiet
           git checkout origin/chore/remove-superseded-chartjs-path-20260719 -- \
             package.json \
             package-lock.json \
             docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
           git rm 'src/app/crypto/[symbol]/ChartWrapper.tsx'
           git rm src/components/crypto/LivePriceChart.tsx
-          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
 
       - name: Verify transferred boundaries
         run: |
@@ -51,15 +50,15 @@ jobs:
           NODE
           git diff --check
 
-      - name: Commit exact clean current-main result
+      - name: Commit only permanent cleanup paths
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add package.json package-lock.json docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
+          git add -u 'src/app/crypto/[symbol]/ChartWrapper.tsx' src/components/crypto/LivePriceChart.tsx
           ACTUAL=$(git diff --cached --name-only | sort)
           EXPECTED=$(printf '%s\n' \
-            '.github/workflows/ci.yml' \
             'docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md' \
             'package-lock.json' \
             'package.json' \
