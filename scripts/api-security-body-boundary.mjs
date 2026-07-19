@@ -1,12 +1,24 @@
 import { detectBodyLimitEvidence } from "./api-security-body-limit-policy.mjs";
 import { runtimeEvidenceSource } from "./api-security-runtime-evidence.mjs";
 
+const BOUNDED_BODY_READERS = [
+  "readJsonBody",
+  "readBoundedJson",
+  "readBoundedBody",
+  "readBodyWithLimit",
+  "parseBoundedJsonBody",
+];
+const BOUNDED_READER_PATTERN = new RegExp(
+  `\\b(${BOUNDED_BODY_READERS.join("|")})\\s*\\(`,
+);
+
 export function detectBodyParser(source) {
   const runtime = runtimeEvidenceSource(source);
   if (/\b(?:req|request)\.json\s*\(/.test(runtime)) return "json";
   if (/\b(?:req|request)\.formData\s*\(/.test(runtime)) return "form-data";
   if (/\b(?:req|request)\.text\s*\(/.test(runtime)) return "text";
-  if (/\breadJsonBody\s*\(/.test(runtime)) return "bounded-json-helper";
+  const boundedReader = runtime.match(BOUNDED_READER_PATTERN)?.[1] ?? null;
+  if (boundedReader) return "bounded-json-helper";
   return runtime.match(/\b(parse[A-Z][A-Za-z0-9_]*)\s*\(/)?.[1] ?? null;
 }
 
