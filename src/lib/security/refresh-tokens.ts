@@ -4,10 +4,13 @@ import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { shouldUseSecureCookie } from "@/lib/platform-config";
+import {
+  sessionMaxAgeSeconds,
+  shouldUseSecureCookie,
+} from "@/lib/platform-config";
 
 export const REFRESH_COOKIE = "tecpey_refresh";
-export const ACCESS_COOKIE_TTL_S = 4 * 60 * 60;
+export const ACCESS_COOKIE_TTL_S = sessionMaxAgeSeconds();
 export const REFRESH_COOKIE_TTL_S = 30 * 24 * 60 * 60;
 
 function refreshSecret(): Uint8Array | null {
