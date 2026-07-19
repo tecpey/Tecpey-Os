@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { detectBodyLimitEvidence } from "./api-security-body-limit-policy.mjs";
+import { evaluateBodyBoundaryStages } from "./api-security-body-boundary.mjs";
 import { methodEvidenceSource } from "./api-security-source-evidence.mjs";
 
 const root = process.cwd();
@@ -81,20 +81,41 @@ async function readSource(sourcePath) {
 }
 
 async function scopedEvidence(entry) {
+  const localSource = await readSource(entry.sourcePath);
+  const localEvidence = methodEvidenceSource(localSource, entry.method);
   const delegated = typeof entry.delegatedTo === "string" && !entry.delegatedTo.includes(":unresolved")
     ? entry.delegatedTo
     : null;
   const [delegatedPath, delegatedMethod] = delegated?.split("#") ?? [];
-  const sourcePath = delegatedPath || entry.sourcePath;
-  const method = delegatedMethod || entry.method;
-  const source = await readSource(sourcePath);
-  const evidence = methodEvidenceSource(source, method);
+  const effectiveSourcePath = delegatedPath || entry.sourcePath;
+  const effectiveMethod = delegatedMethod || entry.method;
+  const effectiveSource = delegatedPath ? await readSource(effectiveSourcePath) : localSource;
+  const effectiveEvidence = delegatedPath
+    ? methodEvidenceSource(effectiveSource, effectiveMethod)
+    : localEvidence;
+
+  const boundaries = [{
+    role: "local",
+    sourcePath: entry.sourcePath,
+    method: entry.method,
+    source: localEvidence ?? "",
+  }];
+  if (delegatedPath && (delegatedPath !== entry.sourcePath || effectiveMethod !== entry.method)) {
+    boundaries.push({
+      role: "delegated",
+      sourcePath: effectiveSourcePath,
+      method: effectiveMethod,
+      source: effectiveEvidence ?? "",
+    });
+  }
+
   return {
-    sourcePath,
-    method,
-    source,
-    evidence: evidence ?? "",
-    resolved: evidence !== null,
+    sourcePath: effectiveSourcePath,
+    method: effectiveMethod,
+    source: effectiveSource,
+    evidence: effectiveEvidence ?? "",
+    resolved: effectiveEvidence !== null,
+    boundaries,
   };
 }
 
@@ -113,16 +134,15 @@ for (const entry of manifest.routes) {
     entry.risk = [...entry.risk, "credential"].sort();
   }
 
-  // Content-Length can be absent, forged, or bypassed by chunked transfer. It is
-  // useful for an early rejection only and must never satisfy the governed body
-  // limit requirement. Evidence is deliberately scoped to the effective method,
-  // so another handler in the same route file cannot lend its controls.
-  const bodyEvidence = detectBodyLimitEvidence(scoped.evidence);
-  entry.controls.headerBodySizeHint = bodyEvidence.headerHint;
-  entry.controls.bodySizeLimitAuthority = bodyEvidence.authority;
-  if (entry.controls.expectsBody) {
-    entry.controls.bodySizeLimit = scoped.resolved && bodyEvidence.enforceable;
-  }
+  // Every stage that consumes the request body is an independent allocation
+  // boundary. A local compatibility handler cannot become safe merely because
+  // its delegated canonical handler is bounded later in the chain.
+  const bodyBoundary = evaluateBodyBoundaryStages(scoped.boundaries);
+  entry.controls.expectsBody = bodyBoundary.expectsBody;
+  entry.controls.inputParser = bodyBoundary.inputParser;
+  entry.controls.headerBodySizeHint = bodyBoundary.headerBodySizeHint;
+  entry.controls.bodySizeLimit = bodyBoundary.bodySizeLimit;
+  entry.controls.bodySizeLimitAuthority = bodyBoundary.bodySizeLimitAuthority;
 
   // `apiOk`, `apiError`, and `apiRateLimited` inherit the central private,
   // no-store contract only when the effective handler does not provide a
