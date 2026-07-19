@@ -30,6 +30,7 @@ type StoredScope = {
 
 const STORAGE_KEY = "tecpey_offline_queue_v2";
 const LEGACY_STORAGE_KEY = "tecpey_offline_queue_v1";
+const LEGACY_QUARANTINE_KEY = "tecpey_offline_queue_unscoped_quarantine_v1";
 const LAST_SYNC_KEY = "tecpey_offline_last_sync_v1";
 const SCOPE_KEY = "tecpey_offline_principal_scope_v1";
 
@@ -47,6 +48,16 @@ function writeQueue(items: OfflineQueueItem[]) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
   window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
+}
+
+function quarantineLegacyQueue() {
+  if (typeof window === "undefined") return;
+  const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!legacy) return;
+  if (!window.localStorage.getItem(LEGACY_QUARANTINE_KEY)) {
+    window.localStorage.setItem(LEGACY_QUARANTINE_KEY, legacy);
+  }
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
 function readScope(): StoredScope | null {
@@ -176,10 +187,9 @@ export function OfflineSyncManager() {
   }, [online, pending, syncing]);
 
   useEffect(() => {
-    // Legacy unscoped commands cannot be safely attributed to any principal.
-    // Keep them out of the v2 queue rather than silently assigning them to the
-    // next authenticated account.
-    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    // Legacy commands had no principal binding. Preserve them in quarantine for
+    // recovery/support, but never migrate them into a current account's queue.
+    quarantineLegacyQueue();
 
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
       navigator.serviceWorker.register("/sw.js").catch(() => null);
