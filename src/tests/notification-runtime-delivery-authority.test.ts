@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
-import { createInAppNotification } from "../lib/notifications/creation";
+import {
+  createInAppNotification,
+  type NotificationCreationResult,
+} from "../lib/notifications/creation";
 import {
   acceptInAppNotificationDelivery,
   claimNotificationOutbox,
@@ -151,7 +154,7 @@ test(
   async () => {
     await withRolledBackTest(async (client) => {
       const principal = await createPrincipal(client, "notification-fatigue");
-      const pending = [];
+      const pending: NotificationCreationResult[] = [];
 
       for (let index = 0; index < 4; index += 1) {
         const created = await createInAppNotification(
