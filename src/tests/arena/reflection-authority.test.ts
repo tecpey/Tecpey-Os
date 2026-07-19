@@ -10,9 +10,11 @@ import {
 } from "@/lib/trading-arena-reflections";
 import {
   createArenaReflectionIdempotencyKey,
+  parseArenaReflection,
   parseArenaReflectionList,
   parseArenaReflectionMutation,
   resolveArenaReflectionIdentity,
+  shouldApplyArenaReflectionMutation,
   type ArenaReflectionDraft,
 } from "@/lib/trading-arena-reflection-client";
 import { TRADING_ARENA_REFLECTIONS_SQL } from "@/lib/db-migrate-user-state";
@@ -207,6 +209,39 @@ describe("Trading Arena reflection domain authority", () => {
     }).kind, "blocked");
   });
 
+  it("rejects delayed mutation responses and lower revisions", () => {
+    const current = parseArenaReflection({ ...reflectionPayload(), revision: 4 });
+    const older = parseArenaReflection({ ...reflectionPayload(), revision: 3 });
+    const equal = parseArenaReflection({ ...reflectionPayload(), revision: 4 });
+    const newer = parseArenaReflection({ ...reflectionPayload(), revision: 5 });
+    assert.ok(current && older && equal && newer);
+
+    assert.equal(shouldApplyArenaReflectionMutation({
+      current,
+      incoming: older,
+      responseSequence: 2,
+      latestResponseSequence: 2,
+    }), false);
+    assert.equal(shouldApplyArenaReflectionMutation({
+      current,
+      incoming: newer,
+      responseSequence: 1,
+      latestResponseSequence: 2,
+    }), false);
+    assert.equal(shouldApplyArenaReflectionMutation({
+      current,
+      incoming: equal,
+      responseSequence: 2,
+      latestResponseSequence: 2,
+    }), true);
+    assert.equal(shouldApplyArenaReflectionMutation({
+      current,
+      incoming: newer,
+      responseSequence: 2,
+      latestResponseSequence: 2,
+    }), true);
+  });
+
   it("canonicalizes PostgreSQL numeric scale and validates Mentor evidence flags", () => {
     const mapped = mapArenaReflectionRow(reflectionRow());
     assert.equal(mapped.evidence.realizedPnl, "125.0000000000");
@@ -245,6 +280,16 @@ describe("Trading Arena reflection domain authority", () => {
       attemptId,
       reflection: { ...row, attemptId: "77777777-7777-4777-8777-777777777777" },
     }), null);
+  });
+
+  it("replays immutable commands before consulting prunable live trade state", () => {
+    const routeSource = fs.readFileSync("src/app/api/trading-arena/reflections/route.ts", "utf8");
+    const commandLookup = routeSource.indexOf("const command = await client.query<ReflectionCommandRow>");
+    const liveAttemptLookup = routeSource.indexOf(
+      "const attempt = await loadOwnedAttempt(client, studentId, input.attemptId, true)",
+    );
+    assert.ok(commandLookup >= 0 && liveAttemptLookup >= 0 && commandLookup < liveAttemptLookup);
+    assert.match(routeSource, /if \(trade && !reflectionEvidenceMatchesTrade\(reflection, trade\)\)/);
   });
 
   it("registers migration 0022 without rewriting prior migration identifiers", () => {
