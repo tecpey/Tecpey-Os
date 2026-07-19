@@ -247,7 +247,8 @@ async function loadRecipientPolicy(
                WHERE n.tenant_id = $1
                  AND n.principal_id = $2
                  AND n.notification_class = $3
-                 AND n.created_at >= $4::timestamptz - INTERVAL '24 hours'
+                 AND n.delivered_at IS NOT NULL
+                 AND n.delivered_at >= $4::timestamptz - INTERVAL '24 hours'
             ) AS recent_category_deliveries
        FROM evaluated`,
     [principal.tenantId, principal.id, notificationClass, now],
