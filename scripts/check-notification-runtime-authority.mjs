@@ -64,6 +64,10 @@ requireText("creation", "notification_correlation_payload_conflict", "changed pa
 requireText("creation", "INSERT INTO platform_notifications", "allowed decisions must create the durable inbox record");
 requireText("creation", "INSERT INTO notification_outbox", "allowed decisions must create the delivery outbox atomically");
 requireText("creation", "CASE WHEN $5 = 'allow' THEN CURRENT_TIMESTAMP", "immediate outbox availability must use database transaction time");
+requireText("creation", "Date.parse(scheduledFor) >= Date.parse(request.expiresAt)", "deferred or digest schedules may not reach or exceed expiry");
+requireText("creation", 'effectiveDecision = "suppress"', "undeliverable schedules must become suppression evidence");
+requireText("creation", 'effectiveReason = "expired"', "expiry-based schedule suppression must use the governed reason code");
+requireText("creation", "includes(effectiveDecision)", "only the effective policy decision may create notification and outbox rows");
 requireText("creation", "INSERT INTO notification_intents", "every policy decision must be recorded immutably");
 requireText("creation", "policy_snapshot", "policy facts must be auditable");
 requireText("creation", "AND n.delivered_at IS NOT NULL", "fatigue and frequency policy must count delivered notifications only");
@@ -100,4 +104,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification runtime authority check passed: CI/release governance, policy creation, immutable intent, delivered-only projection, database-timed immediate availability, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
+console.log("Notification runtime authority check passed: CI/release governance, policy creation, expiry-safe scheduling, immutable intent, delivered-only projection, database-timed immediate availability, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
