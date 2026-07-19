@@ -148,6 +148,23 @@ jobs:
       - name: Admin authentication boundary guard
         run: node scripts/check-admin-auth-boundary.mjs
 
+      - name: Authentication session authority guard
+        run: npm run auth:check
+
+      - name: Authentication session integration tests
+        run: |
+          set -o pipefail
+          npm run test:auth-session 2>&1 | tee /tmp/tecpey-auth-session-tests.log
+
+      - name: Upload authentication session diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-session-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-auth-session-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Academy authority boundary guard
         run: node scripts/check-academy-authority-boundary.mjs
 
