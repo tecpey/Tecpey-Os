@@ -3,10 +3,15 @@ import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
 import {
+  buildNotificationRequest,
   parseNotificationProducerEvent,
   produceDomainNotification,
+  type AcademyAssessmentCompletedEvent,
+  type AcademyCertificateIssuedEvent,
   type AcademyLessonAvailableEvent,
+  type SecurityCredentialChangedEvent,
   type SecurityNewLoginEvent,
+  type SecuritySessionRevokedEvent,
   type SupportTicketStatusChangedEvent,
 } from "../lib/notifications/producers";
 import {
@@ -62,17 +67,23 @@ async function createPrincipal(client: PoolClient, prefix: string) {
   });
 }
 
+function eventBase(principal: { tenantId: string; id: string }) {
+  return {
+    tenantId: principal.tenantId,
+    principalId: principal.id,
+    occurredAt: new Date().toISOString(),
+    locale: "fa" as const,
+    version: 1 as const,
+  };
+}
+
 function lessonEvent(
   principal: { tenantId: string; id: string },
   overrides: Partial<AcademyLessonAvailableEvent> = {},
 ): AcademyLessonAvailableEvent {
   return {
+    ...eventBase(principal),
     id: `academy-event:${crypto.randomUUID()}`,
-    tenantId: principal.tenantId,
-    principalId: principal.id,
-    occurredAt: new Date().toISOString(),
-    locale: "fa",
-    version: 1,
     type: "academy.lesson_available",
     payload: {
       termNumber: 1,
@@ -87,12 +98,8 @@ function supportEvent(
   principal: { tenantId: string; id: string },
 ): SupportTicketStatusChangedEvent {
   return {
+    ...eventBase(principal),
     id: `support-event:${crypto.randomUUID()}`,
-    tenantId: principal.tenantId,
-    principalId: principal.id,
-    occurredAt: new Date().toISOString(),
-    locale: "fa",
-    version: 1,
     type: "support.ticket_status_changed",
     payload: {
       ticketId: `ticket-${crypto.randomUUID()}`,
@@ -106,12 +113,9 @@ function securityEvent(
   occurredAt: string,
 ): SecurityNewLoginEvent {
   return {
+    ...eventBase(principal),
     id: `security-event:${crypto.randomUUID()}`,
-    tenantId: principal.tenantId,
-    principalId: principal.id,
     occurredAt,
-    locale: "fa",
-    version: 1,
     type: "security.new_login",
     payload: {},
   };
@@ -141,10 +145,7 @@ test("runtime parser rejects unknown fields, arbitrary copy and invalid enums", 
     }),
     null,
   );
-  assert.equal(
-    parseNotificationProducerEvent({ ...valid, version: 2 }),
-    null,
-  );
+  assert.equal(parseNotificationProducerEvent({ ...valid, version: 2 }), null);
   assert.equal(
     parseNotificationProducerEvent({
       ...valid,
@@ -152,6 +153,52 @@ test("runtime parser rejects unknown fields, arbitrary copy and invalid enums", 
     }),
     null,
   );
+});
+
+test("controlled templates point only to existing stable product routes", () => {
+  const principal = { tenantId: "tecpey", id: crypto.randomUUID() };
+  const base = eventBase(principal);
+
+  const assessment: AcademyAssessmentCompletedEvent = {
+    ...base,
+    id: `assessment:${crypto.randomUUID()}`,
+    type: "academy.assessment_completed",
+    payload: {
+      assessmentId: "assessment-1",
+      title: "ارزیابی مدیریت ریسک",
+      score: 90,
+      passed: true,
+    },
+  };
+  const certificate: AcademyCertificateIssuedEvent = {
+    ...base,
+    id: `certificate:${crypto.randomUUID()}`,
+    type: "academy.certificate_issued",
+    payload: { certificateId: "certificate-1", title: "ترم نخست" },
+  };
+  const credential: SecurityCredentialChangedEvent = {
+    ...base,
+    id: `credential:${crypto.randomUUID()}`,
+    type: "security.credential_changed",
+    payload: { credential: "passkey" },
+  };
+  const session: SecuritySessionRevokedEvent = {
+    ...base,
+    id: `session:${crypto.randomUUID()}`,
+    type: "security.session_revoked",
+    payload: { scope: "all_other" },
+  };
+
+  assert.equal(buildNotificationRequest(lessonEvent(principal)).actionUrl, "/academy/term-1");
+  assert.equal(buildNotificationRequest(assessment).actionUrl, "/academy/profile");
+  assert.equal(buildNotificationRequest(certificate).actionUrl, "/academy/certificates");
+  assert.equal(
+    buildNotificationRequest(securityEvent(principal, base.occurredAt)).actionUrl,
+    "/academy/security",
+  );
+  assert.equal(buildNotificationRequest(credential).actionUrl, "/academy/security");
+  assert.equal(buildNotificationRequest(session).actionUrl, "/academy/security");
+  assert.equal(buildNotificationRequest(supportEvent(principal)).actionUrl, "/support");
 });
 
 test(
@@ -184,9 +231,10 @@ test(
         source_type: string;
         title: string;
         notification_class: string;
+        action_url: string | null;
         metadata: Record<string, unknown>;
       }>(
-        `SELECT source_type, title, notification_class, metadata
+        `SELECT source_type, title, notification_class, action_url, metadata
            FROM notification_intents
           WHERE id = $1`,
         [created.intentId],
@@ -194,6 +242,7 @@ test(
       assert.equal(intent.rows[0]?.source_type, "academy.lesson_available");
       assert.equal(intent.rows[0]?.notification_class, "academy");
       assert.equal(intent.rows[0]?.title, "درس بعدی آکادمی آماده است");
+      assert.equal(intent.rows[0]?.action_url, "/academy/term-1");
       assert.equal(
         intent.rows[0]?.metadata.templateId,
         "academy.lesson-available.v1",
@@ -235,6 +284,41 @@ test(
 );
 
 test(
+  "delayed events use current processing time for quiet-hour policy",
+  { skip: !databaseUrl },
+  async () => {
+    await withRolledBackTest(async (client) => {
+      const principal = await createPrincipal(client, "producer-processing-time");
+      const now = new Date();
+      const quietStart = new Date(now.getTime() - 30 * 60_000);
+      const quietEnd = new Date(now.getTime() + 30 * 60_000);
+      const time = (value: Date) =>
+        `${String(value.getUTCHours()).padStart(2, "0")}:${String(
+          value.getUTCMinutes(),
+        ).padStart(2, "0")}`;
+
+      await updateNotificationSettings(client, principal.id, {
+        timezone: "UTC",
+        quietStart: time(quietStart),
+        quietEnd: time(quietEnd),
+        digestTime: "09:00",
+        muteUntil: null,
+      });
+
+      const delayed = lessonEvent(principal, {
+        occurredAt: new Date(now.getTime() - 2 * 60 * 60_000).toISOString(),
+      });
+      const result = await produceDomainNotification(client, delayed);
+      assert.equal(result.status, "created");
+      assert.equal(result.decision, "defer");
+      assert.equal(result.reason, "quiet_hours");
+      assert.ok(result.scheduledFor);
+      assert.ok(Date.parse(result.scheduledFor) > now.getTime());
+    });
+  },
+);
+
+test(
   "optional support events respect preferences while critical security events bypass mute and quiet hours",
   { skip: !databaseUrl },
   async () => {
@@ -247,10 +331,7 @@ test(
         enabled: false,
         cadence: "instant",
       });
-      const support = await produceDomainNotification(
-        client,
-        supportEvent(principal),
-      );
+      const support = await produceDomainNotification(client, supportEvent(principal));
       assert.equal(support.status, "suppressed");
       assert.equal(support.reason, "category_disabled");
 
