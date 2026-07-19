@@ -100,7 +100,7 @@ requireText("authority", "readLearningCommand", "submission retries need durable
 requireText("authority", "academy_section_attempts", "all grading attempts need append-only evidence");
 requireText("authority", "previousOfficialTermPassed", "later terms must require prior official pass");
 requireText("authority", "COALESCE(academy_lesson_progress.last_answer_correct, FALSE)", "later wrong attempts must not erase pass evidence");
-requireText("authority", "academy_reward_ledger", "XP must originate from the reward ledger");
+requireText("authority", "awardAcademyReward", "XP must originate from the governed reward ledger boundary");
 requireText("authority", "SECTION_COMPLETION_XP", "section XP must be server resolved");
 requireText("authority", "refreshAcademyProgressProjection", "writes must refresh the server projection in the same transaction");
 rejectText("authority", "input.xp", "domain command may not accept client XP");
