@@ -168,11 +168,67 @@ describe("Academy section progress PostgreSQL authority", () => {
       client.query<{ attempts: string; commands: string }>(
         `SELECT
            (SELECT COUNT(*)::text FROM academy_section_attempts WHERE student_id = $1::uuid) AS attempts,
-           (SELECT COUNT(*)::text FROM academy_learning_commands WHERE student_id = $1::uuid AND idempotency_key = $2) AS commands`,
+           (SELECT COUNT(*)::text FROM academy_section_commands WHERE student_id = $1::uuid AND idempotency_key = $2) AS commands`,
         [studentId, idempotencyKey],
       ),
     );
     assert.deepEqual(counts.rows[0], { attempts: "1", commands: "1" });
+  });
+
+  it("binds every replay alias key before changed reuse can occur", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const studentId = await createStudent();
+    const { resolved, wrong } = checkpoint();
+    const firstKey = `academy-alias-a-${randomUUID()}`;
+    const aliasKey = `academy-alias-b-${randomUUID()}`;
+
+    const first = await submit({
+      studentId,
+      selectedOptionId: wrong.id,
+      questionVersion: resolved.checkpoint.questionVersion,
+      idempotencyKey: firstKey,
+    });
+    const aliasReplay = await submit({
+      studentId,
+      selectedOptionId: wrong.id,
+      questionVersion: resolved.checkpoint.questionVersion,
+      idempotencyKey: aliasKey,
+    });
+    const changedAlias = await submit({
+      studentId,
+      selectedOptionId: resolved.correctOptionId,
+      questionVersion: resolved.checkpoint.questionVersion,
+      idempotencyKey: aliasKey,
+    });
+
+    assert.equal(first.status, "committed");
+    assert.equal(aliasReplay.status, "committed");
+    if (aliasReplay.status === "committed") assert.equal(aliasReplay.response.replayed, true);
+    assert.deepEqual(changedAlias, { status: "idempotency_conflict" });
+
+    const evidence = await withClient((client) =>
+      client.query<{
+        commands: string;
+        hashes: string;
+        attempts: string;
+        rewards: string;
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::text FROM academy_section_commands WHERE student_id = $1::uuid AND idempotency_key = ANY($2::text[])) AS commands,
+           (SELECT COUNT(DISTINCT request_hash)::text FROM academy_section_commands WHERE student_id = $1::uuid AND idempotency_key = ANY($2::text[])) AS hashes,
+           (SELECT COUNT(*)::text FROM academy_section_attempts WHERE student_id = $1::uuid) AS attempts,
+           (SELECT COUNT(*)::text FROM academy_reward_ledger WHERE student_id = $1::uuid AND xp > 0 AND revoked_at IS NULL) AS rewards`,
+        [studentId, [firstKey, aliasKey]],
+      ),
+    );
+    assert.deepEqual(evidence.rows[0], {
+      commands: "2",
+      hashes: "1",
+      attempts: "1",
+      rewards: "0",
+    });
   });
 
   it("grants one immutable reward for the correct answer and preserves pass evidence after later wrong attempts", {
@@ -245,6 +301,7 @@ describe("Academy section progress PostgreSQL authority", () => {
     const evidence = await withClient((client) =>
       client.query<{
         attempts: string;
+        commands: string;
         rewards: string;
         completed: boolean;
         best_score: number;
@@ -253,6 +310,7 @@ describe("Academy section progress PostgreSQL authority", () => {
       }>(
         `SELECT
            (SELECT COUNT(*)::text FROM academy_section_attempts WHERE student_id = $1::uuid) AS attempts,
+           (SELECT COUNT(*)::text FROM academy_section_commands WHERE student_id = $1::uuid) AS commands,
            (SELECT COUNT(*)::text FROM academy_reward_ledger WHERE student_id = $1::uuid AND reward_key = 'section:term-1/lesson-1:complete' AND revoked_at IS NULL) AS rewards,
            completed, best_score, attempt_count, last_answer_correct
          FROM academy_lesson_progress
@@ -262,6 +320,7 @@ describe("Academy section progress PostgreSQL authority", () => {
     );
     assert.deepEqual(evidence.rows[0], {
       attempts: "4",
+      commands: "4",
       rewards: "1",
       completed: true,
       best_score: 100,
@@ -338,7 +397,7 @@ describe("Academy section progress PostgreSQL authority", () => {
     assert.equal(allowed.status, "committed");
   });
 
-  it("preserves append-only attempt evidence and rejects physical mutation", {
+  it("preserves append-only attempt and command evidence and rejects physical mutation", {
     skip: !databaseConfigured,
     timeout: 30_000,
   }, async () => {
@@ -349,18 +408,22 @@ describe("Academy section progress PostgreSQL authority", () => {
       selectedOptionId: wrong.id,
       questionVersion: resolved.checkpoint.questionVersion,
     });
-    const attempt = await withClient((client) =>
-      client.query<{ id: string }>(
-        "SELECT id::text FROM academy_section_attempts WHERE student_id = $1::uuid LIMIT 1",
+    const evidence = await withClient((client) =>
+      client.query<{ attempt_id: string; command_id: string }>(
+        `SELECT
+           (SELECT id::text FROM academy_section_attempts WHERE student_id = $1::uuid LIMIT 1) AS attempt_id,
+           (SELECT id::text FROM academy_section_commands WHERE student_id = $1::uuid LIMIT 1) AS command_id`,
         [studentId],
       ),
     );
-    assert.ok(attempt.rows[0]);
+    assert.ok(evidence.rows[0]?.attempt_id);
+    assert.ok(evidence.rows[0]?.command_id);
+
     await assert.rejects(() =>
       withClient((client) =>
         client.query(
           "UPDATE academy_section_attempts SET correct = TRUE WHERE id = $1::bigint",
-          [attempt.rows[0]!.id],
+          [evidence.rows[0]!.attempt_id],
         ).then(() => undefined),
       ),
     );
@@ -368,7 +431,23 @@ describe("Academy section progress PostgreSQL authority", () => {
       withClient((client) =>
         client.query(
           "DELETE FROM academy_section_attempts WHERE id = $1::bigint",
-          [attempt.rows[0]!.id],
+          [evidence.rows[0]!.attempt_id],
+        ).then(() => undefined),
+      ),
+    );
+    await assert.rejects(() =>
+      withClient((client) =>
+        client.query(
+          "UPDATE academy_section_commands SET result_response = '{}'::jsonb WHERE id = $1::bigint",
+          [evidence.rows[0]!.command_id],
+        ).then(() => undefined),
+      ),
+    );
+    await assert.rejects(() =>
+      withClient((client) =>
+        client.query(
+          "DELETE FROM academy_section_commands WHERE id = $1::bigint",
+          [evidence.rows[0]!.command_id],
         ).then(() => undefined),
       ),
     );
