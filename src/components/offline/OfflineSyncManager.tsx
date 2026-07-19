@@ -10,7 +10,6 @@ import {
 } from "@/lib/offline-sync";
 
 const STORAGE_KEY = "tecpey_offline_queue_v1";
-const REJECTED_KEY = "tecpey_offline_rejected_v1";
 const LAST_SYNC_KEY = "tecpey_offline_last_sync_v1";
 
 function secureClientEventId(): string | null {
@@ -27,7 +26,9 @@ function secureClientEventId(): string | null {
 function readQueue(): OfflineSyncItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as unknown;
+    const parsed = JSON.parse(
+      window.localStorage.getItem(STORAGE_KEY) || "[]",
+    ) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed
       .map(normalizeOfflineSyncItem)
@@ -45,38 +46,6 @@ function writeQueue(items: OfflineSyncItem[]) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-200)));
   window.dispatchEvent(new CustomEvent("tecpey-offline-queue-changed"));
-}
-
-function archiveRejected(
-  queue: OfflineSyncItem[],
-  results: OfflineSyncResult[],
-): void {
-  if (typeof window === "undefined") return;
-  const rejectedById = new Map(
-    results
-      .filter((result) => result.status === "rejected")
-      .map((result) => [result.id, result.reason || "rejected"]),
-  );
-  if (rejectedById.size === 0) return;
-  try {
-    const existing = JSON.parse(
-      window.localStorage.getItem(REJECTED_KEY) || "[]",
-    ) as unknown;
-    const previous = Array.isArray(existing) ? existing : [];
-    const additions = queue
-      .filter((item) => rejectedById.has(item.id))
-      .map((item) => ({
-        item,
-        reason: rejectedById.get(item.id),
-        rejectedAt: new Date().toISOString(),
-      }));
-    window.localStorage.setItem(
-      REJECTED_KEY,
-      JSON.stringify([...previous, ...additions].slice(-100)),
-    );
-  } catch {
-    // A rejected command is never reclassified as accepted because local audit storage failed.
-  }
 }
 
 export function queueOfflineEvent(
@@ -127,7 +96,6 @@ async function syncQueue() {
       .filter((result) => result.status === "rejected")
       .map((result) => result.id),
   );
-  archiveRejected(queue, results);
   writeQueue(
     queue.filter((item) => !accepted.has(item.id) && !rejected.has(item.id)),
   );
