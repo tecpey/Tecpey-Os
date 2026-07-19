@@ -5,12 +5,12 @@ const files = {
   ci: ".github/workflows/ci.yml",
   env: "scripts/validate-env.mjs",
   route: "src/app/api/auth/withdraw/route.ts",
+  authorizeRoute: "src/app/api/auth/withdraw/authorize/route.ts",
+  genericTwoFactor: "src/app/api/auth/2fa/verify/route.ts",
   detailRoute: "src/app/api/auth/withdraw/[id]/route.ts",
-  twoFactor: "src/app/api/auth/2fa/verify/route.ts",
   authority: "src/lib/security/withdrawal-admission-authority.ts",
   admission: "src/lib/security/withdrawal-admission-service.ts",
   legacyGate: "src/lib/security/withdraw-gate.ts",
-  legacyService: "src/lib/security/withdrawal-service.ts",
   migration: "src/lib/db-migrate-withdrawal-admission.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   unitTests: "src/tests/security/withdrawal-admission.test.ts",
@@ -33,8 +33,10 @@ const rejectText = (target, text, reason) => {
 
 requireText("package", '"withdrawals:check"', "withdrawal admission needs a governed npm command");
 requireText("package", "npm run withdrawals:check", "release checks must include withdrawal admission authority");
+requireText("package", '"test:withdrawal-admission"', "focused withdrawal tests need a governed command");
 requireText("ci", "Withdrawal admission authority guard", "PR CI must run the withdrawal guard");
 requireText("ci", "npm run withdrawals:check", "CI must invoke the governed withdrawal guard");
+requireText("ci", "Withdrawal admission integration tests", "PR CI must expose focused withdrawal evidence");
 requireText("ci", "TECPEY_WITHDRAWAL_PRICE_SECRET", "CI needs server-owned price signing authority");
 
 requireText("route", "client_security_facts_forbidden", "browser amountUsd and 2FA booleans must be rejected");
@@ -46,17 +48,22 @@ rejectText("route", "amountUsd,", "the route may not forward browser-owned USD v
 rejectText("route", "twoFaVerified,", "the route may not forward browser-owned 2FA evidence");
 requireText("route", "strictRevocation: true", "withdrawal reads and writes need strict session authority");
 
+requireText("authorizeRoute", "verifyTotpStep", "withdrawal authorization must retain the verified TOTP time step");
+requireText("authorizeRoute", "canonicalizeWithdrawalCommand", "TOTP authorization must bind the canonical request");
+requireText("authorizeRoute", "verification_step", "authorization evidence must store the TOTP step");
+requireText("authorizeRoute", "totp_code_already_used", "one TOTP step may authorize only one withdrawal request");
+requireText("authorizeRoute", "strictRevocation: true", "authorization requires a strict authenticated session");
+requireText("authorizeRoute", "WITHDRAWAL_AUTHORIZATION_TTL_SECONDS", "authorization must expire quickly");
+rejectText("genericTwoFactor", 'body.purpose === "withdrawal"', "withdrawal TOTP must have one dedicated authority route");
+rejectText("genericTwoFactor", "issueWithdrawalAuthorization", "generic 2FA may not issue withdrawal evidence");
+
 requireText("detailRoute", "cancelAuthoritativeWithdrawal", "cancellation must release reserved funds transactionally");
 requireText("detailRoute", "strictRevocation: true", "withdrawal detail and cancellation require strict sessions");
 rejectText("detailRoute", "cancelWithdrawal", "routes may not use cancellation that omits ledger release");
 
-requireText("twoFactor", 'body.purpose === "withdrawal"', "TOTP needs a withdrawal authorization purpose");
-requireText("twoFactor", "canonicalizeWithdrawalCommand", "TOTP authorization must bind the canonical request");
-requireText("twoFactor", "issueWithdrawalAuthorization", "TOTP must issue server-stored one-time evidence");
-requireText("twoFactor", "requestHash", "withdrawal authorization must bind a request hash");
-
 requireText("authority", "WITHDRAWAL_AUTHORIZATION_TTL_SECONDS = 5 * 60", "withdrawal authorization needs a short TTL");
 requireText("authority", "withdrawalRequestHash", "withdrawal requests need a deterministic canonical hash");
+requireText("authority", "Decimal#toFixed() without a precision", "canonical amount must preserve significant integer zeroes");
 requireText("authority", "asset_network_mismatch", "asset/network combinations must be checked server-side");
 requireText("authority", "destination_tag_required", "tag-based networks must enforce destination tags");
 requireText("authority", "TECPEY_WITHDRAWAL_PRICE_SECRET", "server price evidence must be signed");
@@ -88,6 +95,8 @@ rejectText("legacyGate", "graceful degrade", "withdrawal security may not degrad
 
 requireText("migration", "withdrawal_price_snapshots", "price evidence needs durable storage");
 requireText("migration", "withdrawal_authorizations", "one-time authorization needs durable storage");
+requireText("migration", "verification_step BIGINT NOT NULL", "TOTP step evidence must be mandatory");
+requireText("migration", "UNIQUE (user_id, verification_step)", "TOTP replay must be prevented in PostgreSQL");
 requireText("migration", "withdrawal_admission_outbox", "admission events need an outbox");
 requireText("migration", "withdrawals_user_idempotency_unique_idx", "user idempotency needs a database uniqueness boundary");
 requireText("migration", "price_snapshot_id", "withdrawals must retain price evidence linkage");
@@ -113,4 +122,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; request-bound TOTP, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, atomic reservation, durable outbox and custody launch blocking are enforced.");
+console.log("Withdrawal admission authority check passed: browser facts are rejected; a single request-bound and replay-proof TOTP route, signed fresh pricing, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, atomic reservation, durable outbox and custody launch blocking are enforced.");
