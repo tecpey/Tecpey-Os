@@ -30,8 +30,7 @@ export function AcademyLegacyProgressQuarantine({
       const termNumber = Number(slug.match(/term-(\d+)/)?.[1] ?? 1);
       const lessonKey = `tecpey-lesson-progress-${locale}-${slug}`;
       const termKey = `tecpey-academy-reading-term-${termNumber}`;
-      const lessonRaw = window.localStorage.getItem(lessonKey);
-      const termRaw = window.localStorage.getItem(termKey);
+      const [lessonRaw, termRaw] = [lessonKey, termKey].map((key) => window.localStorage.getItem(key));
       if (!lessonRaw && !termRaw) return;
       if (active) setState("importing");
       try {
@@ -54,8 +53,7 @@ export function AcademyLegacyProgressQuarantine({
           if (response.status === 401) return;
           throw new Error("legacy_progress_quarantine_failed");
         }
-        window.localStorage.removeItem(lessonKey);
-        window.localStorage.removeItem(termKey);
+        [lessonKey, termKey].forEach((key) => window.localStorage.removeItem(key));
         if (active) setState("done");
       } catch {
         if (active) setState("error");
