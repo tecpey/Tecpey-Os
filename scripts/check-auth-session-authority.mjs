@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 const files = {
   package: "package.json",
   ci: ".github/workflows/ci.yml",
+  env: "scripts/validate-env.mjs",
+  tests: "src/tests/security/auth-session-authority-postgres.test.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
   api: "src/lib/api.ts",
@@ -33,8 +35,11 @@ const rejectText = (target, text, reason) => {
 
 requireText("package", '"auth:check"', "auth authority guard must have an npm command");
 requireText("package", "npm run auth:check", "release check must include auth authority");
+requireText("package", '"test:auth-session"', "focused auth integration tests need a governed command");
+requireText("package", "npm run test:auth-session", "release check must run focused auth integration tests");
 requireText("ci", "Authentication session authority guard", "pull-request CI must run the auth authority guard");
 requireText("ci", "npm run auth:check", "CI must invoke the governed auth command");
+requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
 
 for (const target of ["unified", "legacySession"]) {
   requireText(target, "TECPEY_SESSION_SECRET", "access sessions must use the canonical secret");
@@ -66,6 +71,9 @@ requireText("sessionStore", "revokeSessionStrict", "session revocation must expo
 requireText("sessionStore", "AND user_id = $2", "session revocation must bind the exact owner");
 requireText("sessionStore", "revocation_store_unavailable", "Redis deny-write failures must be explicit");
 requireText("sessionStore", "Promise<boolean>", "session registration must report durable success");
+requireText("sessionStore", "ON CONFLICT (id) DO NOTHING", "session registration must explicitly handle duplicate JTI conflicts");
+requireText("sessionStore", "RETURNING id", "session registration must prove that a durable row was inserted");
+requireText("sessionStore", "duplicate JTI rejected", "duplicate JTI registration must fail closed");
 
 requireText("refresh", "refused to issue unstored refresh token", "refresh issuance must fail when DB persistence is unavailable");
 requireText("refresh", "if (!result.enabled)", "refresh token operations must inspect withDb availability");
@@ -88,9 +96,16 @@ requireText("refreshRoute", "if (!oldRevoked)", "refresh rotation must prove the
 requireText("password", "revokeSessionStrict", "password change must revoke the old access session");
 requireText("password", "revokeAllRefreshTokensForUser", "password change must revoke old refresh authority");
 
+requireText("tests", "duplicate JTI registration", "integration tests must reject duplicate durable session identity");
+requireText("tests", "exact owner", "integration tests must prove owner-bound revocation");
+requireText("tests", "Redis deny persistence is unavailable", "integration tests must cover revocation-store outage");
+requireText("tests", "prior non-strict allow", "integration tests must prevent strict cache bypass");
+requireText("tests", "without PostgreSQL authority", "integration tests must cover database-unavailable issuance");
+requireText("tests", "reuse one secret across token classes", "integration tests must prove secret isolation validation");
+
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, owner-bound revocation, deny-only caching, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound revocation, deny-only caching, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
