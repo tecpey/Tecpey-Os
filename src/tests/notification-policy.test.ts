@@ -268,3 +268,55 @@ test("optional instant-disabled notification uses an enabled digest", () => {
   assert.equal(result.decision, "digest");
   assert.equal(result.reason, "instant_disabled");
 });
+
+test("malformed runtime enum values fail closed without throwing", () => {
+  const fields = [
+    ["notificationClass", "invented_mandatory_class"],
+    ["channel", "direct_provider_bypass"],
+    ["audienceScope", "everyone_without_snapshot"],
+    ["dispatchMode", "unapproved_autonomous_send"],
+    ["urgency", "override_all_controls"],
+    ["cadence", "continuous_spam"],
+    ["locale", "unknown-locale"],
+  ] as const;
+
+  for (const [field, value] of fields) {
+    const malformed = input() as unknown as {
+      now: string;
+      intent: Record<string, unknown>;
+      recipient: RecipientNotificationPolicy;
+    };
+    malformed.intent[field] = value;
+
+    assert.doesNotThrow(() =>
+      evaluateNotificationPolicy(
+        malformed as unknown as NotificationPolicyInput,
+      ),
+    );
+    const result = evaluateNotificationPolicy(
+      malformed as unknown as NotificationPolicyInput,
+    );
+    assert.equal(result.decision, "suppress", field);
+    assert.equal(result.reason, "invalid_request", field);
+  }
+});
+
+test("malformed recipient policy fails closed without exposing a send path", () => {
+  const malformed = {
+    ...input(),
+    recipient: {
+      ...baseRecipient(),
+      categoryEnabled: "yes",
+      recentCategoryDeliveries: Number.NaN,
+    },
+  } as unknown as NotificationPolicyInput;
+
+  assert.doesNotThrow(() => evaluateNotificationPolicy(malformed));
+  assert.deepEqual(evaluateNotificationPolicy(malformed), {
+    decision: "suppress",
+    reason: "invalid_request",
+    mandatory: false,
+    notBefore: null,
+    shouldTryFallbackChannel: false,
+  });
+});
