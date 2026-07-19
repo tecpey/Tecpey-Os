@@ -9,7 +9,11 @@ import { recordLearningEvent } from "@/lib/learning-os";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
-import type { ArenaClosedTradeV2, ArenaExecutionStateV2 } from "@/lib/trading-arena-execution-v2";
+import {
+  createArenaExecutionStateV2,
+  type ArenaClosedTradeV2,
+  type ArenaExecutionStateV2,
+} from "@/lib/trading-arena-execution-v2";
 import { validateArenaExecutionStateV2 } from "@/lib/trading-arena-execution-state-validation";
 import {
   arenaReflectionEvidenceFromTrade,
@@ -40,6 +44,7 @@ const REFLECTION_SELECT = `
 type AttemptEvidenceRow = {
   id: string;
   attempt_number: number;
+  starting_balance: string;
   execution_state: unknown;
 };
 
@@ -69,6 +74,15 @@ function responseObject(value: unknown): ReflectionResult | null {
     : null;
 }
 
+function isEmptyExecutionState(value: unknown): boolean {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length === 0,
+  );
+}
+
 async function loadOwnedAttempt(
   client: PoolClient,
   studentId: string,
@@ -76,7 +90,7 @@ async function loadOwnedAttempt(
   lock: boolean,
 ): Promise<{ attemptNumber: number; state: ArenaExecutionStateV2 } | null> {
   const result = await client.query<AttemptEvidenceRow>(
-    `SELECT id::text, attempt_number, execution_state
+    `SELECT id::text, attempt_number, starting_balance::text, execution_state
      FROM academy_trading_arena_attempts
      WHERE id = $1::uuid AND student_id = $2::uuid
      LIMIT 1
@@ -87,7 +101,9 @@ async function loadOwnedAttempt(
   if (!row) return null;
   return {
     attemptNumber: Number(row.attempt_number),
-    state: validateArenaExecutionStateV2(row.execution_state),
+    state: isEmptyExecutionState(row.execution_state)
+      ? createArenaExecutionStateV2(row.starting_balance)
+      : validateArenaExecutionStateV2(row.execution_state),
   };
 }
 
