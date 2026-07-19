@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK ((quiet_start IS NULL) = (quiet_end IS NULL)),
+  CHECK (quiet_start IS NULL OR quiet_start <> quiet_end),
   CHECK (char_length(timezone) BETWEEN 1 AND 100)
 );
 
@@ -65,23 +66,31 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
   cadence TEXT NOT NULL DEFAULT 'instant' CHECK (cadence IN ('instant', 'digest')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (principal_id, notification_class, channel)
+  PRIMARY KEY (principal_id, notification_class, channel),
+  CHECK (
+    notification_class NOT IN (
+      'security_critical', 'financial_transactional', 'legal_compliance_service'
+    ) OR (enabled = TRUE AND cadence = 'instant')
+  )
 );
 
 CREATE TABLE IF NOT EXISTS notification_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_sequence BIGSERIAL NOT NULL UNIQUE,
-  principal_id UUID NOT NULL REFERENCES platform_principals(id) ON DELETE CASCADE,
+  principal_id UUID NOT NULL REFERENCES platform_principals(id) ON DELETE RESTRICT,
   purpose TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('granted', 'revoked')),
   policy_version TEXT NOT NULL,
   source TEXT NOT NULL,
   jurisdiction TEXT,
+  idempotency_key TEXT NOT NULL,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (principal_id, purpose, idempotency_key),
   CHECK (char_length(purpose) BETWEEN 3 AND 100),
   CHECK (char_length(policy_version) BETWEEN 1 AND 100),
   CHECK (char_length(source) BETWEEN 1 AND 100),
+  CHECK (char_length(idempotency_key) BETWEEN 8 AND 200),
   CHECK (jsonb_typeof(metadata) = 'object')
 );
 
@@ -189,14 +198,13 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (char_length(idempotency_key) BETWEEN 8 AND 300),
-  CHECK (locked_by IS NULL OR char_length(locked_by) BETWEEN 1 AND 200)
+  CHECK (locked_by IS NULL OR char_length(locked_by) BETWEEN 1 AND 200),
+  UNIQUE (notification_id, channel)
 );
 
 CREATE INDEX IF NOT EXISTS notification_outbox_claim_idx
   ON notification_outbox (status, available_at, created_at)
   WHERE status IN ('pending', 'failed_retryable');
-CREATE UNIQUE INDEX IF NOT EXISTS notification_outbox_in_app_unique_idx
-  ON notification_outbox (notification_id, channel);
 `;
 
 function checksum(sql: string): string {
