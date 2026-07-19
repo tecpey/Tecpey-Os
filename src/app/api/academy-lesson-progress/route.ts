@@ -20,8 +20,8 @@ function parseIdempotencyKey(req: NextRequest, body: Record<string, unknown>): s
   const value = String(req.headers.get("Idempotency-Key") ?? body.idempotencyKey ?? "")
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .trim()
-    .slice(0, 160);
-  return /^[A-Za-z0-9._:-]{16,160}$/.test(value) ? value : null;
+    .slice(0, 120);
+  return /^[A-Za-z0-9._:-]{16,120}$/.test(value) ? value : null;
 }
 
 export async function GET(req: NextRequest) {
