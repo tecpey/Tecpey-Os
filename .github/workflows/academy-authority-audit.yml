@@ -172,7 +172,22 @@ jobs:
         run: node scripts/check-admin-auth-boundary.mjs
 
       - name: Full tests
-        run: npm test
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/academy-p0-tests.log
+          STATUS=${PIPESTATUS[0]}
+          exit "$STATUS"
+
+      - name: Upload test diagnostics
+        if: ${{ always() && steps.tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-p0-test-diagnostics
+          path: /tmp/academy-p0-tests.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Production build
         env:
