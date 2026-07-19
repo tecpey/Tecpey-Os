@@ -6,6 +6,7 @@ const files = {
   env: "scripts/validate-env.mjs",
   tests: "src/tests/security/auth-session-authority-postgres.test.ts",
   logoutTests: "src/tests/security/auth-logout-route-postgres.test.ts",
+  refreshTests: "src/tests/security/auth-refresh-route-postgres.test.ts",
   sessionsTests: "src/tests/security/auth-sessions-route-postgres.test.ts",
   unified: "src/lib/unified-session.ts",
   legacySession: "src/lib/session.ts",
@@ -109,6 +110,7 @@ for (const target of ["refreshRoute", "twoFactor", "webauthn", "password"]) {
   requireText(target, "if (!registered)", "every token-issuing path must fail on missing durable access-session evidence");
   rejectText(target, "void registerSession", "token issuance may not fire-and-forget session registration");
 }
+requireText("refreshRoute", "verifyCsrfOrigin(req)", "refresh rotation must enforce same-origin mutation authority");
 requireText("refreshRoute", "if (!oldRevoked)", "refresh rotation must prove the old refresh token was revoked");
 requireText("password", "revokeSessionStrict", "password change must revoke the old access session");
 requireText("password", "revokeAllRefreshTokensForUser", "password change must revoke old refresh authority");
@@ -124,6 +126,8 @@ requireText("logoutTests", "forged unified session", "route tests must reject at
 requireText("logoutTests", "all durable refresh authority", "route tests must invalidate old access and refresh credentials");
 requireText("logoutTests", "retry repairs deny evidence", "route tests must prove recovery after a Redis outage");
 requireText("logoutTests", "session_not_found", "route tests must prevent permanent logout failure after partial revocation");
+requireText("refreshTests", "cross-origin refresh rotation", "route tests must prove CSRF rejection before refresh rotation");
+requireText("refreshTests", "without consuming the durable refresh token", "CSRF rejection must preserve the original refresh token");
 requireText("sessionsTests", "all refresh tokens", "logout-all tests must prove refresh invalidation");
 requireText("sessionsTests", "repairs deny evidence on retry", "logout-all tests must prove Redis outage recovery");
 requireText("sessionsTests", "database unavailability", "bulk authority tests must reject false empty and zero-success results");
@@ -133,4 +137,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, refresh invalidation across devices, deny-only caching, focused CI evidence, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, refresh invalidation across devices, deny-only caching, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
