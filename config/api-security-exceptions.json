@@ -1,4 +1,915 @@
 {
   "schemaVersion": 1,
-  "exceptions": []
+  "exceptions": [
+    {
+      "id": "api-debt-1e7a082ba775",
+      "route": "/api/academy-auth",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-6236ed3936ad",
+      "route": "/api/academy-certificates",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-certificates-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-dda6b7e2fe4a",
+      "route": "/api/academy-lead",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-lead-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-6c3d9be2a3b9",
+      "route": "/api/academy-simulator-decision",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-simulator-decision-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-24c1fccd5066",
+      "route": "/api/academy-student-profile",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-student-profile-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-52a174b6091a",
+      "route": "/api/academy-term-progress",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-term-progress-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-9e4058720104",
+      "route": "/api/academy/auth/login",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8e427c307a3d",
+      "route": "/api/academy/auth/register",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "academy-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-d7d4ef4a6ef1",
+      "route": "/api/admin/withdrawals/[id]",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "admin-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-0bafdf825dfd",
+      "route": "/api/admin/withdrawals/[id]",
+      "method": "POST",
+      "finding": "replayable_command_without_idempotency",
+      "owner": "admin-domain",
+      "issue": "#108",
+      "reason": "This replayable financial or progress command does not yet expose the governed idempotency contract required by issue #108.",
+      "compensatingControls": [
+        "Existing database transaction, ownership and domain guards remain active where present.",
+        "The exact command is pinned in CI and cannot disappear or change without manifest review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-5a524c243eb1",
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "ai-mentor-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-ad987faac84d",
+      "route": "/api/ai-mentor",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "ai-mentor-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-30f6e3c63ea7",
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "ai-mentor-v2-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-7200d62ba02a",
+      "route": "/api/ai-mentor-v2",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "ai-mentor-v2-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8aabc14baf3c",
+      "route": "/api/api-keys",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "api-keys-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-9bddf92e9b8b",
+      "route": "/api/api-keys/[id]",
+      "method": "PATCH",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "api-keys-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-fb0875b4f14e",
+      "route": "/api/auth/2fa/backup",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-252f2ac7ff82",
+      "route": "/api/auth/2fa/backup",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-16b9a4e6ff3e",
+      "route": "/api/auth/2fa/disable",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-6b8d7956b589",
+      "route": "/api/auth/2fa/disable",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-f4d33bbe80cc",
+      "route": "/api/auth/2fa/enroll",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-f9e32765f8f9",
+      "route": "/api/auth/2fa/enroll",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-354515a587b4",
+      "route": "/api/auth/2fa/verify",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-69806fa3023a",
+      "route": "/api/auth/devices/[id]",
+      "method": "DELETE",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-271b836800b4",
+      "route": "/api/auth/devices/[id]",
+      "method": "PATCH",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-5167fde39ddf",
+      "route": "/api/auth/devices/[id]",
+      "method": "PATCH",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8ae71f835bea",
+      "route": "/api/auth/password/change",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-7160c5976a10",
+      "route": "/api/auth/refresh",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-aed53b72ff09",
+      "route": "/api/auth/webauthn/auth/challenge",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-f7d29cde8c20",
+      "route": "/api/auth/webauthn/auth/verify",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-be9d22051636",
+      "route": "/api/auth/webauthn/credentials/[id]",
+      "method": "DELETE",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-af344d476a7a",
+      "route": "/api/auth/webauthn/credentials/[id]",
+      "method": "PATCH",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-0f9685069492",
+      "route": "/api/auth/webauthn/credentials/[id]",
+      "method": "PATCH",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-1bcce4b4f4fd",
+      "route": "/api/auth/webauthn/register/verify",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-e403e27b5694",
+      "route": "/api/auth/webauthn/register/verify",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8e2bb7469ce6",
+      "route": "/api/auth/withdraw",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-c768a874d272",
+      "route": "/api/auth/withdraw/[id]",
+      "method": "DELETE",
+      "finding": "replayable_command_without_idempotency",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This replayable financial or progress command does not yet expose the governed idempotency contract required by issue #108.",
+      "compensatingControls": [
+        "Existing database transaction, ownership and domain guards remain active where present.",
+        "The exact command is pinned in CI and cannot disappear or change without manifest review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-05e4e921b9c6",
+      "route": "/api/auth/withdraw/authorize",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "auth-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-5e7c58732a37",
+      "route": "/api/command-center/auth/bootstrap/challenge",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "command-center-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-63bd365a9bfd",
+      "route": "/api/command-center/auth/bootstrap/verify",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "command-center-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-abca3fa58817",
+      "route": "/api/command-center/auth/logout",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "command-center-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-a2a2bd3dc9cf",
+      "route": "/api/command-center/auth/passkey/verify",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "command-center-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8d554a46377e",
+      "route": "/api/command-center/campaign",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "command-center-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-f9c5d6dab03c",
+      "route": "/api/community/profile",
+      "method": "PATCH",
+      "finding": "required_strict_revocation_missing",
+      "owner": "community-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-31024f4bc800",
+      "route": "/api/community/profile",
+      "method": "PATCH",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "community-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-3247d3757ab5",
+      "route": "/api/device-token",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "device-token-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-5529f0d54d7f",
+      "route": "/api/device-token",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "device-token-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-0a4324eae54f",
+      "route": "/api/device-token",
+      "method": "POST",
+      "finding": "missing_audit_or_observability_evidence",
+      "owner": "device-token-domain",
+      "issue": "#108",
+      "reason": "This sensitive mutation lacks explicit route-level audit or observability evidence required by issue #108.",
+      "compensatingControls": [
+        "The exact route, method, source hash and current controls are committed for review.",
+        "Any source change invalidates the snapshot and forces renewed security review in CI."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-d4af8a5be871",
+      "route": "/api/learning-events",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "learning-events-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-73a10d622444",
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "mentor-challenge-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-64badfc689d6",
+      "route": "/api/mentor-conversations/migrate",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "mentor-conversations-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-e8d56a359f54",
+      "route": "/api/mentor-conversations/migrate",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "mentor-conversations-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-3eb11d556a83",
+      "route": "/api/mentor-conversations/migrate",
+      "method": "POST",
+      "finding": "missing_audit_or_observability_evidence",
+      "owner": "mentor-conversations-domain",
+      "issue": "#108",
+      "reason": "This sensitive mutation lacks explicit route-level audit or observability evidence required by issue #108.",
+      "compensatingControls": [
+        "The exact route, method, source hash and current controls are committed for review.",
+        "Any source change invalidates the snapshot and forces renewed security review in CI."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-87ed5fcae6e5",
+      "route": "/api/mentor-memory",
+      "method": "DELETE",
+      "finding": "required_strict_revocation_missing",
+      "owner": "mentor-memory-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-5304fed0549e",
+      "route": "/api/mentor-memory",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "mentor-memory-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-481952326d02",
+      "route": "/api/mentor-memory",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "mentor-memory-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-62c487651658",
+      "route": "/api/mentor-profile/recompute",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "mentor-profile-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-772424b9dfb2",
+      "route": "/api/mentor-profile/recompute",
+      "method": "POST",
+      "finding": "missing_audit_or_observability_evidence",
+      "owner": "mentor-profile-domain",
+      "issue": "#108",
+      "reason": "This sensitive mutation lacks explicit route-level audit or observability evidence required by issue #108.",
+      "compensatingControls": [
+        "The exact route, method, source hash and current controls are committed for review.",
+        "Any source change invalidates the snapshot and forces renewed security review in CI."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-04cf7bfd467d",
+      "route": "/api/notifications/consent",
+      "method": "POST",
+      "finding": "required_strict_revocation_missing",
+      "owner": "notifications-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-8bb09cc477a8",
+      "route": "/api/notifications/preferences",
+      "method": "PATCH",
+      "finding": "required_strict_revocation_missing",
+      "owner": "notifications-domain",
+      "issue": "#108",
+      "reason": "This high-risk authenticated mutation has not yet proven strict session-revocation enforcement at the route boundary; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The route remains subject to its current authentication and authorization checks.",
+        "CI pins the exact missing strict-revocation finding so new or changed debt cannot enter silently."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-dd7b794a48ed",
+      "route": "/api/notifications/read",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "notifications-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-306ae68c33d7",
+      "route": "/api/offline-sync",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "offline-sync-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-db3948552be7",
+      "route": "/api/offline-sync",
+      "method": "POST",
+      "finding": "replayable_command_without_idempotency",
+      "owner": "offline-sync-domain",
+      "issue": "#108",
+      "reason": "This replayable financial or progress command does not yet expose the governed idempotency contract required by issue #108.",
+      "compensatingControls": [
+        "Existing database transaction, ownership and domain guards remain active where present.",
+        "The exact command is pinned in CI and cannot disappear or change without manifest review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-0076c7a5c868",
+      "route": "/api/orders",
+      "method": "POST",
+      "finding": "parsed_body_without_size_limit",
+      "owner": "orders-domain",
+      "issue": "#108",
+      "reason": "This handler still parses an untrusted request body without the governed bounded-body reader; remediation is tracked by issue #108.",
+      "compensatingControls": [
+        "The exact operation and source hash are pinned in the committed manifest.",
+        "Existing authentication, CSRF, rate-limit, parser and field-validation evidence remains visible for review."
+      ],
+      "expiresOn": "2026-08-31"
+    },
+    {
+      "id": "api-debt-65637110767a",
+      "route": "/api/orders/[id]",
+      "method": "DELETE",
+      "finding": "replayable_command_without_idempotency",
+      "owner": "orders-domain",
+      "issue": "#108",
+      "reason": "This replayable financial or progress command does not yet expose the governed idempotency contract required by issue #108.",
+      "compensatingControls": [
+        "Existing database transaction, ownership and domain guards remain active where present.",
+        "The exact command is pinned in CI and cannot disappear or change without manifest review."
+      ],
+      "expiresOn": "2026-08-31"
+    }
+  ]
 }
