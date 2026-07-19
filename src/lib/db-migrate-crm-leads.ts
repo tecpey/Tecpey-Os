@@ -11,8 +11,6 @@ CREATE TABLE IF NOT EXISTS crm_leads (
   lead_kind TEXT NOT NULL CHECK (lead_kind IN ('academy_interest', 'academy_specialized')),
   source TEXT NOT NULL,
   campaign TEXT,
-  idempotency_key TEXT NOT NULL,
-  request_hash CHAR(64) NOT NULL,
   contact_hash CHAR(64) NOT NULL,
   phone_hash CHAR(64) NOT NULL,
   email_hash CHAR(64),
@@ -33,11 +31,8 @@ CREATE TABLE IF NOT EXISTS crm_leads (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMPTZ,
-  UNIQUE (tenant_id, idempotency_key),
   CHECK (char_length(source) BETWEEN 2 AND 120),
   CHECK (campaign IS NULL OR char_length(campaign) BETWEEN 1 AND 120),
-  CHECK (char_length(idempotency_key) BETWEEN 16 AND 160),
-  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
   CHECK (contact_hash ~ '^[0-9a-f]{64}$'),
   CHECK (phone_hash ~ '^[0-9a-f]{64}$'),
   CHECK (email_hash IS NULL OR email_hash ~ '^[0-9a-f]{64}$'),
@@ -58,6 +53,22 @@ CREATE INDEX IF NOT EXISTS crm_leads_retention_idx
   WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS crm_leads_source_idx
   ON crm_leads (tenant_id, source, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS crm_lead_commands (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE RESTRICT,
+  idempotency_key TEXT NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  lead_id UUID NOT NULL REFERENCES crm_leads(id) ON DELETE RESTRICT,
+  result JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (tenant_id, idempotency_key),
+  CHECK (char_length(idempotency_key) BETWEEN 16 AND 160),
+  CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  CHECK (jsonb_typeof(result) = 'object')
+);
+CREATE INDEX IF NOT EXISTS crm_lead_commands_lead_idx
+  ON crm_lead_commands (tenant_id, lead_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS crm_lead_delivery_outbox (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
