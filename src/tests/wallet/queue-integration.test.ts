@@ -67,8 +67,16 @@ describe("Withdrawal BullMQ runtime policy", () => {
 
       await enqueueConfirmationWatch(base);
       await enqueueConfirmationWatch(base);
+      await enqueueConfirmationWatch({
+        ...base,
+        txHash: "0xstale-caller-hash",
+      });
       const initialDelayed = await confirmationQueue.getDelayed();
-      assert.equal(initialDelayed.length, 1, "a live delayed watch must be atomically deduplicated");
+      assert.equal(
+        initialDelayed.length,
+        1,
+        "one withdrawal must have one live watch even when a stale caller supplies another tx hash",
+      );
       const successJobId = initialDelayed[0]?.id;
       assert.ok(successJobId, "deduplicated confirmation job must have an ID");
       assert.equal(successJobId.includes(":"), false);
@@ -96,7 +104,6 @@ describe("Withdrawal BullMQ runtime policy", () => {
       const failedDeduplicationId = createWalletQueueJobId(
         "confirmation",
         failedData.withdrawalId,
-        failedData.txHash,
       );
       const failedJobId = createWalletQueueJobId(
         "confirmation",
