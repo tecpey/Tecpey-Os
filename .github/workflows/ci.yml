@@ -83,6 +83,9 @@ jobs:
       - name: Wallet authority boundary guard
         run: node scripts/check-wallet-authority.mjs
 
+      - name: Exchange financial authority guard
+        run: node scripts/check-exchange-financial-authority.mjs
+
       - name: Tests
         run: npm test
 
