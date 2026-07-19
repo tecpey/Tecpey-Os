@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 const files = {
+  package: "package.json",
+  ci: ".github/workflows/ci.yml",
   plan: "src/lib/db-migration-plan.ts",
   runtimeMigration: "src/lib/db-migrate-notification-runtime.ts",
   visibilityMigration: "src/lib/db-migrate-notification-delivery-visibility.ts",
@@ -23,6 +25,18 @@ const requireText = (target, text, reason) => {
 const rejectText = (target, text, reason) => {
   if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
 };
+const requireOccurrences = (target, text, minimum, reason) => {
+  const count = content[target].split(text).length - 1;
+  if (count < minimum) {
+    failures.push(`${files[target]}: ${reason}; found ${count}, need ${minimum}`);
+  }
+};
+
+requireText("package", '"notifications:runtime:check"', "runtime authority guard must be invokable through npm");
+requireText("package", '"notifications:worker:in-app"', "standalone in-app worker must have an explicit process command");
+requireText("package", "npm run notifications:runtime:check", "release check must include notification runtime authority");
+requireText("ci", "Notification runtime authority guard", "pull-request CI must execute runtime authority checks");
+requireText("ci", "npm run notifications:runtime:check", "CI runtime guard must use the governed npm command");
 
 requireText("plan", "runNotificationRuntimeMigrations", "canonical migration plan must run notification runtime migration");
 requireText("plan", "runNotificationDeliveryVisibilityMigrations", "canonical migration plan must run delivery visibility migration");
@@ -51,6 +65,8 @@ requireText("creation", "INSERT INTO platform_notifications", "allowed decisions
 requireText("creation", "INSERT INTO notification_outbox", "allowed decisions must create the delivery outbox atomically");
 requireText("creation", "INSERT INTO notification_intents", "every policy decision must be recorded immutably");
 requireText("creation", "policy_snapshot", "policy facts must be auditable");
+requireText("creation", "AND n.delivered_at IS NOT NULL", "fatigue and frequency policy must count delivered notifications only");
+requireText("creation", "n.delivered_at >=", "delivery time—not creation time—must define the rolling fatigue window");
 rejectText("creation", "web_push", "external channels must not be enabled in the Phase 2 creation service");
 rejectText("creation", "mobile_push", "external channels must not be enabled in the Phase 2 creation service");
 rejectText("creation", "marketing_campaign", "marketing campaign creation must remain outside the pilot service");
@@ -66,9 +82,14 @@ requireText("outbox", "insertDeadLetter", "terminal outcomes must create DLQ evi
 requireText("outbox", "notification_outbox_lease_lost", "stale workers must fail closed");
 requireText("outbox", "getNotificationOutboxReconciliation", "operations require reconciliation evidence");
 
-requireText("repository", "delivered_at IS NOT NULL", "inbox and lifecycle mutations must require accepted delivery evidence");
-requireText("repository", "deliveredAt", "API projection must expose delivery time");
+requireOccurrences("repository", "delivered_at IS NOT NULL", 3, "list, unread and lifecycle mutations must all require delivery evidence");
+requireText("repository", "deliveredAt: string", "public inbox type must expose a non-null delivery timestamp");
+requireText("repository", "deliveredAt: row.delivered_at.toISOString()", "API projection must map delivery evidence");
+requireText("repository", "read_at, delivered_at,", "lazy legacy migration must stamp delivery evidence when it inserts a row");
 
+requireText("worker", "boundedIntegerEnv", "worker configuration must use one bounded integer parser");
+requireText("worker", "Number.isSafeInteger", "worker numeric configuration must reject unsafe values");
+requireText("worker", "notification-in-app", "worker identity must remain explicit");
 requireText("worker", "processInAppNotificationBatch", "standalone worker must use the governed outbox runtime");
 requireText("worker", "SIGTERM", "worker must support graceful shutdown");
 requireText("worker", "getNotificationOutboxReconciliation", "worker must emit periodic reconciliation");
@@ -78,4 +99,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification runtime authority check passed: policy creation, immutable intent, leased in-app delivery, retry, DLQ and delivered-only inbox visibility are enforced.");
+console.log("Notification runtime authority check passed: CI/release governance, policy creation, immutable intent, delivered-only projection, leased in-app delivery, worker configuration, retry and DLQ are enforced.");
