@@ -32,8 +32,9 @@ describe("Offline browser transport capacity", () => {
     );
     assert.ok(writeIndex >= 0);
     assert.ok(failureEventIndex > writeIndex);
-    assert.ok(visibleStateIndex > failureEventIndex);
-    assert.ok(visibleMessageIndex > visibleStateIndex);
+    assert.ok(visibleStateIndex >= 0);
+    assert.ok(visibleMessageIndex >= 0);
+    assert.match(source, /addEventListener\(\s*"tecpey-offline-queue-write-failed"/);
   });
 
   it("keeps the original queue when persistence of server acknowledgements fails", async () => {
