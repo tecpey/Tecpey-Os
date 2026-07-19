@@ -117,4 +117,17 @@ describe("Offline principal scope authority", () => {
       1,
     );
   });
+
+  it("retries the first event after scope bootstrap instead of silently discarding it", async () => {
+    const client = await readFile(
+      "src/components/offline/OfflineSyncManager.tsx",
+      "utf8",
+    );
+    assert.match(client, /void refreshPrincipalScope\(\)\.then/);
+    assert.match(client, /enqueueScopedItem\(baseItem, freshScope\)/);
+    assert.match(client, /scopeRefreshInFlight/);
+    assert.match(client, /setScopeRequired\(true\)/);
+    assert.match(client, /tecpey-offline-scope-required/);
+    assert.equal(client.includes('return "";'), false);
+  });
 });
