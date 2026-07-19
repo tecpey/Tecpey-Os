@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { withObservability } from "@/lib/observe";
@@ -53,6 +54,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/notifications/consent" }, async () => {
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const rate = await rateLimit(req, {
       namespace: "notification-consent-write",
       limit: 20,
