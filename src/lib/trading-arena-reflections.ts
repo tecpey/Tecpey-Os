@@ -203,7 +203,11 @@ function canonicalEvidenceAmount(value: string, places: number): string {
   }
   const parsed = new Decimal(value);
   if (!parsed.isFinite()) throw new Error("arena_reflection_evidence_invalid");
-  return parsed.toDecimalPlaces(places, Decimal.ROUND_DOWN).toFixed(places);
+  const canonicalValue = parsed.toDecimalPlaces(places, Decimal.ROUND_DOWN);
+  if (!parsed.eq(canonicalValue)) {
+    throw new Error("arena_reflection_evidence_invalid");
+  }
+  return canonicalValue.toFixed(places);
 }
 
 function validatedMentorFlags(value: unknown): ArenaExecutionMentorFlag[] {
