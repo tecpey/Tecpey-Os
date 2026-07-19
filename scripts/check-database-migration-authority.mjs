@@ -28,6 +28,7 @@ for (const directImport of [
   'from "./db-migrate-notification-runtime"',
   'from "./db-migrate-notification-delivery-visibility"',
   'from "./db-migrate-offline-sync"',
+  'from "./db-migrate-notification-domain-outbox"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -44,6 +45,7 @@ const orderedCalls = [
   "await runNotificationRuntimeMigrations(client)",
   "await runNotificationDeliveryVisibilityMigrations(client)",
   "await runOfflineSyncMigrations(client)",
+  "await runNotificationDomainOutboxMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -69,11 +71,15 @@ if (migrationRuns < 2) failures.push("CI must run db:migrate twice to prove idem
 
 requireText(integration, "applyDatabaseMigrationsWithLock", "migration integration test must execute the canonical plan");
 requireText(integration, "0023_offline_sync_command_authority.sql", "migration integration must verify offline authority");
+requireText(integration, "0024_notification_domain_outbox.sql", "migration integration must verify notification domain outbox authority");
 requireText(integration, "0030_withdrawal_admission_authority.sql", "migration integration must verify withdrawal admission authority");
 requireText(integration, "0031_withdrawal_settlement_authority.sql", "migration integration must verify withdrawal settlement authority");
 requireText(integration, "offline_sync_commands", "migration integration must verify offline command storage");
+requireText(integration, "notification_domain_outbox", "migration integration must verify notification domain event storage");
+requireText(integration, "notification_domain_dead_letters", "migration integration must verify notification domain DLQ storage");
 requireText(integration, "admin_audit_events_validate_chain", "migration integration must verify critical database triggers");
 requireText(integration, "withdrawals_verify_price_evidence", "migration integration must verify withdrawal price trigger");
+requireText(integration, "notification_domain_outbox_identity_no_update", "migration integration must verify immutable notification event identity");
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 
 if (failures.length) {
