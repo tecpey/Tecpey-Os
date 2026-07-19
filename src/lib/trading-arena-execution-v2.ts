@@ -403,9 +403,9 @@ function createPosition(input: {
   const openingFee = input.quoteAmount.mul(ARENA_EXECUTION_FEE_RATE);
   const netQuote = input.quoteAmount.minus(openingFee);
   if (netQuote.lte(0)) return null;
-  const equityBefore = input.state.lastMarket
-    ? decimal(computeArenaExecutionEquity(input.state, input.state.lastMarket))
-    : decimal(input.state.equity);
+  const equityBefore = decimal(
+    computeArenaExecutionEquity(input.state, input.context.market),
+  );
   const plan = (input.preTradePlan ?? "").slice(0, 1_500);
   const emotion = (input.emotionalState ?? "not-recorded").slice(0, 120);
 
@@ -492,7 +492,7 @@ function processMarket(
   state: ArenaExecutionStateV2,
   context: ArenaExecutionContext,
 ): { state: ArenaExecutionStateV2; filledOrderIds: string[]; closedTradeIds: string[] } {
-  let next = { ...state, lastMarket: context.market, updatedAt: context.now };
+  let next: ArenaExecutionStateV2 = { ...state, lastMarket: context.market, updatedAt: context.now };
   const filledOrderIds: string[] = [];
   const closedTradeIds: string[] = [];
 
@@ -501,8 +501,10 @@ function processMarket(
     if (marketPrice.gt(order.limitPrice)) continue;
     if (next.openPositions.length >= ARENA_EXECUTION_MAX_OPEN_POSITIONS) break;
 
-    const candidateFill = buyFillPrice(context.market.prices[order.asset], context);
-    const fillPrice = Decimal.min(candidateFill, decimal(order.limitPrice));
+    // Educational limit orders fill at their declared limit once the
+    // authoritative market reaches it. This avoids a gap-down fill making
+    // a previously valid stop-loss invalid relative to the fill price.
+    const fillPrice = decimal(order.limitPrice);
     const position = createPosition({
       state: next,
       asset: order.asset,

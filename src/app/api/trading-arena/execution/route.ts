@@ -522,7 +522,7 @@ export async function POST(request: NextRequest) {
         await saveDecision(client, session.studentId as string, execution.state, action);
         await recordLearningEvent(client, {
           studentId: session.studentId as string,
-          eventType: "arena_execution_action",
+          eventType: "simulator_decision_saved",
           payload: {
             actionType: action.type,
             eventType: applied.eventType,

@@ -28,8 +28,8 @@ function context(operationId: string, market = MARKET): ArenaExecutionContext {
 }
 
 function success(result: ReturnType<typeof applyArenaExecutionActionV2>) {
-  assert.equal(result.ok, true);
   if (!result.ok) throw new Error(result.error);
+  assert.equal(result.ok, true);
   return result;
 }
 
