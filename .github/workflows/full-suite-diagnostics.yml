@@ -1,0 +1,93 @@
+name: Full Suite Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: full-suite-diagnostics-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-suite:
+    name: Full test runtime diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: diagnostics-session-secret-32-characters-minimum
+      TECPEY_REFRESH_SECRET: diagnostics-refresh-secret-32-characters-minimum
+      TECPEY_ACADEMY_AUTH_SECRET: diagnostics-academy-secret-32-characters-minimum
+      CERTIFICATE_SIGNING_SECRET: diagnostics-certificate-secret-32-minimum
+      TECPEY_WITHDRAWAL_PRICE_SECRET: diagnostics-withdrawal-price-secret-32-minimum
+      TECPEY_OFFLINE_SYNC_SECRET: diagnostics-offline-secret-32-characters-minimum
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: diagnostics-crm-hash-secret-32-characters-minimum
+      TECPEY_CRM_WEBHOOK_SECRET: diagnostics-crm-webhook-secret-32-characters-minimum
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: '1'
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: diagnostics-placeholder-token
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Apply migrations
+        run: npm run db:migrate
+
+      - name: Full tests with bounded runtime
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/tecpey-full-suite-diagnostics.log
+
+      - name: Upload full-suite diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-suite-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-full-suite-diagnostics.log
+          if-no-files-found: error
+          retention-days: 7
