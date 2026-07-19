@@ -59,10 +59,18 @@ requireText("repository", "AND principal_id = $3", "mutation SQL must enforce pr
 requireText("repository", "[notificationId, principal.tenantId, principal.id]", "mutation parameters must bind the resolved tenant and principal identities");
 requireText("repository", "ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING", "legacy migration must be idempotent");
 requireText("repository", "dismissed_at IS NULL", "dismissed notifications must be excluded from inbox projection");
+rejectText("repository", "export async function upsertNotificationPreference", "preference writes must have one authoritative implementation");
+rejectText("repository", "validNotificationPreferenceInput", "preference parsing must not be duplicated in the inbox repository");
 
 requireText("preferences", "mandatory_notification_class_cannot_be_disabled", "mandatory notification classes must not be silently disabled");
+requireText("preferences", 'MARKETING_CONSENT_POLICY_VERSION = "marketing-v1"', "consent policy version must be server-owned");
+requireText("preferences", 'NOTIFICATION_CONSENT_SOURCE = "notification-preference-center"', "consent source must be server-owned");
 requireText("preferenceRoute", "exactly_one_preferences_operation_required", "preference mutations must be unambiguous");
 requireText("consentRoute", "recordNotificationConsent", "consent changes must append evidence rather than overwrite state");
+requireText("consentRoute", "MARKETING_CONSENT_POLICY_VERSION", "consent endpoint must apply the server-owned policy version");
+requireText("consentRoute", "NOTIFICATION_CONSENT_SOURCE", "consent endpoint must apply the server-owned source");
+rejectText("consentRoute", "raw.policyVersion", "client-controlled consent policy versions are forbidden");
+rejectText("consentRoute", "raw.source", "client-controlled consent sources are forbidden");
 requireText("consentRoute", 'apiError("authentication_required", 401)', "consent endpoints must require authentication");
 
 if (failures.length) {
@@ -70,4 +78,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, CSRF, consent and ownership boundaries are enforced.");
+console.log("Notification persistence authority check passed: durable principal, tenant-bound inbox, CSRF, server-owned consent and single preference authority are enforced.");
