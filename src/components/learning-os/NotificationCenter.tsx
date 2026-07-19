@@ -75,13 +75,14 @@ function parseNotificationItem(value: unknown): NotificationItem | null {
     return null;
   }
 
+  const priority = Number(candidate.priority);
   return {
     id: candidate.id,
     notificationClass,
     title: candidate.title,
     body: candidate.body,
     actionUrl: typeof candidate.actionUrl === "string" ? candidate.actionUrl : null,
-    priority: Number.isInteger(candidate.priority) ? Number(candidate.priority) : 1,
+    priority: Number.isInteger(priority) ? priority : 1,
     readAt: typeof candidate.readAt === "string" ? candidate.readAt : null,
   };
 }
