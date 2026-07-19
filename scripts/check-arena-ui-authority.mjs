@@ -83,6 +83,8 @@ for (const [target, pattern, reason] of [
   ["journal", "shouldApplyArenaReflectionMutation", "reflection mutation responses must be monotonic"],
   ["journal", "reflectionMutationSequenceRef", "each trade requires ordered mutation response tracking"],
   ["journal", "incoming.revision >= current.revision", "reflection list refreshes must not roll back projected revisions"],
+  ["journal", "aria-busy={saving}", "reflection editor must expose its in-flight lock state"],
+  ["journal", "<fieldset className=\"mt-4\" disabled={saving}>", "mistake tags must be locked while save is in flight"],
   ["journal", "\"Idempotency-Key\"", "reflection writes must carry an idempotency header"],
   ["journal", "expectedRevision", "reflection writes must carry optimistic revision"],
   ["journalPage", "max-w-5xl", "journal needs a responsive production width"],
@@ -92,6 +94,9 @@ for (const [target, pattern, reason] of [
   ["reflectionRoute", "getCanonicalSession", "reflection API must use canonical Academy auth"],
   ["reflectionRoute", "strictRevocation: true", "reflection writes require strict session revocation"],
   ["reflectionRoute", "validateArenaExecutionStateV2", "closed-trade evidence must come from validated Execution V2 state"],
+  ["reflectionRoute", "createArenaExecutionStateV2", "fresh attempts must materialize the canonical initial execution state"],
+  ["reflectionRoute", "starting_balance::text", "fresh reflection state must use the attempt's authoritative starting balance"],
+  ["reflectionRoute", "isEmptyExecutionState(row.execution_state)", "empty database defaults must not fail reflection reads"],
   ["reflectionRoute", "pg_advisory_xact_lock", "reflection commands require transaction-scoped serialization"],
   ["reflectionRoute", "academy_trading_arena_reflection_commands", "reflection writes require immutable command replay evidence"],
   ["reflectionRoute", "if (trade && !reflectionEvidenceMatchesTrade(reflection, trade))", "archived reflections must survive live trade pruning while present trades stay reconciled"],
@@ -107,6 +112,11 @@ for (const [target, pattern, reason] of [
   ["migrations", "0022_trading_arena_reflections.sql", "authoritative reflection schema must be registered after 0021"],
   ["migrations", "FOREIGN KEY (attempt_id, student_id)", "database schema must enforce attempt ownership"],
 ]) requireText(target, pattern, reason);
+
+const saveLocks = content.journal.match(/disabled=\{saving\}/g)?.length ?? 0;
+if (saveLocks < 6) {
+  failures.push(`${files.journal}: every editable reflection control and the submit button must be locked while a save is in flight`);
+}
 
 const replayLookup = content.reflectionRoute.indexOf("const command = await client.query<ReflectionCommandRow>");
 const liveAttemptLookup = content.reflectionRoute.indexOf(
@@ -129,4 +139,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Arena UI authority boundary OK: execution, journal reflections and scenario routes respect server authority, immutable replay and monotonic client projection.");
+console.log("Arena UI authority boundary OK: execution, journal reflections and scenario routes respect fresh-attempt initialization, in-flight editor locking, server authority, immutable replay and monotonic client projection.");
