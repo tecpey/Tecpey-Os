@@ -3,6 +3,7 @@ import path from "node:path";
 
 const root = process.cwd();
 const files = {
+  guard: "scripts/check-notification-domain-outbox-authority.mjs",
   package: "package.json",
   ci: ".github/workflows/ci.yml",
   migrationPlan: "src/lib/db-migration-plan.ts",
@@ -59,6 +60,7 @@ requireText("processing", "processAuthoritativeNotificationDomainClaim", "one au
 requireText("processing", "FROM notification_domain_outbox o", "processing must reload the event from PostgreSQL");
 requireText("processing", "JOIN platform_principals p", "processing must revalidate current principal state and locale");
 requireText("processing", "FOR UPDATE OF o", "processing must lock the authoritative event row");
+requireText("processing", "FOR SHARE OF p", "processing must hold principal locale and status stable until commit");
 requireText("processing", "parseNotificationProducerEvent", "reloaded events must pass runtime validation again");
 requireText("processing", "produceDomainNotification(client, event)", "authoritative processing must delegate to governed producers");
 requireText("processing", "eventLocale", "attempt evidence must preserve occurrence locale");
@@ -109,7 +111,12 @@ for (const absolute of await walk(path.join(root, "src", "app", "api"))) {
 for (const directory of [path.join(root, "src"), path.join(root, "scripts")]) {
   for (const absolute of await walk(directory)) {
     const relative = path.normalize(path.relative(root, absolute));
-    if (relative === path.normalize(files.outbox)) continue;
+    if (
+      relative === path.normalize(files.outbox) ||
+      relative === path.normalize(files.guard)
+    ) {
+      continue;
+    }
     if ((await readFile(absolute, "utf8")).includes("processClaimedNotificationDomainEvent")) {
       failures.push(`${relative}: deprecated in-memory claim processor is forbidden; use authoritative row reload`);
     }
