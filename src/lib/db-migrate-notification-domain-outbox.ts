@@ -80,6 +80,48 @@ CREATE INDEX IF NOT EXISTS notification_domain_outbox_terminal_idx
   ON notification_domain_outbox (terminal_at DESC)
   WHERE status = 'failed_terminal';
 
+CREATE OR REPLACE FUNCTION tecpey_protect_notification_domain_event_identity()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'notification_domain_outbox events cannot be deleted'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF OLD.event_sequence IS DISTINCT FROM NEW.event_sequence
+    OR OLD.tenant_id IS DISTINCT FROM NEW.tenant_id
+    OR OLD.principal_id IS DISTINCT FROM NEW.principal_id
+    OR OLD.event_type IS DISTINCT FROM NEW.event_type
+    OR OLD.event_version IS DISTINCT FROM NEW.event_version
+    OR OLD.event_id IS DISTINCT FROM NEW.event_id
+    OR OLD.occurred_at IS DISTINCT FROM NEW.occurred_at
+    OR OLD.locale IS DISTINCT FROM NEW.locale
+    OR OLD.payload IS DISTINCT FROM NEW.payload
+    OR OLD.payload_hash IS DISTINCT FROM NEW.payload_hash
+    OR OLD.created_at IS DISTINCT FROM NEW.created_at
+  THEN
+    RAISE EXCEPTION 'notification_domain_outbox event identity is immutable'
+      USING ERRCODE = '55000';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS notification_domain_outbox_identity_no_update
+  ON notification_domain_outbox;
+CREATE TRIGGER notification_domain_outbox_identity_no_update
+  BEFORE UPDATE ON notification_domain_outbox
+  FOR EACH ROW EXECUTE FUNCTION tecpey_protect_notification_domain_event_identity();
+
+DROP TRIGGER IF EXISTS notification_domain_outbox_no_delete
+  ON notification_domain_outbox;
+CREATE TRIGGER notification_domain_outbox_no_delete
+  BEFORE DELETE ON notification_domain_outbox
+  FOR EACH ROW EXECUTE FUNCTION tecpey_protect_notification_domain_event_identity();
+
 CREATE TABLE IF NOT EXISTS notification_domain_outbox_attempts (
   id BIGSERIAL PRIMARY KEY,
   domain_outbox_id UUID NOT NULL
