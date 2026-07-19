@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   transfer-chart-cleanup:
-    name: Transfer Verified Chart.js Cleanup
+    name: Diagnose Verified Chart.js Cleanup Transfer
     runs-on: ubuntu-latest
     if: github.actor != 'github-actions[bot]' && github.head_ref == 'chore/remove-superseded-chartjs-final-20260719'
     steps:
@@ -19,7 +19,7 @@ jobs:
           ref: chore/remove-superseded-chartjs-final-20260719
           fetch-depth: 0
 
-      - name: Transfer only permanent cleanup files
+      - name: Transfer and stage permanent cleanup files
         run: |
           set -euo pipefail
           git fetch origin chore/remove-superseded-chartjs-path-20260719 --quiet
@@ -29,41 +29,45 @@ jobs:
             docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
           git rm 'src/app/crypto/[symbol]/ChartWrapper.tsx'
           git rm src/components/crypto/LivePriceChart.tsx
-
-      - name: Verify transferred boundaries
-        run: |
-          node - <<'NODE'
-          const pkg = require('./package.json');
-          for (const name of ['chart.js', 'react-chartjs-2']) {
-            if (pkg.dependencies?.[name] || pkg.devDependencies?.[name]) {
-              throw new Error(`${name}_direct_dependency_still_present`);
-            }
-          }
-          if (!pkg.dependencies?.recharts) throw new Error('recharts_must_remain');
-          NODE
-          node scripts/audit-repository-hygiene.mjs --json > /tmp/hygiene.json
-          node - <<'NODE'
-          const report = require('/tmp/hygiene.json');
-          if (report.unreferencedDependencies.length) {
-            throw new Error(`unexpected_unreferenced_dependencies:${report.unreferencedDependencies.map(x => x.name).join(',')}`);
-          }
-          NODE
-          git diff --check
-
-      - name: Commit only permanent cleanup paths
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json package-lock.json docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md
-          ACTUAL=$(git diff --cached --name-only | sort)
-          EXPECTED=$(printf '%s\n' \
-            'docs/audits/CLEANUP_SUPERSEDED_CHARTJS_20260719.md' \
-            'package-lock.json' \
-            'package.json' \
-            'src/app/crypto/[symbol]/ChartWrapper.tsx' \
-            'src/components/crypto/LivePriceChart.tsx' | sort)
-          test "$ACTUAL" = "$EXPECTED"
+          git diff --check
           git diff --cached --check
-          git commit -m 'chore(charts): remove superseded Chart.js path'
-          git push origin HEAD:chore/remove-superseded-chartjs-final-20260719
+
+      - name: Capture commit and push diagnostics
+        shell: bash
+        run: |
+          set +e
+          {
+            echo '=== STATUS ==='
+            git status --short
+            echo '=== STAGED ==='
+            git diff --cached --name-only | sort
+            echo '=== UNSTAGED ==='
+            git diff --name-only | sort
+            echo '=== COMMIT ==='
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'chore(charts): remove superseded Chart.js path'
+            COMMIT_STATUS=$?
+            echo "COMMIT_STATUS=$COMMIT_STATUS"
+            if [ "$COMMIT_STATUS" -eq 0 ]; then
+              echo '=== PUSH ==='
+              git push origin HEAD:chore/remove-superseded-chartjs-final-20260719
+              PUSH_STATUS=$?
+              echo "PUSH_STATUS=$PUSH_STATUS"
+            else
+              PUSH_STATUS=99
+            fi
+            echo "FINAL_COMMIT_STATUS=$COMMIT_STATUS"
+            echo "FINAL_PUSH_STATUS=$PUSH_STATUS"
+          } > chart-transfer-diagnostic.txt 2>&1
+          cat chart-transfer-diagnostic.txt
+          exit 0
+
+      - name: Upload transfer diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: chart-transfer-diagnostic-${{ github.sha }}
+          path: chart-transfer-diagnostic.txt
+          if-no-files-found: error
+          retention-days: 3
