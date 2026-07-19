@@ -1,61 +1,64 @@
-name: Academy Authority Lint Diagnostic — Never Merge
+name: Academy Authority Lint Fix — Never Merge
 
 on:
   push:
     branches:
       - feat/academy-server-reward-authority
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: academy-authority-lint-diagnostic
+  group: academy-authority-lint-fix
   cancel-in-progress: true
 
 jobs:
-  diagnostic:
-    name: Capture complete ESLint evidence
+  fix:
+    name: Apply verified Next.js lint rename
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
-      - name: Checkout
+      - name: Checkout exact branch
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
+          ref: feat/academy-server-reward-authority
+          fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
-
-      - name: Capture ESLint output
-        id: lint
-        continue-on-error: true
+      - name: Apply exact lint correction
         shell: bash
         run: |
-          set +e
-          ./node_modules/.bin/eslint . --max-warnings 0 > /tmp/academy-authority-eslint.log 2>&1
-          status=$?
-          printf '%s\n' "$status" > /tmp/academy-authority-eslint.status
-          cat /tmp/academy-authority-eslint.log
-          exit "$status"
+          set -euo pipefail
+          file='src/lib/academy-progress-authority.ts'
+          before='for (const module of TERM1.modules) {'
+          after='for (const moduleEntry of TERM1.modules) {'
 
-      - name: Upload diagnostic evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: academy-authority-eslint-diagnostic
-          path: |
-            /tmp/academy-authority-eslint.log
-            /tmp/academy-authority-eslint.status
-          if-no-files-found: error
-          retention-days: 1
+          test "$(grep -Fxc "$before" "$file")" = '1'
+          test "$(grep -Fxc '    const lesson = module.lessons.find((item) => item.id === lessonId);' "$file")" = '1'
 
-      - name: Preserve failing status
-        if: steps.lint.outcome == 'failure'
-        run: exit 1
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/lib/academy-progress-authority.ts')
+          source = path.read_text()
+          source = source.replace(
+              'for (const module of TERM1.modules) {\n    const lesson = module.lessons.find((item) => item.id === lessonId);',
+              'for (const moduleEntry of TERM1.modules) {\n    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);',
+              1,
+          )
+          path.write_text(source)
+          PY
+
+          test "$(grep -Fxc "$after" "$file")" = '1'
+          test "$(grep -Fxc '    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);' "$file")" = '1'
+          ! grep -Fq 'for (const module of TERM1.modules)' "$file"
+          git diff --check
+
+      - name: Commit source-only correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/academy-progress-authority.ts
+          git diff --cached --check
+          git commit -m 'fix(academy): avoid reserved module binding'
+          git push origin HEAD:feat/academy-server-reward-authority
