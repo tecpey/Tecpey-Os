@@ -9,8 +9,8 @@ import { writeAudit } from "@/lib/security/audit-log";
 import { decryptTotpSecret, verifyTotpStep } from "@/lib/security/totp";
 import {
   canonicalizeWithdrawalCommand,
+  issueWithdrawalAuthorizationTx,
   WITHDRAWAL_ADMISSION_POLICY_VERSION,
-  WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
 } from "@/lib/security/withdrawal-admission-authority";
 
 export const dynamic = "force-dynamic";
@@ -84,24 +84,14 @@ export async function POST(req: NextRequest) {
         return apiError("invalid_totp_code", 401);
       }
 
-      const expiresAt = new Date(
-        Date.now() + WITHDRAWAL_AUTHORIZATION_TTL_SECONDS * 1000,
-      );
       try {
         const issued = await withTx(async (db) => {
-          const inserted = await db.query<{ id: string }>(
-            `INSERT INTO withdrawal_authorizations
-               (user_id, request_hash, verification_step, policy_version, expires_at)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id`,
-            [
-              userId,
-              canonical.requestHash,
-              step,
-              WITHDRAWAL_ADMISSION_POLICY_VERSION,
-              expiresAt,
-            ],
-          );
+          const authorization = await issueWithdrawalAuthorizationTx(db, {
+            userId,
+            requestHash: canonical.requestHash,
+            verificationStep: step,
+          });
+          if (!authorization) return null;
           await db.query(
             `UPDATE user_2fa
                 SET last_used_at = NOW()
@@ -109,7 +99,7 @@ export async function POST(req: NextRequest) {
                 AND enabled = TRUE`,
             [userId],
           );
-          return inserted.rows[0]?.id ?? null;
+          return authorization;
         });
         if (!issued.enabled || !issued.value) {
           return apiError("authorization_store_unavailable", 503);
@@ -121,16 +111,16 @@ export async function POST(req: NextRequest) {
           ip: getClientIp(req),
           userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
           metadata: {
-            authorizationId: issued.value,
+            authorizationId: issued.value.id,
             requestHash: canonical.requestHash,
             policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
-            expiresAt: expiresAt.toISOString(),
+            expiresAt: issued.value.expiresAt.toISOString(),
           },
         });
         return apiOk({
-          authorizationId: issued.value,
+          authorizationId: issued.value.id,
           requestHash: canonical.requestHash,
-          expiresAt: expiresAt.toISOString(),
+          expiresAt: issued.value.expiresAt.toISOString(),
         });
       } catch (error) {
         const codeValue =
