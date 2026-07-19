@@ -1,0 +1,39 @@
+name: Academy Authority Audit — Never Merge
+
+on:
+  push:
+    branches:
+      - audit/academy-authority-call-sites-20260719
+
+jobs:
+  inventory:
+    name: Academy authority call-site inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inventory client progress mutations
+        run: |
+          echo '=== CLIENT MUTATION HELPERS AND CALL SITES ==='
+          git grep -n -E 'awardXp|recordLessonComplete|recordModuleScore|passTerm|awardBadge' -- 'src/**/*.{ts,tsx}' || true
+
+      - name: Inventory academy-state endpoint usage
+        run: |
+          echo '=== ACADEMY STATE ENDPOINT USAGE ==='
+          git grep -n -E '/api/academy-state|AcademyProgressAction|applyAcademyProgressAction|XP_TABLE' -- 'src/**/*.{ts,tsx}' || true
+
+      - name: Inventory authoritative progression routes and tables
+        run: |
+          echo '=== AUTHORITATIVE ROUTES AND TABLES ==='
+          git grep -n -E 'academy_lesson_progress|academy_term_learning_progress|academy_term_progress|academy_quiz|academy_student_events|lesson_complete|module_score|pass_term|award_badge|award_xp' -- 'src/**/*.{ts,tsx}' || true
+
+      - name: Inventory relevant tests
+        run: |
+          echo '=== RELEVANT TEST FILES ==='
+          git ls-files 'src/tests/**' | grep -E 'academy|lesson|quiz|progress|term|badge|xp' || true
+
+      - name: Guard audit branch
+        run: |
+          test "$(git branch --show-current)" = 'audit/academy-authority-call-sites-20260719'
+          echo 'AUDIT-ONLY: this workflow and branch must never merge into main.'
