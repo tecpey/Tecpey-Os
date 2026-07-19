@@ -32,28 +32,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          file='src/lib/academy-progress-authority.ts'
-          before='for (const module of TERM1.modules) {'
-          after='for (const moduleEntry of TERM1.modules) {'
-
-          test "$(grep -Fxc "$before" "$file")" = '1'
-          test "$(grep -Fxc '    const lesson = module.lessons.find((item) => item.id === lessonId);' "$file")" = '1'
-
           python - <<'PY'
           from pathlib import Path
+
           path = Path('src/lib/academy-progress-authority.ts')
           source = path.read_text()
-          source = source.replace(
-              'for (const module of TERM1.modules) {\n    const lesson = module.lessons.find((item) => item.id === lessonId);',
-              'for (const moduleEntry of TERM1.modules) {\n    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);',
-              1,
-          )
-          path.write_text(source)
-          PY
+          before = 'for (const module of TERM1.modules) {\n    const lesson = module.lessons.find((item) => item.id === lessonId);'
+          after = 'for (const moduleEntry of TERM1.modules) {\n    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);'
 
-          test "$(grep -Fxc "$after" "$file")" = '1'
-          test "$(grep -Fxc '    const lesson = moduleEntry.lessons.find((item) => item.id === lessonId);' "$file")" = '1'
-          ! grep -Fq 'for (const module of TERM1.modules)' "$file"
+          assert source.count(before) == 1, 'expected exactly one original module binding'
+          assert after not in source, 'replacement already present before verified change'
+          updated = source.replace(before, after, 1)
+          assert updated.count(before) == 0, 'original module binding still present'
+          assert updated.count(after) == 1, 'replacement binding was not created exactly once'
+          path.write_text(updated)
+          PY
           git diff --check
 
       - name: Commit source-only correction
