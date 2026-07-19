@@ -16,32 +16,6 @@ import {
   upsertNotificationPreference,
 } from "@/lib/notifications/preferences";
 
-async function resolveActivePrincipal(req: NextRequest) {
-  const identity = await getNotificationIdentityFromRequest(req);
-  if (!identity) return { error: apiError("authentication_required", 401) } as const;
-
-  try {
-    const result = await withTx(async (client) => {
-      const principal = await resolveNotificationPrincipal(client, identity);
-      if (principal.status !== "active") {
-        throw new Error("notification_principal_inactive");
-      }
-      return { client, principal };
-    });
-    if (!result.enabled) return { error: apiError("notification_preferences_unavailable", 503) } as const;
-    return { identity, principalId: result.value.principal.id } as const;
-  } catch (error) {
-    const code = error instanceof Error ? error.message : "notification_preferences_failed";
-    if (code === "notification_principal_inactive") {
-      return { error: apiError("account_inactive", 403) } as const;
-    }
-    if (code.includes("notification_principal_")) {
-      return { error: apiError("notification_identity_conflict", 409) } as const;
-    }
-    return { error: apiError("notification_preferences_unavailable", 503) } as const;
-  }
-}
-
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/notifications/preferences" }, async () => {
     const rate = await rateLimit(req, {
