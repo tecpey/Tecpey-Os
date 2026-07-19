@@ -1,3 +1,4 @@
+import type Decimal from "decimal.js";
 import { D } from "./decimal";
 import {
   isExactIncrement,
@@ -68,7 +69,7 @@ export function validatePlaceOrderRequest(
   // Every non-market order needs a deterministic price. IOC/FOK/GTC may arrive
   // through legacy type aliases, while timeInForce remains the preferred API.
   const priceRequired = request.type !== "market";
-  let price = null;
+  let price: Decimal | null = null;
   if (priceRequired) {
     if (!request.price) {
       return { ok: false, error: "price_required", detail: "price is required for non-market orders" };
