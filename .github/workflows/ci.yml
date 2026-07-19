@@ -122,6 +122,9 @@ jobs:
       - name: Frontend style authority guard
         run: npm run ui:check
 
+      - name: Runtime bootstrap authority guard
+        run: node scripts/check-runtime-bootstrap.mjs
+
       - name: Frontend development runtime style smoke
         run: |
           set -o pipefail
