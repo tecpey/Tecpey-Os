@@ -163,11 +163,25 @@ jobs:
       - name: Notification persistence authority guard
         run: npm run notifications:check
 
+      - name: Notification runtime authority guard
+        run: npm run notifications:runtime:check
+
       - name: Exchange order admission authority guard
         run: node scripts/check-exchange-order-admission.mjs
 
       - name: Tests
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/tecpey-test-diagnostics.log
+
+      - name: Upload test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-test-diagnostics.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build
         env:

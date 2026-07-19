@@ -23,6 +23,7 @@ export type InboxNotification = {
   readAt: string | null;
   dismissedAt: string | null;
   actionedAt: string | null;
+  deliveredAt: string;
   scheduledFor: string;
   expiresAt: string | null;
   createdAt: string;
@@ -60,6 +61,7 @@ type InboxRow = {
   read_at: Date | null;
   dismissed_at: Date | null;
   actioned_at: Date | null;
+  delivered_at: Date;
   scheduled_for: Date;
   expires_at: Date | null;
   created_at: Date;
@@ -87,6 +89,7 @@ function mapInboxRow(row: InboxRow): InboxNotification {
     readAt: toIso(row.read_at),
     dismissedAt: toIso(row.dismissed_at),
     actionedAt: toIso(row.actioned_at),
+    deliveredAt: row.delivered_at.toISOString(),
     scheduledFor: row.scheduled_for.toISOString(),
     expiresAt: toIso(row.expires_at),
     createdAt: row.created_at.toISOString(),
@@ -189,12 +192,13 @@ export async function migrateLegacyNotificationsForPrincipal(
       `INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
          title, body, locale, action_url, urgency, priority, correlation_key,
-         policy_decision, policy_reason, scheduled_for, read_at, metadata, created_at, updated_at)
+         policy_decision, policy_reason, scheduled_for, read_at, delivered_at,
+         metadata, created_at, updated_at)
        VALUES
         ($1, $2, $3, 'legacy_notification_center', $4, $5, $6, $7, $8,
          CASE WHEN $9 >= 3 THEN 'high' ELSE 'normal' END,
          LEAST(10, GREATEST(0, $9)), $10, 'allow', 'legacy_migrated',
-         $11, $12, $13::jsonb, $14, $14)
+         $11, $12, $14, $13::jsonb, $14, $14)
        ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING`,
       [
         principal.tenantId,
@@ -234,10 +238,11 @@ export async function listInboxNotifications(
   const result = await client.query<InboxRow>(
     `SELECT id, notification_class, title, body, locale, action_url, urgency,
             priority, source_type, source_id, read_at, dismissed_at, actioned_at,
-            scheduled_for, expires_at, created_at, metadata
+            delivered_at, scheduled_for, expires_at, created_at, metadata
        FROM platform_notifications
       WHERE tenant_id = $1
         AND principal_id = $2
+        AND delivered_at IS NOT NULL
         AND scheduled_for <= NOW()
         AND (expires_at IS NULL OR expires_at > NOW())
         AND dismissed_at IS NULL
@@ -258,6 +263,7 @@ export async function listInboxNotifications(
        FROM platform_notifications
       WHERE tenant_id = $1
         AND principal_id = $2
+        AND delivered_at IS NOT NULL
         AND scheduled_for <= NOW()
         AND (expires_at IS NULL OR expires_at > NOW())
         AND dismissed_at IS NULL
@@ -305,9 +311,10 @@ export async function mutateInboxNotification(
       WHERE id = $1::uuid
         AND tenant_id = $2
         AND principal_id = $3
+        AND delivered_at IS NOT NULL
       RETURNING id, notification_class, title, body, locale, action_url, urgency,
                 priority, source_type, source_id, read_at, dismissed_at, actioned_at,
-                scheduled_for, expires_at, created_at, metadata`,
+                delivered_at, scheduled_for, expires_at, created_at, metadata`,
     [notificationId, principal.tenantId, principal.id],
   );
 
