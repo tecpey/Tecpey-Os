@@ -428,13 +428,20 @@ export async function createInAppNotification(
     const insertedOutbox = await client.query<{ id: string }>(
       `INSERT INTO notification_outbox
         (notification_id, channel, idempotency_key, available_at, payload_hash)
-       VALUES ($1, 'in_app', $2, $3::timestamptz, $4)
+       VALUES (
+         $1,
+         'in_app',
+         $2,
+         CASE WHEN $5 = 'allow' THEN CURRENT_TIMESTAMP ELSE $3::timestamptz END,
+         $4
+       )
        RETURNING id`,
       [
         notificationId,
         outboxIdempotencyKey(principal, request.correlationKey),
         scheduledFor,
         hash,
+        policy.decision,
       ],
     );
     outboxId = insertedOutbox.rows[0]?.id ?? null;
