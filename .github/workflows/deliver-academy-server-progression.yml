@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - delivery/academy-server-issued-progression-20260719
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
