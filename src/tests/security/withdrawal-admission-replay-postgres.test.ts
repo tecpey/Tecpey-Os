@@ -72,13 +72,17 @@ describe("Committed withdrawal replay authority", () => {
     }
   });
 
-  it("checks committed replay before authorization and external admission", async () => {
+  it("checks committed replay and authorization before external admission", async () => {
     const source = await readFile("src/app/api/auth/withdraw/route.ts", "utf8");
     const replayIndex = source.indexOf("resolveWithdrawalReplay({");
-    const authorizationIndex = source.indexOf("const authorizationId");
+    const authorizationIdIndex = source.indexOf("const authorizationId");
+    const authorizationPreflightIndex = source.indexOf(
+      "inspectWithdrawalAuthorization({",
+    );
     const admissionIndex = source.indexOf("createAuthoritativeWithdrawal({");
     assert.ok(replayIndex >= 0);
-    assert.ok(authorizationIndex > replayIndex);
-    assert.ok(admissionIndex > authorizationIndex);
+    assert.ok(authorizationIdIndex > replayIndex);
+    assert.ok(authorizationPreflightIndex > authorizationIdIndex);
+    assert.ok(admissionIndex > authorizationPreflightIndex);
   });
 });
