@@ -1,10 +1,7 @@
 // Canonical session helper — edge-compatible (no "use server", no "next/headers").
-// Reads all active auth cookies and returns one normalized CanonicalSession.
-//
-// Phase 23: Legacy cookies (tecpey_academy_auth, tecpey_student_session, user_session)
-// are no longer issued on new logins. They are still read here as a fallback so that
-// existing browser sessions continue to work until their 30-day JWT expires.
-// Phase 24: Cookie names centralized in platform-config.ts.
+// Reads the unified session cookie first and normalizes legacy cookies only for
+// non-sensitive compatibility reads. Security-sensitive callers require a
+// registered unified session and a fresh fail-closed revocation decision.
 
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
@@ -14,11 +11,6 @@ import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session"
 import { isJtiRevoked, isJtiRevokedStrict } from "./security/jti-store";
 import { hasAdminAccess } from "./admin-auth";
 
-// ── jti revocation cache ──────────────────────────────────────────────────────
-// 30-second in-memory cache per jti to avoid a Redis round-trip on every request.
-// Revoked tokens remain cached as "revoked" for the TTL; allowed tokens as "allowed".
-// Cache is intentionally small — only the last N jtis seen on this instance.
-
 const JTI_CACHE_TTL_MS = 30_000;
 const JTI_CACHE_MAX = 2_000;
 type JtiCacheEntry = { revoked: boolean; ts: number };
@@ -27,47 +19,62 @@ const jtiCache = new Map<string, JtiCacheEntry>();
 function pruneJtiCache(): void {
   if (jtiCache.size <= JTI_CACHE_MAX) return;
   const cutoff = Date.now() - JTI_CACHE_TTL_MS;
-  for (const [k, v] of jtiCache) {
-    if (v.ts < cutoff) jtiCache.delete(k);
+  for (const [key, value] of jtiCache) {
+    if (value.ts < cutoff) jtiCache.delete(key);
     if (jtiCache.size <= JTI_CACHE_MAX) break;
   }
 }
 
+/**
+ * Strict checks never trust a cached allow from a prior non-strict request.
+ * A fresh strict backend decision is required; only a cached revoked=true result
+ * may short-circuit because deny evidence is safe to reuse for the short TTL.
+ */
 async function checkJtiRevoked(jti: string, strict = false): Promise<boolean> {
   const cached = jtiCache.get(jti);
-  if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) {
-    return cached.revoked;
+  const cacheFresh = Boolean(cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS);
+
+  if (strict) {
+    if (cacheFresh && cached?.revoked) return true;
+    const revoked = await isJtiRevokedStrict(jti);
+    pruneJtiCache();
+    if (revoked) jtiCache.set(jti, { revoked: true, ts: Date.now() });
+    else jtiCache.delete(jti);
+    return revoked;
   }
-  const revoked = await (strict ? isJtiRevokedStrict(jti) : isJtiRevoked(jti));
+
+  if (cacheFresh && cached) return cached.revoked;
+  const revoked = await isJtiRevoked(jti);
   pruneJtiCache();
   jtiCache.set(jti, { revoked, ts: Date.now() });
   return revoked;
 }
 
-// ── Normalized session type ───────────────────────────────────────────────────
-
 export type CanonicalSession = {
-  /** Market/platform user ID from user_session JWT (sub claim). */
   userId: string | null;
-  /** Academy student profile ID from tecpey_student_session JWT. */
   studentId: string | null;
-  /** Internal academy account ID from tecpey_academy_auth JWT (format "academy:email"). */
   academyAccountId: string | null;
-  /** Highest-privilege role present across all valid cookies. */
   role: "academy_user" | "student" | "user" | "guest";
-  /** Email address — sourced from academy auth JWT only, NOT from user_session. */
   email: string | null;
-  /** Display name from academy auth JWT. */
   displayName: string | null;
-  /** Username from academy auth JWT. */
   username: string | null;
-  /** True when tecpey_academy_auth JWT is valid and carries role=academy_user. */
   isAcademyUser: boolean;
-  /** True when a valid admin token header or admin session cookie is present. */
   isAdmin: boolean;
 };
 
-// ── Key resolution ────────────────────────────────────────────────────────────
+function guestSession(): CanonicalSession {
+  return {
+    userId: null,
+    studentId: null,
+    academyAccountId: null,
+    role: "guest",
+    email: null,
+    displayName: null,
+    username: null,
+    isAcademyUser: false,
+    isAdmin: false,
+  };
+}
 
 function academyAuthKey(): Uint8Array | null {
   const raw = process.env.TECPEY_ACADEMY_AUTH_SECRET;
@@ -88,8 +95,6 @@ function sessionKey(): Uint8Array | null {
   }
   return new TextEncoder().encode("tecpey-local-student-session-dev-secret-please-set-env");
 }
-
-// ── Individual cookie verifiers ───────────────────────────────────────────────
 
 type AcademyAuthResult = {
   accountId: string;
@@ -139,8 +144,6 @@ async function verifyUserSession(token: string | undefined): Promise<{ userId: s
   if (!key) return null;
   try {
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
-    // Guard against cross-cookie token reuse — academy/student JWTs share the
-    // same signing key but carry a distinct role claim.
     if (payload.role === "student" || payload.role === "academy_user") return null;
     if (typeof payload.sub !== "string") return null;
     return { userId: payload.sub };
@@ -149,32 +152,42 @@ async function verifyUserSession(token: string | undefined): Promise<{ userId: s
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
 export async function getCanonicalSession(
   req: NextRequest,
   options?: { strictRevocation?: boolean },
 ): Promise<CanonicalSession> {
-  // Prefer unified cookie — set by Phase 22+ login flows.
+  const strict = options?.strictRevocation === true;
   const unified = await verifyUnifiedSession(req.cookies.get(UNIFIED_SESSION_COOKIE)?.value);
+
   if (unified) {
-    // Phase 35: jti revocation check (30-second in-memory cache)
+    if (strict && !unified.jti) {
+      logger.warn("[auth-session] strict session missing jti — rejecting");
+      return guestSession();
+    }
+
     if (unified.jti) {
       try {
-        const revoked = await checkJtiRevoked(unified.jti, options?.strictRevocation);
+        const revoked = await checkJtiRevoked(unified.jti, strict);
         if (revoked) {
-          logger.info("[auth-session] jti revoked — rejecting session", { jti: unified.jti });
-          return {
-            userId: null, studentId: null, academyAccountId: null,
-            role: "guest", email: null, displayName: null, username: null,
-            isAcademyUser: false, isAdmin: false,
-          };
+          logger.info("[auth-session] jti revoked — rejecting session", {
+            jti: unified.jti,
+            strict,
+          });
+          return guestSession();
         }
       } catch (err) {
-        // Redis unavailable — allow (graceful degrade)
-        logger.warn("[auth-session] jti check failed — allowing", { err: String(err) });
+        if (strict) {
+          logger.warn("[auth-session] strict revocation check failed — blocking", {
+            err: String(err),
+          });
+          return guestSession();
+        }
+        logger.warn("[auth-session] non-strict revocation check failed — allowing", {
+          err: String(err),
+        });
       }
     }
+
     return {
       userId: null,
       studentId: unified.studentId,
@@ -188,7 +201,9 @@ export async function getCanonicalSession(
     };
   }
 
-  // Fall back to legacy per-cookie reads for sessions created before Phase 22.
+  // Security-sensitive operations do not accept legacy unregistered cookies.
+  if (strict) return guestSession();
+
   const [academyAuth, studentSession, userSession] = await Promise.all([
     verifyAcademyAuth(req.cookies.get(COOKIES.ACADEMY_AUTH)?.value),
     verifyStudentSession(req.cookies.get(COOKIES.STUDENT_SESSION)?.value),
