@@ -1,0 +1,14 @@
+diff --git a/src/lib/mentor-events.ts b/src/lib/mentor-events.ts
+index 88104fc..5a60776 100644
+--- a/src/lib/mentor-events.ts
++++ b/src/lib/mentor-events.ts
+@@ -21,7 +21,8 @@ export type MentorUpdateReason =
+   | "academy_progress_updated"
+   | "flashcards_updated"
+   | "reflection_updated"
+-  | "lesson_progress_updated";
++  | "lesson_progress_updated"
++  | "lesson_assessment_submitted";
+ 
+ // ── Safe runner ───────────────────────────────────────────────────────────────
+ 
