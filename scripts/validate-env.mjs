@@ -45,6 +45,7 @@ const required = [
   'TECPEY_REFRESH_SECRET',
   'TECPEY_ACADEMY_AUTH_SECRET',
   'CERTIFICATE_SIGNING_SECRET',
+  'TECPEY_WITHDRAWAL_PRICE_SECRET',
   'DATABASE_URL',
 ];
 
@@ -59,6 +60,8 @@ const optional = [
   'TECPEY_SESSION_MAX_AGE',
   'TECPEY_SESSION_MAX_AGE_SECONDS',
   'TECPEY_LEGACY_AUTH_UNTIL',
+  'TECPEY_WITHDRAWAL_DAILY_LIMIT_USD',
+  'TECPEY_REAL_WITHDRAWALS_ENABLED',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -86,6 +89,7 @@ for (const key of [
   'TECPEY_REFRESH_SECRET',
   'TECPEY_ACADEMY_AUTH_SECRET',
   'CERTIFICATE_SIGNING_SECRET',
+  'TECPEY_WITHDRAWAL_PRICE_SECRET',
 ]) {
   const value = process.env[key] || '';
   if (value && value.length < 32) errors.push(`${key} must be at least 32 characters`);
@@ -132,6 +136,14 @@ if (accessSessionLifetime !== null) {
   }
 }
 
+const withdrawalDailyLimit = process.env.TECPEY_WITHDRAWAL_DAILY_LIMIT_USD?.trim();
+if (withdrawalDailyLimit) {
+  const parsed = Number(withdrawalDailyLimit);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1_000_000) {
+    errors.push('TECPEY_WITHDRAWAL_DAILY_LIMIT_USD must be greater than 0 and no more than 1000000');
+  }
+}
+
 const legacyAuthUntil = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
 const legacyAuthHardSunset = Date.parse('2026-08-18T00:00:00.000Z');
 if (process.env.NODE_ENV === 'production' && legacyAuthUntil) {
@@ -171,7 +183,13 @@ if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) {
 if (process.env.NODE_ENV === 'production') {
   if (!process.env.REDIS_URL?.trim()) {
     errors.push(
-      'REDIS_URL is required in production because strict session revocation uses the shared ioredis client; Redis REST credentials alone are insufficient.'
+      'REDIS_URL is required in production because strict session and withdrawal risk authority use the shared ioredis client; Redis REST credentials alone are insufficient.'
+    );
+  }
+
+  if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED === '1') {
+    errors.push(
+      'TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden until the custody launch gate in issue #106 is independently closed.'
     );
   }
 
