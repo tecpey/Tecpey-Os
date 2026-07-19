@@ -1,5 +1,6 @@
 name: Apply Academy Authority Patch — Temporary
 
+# Temporary transport workflow. It deletes itself after a verified apply.
 on:
   push:
     branches:
