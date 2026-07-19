@@ -52,7 +52,8 @@ requireText("ci", "Authentication session integration tests", "pull-request CI m
 requireText("ci", "npm run test:auth-session", "CI must execute the governed auth integration command");
 requireText("env", "must be distinct", "production environment validation must reject reused auth secrets");
 requireText("env", "TECPEY_LEGACY_AUTH_UNTIL", "legacy compatibility must have an explicit environment cutoff");
-requireText("env", "beyond 30 days", "legacy compatibility cutoff must be bounded");
+requireText("env", "beyond 30 days", "legacy compatibility cutoff must remain locally bounded");
+requireText("env", "immutable 2026-08-18", "legacy compatibility must have a non-extendable production sunset");
 
 for (const target of ["unified", "legacySession"]) {
   requireText(target, "TECPEY_SESSION_SECRET", "access sessions must use the canonical secret");
@@ -75,6 +76,8 @@ rejectText("authSession", "revoked: false", "cached allow decisions are forbidde
 requireText("authSession", "legacyCookieCompatibilityEnabled", "legacy cookie acceptance must use one governed cutoff function");
 requireText("authSession", "TECPEY_LEGACY_AUTH_UNTIL", "legacy cookie acceptance must require an explicit production cutoff");
 requireText("authSession", "LEGACY_AUTH_MAX_WINDOW_MS", "legacy cookie migration windows must be bounded");
+requireText("authSession", "LEGACY_AUTH_HARD_SUNSET", "legacy cookie retirement must have an immutable code-owned sunset");
+requireText("authSession", "immutable hard sunset", "legacy cutoff configuration may not slide beyond retirement");
 requireText("authSession", "if (strict || !legacyCookieCompatibilityEnabled())", "strict callers and expired legacy windows must reject legacy cookies");
 requireText("authSession", "revocation check failed — blocking", "revocation check exceptions must fail closed");
 
@@ -152,12 +155,12 @@ requireText("specificSessionTests", "does not belong to the principal", "foreign
 requireText("passwordTests", "invalidates every old access and refresh credential", "password tests must prove complete credential rotation");
 requireText("passwordTests", "one fresh session", "password tests must prove only the replacement session remains active");
 requireText("legacyTests", "disables legacy cookie authentication by default in production", "legacy authentication must be off by default in production");
-requireText("legacyTests", "explicit short migration window", "legacy authentication must require an explicit migration cutoff");
-requireText("legacyTests", "30-day maximum", "legacy compatibility tests must reject unbounded retirement windows");
+requireText("legacyTests", "explicit window before the immutable sunset", "legacy authentication must require a short pre-sunset migration window");
+requireText("legacyTests", "slide beyond the immutable sunset", "legacy compatibility tests must reject configuration-based extensions");
 
 if (failures.length) {
   console.error("Authentication session authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, bounded legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
+console.log("Authentication session authority check passed: dedicated secrets, durable issuance, duplicate-JTI rejection, owner-bound and recoverable single/bulk revocation, device and password credential rotation, refresh invalidation across devices, deny-only caching, immutable legacy-cookie retirement, focused CI evidence, same-origin refresh rotation, route-level CSRF/forgery/logout tests, PostgreSQL/Redis negative tests, strict fail-closed checks and verified token forwarding are enforced.");
