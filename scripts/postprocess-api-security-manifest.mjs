@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { detectBodyLimitEvidence } from "./api-security-body-limit-policy.mjs";
 
 const root = process.cwd();
 const manifestPath = path.resolve(
@@ -66,21 +67,6 @@ function findings(entry) {
   return output;
 }
 
-function bodyLimitEvidence(source) {
-  const headerHint = /\bcheckBodySize\s*\(|content-length/i.test(source);
-  const governedReader = source.match(
-    /\b(readJsonBody|readBoundedJson|readBoundedBody|readBodyWithLimit|parseBoundedJsonBody)\s*\(/,
-  )?.[1] ?? null;
-  const streamingReader = /\.body\?*\.getReader\s*\(|\.body\.getReader\s*\(/.test(source)
-    && /(?:bytesRead|totalBytes|receivedBytes|size)\s*>\s*[A-Z0-9_]+/.test(source);
-
-  return {
-    headerHint,
-    authority: governedReader ?? (streamingReader ? "streaming-reader-with-byte-counter" : null),
-    enforceable: Boolean(governedReader || streamingReader),
-  };
-}
-
 const sourceCache = new Map();
 async function sourceFor(entry) {
   if (!sourceCache.has(entry.sourcePath)) {
@@ -96,7 +82,7 @@ for (const entry of manifest.routes) {
   // useful for an early rejection only and must never satisfy the governed body
   // limit requirement. Only a reader that stops consuming bytes at the limit is
   // accepted as enforceable evidence.
-  const bodyEvidence = bodyLimitEvidence(source);
+  const bodyEvidence = detectBodyLimitEvidence(source);
   entry.controls.headerBodySizeHint = bodyEvidence.headerHint;
   entry.controls.bodySizeLimitAuthority = bodyEvidence.authority;
   if (entry.controls.expectsBody) {
