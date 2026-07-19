@@ -20,7 +20,9 @@ export type WalletQueueJobKind = "withdrawal" | "confirmation" | "recovery" | "d
 /**
  * BullMQ reserves `:` inside custom job IDs. Hashing all authority inputs keeps
  * identifiers deterministic, bounded, opaque, and valid even if an upstream ID
- * contains a reserved separator.
+ * contains a reserved separator. Confirmation deduplication must use the
+ * authoritative withdrawal ID only: queue-provided transaction hashes are hints,
+ * while the worker hydrates the current hash and policy from PostgreSQL.
  */
 export function createWalletQueueJobId(
   kind: WalletQueueJobKind,
