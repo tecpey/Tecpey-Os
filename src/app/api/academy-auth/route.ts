@@ -18,20 +18,22 @@ import {
   clearUnifiedSessionCookie,
   extractJtiFromToken,
   extractExpFromToken,
+  signUnifiedSession,
+  verifyUnifiedSession,
   UNIFIED_SESSION_COOKIE,
 } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import { registerSession, revokeSession } from "@/lib/security/session-store";
-import { revokeJti } from "@/lib/security/jti-store";
+import {
+  registerSession,
+  revokeSessionStrict,
+} from "@/lib/security/session-store";
 import { writeAudit } from "@/lib/security/audit-log";
 import {
   issueRefreshToken,
   setRefreshCookie,
   clearRefreshCookie,
-  revokeRefreshToken,
-  getRefreshTokenFromRequest,
-  verifyRefreshToken,
+  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
@@ -105,7 +107,9 @@ async function writeLocalAuthStore(store: LocalAuthStore) {
   await writeFile(authStorePath(), JSON.stringify(store, null, 2), "utf8");
 }
 
-type Queryable = { query: (text: string, values?: unknown[]) => Promise<{ rows: any[] }> };
+type Queryable = {
+  query: (text: string, values?: unknown[]) => Promise<{ rows: any[] }>;
+};
 
 async function loadDbAccount(client: Queryable, email: string, username?: string) {
   const values: string[] = [email];
@@ -115,10 +119,20 @@ async function loadDbAccount(client: Queryable, email: string, username?: string
     where = "email = $1 OR username = $2";
   }
   const result = await client.query(
-    `SELECT id, email, username, display_name, password_hash FROM academy_auth_accounts WHERE ${where} LIMIT 1`,
+    `SELECT id, email, username, display_name, password_hash
+       FROM academy_auth_accounts
+      WHERE ${where}
+      LIMIT 1`,
     values,
   );
   return result.rows[0] || null;
+}
+
+function clearAllAuthCookies(response: ReturnType<typeof apiOk> | ReturnType<typeof apiError>) {
+  clearAcademyAuthCookie(response);
+  clearStudentSessionCookie(response);
+  clearUnifiedSessionCookie(response);
+  clearRefreshCookie(response);
 }
 
 export async function GET(req: NextRequest) {
@@ -139,269 +153,279 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
-  if (!verifyCsrfOrigin(req))
-    return apiError("forbidden", 403);
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-  const limit = await rateLimit(req, {
-    namespace: "academy-auth",
-    limit: 10,
-    windowMs: 60_000,
-  });
-  if (!limit.ok)
-    return apiRateLimited(limit.retryAfterSeconds);
+    const limit = await rateLimit(req, {
+      namespace: "academy-auth",
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
-  if (!isAcademyAuthConfigured()) {
-    return apiError("academy_auth_service_not_configured", 503);
-  }
+    if (!isAcademyAuthConfigured()) {
+      return apiError("academy_auth_service_not_configured", 503);
+    }
 
-  try {
-    const body = await req.json();
-    const mode = body.mode === "login" ? "login" : "signup";
-    const email = normalizeAcademyEmail(body.email);
-    const password = String(body.password || "");
-    const displayName = cleanDisplayName(
-      body.displayName || email.split("@")[0] || "دانشجوی تک‌پی",
-    );
-    const username = normalizeAcademyUsername(
-      body.username || displayName || email.split("@")[0],
-    );
+    try {
+      const body = await req.json();
+      const mode = body.mode === "login" ? "login" : "signup";
+      const email = normalizeAcademyEmail(body.email);
+      const password = String(body.password || "");
+      const displayName = cleanDisplayName(
+        body.displayName || email.split("@")[0] || "دانشجوی تک‌پی",
+      );
+      const username = normalizeAcademyUsername(
+        body.username || displayName || email.split("@")[0],
+      );
 
-    if (!/^\S+@\S+\.\S+$/.test(email))
-      return apiError("invalid_email", 400);
-    if (password.length < 10)
-      return apiError("weak_password", 400);
-    if (displayName.length < 2)
-      return apiError("invalid_display_name", 400);
-    if (username.length < 3)
-      return apiError("invalid_username", 400);
+      if (!/^\S+@\S+\.\S+$/.test(email)) return apiError("invalid_email", 400);
+      if (password.length < 10) return apiError("weak_password", 400);
+      if (displayName.length < 2) return apiError("invalid_display_name", 400);
+      if (username.length < 3) return apiError("invalid_username", 400);
 
-    const accountId = academyAccountIdFromEmail(email);
-    const dbResult = await withDb(async (client) => {
-      const existing = await loadDbAccount(client, email, username);
-      if (existing) {
-        if (existing.email !== email && existing.username === username) {
-          return { ok: false as const, status: 409, error: "username_taken" };
+      const accountId = academyAccountIdFromEmail(email);
+      const dbResult = await withDb(async (client) => {
+        const existing = await loadDbAccount(client, email, username);
+        if (existing) {
+          if (existing.email !== email && existing.username === username) {
+            return { ok: false as const, status: 409, error: "username_taken" };
+          }
+          if (!verifyPassword(password, existing.password_hash)) {
+            return { ok: false as const, status: 401, error: "invalid_credentials" };
+          }
+          await client.query(
+            `UPDATE academy_auth_accounts
+                SET display_name = COALESCE(NULLIF($2, ''), display_name),
+                    updated_at = NOW()
+              WHERE email = $1`,
+            [email, displayName],
+          );
+          return {
+            ok: true as const,
+            account: {
+              accountId: existing.id,
+              email: existing.email,
+              username: existing.username,
+              displayName: displayName || existing.display_name,
+            },
+          };
         }
-        if (!verifyPassword(password, existing.password_hash)) {
+        if (mode === "login") {
           return { ok: false as const, status: 401, error: "invalid_credentials" };
         }
         await client.query(
-          `UPDATE academy_auth_accounts SET display_name = COALESCE(NULLIF($2,''), display_name), updated_at = NOW() WHERE email = $1`,
-          [email, displayName],
+          `INSERT INTO academy_auth_accounts
+            (id, email, username, display_name, password_hash)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [accountId, email, username, displayName, hashPassword(password)],
         );
         return {
           ok: true as const,
-          account: {
-            accountId: existing.id,
-            email: existing.email,
-            username: existing.username,
-            displayName: displayName || existing.display_name,
-          },
+          account: { accountId, email, username, displayName },
         };
-      }
-      if (mode === "login") {
-        return { ok: false as const, status: 401, error: "invalid_credentials" };
-      }
-      await client.query(
-        `INSERT INTO academy_auth_accounts (id, email, username, display_name, password_hash)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [accountId, email, username, displayName, hashPassword(password)],
-      );
-      return {
-        ok: true as const,
-        account: { accountId, email, username, displayName },
-      };
-    });
-
-    let account: AcademyAccount | { accountId: string; email: string; username: string; displayName: string } | null = null;
-    if (dbResult.enabled) {
-      if (!dbResult.value?.ok) {
-        return apiError(dbResult.value?.error || "auth_failed", dbResult.value?.status || 400);
-      }
-      account = dbResult.value.account;
-    } else {
-      if (!canUseLocalAuthStorage()) {
-        return apiError("academy_auth_storage_unavailable", 503);
-      }
-      const store = await readLocalAuthStore();
-      const existing = store.accountsByEmail[email];
-      const ownerEmail = store.emailByUsername[username];
-      if (ownerEmail && ownerEmail !== email) {
-        return apiError("username_taken", 409);
-      }
-      if (existing) {
-        if (!verifyPassword(password, existing.passwordHash)) {
-          return apiError("invalid_credentials", 401);
-        }
-        existing.displayName = displayName || existing.displayName;
-        existing.updatedAt = new Date().toISOString();
-        store.accountsByEmail[email] = existing;
-        await writeLocalAuthStore(store);
-        account = existing;
-      } else {
-        if (mode === "login") {
-          return apiError("invalid_credentials", 401);
-        }
-        const created: AcademyAccount = {
-          accountId,
-          email,
-          username,
-          displayName,
-          passwordHash: hashPassword(password),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        store.accountsByEmail[email] = created;
-        store.emailByUsername[username] = email;
-        await writeLocalAuthStore(store);
-        account = created;
-      }
-    }
-
-    const ip = getClientIp(req);
-    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
-
-    // 2FA gate — only for login, only when DB is available and 2FA is enabled
-    if (mode === "login" && dbResult.enabled) {
-      const twoFaResult = await withDb(async (db) => {
-        const res = await db.query<{ enabled: boolean }>(
-          `SELECT enabled FROM user_2fa WHERE user_id = $1`,
-          [account!.accountId],
-        );
-        return res.rows[0]?.enabled ?? false;
       });
 
-      if (twoFaResult.enabled && twoFaResult.value) {
-        // Credentials verified but 2FA not yet completed — return pre-auth token
-        const preAuthToken = crypto.randomUUID();
-        await storePreAuthToken(preAuthToken, account!.accountId);
-        trackAuthEvent("login_2fa_required");
-        writeAudit({
-          actorId: account!.accountId,
-          action: "login",
-          ip,
-          userAgent: deviceInfo,
-          metadata: { mode, email: account!.email, step: "2fa_required" },
-        });
-        return apiOk({ requires2fa: true, preAuthToken });
+      let account:
+        | AcademyAccount
+        | { accountId: string; email: string; username: string; displayName: string }
+        | null = null;
+
+      if (dbResult.enabled) {
+        if (!dbResult.value?.ok) {
+          return apiError(
+            dbResult.value?.error || "auth_failed",
+            dbResult.value?.status || 400,
+          );
+        }
+        account = dbResult.value.account;
+      } else {
+        if (!canUseLocalAuthStorage()) {
+          return apiError("academy_auth_storage_unavailable", 503);
+        }
+        const store = await readLocalAuthStore();
+        const existing = store.accountsByEmail[email];
+        const ownerEmail = store.emailByUsername[username];
+        if (ownerEmail && ownerEmail !== email) {
+          return apiError("username_taken", 409);
+        }
+        if (existing) {
+          if (!verifyPassword(password, existing.passwordHash)) {
+            return apiError("invalid_credentials", 401);
+          }
+          existing.displayName = displayName || existing.displayName;
+          existing.updatedAt = new Date().toISOString();
+          store.accountsByEmail[email] = existing;
+          await writeLocalAuthStore(store);
+          account = existing;
+        } else {
+          if (mode === "login") return apiError("invalid_credentials", 401);
+          const created: AcademyAccount = {
+            accountId,
+            email,
+            username,
+            displayName,
+            passwordHash: hashPassword(password),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          store.accountsByEmail[email] = created;
+          store.emailByUsername[username] = email;
+          await writeLocalAuthStore(store);
+          account = created;
+        }
       }
-    }
 
-    // Track new devices on successful login
-    const fp = deviceFingerprint(deviceInfo, ip);
-    const { isNew } = await markDeviceSeen(account!.accountId, fp);
+      const ip = getClientIp(req);
+      const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
 
-    const response = apiOk({
-      authenticated: true,
-      account: {
-        email: account!.email,
-        displayName: account!.displayName,
-        username: account!.username,
-      },
-    });
+      if (mode === "login" && dbResult.enabled) {
+        const twoFaResult = await withDb(async (db) => {
+          const result = await db.query<{ enabled: boolean }>(
+            `SELECT enabled FROM user_2fa WHERE user_id = $1`,
+            [account!.accountId],
+          );
+          return result.rows[0]?.enabled ?? false;
+        });
 
-    // Issue access token (short-lived for new logins)
-    const { signUnifiedSession } = await import("@/lib/unified-session");
-    const accessToken = await signUnifiedSession({
-      accountId: account.accountId,
-      studentId: null,
-      email: account.email,
-      displayName: account.displayName,
-      username: account.username,
-    });
+        if (twoFaResult.enabled && twoFaResult.value) {
+          const preAuthToken = crypto.randomUUID();
+          await storePreAuthToken(preAuthToken, account!.accountId);
+          trackAuthEvent("login_2fa_required");
+          writeAudit({
+            actorId: account!.accountId,
+            action: "login",
+            ip,
+            userAgent: deviceInfo,
+            metadata: { mode, email: account!.email, step: "2fa_required" },
+          });
+          return apiOk({ requires2fa: true, preAuthToken });
+        }
+      }
 
-    response.cookies.set(COOKIES.SESSION, accessToken, {
-      path: "/",
-      httpOnly: true,
-      secure: shouldUseSecureCookie(),
-      sameSite: "lax",
-      maxAge: ACCESS_COOKIE_TTL_S,
-    });
+      const familyId = crypto.randomUUID();
+      const accessToken = await signUnifiedSession({
+        accountId: account.accountId,
+        studentId: null,
+        email: account.email,
+        displayName: account.displayName,
+        username: account.username,
+      });
+      const jti = extractJtiFromToken(accessToken);
+      const exp = extractExpFromToken(accessToken);
+      if (!jti || !exp) return apiError("session_issue_failed", 503);
 
-    // Issue refresh token and persist session
-    const jti = extractJtiFromToken(accessToken);
-    const exp = extractExpFromToken(accessToken);
+      const refreshToken = await issueRefreshToken({
+        userId: account.accountId,
+        familyId,
+        deviceInfo,
+        ip,
+      });
+      if (!refreshToken) return apiError("refresh_session_unavailable", 503);
 
-    const familyId = crypto.randomUUID();
-    const refreshToken = await issueRefreshToken({
-      userId: account.accountId,
-      familyId,
-      deviceInfo,
-      ip,
-    });
-    if (refreshToken) setRefreshCookie(response, refreshToken);
-
-    // Register session in DB (fire-and-forget — never block login)
-    if (jti && exp) {
-      void registerSession({
+      const registered = await registerSession({
         jti,
         userId: account.accountId,
         deviceInfo,
         ip,
         expiresAt: new Date(exp * 1000),
       });
+      if (!registered) {
+        await revokeAllRefreshTokensForUser(account.accountId);
+        return apiError("session_registry_unavailable", 503);
+      }
+
+      const fingerprint = deviceFingerprint(deviceInfo, ip);
+      const { isNew } = await markDeviceSeen(account.accountId, fingerprint);
+
+      const response = apiOk({
+        authenticated: true,
+        account: {
+          email: account.email,
+          displayName: account.displayName,
+          username: account.username,
+        },
+      });
+      response.cookies.set(COOKIES.SESSION, accessToken, {
+        path: "/",
+        httpOnly: true,
+        secure: shouldUseSecureCookie(),
+        sameSite: "lax",
+        maxAge: ACCESS_COOKIE_TTL_S,
+      });
+      setRefreshCookie(response, refreshToken);
+
+      trackAuthEvent("login_success");
+      if (isNew) trackAuthEvent("new_device_detected");
+      writeAudit({
+        actorId: account.accountId,
+        action: "login",
+        ip,
+        userAgent: deviceInfo,
+        metadata: { mode, email: account.email, isNewDevice: isNew },
+      });
+
+      return response;
+    } catch {
+      return apiError("server_error", 500);
     }
-
-    // Audit login
-    trackAuthEvent("login_success");
-    if (isNew) trackAuthEvent("new_device_detected");
-    writeAudit({
-      actorId: account.accountId,
-      action: "login",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { mode, email: account.email, isNewDevice: isNew },
-    });
-
-    return response;
-  } catch {
-    return apiError("server_error", 500);
-  }
-  }); // end withObservability
+  });
 }
 
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
-    const response = apiOk({});
+    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    // Revoke current session jti before clearing cookie
-    const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
     const ip = getClientIp(req);
     const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
-    let actorId = "unknown";
+    const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
 
-    if (sessionToken) {
-      const jti = extractJtiFromToken(sessionToken);
-      const exp = extractExpFromToken(sessionToken);
-      if (jti && exp) {
-        actorId = jti; // best we have without re-verifying
-        void revokeJti(jti, exp);
-        void revokeSession(jti, jti); // userId=jti is a fallback; session-store uses jti as PK
-      }
+    if (!sessionToken) {
+      const response = apiOk({ revoked: false, alreadyLoggedOut: true });
+      clearAllAuthCookies(response);
+      return response;
     }
 
-    // Revoke refresh token if present
-    const refreshToken = getRefreshTokenFromRequest(req);
-    if (refreshToken) {
-      const verified = await verifyRefreshToken(refreshToken);
-      if (verified.ok) {
-        actorId = verified.userId;
-        void revokeRefreshToken(verified.jti);
-      }
+    const session = await verifyUnifiedSession(sessionToken);
+    const jti = session?.jti ?? null;
+    const userId = session?.accountId ?? session?.studentId ?? null;
+    if (!session || !jti || !userId) {
+      const response = apiError("invalid_session", 401);
+      clearAllAuthCookies(response);
+      return response;
     }
 
-    clearAcademyAuthCookie(response);
-    clearStudentSessionCookie(response);
-    clearUnifiedSessionCookie(response);
-    clearRefreshCookie(response);
+    const accessRevocation = await revokeSessionStrict(jti, userId);
+    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
 
+    if (!accessRevocation.ok || !refreshRevoked) {
+      const response = apiError("logout_revocation_unavailable", 503, {
+        accessReason: accessRevocation.ok ? null : accessRevocation.reason,
+        refreshRevoked,
+      });
+      clearAllAuthCookies(response);
+      writeAudit({
+        actorId: userId,
+        action: "logout",
+        ip,
+        userAgent: deviceInfo,
+        metadata: {
+          outcome: "failed",
+          accessReason: accessRevocation.ok ? null : accessRevocation.reason,
+          refreshRevoked,
+        },
+      });
+      return response;
+    }
+
+    const response = apiOk({ revoked: true });
+    clearAllAuthCookies(response);
     writeAudit({
-      actorId,
+      actorId: userId,
       action: "logout",
       ip,
       userAgent: deviceInfo,
+      metadata: { outcome: "success", refreshScope: "all_user_tokens" },
     });
-
     return response;
   });
 }
