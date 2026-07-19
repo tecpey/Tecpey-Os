@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { D, toFixed } from "./decimal";
@@ -259,6 +260,49 @@ async function strictLedgerMutationTx(input: {
   }
 }
 
+async function matchedReleaseAmountTx(
+  client: PoolClient,
+  userId: string,
+  asset: string,
+  amount: number | string,
+  orderId: string,
+): Promise<string> {
+  const normalizedAsset = asset.toUpperCase();
+  const basis = D(toFixed(amount, 10));
+  const authority = await client.query<{
+    side: string;
+    type: string;
+    quote_asset: string;
+    maker_fee: string;
+    taker_fee: string;
+  }>(
+    `SELECT orders.side, orders.type, markets.quote_asset,
+            markets.maker_fee::text, markets.taker_fee::text
+       FROM orders
+       JOIN markets ON markets.symbol = orders.market
+      WHERE orders.id = $1::uuid AND orders.user_id = $2
+      FOR SHARE OF orders, markets`,
+    [orderId, userId],
+  );
+  const row = authority.rows[0];
+  if (!row) throw new Error("order_hold_authority_missing");
+  if (row.side !== "buy" || row.quote_asset !== normalizedAsset) {
+    return basis.toFixed(10);
+  }
+
+  const feeRate = row.type === "market"
+    ? D(row.taker_fee)
+    : Decimal.max(D(row.maker_fee), D(row.taker_fee));
+  const feeCovered = basis
+    .times(D(1).plus(feeRate))
+    .toDecimalPlaces(10, Decimal.ROUND_UP);
+  const residual = D(
+    await getOrderHoldResidualTx(client, userId, normalizedAsset, orderId),
+  );
+  if (residual.isZero()) throw new Error("order_hold_exhausted_before_trade");
+  return Decimal.min(feeCovered, residual).toFixed(10);
+}
+
 export async function releaseMatchedOrderFundsTx(
   client: PoolClient,
   userId: string,
@@ -266,11 +310,22 @@ export async function releaseMatchedOrderFundsTx(
   amount: number | string,
   orderId: string,
 ): Promise<void> {
-  await strictLedgerMutationTx({
+  await client.query(
+    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+    [`exchange-order-hold:${orderId}`],
+  );
+  const feeCoveredAmount = await matchedReleaseAmountTx(
     client,
     userId,
     asset,
     amount,
+    orderId,
+  );
+  await strictLedgerMutationTx({
+    client,
+    userId,
+    asset,
+    amount: feeCoveredAmount,
     referenceId: orderId,
     kind: "release",
   });
