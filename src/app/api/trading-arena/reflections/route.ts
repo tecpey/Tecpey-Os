@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         const tradeById = new Map(attempt.state.closedTrades.map((trade) => [trade.id, trade]));
         for (const reflection of reflections) {
           const trade = tradeById.get(reflection.closedTradeId);
-          if (!trade || !reflectionEvidenceMatchesTrade(reflection, trade)) {
+          if (trade && !reflectionEvidenceMatchesTrade(reflection, trade)) {
             throw new Error("arena_reflection_evidence_corrupt");
           }
         }
@@ -228,11 +228,6 @@ export async function POST(request: NextRequest) {
           `arena-reflection-trade:${studentId}:${input.attemptId}:${input.closedTradeId}`,
         ]);
 
-        const attempt = await loadOwnedAttempt(client, studentId, input.attemptId, true);
-        if (!attempt) return { error: "arena_attempt_not_found" as const };
-        const trade = findClosedTrade(attempt.state, input.closedTradeId);
-        if (!trade) return { error: "arena_closed_trade_not_found" as const };
-
         const command = await client.query<ReflectionCommandRow>(
           `SELECT request_hash, result_response
            FROM academy_trading_arena_reflection_commands
@@ -248,6 +243,11 @@ export async function POST(request: NextRequest) {
           if (!replay) throw new Error("arena_reflection_command_corrupt");
           return { error: null, replay: true, response: replay };
         }
+
+        const attempt = await loadOwnedAttempt(client, studentId, input.attemptId, true);
+        if (!attempt) return { error: "arena_attempt_not_found" as const };
+        const trade = findClosedTrade(attempt.state, input.closedTradeId);
+        if (!trade) return { error: "arena_closed_trade_not_found" as const };
 
         const existing = await currentReflection(
           client,
