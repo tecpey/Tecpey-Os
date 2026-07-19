@@ -117,7 +117,7 @@ describe("Trading Arena reflection domain authority", () => {
     );
   });
 
-  it("reuses the exact unresolved identity and preserves its original revision", () => {
+  it("reuses only the exact unresolved identity and preserves its original revision", () => {
     const first = resolveArenaReflectionIdentity({
       pending: null,
       attemptId,
@@ -131,7 +131,7 @@ describe("Trading Arena reflection domain authority", () => {
       pending: first.identity,
       attemptId,
       closedTradeId: tradeId,
-      expectedRevision: 9,
+      expectedRevision: 4,
       draft: draft(),
       entropy: "87654321-4321-4321-8321-210987654321",
     });
@@ -139,6 +139,13 @@ describe("Trading Arena reflection domain authority", () => {
     assert.equal(retry.reused, true);
     assert.equal(retry.identity.idempotencyKey, first.identity.idempotencyKey);
     assert.equal(retry.identity.expectedRevision, 4);
+    assert.equal(resolveArenaReflectionIdentity({
+      pending: first.identity,
+      attemptId,
+      closedTradeId: tradeId,
+      expectedRevision: 9,
+      draft: draft(),
+    }).kind, "blocked");
   });
 
   it("blocks changed text, another trade and another attempt while unresolved", () => {
