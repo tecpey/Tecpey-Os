@@ -108,6 +108,12 @@ jobs:
       - name: ESLint
         run: ./node_modules/.bin/eslint . --max-warnings 0
 
+      - name: Frontend style authority guard
+        run: npm run ui:check
+
+      - name: Frontend development runtime style smoke
+        run: npm run ui:runtime:dev
+
       - name: Browser persistence guard
         run: node scripts/check-browser-persistence.mjs
 
@@ -133,3 +139,6 @@ jobs:
         env:
           NODE_ENV: production
         run: npm run build
+
+      - name: Frontend production runtime style smoke
+        run: npm run ui:runtime:prod
