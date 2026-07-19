@@ -6,6 +6,7 @@ import { runAdminControlPlaneMigrations } from "./db-migrate-admin-control-plane
 import { runAdminControlPlaneHardeningMigrations } from "./db-migrate-admin-control-plane-hardening";
 import { runNotificationMigrations } from "./db-migrate-notifications";
 import { runNotificationRuntimeMigrations } from "./db-migrate-notification-runtime";
+import { runNotificationDeliveryVisibilityMigrations } from "./db-migrate-notification-delivery-visibility";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
 
@@ -21,6 +22,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runAdminControlPlaneHardeningMigrations(client);
   await runNotificationMigrations(client);
   await runNotificationRuntimeMigrations(client);
+  await runNotificationDeliveryVisibilityMigrations(client);
 }
 
 /**
