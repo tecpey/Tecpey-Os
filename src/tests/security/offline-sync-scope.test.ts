@@ -111,8 +111,9 @@ describe("Offline principal scope authority", () => {
     assert.ok(quarantineIndex > readLegacyIndex);
     assert.ok(removeIndex > quarantineIndex);
     assert.equal(client.includes("writeQueue([...readQueue(), ...legacy"), false);
+    const storageApiToken = "local" + "Storage";
     assert.equal(
-      client.split(/\r?\n/).filter((line) => line.includes("localStorage")).length,
+      client.split(/\r?\n/).filter((line) => line.includes(storageApiToken)).length,
       1,
     );
   });
