@@ -29,13 +29,31 @@ jobs:
           path: work
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rebuild and verify payload
+      - name: Rebuild payload and capture diagnostics
+        id: rebuild
         shell: bash
         run: |
           set -euo pipefail
           cat payload/delivery/academy-server-issued-progression/part-* | base64 --decode > academy-patch.tgz
+          sha256sum academy-patch.tgz | tee academy-patch.sha256
+          tar -tzf academy-patch.tgz | sort | tee archive-files.txt
+
+      - name: Upload rebuilt payload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: academy-delivery-evidence
+          path: |
+            academy-patch.tgz
+            academy-patch.sha256
+            archive-files.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Verify checksum and exact file scope
+        shell: bash
+        run: |
+          set -euo pipefail
           echo '1bc944df38f018ee8343c24833198c6cd4f0a37ab2abeceaf5e738feec2ab2fd  academy-patch.tgz' | sha256sum --check --strict
-          tar -tzf academy-patch.tgz | sort > archive-files.txt
           cat > expected-files.txt <<'EOF'
           .github/workflows/ci.yml
           docs/academy/ACADEMY_PROGRESS_AUTHORITY_MIGRATION_REPORT.md
