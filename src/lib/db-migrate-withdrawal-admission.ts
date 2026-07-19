@@ -108,6 +108,51 @@ CREATE INDEX IF NOT EXISTS withdrawals_admission_state_idx
   ON withdrawals (state, admission_completed_at, created_at)
   WHERE state IN ('pending', 'compliance_review', 'approved');
 
+CREATE OR REPLACE FUNCTION tecpey_verify_withdrawal_price_evidence()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  snapshot withdrawal_price_snapshots%ROWTYPE;
+BEGIN
+  IF NEW.price_snapshot_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO snapshot
+    FROM withdrawal_price_snapshots
+   WHERE id = NEW.price_snapshot_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'withdrawal price snapshot missing'
+      USING ERRCODE = '23503';
+  END IF;
+  IF snapshot.quote_currency <> 'USD'
+     OR snapshot.asset <> NEW.asset
+     OR snapshot.price <> NEW.price_usd
+     OR snapshot.observed_at <> NEW.price_observed_at
+     OR snapshot.policy_version <> NEW.admission_policy_version
+     OR snapshot.expires_at <= NOW()
+     OR snapshot.observed_at < NOW() - INTERVAL '2 minutes'
+     OR snapshot.observed_at > NOW() + INTERVAL '30 seconds'
+     OR ROUND(NEW.amount::numeric * snapshot.price, 18) <> ROUND(NEW.amount_usd, 18)
+  THEN
+    RAISE EXCEPTION 'withdrawal price evidence invalid or stale'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS withdrawals_verify_price_evidence ON withdrawals;
+CREATE TRIGGER withdrawals_verify_price_evidence
+  BEFORE INSERT OR UPDATE OF price_snapshot_id, price_usd, price_observed_at,
+    amount, amount_usd, asset, admission_policy_version
+  ON withdrawals
+  FOR EACH ROW
+  EXECUTE FUNCTION tecpey_verify_withdrawal_price_evidence();
+
 CREATE OR REPLACE FUNCTION tecpey_clear_terminal_withdrawal_reservation()
 RETURNS trigger
 LANGUAGE plpgsql
