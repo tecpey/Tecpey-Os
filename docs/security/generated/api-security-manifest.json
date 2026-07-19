@@ -55,9 +55,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-auth",
       "testReferences": [
@@ -115,9 +115,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-auth",
       "testReferences": [
@@ -182,9 +182,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-certificates",
       "testReferences": [],
@@ -240,9 +240,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-flashcards",
       "testReferences": [],
@@ -300,9 +300,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lead",
       "testReferences": [
@@ -362,9 +362,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lesson-assessment",
       "testReferences": [],
@@ -422,9 +422,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-lesson-progress",
       "testReferences": [],
@@ -478,9 +478,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-reflections",
       "testReferences": [],
@@ -536,9 +536,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-simulator-decision",
       "testReferences": [],
@@ -596,9 +596,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-specialized-lead",
       "testReferences": [],
@@ -656,9 +656,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-state",
       "testReferences": [
@@ -716,9 +716,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-student-profile",
       "testReferences": [],
@@ -776,9 +776,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy-term-progress",
       "testReferences": [],
@@ -836,9 +836,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -913,9 +913,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -983,9 +983,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -1060,9 +1060,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "admin",
       "testReferences": [
@@ -1123,9 +1123,9 @@
         "failClosed": false,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "admin",
       "testReferences": [
@@ -1188,9 +1188,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor",
       "testReferences": [],
@@ -1249,9 +1249,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor-v2",
       "testReferences": [],
@@ -1313,9 +1313,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1371,9 +1371,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1427,9 +1427,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1487,9 +1487,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1548,9 +1548,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1609,9 +1609,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1670,9 +1670,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1731,9 +1731,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1792,9 +1792,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1853,9 +1853,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1915,9 +1915,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1977,9 +1977,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2038,9 +2038,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2098,9 +2098,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2163,9 +2163,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": true,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2229,9 +2229,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2290,9 +2290,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2351,9 +2351,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2409,9 +2409,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2471,9 +2471,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2535,9 +2535,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2596,9 +2596,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2657,9 +2657,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [
@@ -2725,9 +2725,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2791,9 +2791,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2857,9 +2857,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2921,9 +2921,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2986,9 +2986,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -3046,9 +3046,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "community",
       "testReferences": [],
@@ -3108,9 +3108,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "device-token",
       "testReferences": [],
@@ -3168,9 +3168,9 @@
         "failClosed": true,
         "serviceIdentity": true,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "internal",
       "testReferences": [],
@@ -3224,9 +3224,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "learning-events",
       "testReferences": [],
@@ -3282,9 +3282,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-challenge",
       "testReferences": [],
@@ -3342,9 +3342,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-conversations",
       "testReferences": [],
@@ -3404,9 +3404,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
       "testReferences": [],
@@ -3464,9 +3464,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
       "testReferences": [],
@@ -3526,9 +3526,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-profile",
       "testReferences": [],
@@ -3585,9 +3585,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notification-brain",
       "testReferences": [],
@@ -3641,6 +3641,7 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
         "bodySizeLimitAuthority": null
       },
@@ -3696,6 +3697,7 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
         "bodySizeLimitAuthority": null
       },
@@ -3755,6 +3757,7 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
         "bodySizeLimitAuthority": null
       },
@@ -3815,6 +3818,7 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
         "bodySizeLimitAuthority": null
       },
@@ -3873,9 +3877,9 @@
         "failClosed": false,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3931,9 +3935,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "offline-sync",
       "testReferences": [
@@ -3996,9 +4000,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "orders",
       "testReferences": [],
@@ -4056,9 +4060,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "orders",
       "testReferences": [],
@@ -4116,9 +4120,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -4180,9 +4184,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -4243,9 +4247,9 @@
         "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
+        "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null,
-        "explicitPublicCachePolicy": false
+        "bodySizeLimitAuthority": null
       },
       "domainOwner": "trading-arena",
       "testReferences": [
