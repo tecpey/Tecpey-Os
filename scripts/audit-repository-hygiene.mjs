@@ -199,8 +199,7 @@ function duplicateBasenames(files) {
 function configOwnershipFiles(allFiles) {
   return allFiles.filter((filePath) => {
     const rel = relative(filePath);
-    return rel === "package.json" ||
-      rel === "tsconfig.json" ||
+    return rel === "tsconfig.json" ||
       rel === "src/app/globals.css" ||
       /^(?:next|postcss|eslint|tailwind)\.config\./.test(path.basename(filePath));
   });
@@ -249,7 +248,7 @@ const packageScripts = JSON.stringify(packageJson.scripts ?? {});
 for (const packageName of Object.keys(declaredDependencies)) {
   if (packageScripts.includes(packageName)) usage.get(packageName).add("package.json#scripts");
   for (const binary of PACKAGE_BINARIES[packageName] ?? []) {
-    if (new RegExp(`(?:^|[\\s;&|])${binary}(?:[\\s;&|]|$)`).test(packageScripts)) {
+    if (new RegExp(`(?:^|[\s;&|])${binary}(?:[\s;&|]|$)`).test(packageScripts)) {
       usage.get(packageName).add(`package.json#binary:${binary}`);
     }
   }
