@@ -11,9 +11,7 @@ import {
   issueRefreshToken,
   verifyRefreshToken,
 } from "../../lib/security/refresh-tokens";
-import {
-  registerSession,
-} from "../../lib/security/session-store";
+import { registerSession } from "../../lib/security/session-store";
 import {
   extractExpFromToken,
   extractJtiFromToken,
@@ -228,7 +226,7 @@ describe("Academy logout route authority", () => {
   );
 
   it(
-    "returns 503 rather than false logout success when the Redis deny store is unavailable",
+    "returns 503 during a Redis outage and a retry repairs deny evidence without false session_not_found",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `redis-outage-owner-${randomUUID()}`;
@@ -237,13 +235,13 @@ describe("Academy logout route authority", () => {
 
       try {
         globalThis.tecpeyRedisClient = undefined;
-        const response = await logout(logoutRequest(accessToken));
-        assert.equal(response.status, 503);
-        const body = await response.json();
-        assert.equal(body.ok, false);
-        assert.equal(body.error, "logout_revocation_unavailable");
+        const failed = await logout(logoutRequest(accessToken));
+        assert.equal(failed.status, 503);
+        const failedBody = await failed.json();
+        assert.equal(failedBody.ok, false);
+        assert.equal(failedBody.error, "logout_revocation_unavailable");
         assert.equal(
-          body.details?.accessReason,
+          failedBody.details?.accessReason,
           "revocation_store_unavailable",
         );
 
@@ -256,6 +254,15 @@ describe("Academy logout route authority", () => {
         });
         assert.equal(evidence.enabled, true);
         if (evidence.enabled) assert.equal(evidence.value, true);
+
+        globalThis.tecpeyRedisClient = previousRedis;
+        const repaired = await logout(logoutRequest(accessToken));
+        assert.equal(repaired.status, 200);
+        assert.deepEqual(await repaired.json(), {
+          ok: true,
+          revoked: true,
+        });
+        assert.equal(await redis!.get(denyKey(jti)), "1");
       } finally {
         globalThis.tecpeyRedisClient = previousRedis;
         await cleanup(userId, jti);
