@@ -46,6 +46,7 @@ const required = [
   'TECPEY_ACADEMY_AUTH_SECRET',
   'CERTIFICATE_SIGNING_SECRET',
   'TECPEY_WITHDRAWAL_PRICE_SECRET',
+  'TECPEY_OFFLINE_SYNC_SECRET',
   'DATABASE_URL',
 ];
 
@@ -84,26 +85,26 @@ for (const key of required) {
   }
 }
 
-for (const key of [
+const signingSecretNames = [
   'TECPEY_SESSION_SECRET',
   'TECPEY_REFRESH_SECRET',
   'TECPEY_ACADEMY_AUTH_SECRET',
   'CERTIFICATE_SIGNING_SECRET',
   'TECPEY_WITHDRAWAL_PRICE_SECRET',
-]) {
+  'TECPEY_OFFLINE_SYNC_SECRET',
+];
+for (const key of signingSecretNames) {
   const value = process.env[key] || '';
   if (value && value.length < 32) errors.push(`${key} must be at least 32 characters`);
 }
 
-const authSecrets = [
-  ['TECPEY_SESSION_SECRET', process.env.TECPEY_SESSION_SECRET],
-  ['TECPEY_REFRESH_SECRET', process.env.TECPEY_REFRESH_SECRET],
-  ['TECPEY_ACADEMY_AUTH_SECRET', process.env.TECPEY_ACADEMY_AUTH_SECRET],
-].filter(([, value]) => Boolean(value));
-for (let i = 0; i < authSecrets.length; i += 1) {
-  for (let j = i + 1; j < authSecrets.length; j += 1) {
-    if (authSecrets[i][1] === authSecrets[j][1]) {
-      errors.push(`${authSecrets[i][0]} and ${authSecrets[j][0]} must be distinct`);
+const signingSecrets = signingSecretNames
+  .map((name) => [name, process.env[name]])
+  .filter(([, value]) => Boolean(value));
+for (let i = 0; i < signingSecrets.length; i += 1) {
+  for (let j = i + 1; j < signingSecrets.length; j += 1) {
+    if (signingSecrets[i][1] === signingSecrets[j][1]) {
+      errors.push(`${signingSecrets[i][0]} and ${signingSecrets[j][0]} must be distinct`);
     }
   }
 }
