@@ -47,6 +47,10 @@ const required = [
   'CERTIFICATE_SIGNING_SECRET',
   'TECPEY_WITHDRAWAL_PRICE_SECRET',
   'TECPEY_OFFLINE_SYNC_SECRET',
+  'TECPEY_CRM_PII_KEY_B64',
+  'TECPEY_CRM_CONTACT_HASH_SECRET',
+  'TECPEY_TRUSTED_PROXY_HEADER',
+  'TECPEY_TRUSTED_PROXY_HOPS',
   'DATABASE_URL',
 ];
 
@@ -72,6 +76,8 @@ const optional = [
   'TECPEY_APNS_TEAM_ID',
   'TECPEY_APNS_BUNDLE_ID',
   'TECPEY_APNS_PRIVATE_KEY',
+  'ACADEMY_LEADS_WEBHOOK_URL',
+  'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 
 const badTokens = ['CHANGE_ME', 'your-real', 'admin-de', 'wss-dem', 'REPLACE_WITH'];
@@ -92,10 +98,26 @@ const signingSecretNames = [
   'CERTIFICATE_SIGNING_SECRET',
   'TECPEY_WITHDRAWAL_PRICE_SECRET',
   'TECPEY_OFFLINE_SYNC_SECRET',
+  'TECPEY_CRM_PII_KEY_B64',
+  'TECPEY_CRM_CONTACT_HASH_SECRET',
+  'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 for (const key of signingSecretNames) {
   const value = process.env[key] || '';
-  if (value && value.length < 32) errors.push(`${key} must be at least 32 characters`);
+  if (value && key !== 'TECPEY_CRM_PII_KEY_B64' && value.length < 32) {
+    errors.push(`${key} must be at least 32 characters`);
+  }
+}
+
+const crmPiiKey = process.env.TECPEY_CRM_PII_KEY_B64?.trim();
+if (crmPiiKey) {
+  try {
+    if (Buffer.from(crmPiiKey, 'base64').length !== 32) {
+      errors.push('TECPEY_CRM_PII_KEY_B64 must decode to exactly 32 bytes');
+    }
+  } catch {
+    errors.push('TECPEY_CRM_PII_KEY_B64 must be valid base64');
+  }
 }
 
 const signingSecrets = signingSecretNames
@@ -109,11 +131,39 @@ for (let i = 0; i < signingSecrets.length; i += 1) {
   }
 }
 
+const trustedProxyHeader = process.env.TECPEY_TRUSTED_PROXY_HEADER?.trim().toLowerCase();
+if (trustedProxyHeader && !['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'].includes(trustedProxyHeader)) {
+  errors.push('TECPEY_TRUSTED_PROXY_HEADER must be cf-connecting-ip, x-real-ip or x-forwarded-for');
+}
+const trustedProxyHops = Number(process.env.TECPEY_TRUSTED_PROXY_HOPS);
+if (process.env.TECPEY_TRUSTED_PROXY_HOPS && (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 1 || trustedProxyHops > 10)) {
+  errors.push('TECPEY_TRUSTED_PROXY_HOPS must be an integer between 1 and 10');
+}
+
 for (const key of optional) {
   const value = process.env[key];
   if (value && badTokens.some((token) => value.includes(token))) {
     errors.push(`${key} still contains a placeholder`);
   }
+}
+
+const academyWebhook = process.env.ACADEMY_LEADS_WEBHOOK_URL?.trim();
+const crmWebhookSecret = process.env.TECPEY_CRM_WEBHOOK_SECRET?.trim();
+if (academyWebhook) {
+  try {
+    const parsed = new URL(academyWebhook);
+    if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+      errors.push('ACADEMY_LEADS_WEBHOOK_URL must use https in production');
+    }
+  } catch {
+    errors.push('ACADEMY_LEADS_WEBHOOK_URL must be a valid URL');
+  }
+  if (!crmWebhookSecret) {
+    errors.push('TECPEY_CRM_WEBHOOK_SECRET is required when ACADEMY_LEADS_WEBHOOK_URL is configured');
+  }
+}
+if (crmWebhookSecret && !academyWebhook) {
+  errors.push('ACADEMY_LEADS_WEBHOOK_URL is required when TECPEY_CRM_WEBHOOK_SECRET is configured');
 }
 
 const configuredSessionSeconds = process.env.TECPEY_SESSION_MAX_AGE_SECONDS?.trim();

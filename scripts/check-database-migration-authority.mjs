@@ -29,6 +29,8 @@ for (const directImport of [
   'from "./db-migrate-notification-delivery-visibility"',
   'from "./db-migrate-offline-sync"',
   'from "./db-migrate-notification-domain-outbox"',
+  'from "./db-migrate-crm-leads"',
+  'from "./db-migrate-crm-leads-hardening"',
   'from "./db-migrate-withdrawal-admission"',
   'from "./db-migrate-withdrawal-settlement"',
 ]) {
@@ -46,6 +48,8 @@ const orderedCalls = [
   "await runNotificationDeliveryVisibilityMigrations(client)",
   "await runOfflineSyncMigrations(client)",
   "await runNotificationDomainOutboxMigrations(client)",
+  "await runCrmLeadMigrations(client)",
+  "await runCrmLeadHardeningMigrations(client)",
   "await runWithdrawalAdmissionMigrations(client)",
   "await runWithdrawalSettlementMigrations(client)",
 ];
@@ -70,16 +74,39 @@ const migrationRuns = workflow.match(/npm run db:migrate/g)?.length ?? 0;
 if (migrationRuns < 2) failures.push("CI must run db:migrate twice to prove idempotent reruns");
 
 requireText(integration, "applyDatabaseMigrationsWithLock", "migration integration test must execute the canonical plan");
-requireText(integration, "0023_offline_sync_command_authority.sql", "migration integration must verify offline authority");
-requireText(integration, "0024_notification_domain_outbox.sql", "migration integration must verify notification domain outbox authority");
-requireText(integration, "0030_withdrawal_admission_authority.sql", "migration integration must verify withdrawal admission authority");
-requireText(integration, "0031_withdrawal_settlement_authority.sql", "migration integration must verify withdrawal settlement authority");
-requireText(integration, "offline_sync_commands", "migration integration must verify offline command storage");
-requireText(integration, "notification_domain_outbox", "migration integration must verify notification domain event storage");
-requireText(integration, "notification_domain_dead_letters", "migration integration must verify notification domain DLQ storage");
-requireText(integration, "admin_audit_events_validate_chain", "migration integration must verify critical database triggers");
-requireText(integration, "withdrawals_verify_price_evidence", "migration integration must verify withdrawal price trigger");
-requireText(integration, "notification_domain_outbox_identity_no_update", "migration integration must verify immutable notification event identity");
+for (const migration of [
+  "0023_offline_sync_command_authority.sql",
+  "0024_notification_domain_outbox.sql",
+  "0025_crm_lead_authority.sql",
+  "0026_crm_lead_hardening.sql",
+  "0030_withdrawal_admission_authority.sql",
+  "0031_withdrawal_settlement_authority.sql",
+]) {
+  requireText(integration, migration, `migration integration must verify ${migration}`);
+}
+for (const table of [
+  "offline_sync_commands",
+  "notification_domain_outbox",
+  "notification_domain_dead_letters",
+  "crm_leads",
+  "crm_lead_commands",
+  "crm_lead_delivery_outbox",
+  "crm_lead_audit_events",
+]) {
+  requireText(integration, table, `migration integration must verify ${table}`);
+}
+for (const trigger of [
+  "admin_audit_events_validate_chain",
+  "withdrawals_verify_price_evidence",
+  "notification_domain_outbox_identity_no_update",
+  "academy_leads_legacy_read_only",
+  "crm_leads_no_delete",
+  "crm_lead_commands_no_update",
+  "crm_lead_audit_no_update",
+]) {
+  requireText(integration, trigger, `migration integration must verify ${trigger}`);
+}
+requireText(integration, "crm_leads_legal_basis_consent_check", "migration integration must verify CRM consent/legal-basis integrity");
 requireText(integration, "uq_wallet_ledger_withdrawal_phase", "migration integration must verify wallet ledger idempotency schema");
 
 if (failures.length) {

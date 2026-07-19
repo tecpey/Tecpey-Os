@@ -3,38 +3,59 @@
 import { academySpecializedTracks, specializedProgramCriteriaEn, specializedProgramCriteriaFa } from "@/data/academySpecializedProgram";
 import { Award, CalendarCheck2, CheckCircle2, ClipboardList, GraduationCap, Loader2, Send, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 
 type Locale = "fa" | "en";
 type Status = "idle" | "loading" | "success" | "error";
 
-const STORAGE_KEY = "tecpey-academy-specialized-application-v1";
+const PRIVACY_NOTICE_VERSION = "academy-leads-2026-07";
 
 export function AcademySpecializedProgram({ locale = "fa" }: { locale?: Locale }) {
   const isFa = locale === "fa";
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [consent, setConsent] = useState(false);
+  const submissionId = useRef<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", city: "", mode: "online", track: academySpecializedTracks[0].id, note: "" });
 
   const selectedTrack = useMemo(() => academySpecializedTracks.find((item) => item.id === form.track) || academySpecializedTracks[0], [form.track]);
   const criteria = isFa ? specializedProgramCriteriaFa : specializedProgramCriteriaEn;
-
   const update = (key: keyof typeof form, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!consent) {
+      setStatus("error");
+      setMessage(isFa ? "برای ثبت درخواست، تأیید اطلاعیه حریم خصوصی لازم است." : "Privacy notice consent is required to submit this request.");
+      return;
+    }
     setStatus("loading");
     setMessage("");
-    const payload = { ...form, locale, source: "academy-specialized-program", submittedAt: new Date().toISOString() };
+    submissionId.current ||= `academy-specialized-${crypto.randomUUID()}`;
+    const payload = {
+      ...form,
+      locale,
+      source: "academy-specialized-program",
+      submissionId: submissionId.current,
+      consent: true,
+      privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+    };
     try {
-      if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      const res = await fetch("/api/academy-specialized-lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch("/api/academy-specialized-lead", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": submissionId.current,
+        },
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) throw new Error("lead-submit-failed");
+      submissionId.current = null;
       setStatus("success");
       setMessage(isFa ? "درخواست شما ثبت شد. تیم آکادمی تک‌پی پس از بررسی آمادگی، برای هماهنگی دوره تخصصی با شما تماس می‌گیرد." : "Your request was saved. TecPey Academy will review readiness and contact you about the specialized cohort.");
     } catch {
       setStatus("error");
-      setMessage(isFa ? "ثبت آنلاین کامل نشد. اطلاعات شما در مرورگر ذخیره شد؛ لطفاً بعداً دوباره ارسال کنید یا از پشتیبانی پیگیری کنید." : "Online submission did not complete. Your data was saved in this browser; please retry later or contact support.");
+      setMessage(isFa ? "ثبت درخواست کامل نشد و اطلاعات شخصی شما در مرورگر ذخیره نشد. لطفاً دوباره تلاش کنید." : "Submission did not complete and your personal data was not saved in this browser. Please retry.");
     }
   };
 
@@ -117,10 +138,14 @@ export function AcademySpecializedProgram({ locale = "fa" }: { locale?: Locale }
                   <option value="either">{isFa ? "هر دو برایم مناسب است" : "Either works"}</option>
                 </select>
                 <textarea value={form.note} onChange={(e) => update("note", e.target.value)} placeholder={isFa ? "توضیح کوتاه درباره هدف شما از دوره تخصصی" : "Briefly describe your goal for the specialized program"} rows={4} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold leading-7 text-white outline-none placeholder:text-slate-500" />
+                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-xs font-bold leading-6 text-slate-300">
+                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-1 h-4 w-4" />
+                  <span>{isFa ? "با ثبت این فرم، با پردازش امن اطلاعات تماس برای بررسی درخواست دوره و پیگیری مرتبط موافقت می‌کنم." : "I consent to secure processing of my contact data for reviewing and following up on this program request."}</span>
+                </label>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-xs font-bold leading-6 text-slate-300">
                   {isFa ? `مسیر انتخابی: ${selectedTrack.titleFa}. این ثبت‌نام به معنی پذیرش قطعی، استخدام یا دریافت سرمایه نیست؛ درخواست شما برای بررسی ظرفیت، آمادگی و شایستگی ثبت می‌شود.` : `Selected track: ${selectedTrack.titleEn}. This is not guaranteed admission; it registers your request for capacity and readiness review.`}
                 </div>
-                <button disabled={status === "loading"} type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-4 text-sm font-black text-white transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60">
+                <button disabled={status === "loading" || !consent} type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-4 text-sm font-black text-white transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60">
                   {status === "loading" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                   {isFa ? "ثبت درخواست بررسی" : "Submit review request"}
                 </button>

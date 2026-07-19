@@ -9,6 +9,8 @@ import { runNotificationRuntimeMigrations } from "./db-migrate-notification-runt
 import { runNotificationDeliveryVisibilityMigrations } from "./db-migrate-notification-delivery-visibility";
 import { runOfflineSyncMigrations } from "./db-migrate-offline-sync";
 import { runNotificationDomainOutboxMigrations } from "./db-migrate-notification-domain-outbox";
+import { runCrmLeadMigrations } from "./db-migrate-crm-leads";
+import { runCrmLeadHardeningMigrations } from "./db-migrate-crm-leads-hardening";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
 
@@ -29,6 +31,8 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runNotificationDeliveryVisibilityMigrations(client);
   await runOfflineSyncMigrations(client);
   await runNotificationDomainOutboxMigrations(client);
+  await runCrmLeadMigrations(client);
+  await runCrmLeadHardeningMigrations(client);
   await runWithdrawalAdmissionMigrations(client);
   await runWithdrawalSettlementMigrations(client);
 }
