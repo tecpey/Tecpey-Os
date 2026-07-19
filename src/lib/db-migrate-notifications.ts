@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS platform_principals (
   timezone TEXT NOT NULL DEFAULT 'UTC',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (tenant_id, id),
   CHECK (account_id IS NULL OR char_length(account_id) BETWEEN 3 AND 220),
   CHECK (email IS NULL OR char_length(email) BETWEEN 3 AND 254),
   CHECK (char_length(timezone) BETWEEN 1 AND 100)
@@ -111,7 +112,7 @@ CREATE TRIGGER notification_consents_no_delete
 CREATE TABLE IF NOT EXISTS platform_notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id TEXT NOT NULL REFERENCES platform_tenants(id) ON DELETE CASCADE,
-  principal_id UUID NOT NULL REFERENCES platform_principals(id) ON DELETE CASCADE,
+  principal_id UUID NOT NULL,
   notification_class TEXT NOT NULL CHECK (notification_class IN (
     'security_critical',
     'financial_transactional',
@@ -144,6 +145,8 @@ CREATE TABLE IF NOT EXISTS platform_notifications (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  FOREIGN KEY (tenant_id, principal_id)
+    REFERENCES platform_principals(tenant_id, id) ON DELETE CASCADE,
   UNIQUE (tenant_id, principal_id, correlation_key),
   CHECK (char_length(source_type) BETWEEN 1 AND 100),
   CHECK (source_id IS NULL OR char_length(source_id) BETWEEN 1 AND 220),
