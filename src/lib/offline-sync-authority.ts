@@ -14,12 +14,20 @@ function canonicalJson(value: unknown): string {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
+    return `{${Object.entries(value as Record<string, unknown>)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`);
-    return `{${entries.join(",")}}`;
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
+      .join(",")}}`;
   }
   return "null";
+}
+
+function principalCommandIdentity(args: {
+  tenantId: string;
+  studentId: string;
+  clientEventId: string;
+}): string {
+  return `${args.tenantId}\u0000${args.studentId}\u0000${args.clientEventId}`;
 }
 
 export function offlineCommandHash(item: OfflineSyncItem): string {
@@ -41,10 +49,9 @@ export function offlineLearningEventId(args: {
   studentId: string;
   clientEventId: string;
 }): string {
-  const digest = createHash("sha256")
-    .update(`${args.tenantId}\u0000${args.studentId}\u0000${args.clientEventId}`)
-    .digest("hex");
-  return `OFFLINE-${digest}`;
+  return `OFFLINE-${createHash("sha256")
+    .update(principalCommandIdentity(args))
+    .digest("hex")}`;
 }
 
 function offlineCommandLockKey(args: {
@@ -52,17 +59,19 @@ function offlineCommandLockKey(args: {
   studentId: string;
   clientEventId: string;
 }): string {
-  return `${args.tenantId}\u0000${args.studentId}\u0000${args.clientEventId}`;
+  // PostgreSQL text values cannot contain NUL. Hash the canonical identity in
+  // Node and pass only printable hex to the advisory-lock function.
+  return createHash("sha256")
+    .update(principalCommandIdentity(args))
+    .digest("hex");
 }
 
 type ExistingCommandRow = {
-  id: string;
   command_hash: string;
   status: "processing" | "committed" | "retryable" | "rejected";
   domain_event_id: string | null;
   committed_at: Date | string | null;
   processing_started_at: Date | string | null;
-  last_error_code: string | null;
 };
 
 function committedResult(
@@ -85,12 +94,8 @@ function committedResult(
 
 async function insertLearningEventExactlyOnce(
   client: PoolClient,
-  args: {
-    eventId: string;
-    studentId: string;
-    item: OfflineSyncItem;
-  },
-): Promise<boolean> {
+  args: { eventId: string; studentId: string; item: OfflineSyncItem },
+): Promise<void> {
   const inserted = await client.query<{ event_id: string }>(
     `INSERT INTO learning_events
       (event_id, student_id, event_type, source, locale, payload)
@@ -110,11 +115,10 @@ async function insertLearningEventExactlyOnce(
       }),
     ],
   );
+
   if (inserted.rows[0]) {
     await refreshLearningBrain(client, args.studentId);
-    return true;
   }
-  return false;
 }
 
 export async function processOfflineSyncCommand(args: {
@@ -136,9 +140,6 @@ export async function processOfflineSyncCommand(args: {
 
   try {
     const transaction = await withTx(async (client) => {
-      // Serialize every attempt for the exact tenant/student/client command.
-      // This avoids speculative unique-index contention and guarantees that
-      // retries observe the committed result produced by the prior holder.
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
         [lockKey],
@@ -171,8 +172,8 @@ export async function processOfflineSyncCommand(args: {
 
       if (!claimed.rows[0]) {
         const existing = await client.query<ExistingCommandRow>(
-          `SELECT id, command_hash, status, domain_event_id, committed_at,
-                  processing_started_at, last_error_code
+          `SELECT command_hash, status, domain_event_id, committed_at,
+                  processing_started_at
              FROM offline_sync_commands
             WHERE tenant_id = $1
               AND student_id = $2::uuid
@@ -192,20 +193,15 @@ export async function processOfflineSyncCommand(args: {
         }
 
         if (row.status === "committed" && row.domain_event_id && row.committed_at) {
-          return committedResult(
-            args.item,
-            row.domain_event_id,
-            row.committed_at,
-            true,
-          );
+          return committedResult(args.item, row.domain_event_id, row.committed_at, true);
         }
 
-        const processingStarted = row.processing_started_at
+        const processingStartedAt = row.processing_started_at
           ? new Date(row.processing_started_at).getTime()
           : 0;
         if (
           row.status === "processing" &&
-          processingStarted > Date.now() - STALE_PROCESSING_MS
+          processingStartedAt > Date.now() - STALE_PROCESSING_MS
         ) {
           return {
             id: args.item.id,
@@ -258,11 +254,7 @@ export async function processOfflineSyncCommand(args: {
     });
 
     if (!transaction.enabled) {
-      return {
-        id: args.item.id,
-        status: "retryable",
-        reason: "storage_unavailable",
-      };
+      return { id: args.item.id, status: "retryable", reason: "storage_unavailable" };
     }
     return transaction.value;
   } catch (error) {
@@ -272,11 +264,7 @@ export async function processOfflineSyncCommand(args: {
       clientEventId: args.item.id,
       error: String(error),
     });
-    return {
-      id: args.item.id,
-      status: "retryable",
-      reason: "storage_unavailable",
-    };
+    return { id: args.item.id, status: "retryable", reason: "storage_unavailable" };
   }
 }
 
@@ -286,10 +274,7 @@ export async function reconcileStaleOfflineCommands(
 ): Promise<{ committed: number; retryable: number }> {
   const limit = Math.max(1, Math.min(500, options.limit ?? 100));
   const staleBefore = options.staleBefore ?? new Date(Date.now() - STALE_PROCESSING_MS);
-  const stale = await client.query<{
-    id: string;
-    domain_event_id: string | null;
-  }>(
+  const stale = await client.query<{ id: string; domain_event_id: string | null }>(
     `SELECT id, domain_event_id
        FROM offline_sync_commands
       WHERE status = 'processing'
@@ -305,7 +290,7 @@ export async function reconcileStaleOfflineCommands(
   for (const row of stale.rows) {
     const event = row.domain_event_id
       ? await client.query<{ event_id: string }>(
-          `SELECT event_id FROM learning_events WHERE event_id = $1 LIMIT 1`,
+          "SELECT event_id FROM learning_events WHERE event_id = $1 LIMIT 1",
           [row.domain_event_id],
         )
       : { rows: [] as { event_id: string }[] };
