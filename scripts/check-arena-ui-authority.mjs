@@ -9,6 +9,7 @@ const files = {
   parser: "src/lib/trading-arena-client.ts",
   reflectionClient: "src/lib/trading-arena-reflection-client.ts",
   reflectionDomain: "src/lib/trading-arena-reflections.ts",
+  reflectionState: "src/lib/trading-arena-reflection-state.ts",
   reflectionRoute: "src/app/api/trading-arena/reflections/route.ts",
   migrations: "src/lib/db-migrate-user-state.ts",
 };
@@ -83,6 +84,8 @@ for (const [target, pattern, reason] of [
   ["journal", "shouldApplyArenaReflectionMutation", "reflection mutation responses must be monotonic"],
   ["journal", "reflectionMutationSequenceRef", "each trade requires ordered mutation response tracking"],
   ["journal", "incoming.revision >= current.revision", "reflection list refreshes must not roll back projected revisions"],
+  ["journal", "aria-busy={saving}", "reflection editor must expose its in-flight save state"],
+  ["journal", "<fieldset disabled={saving}", "reflection tag controls must freeze during an in-flight save"],
   ["journal", "\"Idempotency-Key\"", "reflection writes must carry an idempotency header"],
   ["journal", "expectedRevision", "reflection writes must carry optimistic revision"],
   ["journalPage", "max-w-5xl", "journal needs a responsive production width"],
@@ -91,7 +94,8 @@ for (const [target, pattern, reason] of [
 
   ["reflectionRoute", "getCanonicalSession", "reflection API must use canonical Academy auth"],
   ["reflectionRoute", "strictRevocation: true", "reflection writes require strict session revocation"],
-  ["reflectionRoute", "validateArenaExecutionStateV2", "closed-trade evidence must come from validated Execution V2 state"],
+  ["reflectionRoute", "starting_balance::text", "reflection attempt reads must include authoritative starting balance"],
+  ["reflectionRoute", "normalizeArenaReflectionExecutionState", "fresh reflection attempts must materialize canonical Execution V2 state"],
   ["reflectionRoute", "pg_advisory_xact_lock", "reflection commands require transaction-scoped serialization"],
   ["reflectionRoute", "academy_trading_arena_reflection_commands", "reflection writes require immutable command replay evidence"],
   ["reflectionRoute", "if (trade && !reflectionEvidenceMatchesTrade(reflection, trade))", "archived reflections must survive live trade pruning while present trades stay reconciled"],
@@ -99,6 +103,9 @@ for (const [target, pattern, reason] of [
   ["reflectionRoute", "recordLearningEvent", "committed reflection writes must append learning evidence"],
   ["reflectionRoute", "scheduleMentorProfileUpdate", "Mentor refresh must use the governed dispatcher"],
   ["reflectionRoute", "reflectionEvidenceMatchesTrade", "persisted evidence must be reconciled with the server trade"],
+  ["reflectionState", "createArenaExecutionStateV2", "empty reflection attempt state must use the canonical Execution V2 constructor"],
+  ["reflectionState", "validateArenaExecutionStateV2", "non-empty reflection attempt state must remain strictly validated"],
+  ["reflectionState", "Object.keys(raw as Record<string, unknown>).length === 0", "only a truly empty object may use initial-state materialization"],
   ["reflectionDomain", "createArenaReflectionRequestHash", "normalized reflection requests require canonical SHA-256 hashing"],
   ["reflectionDomain", "ARENA_REFLECTION_MISTAKE_TAGS", "reflection tags require a controlled server enum"],
   ["reflectionClient", "resolveArenaReflectionIdentity", "client reflection retry rules require a pure identity helper"],
@@ -107,6 +114,11 @@ for (const [target, pattern, reason] of [
   ["migrations", "0022_trading_arena_reflections.sql", "authoritative reflection schema must be registered after 0021"],
   ["migrations", "FOREIGN KEY (attempt_id, student_id)", "database schema must enforce attempt ownership"],
 ]) requireText(target, pattern, reason);
+
+const saveLocks = content.journal.match(/disabled=\{saving\}/g)?.length ?? 0;
+if (saveLocks < 5) {
+  failures.push(`${files.journal}: all four reflection textareas plus tag controls must freeze during save`);
+}
 
 const replayLookup = content.reflectionRoute.indexOf("const command = await client.query<ReflectionCommandRow>");
 const liveAttemptLookup = content.reflectionRoute.indexOf(
@@ -129,4 +141,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Arena UI authority boundary OK: execution, journal reflections and scenario routes respect server authority, immutable replay and monotonic client projection.");
+console.log("Arena UI authority boundary OK: execution, fresh-state reflections, save-locked editing, immutable replay and monotonic client projection respect server authority.");
