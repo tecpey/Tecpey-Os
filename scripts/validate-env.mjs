@@ -39,6 +39,9 @@ const optional = [
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
   'TECPEY_ADMIN_TOKEN',
+  'TECPEY_SESSION_MAX_AGE_SECONDS',
+  'TECPEY_SESSION_MAX_AGE',
+  'TECPEY_LEGACY_AUTH_UNTIL',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -88,6 +91,81 @@ for (const key of optional) {
   const value = process.env[key];
   if (value && badTokens.some((token) => value.includes(token))) {
     errors.push(`${key} still contains a placeholder`);
+  }
+}
+
+const sessionSecondsRaw = process.env.TECPEY_SESSION_MAX_AGE_SECONDS?.trim();
+const sessionDurationRaw = process.env.TECPEY_SESSION_MAX_AGE?.trim();
+const minimumAccessSessionSeconds = 5 * 60;
+const maximumAccessSessionSeconds = 4 * 60 * 60;
+
+if (sessionSecondsRaw && sessionDurationRaw) {
+  errors.push(
+    'Set only one of TECPEY_SESSION_MAX_AGE_SECONDS or TECPEY_SESSION_MAX_AGE',
+  );
+}
+
+function parseConfiguredDurationSeconds(raw) {
+  const match = /^(\d+)(s|m|h|d)$/.exec(raw);
+  if (!match) return null;
+  const amount = Number(match[1]);
+  if (!Number.isSafeInteger(amount)) return null;
+  const multiplier =
+    match[2] === 's'
+      ? 1
+      : match[2] === 'm'
+        ? 60
+        : match[2] === 'h'
+          ? 60 * 60
+          : 24 * 60 * 60;
+  const seconds = amount * multiplier;
+  return Number.isSafeInteger(seconds) ? seconds : null;
+}
+
+let configuredAccessSessionSeconds = null;
+if (sessionSecondsRaw) {
+  configuredAccessSessionSeconds = /^\d+$/.test(sessionSecondsRaw)
+    ? Number(sessionSecondsRaw)
+    : null;
+  if (!Number.isSafeInteger(configuredAccessSessionSeconds)) {
+    errors.push('TECPEY_SESSION_MAX_AGE_SECONDS must be a whole number of seconds');
+  }
+} else if (sessionDurationRaw) {
+  configuredAccessSessionSeconds = parseConfiguredDurationSeconds(sessionDurationRaw);
+  if (configuredAccessSessionSeconds === null) {
+    errors.push(
+      'TECPEY_SESSION_MAX_AGE must use an integer duration such as 300s, 30m or 4h',
+    );
+  }
+}
+
+if (
+  configuredAccessSessionSeconds !== null &&
+  Number.isSafeInteger(configuredAccessSessionSeconds) &&
+  (configuredAccessSessionSeconds < minimumAccessSessionSeconds ||
+    configuredAccessSessionSeconds > maximumAccessSessionSeconds)
+) {
+  errors.push(
+    'Access-session lifetime must be between 300 and 14400 seconds (5 minutes to 4 hours)',
+  );
+}
+
+const legacyAuthUntil = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
+const legacyAuthHardSunset = Date.parse('2026-08-18T00:00:00.000Z');
+if (process.env.NODE_ENV === 'production' && legacyAuthUntil) {
+  const cutoff = Date.parse(legacyAuthUntil);
+  const now = Date.now();
+  const maxLegacyWindowMs = 30 * 24 * 60 * 60 * 1000;
+  if (!Number.isFinite(cutoff)) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL must be a valid ISO-8601 timestamp');
+  } else if (now >= legacyAuthHardSunset) {
+    errors.push('Legacy cookie compatibility has passed its immutable 2026-08-18 sunset and must be removed');
+  } else if (cutoff <= now) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL must be in the future or removed to disable legacy auth');
+  } else if (cutoff > legacyAuthHardSunset) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL may not exceed the immutable 2026-08-18 legacy auth sunset');
+  } else if (cutoff - now > maxLegacyWindowMs) {
+    errors.push('TECPEY_LEGACY_AUTH_UNTIL may not extend legacy cookie compatibility beyond 30 days');
   }
 }
 

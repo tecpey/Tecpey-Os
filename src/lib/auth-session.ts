@@ -1,6 +1,6 @@
 // Canonical session helper — edge-compatible (no "use server", no "next/headers").
-// Unified sessions are authoritative. Legacy cookies are compatibility-only and
-// never accepted by security-sensitive strict-revocation callers.
+// Unified sessions are authoritative. Legacy cookies are compatibility-only,
+// disabled by default in production, and never accepted by strict callers.
 
 import { jwtVerify } from "jose";
 import type { NextRequest } from "next/server";
@@ -12,6 +12,11 @@ import { hasAdminAccess } from "./admin-auth";
 
 const JTI_CACHE_TTL_MS = 30_000;
 const JTI_CACHE_MAX = 2_000;
+const LEGACY_AUTH_MAX_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
+// Immutable retirement boundary. Configuration may shorten this window but can
+// never extend legacy cookie acceptance beyond this committed UTC timestamp.
+export const LEGACY_AUTH_HARD_SUNSET = "2026-08-18T00:00:00.000Z";
+const LEGACY_AUTH_HARD_SUNSET_MS = Date.parse(LEGACY_AUTH_HARD_SUNSET);
 type JtiCacheEntry = { revoked: true; ts: number };
 const jtiCache = new Map<string, JtiCacheEntry>();
 
@@ -65,6 +70,39 @@ function guestSession(): CanonicalSession {
     isAcademyUser: false,
     isAdmin: false,
   };
+}
+
+/**
+ * Legacy cookies are disabled by default in production. A migration window may
+ * be enabled only through a valid UTC/ISO cutoff no more than 30 days ahead and
+ * never beyond the immutable hard sunset committed above. This prevents a
+ * sliding environment variable from turning compatibility into permanent auth.
+ */
+function legacyCookieCompatibilityEnabled(): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+
+  const rawCutoff = process.env.TECPEY_LEGACY_AUTH_UNTIL?.trim();
+  if (!rawCutoff) return false;
+
+  const cutoff = Date.parse(rawCutoff);
+  const now = Date.now();
+  if (!Number.isFinite(cutoff) || cutoff <= now) {
+    logger.warn("[auth-session] legacy cookie cutoff is invalid or expired — rejecting legacy auth");
+    return false;
+  }
+  if (now >= LEGACY_AUTH_HARD_SUNSET_MS) {
+    logger.warn("[auth-session] immutable legacy cookie sunset has passed — rejecting legacy auth");
+    return false;
+  }
+  if (cutoff > LEGACY_AUTH_HARD_SUNSET_MS) {
+    logger.warn("[auth-session] legacy cookie cutoff exceeds immutable hard sunset — rejecting legacy auth");
+    return false;
+  }
+  if (cutoff - now > LEGACY_AUTH_MAX_WINDOW_MS) {
+    logger.warn("[auth-session] legacy cookie cutoff exceeds 30-day maximum — rejecting legacy auth");
+    return false;
+  }
+  return true;
 }
 
 function academyAuthKey(): Uint8Array | null {
@@ -187,7 +225,7 @@ export async function getCanonicalSession(
     };
   }
 
-  if (strict) return guestSession();
+  if (strict || !legacyCookieCompatibilityEnabled()) return guestSession();
 
   const [academyAuth, studentSession, userSession] = await Promise.all([
     verifyAcademyAuth(req.cookies.get(COOKIES.ACADEMY_AUTH)?.value),
