@@ -3,15 +3,17 @@ import { getOrderBook } from "./order-book";
 import {
   getOrderBookStore,
   getRedisClient,
-  pkStr,
   type EngineOrder,
 } from "./order-book-store";
+import {
+  canonicalMatchingInput,
+  isPositiveAmount,
+} from "./matching-financials";
 import type { OrderSide } from "./types";
 
 /**
  * Rebuilds one market cache from PostgreSQL authority. Only orders whose durable
  * admission command is final and accepted may become resting maker liquidity.
- * Merely admitted or currently processing orders are deliberately excluded.
  */
 export async function rebuildMarketBookFromAuthority(market: string): Promise<void> {
   const normalized = market.toUpperCase();
@@ -63,25 +65,22 @@ export async function rebuildMarketBookFromAuthority(market: string): Promise<vo
       userId: row.user_id,
       market: normalized,
       side: row.side,
-      pricePerUnit: Number(row.price),
-      originalQty: Number(row.quantity),
-      remaining: Number(row.remaining_quantity),
+      pricePerUnit: canonicalMatchingInput(row.price, "book_price"),
+      originalQty: canonicalMatchingInput(row.quantity, "book_original_quantity"),
+      remaining: canonicalMatchingInput(
+        row.remaining_quantity,
+        "book_remaining_quantity",
+      ),
       ts: row.created_at.getTime(),
     };
     if (
-      !Number.isFinite(entry.pricePerUnit) ||
-      !Number.isFinite(entry.originalQty) ||
-      !Number.isFinite(entry.remaining) ||
-      entry.pricePerUnit <= 0 ||
-      entry.remaining <= 0
+      !isPositiveAmount(entry.pricePerUnit) ||
+      !isPositiveAmount(entry.originalQty) ||
+      !isPositiveAmount(entry.remaining)
     ) {
       throw new Error("order_book_authority_row_invalid");
     }
     store.insert(normalized, entry);
-    displayBook.insert(
-      entry.side,
-      pkStr(entry.pricePerUnit),
-      entry.remaining.toFixed(10),
-    );
+    displayBook.insert(entry.side, entry.pricePerUnit, entry.remaining);
   }
 }
