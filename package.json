@@ -40,7 +40,7 @@
     "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs",
     "test:ai-mentor-trust": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/ai-mentor-provider.test.ts src/tests/security/ai-mentor-trust-boundary.test.ts src/tests/security/ai-mentor-trust-store-postgres.test.ts",
     "ai:redteam:check": "npm run ai:trust:check && npm run test:ai-mentor-trust",
-    "withdrawals:check": "node scripts/check-withdrawal-admission-authority.mjs && node scripts/check-withdrawal-runtime-authority.mjs",
+    "withdrawals:check": "node scripts/check-withdrawal-admission-authority.mjs && node scripts/check-withdrawal-prebroadcast-evidence.mjs && node scripts/check-withdrawal-runtime-authority.mjs",
     "test:withdrawal-admission": "node --import tsx --test 'src/tests/security/withdrawal-admission*.test.ts' 'src/tests/security/withdrawal-price-producer.test.ts' 'src/tests/security/withdrawal-settlement-postgres.test.ts'",
     "offline:check": "node scripts/check-offline-sync-authority.mjs && node scripts/check-offline-queue-capacity.mjs",
     "test:offline-sync": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/offline-sync*.test.ts'",
