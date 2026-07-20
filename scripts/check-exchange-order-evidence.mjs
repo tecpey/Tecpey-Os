@@ -72,6 +72,7 @@ for (const invariant of [
   "holdRepresentation",
   "wallet_ledger",
   "chr(31)",
+  "sha256(",
 ]) {
   requireText(
     migration,
@@ -88,6 +89,11 @@ rejectText(
   migration,
   "chr(0)",
   "PostgreSQL text evidence hashing cannot use a NUL separator",
+);
+rejectText(
+  migration,
+  "digest(",
+  "Exchange evidence migration must not depend on the pgcrypto extension",
 );
 
 requireText(
@@ -148,5 +154,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Exchange order evidence authority check passed: typed bounded events, fail-closed transactional admission trigger, canonical migration ordering, exact legacy cutover identity and rollback/replay evidence are permanent.",
+  "Exchange order evidence authority check passed: typed bounded events, extension-free fail-closed transactional admission trigger, canonical migration ordering, exact legacy cutover identity and rollback/replay evidence are permanent.",
 );
