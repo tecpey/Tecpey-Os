@@ -5,11 +5,17 @@ import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import {
   appendAiMentorEvidence,
+  fingerprintMentorPreferenceStudent,
   loadMentorAiPreferences,
   persistMentorConversationPair,
   setMentorAiPreferences,
+  type MentorPreferenceAuditContext,
 } from "../../lib/ai/mentor-trust-store";
 import { AI_MENTOR_TRUST_POLICY_VERSION } from "../../lib/ai/mentor-trust-boundary";
+import {
+  hashSensitiveAuditRequest,
+  writeSensitiveMutationAuditTx,
+} from "../../lib/security/sensitive-mutation-audit";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -42,6 +48,30 @@ async function cleanupStudent(client: PoolClient, studentId: string): Promise<vo
   await client.query("DELETE FROM academy_students WHERE id = $1::uuid", [studentId]);
 }
 
+function preferenceAudit(input: {
+  studentId: string;
+  tenantId: string;
+  externalProviderEnabled: boolean;
+  behavioralPersonalizationEnabled: boolean;
+  correlationId?: string;
+}): MentorPreferenceAuditContext {
+  const studentFingerprint = fingerprintMentorPreferenceStudent(input.studentId);
+  return {
+    tenantId: input.tenantId,
+    actorType: "student",
+    actorId: input.studentId,
+    correlationId: input.correlationId ?? `mentor-preferences-${randomUUID()}`,
+    requestHash: hashSensitiveAuditRequest({
+      tenantId: input.tenantId,
+      action: "mentor.preferences.update",
+      studentFingerprint,
+      externalProviderEnabled: input.externalProviderEnabled,
+      behavioralPersonalizationEnabled: input.behavioralPersonalizationEnabled,
+      realExchangeSignalsEnabled: false,
+    }),
+  };
+}
+
 before(async () => {
   if (!configured || !databaseUrl) return;
   pool = new Pool({
@@ -60,13 +90,14 @@ after(async () => {
 
 describe("AI Mentor durable trust store", () => {
   it(
-    "keeps behavioral personalization default-off and isolated per student",
+    "keeps behavioral personalization default-off and commits changed consent with secret-free evidence",
     { skip: !configured, timeout: 20_000 },
     async () => {
       const [first, second] = await withClient(async (client) => [
         await createStudent(client, "mentor-consent-a"),
         await createStudent(client, "mentor-consent-b"),
       ] as const);
+      const tenantId = `mentor-consent-${randomUUID()}`;
       try {
         const initial = await loadMentorAiPreferences(first);
         assert.equal(initial.available, true);
@@ -77,9 +108,16 @@ describe("AI Mentor durable trust store", () => {
           studentId: first,
           externalProviderEnabled: true,
           behavioralPersonalizationEnabled: true,
+          audit: preferenceAudit({
+            studentId: first,
+            tenantId,
+            externalProviderEnabled: true,
+            behavioralPersonalizationEnabled: true,
+          }),
         });
         assert.equal(changed.ok, true);
         if (changed.ok) {
+          assert.equal(changed.changed, true);
           assert.equal(changed.preferences.behavioralPersonalizationEnabled, true);
           assert.equal(changed.preferences.realExchangeSignalsEnabled, false);
         }
@@ -87,11 +125,229 @@ describe("AI Mentor durable trust store", () => {
         const other = await loadMentorAiPreferences(second);
         assert.equal(other.available, true);
         assert.equal(other.preferences.behavioralPersonalizationEnabled, false);
+
+        await withClient(async (client) => {
+          const evidence = await client.query<{
+            outcome: string;
+            document: string;
+            metadata: Record<string, unknown>;
+          }>(
+            `SELECT outcome, row_to_json(event)::text AS document, metadata
+               FROM sensitive_mutation_audit_events event
+              WHERE tenant_id = $1
+                AND actor_id = $2
+                AND action = 'mentor.preferences.update'`,
+            [tenantId, first],
+          );
+          assert.equal(evidence.rows.length, 1);
+          assert.equal(evidence.rows[0]?.outcome, "success");
+          assert.equal(
+            evidence.rows[0]?.metadata.studentFingerprint,
+            fingerprintMentorPreferenceStudent(first),
+          );
+          assert.equal(evidence.rows[0]?.metadata.realExchangeSignalsEnabled, false);
+          assert.equal(evidence.rows[0]?.document.includes(first), false);
+        });
       } finally {
         await withClient(async (client) => {
           await cleanupStudent(client, first);
           await cleanupStudent(client, second);
         });
+      }
+    },
+  );
+
+  it(
+    "keeps identical preference requests as no-ops without timestamp or evidence churn",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-consent-noop"));
+      const tenantId = `mentor-consent-${randomUUID()}`;
+      try {
+        const first = await setMentorAiPreferences({
+          studentId,
+          externalProviderEnabled: false,
+          behavioralPersonalizationEnabled: true,
+          audit: preferenceAudit({
+            studentId,
+            tenantId,
+            externalProviderEnabled: false,
+            behavioralPersonalizationEnabled: true,
+          }),
+        });
+        assert.equal(first.ok, true);
+        if (!first.ok) throw new Error("mentor_preference_initial_update_failed");
+        assert.equal(first.changed, true);
+
+        const before = await withClient(async (client) => {
+          const preference = await client.query<{ consented_at: Date }>(
+            `SELECT consented_at
+               FROM mentor_ai_preferences
+              WHERE student_id = $1::uuid`,
+            [studentId],
+          );
+          const evidence = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
+              WHERE tenant_id = $1
+                AND actor_id = $2
+                AND action = 'mentor.preferences.update'`,
+            [tenantId, studentId],
+          );
+          return {
+            consentedAt: preference.rows[0]?.consented_at,
+            evidenceCount: Number(evidence.rows[0]?.count ?? "0"),
+          };
+        });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const replay = await setMentorAiPreferences({
+          studentId,
+          externalProviderEnabled: false,
+          behavioralPersonalizationEnabled: true,
+          audit: preferenceAudit({
+            studentId,
+            tenantId,
+            externalProviderEnabled: false,
+            behavioralPersonalizationEnabled: true,
+          }),
+        });
+        assert.equal(replay.ok, true);
+        if (!replay.ok) throw new Error("mentor_preference_noop_failed");
+        assert.equal(replay.changed, false);
+
+        const after = await withClient(async (client) => {
+          const preference = await client.query<{ consented_at: Date }>(
+            `SELECT consented_at
+               FROM mentor_ai_preferences
+              WHERE student_id = $1::uuid`,
+            [studentId],
+          );
+          const evidence = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
+              WHERE tenant_id = $1
+                AND actor_id = $2
+                AND action = 'mentor.preferences.update'`,
+            [tenantId, studentId],
+          );
+          return {
+            consentedAt: preference.rows[0]?.consented_at,
+            evidenceCount: Number(evidence.rows[0]?.count ?? "0"),
+          };
+        });
+        assert.deepEqual(after.consentedAt, before.consentedAt);
+        assert.equal(after.evidenceCount, before.evidenceCount);
+        assert.equal(after.evidenceCount, 1);
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
+    "rolls back preference state when mandatory evidence conflicts",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-consent-conflict"));
+      const tenantId = `mentor-consent-${randomUUID()}`;
+      const correlationId = `mentor-preference-conflict-${randomUUID()}`;
+      try {
+        await withClient(async (client) => {
+          await writeSensitiveMutationAuditTx(client, {
+            tenantId,
+            actorType: "student",
+            actorId: studentId,
+            action: "mentor.preferences.update",
+            resourceType: "mentor_ai_preferences",
+            resourceId: studentId,
+            outcome: "success",
+            correlationId,
+            requestHash: "f".repeat(64),
+            metadata: { policyVersion: "forced-conflict" },
+          });
+        });
+
+        const changed = await setMentorAiPreferences({
+          studentId,
+          externalProviderEnabled: false,
+          behavioralPersonalizationEnabled: true,
+          audit: preferenceAudit({
+            studentId,
+            tenantId,
+            externalProviderEnabled: false,
+            behavioralPersonalizationEnabled: true,
+            correlationId,
+          }),
+        });
+        assert.deepEqual(changed, { ok: false });
+
+        await withClient(async (client) => {
+          const count = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM mentor_ai_preferences
+              WHERE student_id = $1::uuid`,
+            [studentId],
+          );
+          assert.equal(Number(count.rows[0]?.count ?? "0"), 0);
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
+
+  it(
+    "serializes concurrent identical preference updates into one mutation",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-consent-race"));
+      const tenantId = `mentor-consent-${randomUUID()}`;
+      try {
+        const [first, second] = await Promise.all([
+          setMentorAiPreferences({
+            studentId,
+            externalProviderEnabled: true,
+            behavioralPersonalizationEnabled: true,
+            audit: preferenceAudit({
+              studentId,
+              tenantId,
+              externalProviderEnabled: true,
+              behavioralPersonalizationEnabled: true,
+            }),
+          }),
+          setMentorAiPreferences({
+            studentId,
+            externalProviderEnabled: true,
+            behavioralPersonalizationEnabled: true,
+            audit: preferenceAudit({
+              studentId,
+              tenantId,
+              externalProviderEnabled: true,
+              behavioralPersonalizationEnabled: true,
+            }),
+          }),
+        ]);
+        assert.equal(first.ok, true);
+        assert.equal(second.ok, true);
+        const changedCount = [first, second].filter(
+          (result) => result.ok && result.changed,
+        ).length;
+        assert.equal(changedCount, 1);
+
+        await withClient(async (client) => {
+          const evidence = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
+              WHERE tenant_id = $1
+                AND actor_id = $2
+                AND action = 'mentor.preferences.update'`,
+            [tenantId, studentId],
+          );
+          assert.equal(Number(evidence.rows[0]?.count ?? "0"), 1);
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
       }
     },
   );
