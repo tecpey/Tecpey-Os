@@ -1,7 +1,12 @@
+import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
+import {
+  writeSensitiveMutationAuditTx,
+  type SensitiveMutationAuditEvent,
+} from "@/lib/security/sensitive-mutation-audit";
 import type { MentorDataClass } from "./mentor-trust-boundary";
 
 export type MentorAiPreferences = {
@@ -16,6 +21,15 @@ export type MentorAiPreferenceLoad = {
   available: boolean;
   preferences: MentorAiPreferences;
 };
+
+export type MentorPreferenceAuditContext = Pick<
+  SensitiveMutationAuditEvent,
+  "tenantId" | "actorType" | "actorId" | "correlationId" | "requestHash"
+>;
+
+export type MentorPreferenceUpdateResult =
+  | { ok: true; changed: boolean; preferences: MentorAiPreferences }
+  | { ok: false };
 
 export type MentorEvidenceInput = {
   requestId: string;
@@ -55,21 +69,26 @@ export type MentorConversationPairInput = {
   contentClass?: "personal" | "financial_sensitive";
 };
 
+const MENTOR_CONSENT_VERSION = "2026-07-20.1";
+const MENTOR_PREFERENCE_POLICY_VERSION = "mentor-preferences-consent-v1";
+
 const DEFAULT_PREFERENCES: MentorAiPreferences = {
   externalProviderEnabled: true,
   behavioralPersonalizationEnabled: false,
   realExchangeSignalsEnabled: false,
-  consentVersion: "2026-07-20.1",
+  consentVersion: MENTOR_CONSENT_VERSION,
   consentedAt: null,
 };
 
-function mapPreferences(row: {
+type PreferenceRow = {
   external_provider_enabled: boolean;
   behavioral_personalization_enabled: boolean;
   real_exchange_signals_enabled: boolean;
   consent_version: string;
   consented_at: Date | string | null;
-}): MentorAiPreferences {
+};
+
+function mapPreferences(row: PreferenceRow): MentorAiPreferences {
   return {
     externalProviderEnabled: row.external_provider_enabled,
     behavioralPersonalizationEnabled: row.behavioral_personalization_enabled,
@@ -81,18 +100,31 @@ function mapPreferences(row: {
   };
 }
 
+export function fingerprintMentorPreferenceStudent(studentId: string): string {
+  return createHash("sha256")
+    .update("tecpey-mentor-preference-student-v1\0")
+    .update(studentId)
+    .digest("hex");
+}
+
+function assertPreferenceAudit(
+  studentId: string,
+  audit: MentorPreferenceAuditContext,
+): void {
+  if (!studentId || audit.actorId !== studentId) {
+    throw new Error("mentor_preference_audit_actor_mismatch");
+  }
+  if (audit.actorType !== "student") {
+    throw new Error("mentor_preference_audit_actor_type_invalid");
+  }
+}
+
 export async function loadMentorAiPreferences(
   studentId: string,
 ): Promise<MentorAiPreferenceLoad> {
   try {
     const result = await withDb(async (client) => {
-      const preference = await client.query<{
-        external_provider_enabled: boolean;
-        behavioral_personalization_enabled: boolean;
-        real_exchange_signals_enabled: boolean;
-        consent_version: string;
-        consented_at: Date | string | null;
-      }>(
+      const preference = await client.query<PreferenceRow>(
         `SELECT external_provider_enabled,
                 behavioral_personalization_enabled,
                 real_exchange_signals_enabled,
@@ -103,14 +135,16 @@ export async function loadMentorAiPreferences(
           LIMIT 1`,
         [studentId],
       );
-      return preference.rows[0] ? mapPreferences(preference.rows[0]) : DEFAULT_PREFERENCES;
+      return preference.rows[0]
+        ? mapPreferences(preference.rows[0])
+        : DEFAULT_PREFERENCES;
     });
     return result.enabled
       ? { available: true, preferences: result.value }
       : { available: false, preferences: DEFAULT_PREFERENCES };
   } catch (error) {
     logger.error("[mentor-trust-store] preference load failed", {
-      studentId,
+      studentFingerprint: fingerprintMentorPreferenceStudent(studentId),
       error: String(error),
     });
     return { available: false, preferences: DEFAULT_PREFERENCES };
@@ -121,16 +155,43 @@ export async function setMentorAiPreferences(input: {
   studentId: string;
   externalProviderEnabled: boolean;
   behavioralPersonalizationEnabled: boolean;
-}): Promise<{ ok: true; preferences: MentorAiPreferences } | { ok: false }> {
+  audit: MentorPreferenceAuditContext;
+}): Promise<MentorPreferenceUpdateResult> {
+  assertPreferenceAudit(input.studentId, input.audit);
+  const studentFingerprint = fingerprintMentorPreferenceStudent(input.studentId);
+
   try {
-    const result = await withDb(async (client) => {
-      const updated = await client.query<{
-        external_provider_enabled: boolean;
-        behavioral_personalization_enabled: boolean;
-        real_exchange_signals_enabled: boolean;
-        consent_version: string;
-        consented_at: Date | string | null;
-      }>(
+    const result = await withTx(async (client) => {
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+        `mentor-ai-preferences:${input.studentId}`,
+      ]);
+      const existingResult = await client.query<PreferenceRow>(
+        `SELECT external_provider_enabled,
+                behavioral_personalization_enabled,
+                real_exchange_signals_enabled,
+                consent_version,
+                consented_at
+           FROM mentor_ai_preferences
+          WHERE student_id = $1::uuid
+          FOR UPDATE`,
+        [input.studentId],
+      );
+      const existing = existingResult.rows[0] ?? null;
+      if (
+        existing &&
+        existing.external_provider_enabled === input.externalProviderEnabled &&
+        existing.behavioral_personalization_enabled ===
+          input.behavioralPersonalizationEnabled &&
+        existing.real_exchange_signals_enabled === false &&
+        existing.consent_version === MENTOR_CONSENT_VERSION
+      ) {
+        return {
+          changed: false,
+          preferences: mapPreferences(existing),
+        };
+      }
+
+      const updated = await client.query<PreferenceRow>(
         `INSERT INTO mentor_ai_preferences
           (student_id,
            external_provider_enabled,
@@ -139,7 +200,7 @@ export async function setMentorAiPreferences(input: {
            consent_version,
            consented_at,
            updated_at)
-         VALUES ($1::uuid, $2, $3, FALSE, '2026-07-20.1', NOW(), NOW())
+         VALUES ($1::uuid, $2, $3, FALSE, $4, NOW(), NOW())
          ON CONFLICT (student_id) DO UPDATE
            SET external_provider_enabled = EXCLUDED.external_provider_enabled,
                behavioral_personalization_enabled = EXCLUDED.behavioral_personalization_enabled,
@@ -156,14 +217,35 @@ export async function setMentorAiPreferences(input: {
           input.studentId,
           input.externalProviderEnabled,
           input.behavioralPersonalizationEnabled,
+          MENTOR_CONSENT_VERSION,
         ],
       );
-      return mapPreferences(updated.rows[0]);
+      const preferences = mapPreferences(updated.rows[0]);
+      await writeSensitiveMutationAuditTx(client, {
+        ...input.audit,
+        action: "mentor.preferences.update",
+        resourceType: "mentor_ai_preferences",
+        resourceId: input.studentId,
+        outcome: "success",
+        metadata: {
+          policyVersion: MENTOR_PREFERENCE_POLICY_VERSION,
+          studentFingerprint,
+          externalProviderEnabled: preferences.externalProviderEnabled,
+          behavioralPersonalizationEnabled:
+            preferences.behavioralPersonalizationEnabled,
+          realExchangeSignalsEnabled: false,
+          consentVersion: preferences.consentVersion,
+        },
+      });
+      return { changed: true, preferences };
     });
-    return result.enabled ? { ok: true, preferences: result.value } : { ok: false };
+
+    return result.enabled
+      ? { ok: true, ...result.value }
+      : { ok: false };
   } catch (error) {
     logger.error("[mentor-trust-store] preference update failed", {
-      studentId: input.studentId,
+      studentFingerprint,
       error: String(error),
     });
     return { ok: false };
@@ -280,7 +362,7 @@ export async function persistMentorConversationPair(
   } catch (error) {
     logger.error("[mentor-trust-store] conversation pair persistence failed", {
       requestId: input.requestId,
-      studentId: input.studentId,
+      studentFingerprint: fingerprintMentorPreferenceStudent(input.studentId),
       error: String(error),
     });
     return false;
