@@ -5,6 +5,10 @@ import type { ChainId, ConfirmationJobData } from "../types";
 import { getProvider } from "../providers/registry";
 import { withDb } from "@/lib/db";
 import { trackWalletMetric } from "../observability";
+import {
+  markWithdrawalConfirmationOutcome,
+  publishWithdrawalConfirmationOutbox,
+} from "@/lib/security/withdrawal-external-effect-authority";
 import { settleConfirmedWithdrawal } from "@/lib/security/withdrawal-settlement-authority";
 
 const TIMEOUT_BY_CHAIN: Record<ChainId, number> = {
@@ -27,16 +31,32 @@ type ConfirmationRecord = {
 };
 
 export async function checkConfirmation(data: ConfirmationJobData): Promise<boolean> {
+  // A Redis job is only a projection. Before any provider observation, the
+  // PostgreSQL outbox publisher must prove the monitoring transition and its
+  // mandatory evidence committed. A failed publication/evidence transaction
+  // is retryable debt, never permission to continue from `broadcasted`.
+  const monitoringAuthorityCommitted = await publishWithdrawalConfirmationOutbox(
+    data.withdrawalId,
+  );
+  if (!monitoringAuthorityCommitted) {
+    throw new Error("withdrawal_confirmation_monitor_authority_unavailable");
+  }
+
   const withdrawal = await loadAuthoritativeConfirmation(data.withdrawalId);
   if (!withdrawal) return true;
   if (!withdrawal.txHash) {
-    throw new Error(`Withdrawal ${data.withdrawalId} has no authoritative transaction hash`);
+    throw new Error("withdrawal_confirmation_hash_missing");
   }
 
   const deadlineBase = withdrawal.lastBroadcastAt ?? withdrawal.updatedAt;
   const deadline = deadlineBase.getTime() + getConfirmationTimeout(withdrawal.network);
   if (Date.now() > deadline) {
-    await markWithdrawalTimeout(withdrawal.id, withdrawal.txHash);
+    await markWithdrawalConfirmationOutcome({
+      withdrawalId: withdrawal.id,
+      txHash: withdrawal.txHash,
+      outcome: "timeout",
+      confirmations: 0,
+    });
     return true;
   }
 
@@ -47,11 +67,12 @@ export async function checkConfirmation(data: ConfirmationJobData): Promise<bool
 
   if (status.status === "dropped") {
     trackWalletMetric("tx_dropped_detected", 1);
-    await markWithdrawalFailed(
-      withdrawal.id,
-      withdrawal.txHash,
-      `Transaction dropped: ${withdrawal.txHash}`,
-    );
+    await markWithdrawalConfirmationOutcome({
+      withdrawalId: withdrawal.id,
+      txHash: withdrawal.txHash,
+      outcome: "dropped",
+      confirmations: status.confirmations,
+    });
     return true;
   }
 
@@ -98,85 +119,21 @@ async function loadAuthoritativeConfirmation(
     const row = selected.rows[0];
     if (!row) throw new Error(`Withdrawal ${withdrawalId} not found`);
 
-    if (["completed", "timeout", "cancelled"].includes(row.state)) return null;
-    if (!["broadcasted", "confirming"].includes(row.state)) {
-      throw new Error(`Withdrawal ${withdrawalId} is not confirmable from state ${row.state}`);
+    if (["completed", "timeout", "cancelled", "failed"].includes(row.state)) {
+      return null;
+    }
+    if (row.state !== "confirming") {
+      throw new Error(
+        `Withdrawal ${withdrawalId} lacks committed confirmation monitor authority from state ${row.state}`,
+      );
     }
     if (!row.txHash) {
-      throw new Error(`Withdrawal ${withdrawalId} is confirmable without tx_hash`);
+      throw new Error("withdrawal_confirmation_hash_missing");
     }
 
-    if (row.state === "broadcasted") {
-      await db.query(
-        `UPDATE withdrawals SET state = 'confirming', updated_at = NOW()
-          WHERE id = $1 AND tx_hash = $2 AND state = 'broadcasted'`,
-        [row.id, row.txHash],
-      );
-      row.state = "confirming";
-    }
     return row;
   });
 
   if (!result.enabled) throw new Error("Withdrawal database unavailable");
   return result.value;
-}
-
-async function markWithdrawalFailed(
-  withdrawalId: string,
-  txHash: string,
-  error: string,
-): Promise<void> {
-  await transitionConfirmationState(
-    withdrawalId,
-    txHash,
-    `UPDATE withdrawals SET
-       state = 'failed',
-       execution_error = $3,
-       updated_at = NOW()
-     WHERE id = $1
-       AND tx_hash = $2
-       AND state IN ('broadcasted', 'confirming')`,
-    [withdrawalId, txHash, error],
-  );
-}
-
-async function markWithdrawalTimeout(
-  withdrawalId: string,
-  txHash: string,
-): Promise<void> {
-  await transitionConfirmationState(
-    withdrawalId,
-    txHash,
-    `UPDATE withdrawals SET
-       state = 'timeout',
-       execution_error = $3,
-       updated_at = NOW()
-     WHERE id = $1
-       AND tx_hash = $2
-       AND state IN ('broadcasted', 'confirming')`,
-    [withdrawalId, txHash, `Confirmation timeout for tx: ${txHash}`],
-  );
-}
-
-async function transitionConfirmationState(
-  withdrawalId: string,
-  txHash: string,
-  sql: string,
-  params: unknown[],
-): Promise<void> {
-  const result = await withDb(async (db) => db.query(sql, params));
-  if (!result.enabled) throw new Error("Withdrawal database unavailable");
-  if (result.value.rowCount === 1) return;
-
-  const current = await withDb(async (db) =>
-    db.query<{ state: string; txHash: string | null }>(
-      `SELECT state, tx_hash AS "txHash" FROM withdrawals WHERE id = $1`,
-      [withdrawalId],
-    ),
-  );
-  const row = current.enabled ? current.value.rows[0] : null;
-  if (row && row.txHash === txHash && ["completed", "failed", "timeout"].includes(row.state)) {
-    return;
-  }
-  throw new Error(`Withdrawal ${withdrawalId} confirmation transition rejected`);
 }

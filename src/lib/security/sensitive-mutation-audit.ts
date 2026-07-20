@@ -58,6 +58,35 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "reviewnotes",
   "review_notes",
   "notes",
+  "rawtx",
+  "raw_tx",
+  "unsignedtx",
+  "unsigned_tx",
+  "signedtx",
+  "signed_tx",
+  "txhash",
+  "tx_hash",
+  "signinghash",
+  "signing_hash",
+  "signeraddress",
+  "signer_address",
+  "privatekey",
+  "private_key",
+  "keymaterial",
+  "key_material",
+  "rpcurl",
+  "rpc_url",
+  "rpcendpoint",
+  "rpc_endpoint",
+  "providerpayload",
+  "provider_payload",
+  "providerresponse",
+  "provider_response",
+  "nonce",
+  "utxo",
+  "utxos",
+  "scriptpubkey",
+  "script_pub_key",
 ]);
 
 export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
@@ -102,7 +131,18 @@ export type SensitiveMutationAuditAction =
   | "withdrawal.admin.approve"
   | "withdrawal.admin.reject"
   | "withdrawal.admin.block"
-  | "withdrawal.admin.flag_review";
+  | "withdrawal.admin.flag_review"
+  | "withdrawal.execution.claim"
+  | "withdrawal.transaction.prepare"
+  | "withdrawal.broadcast.attempt"
+  | "withdrawal.broadcast.accepted"
+  | "withdrawal.broadcast.ambiguous"
+  | "withdrawal.broadcast.rejected"
+  | "withdrawal.broadcast.hash_mismatch"
+  | "withdrawal.confirmation.monitor"
+  | "withdrawal.confirmation.dropped"
+  | "withdrawal.confirmation.timeout"
+  | "withdrawal.settle";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
@@ -118,7 +158,10 @@ export type SensitiveMutationAuditResource =
   | "exchange_order"
   | "withdrawal_authorization"
   | "withdrawal_request"
-  | "withdrawal_admin_transition";
+  | "withdrawal_admin_transition"
+  | "withdrawal_execution"
+  | "withdrawal_broadcast_attempt"
+  | "withdrawal_settlement";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;

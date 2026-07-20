@@ -134,7 +134,18 @@ jobs:
           retention-days: 3
 
       - name: ESLint
-        run: ./node_modules/.bin/eslint . --max-warnings 0
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/eslint . --max-warnings 0 2>&1 | tee /tmp/tecpey-eslint-diagnostics.log
+
+      - name: Upload ESLint diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-eslint-diagnostics.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Frontend style authority guard
         run: npm run ui:check

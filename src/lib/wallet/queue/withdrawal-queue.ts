@@ -136,12 +136,15 @@ export async function moveToDeadLetter(data: WithdrawalJobData, reason: string):
   );
 }
 
-export async function enqueueRecovery(data: WithdrawalJobData): Promise<void> {
+export async function enqueueRecovery(
+  data: WithdrawalJobData,
+  opts?: { delay?: number },
+): Promise<void> {
   const identity = queueIdentity("recovery", data.withdrawalId);
   await recoveryQueue.add("recover", data, {
     jobId: identity.jobId,
     deduplication: { id: identity.deduplicationId },
-    delay: 60_000,
+    delay: opts?.delay ?? 60_000,
   });
 }
 

@@ -20,6 +20,9 @@ import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settl
 import { runWithdrawalPrebroadcastEvidenceMigrations } from "./db-migrate-withdrawal-prebroadcast-evidence";
 import { runWithdrawalAdminEvidenceHardeningMigrations } from "./db-migrate-withdrawal-admin-evidence-hardening";
 import { runWithdrawalPrebroadcastTransitionGateMigrations } from "./db-migrate-withdrawal-prebroadcast-transition-gate";
+import { runWithdrawalExternalEffectEvidenceMigrations } from "./db-migrate-withdrawal-external-effect-evidence";
+import { runWithdrawalExternalEffectGateMigrations } from "./db-migrate-withdrawal-external-effect-gate";
+import { runWithdrawalExternalEffectGateAmountCastMigrations } from "./db-migrate-withdrawal-external-effect-gate-amount-cast";
 import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
 import { runSensitiveMutationAuditMigrations } from "./db-migrate-sensitive-mutation-audit";
 import { runSessionAuthorityMigrations } from "./db-migrate-session-authority";
@@ -56,6 +59,9 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runWithdrawalPrebroadcastEvidenceMigrations(client);
   await runWithdrawalAdminEvidenceHardeningMigrations(client);
   await runWithdrawalPrebroadcastTransitionGateMigrations(client);
+  await runWithdrawalExternalEffectEvidenceMigrations(client);
+  await runWithdrawalExternalEffectGateMigrations(client);
+  await runWithdrawalExternalEffectGateAmountCastMigrations(client);
   await runSessionAuthorityMigrations(client);
   await runSessionLegacyFallbackMigrations(client);
   await runAiMentorTrustMigrations(client);
