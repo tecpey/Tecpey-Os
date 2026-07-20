@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import type { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "../academy-session";
 import { Validate } from "../api-validation";
+import { getCanonicalSession } from "../auth-session";
 import { getUnifiedSessionFromRequest } from "../unified-session";
 
 export const DEFAULT_NOTIFICATION_TENANT_ID = "tecpey";
@@ -35,9 +36,36 @@ function normalizeLocale(value: unknown): "fa" | "en" {
   return value === "en" ? "en" : "fa";
 }
 
+function requestLocale(request: NextRequest): "fa" | "en" {
+  return normalizeLocale(new URL(request.url).searchParams.get("locale"));
+}
+
 export async function getNotificationIdentityFromRequest(
   request: NextRequest,
+  options: { strictRevocation?: boolean } = {},
 ): Promise<NotificationIdentity | null> {
+  if (options.strictRevocation === true) {
+    const session = await getCanonicalSession(request, { strictRevocation: true });
+    const accountCandidate = session.academyAccountId ?? session.userId;
+    const accountId = accountCandidate
+      ? Validate.text(accountCandidate, 3, 220)
+      : null;
+    const studentId = session.studentId
+      ? Validate.uuid(session.studentId)
+      : null;
+
+    if (accountCandidate && !accountId) return null;
+    if (session.studentId && !studentId) return null;
+    if (!accountId && !studentId) return null;
+
+    return {
+      accountId,
+      studentId,
+      email: session.email ? Validate.email(session.email) : null,
+      locale: requestLocale(request),
+    };
+  }
+
   const unified = await getUnifiedSessionFromRequest(request);
   if (unified) {
     const accountId = unified.accountId
@@ -55,7 +83,7 @@ export async function getNotificationIdentityFromRequest(
       accountId,
       studentId,
       email: unified.email ? Validate.email(unified.email) : null,
-      locale: normalizeLocale(new URL(request.url).searchParams.get("locale")),
+      locale: requestLocale(request),
     };
   }
 
@@ -67,7 +95,7 @@ export async function getNotificationIdentityFromRequest(
     accountId: null,
     studentId,
     email: null,
-    locale: normalizeLocale(new URL(request.url).searchParams.get("locale")),
+    locale: requestLocale(request),
   };
 }
 

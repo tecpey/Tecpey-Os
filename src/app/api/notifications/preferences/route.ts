@@ -80,7 +80,9 @@ export async function PATCH(req: NextRequest) {
       return notificationApiError("payload_too_large", 413);
     }
 
-    const identity = await getNotificationIdentityFromRequest(req);
+    const identity = await getNotificationIdentityFromRequest(req, {
+    strictRevocation: true,
+  });
     if (!identity) return notificationApiError("authentication_required", 401);
 
     let body: unknown;

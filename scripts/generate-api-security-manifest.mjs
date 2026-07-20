@@ -10,6 +10,7 @@ import {
   detectRedactionCall,
   detectServiceIdentityEvidence,
   detectSessionCookieWrite,
+  detectStrictRevocationCall,
   runtimeEvidenceSource,
 } from "./api-security-runtime-evidence.mjs";
 
@@ -133,7 +134,7 @@ function detectControls(handler) {
   const inputParser = detectInputParser(source);
   return {
     csrf: detectCsrfCall(source),
-    strictRevocation: /strictRevocation\s*:\s*true|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(/i.test(source),
+    strictRevocation: detectStrictRevocationCall(source),
     rateLimit: /\brateLimit(?:User|Distributed)?\s*\(/.test(source),
     rateLimitNamespace,
     expectsBody: Boolean(inputParser),

@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
       return notificationApiError("payload_too_large", 413);
     }
 
-    const identity = await getNotificationIdentityFromRequest(req);
+    const identity = await getNotificationIdentityFromRequest(req, {
+    strictRevocation: true,
+  });
     if (!identity) return notificationApiError("authentication_required", 401);
 
     const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? null;

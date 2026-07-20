@@ -12,11 +12,10 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 52,
-    "findings": 64,
+    "operationsWithFindings": 48,
+    "findings": 48,
     "findingCounts": {
-      "parsed_body_without_size_limit": 48,
-      "required_strict_revocation_missing": 16
+      "parsed_body_without_size_limit": 48
     }
   },
   "routes": [
@@ -1156,7 +1155,7 @@
       "route": "/api/ai-mentor",
       "method": "POST",
       "sourcePath": "src/app/api/ai-mentor/route.ts",
-      "sourceHash": "112bd3fb5549f1ad4ad6df5e",
+      "sourceHash": "b61163218fcfc19a81967cd2",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1168,7 +1167,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "ai-mentor",
         "expectsBody": true,
@@ -1190,7 +1189,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1204,7 +1205,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -1217,9 +1217,9 @@
       "route": "/api/ai-mentor-v2",
       "method": "POST",
       "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
-      "sourceHash": "b4dd3b10e1c0d1a000b9bafe",
+      "sourceHash": "f5b3b1803e1c60699a8fcc18",
       "delegatedTo": "src/app/api/ai-mentor/route.ts",
-      "delegatedSourceHash": "112bd3fb5549f1ad4ad6df5e",
+      "delegatedSourceHash": "b61163218fcfc19a81967cd2",
       "mutationMode": "active",
       "classification": "authenticated",
       "principalSource": "canonical /api/ai-mentor handler",
@@ -1229,7 +1229,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "ai-mentor",
         "expectsBody": true,
@@ -1251,7 +1251,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "ai-mentor-v2",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1265,7 +1267,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -1455,7 +1456,7 @@
       "route": "/api/auth/2fa/backup",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/backup/route.ts",
-      "sourceHash": "12b381a4483a5b3def7f5742",
+      "sourceHash": "6187891258f6ae80fefef4e8",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1467,7 +1468,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "2fa-backup",
         "expectsBody": true,
@@ -1489,7 +1490,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1503,7 +1506,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -1516,7 +1518,7 @@
       "route": "/api/auth/2fa/disable",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/disable/route.ts",
-      "sourceHash": "625530f29c24d841e4a0e4e2",
+      "sourceHash": "72a1bd533a77e92b85ab69a7",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1528,7 +1530,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "2fa-disable",
         "expectsBody": true,
@@ -1550,7 +1552,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1564,7 +1568,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -1577,7 +1580,7 @@
       "route": "/api/auth/2fa/enroll",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/enroll/route.ts",
-      "sourceHash": "49ed070451f72438f5935933",
+      "sourceHash": "de35c581e85b90b90e42c851",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1589,7 +1592,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "2fa-enroll-post",
         "expectsBody": true,
@@ -1611,7 +1614,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1625,7 +1630,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -1698,7 +1702,7 @@
       "route": "/api/auth/devices/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
-      "sourceHash": "9d1d4d21c203ff41ed9b9aec",
+      "sourceHash": "3cf67a83ae4638e1fc79bced",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1710,7 +1714,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "auth-devices-delete",
         "expectsBody": false,
@@ -1732,7 +1736,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1745,9 +1751,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
         "method": "DELETE",
@@ -1758,7 +1762,7 @@
       "route": "/api/auth/devices/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
-      "sourceHash": "9d1d4d21c203ff41ed9b9aec",
+      "sourceHash": "3cf67a83ae4638e1fc79bced",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1770,7 +1774,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "auth-devices-patch",
         "expectsBody": true,
@@ -1792,7 +1796,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -1806,7 +1812,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -2192,7 +2197,7 @@
       "route": "/api/auth/webauthn/credentials/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
-      "sourceHash": "c2fd5ff4fb6c706b3ddbb7ed",
+      "sourceHash": "38e824b9364350433fd11371",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2204,7 +2209,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-credential-delete",
         "expectsBody": false,
@@ -2226,7 +2231,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -2239,9 +2246,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
         "method": "DELETE",
@@ -2252,7 +2257,7 @@
       "route": "/api/auth/webauthn/credentials/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
-      "sourceHash": "c2fd5ff4fb6c706b3ddbb7ed",
+      "sourceHash": "38e824b9364350433fd11371",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2264,7 +2269,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-credential-patch",
         "expectsBody": true,
@@ -2286,7 +2291,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -2300,7 +2307,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -2371,7 +2377,7 @@
       "route": "/api/auth/webauthn/register/verify",
       "method": "POST",
       "sourcePath": "src/app/api/auth/webauthn/register/verify/route.ts",
-      "sourceHash": "bb6c2589520b16ae4885a18d",
+      "sourceHash": "ce5442b668c980554765c53a",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2383,7 +2389,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-reg-verify",
         "expectsBody": true,
@@ -2405,7 +2411,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "auth",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -2419,7 +2427,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -2763,7 +2770,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "admin-logout",
         "expectsBody": false,
@@ -2785,7 +2792,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "command-center",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -2798,9 +2807,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/command-center/auth/logout/route.ts",
         "method": "POST",
@@ -3006,19 +3013,19 @@
       "route": "/api/community/profile",
       "method": "PATCH",
       "sourcePath": "src/app/api/community/profile/route.ts",
-      "sourceHash": "5c3b195f7c1c4f5dc6d4d211",
+      "sourceHash": "2bbaa75635e4b75325daa868",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
       "classification": "authenticated",
-      "principalSource": "setCurrentPublicVisibility",
+      "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
         "privacy"
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "community-profile-write",
         "expectsBody": true,
@@ -3032,7 +3039,7 @@
         "noStore": true,
         "audit": true,
         "redaction": true,
-        "failClosed": false,
+        "failClosed": true,
         "serviceIdentity": false,
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
@@ -3040,7 +3047,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "community",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3054,7 +3063,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -3364,7 +3372,7 @@
       "route": "/api/mentor-memory",
       "method": "DELETE",
       "sourcePath": "src/app/api/mentor-memory/route.ts",
-      "sourceHash": "9c23d727acdc272f1f32dacf",
+      "sourceHash": "ca22b2e1ddc4d7009078ca5b",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3376,7 +3384,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "mentor-memory-delete",
         "expectsBody": false,
@@ -3398,7 +3406,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3411,9 +3421,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-memory/route.ts",
         "method": "DELETE",
@@ -3424,7 +3432,7 @@
       "route": "/api/mentor-memory",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-memory/route.ts",
-      "sourceHash": "9c23d727acdc272f1f32dacf",
+      "sourceHash": "ca22b2e1ddc4d7009078ca5b",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3436,7 +3444,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "mentor-memory-write",
         "expectsBody": true,
@@ -3458,7 +3466,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-memory",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3472,7 +3482,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -3634,7 +3643,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": false,
         "strictRevocation": false,
@@ -3716,7 +3727,7 @@
       "route": "/api/notifications/consent",
       "method": "POST",
       "sourcePath": "src/app/api/notifications/consent/route.ts",
-      "sourceHash": "d6b322d9fa2e648aae426ba0",
+      "sourceHash": "c6554f3ddab65f697f712952",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3728,7 +3739,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "notification-consent-write",
         "expectsBody": true,
@@ -3750,7 +3761,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3764,7 +3777,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
@@ -3777,7 +3789,7 @@
       "route": "/api/notifications/preferences",
       "method": "PATCH",
       "sourcePath": "src/app/api/notifications/preferences/route.ts",
-      "sourceHash": "a0714425523ed3e22bf30a02",
+      "sourceHash": "463372226e32faa189c8ae8f",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3789,7 +3801,7 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "notification-preferences-write",
         "expectsBody": true,
@@ -3811,7 +3823,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "notifications",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/auth-strict-revocation-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3825,7 +3839,6 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
         "parsed_body_without_size_limit"
       ],
       "evidenceSource": {

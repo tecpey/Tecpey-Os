@@ -202,6 +202,25 @@ export async function ensureCommunityTables(client: Queryable) {
   )`);
 }
 
+export async function setPublicVisibilityForStudent(
+  studentId: string,
+  visibility: "public" | "private",
+): Promise<"updated" | "not_found" | "unavailable"> {
+  const result = await withDb(async (client) => {
+    const updated = await client.query(
+      `INSERT INTO academy_public_profiles(student_id, visibility, updated_at)
+       VALUES($1::uuid, $2, now())
+       ON CONFLICT(student_id) DO UPDATE
+         SET visibility = EXCLUDED.visibility, updated_at = now()
+       RETURNING student_id`,
+      [studentId, visibility],
+    );
+    return (updated.rowCount ?? 0) === 1;
+  }).catch(() => ({ enabled: false as const, value: null }));
+  if (!result.enabled) return "unavailable";
+  return result.value ? "updated" : "not_found";
+}
+
 export async function getCurrentPublicProfile(req: NextRequest): Promise<PublicLearnerProfile | null> {
   const studentId = await getCurrentAcademyStudentId(req);
   if (!studentId) return null;
