@@ -119,7 +119,6 @@ export class RedisPubSubManager {
   private latencyInterval: ReturnType<typeof setInterval> | null = null;
   private obDebounce = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly nodeId = randomUUID();
-  private readonly startedAt = new Date().toISOString();
   private metrics = {
     published: 0,
     received: 0,
@@ -183,8 +182,12 @@ export class RedisPubSubManager {
         this.handleMessage(channel as ChannelKey, raw);
       });
 
-      const subscribedChannels = await this.subClient.subscribe(...CHANNEL_VALUES);
-      if (subscribedChannels < CHANNEL_VALUES.length) {
+      const subscribedRaw = await this.subClient.subscribe(...CHANNEL_VALUES);
+      const subscribedChannels = Number(subscribedRaw);
+      if (
+        !Number.isSafeInteger(subscribedChannels) ||
+        subscribedChannels < CHANNEL_VALUES.length
+      ) {
         throw new Error(
           `redis_subscription_incomplete:${subscribedChannels}/${CHANNEL_VALUES.length}`,
         );
@@ -197,7 +200,6 @@ export class RedisPubSubManager {
       this.activeWebNodes = discovery.count;
       this.state = "ready";
       this.startTimers();
-
       globalThis.tecpeyRedisClient = this.pubClient;
 
       logger.info("[pubsub] initialized", {
@@ -271,9 +273,11 @@ export class RedisPubSubManager {
 
   private async registerNodeStrict(): Promise<void> {
     if (!this.pubClient) throw new Error("redis_publisher_unavailable");
-
-    const expiresAt = Date.now() + NODE_TTL_MS;
-    await this.pubClient.zadd(WEB_NODE_REGISTRY_KEY, expiresAt, this.nodeId);
+    await this.pubClient.zadd(
+      WEB_NODE_REGISTRY_KEY,
+      Date.now() + NODE_TTL_MS,
+      this.nodeId,
+    );
   }
 
   private startTimers(): void {
