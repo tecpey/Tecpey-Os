@@ -63,6 +63,10 @@ function auditMetadataBlock(target) {
   return objectStart >= 0 ? balancedObject(source, objectStart) : "";
 }
 
+function containsStoredKey(block, names) {
+  return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`).test(block);
+}
+
 for (const target of ["device", "conversations", "profile"]) {
   requireText(target, "getCanonicalSession(req, { strictRevocation: true })", "mutation must use strict session revocation authority");
   requireText(target, "verifyCsrfOrigin(req)", "mutation must enforce CSRF origin authority");
@@ -82,7 +86,7 @@ for (const target of ["device", "conversations", "profile"]) {
 requireText("device", "const tokenHash = hashSensitiveAuditRequest(token)", "raw push tokens must be represented by a one-way hash");
 requireText("device", "resourceId: tokenHash", "device audit resource identity must be the token hash");
 requireText("device", "tokenHash,", "safe token hash metadata is required");
-if (/\btoken\s*[,}]/.test(auditMetadataBlock("device"))) {
+if (containsStoredKey(auditMetadataBlock("device"), ["token"])) {
   failures.push(`${files.device}: raw token must not appear in audit metadata`);
 }
 
@@ -90,7 +94,7 @@ requireText("conversations", "contentHash: hashSensitiveAuditRequest(message.con
 for (const field of ["attemptedCount", "acceptedCount", "importedCount", "rejectedCount"]) {
   requireText("conversations", field, `conversation audit needs safe count: ${field}`);
 }
-if (/\b(?:content|messages|conversation)\b/.test(auditMetadataBlock("conversations"))) {
+if (containsStoredKey(auditMetadataBlock("conversations"), ["content", "messages", "conversation"])) {
   failures.push(`${files.conversations}: raw conversation fields are forbidden in audit metadata`);
 }
 
@@ -103,7 +107,7 @@ for (const field of [
 ]) {
   requireText("profile", field, `profile audit needs safe derived metadata: ${field}`);
 }
-if (/\b(?:primaryGoal|weakAreas|strongAreas)\b/.test(auditMetadataBlock("profile"))) {
+if (containsStoredKey(auditMetadataBlock("profile"), ["primaryGoal", "weakAreas", "strongAreas"])) {
   failures.push(`${files.profile}: behavioral text and area labels are forbidden in audit metadata`);
 }
 requireText("profileAuthority", "upsertMentorProfileUpdateTx", "profile mutation needs a transaction-injected writer");
