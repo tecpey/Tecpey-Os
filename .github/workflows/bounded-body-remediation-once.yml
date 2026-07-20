@@ -1,0 +1,83 @@
+name: One-shot Bounded Body Remediation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/bounded-body-remediation-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-bounded-body-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/bounded-mutating-request-bodies
+          fetch-depth: 2
+
+      - name: Apply reviewed bounded-body patch
+        run: |
+          set -euo pipefail
+          git apply --check .github/bounded-body-remediation.patch
+          git apply .github/bounded-body-remediation.patch
+          git diff --check
+
+      - name: Verify deterministic body boundaries
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          routes = list(Path("src/app/api").rglob("route.ts"))
+          affected = []
+          for path in routes:
+              source = path.read_text()
+              if "@/lib/security/request-body" in source:
+                  affected.append(path)
+                  if not re.search(r"\breadJsonBody(?:<[^;\n]+>)?\s*\(", source):
+                      raise SystemExit(f"bounded reader call missing: {path}")
+                  if re.search(r"\b(?:req|request)\.(?:json|text)\s*\(", source):
+                      raise SystemExit(f"unbounded request parser remains: {path}")
+          if len(affected) != 47:
+              raise SystemExit(f"expected 47 direct bounded routes, found {len(affected)}")
+
+          alias = Path("src/app/api/ai-mentor-v2/route.ts").read_text()
+          if "POST as canonicalPost" not in alias or "canonicalPost(req)" not in alias:
+              raise SystemExit("AI Mentor V2 must delegate to the canonical bounded handler")
+
+          utility = Path("src/lib/security/request-body.ts").read_text()
+          for evidence in (
+              "request.body.getReader()",
+              "totalBytes += value.byteLength",
+              "totalBytes > maxBytes",
+              "reader.cancel",
+              'TextDecoder("utf-8", { fatal: true })',
+              "unsupported_content_encoding",
+              "unsupported_media_type",
+          ):
+              if evidence not in utility:
+                  raise SystemExit(f"bounded body utility evidence missing: {evidence}")
+          PY
+
+      - name: Commit permanent remediation and remove temporary assets
+        run: |
+          set -euo pipefail
+          git rm \
+            .github/workflows/bounded-body-source-snapshot-temp.yml \
+            .github/workflows/bounded-body-remediation-once.yml \
+            .github/bounded-body-remediation.patch
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): enforce bounded mutating request bodies"
+          git push origin HEAD:fix/bounded-mutating-request-bodies
