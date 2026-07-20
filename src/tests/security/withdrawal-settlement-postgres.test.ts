@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { withDb } from "../../lib/db";
 import { PLATFORM } from "../../lib/platform-config";
+import { hashSensitiveAuditRequest } from "../../lib/security/sensitive-mutation-audit";
 import {
+  fingerprintExpectedTransactionHash,
   fingerprintWithdrawalSettlement,
   writeWithdrawalExternalEffectEvidenceTx,
 } from "../../lib/security/withdrawal-external-effect-evidence";
@@ -21,6 +23,7 @@ async function seedSettleableWithdrawal(input: {
   amount?: string;
 }): Promise<void> {
   const amount = input.amount ?? "2";
+  const transactionFingerprint = fingerprintExpectedTransactionHash(input.txHash);
   const seeded = await withDb(async (client) => {
     await client.query(
       `INSERT INTO wallet_balances
@@ -52,6 +55,30 @@ async function seedSettleableWithdrawal(input: {
        VALUES ($1,'USDT','hold',$3::numeric,3,$2,'withdrawal')`,
       [input.userId, input.withdrawalId, amount],
     );
+    await writeWithdrawalExternalEffectEvidenceTx(client, {
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorId: "withdrawal-confirmation",
+      action: "withdrawal.confirmation.monitor",
+      resourceType: "withdrawal_execution",
+      resourceIdentity: input.withdrawalId,
+      correlationIdentity: `${input.withdrawalId}\u001f${input.txHash.toLowerCase()}`,
+      requestHash: hashSensitiveAuditRequest({
+        action: "withdrawal.confirmation.monitor",
+        withdrawalId: input.withdrawalId,
+        txHash: input.txHash.toLowerCase(),
+        requiredConfirmations: 2,
+      }),
+      outcome: "success",
+      metadata: {
+        asset: "USDT",
+        network: "ethereum",
+        amount,
+        expectedTransactionHashFingerprint: transactionFingerprint,
+        requiredConfirmations: 2,
+        confirmationProjection: "published",
+        finalState: "confirming",
+      },
+    });
     return true;
   });
   assert.equal(seeded.enabled, true);
