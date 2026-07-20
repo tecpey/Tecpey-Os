@@ -1,37 +1,35 @@
-import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { verifyCsrfOrigin } from "@/lib/csrf";
+import { withTx } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
 import { rateLimit } from "@/lib/rate-limit";
-import { withDb } from "@/lib/db";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+  writeSensitiveMutationAuditTx,
+} from "@/lib/security/sensitive-mutation-audit";
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/mentor-conversations/migrate
-// One-shot endpoint: imports chat history that was stored in localStorage (pre-Phase 8)
-// into the server-side mentor_conversations table.
-//
-// The widget calls this at most once per student (guarded by a localStorage migration flag).
-// Rate-limited to 3 requests per hour per student to prevent abuse.
-//
-// Body: { messages: { role: "user"|"assistant", content: string, at: number }[] }
-// Response: { ok: true, imported: N }
-//
-// Security:
-//   - session.studentId mandatory
-//   - role validated against allowlist; content sanitized and length-capped
-//   - timestamps: client-provided `at` (milliseconds) validated as a reasonable date range
-//   - No duplicate-detection: the widget's migration flag (localStorage) prevents re-calls
-export async function POST(req: NextRequest) {
-  if (!verifyCsrfOrigin(req))
-    return apiError("forbidden", 403);
-  const limit = await rateLimit(req, { namespace: "mentor-conversations-migrate", limit: 3, windowMs: 60 * 60_000 });
-  if (!limit.ok) return apiError("rate_limited", 429);
+type ValidatedMessage = { role: "user" | "assistant"; content: string; ts: Date };
 
-  const session = await getCanonicalSession(req);
+export async function POST(req: NextRequest) {
+  if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
+  const session = await getCanonicalSession(req, { strictRevocation: true });
   if (!session.studentId) return apiError("academy_profile_required", 401);
   const studentId = session.studentId;
+
+  const limit = await rateLimit(req, {
+    namespace: "mentor-conversations-migrate",
+    identity: studentId,
+    limit: 3,
+    windowMs: 60 * 60_000,
+  });
+  if (!limit.ok) return apiError("rate_limited", 429);
 
   let body: unknown;
   try {
@@ -41,50 +39,81 @@ export async function POST(req: NextRequest) {
   }
 
   const rawMessages = (body as { messages?: unknown[] })?.messages;
-  if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
-    return apiOk({ imported: 0 });
-  }
-
-  // Validate and sanitize each message from localStorage.
+  const attemptedCount = Array.isArray(rawMessages) ? Math.min(rawMessages.length, 50) : 0;
   const validRoles = new Set(["user", "assistant"]);
   const now = Date.now();
   const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
-
-  type ValidatedMessage = { role: string; content: string; ts: Date };
   const messages: ValidatedMessage[] = [];
 
-  for (const item of rawMessages.slice(0, 50)) {
-    const m = item as Record<string, unknown>;
-    if (!validRoles.has(String(m.role ?? ""))) continue;
-    const content = cleanText(m.content, 2000);
+  for (const item of Array.isArray(rawMessages) ? rawMessages.slice(0, 50) : []) {
+    const message = item as Record<string, unknown>;
+    const role = String(message.role ?? "");
+    if (!validRoles.has(role)) continue;
+    const content = cleanText(message.content, 2000);
     if (!content) continue;
-    const at = Number(m.at ?? 0);
-    // Reject timestamps that are clearly invalid (future or more than 1 year old).
+    const at = Number(message.at ?? 0);
     if (!at || at > now + 60_000 || at < oneYearAgo) continue;
-    messages.push({ role: String(m.role), content, ts: new Date(at) });
+    messages.push({
+      role: role as ValidatedMessage["role"],
+      content,
+      ts: new Date(at),
+    });
   }
 
-  if (messages.length === 0) {
-    return apiOk({ imported: 0 });
-  }
-
-  const result = await withDb(async (client) => {
-    let imported = 0;
-    for (const { role, content, ts } of messages) {
-      await client.query(
-        `INSERT INTO mentor_conversations (student_id, role, content, locale, created_at)
-         VALUES ($1::uuid, $2, $3, 'fa', $4)
-         ON CONFLICT DO NOTHING`,
-        [studentId, role, content, ts],
-      );
-      imported++;
-    }
-    return { imported };
+  const correlationId = resolveSensitiveAuditCorrelation(
+    req.headers.get("x-tecpey-request-id"),
+  );
+  const requestHash = hashSensitiveAuditRequest({
+    studentId,
+    messages: messages.map((message) => ({
+      role: message.role,
+      contentHash: hashSensitiveAuditRequest(message.content),
+      at: message.ts.toISOString(),
+    })),
   });
 
-  if (!result.enabled) {
-    return apiOk({ imported: 0, storage: "unavailable" });
-  }
+  try {
+    const result = await withTx(async (client) => {
+      let imported = 0;
+      for (const { role, content, ts } of messages) {
+        const inserted = await client.query(
+          `INSERT INTO mentor_conversations
+             (student_id, role, content, locale, created_at)
+           VALUES ($1::uuid, $2, $3, 'fa', $4)
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [studentId, role, content, ts],
+        );
+        imported += inserted.rowCount ?? 0;
+      }
 
-  return apiOk({ imported: result.value?.imported ?? 0 });
+      const userCount = messages.filter((message) => message.role === "user").length;
+      const assistantCount = messages.length - userCount;
+      await writeSensitiveMutationAuditTx(client, {
+        tenantId: PLATFORM.DEFAULT_TENANT_ID,
+        actorType: "student",
+        actorId: studentId,
+        action: "mentor_conversations.migrate",
+        resourceType: "mentor_conversations",
+        resourceId: studentId,
+        outcome: messages.length === 0 ? "no_op" : "success",
+        correlationId,
+        requestHash,
+        metadata: {
+          attemptedCount,
+          acceptedCount: messages.length,
+          importedCount: imported,
+          userCount,
+          assistantCount,
+          rejectedCount: Math.max(0, attemptedCount - messages.length),
+        },
+      });
+      return { imported };
+    });
+
+    if (!result.enabled) return apiError("mentor_storage_unavailable", 503);
+    return apiOk({ imported: result.value.imported });
+  } catch {
+    return apiError("mentor_migration_unavailable", 503);
+  }
 }

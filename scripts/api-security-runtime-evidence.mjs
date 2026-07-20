@@ -109,7 +109,7 @@ export function detectCsrfCall(handler) {
 
 export function detectAuditCall(handler) {
   const source = runtimeEvidenceSource(handler);
-  return /\b(?:writeAudit|writeAdminAuditEvent|recordAudit[A-Za-z0-9_]*|emitSecurityEvent|securityEvent|trackAuthEvent|withObservability)\s*\(/.test(source)
+  return /\b(?:writeAudit|writeAdminAuditEvent|writeSensitiveMutationAuditTx|recordAudit[A-Za-z0-9_]*|emitSecurityEvent|securityEvent|trackAuthEvent|withObservability)\s*\(/.test(source)
     || /\blogger\.(?:info|warn|error)\s*\(/.test(source)
     || /\b(?:student_events|admin_events)\b/.test(source);
 }

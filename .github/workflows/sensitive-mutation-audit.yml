@@ -1,0 +1,90 @@
+name: Sensitive Mutation Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sensitive-mutation-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    name: Sensitive Mutation Audit Authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Apply canonical migrations
+        run: npm run db:migrate
+
+      - name: Sensitive mutation audit authority guard
+        run: |
+          set -o pipefail
+          npm run audit:sensitive:check 2>&1 | tee /tmp/tecpey-sensitive-audit-guard.log
+
+      - name: Sensitive mutation audit PostgreSQL tests
+        run: |
+          set -o pipefail
+          npm run test:sensitive-mutation-audit 2>&1 | tee /tmp/tecpey-sensitive-audit-tests.log
+
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: Upload sensitive audit diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sensitive-mutation-audit-diagnostics-${{ github.sha }}
+          path: |
+            /tmp/tecpey-sensitive-audit-guard.log
+            /tmp/tecpey-sensitive-audit-tests.log
+          if-no-files-found: ignore
+          retention-days: 7

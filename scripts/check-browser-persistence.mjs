@@ -8,13 +8,13 @@ const PERSISTENCE_PATTERN = /(?:localStorage|sessionStorage|indexedDB|IndexedDB|
 // Exact line-count baseline from the repository-wide audit on 2026-07-18.
 // Academy specialized lead browser persistence was removed on 2026-07-19.
 // Academy article progress/XP browser authority was removed on 2026-07-19.
+// Mentor conversation migration browser authority was removed on 2026-07-20.
 // Test fixtures are excluded because they intentionally name forbidden APIs
 // while proving that production authority modules do not use them.
 // Every remediation PR MUST lower the relevant number here in the same change.
 // Increasing a count or adding a new production file fails CI.
 const expectedMatches = new Map(Object.entries({
   "src/app/api/ai-mentor-v2/route.ts": 1,
-  "src/app/api/mentor-conversations/migrate/route.ts": 4,
   "src/components/academy/AcademyEngagementHub.tsx": 2,
   "src/components/academy/AcademyMentorCoachCenter.tsx": 5,
   "src/components/academy/AcademySimulationWorld.tsx": 2,

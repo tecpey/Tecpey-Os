@@ -22,6 +22,8 @@ const REQUIRED_MIGRATIONS = [
   "0027_exchange_order_admission_authority.sql",
   "0030_withdrawal_admission_authority.sql",
   "0031_withdrawal_settlement_authority.sql",
+  "0032_api_command_idempotency.sql",
+  "0033_sensitive_mutation_audit.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -46,6 +48,8 @@ const REQUIRED_TABLES = [
   "withdrawal_admission_outbox",
   "admin_sessions",
   "admin_audit_events",
+  "api_command_receipts",
+  "sensitive_mutation_audit_events",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -78,6 +82,12 @@ const REQUIRED_COLUMNS = [
   ["exchange_order_commands", "lease_expires_at"],
   ["exchange_order_commands", "result"],
   ["exchange_order_command_attempts", "outcome"],
+  ["api_command_receipts", "tenant_id"],
+  ["api_command_receipts", "request_hash"],
+  ["api_command_receipts", "retain_until"],
+  ["sensitive_mutation_audit_events", "tenant_id"],
+  ["sensitive_mutation_audit_events", "correlation_id"],
+  ["sensitive_mutation_audit_events", "request_hash"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -99,6 +109,11 @@ const REQUIRED_INDEXES = [
   "exchange_order_commands_user_idx",
   "exchange_order_command_attempts_command_idx",
   "withdrawals_user_idempotency_unique_idx",
+  "api_command_receipts_retention_idx",
+  "api_command_receipts_operation_idx",
+  "sensitive_mutation_audit_actor_idx",
+  "sensitive_mutation_audit_resource_idx",
+  "sensitive_mutation_audit_action_idx",
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -126,6 +141,10 @@ const REQUIRED_TRIGGERS = [
   "exchange_order_commands_no_delete",
   "exchange_order_command_attempts_no_update",
   "exchange_order_command_attempts_no_delete",
+  "api_command_receipts_guard",
+  "sensitive_mutation_audit_validate",
+  "sensitive_mutation_audit_no_update",
+  "sensitive_mutation_audit_no_delete",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
