@@ -10,6 +10,7 @@ import {
   processExchangeOrderCommand,
   type ExchangeOrderAdmissionInput,
 } from "../../lib/trading/order-command-service";
+import { D } from "../../lib/trading/decimal";
 import {
   fingerprintExchangeMarket,
   fingerprintExchangeOrder,
@@ -116,7 +117,7 @@ async function cancellationState(userId: string, orderId: string) {
     return {
       status: order.rows[0]?.status ?? null,
       ...counts.rows[0]!,
-      residual,
+      residual: D(residual).toFixed(),
     };
   });
   assert.equal(result.enabled, true);
@@ -240,7 +241,7 @@ describe("Exchange order cancellation mandatory evidence", () => {
         evidence: "0",
         events: "0",
         receipts: "0",
-        residual: "10.0100000000",
+        residual: "10.01",
       });
     } finally {
       await withDb((client) =>
