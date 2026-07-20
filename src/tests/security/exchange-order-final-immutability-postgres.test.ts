@@ -120,11 +120,15 @@ describe("Exchange final command immutability", () => {
         const command = await client.query<{
           state: string;
           accepted: boolean;
-          result: Record<string, unknown>;
+          order_status: string;
+          trade_ids: unknown;
+          reason: string | null;
         }>(
           `SELECT state,
                   (result->>'accepted')::boolean AS accepted,
-                  result
+                  result->>'orderStatus' AS order_status,
+                  result->'tradeIds' AS trade_ids,
+                  result->>'reason' AS reason
              FROM exchange_order_commands
             WHERE id = $1::uuid`,
           [admitted.commandId],
@@ -145,7 +149,18 @@ describe("Exchange final command immutability", () => {
       if (!authority.enabled) throw new Error("test_database_unavailable");
       assert.equal(authority.value.command?.state, "final");
       assert.equal(authority.value.command?.accepted, true);
-      assert.deepEqual(authority.value.command?.result, processed.outcome);
+      assert.equal(
+        authority.value.command?.order_status,
+        processed.outcome.orderStatus,
+      );
+      assert.deepEqual(
+        authority.value.command?.trade_ids,
+        processed.outcome.tradeIds,
+      );
+      assert.equal(
+        authority.value.command?.reason,
+        processed.outcome.reason ?? null,
+      );
       assert.equal(authority.value.evidenceCount, 1);
     },
   );
