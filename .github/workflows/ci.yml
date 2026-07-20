@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # A new PR synchronize event still cancels stale work. Manual reruns use
+  # run_attempt > 1 and must not cancel their own unchanged-head evidence.
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
 
 jobs:
   hygiene:
