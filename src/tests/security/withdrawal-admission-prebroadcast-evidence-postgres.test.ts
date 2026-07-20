@@ -518,11 +518,12 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       if (!authorization.enabled || !authorization.value) {
         throw new Error("authorization_unavailable");
       }
+      const authorizationId = authorization.value.id;
 
       try {
         const result = await createAuthoritativeWithdrawal({
           ...canonical.command,
-          authorizationId: authorization.value.id,
+          authorizationId,
           deviceFingerprint: "prebroadcast-evidence-test",
           ip: "127.0.0.1",
           userAgent: "prebroadcast-evidence-test",
@@ -539,7 +540,7 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
           }>(
             `SELECT consumed_at FROM withdrawal_authorizations
               WHERE id = $1`,
-            [authorization.value.id],
+            [authorizationId],
           );
           const withdrawals = await client.query<{ count: string }>(
             "SELECT COUNT(*)::text AS count FROM withdrawals WHERE user_id = $1",
