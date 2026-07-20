@@ -29,6 +29,10 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "authenticatordata",
   "attestationobject",
   "userhandle",
+  "credentialid",
+  "credential_id",
+  "rawid",
+  "raw_id",
 ]);
 
 export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
