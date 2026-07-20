@@ -74,7 +74,7 @@ for (const invariant of [
 }
 requireText(
   "authority",
-  "if (!transaction.enabled) throw new Error(\"risk_authority_unavailable\")",
+  'if (!transaction.enabled) throw new Error("risk_authority_unavailable")',
   "decision commit must fail closed when PostgreSQL is unavailable",
 );
 requireText(
@@ -100,13 +100,28 @@ rejectText(
 );
 requireText(
   "detector",
-  "for (const decision of decisions) await commitDecision(decision)",
-  "detected decisions must commit before the check succeeds",
+  "for (const decision of decisions) {",
+  "detected decisions must be processed sequentially before success",
+);
+requireText(
+  "detector",
+  "const result = await commitDecision(decision);",
+  "each detected decision must durably commit before the check succeeds",
+);
+requireText(
+  "detector",
+  "blocked = blocked || blocksTrading(result);",
+  "a newly committed block must be surfaced to the current admission",
 );
 requireText(
   "detector",
   "fingerprintRiskDetectorValue(opts.ip)",
   "raw IP must not enter durable detector evidence",
+);
+requireText(
+  "detector",
+  "detectorIdentity: `duplicate:${orderFingerprint}:${burstBucket}`",
+  "duplicate detector identity must remain bounded to its five-second window",
 );
 requireText(
   "enforcement",
@@ -138,6 +153,11 @@ requireText(
   "orders",
   "if (!riskCheck.ok) return apiError(riskCheck.reason, 503)",
   "order admission must stop when a detected decision cannot commit",
+);
+requireText(
+  "orders",
+  'if (riskCheck.blocked) return apiError("account_trade_restricted", 403)',
+  "an enforcement committed by this detector run must stop the same order admission",
 );
 
 for (const contract of [
