@@ -2,66 +2,79 @@ import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { OrderBookSnapshot, OrderSide } from "./types";
 import { getOrderBook } from "./order-book";
+import {
+  canonicalMatchingInput,
+  crossesLimit,
+  decimalAdd,
+  isPositiveAmount,
+  isZeroAmount,
+} from "./matching-financials";
+import { D } from "./decimal";
 import type { Redis } from "ioredis";
 
-// ── EngineOrder ───────────────────────────────────────────────────────────────
-//
-// Tracks a single resting order inside the engine book. Separate from the
-// display OrderBook (which holds aggregated price levels).
-
+// Financial values in the matching cache are canonical strings. PostgreSQL is
+// authoritative; Redis and in-memory books are rebuildable projections.
 export type EngineOrder = {
   orderId: string;
   userId: string;
   market: string;
   side: OrderSide;
-  pricePerUnit: number;  // 0 for market orders
-  originalQty: number;   // original accepted qty — used for hold release on cancel
-  remaining: number;     // current unfilled qty
-  ts: number;            // epoch ms — establishes FIFO priority within a price level
+  pricePerUnit: string;
+  originalQty: string;
+  remaining: string;
+  ts: number;
 };
-
-// ── Internal book structure ───────────────────────────────────────────────────
 
 type EngineBook = {
-  bids: Map<string, EngineOrder[]>; // priceKey → FIFO queue (sorted desc externally)
-  asks: Map<string, EngineOrder[]>; // priceKey → FIFO queue (sorted asc externally)
-  index: Map<string, { side: OrderSide; priceKey: string }>; // O(1) cancel lookup
+  bids: Map<string, EngineOrder[]>;
+  asks: Map<string, EngineOrder[]>;
+  index: Map<string, { side: OrderSide; priceKey: string }>;
 };
 
-// ── OrderBookStore interface ──────────────────────────────────────────────────
-
 export type PriceLevelEntry = {
-  price: number;
+  price: string;
   priceKey: string;
   orders: ReadonlyArray<EngineOrder>;
 };
 
 export interface OrderBookStore {
-  // Add a resting GTC order.
   insert(market: string, entry: EngineOrder): void;
-  // Search all markets for orderId and remove it. Returns null if not found.
   findAndRemove(orderId: string): EngineOrder | null;
-  // Sorted price levels for the matching loop.
-  // buy levels → descending (best bid first)
-  // sell levels → ascending (best ask first)
   getLevels(market: string, side: OrderSide): PriceLevelEntry[];
-  // Get total fillable volume for FOK pre-flight.
-  getFOKVolume(market: string, takerSide: OrderSide, limitPrice: number): number;
-  // After a fill: update maker remaining. Removes the entry if newRemaining <= 0.
-  updateMakerRemaining(orderId: string, newRemaining: number): void;
-  // Display-layer snapshot (delegates to display OrderBook).
+  getFOKVolume(
+    market: string,
+    takerSide: OrderSide,
+    limitPrice: string | null,
+  ): string;
+  updateMakerRemaining(orderId: string, newRemaining: string): void;
   snapshot(market: string, depth?: number): OrderBookSnapshot;
-  // Called at startup; throws in production if required backend is unavailable.
   validate(): void;
 }
 
-// ── Price key ─────────────────────────────────────────────────────────────────
-
-export function pkStr(price: number): string {
-  return price.toFixed(10);
+export function pkStr(price: string): string {
+  const canonical = canonicalMatchingInput(price, "book_price");
+  if (!isPositiveAmount(canonical)) throw new Error("invalid_book_price");
+  return canonical;
 }
 
-// ── In-memory implementation ──────────────────────────────────────────────────
+function normalizeEntry(entry: EngineOrder): EngineOrder {
+  const pricePerUnit = pkStr(entry.pricePerUnit);
+  const originalQty = canonicalMatchingInput(entry.originalQty, "book_original_quantity");
+  const remaining = canonicalMatchingInput(entry.remaining, "book_remaining_quantity");
+  if (!isPositiveAmount(originalQty) || D(remaining).isNegative()) {
+    throw new Error("invalid_book_quantity");
+  }
+  if (!Number.isSafeInteger(entry.ts) || entry.ts < 0) {
+    throw new Error("invalid_book_priority_time");
+  }
+  return {
+    ...entry,
+    market: entry.market.toUpperCase(),
+    pricePerUnit,
+    originalQty,
+    remaining,
+  };
+}
 
 declare global {
   var tecpeyEngineBooks: Map<string, EngineBook> | undefined;
@@ -81,13 +94,22 @@ class InMemoryOrderBookStore implements OrderBookStore {
     return book;
   }
 
-  insert(market: string, entry: EngineOrder): void {
-    const book = this.getBook(market);
+  insert(market: string, rawEntry: EngineOrder): void {
+    const entry = normalizeEntry({ ...rawEntry, market });
+    if (isZeroAmount(entry.remaining)) return;
+    const book = this.getBook(entry.market);
     const map = entry.side === "buy" ? book.bids : book.asks;
-    const key = pkStr(entry.pricePerUnit);
+    const key = entry.pricePerUnit;
     const level = map.get(key);
     if (level) {
-      level.push(entry);
+      if (!level.some((existing) => existing.orderId === entry.orderId)) {
+        level.push(entry);
+        level.sort((left, right) =>
+          left.ts !== right.ts
+            ? left.ts - right.ts
+            : left.orderId.localeCompare(right.orderId),
+        );
+      }
     } else {
       map.set(key, [entry]);
     }
@@ -97,15 +119,15 @@ class InMemoryOrderBookStore implements OrderBookStore {
   findAndRemove(orderId: string): EngineOrder | null {
     if (!globalThis.tecpeyEngineBooks) return null;
     for (const book of globalThis.tecpeyEngineBooks.values()) {
-      const loc = book.index.get(orderId);
-      if (!loc) continue;
-      const map = loc.side === "buy" ? book.bids : book.asks;
-      const level = map.get(loc.priceKey);
+      const location = book.index.get(orderId);
+      if (!location) continue;
+      const map = location.side === "buy" ? book.bids : book.asks;
+      const level = map.get(location.priceKey);
       if (!level) continue;
-      const idx = level.findIndex((e) => e.orderId === orderId);
-      if (idx === -1) continue;
-      const [removed] = level.splice(idx, 1);
-      if (level.length === 0) map.delete(loc.priceKey);
+      const index = level.findIndex((entry) => entry.orderId === orderId);
+      if (index === -1) continue;
+      const [removed] = level.splice(index, 1);
+      if (level.length === 0) map.delete(location.priceKey);
       book.index.delete(orderId);
       return removed;
     }
@@ -115,47 +137,59 @@ class InMemoryOrderBookStore implements OrderBookStore {
   getLevels(market: string, side: OrderSide): PriceLevelEntry[] {
     const book = this.getBook(market);
     const map = side === "buy" ? book.bids : book.asks;
-    const desc = side === "buy"; // bids descending, asks ascending
+    const descending = side === "buy";
     return Array.from(map.entries())
-      .filter(([, q]) => q.length > 0)
-      .sort(([a], [b]) => {
-        const diff = parseFloat(a) - parseFloat(b);
-        return desc ? -diff : diff;
-      })
+      .filter(([, queue]) => queue.length > 0)
+      .sort(([left], [right]) =>
+        descending ? D(right).cmp(D(left)) : D(left).cmp(D(right)),
+      )
       .map(([priceKey, orders]) => ({
-        price: parseFloat(priceKey),
+        price: priceKey,
         priceKey,
         orders,
       }));
   }
 
-  getFOKVolume(market: string, takerSide: OrderSide, limitPrice: number): number {
-    const oppSide: OrderSide = takerSide === "buy" ? "sell" : "buy";
-    const levels = this.getLevels(market, oppSide);
-    let total = 0;
-    for (const level of levels) {
-      if (takerSide === "buy" && level.price > limitPrice) break;
-      if (takerSide === "sell" && level.price < limitPrice) break;
-      for (const o of level.orders) total += o.remaining;
+  getFOKVolume(
+    market: string,
+    takerSide: OrderSide,
+    limitPrice: string | null,
+  ): string {
+    const oppositeSide: OrderSide = takerSide === "buy" ? "sell" : "buy";
+    let total = "0.0000000000";
+    for (const level of this.getLevels(market, oppositeSide)) {
+      if (!crossesLimit({
+        takerSide,
+        takerLimit: limitPrice,
+        makerPrice: level.price,
+      })) {
+        break;
+      }
+      for (const order of level.orders) {
+        total = decimalAdd(total, order.remaining);
+      }
     }
     return total;
   }
 
-  updateMakerRemaining(orderId: string, newRemaining: number): void {
+  updateMakerRemaining(orderId: string, rawRemaining: string): void {
     if (!globalThis.tecpeyEngineBooks) return;
+    const newRemaining = canonicalMatchingInput(
+      rawRemaining,
+      "book_remaining_quantity",
+    );
     for (const book of globalThis.tecpeyEngineBooks.values()) {
-      const loc = book.index.get(orderId);
-      if (!loc) continue;
-      const map = loc.side === "buy" ? book.bids : book.asks;
-      const level = map.get(loc.priceKey);
+      const location = book.index.get(orderId);
+      if (!location) continue;
+      const map = location.side === "buy" ? book.bids : book.asks;
+      const level = map.get(location.priceKey);
       if (!level) continue;
-      const entry = level.find((e) => e.orderId === orderId);
+      const entry = level.find((candidate) => candidate.orderId === orderId);
       if (!entry) continue;
-      if (newRemaining <= 1e-10) {
-        // Remove the maker from the book.
-        const idx = level.indexOf(entry);
-        if (idx !== -1) level.splice(idx, 1);
-        if (level.length === 0) map.delete(loc.priceKey);
+      if (isZeroAmount(newRemaining)) {
+        const index = level.indexOf(entry);
+        if (index !== -1) level.splice(index, 1);
+        if (level.length === 0) map.delete(location.priceKey);
         book.index.delete(orderId);
       } else {
         entry.remaining = newRemaining;
@@ -169,148 +203,139 @@ class InMemoryOrderBookStore implements OrderBookStore {
   }
 
   validate(): void {
-    // In-memory store is always available — nothing to validate.
+    // In-memory projection is always available.
   }
 }
 
-// ── Redis implementation ──────────────────────────────────────────────────────
-//
-// Phase 32: Complete ioredis implementation.
-// Architecture: in-memory is the synchronous read path; Redis is the async
-// write-through layer for durability and future multi-instance sync.
-//
-// Key schema:
-//   tecpey:ob:{market}:bids  — Sorted Set (score=price, member=JSON EngineOrder)
-//   tecpey:ob:{market}:asks  — Sorted Set (score=price, member=JSON EngineOrder)
-//   tecpey:order:{orderId}   — Hash (market, side, priceKey, remaining, member)
-
 class RedisOrderBookStore extends InMemoryOrderBookStore {
-  private redis: Redis;
-
-  constructor(redis: Redis) {
+  constructor(private readonly redis: Redis) {
     super();
-    this.redis = redis;
   }
 
-  override insert(market: string, entry: EngineOrder): void {
+  override insert(market: string, rawEntry: EngineOrder): void {
+    const entry = normalizeEntry({ ...rawEntry, market });
     super.insert(market, entry);
-    const sym = market.toUpperCase();
+    const symbol = entry.market;
     const key = entry.side === "buy"
-      ? `tecpey:ob:${sym}:bids`
-      : `tecpey:ob:${sym}:asks`;
+      ? `tecpey:ob:${symbol}:bids`
+      : `tecpey:ob:${symbol}:asks`;
     const member = JSON.stringify(entry);
     void this.redis.pipeline()
+      // Redis score is projection ordering only. Exact matching reads priceKey.
       .zadd(key, entry.pricePerUnit, member)
       .hset(`tecpey:order:${entry.orderId}`, {
-        market: sym,
+        market: symbol,
         side: entry.side,
-        priceKey: pkStr(entry.pricePerUnit),
-        remaining: entry.remaining.toString(),
+        priceKey: entry.pricePerUnit,
+        remaining: entry.remaining,
         member,
       })
       .exec()
-      .catch((err) => logger.warn("[order-book-store] Redis insert failed", { err }));
+      .catch((error) => logger.warn("[order-book-store] Redis insert failed", { error }));
   }
 
   override findAndRemove(orderId: string): EngineOrder | null {
     const removed = super.findAndRemove(orderId);
     if (!removed) return null;
-    const sym = removed.market.toUpperCase();
     const key = removed.side === "buy"
-      ? `tecpey:ob:${sym}:bids`
-      : `tecpey:ob:${sym}:asks`;
+      ? `tecpey:ob:${removed.market}:bids`
+      : `tecpey:ob:${removed.market}:asks`;
     const member = JSON.stringify(removed);
     void this.redis.pipeline()
       .zrem(key, member)
       .del(`tecpey:order:${orderId}`)
       .exec()
-      .catch((err) => logger.warn("[order-book-store] Redis findAndRemove failed", { err }));
+      .catch((error) => logger.warn("[order-book-store] Redis remove failed", { error }));
     return removed;
   }
 
-  override updateMakerRemaining(orderId: string, newRemaining: number): void {
-    // Capture old entry before the in-memory update removes it.
+  override updateMakerRemaining(orderId: string, rawRemaining: string): void {
     const oldMember = this.getMemberForUpdate(orderId);
+    const newRemaining = canonicalMatchingInput(
+      rawRemaining,
+      "book_remaining_quantity",
+    );
     super.updateMakerRemaining(orderId, newRemaining);
     if (!oldMember) return;
 
     const { entry, key, member } = oldMember;
-    if (newRemaining <= 1e-10) {
+    if (isZeroAmount(newRemaining)) {
       void this.redis.pipeline()
         .zrem(key, member)
         .del(`tecpey:order:${orderId}`)
         .exec()
-        .catch((err) => logger.warn("[order-book-store] Redis remove failed", { err }));
+        .catch((error) => logger.warn("[order-book-store] Redis remove failed", { error }));
     } else {
       const updated = { ...entry, remaining: newRemaining };
-      const newMember = JSON.stringify(updated);
+      const updatedMember = JSON.stringify(updated);
       void this.redis.pipeline()
         .zrem(key, member)
-        .zadd(key, entry.pricePerUnit, newMember)
-        .hset(`tecpey:order:${orderId}`, { remaining: newRemaining.toString(), member: newMember })
+        .zadd(key, entry.pricePerUnit, updatedMember)
+        .hset(`tecpey:order:${orderId}`, {
+          remaining: newRemaining,
+          member: updatedMember,
+        })
         .exec()
-        .catch((err) => logger.warn("[order-book-store] Redis update failed", { err }));
+        .catch((error) => logger.warn("[order-book-store] Redis update failed", { error }));
     }
   }
 
-  private getMemberForUpdate(orderId: string): { entry: EngineOrder; key: string; member: string } | null {
+  private getMemberForUpdate(
+    orderId: string,
+  ): { entry: EngineOrder; key: string; member: string } | null {
     if (!globalThis.tecpeyEngineBooks) return null;
-    for (const [, book] of globalThis.tecpeyEngineBooks) {
-      const loc = book.index.get(orderId);
-      if (!loc) continue;
-      const map = loc.side === "buy" ? book.bids : book.asks;
-      const level = map.get(loc.priceKey);
-      const entry = level?.find((e) => e.orderId === orderId);
+    for (const book of globalThis.tecpeyEngineBooks.values()) {
+      const location = book.index.get(orderId);
+      if (!location) continue;
+      const map = location.side === "buy" ? book.bids : book.asks;
+      const level = map.get(location.priceKey);
+      const entry = level?.find((candidate) => candidate.orderId === orderId);
       if (!entry) continue;
-      const sym = entry.market.toUpperCase();
-      const key = `tecpey:ob:${sym}:${loc.side === "buy" ? "bids" : "asks"}`;
+      const key = `tecpey:ob:${entry.market}:${location.side === "buy" ? "bids" : "asks"}`;
       return { entry, key, member: JSON.stringify(entry) };
     }
     return null;
   }
 
   override validate(): void {
-    // Validate Redis connectivity asynchronously (non-blocking).
     void this.redis.ping()
       .then(() => logger.info("[order-book-store] Redis connected"))
-      .catch((err) => {
-        const isProd = process.env.NODE_ENV === "production";
-        if (isProd) {
-          logger.error("[order-book-store] Redis PING failed in production", { err });
+      .catch((error) => {
+        if (process.env.NODE_ENV === "production") {
+          logger.error("[order-book-store] Redis PING failed in production", { error });
         } else {
-          logger.warn("[order-book-store] Redis PING failed; falling back to in-memory", { err });
+          logger.warn("[order-book-store] Redis unavailable; in-memory projection remains", { error });
         }
       });
   }
 
-  // Warm-start from Redis (called instead of rebuildOrderBook when Redis is available).
   async warmFromRedis(market: string): Promise<number> {
-    const sym = market.toUpperCase();
+    const symbol = market.toUpperCase();
     let count = 0;
     try {
-      const [bidMembers, askMembers] = await Promise.all([
-        this.redis.zrange(`tecpey:ob:${sym}:bids`, 0, -1),
-        this.redis.zrange(`tecpey:ob:${sym}:asks`, 0, -1),
+      const [bids, asks] = await Promise.all([
+        this.redis.zrange(`tecpey:ob:${symbol}:bids`, 0, -1),
+        this.redis.zrange(`tecpey:ob:${symbol}:asks`, 0, -1),
       ]);
-      const displayBook = getOrderBook(sym);
-      for (const member of [...bidMembers, ...askMembers]) {
+      const displayBook = getOrderBook(symbol);
+      for (const member of [...bids, ...asks]) {
         try {
-          const entry = JSON.parse(member) as EngineOrder;
+          const entry = normalizeEntry(JSON.parse(member) as EngineOrder);
           super.insert(entry.market, entry);
-          displayBook.insert(entry.side, pkStr(entry.pricePerUnit), entry.remaining.toFixed(10));
-          count++;
-        } catch { /* skip malformed entry */ }
+          displayBook.insert(entry.side, entry.pricePerUnit, entry.remaining);
+          count += 1;
+        } catch {
+          // Ignore malformed projection members; PostgreSQL rebuild remains available.
+        }
       }
-    } catch (err) {
-      logger.warn("[order-book-store] Redis warm-start failed, will fall back to DB", { err });
+    } catch (error) {
+      logger.warn("[order-book-store] Redis warm-start failed", { error });
       return 0;
     }
-    logger.info("[order-book-store] warmed from Redis", { market: sym, orders: count });
+    logger.info("[order-book-store] warmed from Redis", { market: symbol, orders: count });
     return count;
   }
 }
-
-// ── Factory ───────────────────────────────────────────────────────────────────
 
 declare global {
   var tecpeyOrderBookStore: OrderBookStore | undefined;
@@ -321,7 +346,6 @@ function createRedisClient(): Redis | null {
   const url = process.env.REDIS_URL;
   if (!url) return null;
   try {
-    // Dynamic require so the module can load without ioredis in non-Redis environments.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { Redis } = require("ioredis") as typeof import("ioredis");
     if (!globalThis.tecpeyRedisClient) {
@@ -330,13 +354,13 @@ function createRedisClient(): Redis | null {
         enableReadyCheck: true,
         lazyConnect: false,
       });
-      globalThis.tecpeyRedisClient.on("error", (err) =>
-        logger.warn("[redis] connection error", { err }),
+      globalThis.tecpeyRedisClient.on("error", (error) =>
+        logger.warn("[redis] connection error", { error }),
       );
     }
     return globalThis.tecpeyRedisClient;
   } catch {
-    logger.warn("[order-book-store] ioredis not available despite REDIS_URL being set");
+    logger.warn("[order-book-store] ioredis unavailable despite REDIS_URL");
     return null;
   }
 }
@@ -356,65 +380,54 @@ export function getRedisClient(): Redis | undefined {
   return globalThis.tecpeyRedisClient;
 }
 
-// ── Warm-start recovery ───────────────────────────────────────────────────────
-//
-// Rebuilds the engine book and display order book from open orders in the DB.
-// Called by the engine when the in-memory book is empty for a given market
-// (process restart / first request after hot-reload).
-
 export async function rebuildOrderBook(market: string): Promise<void> {
-  const mkt = market.toUpperCase();
-
-  // If the store is Redis-backed, try warm-start from Redis first.
+  const symbol = market.toUpperCase();
   const store = getOrderBookStore();
   if (store instanceof RedisOrderBookStore) {
-    const count = await store.warmFromRedis(mkt);
-    if (count > 0) return; // Redis had data; no need to hit DB.
+    const count = await store.warmFromRedis(symbol);
+    if (count > 0) return;
   }
 
   const result = await withDb(async (client) => {
     const rows = await client.query<{
       id: string;
       user_id: string;
-      side: string;
-      type: string;
+      side: OrderSide;
       price: string | null;
       quantity: string;
       remaining_quantity: string;
-      created_at: string;
+      created_at: Date;
     }>(
-      `SELECT id, user_id, side, type, price, quantity, remaining_quantity, created_at
-       FROM orders
-       WHERE market = $1 AND status IN ('NEW', 'PARTIALLY_FILLED') AND type = 'limit'
-       ORDER BY created_at ASC`,
-      [mkt],
+      `SELECT id::text, user_id, side, price::text, quantity::text,
+              remaining_quantity::text, created_at
+         FROM orders
+        WHERE market = $1
+          AND status IN ('NEW', 'PARTIALLY_FILLED')
+          AND type = 'limit'
+        ORDER BY created_at ASC, id ASC`,
+      [symbol],
     );
     return rows.rows;
   });
-
   if (!result.enabled || !result.value?.length) return;
 
-  const displayBook = getOrderBook(mkt);
+  const displayBook = getOrderBook(symbol);
   let rebuilt = 0;
-
   for (const row of result.value) {
-    if (!row.price) continue; // skip market orders that shouldn't be resting
-
-    const entry: EngineOrder = {
+    if (!row.price) continue;
+    const entry: EngineOrder = normalizeEntry({
       orderId: row.id,
       userId: row.user_id,
-      market: mkt,
-      side: row.side as OrderSide,
-      pricePerUnit: parseFloat(row.price),
-      originalQty: parseFloat(row.quantity),
-      remaining: parseFloat(row.remaining_quantity),
-      ts: new Date(row.created_at).getTime(),
-    };
-
-    store.insert(mkt, entry);
-    displayBook.insert(entry.side, pkStr(entry.pricePerUnit), entry.remaining.toFixed(10));
-    rebuilt++;
+      market: symbol,
+      side: row.side,
+      pricePerUnit: row.price,
+      originalQty: row.quantity,
+      remaining: row.remaining_quantity,
+      ts: row.created_at.getTime(),
+    });
+    store.insert(symbol, entry);
+    displayBook.insert(entry.side, entry.pricePerUnit, entry.remaining);
+    rebuilt += 1;
   }
-
-  logger.info("[order-book-store] rebuilt book from DB", { market: mkt, orders: rebuilt });
+  logger.info("[order-book-store] rebuilt book from DB", { market: symbol, orders: rebuilt });
 }

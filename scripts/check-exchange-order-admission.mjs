@@ -153,7 +153,7 @@ requireText(engine, "!D(maker.price).eq(fill.maker.pricePerUnit)", "maker price 
 requireText(engine, "!D(maker.remaining_quantity).eq(fill.maker.remaining)", "maker remaining quantity must match the rebuilt authority snapshot");
 requireText(engine, "commitTerminalOrder", "rejection and expiry must commit terminal state plus hold closure atomically");
 requireText(engine, "assertOrderHoldClosedTx", "engine terminal paths must verify hold closure");
-requireText(engine, "plannedBuyerFee", "market-buy protection must include buyer fees");
+requireText(engine, "fill.amounts.buyerQuoteDebit", "market-buy protection must include exact buyer notional and fee");
 requireText(engine, "plannedSpend", "market-buy quote cap must compare total spend, not only notional");
 requireText(engine, "market_price_protection", "market buys must not spend beyond the committed hold authority");
 for (const forbidden of [
