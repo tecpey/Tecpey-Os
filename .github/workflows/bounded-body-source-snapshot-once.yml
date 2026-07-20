@@ -1,0 +1,91 @@
+name: One-shot Bounded Body Source Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/bounded-body-source-snapshot-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/bounded-request-bodies
+      - name: Collect exact route context
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot
+          files=(
+            package.json
+            scripts/generate-api-security-manifest.mjs
+            scripts/api-security-body-limit-policy.mjs
+            scripts/api-security-body-boundary.test.mjs
+            src/lib/api-validation.ts
+            src/lib/security/bounded-request-body.ts
+            src/app/api/academy-auth/route.ts
+            src/app/api/academy-certificates/route.ts
+            src/app/api/academy-flashcards/route.ts
+            src/app/api/academy-lead/route.ts
+            src/app/api/academy-lesson-assessment/route.ts
+            src/app/api/academy-reflections/route.ts
+            src/app/api/academy-simulator-decision/route.ts
+            src/app/api/academy-specialized-lead/route.ts
+            src/app/api/academy-student-profile/route.ts
+            src/app/api/academy-term-progress/route.ts
+            src/app/api/academy/auth/login/route.ts
+            src/app/api/academy/auth/register/route.ts
+            src/app/api/admin/withdrawals/[id]/route.ts
+            src/app/api/ai-mentor/route.ts
+            src/app/api/ai-mentor-v2/route.ts
+            src/app/api/api-keys/route.ts
+            src/app/api/api-keys/[id]/route.ts
+            src/app/api/auth/2fa/backup/route.ts
+            src/app/api/auth/2fa/disable/route.ts
+            src/app/api/auth/2fa/enroll/route.ts
+            src/app/api/auth/2fa/verify/route.ts
+            src/app/api/auth/devices/[id]/route.ts
+            src/app/api/auth/password/change/route.ts
+            src/app/api/auth/webauthn/auth/challenge/route.ts
+            src/app/api/auth/webauthn/auth/verify/route.ts
+            src/app/api/auth/webauthn/credentials/[id]/route.ts
+            src/app/api/auth/webauthn/register/verify/route.ts
+            src/app/api/auth/withdraw/route.ts
+            src/app/api/auth/withdraw/authorize/route.ts
+            src/app/api/command-center/auth/bootstrap/challenge/route.ts
+            src/app/api/command-center/auth/bootstrap/verify/route.ts
+            src/app/api/command-center/auth/passkey/verify/route.ts
+            src/app/api/command-center/campaign/route.ts
+            src/app/api/community/profile/route.ts
+            src/app/api/device-token/route.ts
+            src/app/api/learning-events/route.ts
+            src/app/api/mentor-challenge/route.ts
+            src/app/api/mentor-conversations/migrate/route.ts
+            src/app/api/mentor-memory/route.ts
+            src/app/api/notifications/[id]/route.ts
+            src/app/api/notifications/consent/route.ts
+            src/app/api/notifications/preferences/route.ts
+            src/app/api/notifications/read/route.ts
+            src/app/api/offline-sync/route.ts
+            src/app/api/orders/route.ts
+            src/app/api/trading-arena/route.ts
+            src/app/api/trading-arena/execution/route.ts
+            src/app/api/trading-arena/reflections/route.ts
+          )
+          for file in "${files[@]}"; do
+            test -f "$file"
+            mkdir -p "snapshot/$(dirname "$file")"
+            cp "$file" "snapshot/$file"
+          done
+          git rev-parse HEAD > snapshot/HEAD_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bounded-body-source-${{ github.sha }}
+          path: snapshot
+          if-no-files-found: error
+          retention-days: 2
