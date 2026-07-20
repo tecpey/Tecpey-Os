@@ -38,7 +38,25 @@ describe("Withdrawal BullMQ runtime policy", () => {
     timeout: 30_000,
   }, async () => {
     const redisUrl = process.env.REDIS_URL as string;
-    const connection = redisConnection(redisUrl);
+    const custodyKeys = [
+      "TECPEY_CUSTODY_MODE",
+      "TECPEY_CUSTODY_ENABLED_CHAINS",
+      "TECPEY_CUSTODY_MAX_WITHDRAWAL_USD_ETHEREUM",
+      "TECPEY_WITHDRAWAL_WORKERS_ENABLED",
+      "TECPEY_REAL_WITHDRAWALS_ENABLED",
+      "TECPEY_CUSTODY_CIRCUIT_OPEN",
+    ] as const;
+    const originalCustody = Object.fromEntries(
+      custodyKeys.map((key) => [key, process.env[key]]),
+    );
+    process.env.TECPEY_CUSTODY_MODE = "simulation";
+    process.env.TECPEY_CUSTODY_ENABLED_CHAINS = "ethereum";
+    process.env.TECPEY_CUSTODY_MAX_WITHDRAWAL_USD_ETHEREUM = "1000";
+    process.env.TECPEY_WITHDRAWAL_WORKERS_ENABLED = "1";
+    process.env.TECPEY_REAL_WITHDRAWALS_ENABLED = "1";
+    process.env.TECPEY_CUSTODY_CIRCUIT_OPEN = "0";
+
+    const redisConnectionConfig = redisConnection(redisUrl);
     const queueModule = await import("../../lib/wallet/queue/withdrawal-queue");
     const {
       confirmationQueue,
@@ -84,7 +102,7 @@ describe("Withdrawal BullMQ runtime policy", () => {
       successWorker = new Worker<ConfirmationJobData>(
         WITHDRAWAL_QUEUE_NAMES.confirmation,
         async () => true,
-        { connection, concurrency: 1 },
+        { connection: redisConnectionConfig, concurrency: 1 },
       );
       await initialDelayed[0].promote();
       await waitForState(confirmationQueue, successJobId, "completed");
@@ -116,7 +134,7 @@ describe("Withdrawal BullMQ runtime policy", () => {
         async () => {
           throw new Error("expected integration failure");
         },
-        { connection, concurrency: 1 },
+        { connection: redisConnectionConfig, concurrency: 1 },
       );
       await confirmationQueue.add("watch", failedData, {
         jobId: failedJobId,
@@ -145,6 +163,11 @@ describe("Withdrawal BullMQ runtime policy", () => {
         withdrawalRetryQueue.close(),
         recoveryQueue.close(),
       ]);
+      for (const key of custodyKeys) {
+        const value = originalCustody[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
   });
 });

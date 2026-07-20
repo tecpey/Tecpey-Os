@@ -12,6 +12,13 @@
 
 import { createHash, createPrivateKey, createPublicKey, sign as cryptoSign } from "crypto";
 import type { ChainId, KeyStore, KeyStoreType } from "../types";
+import {
+  CustodyConfigurationError,
+  CustodyGateError,
+  getCustodyRuntimeStatus,
+  isEnvironmentKeySignerAllowed,
+  isSimulationSignerAllowed,
+} from "../custody-policy";
 
 // ── secp256k1 helpers (BTC / ETH / EVM) ──────────────────────────────────────
 
@@ -146,6 +153,9 @@ function envKeyName(chainId: ChainId, index = 0): string {
 }
 
 function getPrivateKey(chainId: ChainId, index = 0): string | null {
+  if (!isEnvironmentKeySignerAllowed()) {
+    throw new CustodyGateError("environment_private_key_access_forbidden");
+  }
   const key = process.env[envKeyName(chainId, index)];
   if (!key || key.length < 64) return null;
   return key.replace("0x", "").toLowerCase();
@@ -157,6 +167,7 @@ export class HotWalletKeyStore implements KeyStore {
   readonly type: KeyStoreType = "hot_wallet";
 
   isConfigured(chainId: ChainId): boolean {
+    if (!isEnvironmentKeySignerAllowed()) return false;
     return getPrivateKey(chainId) !== null;
   }
 
@@ -257,6 +268,9 @@ export class SimulatedKeyStore implements KeyStore {
   private readonly fixedKey: Buffer;
 
   constructor() {
+    if (!isSimulationSignerAllowed()) {
+      throw new CustodyGateError("simulation_custody_not_allowed");
+    }
     this.fixedKey = Buffer.from(
       "0000000000000000000000000000000000000000000000000000000000000001",
       "hex",
@@ -298,22 +312,26 @@ export class SimulatedKeyStore implements KeyStore {
 // ── KeyStore Factory ─────────────────────────────────────────────────────────
 
 export function createKeyStore(): KeyStore {
-  // HSM/MPC classes are intentionally not selectable until their implementations
-  // and integration tests exist. Fail at configuration time, not after an
-  // approved withdrawal reaches the signing step.
-  if (process.env.HSM_ENDPOINT || process.env.HSM_KEY_ID) {
-    throw new Error("HSM keystore configured but HSM integration is not implemented");
-  }
-  if (process.env.MPC_ENDPOINT || process.env.MPC_PARTY_ID) {
-    throw new Error("MPC keystore configured but MPC integration is not implemented");
+  const status = getCustodyRuntimeStatus();
+  if (!status.configurationValid) {
+    throw new CustodyConfigurationError(status.errors);
   }
 
-  const chains: ChainId[] = ["bitcoin", "ethereum", "bsc", "polygon", "tron", "solana"];
-  const hotWallet = new HotWalletKeyStore();
-  if (chains.some((c) => hotWallet.isConfigured(c))) return hotWallet;
-
-  if (process.env.NODE_ENV !== "production") return new SimulatedKeyStore();
-  throw new Error("No wallet keystore configured. Set WALLET_*_PRIVATE_KEY env vars.");
+  if (status.mode === "simulation") return new SimulatedKeyStore();
+  if (status.mode === "dev_hot_wallet") {
+    const hotWallet = new HotWalletKeyStore();
+    if (!status.enabledChains.some((chain) => hotWallet.isConfigured(chain as ChainId))) {
+      throw new CustodyGateError("development_hot_wallet_chain_key_missing");
+    }
+    return hotWallet;
+  }
+  if (status.mode === "external_hsm") {
+    throw new CustodyGateError("hsm_signer_not_implemented");
+  }
+  if (status.mode === "external_mpc") {
+    throw new CustodyGateError("mpc_signer_not_implemented");
+  }
+  throw new CustodyGateError("custody_launch_gate_disabled");
 }
 
 // ── Base58 encode (Solana address) ───────────────────────────────────────────

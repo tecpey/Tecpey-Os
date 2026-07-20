@@ -1,0 +1,80 @@
+name: Custody Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - server.ts
+      - package.json
+      - scripts/validate-env.mjs
+      - scripts/check-custody-release-gate.mjs
+      - scripts/check-withdrawal-*.mjs
+      - src/app/api/auth/withdraw/**
+      - src/app/api/admin/withdrawals/**
+      - src/lib/security/withdrawal-*.ts
+      - src/lib/wallet/**
+      - src/workers/withdrawal-worker.ts
+      - src/tests/wallet/custody-*.test.ts
+      - src/tests/wallet/keystore-*.test.ts
+      - .github/workflows/custody-release-gate.yml
+      - docs/security/CUSTODY_RELEASE_GATE.md
+  push:
+    branches: [main]
+    paths:
+      - server.ts
+      - package.json
+      - scripts/validate-env.mjs
+      - scripts/check-custody-release-gate.mjs
+      - scripts/check-withdrawal-*.mjs
+      - src/app/api/auth/withdraw/**
+      - src/app/api/admin/withdrawals/**
+      - src/lib/security/withdrawal-*.ts
+      - src/lib/wallet/**
+      - src/workers/withdrawal-worker.ts
+      - src/tests/wallet/custody-*.test.ts
+      - src/tests/wallet/keystore-*.test.ts
+      - .github/workflows/custody-release-gate.yml
+      - docs/security/CUSTODY_RELEASE_GATE.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custody-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run custody:check
+      - run: npm run test:custody
+      - name: Prove production disabled-mode validation
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SITE_URL: https://tecpey.invalid
+          NEXT_PUBLIC_API_URL: https://tecpey.invalid/api
+          NEXT_PUBLIC_API_BACKEND_URL: https://tecpey.invalid/api
+          NEXT_PUBLIC_API_SOCKET_URL: wss://tecpey.invalid/ws
+          TECPEY_SESSION_SECRET: 0123456789abcdef0123456789abcdef
+          TECPEY_REFRESH_SECRET: abcdef0123456789abcdef0123456789
+          TECPEY_ACADEMY_AUTH_SECRET: 23456789abcdef0123456789abcdef01
+          CERTIFICATE_SIGNING_SECRET: 3456789abcdef0123456789abcdef012
+          TECPEY_WITHDRAWAL_PRICE_SECRET: 456789abcdef0123456789abcdef0123
+          TECPEY_OFFLINE_SYNC_SECRET: 56789abcdef0123456789abcdef01234
+          TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          TECPEY_CRM_CONTACT_HASH_SECRET: 789abcdef0123456789abcdef0123456
+          TECPEY_TRUSTED_PROXY_HEADER: x-real-ip
+          TECPEY_TRUSTED_PROXY_HOPS: "1"
+          DATABASE_URL: postgres://tecpey:tecpey@127.0.0.1:5432/tecpey
+          REDIS_URL: redis://127.0.0.1:6379
+          TECPEY_ALLOW_MEMORY_RATE_LIMIT: "1"
+          TECPEY_CUSTODY_MODE: disabled
+        run: npm run env:check

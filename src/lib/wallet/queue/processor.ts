@@ -8,6 +8,10 @@ import { checkConfirmation } from "../confirmation/engine";
 import { moveToDeadLetter } from "./withdrawal-queue";
 import { WITHDRAWAL_QUEUE_NAMES } from "./names";
 import type { ConfirmationJobData, WithdrawalJobData } from "../types";
+import {
+  assertCustodyObservationAllowed,
+  assertCustodyWorkerStartupAllowed,
+} from "../custody-policy";
 
 function redisConnection() {
   const url = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -24,6 +28,7 @@ function redisConnection() {
 const connection = redisConnection();
 
 export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobData> {
+  assertCustodyWorkerStartupAllowed();
   const worker = new Worker<WithdrawalJobData>(
     WITHDRAWAL_QUEUE_NAMES.execution,
     async (job: Job<WithdrawalJobData>) => {
@@ -63,6 +68,7 @@ export function createWithdrawalWorker(concurrency = 5): Worker<WithdrawalJobDat
 }
 
 export function createConfirmationWorker(concurrency = 20): Worker<ConfirmationJobData> {
+  assertCustodyObservationAllowed();
   const worker = new Worker<ConfirmationJobData>(
     WITHDRAWAL_QUEUE_NAMES.confirmation,
     async (job: Job<ConfirmationJobData>) => {
@@ -96,6 +102,7 @@ export function createConfirmationWorker(concurrency = 20): Worker<ConfirmationJ
 }
 
 export function createRecoveryWorker(): Worker<WithdrawalJobData> {
+  assertCustodyWorkerStartupAllowed();
   const worker = new Worker<WithdrawalJobData>(
     WITHDRAWAL_QUEUE_NAMES.recovery,
     async (job: Job<WithdrawalJobData>) => {

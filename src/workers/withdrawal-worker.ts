@@ -8,7 +8,7 @@ import {
   createConfirmationWorker,
   createRecoveryWorker,
 } from "@/lib/wallet/queue/processor";
-import { assertSupportedWalletKeyStoreConfig } from "@/lib/wallet/signing/runtime-guard";
+import { assertCustodyWorkerStartupAllowed } from "@/lib/wallet/custody-policy";
 import type { Worker } from "bullmq";
 
 let workers: Worker[] = [];
@@ -19,9 +19,10 @@ export function startWithdrawalWorkers(): void {
     return;
   }
 
-  // Fail before any queue starts consuming approved withdrawals. HSM/MPC are
-  // currently interface stubs and must never be selected by production config.
-  assertSupportedWalletKeyStoreConfig();
+  // Defense in depth: the server avoids importing this module while custody is
+  // disabled, and the worker refuses to consume a single job unless the same
+  // central policy independently approves startup.
+  const custody = assertCustodyWorkerStartupAllowed();
 
   const concurrency = parseInt(process.env.WITHDRAWAL_WORKER_CONCURRENCY ?? "5");
 
@@ -35,6 +36,8 @@ export function startWithdrawalWorkers(): void {
     withdrawalConcurrency: concurrency,
     confirmationConcurrency: 20,
     recoveryConcurrency: 2,
+    custodyMode: custody.mode,
+    enabledChains: custody.enabledChains,
   });
 }
 

@@ -45,18 +45,27 @@ function configuredRedisUrl(): string | null {
 }
 
 app.prepare().then(async () => {
+  const { assertCustodyBootSafe } = await import(
+    "./src/lib/wallet/custody-policy"
+  );
+  const custody = assertCustodyBootSafe();
+
   // ── Compliance providers (Phase 36) ──────────────────────────────────────
   bootstrapComplianceProviders();
 
   const redisUrl = configuredRedisUrl();
 
   // ── Withdrawal pipeline workers (Phase 38) ────────────────────────────────
-  // Worker modules instantiate BullMQ queues at import time. Import them only
-  // after a non-empty Redis URL has been validated so local UI development does
-  // not crash merely because Redis is intentionally absent.
-  if (redisUrl) {
+  // Queue modules establish Redis connections at import time. Never import the
+  // worker graph unless the central custody policy has approved the signer,
+  // chain allowlist, limits, worker flag and Redis dependency.
+  if (redisUrl && custody.workersEnabled) {
     withdrawalWorkers = await import("./src/workers/withdrawal-worker");
     withdrawalWorkers.startWithdrawalWorkers();
+  } else {
+    console.log(
+      `> Withdrawal custody disabled — ${custody.reason}; signing workers not loaded`,
+    );
   }
 
   // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────

@@ -6,11 +6,24 @@ import {
 } from "@/lib/wallet/signing/runtime-guard";
 
 describe("wallet keystore runtime guard", () => {
-  it("allows current hot-wallet configuration", () => {
+  it("allows a clean disabled production custody state", () => {
     assert.doesNotThrow(() =>
       assertSupportedWalletKeyStoreConfig({
-        WALLET_BITCOIN_PRIVATE_KEY: "a".repeat(64),
+        NODE_ENV: "production",
+        TECPEY_CUSTODY_MODE: "disabled",
       }),
+    );
+  });
+
+  it("forbids environment private keys in production", () => {
+    assert.throws(
+      () =>
+        assertSupportedWalletKeyStoreConfig({
+          NODE_ENV: "production",
+          TECPEY_CUSTODY_MODE: "disabled",
+          WALLET_BITCOIN_PRIVATE_KEY: "a".repeat(64),
+        }),
+      /production_environment_private_keys_forbidden/,
     );
   });
 
@@ -20,8 +33,13 @@ describe("wallet keystore runtime guard", () => {
       ["hsm"],
     );
     assert.throws(
-      () => assertSupportedWalletKeyStoreConfig({ HSM_KEY_ID: "key-1" }),
-      /HSM\/MPC signing is not implemented/,
+      () =>
+        assertSupportedWalletKeyStoreConfig({
+          NODE_ENV: "production",
+          TECPEY_CUSTODY_MODE: "external_hsm",
+          HSM_KEY_ID: "key-1",
+        }),
+      /hsm_signer_not_implemented/,
     );
   });
 
@@ -31,8 +49,13 @@ describe("wallet keystore runtime guard", () => {
       ["mpc"],
     );
     assert.throws(
-      () => assertSupportedWalletKeyStoreConfig({ MPC_ENDPOINT: "https://mpc.invalid" }),
-      /HSM\/MPC signing is not implemented/,
+      () =>
+        assertSupportedWalletKeyStoreConfig({
+          NODE_ENV: "production",
+          TECPEY_CUSTODY_MODE: "external_mpc",
+          MPC_ENDPOINT: "https://mpc.invalid",
+        }),
+      /mpc_signer_not_implemented/,
     );
   });
 

@@ -14,6 +14,7 @@ const files = {
   price: "src/lib/security/withdrawal-price-authority.ts",
   authorization: "src/lib/security/withdrawal-authorization-authority.ts",
   compliance: "src/lib/security/withdrawal-compliance-authority.ts",
+  custody: "src/lib/wallet/custody-policy.ts",
   replay: "src/lib/security/withdrawal-replay-authority.ts",
   admission: "src/lib/security/withdrawal-admission-service.ts",
   legacyGate: "src/lib/security/withdraw-gate.ts",
@@ -113,7 +114,11 @@ requireText("authorization", "expires_at > NOW()", "expired authorization must b
 requireText("compliance", "risk_authority_unavailable", "risk outages must fail closed");
 requireText("compliance", "control_timeout", "provider calls need bounded execution");
 requireText("compliance", "compliance_evidence_incomplete", "missing/malformed evidence must never approve");
+requireText("compliance", "getCustodyRuntimeStatus", "compliance must use the central custody authority");
 requireText("compliance", "custody_launch_gate_disabled", "execution must remain behind custody closure");
+rejectText("compliance", "TECPEY_REAL_WITHDRAWALS_ENABLED", "compliance may not trust a standalone custody flag");
+requireText("custody", "assertCustodyWithdrawalAllowed", "custody policy must enforce authoritative chain, amount and approval policy");
+requireText("custody", "CustodyConfigurationError", "invalid custody configuration must fail closed");
 
 requireText("replay", "resolveWithdrawalReplay", "committed replay needs an explicit authority");
 requireText("replay", "user_id = $1", "replay lookup must be owner-bound");
@@ -163,7 +168,9 @@ requireText("migration", "withdrawals_terminal_reservation_cleared", "database c
 requireText("migrationPlan", "runWithdrawalAdmissionMigrations", "migration must be in the canonical plan");
 
 requireText("env", "TECPEY_WITHDRAWAL_PRICE_SECRET", "production must require price-signing authority");
-requireText("env", "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden", "real execution must remain disabled until custody closure");
+requireText("env", "evaluateCustodyEnvironment", "environment validation must use the central custody authority");
+requireText("env", "Custody policy violation", "custody configuration failures must be release blockers");
+rejectText("env", "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden", "the legacy single-flag gate must be replaced by central policy");
 requireText("env", "TECPEY_WITHDRAWAL_DAILY_LIMIT_USD", "velocity configuration must be validated");
 
 requireText("unitTests", "preserves significant integer zeroes", "canonical amount regression needs a test");
@@ -192,4 +199,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; 2FA issuance is atomic; canonical commands, one-time TOTP, signed fresh pricing, database price recomputation, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and custody launch blocking are enforced.");
+console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; 2FA issuance is atomic; canonical commands, one-time TOTP, signed fresh pricing, database price recomputation, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and the central custody release gate are enforced.");

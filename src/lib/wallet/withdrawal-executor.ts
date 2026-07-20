@@ -5,6 +5,10 @@
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { createKeyStore } from "./signing/keystore";
+import {
+  assertCustodyExecutionEnvironmentAllowed,
+  assertCustodyWithdrawalAllowed,
+} from "./custody-policy";
 import { getProvider } from "./providers/registry";
 import { enqueueConfirmationWatch } from "./queue/withdrawal-queue";
 import { trackWalletMetric, recordLatency } from "./observability";
@@ -21,6 +25,7 @@ type WithdrawalRecord = {
   userId: string;
   asset: string;
   amount: string;
+  amountUsd: string;
   destinationAddress: string;
   network: ChainId;
   state: string;
@@ -38,10 +43,21 @@ type ExecutionPlan = {
 };
 
 export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
+  // This gate runs before PostgreSQL state is claimed so disabled custody,
+  // circuit-breaker activation, worker misconfiguration or an unsupported
+  // queue chain can never move an approved withdrawal into execution states.
+  assertCustodyExecutionEnvironmentAllowed({ chainId: job.chainId });
+
   const plan = await claimWithdrawal(job.withdrawalId);
   if (!plan) return;
 
   assertQueueIdentityMatchesRecord(job, plan.withdrawal);
+
+  assertCustodyWithdrawalAllowed({
+    chainId: plan.withdrawal.network,
+    amountUsd: plan.withdrawal.amountUsd,
+    approvalCount: 1,
+  });
 
   if (plan.mode === "confirm") {
     await ensureConfirmationWatch(plan.withdrawal);
@@ -144,6 +160,7 @@ async function buildSignAndPersist(
                user_id AS "userId",
                asset,
                amount::text AS amount,
+               amount_usd::text AS "amountUsd",
                destination_address AS "destinationAddress",
                network,
                state,
@@ -186,6 +203,7 @@ async function claimWithdrawal(withdrawalId: string): Promise<ExecutionPlan | nu
                  user_id AS "userId",
                  asset,
                  amount::text AS amount,
+                 amount_usd::text AS "amountUsd",
                  destination_address AS "destinationAddress",
                  network,
                  state,
@@ -215,6 +233,7 @@ async function claimWithdrawal(withdrawalId: string): Promise<ExecutionPlan | nu
                  user_id AS "userId",
                  asset,
                  amount::text AS amount,
+                 amount_usd::text AS "amountUsd",
                  destination_address AS "destinationAddress",
                  network,
                  state,
@@ -233,6 +252,7 @@ async function claimWithdrawal(withdrawalId: string): Promise<ExecutionPlan | nu
               user_id AS "userId",
               asset,
               amount::text AS amount,
+              amount_usd::text AS "amountUsd",
               destination_address AS "destinationAddress",
               network,
               state,

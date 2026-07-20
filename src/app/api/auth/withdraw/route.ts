@@ -19,6 +19,7 @@ import {
 import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { getPublicCustodyStatus } from "@/lib/wallet/custody-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
+    const custody = getPublicCustodyStatus();
     const boundedBodyRequest = await readBoundedJsonRequest(req, {
       maxBytes: 16_384,
       allowEmptyObject: true,
@@ -94,7 +96,15 @@ export async function POST(req: NextRequest) {
           replayed: true,
         });
       }
-      return apiOk({ withdrawal: replay.withdrawal, replayed: true });
+      return apiOk({
+        withdrawal: replay.withdrawal,
+        replayed: true,
+        custody,
+      });
+    }
+
+    if (!custody.withdrawalsEnabled) {
+      return apiError("custody_unavailable", 503, { custody });
     }
 
     const authorizationId =
@@ -149,6 +159,7 @@ export async function POST(req: NextRequest) {
       {
         withdrawal: result.withdrawal,
         replayed: result.replayed,
+        custody,
       },
       result.httpStatus,
     );
@@ -169,6 +180,7 @@ export async function GET(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
+    const custody = getPublicCustodyStatus();
     const url = new URL(req.url);
     const limit = Math.min(
       parseInt(url.searchParams.get("limit") ?? "20", 10) || 20,
@@ -181,6 +193,6 @@ export async function GET(req: NextRequest) {
 
     const result = await listUserWithdrawalsStrict(userId, limit, offset);
     if (!result.ok) return apiError(result.reason, 503);
-    return apiOk({ withdrawals: result.withdrawals, limit, offset });
+    return apiOk({ withdrawals: result.withdrawals, limit, offset, custody });
   });
 }

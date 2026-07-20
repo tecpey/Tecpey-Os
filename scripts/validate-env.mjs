@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { evaluateCustodyEnvironment } from '../src/lib/wallet/custody-policy-core.mjs';
 
 function loadEnvFile(file) {
   const full = path.resolve(process.cwd(), file);
@@ -67,6 +68,15 @@ const optional = [
   'TECPEY_LEGACY_AUTH_UNTIL',
   'TECPEY_WITHDRAWAL_DAILY_LIMIT_USD',
   'TECPEY_REAL_WITHDRAWALS_ENABLED',
+  'TECPEY_WITHDRAWAL_WORKERS_ENABLED',
+  'TECPEY_CUSTODY_MODE',
+  'TECPEY_CUSTODY_ENABLED_CHAINS',
+  'TECPEY_CUSTODY_MAX_WITHDRAWAL_USD',
+  'TECPEY_CUSTODY_REQUIRED_APPROVALS',
+  'TECPEY_CUSTODY_CIRCUIT_OPEN',
+  'TECPEY_CUSTODY_ADDRESS_ALLOCATION_ENABLED',
+  'TECPEY_SIMULATED_CUSTODY_ENABLED',
+  'TECPEY_ALLOW_INSECURE_DEV_HOT_WALLET',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -238,12 +248,6 @@ if (process.env.NODE_ENV === 'production') {
     );
   }
 
-  if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED === '1') {
-    errors.push(
-      'TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden until the custody launch gate in issue #106 is independently closed.'
-    );
-  }
-
   if (process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {
     const hasUpstash = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
     const hasRedisRest = process.env.REDIS_REST_URL && process.env.REDIS_REST_TOKEN;
@@ -255,6 +259,11 @@ if (process.env.NODE_ENV === 'production') {
       );
     }
   }
+}
+
+const custody = evaluateCustodyEnvironment(process.env);
+for (const code of custody.errors) {
+  errors.push(`Custody policy violation: ${code}`);
 }
 
 if (errors.length) {

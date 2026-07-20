@@ -5,6 +5,10 @@
 import { randomUUID } from "crypto";
 import { Queue, QueueEvents } from "bullmq";
 import type { WithdrawalJobData, ConfirmationJobData } from "../types";
+import {
+  assertCustodyExecutionEnvironmentAllowed,
+  assertCustodyObservationAllowed,
+} from "../custody-policy";
 import { WITHDRAWAL_QUEUE_NAMES } from "./names";
 import {
   CONFIRMATION_INITIAL_DELAY_MS,
@@ -97,6 +101,7 @@ export async function enqueueWithdrawal(
   data: WithdrawalJobData,
   opts?: { priority?: number; delay?: number },
 ): Promise<string> {
+  assertCustodyExecutionEnvironmentAllowed({ chainId: data.chainId });
   const identity = queueIdentity("withdrawal", data.withdrawalId);
   const job = await withdrawalQueue.add("process", data, {
     priority: opts?.priority ?? data.priority,
@@ -108,6 +113,7 @@ export async function enqueueWithdrawal(
 }
 
 export async function enqueueConfirmationWatch(data: ConfirmationJobData): Promise<string> {
+  assertCustodyObservationAllowed();
   // Queue payload values are untrusted hints. The worker hydrates tx_hash and
   // confirmation policy from PostgreSQL, so one withdrawal may have only one
   // live watcher regardless of a stale caller-provided txHash.
@@ -137,6 +143,7 @@ export async function moveToDeadLetter(data: WithdrawalJobData, reason: string):
 }
 
 export async function enqueueRecovery(data: WithdrawalJobData): Promise<void> {
+  assertCustodyExecutionEnvironmentAllowed({ chainId: data.chainId });
   const identity = queueIdentity("recovery", data.withdrawalId);
   await recoveryQueue.add("recover", data, {
     jobId: identity.jobId,

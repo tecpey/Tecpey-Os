@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getComplianceProviders } from "./compliance";
+import { getCustodyRuntimeStatus } from "@/lib/wallet/custody-policy";
 
 export const WITHDRAWAL_COMPLIANCE_POLICY_VERSION = "withdrawal-compliance-v1";
 
@@ -177,13 +178,21 @@ export async function evaluateWithdrawalCompliance(input: {
     };
   }
 
-  if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED !== "1") {
+  const custody = getCustodyRuntimeStatus();
+  if (!custody.withdrawalsEnabled) {
     return {
       state: "compliance_review",
       kycStatus,
       amlRisk,
       sanctionsHit,
-      evidence: { ...evidence, custodyLaunchGate: "disabled" },
+      evidence: {
+        ...evidence,
+        custodyLaunchGate: "disabled",
+        custodyPolicyVersion: custody.policyVersion,
+        custodyReason: custody.configurationValid
+          ? custody.reason
+          : "custody_unavailable",
+      },
       reason: "custody_launch_gate_disabled",
     };
   }
@@ -193,7 +202,11 @@ export async function evaluateWithdrawalCompliance(input: {
     kycStatus,
     amlRisk,
     sanctionsHit,
-    evidence: { ...evidence, custodyLaunchGate: "enabled" },
+    evidence: {
+      ...evidence,
+      custodyLaunchGate: "enabled",
+      custodyPolicyVersion: custody.policyVersion,
+    },
     reason: "all_controls_passed",
   };
 }

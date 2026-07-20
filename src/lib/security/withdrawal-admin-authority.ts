@@ -2,6 +2,11 @@ import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
 import {
+  CustodyConfigurationError,
+  CustodyGateError,
+  assertCustodyWithdrawalAllowed,
+} from "@/lib/wallet/custody-policy";
+import {
   claimApiCommandTx,
   completeApiCommandTx,
   type ApiCommandScope,
@@ -142,11 +147,14 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
         user_id: string;
         asset: string;
         amount: string;
+        amount_usd: string;
+        network: string;
         state: string;
         funds_reserved_at: Date | null;
         compliance_evidence: unknown;
       }>(
-        `SELECT user_id, asset, amount::text AS amount, state,
+        `SELECT user_id, asset, amount::text AS amount,
+                amount_usd::text AS amount_usd, network, state,
                 funds_reserved_at, compliance_evidence
            FROM withdrawals
           WHERE id = $1
@@ -181,8 +189,20 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       }
 
       if (input.action === "approve") {
-        if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED !== "1") {
-          throw new AdminWithdrawalError("custody_launch_gate_disabled", 409);
+        try {
+          assertCustodyWithdrawalAllowed({
+            chainId: row.network,
+            amountUsd: row.amount_usd,
+            approvalCount: 1,
+          });
+        } catch (error) {
+          if (error instanceof CustodyGateError) {
+            throw new AdminWithdrawalError(error.code, 409);
+          }
+          if (error instanceof CustodyConfigurationError) {
+            throw new AdminWithdrawalError("custody_unavailable", 503);
+          }
+          throw error;
         }
         if (!row.funds_reserved_at) {
           throw new AdminWithdrawalError("withdrawal_reservation_missing", 409);
