@@ -5,16 +5,21 @@ const files = {
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   evidence: "src/lib/security/withdrawal-external-effect-evidence.ts",
   authority: "src/lib/security/withdrawal-external-effect-authority.ts",
+  recovery: "src/lib/security/withdrawal-external-effect-recovery.ts",
   schema: "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
   gate: "src/lib/db-migrate-withdrawal-external-effect-gate.ts",
   gatePatch: "src/lib/db-migrate-withdrawal-external-effect-gate-amount-cast.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   executor: "src/lib/wallet/withdrawal-executor.ts",
+  queue: "src/lib/wallet/queue/withdrawal-queue.ts",
   confirmation: "src/lib/wallet/confirmation/engine.ts",
   settlement: "src/lib/security/withdrawal-settlement-authority.ts",
   schemaTests: "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
   authorityTests: "src/tests/security/withdrawal-external-effect-authority-postgres.test.ts",
+  recoveryTests: "src/tests/security/withdrawal-external-effect-recovery-postgres.test.ts",
   settlementTests: "src/tests/security/withdrawal-settlement-postgres.test.ts",
+  confirmationGateTests:
+    "src/tests/security/withdrawal-external-effect-confirmation-gate-postgres.test.ts",
   package: "package.json",
 };
 
@@ -72,7 +77,11 @@ for (const forbidden of [
   '"utxo"',
 ]) {
   requireText("audit", forbidden, `application redaction is missing ${forbidden}`);
-  requireText("schema", forbidden.replaceAll('"', "'"), `database redaction is missing ${forbidden}`);
+  requireText(
+    "schema",
+    forbidden.replaceAll('"', "'"),
+    `database redaction is missing ${forbidden}`,
+  );
 }
 
 for (const invariant of [
@@ -102,6 +111,7 @@ for (const invariant of [
 for (const invariant of [
   'FILENAME = "0044_withdrawal_external_effect_gate_amount_cast.sql"',
   "AND amount = NEW.amount::numeric",
+  "withdrawal confirmation monitor authority is missing",
   "patch target is missing",
 ]) {
   requireText("gatePatch", invariant, `missing immutable gate repair ${invariant}`);
@@ -133,6 +143,16 @@ for (const functionName of [
   "markWithdrawalConfirmationOutcome",
 ]) {
   requireText("authority", functionName, `missing canonical authority ${functionName}`);
+}
+for (const functionName of [
+  "claimWithdrawalExecution",
+  "commitPreparedWithdrawalExecution",
+  "beginWithdrawalBroadcastAttempt",
+  "finalizeWithdrawalBroadcastAccepted",
+  "finalizeWithdrawalBroadcastFailure",
+  "reconcileAmbiguousWithdrawalBroadcast",
+  "publishWithdrawalConfirmationOutbox",
+]) {
   requireText("executor", functionName, `executor does not delegate to ${functionName}`);
 }
 requireText(
@@ -179,6 +199,40 @@ requireText(
   "executor",
   "confirmationProjectionPending",
   "post-commit queue publication must be reported as repairable projection",
+);
+requireText(
+  "executor",
+  "recoverExpiredWithdrawalBroadcastAttempt",
+  "executor must classify expired external-effect leases before claim",
+);
+requireText(
+  "executor",
+  "BROADCAST_LEASE_RECOVERY_DELAY_MS",
+  "active broadcast leases need delayed durable recovery",
+);
+requireText(
+  "executor",
+  "enqueueRecovery",
+  "active leases must publish a deduplicated recovery projection",
+);
+for (const invariant of [
+  'state = \'calling\'',
+  "lease_expires_at <= NOW() AS expired",
+  'error: new Error("withdrawal_broadcast_lease_timeout")',
+  'return "active"',
+  'return "recovered"',
+]) {
+  requireText("recovery", invariant, `missing broadcast lease recovery invariant ${invariant}`);
+}
+requireText(
+  "queue",
+  "opts?: { delay?: number }",
+  "recovery queue must accept an authority-derived delay",
+);
+requireText(
+  "queue",
+  "deduplication: { id: identity.deduplicationId }",
+  "recovery queue must remain deduplicated",
 );
 
 rejectText(
@@ -237,6 +291,21 @@ requireText(
   "rolls back held-balance consumption, ledger and completed state when mandatory evidence conflicts",
   "settlement rollback evidence is missing",
 );
+requireText(
+  "confirmationGateTests",
+  "prevents settlement from broadcasted before monitor authority commits",
+  "direct settlement must not bypass monitor authority",
+);
+requireText(
+  "recoveryTests",
+  "turns an expired calling lease into ambiguous reconciliation debt without a second attempt",
+  "expired calling lease recovery proof is missing",
+);
+requireText(
+  "recoveryTests",
+  'recoveredClaim.mode === "reconcile"',
+  "expired calling lease must become reconciliation-only debt",
+);
 
 for (const proof of [
   "enforces one active execution generation",
@@ -285,5 +354,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Withdrawal external-effect evidence guard passed: preparation, broadcast attempts, ambiguity reconciliation, confirmation projection/outcomes and settlement are PostgreSQL-authoritative, mandatory-evidence-coupled, secret-free and protected from direct mutation paths.",
+  "Withdrawal external-effect evidence guard passed: preparation, broadcast attempts, lease expiry, ambiguity reconciliation, confirmation projection/outcomes and settlement are PostgreSQL-authoritative, mandatory-evidence-coupled, secret-free and protected from direct mutation paths.",
 );
