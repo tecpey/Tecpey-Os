@@ -17,6 +17,7 @@ on:
       - 'scripts/check-exchange-order-evidence.mjs'
       - 'scripts/run-exchange-order-worker.ts'
       - 'docs/security/EXCHANGE_ORDER_EVIDENCE_INVENTORY.md'
+      - 'docs/security/EXCHANGE_ORDER_TRANSACTIONAL_EVIDENCE.md'
       - 'package.json'
       - '.github/workflows/exchange-authority.yml'
 
