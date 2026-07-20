@@ -71,6 +71,8 @@ const store = await source("src/lib/ai/mentor-trust-store.ts");
 for (const [label, pattern] of [
   ["default-off personalization", /behavioralPersonalizationEnabled: false/],
   ["real exchange deny", /realExchangeSignalsEnabled: false/],
+  ["transactional preference evidence", /action: "mentor\.preferences\.update"/],
+  ["preference no-op authority", /changed: false/],
   ["append evidence", /INSERT INTO ai_mentor_request_evidence/],
   ["transactional conversation pair", /INSERT INTO mentor_conversations[\s\S]*'user'[\s\S]*'assistant'/],
   ["bounded history", /LIMIT 200/],
@@ -100,10 +102,14 @@ for (const [label, pattern] of [
   ["strict session", /strictRevocation: true/],
   ["CSRF", /verifyCsrfOrigin/],
   ["bounded body", /readBoundedJsonRequest\(req, \{ maxBytes: 2_048 \}\)/],
-  ["audit", /mentor_ai_preferences_changed/],
+  ["transaction delegation", /setMentorAiPreferences\(\{/],
+  ["typed audit request", /action: "mentor\.preferences\.update"/],
   ["no-store", /Cache-Control", "private, no-store/],
 ]) {
   if (!pattern.test(preferences)) failures.push(`mentor preferences: missing ${label}`);
+}
+if (/writeAudit\(|mentor_ai_preferences_changed|getClientIp|user-agent/.test(preferences)) {
+  failures.push("mentor preferences: legacy detached audit or request telemetry remains");
 }
 if (/realExchangeSignalsEnabled:\s*true/.test(preferences)) {
   failures.push("mentor preferences: real exchange signals may not be enabled in this containment phase");
