@@ -4,13 +4,32 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { revokeSessionStrict } from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import { withTx } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
+import { revokeExactSessionWithClient } from "@/lib/security/session-revocation-authority";
+import { revokeAllRefreshTokensForUserWithClient, clearRefreshCookie } from "@/lib/security/refresh-tokens";
+import { revokeJti } from "@/lib/security/jti-store";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+  writeSensitiveMutationAuditTx,
+} from "@/lib/security/sensitive-mutation-audit";
+import {
+  extractJtiFromToken,
+  UNIFIED_SESSION_COOKIE,
+} from "@/lib/unified-session";
 
 export const dynamic = "force-dynamic";
 
-// DELETE /api/auth/sessions/[id] — revoke a specific access session by JTI.
+type ExactRevocationCommand =
+  | {
+      ok: true;
+      target: { jti: string; expiresAt: number };
+      refreshRevokedCount: number;
+      currentAccessRevoked: boolean;
+    }
+  | { ok: false; reason: "session_not_found" };
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -28,60 +47,114 @@ export async function DELETE(
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
     if (!userId) return apiError("unauthorized", 401);
+    const actorType = session.userId ? "user" as const : "student" as const;
+
+    const currentToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value ?? "";
+    const currentJti = extractJtiFromToken(currentToken);
+    if (!currentJti) return apiError("invalid_session", 401);
 
     const { id: sessionId } = await params;
     if (!sessionId || sessionId.length > 200) {
       return apiError("invalid_input", 400);
     }
 
-    const accessResult = await revokeSessionStrict(sessionId, userId);
-    if (!accessResult.ok && accessResult.reason === "session_not_found") {
-      return apiError("not_found", 404);
-    }
-
-    // Access sessions are not yet bound to one refresh-token family. Revoking
-    // only the selected JTI would let that device immediately mint a new access
-    // token. Security-first behavior therefore revokes all refresh authority for
-    // the principal until family binding is implemented.
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "session_revoked",
-        resourceType: "session",
-        resourceId: sessionId,
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          refreshRevoked,
-        },
-      });
-      return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        refreshRevoked,
-      });
-    }
-
-    writeAudit({
+    const targetSessionEvidenceHash = hashSensitiveAuditRequest({ sessionId });
+    const currentSessionEvidenceHash = hashSensitiveAuditRequest({ jti: currentJti });
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    const requestHash = hashSensitiveAuditRequest({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorType,
       actorId: userId,
-      action: "session_revoked",
-      resourceType: "session",
-      resourceId: sessionId,
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        refreshScope: "all_user_tokens",
-      },
-    });
-
-    return apiOk({
-      revoked: true,
-      refreshRevoked: true,
+      action: "session.revoke_one",
+      targetSessionEvidenceHash,
+      currentSessionEvidenceHash,
       refreshScope: "all_user_tokens",
     });
+
+    let transaction;
+    try {
+      transaction = await withTx<ExactRevocationCommand>(async (client) => {
+        const target = await revokeExactSessionWithClient(client, sessionId, userId);
+        if (!target) return { ok: false, reason: "session_not_found" };
+
+        const refreshRevokedCount =
+          await revokeAllRefreshTokensForUserWithClient(client, userId);
+        const currentAccessRevoked = sessionId === currentJti;
+
+        await writeSensitiveMutationAuditTx(client, {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType,
+          actorId: userId,
+          action: "session.revoke_one",
+          resourceType: "access_session",
+          resourceId: targetSessionEvidenceHash,
+          outcome: "success",
+          correlationId,
+          requestHash,
+          metadata: {
+            policyVersion: "session-revocation-v1",
+            targetAccessRevoked: true,
+            currentAccessRevoked,
+            refreshScope: "all_user_tokens",
+            currentSessionEvidenceHash,
+            targetSessionEvidenceHash,
+          },
+        });
+
+        return {
+          ok: true,
+          target,
+          refreshRevokedCount,
+          currentAccessRevoked,
+        };
+      });
+    } catch {
+      return apiError("session_revocation_unavailable", 503, {
+        rolledBack: true,
+      });
+    }
+
+    if (!transaction.enabled) {
+      return apiError("session_revocation_unavailable", 503, {
+        rolledBack: true,
+        reason: "database_unavailable",
+      });
+    }
+    if (!transaction.value.ok) return apiError("not_found", 404);
+
+    const redisProjected = await revokeJti(
+      transaction.value.target.jti,
+      transaction.value.target.expiresAt,
+    );
+    if (!redisProjected) {
+      const response = apiError("session_revocation_cache_unavailable", 503, {
+        changed: true,
+        targetAccessRevoked: true,
+        currentAccessRevoked: transaction.value.currentAccessRevoked,
+        refreshAuthorityRevoked: true,
+        reauthenticationRequired: transaction.value.currentAccessRevoked,
+      });
+      clearRefreshCookie(response);
+      if (transaction.value.currentAccessRevoked) {
+        response.cookies.delete(UNIFIED_SESSION_COOKIE);
+      }
+      return response;
+    }
+
+    const response = apiOk({
+      revoked: true,
+      currentAccessRevoked: transaction.value.currentAccessRevoked,
+      refreshRevoked: true,
+      refreshRevokedCount: transaction.value.refreshRevokedCount,
+      refreshScope: "all_user_tokens",
+      atomic: true,
+    });
+    clearRefreshCookie(response);
+    if (transaction.value.currentAccessRevoked) {
+      response.cookies.delete(UNIFIED_SESSION_COOKIE);
+    }
+    return response;
   });
 }
