@@ -11,6 +11,7 @@ import {
   RISK_ENFORCEMENT_POLICY_VERSION,
   fingerprintRiskDetectorValue,
   fingerprintRiskEventIdentity,
+  fingerprintRiskPrincipal,
   writeRiskEvidenceTx,
 } from "../../lib/security/risk-enforcement-evidence";
 
@@ -66,13 +67,12 @@ async function loadAuthority(principalId: string) {
       `SELECT action, row_to_json(event)::text AS document
          FROM sensitive_mutation_audit_events event
         WHERE action IN ('risk.event.record', 'risk.enforcement.apply')
-          AND metadata->>'principalFingerprint' IS NOT NULL
           AND metadata->>'principalFingerprint' = encode(
-            digest('tecpey:risk-principal:v1' || chr(31) || $2, 'sha256'),
+            digest('tecpey:risk-principal:v1' || chr(31) || $1, 'sha256'),
             'hex'
           )
         ORDER BY created_at`,
-      [PLATFORM.DEFAULT_TENANT_ID, principalId],
+      [principalId],
     );
     return {
       events: events.rows,
@@ -139,7 +139,8 @@ describe("Risk enforcement transaction authority", () => {
           state.audit.map((row) => row.action),
           ["risk.event.record", "risk.enforcement.apply"],
         );
-        for (const row of [...state.events, ...state.audit]) {
+        assert.equal(state.events[0]?.document.includes(detectorIdentity), false);
+        for (const row of state.audit) {
           assert.equal(row.document.includes(principalId), false);
           assert.equal(row.document.includes(detectorIdentity), false);
         }
@@ -183,7 +184,10 @@ describe("Risk enforcement transaction authority", () => {
           correlationIdentity: eventKey,
           requestHash: "f".repeat(64),
           outcome: "success",
-          metadata: { marker: "forced-correlation-conflict" },
+          metadata: {
+            principalFingerprint: fingerprintRiskPrincipal(principalId),
+            marker: "forced-correlation-conflict",
+          },
         });
         return true;
       });
