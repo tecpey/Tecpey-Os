@@ -24,7 +24,7 @@ jobs:
           ref: fix/custody-release-gate
           fetch-depth: 2
 
-      - name: Reconstruct reviewed patch and remove temporary assets
+      - name: Reconstruct reviewed patch and isolate temporary workflows
         run: |
           set -euo pipefail
           cat .github/custody-gate.patch.gz.b64.* > /tmp/custody-gate.patch.gz.b64
@@ -42,10 +42,10 @@ jobs:
               raise SystemExit("custody environment wrapper contract not found")
           path.write_text(source.replace(old, new, 1))
           PY
-          rm -f \
-            .github/workflows/custody-source-snapshot-temp.yml \
-            .github/workflows/custody-remediation-once.yml \
-            .github/custody-gate.patch.gz.b64.*
+          mkdir -p /tmp/custody-temp-workflows
+          mv .github/workflows/custody-source-snapshot-temp.yml /tmp/custody-temp-workflows/
+          mv .github/workflows/custody-remediation-once.yml /tmp/custody-temp-workflows/
+          rm -f .github/custody-gate.patch.gz.b64.*
           git diff --check
 
       - name: Install dependencies
@@ -96,9 +96,13 @@ jobs:
             exit 1
           fi
 
-      - name: Commit permanent gate
+      - name: Commit permanent source changes
         run: |
           set -euo pipefail
+          mv /tmp/custody-temp-workflows/custody-source-snapshot-temp.yml .github/workflows/
+          mv /tmp/custody-temp-workflows/custody-remediation-once.yml .github/workflows/
+          git diff --quiet -- .github/workflows/custody-source-snapshot-temp.yml
+          git diff --quiet -- .github/workflows/custody-remediation-once.yml
           git add -A
           git diff --cached --check
           git config user.name "github-actions[bot]"
