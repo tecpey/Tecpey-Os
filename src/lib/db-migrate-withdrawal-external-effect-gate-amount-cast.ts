@@ -13,23 +13,66 @@ BEGIN
   current_definition := pg_get_functiondef(
     'tecpey_guard_withdrawal_external_effect_transition()'::regprocedure
   );
+  patched_definition := current_definition;
 
-  IF position('AND amount = NEW.amount::numeric' IN current_definition) > 0 THEN
-    RETURN;
+  IF position('AND amount = NEW.amount::numeric' IN patched_definition) = 0 THEN
+    IF position('AND amount = NEW.amount' IN patched_definition) = 0 THEN
+      RAISE EXCEPTION
+        'withdrawal external-effect gate amount comparison patch target is missing';
+    END IF;
+
+    patched_definition := replace(
+      patched_definition,
+      'AND amount = NEW.amount',
+      'AND amount = NEW.amount::numeric'
+    );
   END IF;
 
-  IF position('AND amount = NEW.amount' IN current_definition) = 0 THEN
-    RAISE EXCEPTION
-      'withdrawal external-effect gate amount comparison patch target is missing';
+  IF position(
+    'withdrawal confirmation monitor authority is missing'
+    IN patched_definition
+  ) = 0 THEN
+    IF position(
+      $patch$  IF OLD.state IN ('broadcasted', 'confirming')
+     AND NEW.state IN ('failed', 'timeout') THEN$patch$
+      IN patched_definition
+    ) = 0 THEN
+      RAISE EXCEPTION
+        'withdrawal confirmation terminal-state patch target is missing';
+    END IF;
+
+    patched_definition := replace(
+      patched_definition,
+      $patch$  IF OLD.state IN ('broadcasted', 'confirming')
+     AND NEW.state IN ('failed', 'timeout') THEN$patch$,
+      $patch$  IF OLD.state IN ('broadcasted', 'confirming')
+     AND NEW.state IN ('failed', 'timeout') THEN
+    IF OLD.state <> 'confirming' THEN
+      RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
+    END IF;$patch$
+    );
+
+    IF position(
+      $patch$  IF NEW.state = 'completed' AND OLD.state IS DISTINCT FROM 'completed' THEN$patch$
+      IN patched_definition
+    ) = 0 THEN
+      RAISE EXCEPTION
+        'withdrawal completion-state patch target is missing';
+    END IF;
+
+    patched_definition := replace(
+      patched_definition,
+      $patch$  IF NEW.state = 'completed' AND OLD.state IS DISTINCT FROM 'completed' THEN$patch$,
+      $patch$  IF NEW.state = 'completed' AND OLD.state IS DISTINCT FROM 'completed' THEN
+    IF OLD.state <> 'confirming' THEN
+      RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
+    END IF;$patch$
+    );
   END IF;
 
-  patched_definition := replace(
-    current_definition,
-    'AND amount = NEW.amount',
-    'AND amount = NEW.amount::numeric'
-  );
-
-  EXECUTE patched_definition;
+  IF patched_definition IS DISTINCT FROM current_definition THEN
+    EXECUTE patched_definition;
+  END IF;
 END;
 $$;
 `;
