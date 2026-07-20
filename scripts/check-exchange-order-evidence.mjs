@@ -5,7 +5,10 @@ const audit = read("src/lib/security/sensitive-mutation-audit.ts");
 const evidence = read("src/lib/trading/exchange-order-evidence.ts");
 const migration = read("src/lib/db-migrate-exchange-order-evidence.ts");
 const migrationPlan = read("src/lib/db-migration-plan.ts");
+const cancelAuthority = read("src/lib/trading/order-cancel-authority.ts");
+const cancelRoute = read("src/app/api/orders/[id]/route.ts");
 const postgresTest = read("src/tests/security/exchange-order-evidence-postgres.test.ts");
+const cancelPostgresTest = read("src/tests/security/exchange-order-cancel-evidence-postgres.test.ts");
 const unitTest = read("src/tests/security/exchange-order-evidence.test.ts");
 const inventory = read("docs/security/EXCHANGE_ORDER_EVIDENCE_INVENTORY.md");
 
@@ -109,6 +112,45 @@ if (sensitiveIndex < 0 || exchangeIndex < 0 || exchangeIndex <= sensitiveIndex) 
   );
 }
 
+for (const invariant of [
+  'import { writeSensitiveMutationAuditTx } from "@/lib/security/sensitive-mutation-audit"',
+  "buildExchangeOrderCancelEvidence",
+  "cancellationEvidenceContext",
+  "const releasedAmount = await releaseOrderHoldResidualTx",
+  "releasedAmount,",
+  "await writeSensitiveMutationAuditTx(",
+  "await completeApiCommandTx(client, scope",
+]) {
+  requireText(
+    cancelAuthority,
+    invariant,
+    `transactional cancellation evidence invariant is missing: ${invariant}`,
+  );
+}
+const cancelAuditIndex = cancelAuthority.indexOf("await writeSensitiveMutationAuditTx(");
+const cancelReceiptIndex = cancelAuthority.indexOf("await completeApiCommandTx(client, scope", cancelAuditIndex);
+if (cancelAuditIndex < 0 || cancelReceiptIndex < 0 || cancelReceiptIndex <= cancelAuditIndex) {
+  failures.push(
+    "mandatory cancellation evidence must commit before the successful API command receipt",
+  );
+}
+for (const forbidden of [
+  "writeAudit(",
+  "order_cancelled",
+  'from "@/lib/security/audit-log"',
+]) {
+  rejectText(
+    cancelRoute,
+    forbidden,
+    `order cancellation route cannot retain best-effort audit authority: ${forbidden}`,
+  );
+}
+requireText(
+  cancelRoute,
+  "cancelOrderIdempotently",
+  "order cancellation route must delegate to the canonical transactional authority",
+);
+
 for (const evidenceText of [
   "commits exactly one typed admission event with the order, hold, ledger and command",
   "rolls back order, hold, ledger, command and domain event when mandatory evidence is rejected",
@@ -122,7 +164,23 @@ for (const evidenceText of [
   requireText(
     postgresTest,
     evidenceText,
-    `missing PostgreSQL Exchange evidence proof: ${evidenceText}`,
+    `missing PostgreSQL Exchange admission evidence proof: ${evidenceText}`,
+  );
+}
+for (const evidenceText of [
+  "commits one cancellation event with exact hold release and replays without duplication",
+  "rolls back cancellation, hold release, domain event and API receipt when mandatory evidence fails",
+  "injected_cancel_evidence_rejection",
+  "status: \"NEW\"",
+  "releases: \"0\"",
+  "events: \"0\"",
+  "receipts: \"0\"",
+  "residual: \"10.0100000000\"",
+]) {
+  requireText(
+    cancelPostgresTest,
+    evidenceText,
+    `missing PostgreSQL Exchange cancellation evidence proof: ${evidenceText}`,
   );
 }
 for (const evidenceText of [
@@ -154,5 +212,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Exchange order evidence authority check passed: typed bounded events, extension-free fail-closed transactional admission trigger, canonical migration ordering, exact legacy cutover identity and rollback/replay evidence are permanent.",
+  "Exchange order evidence authority check passed: typed bounded events, extension-free admission trigger, transactional cancellation evidence, route-side audit removal, canonical migration ordering and rollback/replay evidence are permanent.",
 );
