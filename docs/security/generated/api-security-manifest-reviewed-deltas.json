@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/api-keys",
+      "method": "POST",
+      "previousSourceHash": "6eaf1a960c41d2fe0cad201d",
+      "issue": "#161",
+      "owner": "security-platform",
+      "reason": "API key credential lifecycle moved to strict server identity and transaction-coupled mandatory audit evidence.",
+      "replacement": {
+        "route": "/api/api-keys",
+        "method": "POST",
+        "sourcePath": "src/app/api/api-keys/route.ts",
+        "sourceHash": "b520c63bb26f7eebdea029f7",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "api-keys-create",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "api-keys",
+        "testReferences": [
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/api-keys/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/api-keys/[id]",
+      "method": "DELETE",
+      "previousSourceHash": "9b70865eebb1cda535d3b876",
+      "issue": "#161",
+      "owner": "security-platform",
+      "reason": "API key credential lifecycle moved to strict server identity and transaction-coupled mandatory audit evidence.",
+      "replacement": {
+        "route": "/api/api-keys/[id]",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+        "sourceHash": "9cb7847730b940ba1f924755",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "api-keys-delete",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "api-keys",
+        "testReferences": [
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/api-keys/[id]",
+      "method": "PATCH",
+      "previousSourceHash": "9b70865eebb1cda535d3b876",
+      "issue": "#161",
+      "owner": "security-platform",
+      "reason": "API key credential lifecycle moved to strict server identity and transaction-coupled mandatory audit evidence.",
+      "replacement": {
+        "route": "/api/api-keys/[id]",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+        "sourceHash": "9cb7847730b940ba1f924755",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "api-keys-update",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "api-keys",
+        "testReferences": [
+          "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/api-keys/[id]/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
