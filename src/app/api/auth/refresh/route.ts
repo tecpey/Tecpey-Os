@@ -1,5 +1,5 @@
-// POST /api/auth/refresh — rotate one verified refresh token into a new
-// access/refresh pair. Cookies are set only after every durable write succeeds.
+// POST /api/auth/refresh — atomically rotate one verified refresh token into
+// a new access/refresh/session tuple. Cookies are published only after commit.
 
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -7,24 +7,34 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import {
-  verifyRefreshToken,
-  revokeRefreshToken,
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
+  clearRefreshCookie,
   getRefreshTokenFromRequest,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
+import {
+  rotateSession,
+  verifyRefreshTokenClaims,
+} from "@/lib/security/session-authority";
+import { buildSessionAuditContext } from "@/lib/security/session-route-context";
+import { deviceFingerprint } from "@/lib/security/webauthn";
 import {
   signUnifiedSession,
   extractJtiFromToken,
   extractExpFromToken,
 } from "@/lib/unified-session";
-import { registerSession } from "@/lib/security/session-store";
-import { writeAudit } from "@/lib/security/audit-log";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { withDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+
+type AccountRow = {
+  id: string;
+  email: string;
+  username: string;
+  display_name: string;
+};
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/refresh" }, async () => {
@@ -40,44 +50,27 @@ export async function POST(req: NextRequest) {
     const rawRefreshToken = getRefreshTokenFromRequest(req);
     if (!rawRefreshToken) return apiError("refresh_token_missing", 401);
 
-    const ip = getClientIp(req);
-    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
-    const verified = await verifyRefreshToken(rawRefreshToken);
-
-    if (!verified.ok) {
-      writeAudit({
-        actorId: "unknown",
-        action: "logout",
-        ip,
-        userAgent: deviceInfo,
-        metadata: { reason: verified.reason, action: "refresh_failed" },
+    const claimsResult = await verifyRefreshTokenClaims(rawRefreshToken);
+    if (!claimsResult.ok) {
+      const response = apiError("refresh_token_invalid", 401, {
+        reason: claimsResult.reason,
       });
-      return apiError("refresh_token_invalid", 401, {
-        reason: verified.reason,
-      });
+      clearRefreshCookie(response);
+      return response;
     }
+    const claims = claimsResult.claims;
 
-    const { userId, jti: oldJti, familyId } = verified;
-    type AccountRow = {
-      id: string;
-      email: string;
-      username: string;
-      display_name: string;
-    };
     const accountResult = await withDb(async (db) => {
       const result = await db.query<AccountRow>(
         `SELECT id, email, username, display_name
            FROM academy_auth_accounts
           WHERE id = $1`,
-        [userId],
+        [claims.userId],
       );
       return result.rows[0] ?? null;
     });
     if (!accountResult.enabled) return apiError("auth_storage_unavailable", 503);
     if (!accountResult.value) return apiError("user_not_found", 401);
-
-    const oldRevoked = await revokeRefreshToken(oldJti);
-    if (!oldRevoked) return apiError("refresh_rotation_unavailable", 503);
 
     const account = accountResult.value;
     const accessToken = await signUnifiedSession({
@@ -91,37 +84,59 @@ export async function POST(req: NextRequest) {
     const accessExp = extractExpFromToken(accessToken);
     if (!accessJti || !accessExp) return apiError("session_issue_failed", 503);
 
-    const newRefreshToken = await issueRefreshToken({
+    const ip = getClientIp(req);
+    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    const preparedRefresh = await prepareRefreshToken({
       userId: account.id,
-      familyId,
-      parentId: oldJti,
+      familyId: claims.familyId,
+      parentId: claims.jti,
       deviceInfo,
       ip,
     });
-    if (!newRefreshToken) return apiError("refresh_rotation_unavailable", 503);
+    if (!preparedRefresh) return apiError("refresh_rotation_unavailable", 503);
 
-    const registered = await registerSession({
-      jti: accessJti,
+    const audit = buildSessionAuditContext({
+      req,
       userId: account.id,
-      deviceInfo,
-      ip,
-      expiresAt: new Date(accessExp * 1000),
+      actorType: "user",
+      action: "session.refresh.rotate",
+      evidence: {
+        refreshFamilyId: claims.familyId,
+        previousRefreshId: claims.jti,
+      },
     });
-    if (!registered) {
-      const replacement = await verifyRefreshToken(newRefreshToken);
-      if (replacement.ok) await revokeRefreshToken(replacement.jti);
-      return apiError("session_registry_unavailable", 503);
+
+    let rotation;
+    try {
+      rotation = await rotateSession({
+        rawRefreshToken,
+        accessJti,
+        accessExpiresAt: new Date(accessExp * 1000),
+        preparedRefresh,
+        deviceInfo,
+        ip,
+        deviceFingerprint: deviceFingerprint(deviceInfo, ip),
+        tenantId: audit.tenantId,
+        correlationId: audit.correlationId,
+        requestHash: audit.requestHash,
+      });
+    } catch {
+      return apiError("refresh_rotation_unavailable", 503);
     }
 
-    writeAudit({
-      actorId: account.id,
-      action: "login",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { action: "token_refresh" },
-    });
+    if (!rotation.ok) {
+      const response = apiError("refresh_token_invalid", 401, {
+        reason: rotation.reason,
+        denyCachePending: rotation.denyCachePending,
+      });
+      clearRefreshCookie(response);
+      return response;
+    }
 
-    const response = apiOk({ authenticated: true });
+    const response = apiOk({
+      authenticated: true,
+      denyCachePending: rotation.denyCachePending,
+    });
     response.cookies.set(COOKIES.SESSION, accessToken, {
       path: "/",
       httpOnly: true,
@@ -129,7 +144,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: ACCESS_COOKIE_TTL_S,
     });
-    setRefreshCookie(response, newRefreshToken);
+    setRefreshCookie(response, rotation.refreshToken);
     return response;
   });
 }
