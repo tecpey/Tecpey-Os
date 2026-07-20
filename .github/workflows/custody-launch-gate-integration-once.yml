@@ -45,11 +45,45 @@ jobs:
             src/tests/wallet/custody-env-validation.test.ts
           git diff --check
 
-      - name: Verify TypeScript and ESLint
+      - name: Verify TypeScript
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck > custody-typecheck.log 2>&1
+
+      - name: Upload TypeScript diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custody-typecheck-${{ github.sha }}
+          path: custody-typecheck.log
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce TypeScript result
+        if: steps.typecheck.outcome != 'success'
         run: |
-          set -euo pipefail
-          npm run typecheck
-          npm run lint
+          cat custody-typecheck.log
+          exit 1
+
+      - name: Verify ESLint
+        id: lint
+        continue-on-error: true
+        run: npm run lint > custody-eslint.log 2>&1
+
+      - name: Upload ESLint diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custody-eslint-${{ github.sha }}
+          path: custody-eslint.log
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce ESLint result
+        if: steps.lint.outcome != 'success'
+        run: |
+          cat custody-eslint.log
+          exit 1
 
       - name: Commit permanent custody integration
         run: |
