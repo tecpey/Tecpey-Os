@@ -23,7 +23,17 @@ DECLARE
   expected_correlation TEXT;
   expected_final_state TEXT;
 BEGIN
-  IF NEW.state IS DISTINCT FROM 'final' OR OLD.state = 'final' THEN
+  IF OLD.state = 'final' THEN
+    IF NEW.state IS DISTINCT FROM OLD.state
+      OR NEW.result IS DISTINCT FROM OLD.result
+    THEN
+      RAISE EXCEPTION 'exchange order final command outcome is immutable'
+        USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.state IS DISTINCT FROM 'final' THEN
     RETURN NEW;
   END IF;
 
