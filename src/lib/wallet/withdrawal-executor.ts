@@ -23,6 +23,7 @@ import { recoverExpiredWithdrawalBroadcastAttempt } from "@/lib/security/withdra
 import { createKeyStore } from "./signing/keystore";
 import { assertCustodyCapability } from "./custody-launch-policy";
 import { getProvider } from "./providers/registry";
+import { enqueueRecovery } from "./queue/withdrawal-queue";
 import { trackWalletMetric, recordLatency } from "./observability";
 import {
   assertQueueIdentityMatchesRecord,
@@ -30,6 +31,8 @@ import {
   resolveAuthoritativeFeeSpeed,
 } from "./withdrawal-authority";
 import type { ChainId, FeeSpeed, WithdrawalJobData } from "./types";
+
+const BROADCAST_LEASE_RECOVERY_DELAY_MS = 130_000;
 
 function workerIdentity(): string {
   return `withdrawal-executor:${process.env.HOSTNAME ?? "local"}:${process.pid}`;
@@ -47,9 +50,18 @@ export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
   const identity = workerIdentity();
 
   // A worker may die after durable attempt creation and before result commit.
-  // Expired `calling` leases are unknown external effects and must become
-  // ambiguous before claim, forcing deterministic reconciliation.
-  await recoverExpiredWithdrawalBroadcastAttempt(job.withdrawalId);
+  // An active lease gets one delayed, deduplicated recovery job. An expired
+  // `calling` lease becomes ambiguous before claim, forcing deterministic
+  // reconciliation rather than a second RPC submission.
+  const leaseRecovery = await recoverExpiredWithdrawalBroadcastAttempt(
+    job.withdrawalId,
+  );
+  if (leaseRecovery === "active") {
+    await enqueueRecovery(job, {
+      delay: BROADCAST_LEASE_RECOVERY_DELAY_MS,
+    });
+    return;
+  }
 
   let plan = await claimWithdrawalExecution({
     withdrawalId: job.withdrawalId,
