@@ -6,11 +6,29 @@ import {
 } from "@/lib/wallet/signing/runtime-guard";
 
 describe("wallet keystore runtime guard", () => {
-  it("allows current hot-wallet configuration", () => {
+  it("allows hot-wallet configuration only outside production", () => {
     assert.doesNotThrow(() =>
       assertSupportedWalletKeyStoreConfig({
+        NODE_ENV: "test",
         WALLET_BITCOIN_PRIVATE_KEY: "a".repeat(64),
       }),
+    );
+  });
+
+  it("fails closed for environment private keys in production", () => {
+    assert.throws(
+      () =>
+        assertSupportedWalletKeyStoreConfig({
+          NODE_ENV: "production",
+          WALLET_BITCOIN_PRIVATE_KEY: "a".repeat(64),
+        }),
+      /environment_private_keys_forbidden/,
+    );
+  });
+
+  it("allows production boot only in custody-disabled mode", () => {
+    assert.doesNotThrow(() =>
+      assertSupportedWalletKeyStoreConfig({ NODE_ENV: "production" }),
     );
   });
 

@@ -5,6 +5,7 @@
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { createKeyStore } from "./signing/keystore";
+import { assertCustodyCapability } from "./custody-launch-policy";
 import { getProvider } from "./providers/registry";
 import { enqueueConfirmationWatch } from "./queue/withdrawal-queue";
 import { trackWalletMetric, recordLatency } from "./observability";
@@ -38,6 +39,9 @@ type ExecutionPlan = {
 };
 
 export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
+  // Gate before PostgreSQL claim so a disabled custody runtime cannot move an
+  // approved withdrawal into an execution state.
+  assertCustodyCapability("withdrawal_worker");
   const plan = await claimWithdrawal(job.withdrawalId);
   if (!plan) return;
 
@@ -97,6 +101,7 @@ async function buildSignAndPersist(
   withdrawal: WithdrawalRecord,
   feeSpeed: FeeSpeed,
 ): Promise<WithdrawalRecord> {
+  assertCustodyCapability("transaction_signing", { chainId: withdrawal.network });
   const provider = getProvider(withdrawal.network);
   const keyStore = createKeyStore();
   const fromAddress = await keyStore.getAddress(withdrawal.network);
@@ -359,6 +364,7 @@ async function broadcastTransaction(
   withdrawalId: string,
   expectedTxHash: string,
 ): Promise<{ txHash: string; broadcastedAt: Date; attempts: number }> {
+  assertCustodyCapability("transaction_broadcast", { chainId });
   const { getRpcClient } = await import("./rpc/client");
   const rpc = getRpcClient(chainId);
   const rawHex = "0x" + rawTx.toString("hex");

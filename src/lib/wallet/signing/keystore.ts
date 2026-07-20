@@ -12,6 +12,10 @@
 
 import { createHash, createPrivateKey, createPublicKey, sign as cryptoSign } from "crypto";
 import type { ChainId, KeyStore, KeyStoreType } from "../types";
+import {
+  assertCustodyCapability,
+  assertProductionCustodyConfiguration,
+} from "../custody-launch-policy";
 
 // ── secp256k1 helpers (BTC / ETH / EVM) ──────────────────────────────────────
 
@@ -161,6 +165,7 @@ export class HotWalletKeyStore implements KeyStore {
   }
 
   async getAddress(chainId: ChainId, index = 0): Promise<string> {
+    assertCustodyCapability("deposit_address_allocation", { chainId });
     const privKey = getPrivateKey(chainId, index);
     if (!privKey) {
       throw new Error(
@@ -183,6 +188,7 @@ export class HotWalletKeyStore implements KeyStore {
   }
 
   async getPublicKey(chainId: ChainId, index = 0): Promise<Buffer> {
+    assertCustodyCapability("transaction_signing", { chainId });
     const privKey = getPrivateKey(chainId, index);
     if (!privKey) {
       throw new Error(`Hot wallet not configured for ${chainId}`);
@@ -193,6 +199,7 @@ export class HotWalletKeyStore implements KeyStore {
   }
 
   async sign(chainId: ChainId, signingHash: Buffer, index = 0): Promise<Buffer> {
+    assertCustodyCapability("transaction_signing", { chainId });
     const privKey = getPrivateKey(chainId, index);
     if (!privKey) {
       throw new Error(`Hot wallet not configured for ${chainId}`);
@@ -298,6 +305,8 @@ export class SimulatedKeyStore implements KeyStore {
 // ── KeyStore Factory ─────────────────────────────────────────────────────────
 
 export function createKeyStore(): KeyStore {
+  assertProductionCustodyConfiguration();
+
   // HSM/MPC classes are intentionally not selectable until their implementations
   // and integration tests exist. Fail at configuration time, not after an
   // approved withdrawal reaches the signing step.
@@ -313,7 +322,7 @@ export function createKeyStore(): KeyStore {
   if (chains.some((c) => hotWallet.isConfigured(c))) return hotWallet;
 
   if (process.env.NODE_ENV !== "production") return new SimulatedKeyStore();
-  throw new Error("No wallet keystore configured. Set WALLET_*_PRIVATE_KEY env vars.");
+  throw new Error("custody_keystore_unavailable:custody_not_production_ready");
 }
 
 // ── Base58 encode (Solana address) ───────────────────────────────────────────

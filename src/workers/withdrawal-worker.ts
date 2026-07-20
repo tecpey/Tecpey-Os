@@ -9,6 +9,7 @@ import {
   createRecoveryWorker,
 } from "@/lib/wallet/queue/processor";
 import { assertSupportedWalletKeyStoreConfig } from "@/lib/wallet/signing/runtime-guard";
+import { assertCustodyCapability } from "@/lib/wallet/custody-launch-policy";
 import type { Worker } from "bullmq";
 
 let workers: Worker[] = [];
@@ -22,6 +23,7 @@ export function startWithdrawalWorkers(): void {
   // Fail before any queue starts consuming approved withdrawals. HSM/MPC are
   // currently interface stubs and must never be selected by production config.
   assertSupportedWalletKeyStoreConfig();
+  assertCustodyCapability("withdrawal_worker");
 
   const concurrency = parseInt(process.env.WITHDRAWAL_WORKER_CONCURRENCY ?? "5");
 
