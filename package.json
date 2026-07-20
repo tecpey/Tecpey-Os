@@ -51,6 +51,7 @@
     "api:security:check": "node scripts/check-api-security-manifest.mjs",
     "test:api-security-manifest": "NODE_ENV=test node --import tsx --test scripts/api-security-body-limit-policy.test.mjs scripts/api-security-body-boundary.test.mjs scripts/api-security-source-evidence.test.mjs scripts/api-security-runtime-evidence.test.mjs scripts/api-security-operation-override-policy.test.mjs scripts/api-security-manifest-policy.test.mjs src/tests/security/api-validation-cache.test.ts",
     "test:api-command-idempotency": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/api-command-idempotency-postgres.test.ts",
+    "idempotency:retention": "tsx scripts/purge-api-command-receipts.ts",
     "audit:hygiene": "node scripts/audit-repository-hygiene.mjs",
     "audit:hygiene:json": "node scripts/audit-repository-hygiene.mjs --json",
     "npm:registry:fix": "npm config set registry https://registry.npmjs.org/ && npm config delete proxy || true && npm config delete https-proxy || true",
