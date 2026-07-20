@@ -12,9 +12,36 @@ BEGIN
       FROM exchange_order_commands command
       LEFT JOIN sensitive_mutation_audit_events evidence
         ON evidence.tenant_id = command.tenant_id
+       AND evidence.actor_type = 'user'
+       AND evidence.actor_id = command.user_id
        AND evidence.action = 'exchange.order.admit'
-       AND evidence.request_hash = command.request_hash
        AND evidence.resource_type = 'exchange_order'
+       AND evidence.resource_id = 'exchange-order-' || encode(
+         digest(
+           convert_to(
+             'tecpey:exchange-order:v1' || chr(31) || command.order_id::text,
+             'UTF8'
+           ),
+           'sha256'
+         ),
+         'hex'
+       )
+       AND evidence.correlation_id = 'exchange-order-admit-' || substring(
+         encode(
+           digest(
+             convert_to(
+               'tecpey:exchange.order.admit:v1' || chr(31) ||
+               command.tenant_id || ':' || command.user_id || ':' || command.idempotency_key,
+               'UTF8'
+             ),
+             'sha256'
+           ),
+           'hex'
+         ),
+         1,
+         48
+       )
+       AND evidence.request_hash = command.request_hash
      WHERE evidence.id IS NULL
   ) THEN
     RAISE EXCEPTION
