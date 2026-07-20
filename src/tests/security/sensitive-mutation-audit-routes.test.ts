@@ -43,6 +43,24 @@ function auditMetadataBlock(route: string): string {
   return block;
 }
 
+function auditMetadataBlocks(sourceText: string): string[] {
+  const blocks: string[] = [];
+  let cursor = 0;
+  while (cursor < sourceText.length) {
+    const auditStart = sourceText.indexOf("writeSensitiveMutationAuditTx(", cursor);
+    if (auditStart < 0) break;
+    const metadataStart = sourceText.indexOf("metadata:", auditStart);
+    assert.ok(metadataStart > auditStart, "strict audit metadata must exist");
+    const objectStart = sourceText.indexOf("{", metadataStart);
+    assert.ok(objectStart > metadataStart, "strict audit metadata object must exist");
+    const block = balancedObject(sourceText, objectStart);
+    assert.ok(block, "strict audit metadata object must be statically bounded");
+    blocks.push(block);
+    cursor = objectStart + block.length;
+  }
+  return blocks;
+}
+
 function storedKeyPattern(names: string[]): RegExp {
   return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`);
 }
@@ -78,10 +96,7 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(metadata, /acceptedCount/);
     assert.match(metadata, /importedCount/);
     assert.match(metadata, /rejectedCount/);
-    assert.doesNotMatch(
-      metadata,
-      storedKeyPattern(["content", "messages", "conversation"]),
-    );
+    assert.doesNotMatch(metadata, storedKeyPattern(["content", "messages", "conversation"]));
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
 
@@ -99,10 +114,55 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(metadata, /disciplineScore/);
     assert.match(metadata, /weakAreaCount/);
     assert.match(metadata, /strongAreaCount/);
-    assert.doesNotMatch(
-      metadata,
-      storedKeyPattern(["primaryGoal", "weakAreas", "strongAreas"]),
-    );
+    assert.doesNotMatch(metadata, storedKeyPattern(["primaryGoal", "weakAreas", "strongAreas"]));
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+  });
+
+  it("binds API key creation to strict server identity and mandatory audit context", async () => {
+    const route = await source("src/app/api/api-keys/route.ts");
+
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(route, /resolveSensitiveAuditCorrelation/);
+    assert.match(route, /hashSensitiveAuditRequest/);
+    assert.match(route, /audit: \{/);
+    assert.match(route, /actorId: userId/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+  });
+
+  it("binds API key lifecycle changes to strict identity and the transactional authority", async () => {
+    const route = await source("src/app/api/api-keys/[id]/route.ts");
+    const authority = await source("src/lib/security/api-keys.ts");
+
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(route, /resolveSensitiveAuditCorrelation/);
+    assert.match(route, /hashSensitiveAuditRequest/);
+    assert.match(route, /setApiKeyActive\(/);
+    assert.match(route, /rotateApiKey\(/);
+    assert.match(route, /deleteApiKey\(/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+
+    assert.match(authority, /withTx\(async \(client\)/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+    for (const action of [
+      "api_key.create",
+      "api_key.enable",
+      "api_key.disable",
+      "api_key.rotate",
+      "api_key.delete",
+    ]) {
+      assert.match(authority, new RegExp(action.replace(".", "\\.")));
+    }
+    assert.match(authority, /credentialFingerprint/);
+
+    const metadataBlocks = auditMetadataBlocks(authority);
+    assert.equal(metadataBlocks.length, 4);
+    for (const metadata of metadataBlocks) {
+      assert.doesNotMatch(metadata, storedKeyPattern(["plaintext", "key_hash"]));
+    }
   });
 });
