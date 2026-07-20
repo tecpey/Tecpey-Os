@@ -498,7 +498,7 @@ export async function rotateSessionAuthority(input: {
       claims.familyId !== refresh.family_id ||
       family.user_id !== refresh.user_id;
 
-    let device = family.known_device_id
+    const device = family.known_device_id
       ? await client.query<DeviceRow>(
           `SELECT id, fingerprint, is_active
              FROM known_devices
@@ -568,25 +568,26 @@ export async function rotateSessionAuthority(input: {
       throw new Error("refresh_rotation_preparation_mismatch");
     }
 
+    let knownDeviceId: string;
     if (!device) {
-      device = await upsertKnownDeviceTx(client, { userId: actor, fingerprint })
-        .then((created) => ({
-          id: created.id,
-          fingerprint,
-          is_active: true,
-        }));
+      const created = await upsertKnownDeviceTx(client, {
+        userId: actor,
+        fingerprint,
+      });
+      knownDeviceId = created.id;
       await client.query(
         `UPDATE refresh_token_families
             SET known_device_id = $1
           WHERE id = $2`,
-        [device.id, family.id],
+        [knownDeviceId, family.id],
       );
     } else {
+      knownDeviceId = device.id;
       await client.query(
         `UPDATE known_devices
             SET last_seen_at = NOW(), updated_at = NOW()
           WHERE id = $1`,
-        [device.id],
+        [knownDeviceId],
       );
     }
 
@@ -602,13 +603,13 @@ export async function rotateSessionAuthority(input: {
       throw new Error("refresh_rotation_lost_lock");
     }
 
-    await insertPreparedRefreshTx(client, input.replacement, device.id);
+    await insertPreparedRefreshTx(client, input.replacement, knownDeviceId);
     await insertAccessSessionTx(client, {
       access: input.access,
       deviceInfo: input.deviceInfo,
       ip: input.ip,
       familyId: refresh.family_id,
-      knownDeviceId: device.id,
+      knownDeviceId,
     });
     await client.query(
       `UPDATE refresh_token_families
