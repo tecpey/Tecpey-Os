@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import {
   normalizeOfflineSyncItem,
@@ -16,7 +17,7 @@ import {
   verifyOfflineSyncScope,
 } from "@/lib/offline-sync-scope";
 import { resolvePlatformContext } from "@/lib/tenant-service";
-import { writeAudit } from "@/lib/security/audit-log";
+import { logger } from "@/lib/logger";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
@@ -26,6 +27,16 @@ export const dynamic = "force-dynamic";
 function resultId(input: unknown): string {
   if (!input || typeof input !== "object") return "unknown";
   return cleanText((input as Record<string, unknown>).id, 160) || "unknown";
+}
+
+function offlineTelemetryFingerprint(
+  domain: "student" | "tenant",
+  value: string,
+): string {
+  return createHash("sha256")
+    .update(`tecpey:offline-sync-${domain}:v1\0`)
+    .update(value)
+    .digest("hex");
 }
 
 export async function GET(req: NextRequest) {
@@ -152,19 +163,20 @@ export async function POST(req: NextRequest) {
       const rejected = results.filter((result) => result.status === "rejected").length;
       const retryable = results.filter((result) => result.status === "retryable").length;
 
-      writeAudit({
-        actorId: session.studentId,
-        action: "offline_sync",
-        ip: getClientIp(req),
-        userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
-        metadata: {
-          tenantId: platform.tenantId,
-          attempted: items.length,
-          committed,
-          replayed,
-          rejected,
-          retryable,
-        },
+      logger.info("[offline-sync] batch processed", {
+        studentFingerprint: offlineTelemetryFingerprint(
+          "student",
+          session.studentId,
+        ),
+        tenantFingerprint: offlineTelemetryFingerprint(
+          "tenant",
+          platform.tenantId,
+        ),
+        attempted: items.length,
+        committed,
+        replayed,
+        rejected,
+        retryable,
       });
 
       const payload = {

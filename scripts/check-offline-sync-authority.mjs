@@ -14,6 +14,8 @@ const files = {
   plan: "src/lib/db-migration-plan.ts",
   tests: "src/tests/security/offline-sync-authority-postgres.test.ts",
   scopeTests: "src/tests/security/offline-sync-scope.test.ts",
+  telemetryTests: "src/tests/security/offline-sync-telemetry-source-guard.test.ts",
+  telemetryInventory: "docs/security/OFFLINE_SYNC_TELEMETRY_CLASSIFICATION.md",
   migrationTests: "src/tests/database/migration-integration.test.ts",
   reconciliation: "scripts/reconcile-offline-sync-commands.ts",
 };
@@ -57,10 +59,40 @@ requireText("route", "processOfflineSyncCommand", "route must delegate to transa
 requireText("route", "offline_sync_storage_unavailable", "authority outage must return an explicit unavailable response");
 requireText("route", "retryable > 0 ? 207 : 200", "mixed batches need explicit multi-status semantics");
 requireText("route", 'response.headers.set("Cache-Control", "no-store, private")', "scope and result responses must not be cached");
+requireText("route", 'logger.info("[offline-sync] batch processed"', "batch summary must be classified as structured telemetry");
+requireText("route", "tecpey:offline-sync-${domain}:v1\\0", "offline telemetry fingerprints must be domain separated");
+requireText("route", "studentFingerprint: offlineTelemetryFingerprint", "telemetry must use a student fingerprint");
+requireText("route", "tenantFingerprint: offlineTelemetryFingerprint", "telemetry must use a tenant fingerprint");
+for (const count of ["attempted", "committed", "replayed", "rejected", "retryable"]) {
+  requireText("route", count, `batch telemetry is missing bounded aggregate ${count}`);
+}
 rejectText("route", 'from "fs/promises"', "filesystem persistence is forbidden");
 rejectText("route", "TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE", "local fallback is forbidden");
 rejectText("route", "recordLearningEvent", "route may not bypass command authority");
 rejectText("route", 'status: "accepted"', "pre-commit acknowledgement is forbidden");
+rejectText("route", "writeAudit(", "batch telemetry cannot masquerade as mutation evidence");
+rejectText("route", "getClientIp", "batch telemetry must not collect raw IP");
+rejectText("route", "user-agent", "batch telemetry must not collect user-agent");
+rejectText("route", 'action: "offline_sync"', "retired legacy Offline Sync audit action is forbidden");
+
+const telemetryStart = content.route.indexOf('logger.info("[offline-sync] batch processed"');
+const telemetryEnd = telemetryStart < 0 ? -1 : content.route.indexOf("});", telemetryStart);
+const telemetryBlock =
+  telemetryStart >= 0 && telemetryEnd > telemetryStart
+    ? content.route.slice(telemetryStart, telemetryEnd + 3)
+    : "";
+for (const forbidden of [
+  "studentId:",
+  "tenantId:",
+  "scopeToken",
+  "results",
+  "payload",
+  "input",
+]) {
+  if (telemetryBlock.includes(forbidden)) {
+    failures.push(`${files.route}: telemetry block contains forbidden raw field ${forbidden}`);
+  }
+}
 
 requireText("client", 'const STORAGE_KEY = "tecpey_offline_queue_v2"', "scoped commands need a new queue generation");
 requireText("client", "scopeToken: string", "every browser command must retain its signed scope");
@@ -148,6 +180,18 @@ for (const evidence of [
 ]) {
   requireText("scopeTests", evidence, `missing principal-scope evidence: ${evidence}`);
 }
+requireText(
+  "telemetryTests",
+  "passes the permanent Offline Sync authority and telemetry classification guard",
+  "focused suite must execute the telemetry classification guard",
+);
+for (const contract of [
+  "batch summary is operational telemetry only",
+  "must not contain raw student ID",
+  "command mutation evidence entirely in the canonical Offline Sync authority",
+]) {
+  requireText("telemetryInventory", contract, `telemetry classification contract missing: ${contract}`);
+}
 
 requireText("reconciliation", "reconcileStaleOfflineCommands", "operations runner must reconcile stale commands");
 requireText("reconciliation", "purgeExpiredOfflineCommands", "operations runner must purge expired evidence in bounded batches");
@@ -157,4 +201,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command and learning-event identity, transactional exactly-once application, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
+console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command and learning-event identity, transactional exactly-once application, privacy-safe batch telemetry, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
