@@ -3,14 +3,13 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Redis } from "ioredis";
 import { NextRequest } from "next/server";
+import { POST as authorizeWithdrawal } from "../../app/api/auth/withdraw/authorize/route";
+import { withDb, withTx } from "../../lib/db";
 import type {
   AMLProvider,
   KYCProvider,
   SanctionsProvider,
 } from "../../lib/security/compliance";
-import { POST as authorizeWithdrawal } from "../../app/api/auth/withdraw/authorize/route";
-import { withDb, withTx } from "../../lib/db";
-import { PLATFORM } from "../../lib/platform-config";
 import { hashApiCommand } from "../../lib/security/api-command-idempotency";
 import {
   canonicalizeWithdrawalCommand,
@@ -55,66 +54,71 @@ const originalRealWithdrawals = process.env.TECPEY_REAL_WITHDRAWALS_ENABLED;
 let redis: Redis | null = null;
 let verificationStep = Math.floor(Date.now() / 30_000) + 400_000;
 
-function passingProviders() {
-  const kyc: KYCProvider = {
-    async createSession() {
-      return { sessionId: "session", redirectUrl: "https://kyc.invalid" };
+function passingProviders(): {
+  kyc: KYCProvider;
+  aml: AMLProvider;
+  sanctions: SanctionsProvider;
+} {
+  return {
+    kyc: {
+      async createSession() {
+        return { sessionId: "session", redirectUrl: "https://kyc.invalid" };
+      },
+      async getStatus() {
+        return {
+          status: "approved",
+          level: "enhanced",
+          verifiedAt: new Date(),
+          expiresAt: new Date(Date.now() + 86_400_000),
+          rejectionReason: null,
+          documentCountry: "AE",
+        };
+      },
+      async handleWebhook() {
+        return null;
+      },
     },
-    async getStatus() {
-      return {
-        status: "approved",
-        level: "enhanced",
-        verifiedAt: new Date(),
-        expiresAt: new Date(Date.now() + 86_400_000),
-        rejectionReason: null,
-        documentCountry: "AE",
-      };
+    aml: {
+      async screenTransaction() {
+        return {
+          riskScore: "low",
+          flags: [],
+          requiresReview: false,
+          screenedAt: new Date(),
+        };
+      },
+      async handleAlert() {
+        return null;
+      },
     },
-    async handleWebhook() {
-      return null;
+    sanctions: {
+      async screenUser() {
+        return {
+          matched: false,
+          listName: null,
+          matchedName: null,
+          confidence: 0,
+          screenedAt: new Date(),
+        };
+      },
+      async screenAddress() {
+        return {
+          matched: false,
+          listName: null,
+          matchedName: null,
+          confidence: 0,
+          screenedAt: new Date(),
+        };
+      },
     },
   };
-  const aml: AMLProvider = {
-    async screenTransaction() {
-      return {
-        riskScore: "low",
-        flags: [],
-        requiresReview: false,
-        screenedAt: new Date(),
-      };
-    },
-    async handleAlert() {
-      return null;
-    },
-  };
-  const sanctions: SanctionsProvider = {
-    async screenUser() {
-      return {
-        matched: false,
-        listName: null,
-        matchedName: null,
-        confidence: 0,
-        screenedAt: new Date(),
-      };
-    },
-    async screenAddress() {
-      return {
-        matched: false,
-        listName: null,
-        matchedName: null,
-        confidence: 0,
-        screenedAt: new Date(),
-      };
-    },
-  };
-  return { kyc, aml, sanctions };
 }
 
 function destination(): string {
   return `0x${"b".repeat(40)}`;
 }
 
-function authorizeRequest(input: {
+function authorizationRequest(input: {
   accessToken: string;
   idempotencyKey: string;
   code: string;
@@ -156,7 +160,7 @@ function adminEvidence(notes: string): AdminWithdrawalAuthorizationEvidence {
 }
 
 async function seedTwoFactor(userId: string, secret: string): Promise<void> {
-  const result = await withDb(async (client) => {
+  const seeded = await withDb(async (client) => {
     await client.query(
       `INSERT INTO user_2fa
          (user_id, encrypted_secret, backup_code_hashes, enabled, enabled_at,
@@ -171,38 +175,24 @@ async function seedTwoFactor(userId: string, secret: string): Promise<void> {
     );
     return true;
   });
-  assert.equal(result.enabled, true);
+  assert.equal(seeded.enabled, true);
 }
 
-async function seedCanonicalWithdrawal(userId: string): Promise<{
-  withdrawalId: string;
-  authorizationId: string;
-  requestHash: string;
-}> {
-  const idempotencyKey = `withdraw-evidence-${randomUUID()}`;
-  const command = canonicalizeWithdrawalCommand({
-    userId,
-    asset: "USDT",
-    amount: "2",
-    destinationAddress: destination(),
-    destinationTag: null,
-    network: "ethereum",
-    idempotencyKey,
-  });
-  if (!command.ok) throw new Error(command.reason);
-
-  const balance = await withDb(async (client) => {
+async function seedBalanceAndPrice(userId: string): Promise<void> {
+  const seeded = await withDb(async (client) => {
     await client.query(
       `INSERT INTO wallet_balances
          (user_id, asset, available_balance, held_balance)
        VALUES ($1, 'USDT', 5, 0)
        ON CONFLICT (user_id, asset) DO UPDATE
-         SET available_balance = 5, held_balance = 0, updated_at = NOW()`,
+         SET available_balance = 5,
+             held_balance = 0,
+             updated_at = NOW()`,
       [userId],
     );
     return true;
   });
-  assert.equal(balance.enabled, true);
+  assert.equal(seeded.enabled, true);
 
   const price = await recordWithdrawalPriceSnapshot({
     asset: "USDT",
@@ -211,12 +201,27 @@ async function seedCanonicalWithdrawal(userId: string): Promise<{
     ttlSeconds: 120,
   });
   assert.ok(price);
+}
 
+async function seedCanonicalWithdrawal(userId: string): Promise<string> {
+  const idempotencyKey = `withdraw-evidence-${randomUUID()}`;
+  const canonical = canonicalizeWithdrawalCommand({
+    userId,
+    asset: "USDT",
+    amount: "2",
+    destinationAddress: destination(),
+    destinationTag: null,
+    network: "ethereum",
+    idempotencyKey,
+  });
+  if (!canonical.ok) throw new Error(canonical.reason);
+
+  await seedBalanceAndPrice(userId);
   verificationStep += 1;
   const authorization = await withTx((client) =>
     issueWithdrawalAuthorizationTx(client, {
       userId,
-      requestHash: command.requestHash,
+      requestHash: canonical.requestHash,
       verificationStep,
     }),
   );
@@ -225,44 +230,48 @@ async function seedCanonicalWithdrawal(userId: string): Promise<{
   }
 
   const created = await createAuthoritativeWithdrawal({
-    ...command.command,
+    ...canonical.command,
     authorizationId: authorization.value.id,
     deviceFingerprint: "prebroadcast-evidence-test",
     ip: "127.0.0.1",
     userAgent: "prebroadcast-evidence-test",
   });
   if (!created.ok) throw new Error(`withdrawal_seed_failed:${created.reason}`);
-  return {
-    withdrawalId: created.withdrawal.id,
-    authorizationId: authorization.value.id,
-    requestHash: command.requestHash,
-  };
+  return created.withdrawal.id;
 }
 
 async function cleanupUser(userId: string, accessJtis: string[] = []): Promise<void> {
-  await withDb(async (client) => {
+  const cleaned = await withDb(async (client) => {
     await client.query(
       "DELETE FROM api_command_receipts WHERE principal_id = $1",
       [userId],
     );
     await client.query(
-      "DELETE FROM withdrawal_admission_outbox WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)",
+      `DELETE FROM withdrawal_admission_outbox
+        WHERE withdrawal_id IN (
+          SELECT id FROM withdrawals WHERE user_id = $1
+        )`,
       [userId],
     );
     await client.query("DELETE FROM wallet_ledger WHERE wallet_id = $1", [userId]);
     await client.query("DELETE FROM withdrawals WHERE user_id = $1", [userId]);
-    await client.query("DELETE FROM withdrawal_authorizations WHERE user_id = $1", [userId]);
+    await client.query(
+      "DELETE FROM withdrawal_authorizations WHERE user_id = $1",
+      [userId],
+    );
     await client.query("DELETE FROM wallet_balances WHERE user_id = $1", [userId]);
     await client.query("DELETE FROM user_2fa WHERE user_id = $1", [userId]);
     return true;
   });
+  assert.equal(cleaned.enabled, true);
+
   if (accessJtis.length > 0) {
     await cleanupBoundSessions({ userId, accessJtis, redis });
   }
 }
 
 async function installEvidenceRejectionTrigger(): Promise<void> {
-  await withDb(async (client) => {
+  const installed = await withDb(async (client) => {
     await client.query(`
       CREATE OR REPLACE FUNCTION tecpey_test_reject_withdrawal_evidence()
       RETURNS trigger
@@ -274,7 +283,9 @@ async function installEvidenceRejectionTrigger(): Promise<void> {
           RAISE EXCEPTION 'forced_withdrawal_authorization_evidence_rejection';
         END IF;
         IF NEW.actor_id LIKE 'withdraw-evidence-reject-admit-%'
-           AND NEW.action IN ('withdrawal.admit', 'withdrawal.block', 'withdrawal.review') THEN
+           AND NEW.action IN (
+             'withdrawal.admit', 'withdrawal.block', 'withdrawal.review'
+           ) THEN
           RAISE EXCEPTION 'forced_withdrawal_admission_evidence_rejection';
         END IF;
         IF NEW.actor_id LIKE 'withdraw-evidence-reject-cancel-%'
@@ -297,6 +308,7 @@ async function installEvidenceRejectionTrigger(): Promise<void> {
     `);
     return true;
   });
+  assert.equal(installed.enabled, true);
 }
 
 before(async () => {
@@ -318,7 +330,8 @@ after(async () => {
   if (integrationConfigured) {
     await withDb(async (client) => {
       await client.query(
-        "DROP TRIGGER IF EXISTS withdrawal_evidence_test_reject ON sensitive_mutation_audit_events",
+        `DROP TRIGGER IF EXISTS withdrawal_evidence_test_reject
+           ON sensitive_mutation_audit_events`,
       );
       await client.query(
         "DROP FUNCTION IF EXISTS tecpey_test_reject_withdrawal_evidence()",
@@ -351,9 +364,10 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       const secret = generateTotpSecret();
       await seedTwoFactor(userId, secret);
       const idempotencyKey = `withdraw-auth-${randomUUID()}`;
+
       try {
         const response = await authorizeWithdrawal(
-          authorizeRequest({
+          authorizationRequest({
             accessToken: session.accessToken,
             idempotencyKey,
             code: generateTotp(secret),
@@ -363,7 +377,8 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
 
         const state = await withDb(async (client) => {
           const authorizations = await client.query<{ count: string }>(
-            "SELECT COUNT(*)::text AS count FROM withdrawal_authorizations WHERE user_id = $1",
+            `SELECT COUNT(*)::text AS count
+               FROM withdrawal_authorizations WHERE user_id = $1`,
             [userId],
           );
           const factor = await client.query<{ last_used_at: Date | null }>(
@@ -409,19 +424,23 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       await seedTwoFactor(userId, secret);
       let invalidCode = "000000";
       while (verifyTotpStep(secret, invalidCode) !== null) {
-        invalidCode = String((Number(invalidCode) + 1) % 1_000_000).padStart(6, "0");
+        invalidCode = String((Number(invalidCode) + 1) % 1_000_000).padStart(
+          6,
+          "0",
+        );
       }
       const idempotencyKey = `withdraw-invalid-${randomUUID()}`;
+
       try {
         const first = await authorizeWithdrawal(
-          authorizeRequest({
+          authorizationRequest({
             accessToken: session.accessToken,
             idempotencyKey,
             code: invalidCode,
           }),
         );
         const replay = await authorizeWithdrawal(
-          authorizeRequest({
+          authorizationRequest({
             accessToken: session.accessToken,
             idempotencyKey,
             code: invalidCode,
@@ -439,13 +458,15 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
             [userId],
           );
           const events = await client.query<{ count: string }>(
-            `SELECT COUNT(*)::text AS count FROM sensitive_mutation_audit_events
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
               WHERE actor_id = $1
                 AND action = 'withdrawal.authorization.reject'`,
             [userId],
           );
           const authorizations = await client.query<{ count: string }>(
-            "SELECT COUNT(*)::text AS count FROM withdrawal_authorizations WHERE user_id = $1",
+            `SELECT COUNT(*)::text AS count
+               FROM withdrawal_authorizations WHERE user_id = $1`,
             [userId],
           );
           return {
@@ -484,23 +505,8 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
         idempotencyKey,
       });
       if (!canonical.ok) throw new Error(canonical.reason);
-      await withDb(async (client) => {
-        await client.query(
-          `INSERT INTO wallet_balances
-             (user_id, asset, available_balance, held_balance)
-           VALUES ($1, 'USDT', 5, 0)
-           ON CONFLICT (user_id, asset) DO UPDATE
-             SET available_balance = 5, held_balance = 0`,
-          [userId],
-        );
-        return true;
-      });
-      await recordWithdrawalPriceSnapshot({
-        asset: "USDT",
-        priceUsd: "1",
-        source: "prebroadcast-evidence-test",
-        ttlSeconds: 120,
-      });
+
+      await seedBalanceAndPrice(userId);
       verificationStep += 1;
       const authorization = await withTx((client) =>
         issueWithdrawalAuthorizationTx(client, {
@@ -512,6 +518,7 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       if (!authorization.enabled || !authorization.value) {
         throw new Error("authorization_unavailable");
       }
+
       try {
         const result = await createAuthoritativeWithdrawal({
           ...canonical.command,
@@ -527,9 +534,12 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
         });
 
         const state = await withDb(async (client) => {
-          const auth = await client.query<{ consumed_at: Date | null }>(
-            "SELECT consumed_at FROM withdrawal_authorizations WHERE id = $1",
-            [authorization.value!.id],
+          const storedAuthorization = await client.query<{
+            consumed_at: Date | null;
+          }>(
+            `SELECT consumed_at FROM withdrawal_authorizations
+              WHERE id = $1`,
+            [authorization.value.id],
           );
           const withdrawals = await client.query<{ count: string }>(
             "SELECT COUNT(*)::text AS count FROM withdrawals WHERE user_id = $1",
@@ -541,20 +551,25 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
           }>(
             `SELECT available_balance::text AS available_balance,
                     held_balance::text AS held_balance
-               FROM wallet_balances WHERE user_id = $1 AND asset = 'USDT'`,
+               FROM wallet_balances
+              WHERE user_id = $1 AND asset = 'USDT'`,
             [userId],
           );
           const ledger = await client.query<{ count: string }>(
-            "SELECT COUNT(*)::text AS count FROM wallet_ledger WHERE wallet_id = $1 AND reference_type = 'withdrawal'",
+            `SELECT COUNT(*)::text AS count FROM wallet_ledger
+              WHERE wallet_id = $1 AND reference_type = 'withdrawal'`,
             [userId],
           );
           const outbox = await client.query<{ count: string }>(
-            `SELECT COUNT(*)::text AS count FROM withdrawal_admission_outbox
-              WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)`,
+            `SELECT COUNT(*)::text AS count
+               FROM withdrawal_admission_outbox
+              WHERE withdrawal_id IN (
+                SELECT id FROM withdrawals WHERE user_id = $1
+              )`,
             [userId],
           );
           return {
-            consumedAt: auth.rows[0]?.consumed_at ?? null,
+            consumedAt: storedAuthorization.rows[0]?.consumed_at ?? null,
             withdrawals: Number(withdrawals.rows[0]?.count ?? "0"),
             balance: balance.rows[0],
             ledger: Number(ledger.rows[0]?.count ?? "0"),
@@ -565,8 +580,10 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
         if (state.enabled) {
           assert.equal(state.value.consumedAt, null);
           assert.equal(state.value.withdrawals, 0);
-          assert.equal(state.value.balance?.available_balance, "5.000000000000000000");
-          assert.equal(state.value.balance?.held_balance, "0.000000000000000000");
+          assert.deepEqual(state.value.balance, {
+            available_balance: "5.000000000000000000",
+            held_balance: "0.000000000000000000",
+          });
           assert.equal(state.value.ledger, 0);
           assert.equal(state.value.outbox, 0);
         }
@@ -581,14 +598,15 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
       const userId = `withdraw-evidence-reject-cancel-${randomUUID()}`;
-      const seeded = await seedCanonicalWithdrawal(userId);
+      const withdrawalId = await seedCanonicalWithdrawal(userId);
       const idempotencyKey = `withdraw-cancel-${randomUUID()}`;
+
       try {
         const result = await cancelWithdrawalIdempotently({
-          withdrawalId: seeded.withdrawalId,
+          withdrawalId,
           userId,
           idempotencyKey,
-          requestHash: hashApiCommand({ withdrawalId: seeded.withdrawalId }),
+          requestHash: hashApiCommand({ withdrawalId }),
         });
         assert.deepEqual(result, {
           ok: false,
@@ -601,17 +619,21 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
             state: string;
             funds_reserved_at: Date | null;
           }>(
-            "SELECT state, funds_reserved_at FROM withdrawals WHERE id = $1",
-            [seeded.withdrawalId],
+            `SELECT state, funds_reserved_at FROM withdrawals WHERE id = $1`,
+            [withdrawalId],
           );
           const balance = await client.query<{ held_balance: string }>(
-            "SELECT held_balance::text AS held_balance FROM wallet_balances WHERE user_id = $1 AND asset = 'USDT'",
+            `SELECT held_balance::text AS held_balance
+               FROM wallet_balances
+              WHERE user_id = $1 AND asset = 'USDT'`,
             [userId],
           );
           const releases = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM wallet_ledger
-              WHERE wallet_id = $1 AND reference_id = $2 AND type = 'release'`,
-            [userId, seeded.withdrawalId],
+              WHERE wallet_id = $1
+                AND reference_id = $2
+                AND type = 'release'`,
+            [userId, withdrawalId],
           );
           const receipts = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM api_command_receipts
@@ -619,8 +641,9 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
             [userId],
           );
           const outbox = await client.query<{ status: string }>(
-            "SELECT status FROM withdrawal_admission_outbox WHERE withdrawal_id = $1",
-            [seeded.withdrawalId],
+            `SELECT status FROM withdrawal_admission_outbox
+              WHERE withdrawal_id = $1`,
+            [withdrawalId],
           );
           return {
             withdrawal: withdrawal.rows[0],
@@ -651,19 +674,20 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
     async () => {
       const userId = `withdraw-admin-target-${randomUUID()}`;
       const adminId = `admin-evidence-reject-${randomUUID()}`;
-      const seeded = await seedCanonicalWithdrawal(userId);
+      const withdrawalId = await seedCanonicalWithdrawal(userId);
       const notes = "mandatory evidence rollback";
       const idempotencyKey = `withdraw-admin-${randomUUID()}`;
+
       try {
         const result = await adminActOnAuthoritativeWithdrawal({
-          withdrawalId: seeded.withdrawalId,
+          withdrawalId,
           adminId,
           action: "reject",
           notes,
           authorizationEvidence: adminEvidence(notes),
           idempotencyKey,
           requestHash: hashApiCommand({
-            withdrawalId: seeded.withdrawalId,
+            withdrawalId,
             action: "reject",
             notes,
           }),
@@ -679,21 +703,26 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
             state: string;
             funds_reserved_at: Date | null;
           }>(
-            "SELECT state, funds_reserved_at FROM withdrawals WHERE id = $1",
-            [seeded.withdrawalId],
+            `SELECT state, funds_reserved_at FROM withdrawals WHERE id = $1`,
+            [withdrawalId],
           );
           const balance = await client.query<{ held_balance: string }>(
-            "SELECT held_balance::text AS held_balance FROM wallet_balances WHERE user_id = $1 AND asset = 'USDT'",
+            `SELECT held_balance::text AS held_balance
+               FROM wallet_balances
+              WHERE user_id = $1 AND asset = 'USDT'`,
             [userId],
           );
           const releases = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM wallet_ledger
-              WHERE wallet_id = $1 AND reference_id = $2 AND type = 'release'`,
-            [userId, seeded.withdrawalId],
+              WHERE wallet_id = $1
+                AND reference_id = $2
+                AND type = 'release'`,
+            [userId, withdrawalId],
           );
           const actions = await client.query<{ count: string }>(
-            "SELECT COUNT(*)::text AS count FROM withdrawal_admin_actions WHERE withdrawal_id = $1",
-            [seeded.withdrawalId],
+            `SELECT COUNT(*)::text AS count FROM withdrawal_admin_actions
+              WHERE withdrawal_id = $1`,
+            [withdrawalId],
           );
           const receipts = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM api_command_receipts
@@ -703,8 +732,9 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
             [adminId],
           );
           const outbox = await client.query<{ status: string }>(
-            "SELECT status FROM withdrawal_admission_outbox WHERE withdrawal_id = $1",
-            [seeded.withdrawalId],
+            `SELECT status FROM withdrawal_admission_outbox
+              WHERE withdrawal_id = $1`,
+            [withdrawalId],
           );
           return {
             withdrawal: withdrawal.rows[0],
@@ -729,7 +759,8 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
         await cleanupUser(userId);
         await withDb(async (client) => {
           await client.query(
-            "DELETE FROM api_command_receipts WHERE principal_type = 'admin' AND principal_id = $1",
+            `DELETE FROM api_command_receipts
+              WHERE principal_type = 'admin' AND principal_id = $1`,
             [adminId],
           );
           return true;
