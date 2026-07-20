@@ -66,7 +66,9 @@ jobs:
         run: npm run db:migrate
 
       - name: Sensitive mutation audit authority guard
-        run: npm run audit:sensitive:check
+        run: |
+          set -o pipefail
+          npm run audit:sensitive:check 2>&1 | tee /tmp/tecpey-sensitive-audit-guard.log
 
       - name: Sensitive mutation audit PostgreSQL tests
         run: |
@@ -81,6 +83,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sensitive-mutation-audit-diagnostics-${{ github.sha }}
-          path: /tmp/tecpey-sensitive-audit-tests.log
+          path: |
+            /tmp/tecpey-sensitive-audit-guard.log
+            /tmp/tecpey-sensitive-audit-tests.log
           if-no-files-found: ignore
           retention-days: 7
