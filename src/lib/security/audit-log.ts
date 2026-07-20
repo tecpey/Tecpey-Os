@@ -1,13 +1,10 @@
-// Legacy security audit projection — append-only best-effort writes to audit_events.
+// Immutable audit trail — append-only writes to audit_events.
 //
-// IMPORTANT:
-//   - This helper is not an authorization or transaction authority.
-//   - Security/financial mutations that require evidence must use a transaction-
-//     coupled ledger such as sensitive_mutation_audit_events.
-//   - Actions listed in TRANSACTIONALLY_MIGRATED_ACTIONS are compatibility calls
-//     left in stable route contracts; their mandatory evidence is already written
-//     atomically by the domain service, so this helper must not create a duplicate
-//     best-effort record.
+// Rules:
+//   - Never UPDATE or DELETE from audit_events
+//   - Every sensitive action must produce an event
+//   - writeAudit() is fire-and-forget (non-blocking) — failures are logged,
+//     not propagated to callers, so an audit failure never breaks a user action
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -32,17 +29,7 @@ export type AuditEvent = {
   metadata?: Record<string, unknown>;
 };
 
-const TRANSACTIONALLY_MIGRATED_ACTIONS = new Set<AuditAction>([
-  "api_key_created",
-  "api_key_rotated",
-  "api_key_disabled",
-  "api_key_deleted",
-]);
-
-// Legacy non-authoritative projection. Do not add new sensitive/financial
-// actions here; migrate them to a transaction-coupled domain ledger instead.
 export function writeAudit(event: AuditEvent): void {
-  if (TRANSACTIONALLY_MIGRATED_ACTIONS.has(event.action)) return;
   void writeAuditAsync(event);
 }
 
