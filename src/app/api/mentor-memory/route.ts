@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-memory-read", limit: 60, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const studentId = session.studentId;
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-memory-write", limit: 20, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const studentId = session.studentId;
 
@@ -113,7 +113,7 @@ export async function DELETE(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-memory-delete", limit: 20, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const studentId = session.studentId;
 

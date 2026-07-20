@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
   if (!verifyCsrfOrigin(request))
     return apiError("forbidden", 403);
 
-  const session = await getCanonicalSession(request);
+  const session = await getCanonicalSession(request, { strictRevocation: true });
   if (!session.isAcademyUser && !session.studentId) {
     return apiError("academy_login_required", 401);
   }

@@ -107,6 +107,11 @@ export function detectCsrfCall(handler) {
   return /\b(?:verifyCsrfOrigin|verifyCsrfToken|assertSameOrigin|requireCsrf|csrfProtection)\s*\(/.test(source);
 }
 
+export function detectStrictRevocationCall(handler) {
+  const source = runtimeEvidenceSource(handler);
+  return /strictRevocation\s*:\s*true|\brevokeSessionStrict\s*\(|\brequireStrictSession\s*\(|\bassertSession[A-Za-z0-9_]*Strict\s*\(|\bloadAdminPrincipal\s*\(|\bauthorizeAdminRequest\s*\(/i.test(source);
+}
+
 export function detectAuditCall(handler) {
   const source = runtimeEvidenceSource(handler);
   return /\b(?:writeAudit|writeAdminAuditEvent|writeSensitiveMutationAuditTx|recordAudit[A-Za-z0-9_]*|emitSecurityEvent|securityEvent|trackAuthEvent|withObservability)\s*\(/.test(source)
