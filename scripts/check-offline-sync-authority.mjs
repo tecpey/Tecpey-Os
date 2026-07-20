@@ -45,7 +45,9 @@ requireText("workflow", "npm run test:offline-sync", "CI must invoke the governe
 requireText("env", "TECPEY_OFFLINE_SYNC_SECRET", "production must require the offline scope secret");
 requireText("env", "signingSecretNames", "offline secret must participate in secret-class isolation");
 requireText("env", "must be distinct", "signing secrets must remain pairwise distinct");
-requireText("browserGuard", '"src/components/offline/OfflineSyncManager.tsx": 1', "offline transport must use one audited browser storage boundary");
+requireText("browserGuard", '"src/components/offline/OfflineSyncManager.tsx": {', "offline transport must remain explicitly classified in the browser persistence policy");
+requireText("browserGuard", 'classification: "repairable-offline-projection"', "offline browser queue must remain a non-authoritative repairable projection");
+requireText("browserGuard", "expected: 1", "offline transport must retain exactly one audited browser storage boundary");
 
 requireText("route", "strictRevocation: true", "offline synchronization requires a strict durable session");
 requireText("route", "resolvePlatformContext", "offline authority must resolve the canonical tenant");
