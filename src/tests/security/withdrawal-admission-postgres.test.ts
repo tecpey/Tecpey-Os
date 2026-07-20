@@ -8,16 +8,15 @@ import type {
   SanctionsProvider,
 } from "../../lib/security/compliance";
 import { withDb, withTx } from "../../lib/db";
+import { hashApiCommand } from "../../lib/security/api-command-idempotency";
 import {
   canonicalizeWithdrawalCommand,
   getAuthoritativeUsdValuation,
   issueWithdrawalAuthorizationTx,
   recordWithdrawalPriceSnapshot,
 } from "../../lib/security/withdrawal-admission-authority";
-import {
-  cancelAuthoritativeWithdrawal,
-  createAuthoritativeWithdrawal,
-} from "../../lib/security/withdrawal-admission-service";
+import { createAuthoritativeWithdrawal } from "../../lib/security/withdrawal-admission-service";
+import { cancelWithdrawalIdempotently } from "../../lib/security/withdrawal-cancel-authority";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -182,6 +181,10 @@ async function cleanup(userId: string): Promise<void> {
   await withDb(async (client) => {
     await client.query(
       "DELETE FROM withdrawal_admission_outbox WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)",
+      [userId],
+    );
+    await client.query(
+      "DELETE FROM api_command_receipts WHERE principal_id = $1 AND operation = 'withdrawal.cancel'",
       [userId],
     );
     await client.query("DELETE FROM wallet_ledger WHERE wallet_id = $1", [userId]);
@@ -468,7 +471,7 @@ describe("PostgreSQL withdrawal admission authority", () => {
   );
 
   it(
-    "cancellation releases the hold and cancels the outbox event",
+    "cancellation releases the hold and cancels the outbox event through the receipt-bound authority",
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
       const userId = `withdraw-cancel-${randomUUID()}`;
@@ -484,10 +487,17 @@ describe("PostgreSQL withdrawal admission authority", () => {
         const created = await create({ userId, amount: "2", key, authorizationId });
         assert.equal(created.ok, true);
         if (!created.ok) return;
-        assert.deepEqual(
-          await cancelAuthoritativeWithdrawal(created.withdrawal.id, userId),
-          { ok: true },
-        );
+
+        const cancellationKey = `withdrawal-cancel-command-${randomUUID()}`;
+        const cancelled = await cancelWithdrawalIdempotently({
+          withdrawalId: created.withdrawal.id,
+          userId,
+          idempotencyKey: cancellationKey,
+          requestHash: hashApiCommand({ withdrawalId: created.withdrawal.id }),
+        });
+        assert.equal(cancelled.ok, true);
+        if (!cancelled.ok) return;
+        assert.equal(cancelled.replayed, false);
 
         const evidence = await withDb(async (client) => {
           const balance = await client.query<{
@@ -512,11 +522,28 @@ describe("PostgreSQL withdrawal admission authority", () => {
               WHERE wallet_id = $1 AND reference_id = $2 AND type = 'release'`,
             [userId, created.withdrawal.id],
           );
+          const receipts = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM api_command_receipts
+              WHERE principal_id = $1
+                AND operation = 'withdrawal.cancel'
+                AND status = 'completed'`,
+            [userId],
+          );
+          const mandatoryEvidence = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
+              WHERE actor_id = $1
+                AND action = 'withdrawal.cancel'`,
+            [userId],
+          );
           return {
             balance: balance.rows[0],
             state: withdrawal.rows[0]?.state,
             outboxStatus: outbox.rows[0]?.status,
             releases: Number(releases.rows[0]?.count ?? "0"),
+            receipts: Number(receipts.rows[0]?.count ?? "0"),
+            mandatoryEvidence: Number(mandatoryEvidence.rows[0]?.count ?? "0"),
           };
         });
         assert.equal(evidence.enabled, true);
@@ -526,6 +553,8 @@ describe("PostgreSQL withdrawal admission authority", () => {
           assert.equal(evidence.value.state, "cancelled");
           assert.equal(evidence.value.outboxStatus, "cancelled");
           assert.equal(evidence.value.releases, 1);
+          assert.equal(evidence.value.receipts, 1);
+          assert.equal(evidence.value.mandatoryEvidence, 1);
         }
       } finally {
         await cleanup(userId);
