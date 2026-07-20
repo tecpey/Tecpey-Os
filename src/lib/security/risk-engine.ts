@@ -6,7 +6,10 @@
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { recordRiskDecision } from "./risk-enforcement-authority";
+import {
+  recordRiskDecision,
+  type RiskDecisionResult,
+} from "./risk-enforcement-authority";
 import {
   fingerprintRiskDetectorValue,
   fingerprintRiskPrincipal,
@@ -17,7 +20,7 @@ import {
 export type { RiskEventType, RiskSeverity };
 
 export type RiskCheckResult =
-  | { ok: true; decisions: number }
+  | { ok: true; decisions: number; blocked: boolean }
   | { ok: false; reason: "risk_authority_unavailable" };
 
 type RiskDecision = {
@@ -54,7 +57,9 @@ async function setex(key: string, value: string, ttl: number): Promise<void> {
   if (client) await client.set(key, value, "EX", ttl);
 }
 
-async function commitDecision(decision: RiskDecision): Promise<void> {
+async function commitDecision(
+  decision: RiskDecision,
+): Promise<RiskDecisionResult> {
   const result = await recordRiskDecision({
     principalId: decision.principalId,
     eventType: decision.eventType,
@@ -73,6 +78,14 @@ async function commitDecision(decision: RiskDecision): Promise<void> {
     replayed: result.replayed,
     projectionPending: !result.projectionPublished,
   });
+  return result;
+}
+
+function blocksTrading(result: RiskDecisionResult): boolean {
+  return (
+    result.effectiveLevel === "trade_blocked" ||
+    result.effectiveLevel === "all_blocked"
+  );
 }
 
 /**
@@ -158,7 +171,7 @@ export async function checkOrderRisk(opts: {
         market,
         eventType: "duplicate_request",
         severity: "medium",
-        detectorIdentity: `duplicate:${orderFingerprint}`,
+        detectorIdentity: `duplicate:${orderFingerprint}:${burstBucket}`,
         detectorFacts: {
           orderFingerprint,
           windowSeconds: 5,
@@ -166,8 +179,12 @@ export async function checkOrderRisk(opts: {
       });
     }
 
-    for (const decision of decisions) await commitDecision(decision);
-    return { ok: true, decisions: decisions.length };
+    let blocked = false;
+    for (const decision of decisions) {
+      const result = await commitDecision(decision);
+      blocked = blocked || blocksTrading(result);
+    }
+    return { ok: true, decisions: decisions.length, blocked };
   } catch (error) {
     logger.error("[risk-engine] durable order decision failed", {
       principalFingerprint,
@@ -192,9 +209,11 @@ export async function checkApiKeyRisk(opts: {
       `tecpey:risk:apicall:${keyFingerprint}:${minuteBucket}`,
       70,
     );
-    if (count <= API_PER_MIN) return { ok: true, decisions: 0 };
+    if (count <= API_PER_MIN) {
+      return { ok: true, decisions: 0, blocked: false };
+    }
 
-    await commitDecision({
+    const result = await commitDecision({
       principalId: opts.userId,
       eventType: "suspicious_api_behavior",
       severity: "medium",
@@ -207,7 +226,7 @@ export async function checkApiKeyRisk(opts: {
         windowSeconds: 60,
       },
     });
-    return { ok: true, decisions: 1 };
+    return { ok: true, decisions: 1, blocked: blocksTrading(result) };
   } catch (error) {
     logger.error("[risk-engine] durable API-key decision failed", {
       principalFingerprint,
