@@ -11,6 +11,7 @@ import { awardAcademyReward, readLearningCommand, storeLearningCommand } from "@
 import { ACADEMY_XP } from "@/lib/academy-reward-policy";
 import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,13 @@ export async function POST(req: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 64_000,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       body = await req.json() as Record<string, unknown>;
     } catch {
       return apiError("invalid_json", 400);

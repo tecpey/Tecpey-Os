@@ -7,6 +7,7 @@ import { createSmartNotification, maybeAwardAchievement, recordLearningEvent } f
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type QuestionRow = {
   id: string;
@@ -94,6 +95,14 @@ export async function POST(req: NextRequest) {
   const session = await getStudentSessionFromRequest(req);
   if (!session?.studentId) return apiError("complete_account_required", 401);
   try {
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 40_000,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const raw = await req.text();
     if (raw.length > 10_000) return apiError("payload_too_large", 413);
     const body = JSON.parse(raw || "{}");

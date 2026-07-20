@@ -28,6 +28,7 @@ import {
 } from "@/lib/security/totp";
 import { writeAudit } from "@/lib/security/audit-log";
 import { getClientIp } from "@/lib/rate-limit";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,14 @@ export async function POST(req: NextRequest) {
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const code = String(body.code ?? "").trim();
     if (!/^\d{6}$/.test(code)) return apiError("invalid_code_format", 400);

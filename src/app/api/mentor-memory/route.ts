@@ -13,6 +13,7 @@ import {
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,14 @@ export async function POST(req: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 16_000,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const raw = await req.text();
       if (raw.length > 4_000) return apiError("payload_too_large", 413);
       body = JSON.parse(raw || "{}");

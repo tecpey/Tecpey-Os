@@ -15,6 +15,7 @@ import {
   verifyAdminWebAuthnRegistration,
 } from "@/lib/security/admin-webauthn";
 import { extractWebAuthnClientChallenge } from "@/lib/security/webauthn-ceremony";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,13 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
     if (!verifyAdminBootstrapToken(req)) return apiError("admin_bootstrap_unauthorized", 401);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 131_072,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     if (!validAdminId(body.adminId)) return apiError("invalid_admin_id", 400);
     if (

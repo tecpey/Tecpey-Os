@@ -61,13 +61,15 @@
     "clean:hard": "rm -rf node_modules .next package-lock.json && npm cache clean --force",
     "install:safe": "npm run npm:registry:fix && npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund",
     "ci:safe": "npm run npm:registry:fix && npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund",
-    "release:check": "npm run env:check && npm run check && npm run ui:check && npm run ui:public:check && npm run auth:check && npm run test:auth-session && npm run withdrawals:check && npm run test:withdrawal-admission && npm run test:api-command-idempotency && npm run audit:sensitive:check && npm run test:sensitive-mutation-audit && npm run offline:check && npm run test:offline-sync && npm run academy:progress:check && npm run test:academy-progress && npm run crm:check && npm run test:crm-leads && npm run exchange:check && npm run test:exchange-order-authority && npm run api:security:check && npm run test:api-security-manifest && npm run notifications:check && npm run notifications:runtime:check && npm run notifications:producers:check && npm run notifications:domain:check && npm run build && npm run ui:runtime:prod",
+    "release:check": "npm run env:check && npm run check && npm run ui:check && npm run ui:public:check && npm run auth:check && npm run test:auth-session && npm run withdrawals:check && npm run test:withdrawal-admission && npm run test:api-command-idempotency && npm run audit:sensitive:check && npm run test:sensitive-mutation-audit && npm run offline:check && npm run test:offline-sync && npm run academy:progress:check && npm run test:academy-progress && npm run crm:check && npm run test:crm-leads && npm run exchange:check && npm run test:exchange-order-authority && npm run bounded-body:check && npm run test:bounded-body && npm run api:security:check && npm run test:api-security-manifest && npm run notifications:check && npm run notifications:runtime:check && npm run notifications:producers:check && npm run notifications:domain:check && npm run build && npm run ui:runtime:prod",
     "qa:academy-core": "node scripts/qa-academy-core.mjs",
     "qa:offline-core": "node scripts/qa-offline-core.mjs",
     "qa:core": "npm run qa:academy-core && npm run qa:offline-core && npm run qa:phase5-core && npm run qa:phase6-core",
     "qa:phase5-core": "node scripts/qa-phase5-core.mjs",
     "qa:phase6-core": "node scripts/qa-phase6-core.mjs",
-    "test": "NODE_ENV=test node --import tsx --test 'src/tests/**/*.test.ts'"
+    "test": "NODE_ENV=test node --import tsx --test 'src/tests/**/*.test.ts'",
+    "bounded-body:check": "node scripts/check-bounded-request-body-authority.mjs",
+    "test:bounded-body": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/bounded-request-body.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",

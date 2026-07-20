@@ -18,6 +18,7 @@ import {
   notifyWithdrawalRejected,
   notifyWithdrawalBlocked,
 } from "@/lib/security/security-notifications";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,14 @@ export async function POST(
     if (!requestLimit.ok) return apiError("rate_limited", 429);
     if (!validWithdrawalId(id)) return apiError("invalid_withdrawal_id", 400);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = body.action as AuthoritativeAdminWithdrawalAction;
     if (!VALID_ACTIONS.has(action)) {

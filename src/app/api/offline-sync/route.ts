@@ -19,6 +19,7 @@ import { resolvePlatformContext } from "@/lib/tenant-service";
 import { writeAudit } from "@/lib/security/audit-log";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,14 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 320_000,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const raw = await req.text();
       if (raw.length > 80_000) return apiError("payload_too_large", 413);
       const body = JSON.parse(raw || "{}");

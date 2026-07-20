@@ -11,6 +11,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { setUnifiedSessionCookieAsync } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type LocalProfile = {
   id: string;
@@ -228,6 +229,13 @@ export async function POST(req: NextRequest) {
       if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
       try {
+        const boundedBodyRequest = await readBoundedJsonRequest(req, {
+          maxBytes: 80_000,
+        });
+        if (!boundedBodyRequest.ok) {
+          return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+        }
+        req = boundedBodyRequest.request;
         const raw = await req.text();
         if (raw.length > 20_000) return apiError("payload_too_large", 413);
         const body = JSON.parse(raw);

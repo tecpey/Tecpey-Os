@@ -17,6 +17,7 @@ import {
 } from "@/lib/security/webauthn-ceremony";
 import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
     if (!userId) return apiError("authentication_required", 401);
 
     const ip = getClientIp(req);
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 131_072,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const challenge = extractWebAuthnClientChallenge(
       body.response?.response?.clientDataJSON,

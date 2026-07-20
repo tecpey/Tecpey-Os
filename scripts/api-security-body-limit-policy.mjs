@@ -1,5 +1,6 @@
 export const GOVERNED_BODY_READERS = Object.freeze([
   "readJsonBody",
+  "readBoundedJsonRequest",
   "readBoundedJson",
   "readBoundedBody",
   "readBodyWithLimit",

@@ -24,6 +24,7 @@ import {
   type ArenaReflectionRecord,
   type ArenaReflectionRow,
 } from "@/lib/trading-arena-reflections";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -222,6 +223,13 @@ export async function POST(request: NextRequest) {
 
     let raw: unknown;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(request, {
+        maxBytes: 20_000,
+      });
+      if (!boundedBodyRequest.ok) {
+        return fail(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      request = boundedBodyRequest.request;
       raw = await request.json();
     } catch {
       return fail("invalid_json", 400);

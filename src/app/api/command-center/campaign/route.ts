@@ -10,6 +10,7 @@ import {
 import { withTx } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/campaign" }, async () => {
@@ -30,6 +31,14 @@ export async function POST(req: NextRequest) {
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 32_768,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json().catch(() => ({}));
       const title = cleanText(body.title, 160);
       const message = cleanText(body.body, 500);

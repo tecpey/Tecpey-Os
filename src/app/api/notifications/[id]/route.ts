@@ -16,6 +16,7 @@ import {
   mutateInboxNotification,
   type InboxMutation,
 } from "@/lib/notifications/repository";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 const MUTATIONS = ["read", "unread", "dismiss", "actioned"] as const;
 
@@ -50,6 +51,13 @@ export async function PATCH(
 
     let body: unknown;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 4_096,
+      });
+      if (!boundedBodyRequest.ok) {
+        return notificationApiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       body = await req.json();
     } catch {
       return notificationApiError("invalid_json", 400);

@@ -8,6 +8,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { PLATFORM } from "@/lib/platform-config";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 const MAX_PAYLOAD_BYTES = 5_000;
 
@@ -29,6 +30,14 @@ export async function POST(req: NextRequest) {
     if (!rate.ok) return apiRateLimited(rate.retryAfterSeconds);
 
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 5_000,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const raw = await req.text();
       if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
         return apiError("payload_too_large", 413);

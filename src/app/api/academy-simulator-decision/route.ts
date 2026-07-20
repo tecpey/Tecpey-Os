@@ -8,6 +8,7 @@ import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 
@@ -56,6 +57,14 @@ export async function POST(req: NextRequest) {
     if (!session?.studentId) return apiError("complete_account_required", 401);
 
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 20_000,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const raw = await req.text();
       if (raw.length > 5000) return apiError("payload_too_large", 413);
       const body = JSON.parse(raw || "{}");

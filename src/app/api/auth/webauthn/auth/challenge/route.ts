@@ -11,6 +11,7 @@ import {
   listCredentials,
 } from "@/lib/security/webauthn";
 import { storeWebAuthnCeremonyChallenge } from "@/lib/security/webauthn-ceremony";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,14 @@ export async function POST(req: NextRequest) {
     const rlimit = await rateLimit(req, { namespace: "webauthn-auth-challenge", limit: 20, windowMs: 60_000 });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const userId = typeof body.userId === "string" && body.userId.length > 0
       ? body.userId

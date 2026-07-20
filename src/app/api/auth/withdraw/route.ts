@@ -18,6 +18,7 @@ import {
 } from "@/lib/security/withdrawal-admission-service";
 import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,14 @@ export async function POST(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 16_384,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     if (
       Object.prototype.hasOwnProperty.call(body, "amountUsd") ||
