@@ -1,0 +1,61 @@
+name: One-shot Custody Manifest Sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/custody-manifest-sync-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-custody-manifest-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/custody-launch-gate
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Regenerate exact zero-finding manifest
+        run: |
+          set -euo pipefail
+          node scripts/generate-api-security-manifest.mjs --output=docs/security/generated/api-security-manifest.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=docs/security/generated/api-security-manifest.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=docs/security/generated/api-security-manifest.json
+          node <<'NODE'
+          const manifest = require('./docs/security/generated/api-security-manifest.json');
+          if ((manifest.totals?.findings ?? -1) !== 0) {
+            throw new Error(`unexpected manifest findings: ${manifest.totals?.findings}`);
+          }
+          if (manifest.totals?.routeFiles !== 93) {
+            throw new Error(`unexpected route inventory: ${manifest.totals?.routeFiles}`);
+          }
+          NODE
+          npm run api:security:check
+          git diff --check
+
+      - name: Commit governed manifest snapshot
+        run: |
+          set -euo pipefail
+          git add docs/security/generated/api-security-manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(security): sync custody status API manifest"
+          git push origin HEAD:fix/custody-launch-gate
