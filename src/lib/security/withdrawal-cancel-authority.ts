@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -82,6 +83,7 @@ export async function cancelWithdrawalIdempotently(input: {
   requestHash: string;
 }): Promise<IdempotentWithdrawalCancelResult> {
   const receiptScope: ApiCommandScope = {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
     principalType: "user",
     principalId: input.userId,
     operation: "withdrawal.cancel",
