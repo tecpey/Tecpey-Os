@@ -48,4 +48,8 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Runtime bootstrap authority check passed: dev UI is Redis-optional and production fails closed.");
+await import("./check-redis-safety-authority.mjs");
+
+console.log(
+  "Runtime bootstrap authority check passed: dev UI is Redis-optional and production fails closed.",
+);

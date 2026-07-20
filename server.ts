@@ -25,9 +25,13 @@ const dev = process.env.NODE_ENV !== "production";
 const httpServer = createServer();
 const app = next({ dev, httpServer });
 const handle = app.getRequestHandler();
+const pubsub = getRedisPubSub();
 
 type WithdrawalWorkerModule = typeof import("./src/workers/withdrawal-worker");
 let withdrawalWorkers: WithdrawalWorkerModule | null = null;
+let webSocketServer: WebSocketServer | null = null;
+let redisConfigured = false;
+let shutdownPromise: Promise<void> | null = null;
 
 function configuredRedisUrl(): string | null {
   const raw = process.env.REDIS_URL?.trim();
@@ -48,18 +52,145 @@ function configuredRedisUrl(): string | null {
   return raw;
 }
 
-app.prepare().then(async () => {
-  // ── Compliance providers (Phase 36) ──────────────────────────────────────
+async function closeWebSocketServer(): Promise<void> {
+  const current = webSocketServer;
+  webSocketServer = null;
+  if (!current) return;
+
+  for (const client of current.clients) client.terminate();
+  await new Promise<void>((resolve) => {
+    current.close(() => resolve());
+  });
+}
+
+async function closeHttpServer(): Promise<void> {
+  if (!httpServer.listening) return;
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      httpServer.closeAllConnections();
+      resolve();
+    }, 10_000);
+    timeout.unref?.();
+
+    httpServer.close((error) => {
+      clearTimeout(timeout);
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+async function shutdown(reason: string, exitCode: number): Promise<void> {
+  if (shutdownPromise) return shutdownPromise;
+
+  shutdownPromise = (async () => {
+    console.error(`> TecPey controlled shutdown: ${reason}`);
+
+    const failures: string[] = [];
+    try {
+      await closeWebSocketServer();
+    } catch (error) {
+      failures.push(`websocket:${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    try {
+      await closeHttpServer();
+    } catch (error) {
+      failures.push(`http:${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    try {
+      await withdrawalWorkers?.stopWithdrawalWorkers();
+    } catch (error) {
+      failures.push(`workers:${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (redisConfigured) {
+      try {
+        await pubsub.shutdown();
+      } catch (error) {
+        failures.push(`redis:${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    if (failures.length > 0) {
+      console.error(`> Shutdown completed with errors: ${failures.join(", ")}`);
+    }
+
+    process.exit(exitCode);
+  })();
+
+  return shutdownPromise;
+}
+
+function assertBootstrapActive(): void {
+  if (shutdownPromise) throw new Error("bootstrap_aborted_by_controlled_shutdown");
+}
+
+async function listen(): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => {
+      httpServer.off("error", onError);
+      reject(error);
+    };
+
+    httpServer.once("error", onError);
+    httpServer.listen(port, () => {
+      httpServer.off("error", onError);
+      resolve();
+    });
+  });
+}
+
+async function main(): Promise<void> {
+  await app.prepare();
+
+  // ── Compliance and custody launch policy ─────────────────────────────────
   bootstrapComplianceProviders();
   assertProductionCustodyConfiguration();
   const custodyStatus = getCustodyLaunchStatus();
-
   const redisUrl = configuredRedisUrl();
 
-  // ── Withdrawal pipeline workers (Phase 38) ────────────────────────────────
-  // Worker modules instantiate BullMQ queues at import time. Import them only
-  // after a non-empty Redis URL has been validated so local UI development does
-  // not crash merely because Redis is intentionally absent.
+  // ── Redis safety authority ────────────────────────────────────────────────
+  // Production HTTP, WebSocket, matching and background workers must share one
+  // verified bootstrap decision. Redis connection, PING, subscription, node
+  // registration and role-scoped discovery all complete before anything listens.
+  if (redisUrl) {
+    redisConfigured = true;
+    pubsub.setFatalHandler((reason) => {
+      void shutdown(`redis_safety_authority_lost:${reason}`, 1);
+    });
+
+    const readiness = await pubsub.initialize(redisUrl);
+    assertBootstrapActive();
+
+    if (readiness.activeWebNodes > 1) {
+      throw new Error(
+        `multiple_web_matching_nodes_detected:${readiness.activeWebNodes}`,
+      );
+    }
+
+    // Realtime Redis messages are recoverable projections only. PostgreSQL/API
+    // reads remain authoritative for financial and account state.
+    wireRedisPublisher(pubsub);
+    getWsManager().setupRedisSubscriptions(pubsub);
+
+    console.log(
+      `> Redis safety authority ready — node ${readiness.nodeId}, ` +
+      `${readiness.subscribedChannels} channels, ${readiness.activeWebNodes} active web node`,
+    );
+  } else {
+    console.log(
+      "> No REDIS_URL — development UI mode (local EventBus, wallet workers disabled)",
+    );
+  }
+
+  assertBootstrapActive();
+
+  // ── Withdrawal pipeline workers ──────────────────────────────────────────
+  // Worker modules instantiate BullMQ queues at import time. They may start only
+  // after the complete Redis production readiness decision has passed.
   if (redisUrl && custodyStatus.workerEnabled) {
     withdrawalWorkers = await import("./src/workers/withdrawal-worker");
     withdrawalWorkers.startWithdrawalWorkers();
@@ -69,67 +200,18 @@ app.prepare().then(async () => {
     );
   }
 
-  // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────
-  // When REDIS_URL is set, wire up cross-instance event distribution.
-  // Each instance publishes via EventBus → Redis and subscribes to receive
-  // events from all instances (including itself) → WsManager broadcast.
-  if (redisUrl) {
-    const pubsub = getRedisPubSub();
-    await pubsub.initialize(redisUrl);
+  assertBootstrapActive();
 
-    // ── Single-instance matching guardrail (production only) ────────────────
-    // The per-market matching mutex and in-memory order book are process-local.
-    // Distributed matching (advisory/distributed locks) is NOT yet implemented,
-    // so running more than one web/matching application node causes stale order
-    // books, spurious matching failures, and inconsistent realtime snapshots.
-    // Fail closed rather than start silently in an unsafe mode.
-    if (!dev) {
-      const webNodes = await pubsub.countActiveWebNodes();
-      if (webNodes < 0) {
-        console.error(
-          "\nFATAL: active web-node count could not be verified.\n" +
-          "Single-instance matching safety cannot be guaranteed.\n",
-        );
-        await pubsub.shutdown();
-        process.exit(1);
-      }
-      if (webNodes > 1) {
-        console.error(
-          `\nFATAL: ${webNodes} active TecPey web/matching nodes detected.\n` +
-          "Distributed matching is NOT enabled. Production is currently restricted " +
-          "to a SINGLE web/matching application instance.\n" +
-          "Scaling BullMQ workers is allowed; scaling the web/matching application is not.\n" +
-          "Shut down the extra instance(s) before starting, or implement distributed " +
-          "matching locks first.\n",
-        );
-        await pubsub.shutdown();
-        process.exit(1);
-      }
-    }
-
-    // Route local EventBus events → Redis pub channels.
-    wireRedisPublisher(pubsub);
-
-    // Route Redis sub events → WsManager broadcast (replaces local EventBus path).
-    getWsManager().setupRedisSubscriptions(pubsub);
-
-    console.log("> Redis pub/sub active — multi-instance mode enabled");
-  } else {
-    console.log("> No REDIS_URL — development UI mode (local EventBus, wallet workers disabled)");
-  }
-
-  // ── HTTP: delegate to Next.js ─────────────────────────────────────────────
+  // ── HTTP and WebSocket traffic ────────────────────────────────────────────
   httpServer.on("request", (req: IncomingMessage, res: ServerResponse) => {
     handle(req, res);
   });
 
-  // ── WebSocket: attach on /ws path ─────────────────────────────────────────
-  const wss = new WebSocketServer({ noServer: true });
-
+  webSocketServer = new WebSocketServer({ noServer: true });
   httpServer.on("upgrade", (req: IncomingMessage, socket, head) => {
     const url = req.url ?? "";
     if (url === "/ws" || url.startsWith("/ws?")) {
-      wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
+      webSocketServer?.handleUpgrade(req, socket, head, (ws: WebSocket) => {
         getWsManager().handleConnection(ws, req);
       });
     } else {
@@ -137,23 +219,18 @@ app.prepare().then(async () => {
     }
   });
 
-  // ── Graceful shutdown ─────────────────────────────────────────────────────
-  const shutdown = async () => {
-    await withdrawalWorkers?.stopWithdrawalWorkers();
-    if (redisUrl) await getRedisPubSub().shutdown();
-    process.exit(0);
-  };
-  process.once("SIGTERM", () => void shutdown());
-  process.once("SIGINT", () => void shutdown());
+  await listen();
+  console.log(
+    `> TecPey server ready on http://localhost:${port} ` +
+    `(${dev ? "development" : "production"}) — WS at ws://localhost:${port}/ws`,
+  );
+}
 
-  httpServer.listen(port, () => {
-    console.log(
-      `> TecPey server ready on http://localhost:${port} ` +
-      `(${dev ? "development" : "production"}) — WS at ws://localhost:${port}/ws`,
-    );
-  });
-}).catch((error) => {
+process.once("SIGTERM", () => void shutdown("sigterm", 0));
+process.once("SIGINT", () => void shutdown("sigint", 0));
+
+void main().catch((error) => {
   const message = error instanceof Error ? error.message : "server_bootstrap_failed";
   console.error(`FATAL: TecPey server bootstrap failed: ${message}`);
-  process.exit(1);
+  void shutdown(`bootstrap_failed:${message}`, 1);
 });
