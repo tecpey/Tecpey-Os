@@ -67,6 +67,9 @@ const optional = [
   'TECPEY_LEGACY_AUTH_UNTIL',
   'TECPEY_WITHDRAWAL_DAILY_LIMIT_USD',
   'TECPEY_REAL_WITHDRAWALS_ENABLED',
+  'TECPEY_CUSTODY_ENABLED_CHAINS',
+  'TECPEY_CUSTODY_KILL_SWITCH',
+  'TECPEY_CUSTODY_SIMULATION_ENABLED',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -232,6 +235,39 @@ if (mentorFallbackModel && !allowedMentorModels.has(mentorFallbackModel)) {
 }
 
 if (process.env.NODE_ENV === 'production') {
+  const walletPrivateKeyNames = Object.keys(process.env).filter(
+    (name) => /^WALLET_[A-Z0-9_]+_PRIVATE_KEY(?:_\d+)?$/.test(name) && Boolean(process.env[name]?.trim()),
+  );
+  if (walletPrivateKeyNames.length > 0) {
+    errors.push(
+      'Environment-backed wallet private keys are forbidden in production; custody must remain disabled until an approved non-exportable signer is implemented.'
+    );
+  }
+  if (process.env.TECPEY_CUSTODY_SIMULATION_ENABLED === '1') {
+    errors.push('TECPEY_CUSTODY_SIMULATION_ENABLED=1 is forbidden in production');
+  }
+  if (
+    process.env.HSM_ENDPOINT?.trim() ||
+    process.env.HSM_KEY_ID?.trim() ||
+    process.env.MPC_ENDPOINT?.trim() ||
+    process.env.MPC_PARTY_ID?.trim()
+  ) {
+    errors.push(
+      'HSM/MPC custody configuration is forbidden until an approved signer is implemented and verified.'
+    );
+  }
+
+  const supportedCustodyChains = new Set([
+    'bitcoin', 'ethereum', 'bsc', 'polygon', 'tron', 'solana',
+  ]);
+  const invalidCustodyChains = (process.env.TECPEY_CUSTODY_ENABLED_CHAINS || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((value) => !supportedCustodyChains.has(value));
+  if (invalidCustodyChains.length > 0) {
+    errors.push('TECPEY_CUSTODY_ENABLED_CHAINS contains unsupported chains');
+  }
   if (!process.env.REDIS_URL?.trim()) {
     errors.push(
       'REDIS_URL is required in production because strict session and withdrawal risk authority use the shared ioredis client; Redis REST credentials alone are insufficient.'

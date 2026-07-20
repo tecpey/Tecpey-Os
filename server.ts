@@ -14,6 +14,10 @@ import { getWsManager } from "./src/lib/ws/ws-manager";
 import { getRedisPubSub } from "./src/lib/redis-pubsub";
 import { wireRedisPublisher } from "./src/lib/event-bus";
 import { bootstrapComplianceProviders } from "./src/lib/compliance/index";
+import {
+  assertProductionCustodyConfiguration,
+  getCustodyLaunchStatus,
+} from "./src/lib/wallet/custody-launch-policy";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -47,6 +51,8 @@ function configuredRedisUrl(): string | null {
 app.prepare().then(async () => {
   // ── Compliance providers (Phase 36) ──────────────────────────────────────
   bootstrapComplianceProviders();
+  assertProductionCustodyConfiguration();
+  const custodyStatus = getCustodyLaunchStatus();
 
   const redisUrl = configuredRedisUrl();
 
@@ -54,9 +60,13 @@ app.prepare().then(async () => {
   // Worker modules instantiate BullMQ queues at import time. Import them only
   // after a non-empty Redis URL has been validated so local UI development does
   // not crash merely because Redis is intentionally absent.
-  if (redisUrl) {
+  if (redisUrl && custodyStatus.workerEnabled) {
     withdrawalWorkers = await import("./src/workers/withdrawal-worker");
     withdrawalWorkers.startWithdrawalWorkers();
+  } else if (redisUrl) {
+    console.warn(
+      "> Custody disabled — withdrawal execution, signing and broadcast workers were not started",
+    );
   }
 
   // ── Redis pub/sub (Phase 33) ───────────────────────────────────────────────

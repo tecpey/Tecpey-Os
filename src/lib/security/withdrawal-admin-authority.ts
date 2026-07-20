@@ -1,6 +1,7 @@
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
+import { isCustodyCapabilityEnabled } from "@/lib/wallet/custody-launch-policy";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -181,7 +182,7 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       }
 
       if (input.action === "approve") {
-        if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED !== "1") {
+        if (!isCustodyCapabilityEnabled("withdrawal_approval")) {
           throw new AdminWithdrawalError("custody_launch_gate_disabled", 409);
         }
         if (!row.funds_reserved_at) {
