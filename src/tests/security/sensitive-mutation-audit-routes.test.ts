@@ -43,6 +43,24 @@ function auditMetadataBlock(route: string): string {
   return block;
 }
 
+function auditMetadataBlocks(sourceText: string): string[] {
+  const blocks: string[] = [];
+  let cursor = 0;
+  while (cursor < sourceText.length) {
+    const auditStart = sourceText.indexOf("writeSensitiveMutationAuditTx(", cursor);
+    if (auditStart < 0) break;
+    const metadataStart = sourceText.indexOf("metadata:", auditStart);
+    assert.ok(metadataStart > auditStart, "strict audit metadata must exist");
+    const objectStart = sourceText.indexOf("{", metadataStart);
+    assert.ok(objectStart > metadataStart, "strict audit metadata object must exist");
+    const block = balancedObject(sourceText, objectStart);
+    assert.ok(block, "strict audit metadata object must be statically bounded");
+    blocks.push(block);
+    cursor = objectStart + block.length;
+  }
+  return blocks;
+}
+
 function storedKeyPattern(names: string[]): RegExp {
   return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`);
 }
@@ -146,13 +164,11 @@ describe("Sensitive mutation route audit boundaries", () => {
       assert.match(authority, new RegExp(action.replace(".", "\\.")));
     }
     assert.match(authority, /credentialFingerprint/);
-    assert.doesNotMatch(
-      authority,
-      new RegExp("metadata:\\s*\\{[\\s\\S]*?\\bplaintext\\b"),
-    );
-    assert.doesNotMatch(
-      authority,
-      new RegExp("metadata:\\s*\\{[\\s\\S]*?\\bkey_hash\\b"),
-    );
+
+    const metadataBlocks = auditMetadataBlocks(authority);
+    assert.equal(metadataBlocks.length, 4);
+    for (const metadata of metadataBlocks) {
+      assert.doesNotMatch(metadata, storedKeyPattern(["plaintext", "key_hash"]));
+    }
   });
 });
