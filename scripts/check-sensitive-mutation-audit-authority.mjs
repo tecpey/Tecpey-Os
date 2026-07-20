@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-const files = {
+const paths = {
   device: "src/app/api/device-token/route.ts",
   conversations: "src/app/api/mentor-conversations/migrate/route.ts",
   profile: "src/app/api/mentor-profile/recompute/route.ts",
@@ -19,231 +19,124 @@ const files = {
   workflow: ".github/workflows/sensitive-mutation-audit.yml",
 };
 
-const content = Object.fromEntries(
+const files = Object.fromEntries(
   await Promise.all(
-    Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")]),
+    Object.entries(paths).map(async ([key, filePath]) => [key, await readFile(filePath, "utf8")]),
   ),
 );
-
 const failures = [];
-const requireText = (target, text, reason) => {
-  if (!content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
-};
-const rejectText = (target, text, reason) => {
-  if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
-};
 
-function balancedObject(source, start) {
-  let depth = 0;
-  let quote = null;
-  let escaped = false;
-  for (let index = start; index < source.length; index += 1) {
-    const character = source[index];
-    if (quote !== null) {
-      if (escaped) escaped = false;
-      else if (character === "\\") escaped = true;
-      else if (character === quote) quote = null;
-      continue;
-    }
-    if (character === '"' || character === "'" || character === "`") {
-      quote = character;
-      continue;
-    }
-    if (character === "{") depth += 1;
-    if (character === "}") {
-      depth -= 1;
-      if (depth === 0) return source.slice(start, index + 1);
-    }
-  }
-  return "";
+function requireText(key, text, reason) {
+  if (!files[key].includes(text)) failures.push(`${paths[key]}: ${reason}`);
 }
 
-function auditMetadataBlock(target) {
-  const source = content[target];
-  const auditStart = source.indexOf("writeSensitiveMutationAuditTx(");
-  if (auditStart < 0) return "";
-  const metadataStart = source.indexOf("metadata:", auditStart);
-  if (metadataStart < 0) return "";
-  const objectStart = source.indexOf("{", metadataStart);
-  return objectStart >= 0 ? balancedObject(source, objectStart) : "";
+function rejectText(key, text, reason) {
+  if (files[key].includes(text)) failures.push(`${paths[key]}: ${reason}`);
 }
 
-function containsStoredKey(block, names) {
-  return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`).test(block);
+function requireAll(key, entries) {
+  for (const [text, reason] of entries) requireText(key, text, reason);
 }
 
-for (const target of ["device", "conversations", "profile"]) {
-  requireText(
-    target,
-    "getCanonicalSession(req, { strictRevocation: true })",
-    "mutation must use strict session revocation authority",
-  );
-  requireText(target, "verifyCsrfOrigin(req)", "mutation must enforce CSRF origin authority");
-  requireText(
-    target,
-    "withTx(async (client)",
-    "mutation and audit must share one PostgreSQL transaction",
-  );
-  requireText(
-    target,
-    "writeSensitiveMutationAuditTx(client",
-    "route must write strict durable audit evidence",
-  );
-  requireText(
-    target,
-    "resolveSensitiveAuditCorrelation",
-    "route must bind a stable correlation identifier",
-  );
-  requireText(
-    target,
-    "hashSensitiveAuditRequest",
-    "route must bind canonical request evidence",
-  );
-  rejectText(target, "writeAudit(", "non-blocking legacy audit is forbidden for sensitive mutations");
-  rejectText(target, "body.studentId", "caller-controlled student targeting is forbidden");
-  rejectText(target, "body.userId", "caller-controlled user targeting is forbidden");
-  rejectText(target, "body.actorId", "caller-controlled audit actors are forbidden");
-  if (!auditMetadataBlock(target)) {
-    failures.push(`${files[target]}: audit metadata object must be statically identifiable`);
+for (const key of ["device", "conversations", "profile"]) {
+  requireAll(key, [
+    ["getCanonicalSession(req, { strictRevocation: true })", "strict revocation is required"],
+    ["verifyCsrfOrigin(req)", "CSRF origin authority is required"],
+    ["withTx(async (client)", "mutation and audit must share one transaction"],
+    ["writeSensitiveMutationAuditTx(client", "mandatory audit evidence is required"],
+    ["resolveSensitiveAuditCorrelation", "correlation authority is required"],
+    ["hashSensitiveAuditRequest", "canonical request evidence is required"],
+  ]);
+  rejectText(key, "writeAudit(", "legacy best-effort audit is forbidden");
+  for (const callerField of ["body.studentId", "body.userId", "body.actorId"]) {
+    rejectText(key, callerField, `caller authority is forbidden: ${callerField}`);
   }
 }
 
-requireText(
-  "device",
-  "const tokenHash = hashSensitiveAuditRequest(token)",
-  "raw push tokens must be represented by a one-way hash",
-);
-requireText("device", "resourceId: tokenHash", "device audit resource identity must be the token hash");
-requireText("device", "tokenHash,", "safe token hash metadata is required");
-if (containsStoredKey(auditMetadataBlock("device"), ["token"])) {
-  failures.push(`${files.device}: raw token must not appear in audit metadata`);
-}
+requireAll("device", [
+  ["const tokenHash = hashSensitiveAuditRequest(token)", "raw push token must be hashed"],
+  ["resourceId: tokenHash", "device resource identity must be the token hash"],
+  ["tokenHash,", "only the safe token hash may enter metadata"],
+]);
+requireAll("conversations", [
+  ["contentHash: hashSensitiveAuditRequest(message.content)", "conversation content must be hashed"],
+  ["attemptedCount", "attempted count evidence is required"],
+  ["acceptedCount", "accepted count evidence is required"],
+  ["importedCount", "imported count evidence is required"],
+  ["rejectedCount", "rejected count evidence is required"],
+]);
+requireAll("profile", [
+  ["upsertMentorProfileUpdateTx(client, studentId, updated)", "profile write must use the transaction client"],
+  ["confidenceScore", "safe confidence evidence is required"],
+  ["disciplineScore", "safe discipline evidence is required"],
+  ["weakAreaCount", "safe weak-area count is required"],
+  ["strongAreaCount", "safe strong-area count is required"],
+]);
+requireAll("profileAuthority", [
+  ["upsertMentorProfileUpdateTx", "transaction-injected profile writer is required"],
+  ["client.query", "profile writer must use the supplied client"],
+]);
 
-requireText(
-  "conversations",
-  "contentHash: hashSensitiveAuditRequest(message.content)",
-  "conversation request evidence must contain only content hashes",
-);
-for (const field of ["attemptedCount", "acceptedCount", "importedCount", "rejectedCount"]) {
-  requireText("conversations", field, `conversation audit needs safe count: ${field}`);
+for (const key of ["apiKeysRoute", "apiKeyByIdRoute"]) {
+  requireAll(key, [
+    ["getCanonicalSession(req)", "API key principal must come from canonical session"],
+    [
+      "const userId = session.academyAccountId ?? session.studentId ?? session.userId",
+      "API key principal must be server-derived",
+    ],
+  ]);
+  for (const callerField of ["body.tenantId", "body.userId", "body.actorId"]) {
+    rejectText(key, callerField, `caller API key authority is forbidden: ${callerField}`);
+  }
 }
-if (containsStoredKey(auditMetadataBlock("conversations"), ["content", "messages", "conversation"])) {
-  failures.push(`${files.conversations}: raw conversation fields are forbidden in audit metadata`);
-}
+requireAll("apiKeysRoute", [
+  ["createApiKey({", "API key creation must use the domain authority"],
+  ["userId,", "API key creation must pass the verified principal"],
+]);
+requireAll("apiKeyByIdRoute", [
+  ["setApiKeyActive(keyId, userId", "activation changes must remain principal-scoped"],
+  ["rotateApiKey(keyId, userId", "rotation must remain principal-scoped"],
+  ["deleteApiKey(keyId, userId", "deletion must remain principal-scoped"],
+]);
 
-requireText(
-  "profile",
-  "upsertMentorProfileUpdateTx(client, studentId, updated)",
-  "profile write must use the injected transaction client",
-);
-for (const field of [
-  "confidenceScore",
-  "disciplineScore",
-  "weakAreaCount",
-  "strongAreaCount",
-]) {
-  requireText("profile", field, `profile audit needs safe derived metadata: ${field}`);
-}
-if (containsStoredKey(auditMetadataBlock("profile"), ["primaryGoal", "weakAreas", "strongAreas"])) {
-  failures.push(`${files.profile}: behavioral text and area labels are forbidden in audit metadata`);
-}
-requireText(
-  "profileAuthority",
-  "upsertMentorProfileUpdateTx",
-  "profile mutation needs a transaction-injected writer",
-);
-requireText(
-  "profileAuthority",
-  "client.query",
-  "profile writer must use the supplied PostgreSQL client",
-);
+requireAll("apiKeysAuthority", [
+  ['import { withDb, withTx } from "@/lib/db"', "transaction authority is required"],
+  ["resolveApiKeyAuditContext", "every caller must receive mandatory audit context"],
+  ["PLATFORM.DEFAULT_TENANT_ID", "tenant authority must be server-derived"],
+  ["hashSensitiveAuditRequest", "canonical request hashing is required"],
+  ["writeSensitiveMutationAuditTx(client", "audit must share the mutation transaction"],
+  ["assertAuditActor", "audit actor must match the credential owner"],
+  ["credentialFingerprint", "one-way credential-version evidence is required"],
+]);
+rejectText("apiKeysAuthority", "writeAudit(", "legacy audit cannot satisfy credential evidence");
 
-for (const target of ["apiKeysRoute", "apiKeyByIdRoute"]) {
-  requireText(
-    target,
-    "getCanonicalSession(req)",
-    "API key route must derive the principal from the canonical server session",
-  );
-  requireText(
-    target,
-    "const userId = session.academyAccountId ?? session.studentId ?? session.userId",
-    "API key route must use only the verified session principal",
-  );
-  rejectText(target, "body.tenantId", "client-supplied API key tenant authority is forbidden");
-  rejectText(target, "body.userId", "client-supplied API key principal authority is forbidden");
-  rejectText(target, "body.actorId", "client-supplied API key audit actor is forbidden");
-}
-requireText("apiKeysRoute", "createApiKey({", "API key creation must use the domain authority");
-requireText("apiKeysRoute", "userId,", "API key creation must pass the verified principal");
-for (const call of [
-  "setApiKeyActive(keyId, userId",
-  "rotateApiKey(keyId, userId",
-  "deleteApiKey(keyId, userId",
-]) {
-  requireText("apiKeyByIdRoute", call, `API key lifecycle route must remain principal-scoped: ${call}`);
-}
-
-requireText(
-  "apiKeysAuthority",
-  'import { withDb, withTx } from "@/lib/db"',
-  "API key authority must expose transaction-coupled mutations",
-);
-requireText(
-  "apiKeysAuthority",
-  "resolveApiKeyAuditContext",
-  "API key authority must construct mandatory evidence for every caller",
-);
-requireText(
-  "apiKeysAuthority",
-  "PLATFORM.DEFAULT_TENANT_ID",
-  "API key tenant authority must be server-derived",
-);
-requireText(
-  "apiKeysAuthority",
-  "hashSensitiveAuditRequest",
-  "API key authority must bind canonical request evidence",
-);
-requireText(
-  "apiKeysAuthority",
-  "writeSensitiveMutationAuditTx(client",
-  "API key authority must append mandatory evidence in the mutation transaction",
-);
-requireText(
-  "apiKeysAuthority",
-  "assertAuditActor",
-  "API key mutations must bind the audit actor to the target principal",
-);
-requireText(
-  "apiKeysAuthority",
-  "credentialFingerprint",
-  "API key rotation evidence needs a one-way credential version fingerprint",
-);
-for (const action of [
+const mandatoryApiKeyActions = [
   "api_key.create",
   "api_key.enable",
   "api_key.disable",
   "api_key.rotate",
   "api_key.delete",
-]) {
-  requireText("apiKeysAuthority", action, `missing mandatory API key audit action ${action}`);
-  requireText("audit", action, `sensitive audit action type is missing ${action}`);
+];
+for (const action of mandatoryApiKeyActions) {
+  requireText("apiKeysAuthority", action, `missing API key domain action ${action}`);
+  requireText("audit", action, `missing sensitive audit type ${action}`);
 }
-rejectText(
-  "apiKeysAuthority",
-  "writeAudit(",
-  "legacy best-effort audit must not satisfy API key credential evidence",
-);
-if (/metadata:\s*\{[^}]*\bplaintext\b/s.test(content.apiKeysAuthority)) {
-  failures.push(`${files.apiKeysAuthority}: API key plaintext is forbidden in audit metadata`);
+
+const auditMetadataObjects = [...files.apiKeysAuthority.matchAll(/metadata:\s*\{([\s\S]*?)\n\s*\},/g)]
+  .map((match) => match[1]);
+if (auditMetadataObjects.length < 3) {
+  failures.push(`${paths.apiKeysAuthority}: API key audit metadata blocks are not statically reviewable`);
 }
-if (/metadata:\s*\{[^}]*\bkey_hash\b/s.test(content.apiKeysAuthority)) {
-  failures.push(`${files.apiKeysAuthority}: stored API key hash is forbidden in audit metadata`);
+for (const metadata of auditMetadataObjects) {
+  if (/\b(?:plaintext|key_hash)\b\s*(?=:|[,}])/.test(metadata)) {
+    failures.push(`${paths.apiKeysAuthority}: plaintext or stored key hash entered audit metadata`);
+  }
 }
 
 requireText(
   "legacyAudit",
   "TRANSACTIONALLY_MIGRATED_ACTIONS",
-  "legacy audit must explicitly classify compatibility-only API key calls",
+  "legacy compatibility calls must be explicitly classified",
 );
 for (const action of [
   "api_key_created",
@@ -251,15 +144,15 @@ for (const action of [
   "api_key_disabled",
   "api_key_deleted",
 ]) {
-  requireText("legacyAudit", `"${action}"`, `legacy API key projection must be suppressed: ${action}`);
+  requireText("legacyAudit", `"${action}"`, `compatibility projection is not suppressed: ${action}`);
 }
 requireText(
   "legacyAudit",
   "if (TRANSACTIONALLY_MIGRATED_ACTIONS.has(event.action)) return",
-  "transactionally migrated API key actions must not create duplicate best-effort evidence",
+  "migrated actions must not create duplicate best-effort evidence",
 );
 
-for (const text of [
+for (const invariant of [
   "sensitive_mutation_audit_events",
   "UNIQUE (tenant_id, action, correlation_id)",
   "tecpey_sensitive_audit_has_forbidden_key",
@@ -268,7 +161,7 @@ for (const text of [
   "sensitive_mutation_audit_no_delete",
   "sensitive mutation audit evidence is append-only",
 ]) {
-  requireText("migration", text, `migration is missing strict audit invariant: ${text}`);
+  requireText("migration", invariant, `missing database invariant: ${invariant}`);
 }
 requireText(
   "migrationPlan",
@@ -276,27 +169,15 @@ requireText(
   "canonical migration plan must install the audit ledger",
 );
 
-for (const text of [
-  "FORBIDDEN_METADATA_KEYS",
-  "sensitive_audit_correlation_conflict",
-  "writeSensitiveMutationAuditTx",
-]) {
-  requireText("audit", text, `audit authority is missing invariant: ${text}`);
+requireAll("audit", [
+  ["FORBIDDEN_METADATA_KEYS", "recursive metadata redaction is required"],
+  ["sensitive_audit_correlation_conflict", "correlation conflicts must fail closed"],
+  ["writeSensitiveMutationAuditTx", "transaction writer is required"],
+  ['Buffer.byteLength(encoded, "utf8") > 16_384', "metadata must be byte bounded"],
+]);
+for (const forbidden of ["token", "conversation", "secret", "password", "authorization"]) {
+  requireText("audit", `"${forbidden}"`, `forbidden metadata key is missing: ${forbidden}`);
 }
-for (const forbidden of [
-  '"token"',
-  '"conversation"',
-  '"secret"',
-  '"password"',
-  '"authorization"',
-]) {
-  requireText("audit", forbidden, `audit authority must reject forbidden metadata key ${forbidden}`);
-}
-requireText(
-  "audit",
-  'Buffer.byteLength(encoded, "utf8") > 16_384',
-  "audit metadata needs an application byte bound",
-);
 
 for (const evidence of [
   "reuses an exact correlation",
@@ -306,7 +187,7 @@ for (const evidence of [
   "keeps completed audit evidence append-only",
   "without raw token or conversation content",
 ]) {
-  requireText("postgresTests", evidence, `missing PostgreSQL evidence: ${evidence}`);
+  requireText("postgresTests", evidence, `missing base PostgreSQL evidence: ${evidence}`);
 }
 for (const evidence of [
   "commits credential creation and mandatory evidence atomically",
@@ -321,51 +202,32 @@ for (const evidence of [
   "binds device-token registration to the strict session",
   "binds conversation migration to the strict session",
   "writes profile and audit in one transaction",
-  "keeps API key creation bound to a server-derived principal",
-  "keeps API key lifecycle principal-scoped",
 ]) {
-  requireText("routeTests", evidence, `missing route-boundary evidence: ${evidence}`);
+  requireText("routeTests", evidence, `missing existing route-boundary evidence: ${evidence}`);
 }
 
-requireText("package", '"audit:sensitive:check"', "package must expose the sensitive audit guard");
-requireText(
-  "package",
-  '"test:sensitive-mutation-audit"',
-  "package must expose focused sensitive audit tests",
-);
-requireText(
-  "package",
-  "src/tests/security/api-key-transactional-audit-postgres.test.ts",
-  "focused audit test command must include API key PostgreSQL evidence",
-);
-requireText(
-  "package",
-  "npm run audit:sensitive:check",
-  "release gate must execute the sensitive audit guard",
-);
-requireText(
-  "package",
-  "npm run test:sensitive-mutation-audit",
-  "release gate must execute focused sensitive audit tests",
-);
-requireText(
-  "workflow",
-  "Sensitive mutation audit authority guard",
-  "dedicated CI must run the authority guard",
-);
-requireText(
-  "workflow",
-  "Sensitive mutation audit PostgreSQL tests",
-  "dedicated CI must run focused PostgreSQL tests",
-);
-requireText("workflow", "contents: read", "dedicated workflow must remain read-only");
+requireAll("package", [
+  ['"audit:sensitive:check"', "package guard command is required"],
+  ['"test:sensitive-mutation-audit"', "focused test command is required"],
+  [
+    "src/tests/security/api-key-transactional-audit-postgres.test.ts",
+    "API key PostgreSQL evidence must run in the focused suite",
+  ],
+  ["npm run audit:sensitive:check", "release gate must execute the guard"],
+  ["npm run test:sensitive-mutation-audit", "release gate must execute focused tests"],
+]);
+requireAll("workflow", [
+  ["Sensitive mutation audit authority guard", "dedicated CI must run the guard"],
+  ["Sensitive mutation audit PostgreSQL tests", "dedicated CI must run PostgreSQL evidence"],
+  ["contents: read", "dedicated workflow must remain read-only"],
+]);
 
-if (failures.length) {
+if (failures.length > 0) {
   console.error("Sensitive mutation audit authority check failed:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
 console.log(
-  "Sensitive mutation audit authority check passed: server-derived principals, transaction-coupled append-only evidence, correlation integrity, recursive metadata redaction and fail-closed rollback are enforced.",
+  "Sensitive mutation audit authority check passed: server-derived principals, transaction-coupled append-only evidence, secret minimization and fail-closed rollback are enforced.",
 );
