@@ -8,6 +8,7 @@ const files = {
   credentials: "src/app/api/auth/webauthn/credentials/route.ts",
   credentialById: "src/app/api/auth/webauthn/credentials/[id]/route.ts",
   authority: "src/lib/security/webauthn-credential-authority.ts",
+  legacyUtilities: "src/lib/security/webauthn.ts",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   postgresTests: "src/tests/security/webauthn-transactional-audit-postgres.test.ts",
   package: "package.json",
@@ -81,6 +82,27 @@ if (countText("authority", "withTx(async (client)") < 6) {
   failures.push(`${files.authority}: registration, rejection, counter, rename and revoke boundaries must remain transaction-backed`);
 }
 
+requireText("legacyUtilities", "generateChallenge", "shared WebAuthn utilities must retain cryptographic challenge generation");
+requireText("legacyUtilities", "deviceFingerprint", "shared WebAuthn utilities must retain device fingerprint compatibility");
+requireText("legacyUtilities", "markDeviceSeen", "shared WebAuthn utilities must retain the residual known-device compatibility projection");
+for (const forbiddenLegacyAuthority of [
+  "storeWebAuthnChallenge",
+  "consumeWebAuthnChallenge",
+  "verifyWebAuthnRegistration",
+  "verifyWebAuthnAuthentication",
+  "listCredentials",
+  "renameCredential",
+  "revokeCredential",
+  "INSERT INTO webauthn_credentials",
+  "UPDATE webauthn_credentials",
+]) {
+  rejectText(
+    "legacyUtilities",
+    forbiddenLegacyAuthority,
+    `legacy WebAuthn module must remain mutation-free and cannot expose ${forbiddenLegacyAuthority}`,
+  );
+}
+
 for (const action of [
   "credential.webauthn.register",
   "credential.webauthn.authenticate",
@@ -144,5 +166,5 @@ if (failures.length) {
 }
 
 console.log(
-  "WebAuthn credential authority check passed: discoverable challenge privacy, strict identity, transaction-coupled registration/counter/management evidence, row locking, replay conflict handling, clone-suspected outcomes and secret-redaction controls are enforced.",
+  "WebAuthn credential authority check passed: discoverable challenge privacy, strict identity, one exclusive transaction-coupled credential authority, row locking, replay conflict handling, clone-suspected outcomes and secret-redaction controls are enforced.",
 );
