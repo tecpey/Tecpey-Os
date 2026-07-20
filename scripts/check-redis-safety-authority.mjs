@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-const [redisSource, serverSource, packageSource, ciSource] = await Promise.all([
+const [redisSource, serverSource, packageSource, runtimeGuardSource, ciSource] = await Promise.all([
   readFile("src/lib/redis-pubsub.ts", "utf8"),
   readFile("server.ts", "utf8"),
   readFile("package.json", "utf8"),
+  readFile("scripts/check-runtime-bootstrap.mjs", "utf8"),
   readFile(".github/workflows/ci.yml", "utf8"),
 ]);
 
@@ -57,7 +58,7 @@ requireText(
 );
 requireText(
   redisSource,
-  "this.handleRuntimeFailure(\"redis_node_heartbeat_failed\")",
+  'this.handleRuntimeFailure("redis_node_heartbeat_failed")',
   "heartbeat loss must transition runtime safety state",
 );
 requireText(
@@ -126,14 +127,24 @@ requireText(
   "package scripts must expose focused Redis safety tests",
 );
 requireText(
-  ciSource,
-  "npm run redis:safety:check",
-  "CI must execute the permanent Redis safety guard",
+  packageSource,
+  "src/tests/runtime/redis-pubsub-safety.test.ts",
+  "focused Redis safety test path must remain explicit",
+);
+requireText(
+  runtimeGuardSource,
+  'await import("./check-redis-safety-authority.mjs")',
+  "the permanent runtime bootstrap guard must execute Redis safety checks",
 );
 requireText(
   ciSource,
-  "npm run test:redis-safety",
-  "CI must execute focused Redis safety tests",
+  "node scripts/check-runtime-bootstrap.mjs",
+  "CI must execute the permanent runtime bootstrap authority guard",
+);
+requireText(
+  ciSource,
+  "npm test",
+  "CI full-suite execution must include the Redis safety test",
 );
 
 if (failures.length > 0) {
