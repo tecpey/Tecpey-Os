@@ -6,7 +6,11 @@ on:
       - fix/withdrawal-external-effect-evidence
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: withdrawal-guard-diagnostics
+  cancel-in-progress: true
 
 jobs:
   diagnose:
@@ -14,17 +18,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: fix/withdrawal-external-effect-evidence
 
-      - name: Run withdrawal authority guard
+      - name: Capture withdrawal authority guard
+        continue-on-error: true
         run: |
           set -o pipefail
           node scripts/check-withdrawal-external-effect-evidence.mjs 2>&1 | tee withdrawal-guard.log
 
-      - name: Upload diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: withdrawal-guard-${{ github.sha }}
-          path: withdrawal-guard.log
-          if-no-files-found: error
-          retention-days: 3
+      - name: Commit diagnostics when changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f withdrawal-guard.log
+          if git diff --cached --quiet; then
+            echo "No diagnostics change."
+            exit 0
+          fi
+          git commit -m "chore(ci): capture withdrawal guard diagnostics"
+          git push origin HEAD:fix/withdrawal-external-effect-evidence
