@@ -24,32 +24,10 @@ jobs:
           ref: fix/bounded-mutating-request-bodies
           fetch-depth: 2
 
-      - name: Check reviewed bounded-body patch
-        id: patchcheck
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          git apply --check --verbose .github/bounded-body-remediation.patch > bounded-body-patch.log 2>&1
-
-      - name: Upload patch diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bounded-body-patch-${{ github.sha }}
-          path: bounded-body-patch.log
-          if-no-files-found: error
-          retention-days: 2
-
-      - name: Enforce patch check
-        if: steps.patchcheck.outcome != 'success'
-        run: |
-          cat bounded-body-patch.log
-          exit 1
-
-      - name: Apply reviewed bounded-body patch
+      - name: Apply deterministic route migration
         run: |
           set -euo pipefail
-          git apply .github/bounded-body-remediation.patch
+          python3 scripts/apply-bounded-body-once.py
           git diff --check
 
       - name: Verify deterministic body boundaries
@@ -59,9 +37,8 @@ jobs:
           from pathlib import Path
           import re
 
-          routes = list(Path("src/app/api").rglob("route.ts"))
           affected = []
-          for path in routes:
+          for path in Path("src/app/api").rglob("route.ts"):
               source = path.read_text()
               if "@/lib/security/request-body" in source:
                   affected.append(path)
@@ -96,7 +73,8 @@ jobs:
           git rm \
             .github/workflows/bounded-body-source-snapshot-temp.yml \
             .github/workflows/bounded-body-remediation-once.yml \
-            .github/bounded-body-remediation.patch
+            .github/bounded-body-remediation.patch \
+            scripts/apply-bounded-body-once.py
           git add -A
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
