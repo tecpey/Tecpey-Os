@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/orders",
+      "method": "POST",
+      "previousSourceHash": "3177934e1444400d327cd182",
+      "issue": "#197",
+      "owner": "security-platform",
+      "reason": "Order admission now resolves durable PostgreSQL risk enforcement and awaits any detected risk decision before the financial command can be admitted.",
+      "replacement": {
+        "route": "/api/orders",
+        "method": "POST",
+        "sourcePath": "src/app/api/orders/route.ts",
+        "sourceHash": "945ae4aa180876831f29e0be",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "orders-place",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "orders",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/orders/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
