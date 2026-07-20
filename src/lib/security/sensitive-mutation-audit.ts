@@ -142,7 +142,11 @@ export type SensitiveMutationAuditAction =
   | "withdrawal.confirmation.monitor"
   | "withdrawal.confirmation.dropped"
   | "withdrawal.confirmation.timeout"
-  | "withdrawal.settle";
+  | "withdrawal.settle"
+  | "risk.event.record"
+  | "risk.enforcement.apply"
+  | "risk.enforcement.clear"
+  | "risk.enforcement.expire";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
@@ -161,7 +165,9 @@ export type SensitiveMutationAuditResource =
   | "withdrawal_admin_transition"
   | "withdrawal_execution"
   | "withdrawal_broadcast_attempt"
-  | "withdrawal_settlement";
+  | "withdrawal_settlement"
+  | "risk_event"
+  | "risk_enforcement";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;
