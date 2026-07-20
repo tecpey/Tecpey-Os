@@ -4,13 +4,13 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { revokeSessionStrict } from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import { revokeExactSession } from "@/lib/security/session-authority";
+import { buildSessionAuditContext } from "@/lib/security/session-route-context";
 
 export const dynamic = "force-dynamic";
 
-// DELETE /api/auth/sessions/[id] — revoke a specific access session by JTI.
+// DELETE /api/auth/sessions/[id] — atomically revoke a specific access session
+// and the refresh family durably bound to that session.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -34,54 +34,35 @@ export async function DELETE(
       return apiError("invalid_input", 400);
     }
 
-    const accessResult = await revokeSessionStrict(sessionId, userId);
-    if (!accessResult.ok && accessResult.reason === "session_not_found") {
-      return apiError("not_found", 404);
-    }
-
-    // Access sessions are not yet bound to one refresh-token family. Revoking
-    // only the selected JTI would let that device immediately mint a new access
-    // token. Security-first behavior therefore revokes all refresh authority for
-    // the principal until family binding is implemented.
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "session_revoked",
-        resourceType: "session",
-        resourceId: sessionId,
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          refreshRevoked,
-        },
-      });
-      return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        refreshRevoked,
-      });
-    }
-
-    writeAudit({
-      actorId: userId,
-      action: "session_revoked",
-      resourceType: "session",
-      resourceId: sessionId,
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        refreshScope: "all_user_tokens",
-      },
+    const actorType = session.isAdmin
+      ? "admin" as const
+      : session.userId
+        ? "user" as const
+        : "student" as const;
+    const result = await revokeExactSession({
+      sessionId,
+      userId,
+      audit: buildSessionAuditContext({
+        req,
+        userId,
+        actorType,
+        action: "session.revoke",
+        evidence: { sessionId },
+      }),
     });
+    if (!result.ok) {
+      if (result.reason === "session_not_found") return apiError("not_found", 404);
+      return apiError("session_revocation_unavailable", 503, {
+        reason: result.reason,
+      });
+    }
 
     return apiOk({
       revoked: true,
+      revokedCount: result.revokedCount,
       refreshRevoked: true,
-      refreshScope: "all_user_tokens",
+      refreshScope: "bound_family",
+      denyCachePending: result.denyCachePending,
     });
   });
 }
