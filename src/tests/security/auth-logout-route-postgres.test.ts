@@ -8,6 +8,7 @@ import { DELETE as logout } from "../../app/api/academy-auth/route";
 import { getCanonicalSession } from "../../lib/auth-session";
 import { withDb } from "../../lib/db";
 import { verifyRefreshToken } from "../../lib/security/refresh-tokens";
+import { publishPendingSessionRevocations } from "../../lib/security/session-authority";
 import { UNIFIED_SESSION_COOKIE } from "../../lib/unified-session";
 import {
   cleanupBoundSessions,
@@ -198,7 +199,7 @@ describe("Academy logout route authority", () => {
   );
 
   it(
-    "returns durable success during Redis outage and repairs deny evidence on retry",
+    "returns durable success during Redis outage and repairs deny evidence through the outbox authority",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `redis-outage-owner-${randomUUID()}`;
@@ -241,15 +242,15 @@ describe("Academy logout route authority", () => {
         }
 
         globalThis.tecpeyRedisClient = previousRedis;
-        const repaired = await logout(logoutRequest(session.accessToken));
-        assert.equal(repaired.status, 200);
-        assert.deepEqual(await repaired.json(), {
-          ok: true,
-          revoked: true,
-          revokedCount: 0,
-          revocationPending: false,
-        });
+        assert.equal(await publishPendingSessionRevocations(), true);
         assert.equal(await redis!.get(denyKey(session.accessJti)), "1");
+
+        const replay = await logout(logoutRequest(session.accessToken));
+        assert.equal(replay.status, 401);
+        assert.deepEqual(await replay.json(), {
+          ok: false,
+          error: "invalid_session",
+        });
       } finally {
         globalThis.tecpeyRedisClient = previousRedis;
         await cleanupBoundSessions({
