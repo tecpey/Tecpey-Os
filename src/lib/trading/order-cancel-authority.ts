@@ -1,6 +1,7 @@
 import { withDb, withTx } from "@/lib/db";
 import { getEventBus, nextSeq } from "@/lib/event-bus";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -76,6 +77,7 @@ export async function cancelOrderIdempotently(input: {
   }
 
   const scope: ApiCommandScope = {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
     principalType: "user",
     principalId: input.userId,
     operation: "order.cancel",
