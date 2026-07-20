@@ -78,6 +78,27 @@ describe("Exact Exchange matching primitives", () => {
     );
   });
 
+  it("rejects zero price and original quantity at the matching-book boundary", () => {
+    const store = getOrderBookStore();
+    assert.throws(
+      () => store.insert("EXACTUSDT", order({
+        orderId: "zero-price",
+        side: "sell",
+        pricePerUnit: "0.0000000000",
+      })),
+      /invalid_book_price/,
+    );
+    assert.throws(
+      () => store.insert("EXACTUSDT", order({
+        orderId: "zero-quantity",
+        side: "sell",
+        originalQty: "0.0000000000",
+        remaining: "0.0000000000",
+      })),
+      /invalid_book_quantity/,
+    );
+  });
+
   it("rounds sub-scale products toward zero without creating value", () => {
     assert.deepEqual(
       calculateExactTradeAmounts({
