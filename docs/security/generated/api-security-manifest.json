@@ -12,18 +12,16 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 48,
-    "findings": 48,
-    "findingCounts": {
-      "parsed_body_without_size_limit": 48
-    }
+    "operationsWithFindings": 0,
+    "findings": 0,
+    "findingCounts": {}
   },
   "routes": [
     {
       "route": "/api/academy-auth",
       "method": "DELETE",
       "sourcePath": "src/app/api/academy-auth/route.ts",
-      "sourceHash": "5d445a69802a71c980fdd71a",
+      "sourceHash": "f75ca949d9b5a5dcd90ec5c9",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -83,7 +81,7 @@
       "route": "/api/academy-auth",
       "method": "POST",
       "sourcePath": "src/app/api/academy-auth/route.ts",
-      "sourceHash": "5d445a69802a71c980fdd71a",
+      "sourceHash": "f75ca949d9b5a5dcd90ec5c9",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -99,7 +97,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-auth",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -114,7 +112,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-auth",
       "testReferences": [
@@ -132,9 +130,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-auth/route.ts",
         "method": "POST",
@@ -150,7 +146,7 @@
       "route": "/api/academy-certificates",
       "method": "POST",
       "sourcePath": "src/app/api/academy-certificates/route.ts",
-      "sourceHash": "a742205a40bdac41bdb4fedc",
+      "sourceHash": "cd1d76c345a9337d1104cc71",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -166,7 +162,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-certificates-issue",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -181,7 +177,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-certificates",
       "testReferences": [],
@@ -197,9 +193,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-certificates/route.ts",
         "method": "POST",
@@ -210,7 +204,7 @@
       "route": "/api/academy-flashcards",
       "method": "PUT",
       "sourcePath": "src/app/api/academy-flashcards/route.ts",
-      "sourceHash": "cd1436e2124eff8dbe3e0e13",
+      "sourceHash": "543bc9224fa4cf22d0886a4c",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -224,7 +218,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-flashcards-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -239,7 +233,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-flashcards",
       "testReferences": [],
@@ -255,9 +249,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-flashcards/route.ts",
         "method": "PUT",
@@ -268,7 +260,7 @@
       "route": "/api/academy-lead",
       "method": "POST",
       "sourcePath": "src/app/api/academy-lead/route.ts",
-      "sourceHash": "3732c40ddbb8ed32c0520dac",
+      "sourceHash": "520037a5e33806aefbfef2f0",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -284,7 +276,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-lead",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": true,
@@ -299,7 +291,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-lead",
       "testReferences": [
@@ -317,9 +309,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-lead/route.ts",
         "method": "POST",
@@ -330,7 +320,7 @@
       "route": "/api/academy-lesson-assessment",
       "method": "POST",
       "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
-      "sourceHash": "c46ad506b94459c30ba97c99",
+      "sourceHash": "4f4fc3cd81da86571b080060",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -346,7 +336,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-lesson-assessment",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -361,7 +351,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-lesson-assessment",
       "testReferences": [],
@@ -377,9 +367,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
         "method": "POST",
@@ -448,7 +436,7 @@
       "route": "/api/academy-reflections",
       "method": "PUT",
       "sourcePath": "src/app/api/academy-reflections/route.ts",
-      "sourceHash": "31790535b5c79577c1b29f80",
+      "sourceHash": "d6b7e3bb1f41973f5dc79a01",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -462,7 +450,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-reflection-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -477,7 +465,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-reflections",
       "testReferences": [],
@@ -493,9 +481,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-reflections/route.ts",
         "method": "PUT",
@@ -506,7 +492,7 @@
       "route": "/api/academy-simulator-decision",
       "method": "POST",
       "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
-      "sourceHash": "66f6cd4062768d1cf96a320e",
+      "sourceHash": "e2e149e496b2cff90d4b9906",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -520,7 +506,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-simulator-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": false,
@@ -535,7 +521,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-simulator-decision",
       "testReferences": [],
@@ -551,9 +537,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
         "method": "POST",
@@ -564,7 +548,7 @@
       "route": "/api/academy-specialized-lead",
       "method": "POST",
       "sourcePath": "src/app/api/academy-specialized-lead/route.ts",
-      "sourceHash": "620dc177440ef105a32ec137",
+      "sourceHash": "36c6e3edf093771fa277e876",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -580,7 +564,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-specialized-lead",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": true,
@@ -595,7 +579,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-specialized-lead",
       "testReferences": [],
@@ -611,9 +595,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-specialized-lead/route.ts",
         "method": "POST",
@@ -684,7 +666,7 @@
       "route": "/api/academy-student-profile",
       "method": "POST",
       "sourcePath": "src/app/api/academy-student-profile/route.ts",
-      "sourceHash": "3ac387672823105d07ff04c3",
+      "sourceHash": "81876e28380b4962071fd777",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -700,7 +682,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-student-profile-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": false,
@@ -715,7 +697,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-student-profile",
       "testReferences": [],
@@ -731,9 +713,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-student-profile/route.ts",
         "method": "POST",
@@ -744,7 +724,7 @@
       "route": "/api/academy-term-progress",
       "method": "POST",
       "sourcePath": "src/app/api/academy-term-progress/route.ts",
-      "sourceHash": "55ec9262ed9087b9f28af515",
+      "sourceHash": "31eed892103eb2688ef7065f",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -760,7 +740,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-term-progress-submit",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": true,
@@ -775,7 +755,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "academy-term-progress",
       "testReferences": [],
@@ -791,9 +771,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-term-progress/route.ts",
         "method": "POST",
@@ -804,9 +782,9 @@
       "route": "/api/academy/auth/login",
       "method": "POST",
       "sourcePath": "src/app/api/academy/auth/login/route.ts",
-      "sourceHash": "cf1e24c2ac9765f0f456a0b2",
+      "sourceHash": "102f49d1c83bad8bbfe09c7a",
       "delegatedTo": "src/app/api/academy-auth/route.ts",
-      "delegatedSourceHash": "5d445a69802a71c980fdd71a",
+      "delegatedSourceHash": "f75ca949d9b5a5dcd90ec5c9",
       "mutationMode": "active",
       "classification": "public",
       "principalSource": null,
@@ -820,7 +798,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-auth",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json -> delegated:json",
         "idempotency": false,
@@ -835,7 +813,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest -> delegated:readBoundedJsonRequest"
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -863,9 +841,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-auth/route.ts",
         "method": "POST",
@@ -883,7 +859,7 @@
       "sourcePath": "src/app/api/academy/auth/logout/route.ts",
       "sourceHash": "861c0f7325390b3325f2b334",
       "delegatedTo": "src/app/api/academy-auth/route.ts#DELETE",
-      "delegatedSourceHash": "5d445a69802a71c980fdd71a",
+      "delegatedSourceHash": "f75ca949d9b5a5dcd90ec5c9",
       "mutationMode": "active",
       "classification": "authenticated",
       "principalSource": "verifyUnifiedSession",
@@ -951,9 +927,9 @@
       "route": "/api/academy/auth/register",
       "method": "POST",
       "sourcePath": "src/app/api/academy/auth/register/route.ts",
-      "sourceHash": "9a2cc19bcabf7257c23254fd",
+      "sourceHash": "6ab34f258983571c43c9ce36",
       "delegatedTo": "src/app/api/academy-auth/route.ts",
-      "delegatedSourceHash": "5d445a69802a71c980fdd71a",
+      "delegatedSourceHash": "f75ca949d9b5a5dcd90ec5c9",
       "mutationMode": "active",
       "classification": "public",
       "principalSource": null,
@@ -967,7 +943,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "academy-auth",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json -> delegated:json",
         "idempotency": false,
@@ -982,7 +958,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest -> delegated:readBoundedJsonRequest"
       },
       "domainOwner": "academy",
       "testReferences": [
@@ -1010,9 +986,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/academy-auth/route.ts",
         "method": "POST",
@@ -1090,7 +1064,7 @@
       "route": "/api/admin/withdrawals/[id]",
       "method": "POST",
       "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
-      "sourceHash": "427cce40edf9d07506e10ffe",
+      "sourceHash": "21a7452f3db1f6ab0b91d3f0",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1107,7 +1081,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "admin-withdrawals-action",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -1122,7 +1096,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "admin",
       "testReferences": [
@@ -1142,9 +1116,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
         "method": "POST",
@@ -1155,7 +1127,7 @@
       "route": "/api/ai-mentor",
       "method": "POST",
       "sourcePath": "src/app/api/ai-mentor/route.ts",
-      "sourceHash": "b61163218fcfc19a81967cd2",
+      "sourceHash": "311cfedccb968201c0d04fbb",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1171,7 +1143,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "ai-mentor",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": true,
         "inputParser": "local:text",
         "idempotency": false,
@@ -1186,7 +1158,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "ai-mentor",
       "testReferences": [
@@ -1204,9 +1176,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/ai-mentor/route.ts",
         "method": "POST",
@@ -1219,7 +1189,7 @@
       "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
       "sourceHash": "f5b3b1803e1c60699a8fcc18",
       "delegatedTo": "src/app/api/ai-mentor/route.ts",
-      "delegatedSourceHash": "b61163218fcfc19a81967cd2",
+      "delegatedSourceHash": "311cfedccb968201c0d04fbb",
       "mutationMode": "active",
       "classification": "authenticated",
       "principalSource": "canonical /api/ai-mentor handler",
@@ -1233,7 +1203,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "ai-mentor",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": true,
         "inputParser": "delegated:text",
         "idempotency": false,
@@ -1248,7 +1218,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "delegated:readBoundedJsonRequest"
       },
       "domainOwner": "ai-mentor-v2",
       "testReferences": [
@@ -1266,9 +1236,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/ai-mentor/route.ts",
         "method": "POST",
@@ -1284,7 +1252,7 @@
       "route": "/api/api-keys",
       "method": "POST",
       "sourcePath": "src/app/api/api-keys/route.ts",
-      "sourceHash": "51c24dadd09ee0a9954e8d65",
+      "sourceHash": "6eaf1a960c41d2fe0cad201d",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1298,7 +1266,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "api-keys-create",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1313,7 +1281,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1329,9 +1297,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/api-keys/route.ts",
         "method": "POST",
@@ -1342,7 +1308,7 @@
       "route": "/api/api-keys/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/api-keys/[id]/route.ts",
-      "sourceHash": "0a25849940893ffd43cf5aeb",
+      "sourceHash": "9b70865eebb1cda535d3b876",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1398,7 +1364,7 @@
       "route": "/api/api-keys/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/api-keys/[id]/route.ts",
-      "sourceHash": "0a25849940893ffd43cf5aeb",
+      "sourceHash": "9b70865eebb1cda535d3b876",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1412,7 +1378,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "api-keys-update",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1427,7 +1393,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "api-keys",
       "testReferences": [],
@@ -1443,9 +1409,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/api-keys/[id]/route.ts",
         "method": "PATCH",
@@ -1456,7 +1420,7 @@
       "route": "/api/auth/2fa/backup",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/backup/route.ts",
-      "sourceHash": "6187891258f6ae80fefef4e8",
+      "sourceHash": "f0cd00af445016ad2ca7c708",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1472,7 +1436,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "2fa-backup",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1487,7 +1451,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1505,9 +1469,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/2fa/backup/route.ts",
         "method": "POST",
@@ -1518,7 +1480,7 @@
       "route": "/api/auth/2fa/disable",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/disable/route.ts",
-      "sourceHash": "72a1bd533a77e92b85ab69a7",
+      "sourceHash": "7a62d106f85330c4b5a0d28e",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1534,7 +1496,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "2fa-disable",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1549,7 +1511,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1567,9 +1529,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/2fa/disable/route.ts",
         "method": "POST",
@@ -1580,7 +1540,7 @@
       "route": "/api/auth/2fa/enroll",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/enroll/route.ts",
-      "sourceHash": "de35c581e85b90b90e42c851",
+      "sourceHash": "2103b5b870c02035b56bd1f3",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1596,7 +1556,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "2fa-enroll-post",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1611,7 +1571,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1629,9 +1589,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/2fa/enroll/route.ts",
         "method": "POST",
@@ -1642,7 +1600,7 @@
       "route": "/api/auth/2fa/verify",
       "method": "POST",
       "sourcePath": "src/app/api/auth/2fa/verify/route.ts",
-      "sourceHash": "e4ce41a40b1626fb00845f01",
+      "sourceHash": "2cb0b62052dbfb9c97263933",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1658,7 +1616,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "2fa-verify",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1673,7 +1631,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -1689,9 +1647,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/2fa/verify/route.ts",
         "method": "POST",
@@ -1702,7 +1658,7 @@
       "route": "/api/auth/devices/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
-      "sourceHash": "3cf67a83ae4638e1fc79bced",
+      "sourceHash": "5ab9a96dbf16f72db115ed11",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1762,7 +1718,7 @@
       "route": "/api/auth/devices/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
-      "sourceHash": "3cf67a83ae4638e1fc79bced",
+      "sourceHash": "5ab9a96dbf16f72db115ed11",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1778,7 +1734,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "auth-devices-patch",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1793,7 +1749,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1811,9 +1767,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/devices/[id]/route.ts",
         "method": "PATCH",
@@ -1824,7 +1778,7 @@
       "route": "/api/auth/password/change",
       "method": "POST",
       "sourcePath": "src/app/api/auth/password/change/route.ts",
-      "sourceHash": "3b6deba27d5bf24a4ef35479",
+      "sourceHash": "dd1f3f427b1dfe2f7f7b5f49",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1840,7 +1794,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "password-change",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -1855,7 +1809,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -1873,9 +1827,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/password/change/route.ts",
         "method": "POST",
@@ -2067,7 +2019,7 @@
       "route": "/api/auth/webauthn/auth/challenge",
       "method": "POST",
       "sourcePath": "src/app/api/auth/webauthn/auth/challenge/route.ts",
-      "sourceHash": "0ad0e4e92626ab8406684dc3",
+      "sourceHash": "e0e5dfc504e1d705573866e5",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2083,7 +2035,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-auth-challenge",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2098,7 +2050,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2114,9 +2066,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/webauthn/auth/challenge/route.ts",
         "method": "POST",
@@ -2132,7 +2082,7 @@
       "route": "/api/auth/webauthn/auth/verify",
       "method": "POST",
       "sourcePath": "src/app/api/auth/webauthn/auth/verify/route.ts",
-      "sourceHash": "53d99eadf83dfa3c8790dfd8",
+      "sourceHash": "a8f121949edb58bc067dc6c4",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2148,7 +2098,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-auth-verify",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2163,7 +2113,7 @@
         "setsCookie": true,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2179,9 +2129,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/webauthn/auth/verify/route.ts",
         "method": "POST",
@@ -2197,7 +2145,7 @@
       "route": "/api/auth/webauthn/credentials/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
-      "sourceHash": "38e824b9364350433fd11371",
+      "sourceHash": "943a83b971e46dea28230e0e",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2257,7 +2205,7 @@
       "route": "/api/auth/webauthn/credentials/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
-      "sourceHash": "38e824b9364350433fd11371",
+      "sourceHash": "943a83b971e46dea28230e0e",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2273,7 +2221,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-credential-patch",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2288,7 +2236,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2306,9 +2254,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/webauthn/credentials/[id]/route.ts",
         "method": "PATCH",
@@ -2377,7 +2323,7 @@
       "route": "/api/auth/webauthn/register/verify",
       "method": "POST",
       "sourcePath": "src/app/api/auth/webauthn/register/verify/route.ts",
-      "sourceHash": "ce5442b668c980554765c53a",
+      "sourceHash": "07a3eb2525158cd04f0c38df",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2393,7 +2339,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "webauthn-reg-verify",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2408,7 +2354,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2426,9 +2372,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/webauthn/register/verify/route.ts",
         "method": "POST",
@@ -2439,7 +2383,7 @@
       "route": "/api/auth/withdraw",
       "method": "POST",
       "sourcePath": "src/app/api/auth/withdraw/route.ts",
-      "sourceHash": "06370896b61e289e789d6b16",
+      "sourceHash": "78967438d75ee83712e1215f",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2456,7 +2400,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "withdraw-create",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -2471,7 +2415,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [
@@ -2490,9 +2434,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/withdraw/route.ts",
         "method": "POST",
@@ -2562,7 +2504,7 @@
       "route": "/api/auth/withdraw/authorize",
       "method": "POST",
       "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
-      "sourceHash": "b03989d2c93fbdc1baa370d5",
+      "sourceHash": "38774383b096c153c6352b62",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2579,7 +2521,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "withdraw-authorize",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -2594,7 +2536,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "auth",
       "testReferences": [],
@@ -2610,9 +2552,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
         "method": "POST",
@@ -2623,7 +2563,7 @@
       "route": "/api/command-center/auth/bootstrap/challenge",
       "method": "POST",
       "sourcePath": "src/app/api/command-center/auth/bootstrap/challenge/route.ts",
-      "sourceHash": "f0357069fbf015c2d7981c59",
+      "sourceHash": "3324af0bb6f66bac7bc07a89",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2640,7 +2580,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "admin-bootstrap-challenge",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2655,7 +2595,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "command-center",
       "testReferences": [
@@ -2673,9 +2613,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/command-center/auth/bootstrap/challenge/route.ts",
         "method": "POST",
@@ -2691,7 +2629,7 @@
       "route": "/api/command-center/auth/bootstrap/verify",
       "method": "POST",
       "sourcePath": "src/app/api/command-center/auth/bootstrap/verify/route.ts",
-      "sourceHash": "fec7da5498a6be695a0deb10",
+      "sourceHash": "63e1296b1ba48f9bc6b5f58d",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2708,7 +2646,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "admin-bootstrap-verify",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2723,7 +2661,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2739,9 +2677,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/command-center/auth/bootstrap/verify/route.ts",
         "method": "POST",
@@ -2887,7 +2823,7 @@
       "route": "/api/command-center/auth/passkey/verify",
       "method": "POST",
       "sourcePath": "src/app/api/command-center/auth/passkey/verify/route.ts",
-      "sourceHash": "c7feb380873e16e6c32f3494",
+      "sourceHash": "fd60439e6ae669cdffac56a6",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2904,7 +2840,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "admin-passkey-verify",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2919,7 +2855,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -2935,9 +2871,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/command-center/auth/passkey/verify/route.ts",
         "method": "POST",
@@ -2953,7 +2887,7 @@
       "route": "/api/command-center/campaign",
       "method": "POST",
       "sourcePath": "src/app/api/command-center/campaign/route.ts",
-      "sourceHash": "90c8a79c953362949f3d9d0b",
+      "sourceHash": "c37e28d5e59f6d01985ddd07",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2969,7 +2903,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "command-center-campaign",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -2984,7 +2918,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "command-center",
       "testReferences": [],
@@ -3000,9 +2934,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/command-center/campaign/route.ts",
         "method": "POST",
@@ -3013,7 +2945,7 @@
       "route": "/api/community/profile",
       "method": "PATCH",
       "sourcePath": "src/app/api/community/profile/route.ts",
-      "sourceHash": "2bbaa75635e4b75325daa868",
+      "sourceHash": "24bb70d8cea362a0c1074458",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3029,7 +2961,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "community-profile-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -3044,7 +2976,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "community",
       "testReferences": [
@@ -3062,9 +2994,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/community/profile/route.ts",
         "method": "PATCH",
@@ -3075,7 +3005,7 @@
       "route": "/api/device-token",
       "method": "POST",
       "sourcePath": "src/app/api/device-token/route.ts",
-      "sourceHash": "0605f4ac8a60fd50cf324a5d",
+      "sourceHash": "f9eaaffaec8f6a7b088a5a2f",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3092,7 +3022,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "device-token-register",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -3107,7 +3037,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "device-token",
       "testReferences": [
@@ -3125,9 +3055,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/device-token/route.ts",
         "method": "POST",
@@ -3194,7 +3122,7 @@
       "route": "/api/learning-events",
       "method": "POST",
       "sourcePath": "src/app/api/learning-events/route.ts",
-      "sourceHash": "7876d0cdf0d207e08c0848bc",
+      "sourceHash": "a3188614d027367f728845dd",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3208,7 +3136,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "learning-events-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": false,
@@ -3223,7 +3151,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "learning-events",
       "testReferences": [],
@@ -3239,9 +3167,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/learning-events/route.ts",
         "method": "POST",
@@ -3252,7 +3178,7 @@
       "route": "/api/mentor-challenge",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-challenge/route.ts",
-      "sourceHash": "8828e0ed62ab9b43a284b00f",
+      "sourceHash": "1aed24d048dc3118645546c5",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3266,7 +3192,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "mentor-challenge-submit",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": false,
@@ -3281,7 +3207,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "mentor-challenge",
       "testReferences": [],
@@ -3297,9 +3223,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-challenge/route.ts",
         "method": "POST",
@@ -3310,7 +3234,7 @@
       "route": "/api/mentor-conversations/migrate",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
-      "sourceHash": "283d5243036c91c23474e894",
+      "sourceHash": "65a4a2513cfa70b4ccb4da5a",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3326,7 +3250,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "mentor-conversations-migrate",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -3341,7 +3265,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "mentor-conversations",
       "testReferences": [
@@ -3359,9 +3283,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
         "method": "POST",
@@ -3372,7 +3294,7 @@
       "route": "/api/mentor-memory",
       "method": "DELETE",
       "sourcePath": "src/app/api/mentor-memory/route.ts",
-      "sourceHash": "ca22b2e1ddc4d7009078ca5b",
+      "sourceHash": "b1e3be23ffc06c6ed81c5f01",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3432,7 +3354,7 @@
       "route": "/api/mentor-memory",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-memory/route.ts",
-      "sourceHash": "ca22b2e1ddc4d7009078ca5b",
+      "sourceHash": "b1e3be23ffc06c6ed81c5f01",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3448,7 +3370,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "mentor-memory-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": false,
@@ -3463,7 +3385,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "mentor-memory",
       "testReferences": [
@@ -3481,9 +3403,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-memory/route.ts",
         "method": "POST",
@@ -3669,7 +3589,7 @@
       "route": "/api/notifications/[id]",
       "method": "PATCH",
       "sourcePath": "src/app/api/notifications/[id]/route.ts",
-      "sourceHash": "f442c1b2dc9240f1cedb4f48",
+      "sourceHash": "d19b981437e6157a6462b3ee",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3683,7 +3603,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notifications-mutate",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -3698,7 +3618,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3714,9 +3634,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/notifications/[id]/route.ts",
         "method": "PATCH",
@@ -3727,7 +3645,7 @@
       "route": "/api/notifications/consent",
       "method": "POST",
       "sourcePath": "src/app/api/notifications/consent/route.ts",
-      "sourceHash": "c6554f3ddab65f697f712952",
+      "sourceHash": "a18c24e066e368a124fe5257",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3743,7 +3661,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notification-consent-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -3758,7 +3676,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "notifications",
       "testReferences": [
@@ -3776,9 +3694,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/notifications/consent/route.ts",
         "method": "POST",
@@ -3789,7 +3705,7 @@
       "route": "/api/notifications/preferences",
       "method": "PATCH",
       "sourcePath": "src/app/api/notifications/preferences/route.ts",
-      "sourceHash": "463372226e32faa189c8ae8f",
+      "sourceHash": "440d4ebc5729be266c03d659",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3805,7 +3721,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notification-preferences-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -3820,7 +3736,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "notifications",
       "testReferences": [
@@ -3838,9 +3754,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/notifications/preferences/route.ts",
         "method": "PATCH",
@@ -3851,7 +3765,7 @@
       "route": "/api/notifications/read",
       "method": "POST",
       "sourcePath": "src/app/api/notifications/read/route.ts",
-      "sourceHash": "4548b27f6476cbac0e6f791a",
+      "sourceHash": "4bc7b942b65d5eaf69d8d705",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3865,7 +3779,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "notifications-read-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -3880,7 +3794,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "notifications",
       "testReferences": [],
@@ -3896,9 +3810,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/notifications/read/route.ts",
         "method": "POST",
@@ -3909,7 +3821,7 @@
       "route": "/api/offline-sync",
       "method": "POST",
       "sourcePath": "src/app/api/offline-sync/route.ts",
-      "sourceHash": "9709ca5771b11e1413847940",
+      "sourceHash": "d609febe7ebdd9ca7a1414c5",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3923,7 +3835,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "offline-sync",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": true,
@@ -3938,7 +3850,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "offline-sync",
       "testReferences": [
@@ -3958,9 +3870,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/offline-sync/route.ts",
         "method": "POST",
@@ -3971,7 +3881,7 @@
       "route": "/api/orders",
       "method": "POST",
       "sourcePath": "src/app/api/orders/route.ts",
-      "sourceHash": "107a41ece5f67aa7da51b5ca",
+      "sourceHash": "5f0ac915f99bdc3322ede960",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3987,7 +3897,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "orders-place",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:text",
         "idempotency": true,
@@ -4002,7 +3912,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": false,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "orders",
       "testReferences": [],
@@ -4018,9 +3928,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/orders/route.ts",
         "method": "POST",
@@ -4089,7 +3997,7 @@
       "route": "/api/trading-arena",
       "method": "POST",
       "sourcePath": "src/app/api/trading-arena/route.ts",
-      "sourceHash": "de907d7d52ef47afdb22311e",
+      "sourceHash": "a93fdad8e8c1633baa3cddbc",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -4105,7 +4013,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "trading-arena-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": false,
@@ -4120,7 +4028,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -4140,9 +4048,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/trading-arena/route.ts",
         "method": "POST",
@@ -4153,7 +4059,7 @@
       "route": "/api/trading-arena/execution",
       "method": "POST",
       "sourcePath": "src/app/api/trading-arena/execution/route.ts",
-      "sourceHash": "0a57186ccd85a1d69e174112",
+      "sourceHash": "77278ccb23c3b524d36dc36e",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -4169,7 +4075,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "arena-execution-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -4184,7 +4090,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -4203,9 +4109,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/trading-arena/execution/route.ts",
         "method": "POST",
@@ -4216,7 +4120,7 @@
       "route": "/api/trading-arena/reflections",
       "method": "POST",
       "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
-      "sourceHash": "79a5a292a82dc019a930aece",
+      "sourceHash": "9bfe85d6f2b286f9cabdabb6",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -4232,7 +4136,7 @@
         "rateLimit": true,
         "rateLimitNamespace": "arena-reflections-write",
         "expectsBody": true,
-        "bodySizeLimit": false,
+        "bodySizeLimit": true,
         "contentTypeCheck": false,
         "inputParser": "local:json",
         "idempotency": true,
@@ -4247,7 +4151,7 @@
         "setsCookie": false,
         "explicitPublicCachePolicy": false,
         "headerBodySizeHint": true,
-        "bodySizeLimitAuthority": null
+        "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
       },
       "domainOwner": "trading-arena",
       "testReferences": [
@@ -4267,9 +4171,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "parsed_body_without_size_limit"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
         "method": "POST",
