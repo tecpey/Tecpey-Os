@@ -19,6 +19,7 @@ import {
   fingerprintExpectedTransactionHash,
   fingerprintWithdrawalExecution,
 } from "@/lib/security/withdrawal-external-effect-evidence";
+import { recoverExpiredWithdrawalBroadcastAttempt } from "@/lib/security/withdrawal-external-effect-recovery";
 import { createKeyStore } from "./signing/keystore";
 import { assertCustodyCapability } from "./custody-launch-policy";
 import { getProvider } from "./providers/registry";
@@ -44,6 +45,12 @@ export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
   // approved withdrawal into an execution state.
   assertCustodyCapability("withdrawal_worker");
   const identity = workerIdentity();
+
+  // A worker may die after durable attempt creation and before result commit.
+  // Expired `calling` leases are unknown external effects and must become
+  // ambiguous before claim, forcing deterministic reconciliation.
+  await recoverExpiredWithdrawalBroadcastAttempt(job.withdrawalId);
+
   let plan = await claimWithdrawalExecution({
     withdrawalId: job.withdrawalId,
     workerIdentity: identity,
