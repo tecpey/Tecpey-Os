@@ -25,15 +25,28 @@ const FORBIDDEN_METADATA_KEYS = new Set([
 
 export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
 
+export type SensitiveMutationAuditAction =
+  | "device_token.register"
+  | "mentor_conversations.migrate"
+  | "mentor_profile.recompute"
+  | "api_key.create"
+  | "api_key.enable"
+  | "api_key.disable"
+  | "api_key.rotate"
+  | "api_key.delete";
+
+export type SensitiveMutationAuditResource =
+  | "device_token"
+  | "mentor_conversations"
+  | "mentor_profile"
+  | "api_key";
+
 export type SensitiveMutationAuditEvent = {
   tenantId: string;
   actorType: "student" | "user" | "admin" | "service";
   actorId: string;
-  action:
-    | "device_token.register"
-    | "mentor_conversations.migrate"
-    | "mentor_profile.recompute";
-  resourceType: "device_token" | "mentor_conversations" | "mentor_profile";
+  action: SensitiveMutationAuditAction;
+  resourceType: SensitiveMutationAuditResource;
   resourceId: string;
   outcome: SensitiveAuditOutcome;
   correlationId: string;
