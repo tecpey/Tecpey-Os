@@ -4,12 +4,23 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { withTx } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   listActiveSessionsStrict,
-  revokeAllSessionsStrict,
+  revokeAllSessionsWithClient,
+  type RevokedSessionEvidence,
 } from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import {
+  revokeAllRefreshTokensForUserWithClient,
+  clearRefreshCookie,
+} from "@/lib/security/refresh-tokens";
+import { revokeMultiple } from "@/lib/security/jti-store";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+  writeSensitiveMutationAuditTx,
+} from "@/lib/security/sensitive-mutation-audit";
 import {
   extractJtiFromToken,
   UNIFIED_SESSION_COOKIE,
@@ -17,15 +28,20 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// GET /api/auth/sessions — list the current user's active sessions
+type BulkRevocationCommand = {
+  revokedAccessSessions: number;
+  accessEvidence: RevokedSessionEvidence[];
+  revokedRefreshTokens: number;
+};
+
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
-    const rl = await rateLimit(req, {
+    const limit = await rateLimit(req, {
       namespace: "auth-sessions",
       limit: 30,
       windowMs: 60_000,
     });
-    if (!rl.ok) return apiError("rate_limited", 429);
+    if (!limit.ok) return apiError("rate_limited", 429);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
@@ -41,70 +57,108 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// DELETE /api/auth/sessions — revoke other access sessions and all refresh authority.
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const rl = await rateLimit(req, {
+    const limit = await rateLimit(req, {
       namespace: "auth-revoke-all",
       limit: 5,
       windowMs: 60_000,
     });
-    if (!rl.ok) return apiError("rate_limited", 429);
+    if (!limit.ok) return apiError("rate_limited", 429);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.studentId ?? session.userId;
     if (!userId) return apiError("unauthorized", 401);
+    const actorType = session.userId ? "user" as const : "student" as const;
 
     const currentToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value ?? "";
     const currentJti = extractJtiFromToken(currentToken);
     if (!currentJti) return apiError("invalid_session", 401);
 
-    // Keep the current access token active for the remainder of its short TTL,
-    // but revoke every other access session and all refresh tokens. Until access
-    // tokens are bound to a refresh family, retaining one current refresh token
-    // cannot be proven safely, so refresh authority is revoked security-first.
-    const accessResult = await revokeAllSessionsStrict(userId, currentJti);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
+    const currentSessionEvidenceHash = hashSensitiveAuditRequest({ jti: currentJti });
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    const requestHash = hashSensitiveAuditRequest({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorType,
+      actorId: userId,
+      action: "session.revoke_others",
+      currentSessionEvidenceHash,
+      accessScope: "all_other_access_sessions",
+      refreshScope: "all_user_tokens",
+    });
 
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "logout_all",
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          revokedCount: accessResult.revokedCount,
-          refreshRevoked,
-        },
+    let transaction;
+    try {
+      transaction = await withTx<BulkRevocationCommand>(async (client) => {
+        const access = await revokeAllSessionsWithClient(client, userId, currentJti);
+        const revokedRefreshTokens =
+          await revokeAllRefreshTokensForUserWithClient(client, userId);
+
+        await writeSensitiveMutationAuditTx(client, {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType,
+          actorId: userId,
+          action: "session.revoke_others",
+          resourceType: "session_authority",
+          resourceId: userId,
+          outcome: "success",
+          correlationId,
+          requestHash,
+          metadata: {
+            policyVersion: "session-revocation-v1",
+            accessScope: "all_other_access_sessions",
+            currentAccessRetained: true,
+            refreshScope: "all_user_tokens",
+            currentSessionEvidenceHash,
+          },
+        });
+
+        return {
+          revokedAccessSessions: access.revokedCount,
+          accessEvidence: access.sessions,
+          revokedRefreshTokens,
+        };
       });
+    } catch {
       return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        revokedCount: accessResult.revokedCount,
-        refreshRevoked,
+        rolledBack: true,
       });
     }
 
-    writeAudit({
-      actorId: userId,
-      action: "logout_all",
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        revokedCount: accessResult.revokedCount,
-        currentAccessRetained: true,
-        refreshScope: "all_user_tokens",
-      },
-    });
+    if (!transaction.enabled) {
+      return apiError("session_revocation_unavailable", 503, {
+        rolledBack: true,
+        reason: "database_unavailable",
+      });
+    }
 
-    return apiOk({
-      revokedCount: accessResult.revokedCount,
+    const redisProjected =
+      transaction.value.accessEvidence.length === 0 ||
+      await revokeMultiple(transaction.value.accessEvidence);
+    if (!redisProjected) {
+      const response = apiError("session_revocation_cache_unavailable", 503, {
+        changed: true,
+        revokedAccessSessions: transaction.value.revokedAccessSessions,
+        currentAccessRetained: true,
+        refreshAuthorityRevoked: true,
+        reauthenticationRequired: false,
+      });
+      clearRefreshCookie(response);
+      return response;
+    }
+
+    const response = apiOk({
+      revokedCount: transaction.value.revokedAccessSessions,
       currentAccessRetained: true,
       refreshRevoked: true,
+      refreshRevokedCount: transaction.value.revokedRefreshTokens,
+      atomic: true,
     });
+    clearRefreshCookie(response);
+    return response;
   });
 }
