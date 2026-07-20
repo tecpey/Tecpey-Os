@@ -17,24 +17,22 @@ BEGIN
        AND evidence.action = 'exchange.order.admit'
        AND evidence.resource_type = 'exchange_order'
        AND evidence.resource_id = 'exchange-order-' || encode(
-         digest(
+         sha256(
            convert_to(
              'tecpey:exchange-order:v1' || chr(31) || command.order_id::text,
              'UTF8'
-           ),
-           'sha256'
+           )
          ),
          'hex'
        )
        AND evidence.correlation_id = 'exchange-order-admit-' || substring(
          encode(
-           digest(
+           sha256(
              convert_to(
                'tecpey:exchange.order.admit:v1' || chr(31) ||
                command.tenant_id || ':' || command.user_id || ':' || command.idempotency_key,
                'UTF8'
-             ),
-             'sha256'
+             )
            ),
            'hex'
          ),
@@ -84,13 +82,12 @@ BEGIN
 
   correlation_value := 'exchange-order-admit-' || substring(
     encode(
-      digest(
+      sha256(
         convert_to(
           'tecpey:exchange.order.admit:v1' || chr(31) ||
           NEW.tenant_id || ':' || NEW.user_id || ':' || NEW.idempotency_key,
           'UTF8'
-        ),
-        'sha256'
+        )
       ),
       'hex'
     ),
@@ -98,22 +95,20 @@ BEGIN
     48
   );
   resource_value := 'exchange-order-' || encode(
-    digest(
+    sha256(
       convert_to(
         'tecpey:exchange-order:v1' || chr(31) || NEW.order_id::text,
         'UTF8'
-      ),
-      'sha256'
+      )
     ),
     'hex'
   );
   market_value := 'exchange-market-' || encode(
-    digest(
+    sha256(
       convert_to(
         'tecpey:exchange-market:v1' || chr(31) || upper(NEW.market),
         'UTF8'
-      ),
-      'sha256'
+      )
     ),
     'hex'
   );
