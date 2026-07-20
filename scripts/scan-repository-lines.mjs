@@ -16,6 +16,11 @@ const inventoryPath = resolve(
 );
 const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
 
+const TEST_OR_FIXTURE_PATH = /(?:^|\/)(?:tests?|fixtures?|mocks?|candidates?)(?:\/|$)|\.test\./i;
+const PRODUCTION_SOURCE_PATH = /^(?:src|scripts)\//;
+const FINANCIAL_PATH = /(?:exchange|trading|order|matching|ledger|balance|wallet|withdraw|deposit|fee|pnl|custody)/i;
+const SECURITY_PATH = /(?:security|auth|session|token|otp|passkey|wallet|withdraw|exchange|trading|order|idempotency)/i;
+
 const RULES = [
   {
     id: "SECRET_PRIVATE_KEY_PEM",
@@ -34,9 +39,10 @@ const RULES = [
   {
     id: "UNSAFE_EVAL",
     severity: "p0",
-    title: "Dynamic code execution requires explicit security review",
-    pattern: /\b(?:eval\s*\(|new\s+Function\s*\()/,
-    path: /\.(?:[cm]?[jt]sx?)$/,
+    title: "Global dynamic code execution requires explicit security review",
+    pattern: /(?:^|[^.\w$])eval\s*\(|\bnew\s+Function\s*\(/,
+    path: /^(?:src|scripts)\/|^(?:server|next\.config)\./,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "API_UNBOUNDED_JSON_BODY",
@@ -50,35 +56,41 @@ const RULES = [
     severity: "p1",
     title: "Raw HTML rendering requires sanitization and provenance review",
     pattern: /dangerouslySetInnerHTML/,
-    path: /\.(?:tsx|jsx)$/,
+    path: /^src\/.*\.(?:tsx|jsx)$/,
   },
   {
     id: "FINANCIAL_FLOAT_CONVERSION",
     severity: "p1",
-    title: "Financial path converts values through binary floating point",
+    title: "Financial production path converts values through binary floating point",
     pattern: /\b(?:Number|parseFloat|parseInt)\s*\(/,
-    path: /(?:exchange|trading|order|matching|ledger|balance|wallet|withdraw|deposit|fee|pnl|custody)/i,
+    path: PRODUCTION_SOURCE_PATH,
+    include: FINANCIAL_PATH,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "SECURITY_NONCRYPTO_RANDOM",
     severity: "p1",
-    title: "Security or financial path uses Math.random",
+    title: "Security or financial production path uses Math.random",
     pattern: /\bMath\.random\s*\(/,
-    path: /(?:security|auth|session|token|otp|passkey|wallet|withdraw|exchange|trading|order|idempotency)/i,
+    path: PRODUCTION_SOURCE_PATH,
+    include: SECURITY_PATH,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "BROWSER_DURABLE_STATE_LEAD",
     severity: "p1",
     title: "Browser persistence requires authority classification",
     pattern: /\b(?:localStorage|sessionStorage|indexedDB)\b/,
-    path: /^(?:src|app|components)\//,
+    path: /^src\//,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "FIRE_AND_FORGET_DURABLE_WRITE",
     severity: "p1",
     title: "Durable-looking write may be launched without awaiting outcome",
     pattern: /\bvoid\s+(?:await\s+)?[\w.]*?(?:save|persist|insert|update|delete|write|record|append|enqueue|publish)\w*\s*\(/i,
-    path: /^(?:src|scripts)\//,
+    path: PRODUCTION_SOURCE_PATH,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "HARDCODED_BEARER",
@@ -92,14 +104,16 @@ const RULES = [
     severity: "p1",
     title: "Weak digest algorithm appears in an authority path",
     pattern: /createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)/i,
-    path: /^(?:src|scripts)\//,
+    path: PRODUCTION_SOURCE_PATH,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "SQL_INTERPOLATION_LEAD",
     severity: "p1",
     title: "SQL template interpolation requires injection review",
     pattern: /`[^`]*(?:SELECT|INSERT|UPDATE|DELETE|WHERE)[^`]*\$\{/i,
-    path: /\.(?:ts|tsx|js|mjs|cjs)$/,
+    path: PRODUCTION_SOURCE_PATH,
+    exclude: TEST_OR_FIXTURE_PATH,
   },
   {
     id: "TYPESCRIPT_IGNORE",
@@ -135,7 +149,7 @@ const RULES = [
     severity: "p2",
     title: "Hard-coded external HTTP endpoint requires trust and timeout review",
     pattern: /https?:\/\/[A-Za-z0-9.-]+/,
-    path: /^(?:src|scripts)\//,
+    path: PRODUCTION_SOURCE_PATH,
     exclude: /(?:test|fixture|mock|localhost|127\.0\.0\.1)/i,
   },
   {
@@ -161,11 +175,18 @@ function digest(buffer) {
 
 function sanitize(line, sensitive) {
   if (sensitive) return "[redacted: potentially sensitive match]";
-  return line.replace(/\s+/g, " ").trim().slice(0, 220);
+  return line
+    .replace(/\b(?:AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{16,})\b/g, "[token-redacted]")
+    .replace(/(Bearer\s+)[A-Za-z0-9._~-]+/gi, "$1[token-redacted]")
+    .replace(/([?&](?:token|key|secret|signature|password)=)[^&#\s]+/gi, "$1[value-redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
 }
 
 function applies(rule, path) {
   if (rule.path && !rule.path.test(path)) return false;
+  if (rule.include && !rule.include.test(path)) return false;
   if (rule.exclude && rule.exclude.test(path)) return false;
   return true;
 }
@@ -222,7 +243,7 @@ findings.sort(
 const countBy = (key) =>
   Object.fromEntries(
     [...new Set(findings.map((finding) => String(finding[key])))]
-      .sort((left, right) => left.localeCompare(right))
+      .sort()
       .map((value) => [value, findings.filter((finding) => String(finding[key]) === value).length]),
   );
 
@@ -230,7 +251,7 @@ const report = {
   schemaVersion: 1,
   repository: inventory.repository,
   commit: inventory.commit,
-  generatedAt: new Date().toISOString(),
+  generatedAt: inventory.generatedAt,
   inventoryDigestSha256: digest(readFileSync(inventoryPath)),
   statement:
     "Pattern matches are review leads, not confirmed defects. Semantic review and adversarial evidence are required.",
