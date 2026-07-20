@@ -64,6 +64,16 @@ export function fingerprintExpectedTransactionHash(txHash: string): string {
   );
 }
 
+export function fingerprintWithdrawalSettlement(input: {
+  withdrawalId: string;
+  txHash: string;
+}): string {
+  return fingerprint(
+    "withdrawal-settlement",
+    `${input.withdrawalId}\u001f${input.txHash.trim().toLowerCase()}`,
+  );
+}
+
 export function fingerprintWithdrawalSigner(input: {
   signerType: string;
   keyReference?: string | null;
@@ -137,7 +147,7 @@ function correlation(
   )}`;
 }
 
-function resourceFingerprint(
+export function fingerprintWithdrawalExternalResource(
   resourceType: WithdrawalExternalEffectResource,
   identity: string,
 ): string {
@@ -164,7 +174,7 @@ export async function writeWithdrawalExternalEffectEvidenceTx(
     actorId: input.actorId,
     action: input.action,
     resourceType: input.resourceType,
-    resourceId: resourceFingerprint(
+    resourceId: fingerprintWithdrawalExternalResource(
       input.resourceType,
       input.resourceIdentity,
     ),
