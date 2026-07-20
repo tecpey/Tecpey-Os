@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { after, afterEach, describe, it } from "node:test";
 import {
   calculateExactTradeAmounts,
   crossesLimit,
@@ -11,6 +11,10 @@ import {
   getOrderBookStore,
   type EngineOrder,
 } from "../../lib/trading/order-book-store";
+import { isolateExchangeOrderTestCache } from "./exchange-order-test-environment";
+
+const restoreTestCache = isolateExchangeOrderTestCache();
+after(restoreTestCache);
 
 function order(input: Partial<EngineOrder> & Pick<EngineOrder, "orderId" | "side">): EngineOrder {
   return {
