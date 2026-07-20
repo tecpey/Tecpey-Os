@@ -124,33 +124,33 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
 
-  it("binds API key creation to strict server identity and mandatory audit context", async () => {
+  it("keeps API key creation bound to a server-derived principal while the service owns audit", async () => {
     const route = await source("src/app/api/api-keys/route.ts");
-
-    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
-    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
-    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
-    assert.match(route, /resolveSensitiveAuditCorrelation/);
-    assert.match(route, /hashSensitiveAuditRequest/);
-    assert.match(route, /audit: \{/);
-    assert.match(route, /actorId: userId/);
-    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
-    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
-  });
-
-  it("binds API key lifecycle changes to strict identity and the transactional authority", async () => {
-    const route = await source("src/app/api/api-keys/[id]/route.ts");
     const authority = await source("src/lib/security/api-keys.ts");
 
-    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
-    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
-    assert.match(route, /resolveSensitiveAuditCorrelation/);
-    assert.match(route, /hashSensitiveAuditRequest/);
-    assert.match(route, /setApiKeyActive\(/);
-    assert.match(route, /rotateApiKey\(/);
-    assert.match(route, /deleteApiKey\(/);
+    assert.match(route, /getCanonicalSession\(req\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /createApiKey\(\{/);
+    assert.match(route, /userId,/);
     assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
-    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+
+    assert.match(authority, /resolveApiKeyAuditContext/);
+    assert.match(authority, /PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(authority, /hashSensitiveAuditRequest/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+  });
+
+  it("keeps API key lifecycle principal-scoped and suppresses migrated compatibility projections", async () => {
+    const route = await source("src/app/api/api-keys/[id]/route.ts");
+    const authority = await source("src/lib/security/api-keys.ts");
+    const legacyAudit = await source("src/lib/security/audit-log.ts");
+
+    assert.match(route, /getCanonicalSession\(req\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /setApiKeyActive\(keyId, userId/);
+    assert.match(route, /rotateApiKey\(keyId, userId/);
+    assert.match(route, /deleteApiKey\(keyId, userId/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
 
     assert.match(authority, /withTx\(async \(client\)/);
     assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
@@ -170,5 +170,19 @@ describe("Sensitive mutation route audit boundaries", () => {
     for (const metadata of metadataBlocks) {
       assert.doesNotMatch(metadata, storedKeyPattern(["plaintext", "key_hash"]));
     }
+
+    assert.match(legacyAudit, /TRANSACTIONALLY_MIGRATED_ACTIONS/);
+    for (const action of [
+      "api_key_created",
+      "api_key_rotated",
+      "api_key_disabled",
+      "api_key_deleted",
+    ]) {
+      assert.match(legacyAudit, new RegExp(`"${action}"`));
+    }
+    assert.match(
+      legacyAudit,
+      /if \(TRANSACTIONALLY_MIGRATED_ACTIONS\.has\(event\.action\)\) return/,
+    );
   });
 });
