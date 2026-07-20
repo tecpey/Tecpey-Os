@@ -1,7 +1,6 @@
 export const LEGACY_SOCIAL_ARENA_MODULES = new Set([
   "@/lib/trading-arena",
   "@/lib/trading-journal",
-  "@/lib/trading-dna",
   "@/lib/community-leaderboard",
   "@/lib/community-profile",
 ]);
