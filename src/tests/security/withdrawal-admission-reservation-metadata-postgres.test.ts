@@ -57,28 +57,31 @@ async function cleanup(input: {
   });
 }
 
-describe("Terminal withdrawal reservation metadata", () => {
-  for (const terminalState of ["rejected", "blocked"] as const) {
+describe("Pre-broadcast withdrawal transition authority", () => {
+  for (const terminalState of ["approved", "rejected", "blocked"] as const) {
     it(
-      `${terminalState} clears funds_reserved_at in PostgreSQL`,
+      `rejects a direct ${terminalState} transition without Admin action and receipt`,
       { skip: !integrationConfigured, timeout: 30_000 },
       async () => {
-        const userId = `withdraw-terminal-${terminalState}-${randomUUID()}`;
+        const userId = `withdraw-direct-${terminalState}-${randomUUID()}`;
         const withdrawalId = randomUUID().replaceAll("-", "").slice(0, 32);
         try {
           await seedReservedWithdrawal({ withdrawalId, userId });
-          const updated = await withDb(async (client) => {
-            await client.query(
-              "UPDATE withdrawals SET state = $1 WHERE id = $2 AND user_id = $3",
-              [terminalState, withdrawalId, userId],
-            );
-            return true;
-          });
-          assert.equal(updated.enabled, true);
+          await assert.rejects(
+            () =>
+              withDb(async (client) => {
+                await client.query(
+                  "UPDATE withdrawals SET state = $1 WHERE id = $2 AND user_id = $3",
+                  [terminalState, withdrawalId, userId],
+                );
+                return true;
+              }),
+            /withdrawal pre-broadcast transition authority is missing/,
+          );
 
           const evidence = await readWithdrawal({ withdrawalId, userId });
-          assert.equal(evidence?.state, terminalState);
-          assert.equal(evidence?.funds_reserved_at, null);
+          assert.equal(evidence?.state, "compliance_review");
+          assert.ok(evidence?.funds_reserved_at instanceof Date);
         } finally {
           await cleanup({ withdrawalId, userId });
         }
@@ -90,7 +93,7 @@ describe("Terminal withdrawal reservation metadata", () => {
     "rejects a direct cancelled transition without the canonical receipt and release evidence",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
-      const userId = `withdraw-terminal-cancelled-${randomUUID()}`;
+      const userId = `withdraw-direct-cancelled-${randomUUID()}`;
       const withdrawalId = randomUUID().replaceAll("-", "").slice(0, 32);
       try {
         await seedReservedWithdrawal({ withdrawalId, userId });
