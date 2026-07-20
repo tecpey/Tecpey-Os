@@ -43,6 +43,24 @@ function auditMetadataBlock(route: string): string {
   return block;
 }
 
+function auditMetadataBlocks(sourceText: string): string[] {
+  const blocks: string[] = [];
+  let cursor = 0;
+  while (cursor < sourceText.length) {
+    const auditStart = sourceText.indexOf("writeSensitiveMutationAuditTx(", cursor);
+    if (auditStart < 0) break;
+    const metadataStart = sourceText.indexOf("metadata:", auditStart);
+    assert.ok(metadataStart > auditStart, "strict audit metadata must exist");
+    const objectStart = sourceText.indexOf("{", metadataStart);
+    assert.ok(objectStart > metadataStart, "strict audit metadata object must exist");
+    const block = balancedObject(sourceText, objectStart);
+    assert.ok(block, "strict audit metadata object must be statically bounded");
+    blocks.push(block);
+    cursor = objectStart + block.length;
+  }
+  return blocks;
+}
+
 function storedKeyPattern(names: string[]): RegExp {
   return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`);
 }
@@ -104,5 +122,67 @@ describe("Sensitive mutation route audit boundaries", () => {
       storedKeyPattern(["primaryGoal", "weakAreas", "strongAreas"]),
     );
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+  });
+
+  it("keeps API key creation bound to a server-derived principal while the service owns audit", async () => {
+    const route = await source("src/app/api/api-keys/route.ts");
+    const authority = await source("src/lib/security/api-keys.ts");
+
+    assert.match(route, /getCanonicalSession\(req\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /createApiKey\(\{/);
+    assert.match(route, /userId,/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+
+    assert.match(authority, /resolveApiKeyAuditContext/);
+    assert.match(authority, /PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(authority, /hashSensitiveAuditRequest/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+  });
+
+  it("keeps API key lifecycle principal-scoped and suppresses migrated compatibility projections", async () => {
+    const route = await source("src/app/api/api-keys/[id]/route.ts");
+    const authority = await source("src/lib/security/api-keys.ts");
+    const legacyAudit = await source("src/lib/security/audit-log.ts");
+
+    assert.match(route, /getCanonicalSession\(req\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /setApiKeyActive\(keyId, userId/);
+    assert.match(route, /rotateApiKey\(keyId, userId/);
+    assert.match(route, /deleteApiKey\(keyId, userId/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+
+    assert.match(authority, /withTx\(async \(client\)/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+    for (const action of [
+      "api_key.create",
+      "api_key.enable",
+      "api_key.disable",
+      "api_key.rotate",
+      "api_key.delete",
+    ]) {
+      assert.match(authority, new RegExp(action.replace(".", "\\.")));
+    }
+    assert.match(authority, /credentialFingerprint/);
+
+    const metadataBlocks = auditMetadataBlocks(authority);
+    assert.equal(metadataBlocks.length, 4);
+    for (const metadata of metadataBlocks) {
+      assert.doesNotMatch(metadata, storedKeyPattern(["plaintext", "key_hash"]));
+    }
+
+    assert.match(legacyAudit, /TRANSACTIONALLY_MIGRATED_ACTIONS/);
+    for (const action of [
+      "api_key_created",
+      "api_key_rotated",
+      "api_key_disabled",
+      "api_key_deleted",
+    ]) {
+      assert.match(legacyAudit, new RegExp(`"${action}"`));
+    }
+    assert.match(
+      legacyAudit,
+      /if \(TRANSACTIONALLY_MIGRATED_ACTIONS\.has\(event\.action\)\) return/,
+    );
   });
 });
