@@ -5,6 +5,14 @@ import { logger } from "./logger";
 const FILENAME = "0038_exchange_order_final_evidence_gate.sql";
 
 export const EXCHANGE_ORDER_FINAL_EVIDENCE_GATE_SQL = `
+DROP TRIGGER IF EXISTS exchange_order_final_evidence
+  ON order_events;
+CREATE CONSTRAINT TRIGGER exchange_order_final_evidence
+  AFTER INSERT ON order_events
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  EXECUTE FUNCTION tecpey_append_exchange_order_final_evidence();
+
 CREATE OR REPLACE FUNCTION tecpey_require_exchange_order_final_evidence()
 RETURNS trigger
 LANGUAGE plpgsql
