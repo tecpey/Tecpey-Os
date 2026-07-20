@@ -20,6 +20,48 @@ function assertExactFields(value, allowed, label) {
   }
 }
 
+function assertRegistryShape(registry, label) {
+  if (!registry || typeof registry !== "object" || Array.isArray(registry)) {
+    throw new Error(`${label}_invalid`);
+  }
+  if (registry.schemaVersion !== 1) {
+    throw new Error(`${label}_schema_invalid`);
+  }
+  if (!/^[0-9a-f]{40}$/.test(registry.baselineBlobSha ?? "")) {
+    throw new Error(`${label}_baseline_sha_invalid`);
+  }
+  if (!Array.isArray(registry.entries)) {
+    throw new Error(`${label}_entries_invalid`);
+  }
+}
+
+export function mergeReviewedManifestDeltaRegistries({ primary, shards = [] }) {
+  assertRegistryShape(primary, "api_security_manifest_delta_registry");
+  if (!Array.isArray(shards)) {
+    throw new Error("api_security_manifest_delta_shards_invalid");
+  }
+
+  const entries = [...primary.entries];
+  for (const [index, shardRecord] of shards.entries()) {
+    const name = shardRecord?.name ?? `index-${index}`;
+    const shard = shardRecord?.registry;
+    assertRegistryShape(shard, `api_security_manifest_delta_shard:${name}`);
+    if (shard.schemaVersion !== primary.schemaVersion) {
+      throw new Error(`api_security_manifest_delta_shard_schema_mismatch:${name}`);
+    }
+    if (shard.baselineBlobSha !== primary.baselineBlobSha) {
+      throw new Error(`api_security_manifest_delta_shard_baseline_mismatch:${name}`);
+    }
+    entries.push(...shard.entries);
+  }
+
+  return {
+    schemaVersion: primary.schemaVersion,
+    baselineBlobSha: primary.baselineBlobSha,
+    entries,
+  };
+}
+
 export function gitBlobSha(raw) {
   const bytes = Buffer.from(raw, "utf8");
   return createHash("sha1")
@@ -33,12 +75,7 @@ function operationKey(route, method) {
 }
 
 export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry }) {
-  if (!registry || registry.schemaVersion !== 1 || !Array.isArray(registry.entries)) {
-    throw new Error("api_security_manifest_delta_registry_invalid");
-  }
-  if (!/^[0-9a-f]{40}$/.test(registry.baselineBlobSha ?? "")) {
-    throw new Error("api_security_manifest_delta_baseline_sha_invalid");
-  }
+  assertRegistryShape(registry, "api_security_manifest_delta_registry");
 
   const actualBaselineSha = gitBlobSha(baselineRaw);
   if (actualBaselineSha !== registry.baselineBlobSha) {

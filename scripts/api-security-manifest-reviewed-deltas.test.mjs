@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   applyReviewedManifestDeltas,
   gitBlobSha,
+  mergeReviewedManifestDeltaRegistries,
 } from "./api-security-manifest-reviewed-deltas.mjs";
 
 function fixture() {
@@ -37,6 +38,62 @@ function fixture() {
   };
   return { baseline, baselineRaw, registry, replacement };
 }
+
+describe("reviewed API security manifest delta registries", () => {
+  it("merges additive shard entries without mutating the primary registry", () => {
+    const value = fixture();
+    const primary = { ...value.registry, entries: [] };
+    const shard = structuredClone(value.registry);
+    const result = mergeReviewedManifestDeltaRegistries({
+      primary,
+      shards: [{ name: "0161-example.json", registry: shard }],
+    });
+
+    assert.equal(result.entries.length, 1);
+    assert.deepEqual(result.entries[0], value.registry.entries[0]);
+    assert.equal(primary.entries.length, 0);
+    assert.equal(shard.entries.length, 1);
+  });
+
+  it("rejects a shard with a different schema", () => {
+    const value = fixture();
+    const shard = structuredClone(value.registry);
+    shard.schemaVersion = 2;
+    assert.throws(
+      () => mergeReviewedManifestDeltaRegistries({
+        primary: value.registry,
+        shards: [{ name: "invalid-schema.json", registry: shard }],
+      }),
+      /shard:invalid-schema\.json_schema_invalid/,
+    );
+  });
+
+  it("rejects a shard pinned to a different immutable baseline", () => {
+    const value = fixture();
+    const shard = structuredClone(value.registry);
+    shard.baselineBlobSha = "0".repeat(40);
+    assert.throws(
+      () => mergeReviewedManifestDeltaRegistries({
+        primary: value.registry,
+        shards: [{ name: "invalid-baseline.json", registry: shard }],
+      }),
+      /shard_baseline_mismatch:invalid-baseline\.json/,
+    );
+  });
+
+  it("rejects a shard without an exact entries array", () => {
+    const value = fixture();
+    const shard = structuredClone(value.registry);
+    delete shard.entries;
+    assert.throws(
+      () => mergeReviewedManifestDeltaRegistries({
+        primary: value.registry,
+        shards: [{ name: "missing-entries.json", registry: shard }],
+      }),
+      /shard:missing-entries\.json_entries_invalid/,
+    );
+  });
+});
 
 describe("reviewed API security manifest deltas", () => {
   it("applies one exact reviewed replacement without mutating the baseline", () => {
