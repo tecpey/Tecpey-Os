@@ -27,8 +27,9 @@ export type ExactSettlementInput = {
 };
 
 /**
- * Settle one exact fill inside the caller's matching transaction. Fee debits
- * are conserved by one combined platform credit with the same trade identity.
+ * Settle one exact fill inside the caller's matching transaction. Participant
+ * fees are explicit debits and their sum is one platform credit with the same
+ * trade identity, preserving quote-asset conservation.
  */
 export async function settleExactTradeTx(
   client: PoolClient,
@@ -83,7 +84,7 @@ export async function settleExactTradeTx(
     client,
     input.sellerUserId,
     input.quoteAsset,
-    input.amounts.sellerQuoteNet,
+    input.amounts.quoteGross,
     input.tradeId,
   );
   if (isPositiveAmount(input.amounts.sellerFee)) {
