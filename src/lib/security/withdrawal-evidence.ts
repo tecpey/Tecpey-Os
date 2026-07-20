@@ -33,7 +33,7 @@ export type WithdrawalEvidenceResource = Extract<
 
 function fingerprint(domain: string, value: string): string {
   return createHash("sha256")
-    .update(`tecpey-${domain}-v1\0`)
+    .update(`tecpey:${domain}:v1\u001f`)
     .update(value)
     .digest("hex");
 }
@@ -57,7 +57,7 @@ export function fingerprintWithdrawalDestination(input: {
 }): string {
   return fingerprint(
     "withdrawal-destination",
-    `${input.network.trim().toUpperCase()}\0${input.destinationAddress.trim()}\0${
+    `${input.network.trim().toLowerCase()}\u001f${input.destinationAddress.trim()}\u001f${
       input.destinationTag?.trim() ?? ""
     }`,
   );
@@ -72,7 +72,7 @@ export function fingerprintWithdrawalRoleSet(roles: string[]): string {
     "withdrawal-admin-role-set",
     [...new Set(roles.map((role) => role.trim()).filter(Boolean))]
       .sort()
-      .join("\0"),
+      .join("\u001f"),
   );
 }
 
