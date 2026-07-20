@@ -38,6 +38,7 @@ describe("Exchange Decimal matching source authority", () => {
     for (const target of ["engine", "book", "recovery", "financials", "settlement", "orderFill", "trade"] as const) {
       assertAbsent(target, /\bparseFloat\s*\(/, "parseFloat is forbidden");
       assertAbsent(target, /\.toNumber\s*\(/, "Decimal.toNumber is forbidden");
+      assertAbsent(target, /\.isPositive\s*\(/, "Decimal positive-zero checks are forbidden; use gt(0)");
       assertAbsent(target, /\b1e-\d+\b/, "epsilon decisions are forbidden");
     }
     for (const target of ["engine", "book", "recovery", "financials", "settlement", "orderFill", "trade"] as const) {
