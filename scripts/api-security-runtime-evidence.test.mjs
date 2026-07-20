@@ -18,6 +18,7 @@ describe("handler runtime security evidence", () => {
       import { getCanonicalSession } from "@/lib/auth-session";
       import { verifyCsrfOrigin } from "@/lib/csrf";
       import { writeAudit } from "@/lib/security/audit-log";
+      import { writeSensitiveMutationAuditTx } from "@/lib/security/sensitive-mutation-audit";
       import { apiError } from "@/lib/api-validation";
       export async function POST() { return new Response("ok"); }
     `;
@@ -31,7 +32,7 @@ describe("handler runtime security evidence", () => {
     const source = `
       export async function POST(req) {
         // verifyCsrfOrigin(req); getCanonicalSession(req); writeAudit({});
-        /* apiError("failed", 500); verifyInternalRequest(req); */
+        /* writeSensitiveMutationAuditTx(client, {}); apiError("failed", 500); */
         return new Response("ok");
       }
     `;
@@ -43,12 +44,15 @@ describe("handler runtime security evidence", () => {
     assert.equal(detectServiceIdentityEvidence(source), false);
   });
 
-  it("recognizes actual principal, CSRF, audit and redaction calls", () => {
+  it("recognizes actual principal, CSRF, strict audit and redaction calls", () => {
     const source = `
       export async function POST(req) {
         if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
         const session = await getCanonicalSession(req, { strictRevocation: true });
-        await writeAudit({ actorId: session.userId });
+        await writeSensitiveMutationAuditTx(client, {
+          actorId: session.userId,
+          requestHash: hash,
+        });
         return apiOk({ ok: true });
       }
     `;
