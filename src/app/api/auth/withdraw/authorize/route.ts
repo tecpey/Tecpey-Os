@@ -4,6 +4,7 @@ import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
+import { PLATFORM } from "@/lib/platform-config";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import {
   claimApiCommandTx,
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
       if (!canonical.ok) return apiError(canonical.reason, 400);
 
       const receiptScope: ApiCommandScope = {
+        tenantId: PLATFORM.DEFAULT_TENANT_ID,
         principalType: "user",
         principalId: userId,
         operation: "withdrawal.authorize",
