@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# generated local QA and audit evidence
+/.artifacts/
+
 # next.js
 /.next/
 /out/
