@@ -46,6 +46,37 @@ BEGIN
       'legacy exchange order commands require explicit reconciliation before enabling transactional order evidence'
       USING ERRCODE = '55000';
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM exchange_order_commands command
+      LEFT JOIN sensitive_mutation_audit_events evidence
+        ON evidence.tenant_id = command.tenant_id
+       AND evidence.actor_type = 'service'
+       AND evidence.actor_id = 'exchange-order-worker'
+       AND evidence.action = CASE
+         WHEN COALESCE((command.result->>'accepted')::boolean, false)
+           THEN 'exchange.order.finalize'
+         ELSE 'exchange.order.reject'
+       END
+       AND evidence.resource_type = 'exchange_order'
+       AND evidence.resource_id = 'exchange-order-' || encode(
+         sha256(
+           convert_to(
+             'tecpey:exchange-order:v1' || chr(31) || command.order_id::text,
+             'UTF8'
+           )
+         ),
+         'hex'
+       )
+       AND evidence.request_hash = command.request_hash
+     WHERE command.state = 'final'
+       AND evidence.id IS NULL
+  ) THEN
+    RAISE EXCEPTION
+      'legacy final exchange order commands require explicit final evidence reconciliation'
+      USING ERRCODE = '55000';
+  END IF;
 END;
 $$;
 
@@ -139,12 +170,197 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION tecpey_append_exchange_order_final_evidence()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  authority RECORD;
+  action_value TEXT;
+  accepted_value BOOLEAN;
+  reason_value TEXT;
+  correlation_value TEXT;
+  resource_value TEXT;
+  market_value TEXT;
+  trade_count_value BIGINT;
+  trade_ids_value TEXT;
+  trade_fingerprint_value TEXT;
+  hold_closed_value BOOLEAN;
+  hold_residual_value NUMERIC;
+BEGIN
+  IF NEW.event_type NOT IN (
+    'OrderAccepted',
+    'OrderPartiallyFilled',
+    'OrderFilled',
+    'OrderExpired',
+    'OrderRejected'
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT command.id AS command_id,
+         command.tenant_id,
+         command.user_id,
+         command.request_hash,
+         command.hold_asset,
+         orders.market,
+         orders.side,
+         orders.type,
+         orders.time_in_force,
+         orders.quantity::text AS quantity,
+         orders.price::text AS price,
+         orders.stop_price::text AS stop_price,
+         orders.status
+    INTO authority
+    FROM exchange_order_commands command
+    JOIN orders ON orders.id = command.order_id
+   WHERE command.order_id = NEW.order_id
+   FOR SHARE OF command, orders;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'exchange order final evidence authority missing'
+      USING ERRCODE = '55000';
+  END IF;
+
+  SELECT COUNT(*)::bigint,
+         string_agg(trades.id::text, chr(10) ORDER BY trades.executed_at, trades.id)
+    INTO trade_count_value, trade_ids_value
+    FROM trades
+   WHERE trades.buyer_order_id = NEW.order_id
+      OR trades.seller_order_id = NEW.order_id;
+
+  IF trade_count_value > 10000 THEN
+    RAISE EXCEPTION 'exchange order final evidence trade count exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+
+  accepted_value := authority.status IN ('NEW', 'PARTIALLY_FILLED', 'FILLED')
+    OR trade_count_value > 0;
+  action_value := CASE
+    WHEN accepted_value THEN 'exchange.order.finalize'
+    ELSE 'exchange.order.reject'
+  END;
+  reason_value := CASE
+    WHEN accepted_value THEN NULL
+    WHEN NEW.payload->>'reason' IS NOT NULL THEN left(NEW.payload->>'reason', 100)
+    WHEN NEW.event_type = 'OrderRejected' THEN 'order_rejected'
+    ELSE 'order_expired'
+  END;
+  IF reason_value IS NOT NULL
+    AND reason_value !~ '^[a-z0-9][a-z0-9._:-]{0,99}$'
+  THEN
+    RAISE EXCEPTION 'invalid exchange order final evidence reason'
+      USING ERRCODE = '22023';
+  END IF;
+
+  hold_closed_value := authority.status IN ('FILLED', 'CANCELLED', 'EXPIRED', 'REJECTED');
+  IF hold_closed_value THEN
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN ledger.type = 'hold' THEN ledger.amount
+        WHEN ledger.type = 'release' THEN -ledger.amount
+        ELSE 0
+      END
+    ), 0)
+      INTO hold_residual_value
+      FROM wallet_ledger ledger
+     WHERE ledger.wallet_id = authority.user_id
+       AND ledger.asset = upper(authority.hold_asset)
+       AND ledger.reference_type = 'order'
+       AND ledger.reference_id = NEW.order_id::text;
+    IF hold_residual_value <> 0 THEN
+      RAISE EXCEPTION 'exchange order final evidence hold is not closed'
+        USING ERRCODE = '55000';
+    END IF;
+  END IF;
+
+  resource_value := 'exchange-order-' || encode(
+    sha256(
+      convert_to(
+        'tecpey:exchange-order:v1' || chr(31) || NEW.order_id::text,
+        'UTF8'
+      )
+    ),
+    'hex'
+  );
+  market_value := 'exchange-market-' || encode(
+    sha256(
+      convert_to(
+        'tecpey:exchange-market:v1' || chr(31) || upper(authority.market),
+        'UTF8'
+      )
+    ),
+    'hex'
+  );
+  correlation_value := replace(action_value, '.', '-') || '-' || substring(
+    encode(
+      sha256(
+        convert_to(
+          'tecpey:' || action_value || ':v1' || chr(31) ||
+          authority.tenant_id || ':' || authority.command_id::text || ':' || authority.request_hash,
+          'UTF8'
+        )
+      ),
+      'hex'
+    ),
+    1,
+    48
+  );
+  trade_fingerprint_value := CASE
+    WHEN trade_count_value > 0 THEN encode(
+      sha256(
+        convert_to(
+          'tecpey:trade-set:v1' || chr(31) || COALESCE(trade_ids_value, ''),
+          'UTF8'
+        )
+      ),
+      'hex'
+    )
+    ELSE NULL
+  END;
+
+  INSERT INTO sensitive_mutation_audit_events
+    (tenant_id, actor_type, actor_id, action, resource_type, resource_id,
+     outcome, correlation_id, request_hash, metadata)
+  VALUES
+    (authority.tenant_id, 'service', 'exchange-order-worker', action_value,
+     'exchange_order', resource_value,
+     CASE WHEN accepted_value THEN 'success' ELSE 'rejected' END,
+     correlation_value, authority.request_hash,
+     jsonb_build_object(
+       'policyVersion', 'exchange-order-evidence-v1',
+       'marketFingerprint', market_value,
+       'side', authority.side,
+       'orderType', authority.type,
+       'timeInForce', authority.time_in_force,
+       'quantity', authority.quantity,
+       'price', authority.price,
+       'stopPrice', authority.stop_price,
+       'finalState', authority.status,
+       'accepted', accepted_value,
+       'reasonCode', reason_value,
+       'tradeCount', trade_count_value,
+       'tradeSetFingerprint', trade_fingerprint_value,
+       'holdClosed', hold_closed_value
+     ));
+
+  RETURN NEW;
+END;
+$$;
+
 DROP TRIGGER IF EXISTS exchange_order_command_admission_evidence
   ON exchange_order_commands;
 CREATE TRIGGER exchange_order_command_admission_evidence
   AFTER INSERT ON exchange_order_commands
   FOR EACH ROW
   EXECUTE FUNCTION tecpey_append_exchange_order_admission_evidence();
+
+DROP TRIGGER IF EXISTS exchange_order_final_evidence
+  ON order_events;
+CREATE TRIGGER exchange_order_final_evidence
+  AFTER INSERT ON order_events
+  FOR EACH ROW
+  EXECUTE FUNCTION tecpey_append_exchange_order_final_evidence();
 `;
 
 function checksum(sql: string): string {
