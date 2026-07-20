@@ -8,6 +8,12 @@ const integrationConfigured = Boolean(
   databaseUrl && !databaseUrl.includes("CHANGE_ME"),
 );
 
+const DIRECT_ADMIN_TRANSITION_TEST_TITLES = {
+  approved: "rejects a direct approved transition without Admin action and receipt",
+  rejected: "rejects a direct rejected transition without Admin action and receipt",
+  blocked: "rejects a direct blocked transition without Admin action and receipt",
+} as const;
+
 async function seedReservedWithdrawal(input: {
   withdrawalId: string;
   userId: string;
@@ -60,7 +66,7 @@ async function cleanup(input: {
 describe("Pre-broadcast withdrawal transition authority", () => {
   for (const terminalState of ["approved", "rejected", "blocked"] as const) {
     it(
-      `rejects a direct ${terminalState} transition without Admin action and receipt`,
+      DIRECT_ADMIN_TRANSITION_TEST_TITLES[terminalState],
       { skip: !integrationConfigured, timeout: 30_000 },
       async () => {
         const userId = `withdraw-direct-${terminalState}-${randomUUID()}`;
