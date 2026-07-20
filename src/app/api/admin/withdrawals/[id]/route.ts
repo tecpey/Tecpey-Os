@@ -3,7 +3,7 @@ import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   hashApiCommand,
   parseApiIdempotencyKey,
@@ -13,6 +13,11 @@ import {
   adminActOnAuthoritativeWithdrawal,
   type AuthoritativeAdminWithdrawalAction,
 } from "@/lib/security/withdrawal-admin-authority";
+import {
+  fingerprintWithdrawalReviewReason,
+  fingerprintWithdrawalRoleSet,
+  fingerprintWithdrawalSession,
+} from "@/lib/security/withdrawal-evidence";
 import {
   notifyWithdrawalApproved,
   notifyWithdrawalRejected,
@@ -35,6 +40,8 @@ const ACTION_PERMISSION: Record<AuthoritativeAdminWithdrawalAction, string> = {
   block: "withdrawals.hold",
   flag_review: "withdrawals.hold",
 };
+
+const ADMIN_STEP_UP_SECONDS = 300;
 
 function validWithdrawalId(value: string): boolean {
   return /^[a-f0-9]{32}(?:-r[1-4])?$/i.test(value);
@@ -104,10 +111,11 @@ export async function POST(
     );
     if (!idempotencyKey) return apiError("idempotency_key_required", 400);
 
+    const permission = ACTION_PERMISSION[action];
     const authorization = await authorizeAdminRequest(
       req,
-      ACTION_PERMISSION[action],
-      { stepUpWithinSeconds: 300 },
+      permission,
+      { stepUpWithinSeconds: ADMIN_STEP_UP_SECONDS },
     );
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
@@ -124,8 +132,6 @@ export async function POST(
       action,
       notes: notes ?? null,
     });
-    const ip = getClientIp(req);
-    const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const result = await adminActOnAuthoritativeWithdrawal({
       withdrawalId: id,
       adminId: authorization.principal.adminId,
@@ -133,11 +139,18 @@ export async function POST(
       notes,
       idempotencyKey,
       requestHash,
-      metadata: {
-        ip,
-        userAgent,
-        sessionId: authorization.principal.sessionId,
-        roles: authorization.principal.roles,
+      authorizationEvidence: {
+        permission,
+        stepUpWithinSeconds: ADMIN_STEP_UP_SECONDS,
+        roleSetFingerprint: fingerprintWithdrawalRoleSet(
+          authorization.principal.roles,
+        ),
+        sessionEvidenceFingerprint: fingerprintWithdrawalSession(
+          authorization.principal.sessionId,
+        ),
+        reviewReasonFingerprint: notes
+          ? fingerprintWithdrawalReviewReason(notes)
+          : null,
       },
     });
 
@@ -172,7 +185,7 @@ export async function POST(
         actioned: true,
         replayed: result.replayed,
         action,
-        withdrawalId: id,
+        withdrawalId: result.withdrawalId,
         state: result.state,
       },
       200,
