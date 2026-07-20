@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "issue": 168,
+  "baseCommit": "8acf086c3db273efe095251941b929e63d2679e7",
+  "policy": {
+    "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
+    "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
+    "legacyMigrationRule": "legacy browser records may be displayed as unverified preview but may not be promoted to durable truth"
+  },
+  "legacyModules": [
+    {
+      "module": "@/lib/trading-arena",
+      "source": "src/lib/trading-arena.ts",
+      "classification": "quarantined-legacy-authority",
+      "reason": "localStorage state, browser-generated IDs/timestamps/slippage/PnL and scenario completion"
+    },
+    {
+      "module": "@/lib/trading-journal",
+      "source": "src/lib/trading-journal.ts",
+      "classification": "quarantined-legacy-authority",
+      "reason": "browser-owned journal records and completion rate"
+    },
+    {
+      "module": "@/lib/community-profile",
+      "source": "src/lib/community-profile.ts",
+      "classification": "preview-ui-preference",
+      "reason": "browser-owned profile/privacy preferences cannot authorize real data sharing"
+    },
+    {
+      "module": "@/lib/community-challenges",
+      "source": "src/lib/community-challenges.ts",
+      "classification": "preview-only",
+      "reason": "browser-owned participation, completion and score"
+    },
+    {
+      "module": "@/lib/community-leaderboard",
+      "source": "src/lib/community-leaderboard.ts",
+      "classification": "preview-only",
+      "reason": "browser-computed score and simulated peers"
+    },
+    {
+      "module": "@/lib/trading-dna",
+      "source": "src/lib/trading-dna.ts",
+      "classification": "pure-server-input-scoring",
+      "reason": "contains scoring primitives only; browser collection is disabled and callers must supply verified server-derived signals"
+    },
+    {
+      "module": "@/lib/smart-review",
+      "source": "src/lib/smart-review.ts",
+      "classification": "server-migration-placeholder",
+      "reason": "must not personalize Mentor from browser persistence"
+    }
+  ],
+  "consumers": [
+    {
+      "path": "src/components/academy/v2/MentorV2.tsx",
+      "classification": "migrate-now",
+      "allowedAuthority": "server behavioral snapshot only"
+    },
+    {
+      "path": "src/components/academy/v2/LearningInsightsDashboard.tsx",
+      "classification": "migrate-now",
+      "allowedAuthority": "hydrated server progress and behavioral snapshot only"
+    },
+    {
+      "path": "src/components/academy/community/InstructorDashboard.tsx",
+      "classification": "migrate-now",
+      "allowedAuthority": "self-view of server behavioral snapshot; instructor sharing disabled until server consent authority"
+    },
+    {
+      "path": "src/components/academy/community/ChallengeCenter.tsx",
+      "classification": "migrate-now",
+      "allowedAuthority": "challenge catalogue preview; no official completion or score"
+    },
+    {
+      "path": "src/components/academy/community/LeaderboardView.tsx",
+      "classification": "preview-only",
+      "allowedAuthority": "simulated/demo presentation only"
+    },
+    {
+      "path": "src/components/academy/community/CommunityHub.tsx",
+      "classification": "preview-only",
+      "allowedAuthority": "navigation and explicitly simulated content only"
+    },
+    {
+      "path": "src/components/academy/community/PeerJournals.tsx",
+      "classification": "preview-only",
+      "allowedAuthority": "no official journal evidence"
+    },
+    {
+      "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
+      "classification": "historical-ui",
+      "allowedAuthority": "not mounted by primary Arena route"
+    },
+    {
+      "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx",
+      "classification": "historical-ui",
+      "allowedAuthority": "not mounted by production scenario route"
+    },
+    {
+      "path": "src/lib/trading-scenarios.ts",
+      "classification": "type-only-migration-debt",
+      "allowedAuthority": "static scenario definitions only"
+    }
+  ],
+  "protectedAuthoritySurfaces": [
+    "src/lib/mentor-memory.ts",
+    "src/lib/mentor-signals.ts",
+    "src/lib/behavioral-engine.ts",
+    "src/lib/coaching-engine.ts",
+    "src/components/academy/v2/MentorV2.tsx",
+    "src/components/academy/v2/LearningInsightsDashboard.tsx",
+    "src/components/academy/community/InstructorDashboard.tsx",
+    "src/components/academy/community/ChallengeCenter.tsx"
+  ],
+  "forbiddenClientOfficialFields": [
+    "score",
+    "disciplineScore",
+    "pnl",
+    "pnlPct",
+    "realizedPnl",
+    "id",
+    "evidenceId",
+    "tradeId",
+    "createdAt",
+    "completedAt",
+    "timestamp",
+    "completed",
+    "completionStatus"
+  ]
+}
