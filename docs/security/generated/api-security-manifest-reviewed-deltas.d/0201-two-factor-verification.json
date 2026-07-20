@@ -47,9 +47,7 @@
           "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
         },
         "domainOwner": "auth",
-        "testReferences": [
-          "src/tests/security/two-factor-verification-authority-postgres.test.ts"
-        ],
+        "testReferences": [],
         "requirements": {
           "csrf": true,
           "strictRevocation": true,
