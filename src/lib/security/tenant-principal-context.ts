@@ -1,6 +1,6 @@
 import { withDb } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
-import type { UnifiedSessionContext } from "@/lib/unified-session";
+import type { CanonicalSession } from "@/lib/auth-session";
 import { resolvePlatformContext } from "@/lib/tenant-service";
 
 export type TenantPrincipalType =
@@ -53,7 +53,7 @@ type BindingRow = {
 };
 
 function sessionPrincipal(
-  session: UnifiedSessionContext,
+  session: CanonicalSession,
   requiredType: TenantPrincipalType,
 ): string | null {
   if (requiredType === "student") return session.studentId ?? null;
@@ -157,7 +157,7 @@ export async function resolveBoundTenantPrincipal(input: {
 }
 
 export async function resolveTenantPrincipalContext(input: {
-  session: UnifiedSessionContext;
+  session: CanonicalSession;
   requiredPrincipalType: Exclude<TenantPrincipalType, "service">;
   scopes: string[];
   requestId: string;
@@ -179,7 +179,7 @@ export async function resolveTenantPrincipalContext(input: {
         : null,
     roles: platform.roles,
     scopes: input.scopes,
-    membershipId: platform.membershipId,
+    membershipId: platform.membership?.id ?? null,
     requestId: input.requestId,
   });
 }
