@@ -13,6 +13,7 @@ import { runCrmLeadMigrations } from "./db-migrate-crm-leads";
 import { runCrmLeadHardeningMigrations } from "./db-migrate-crm-leads-hardening";
 import { runAcademyProgressHardeningMigrations } from "./db-migrate-academy-progress-hardening";
 import { runExchangeOrderAdmissionMigrations } from "./db-migrate-exchange-order-admission";
+import { runExchangeOrderEvidenceMigrations } from "./db-migrate-exchange-order-evidence";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
 import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
@@ -46,6 +47,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runWithdrawalSettlementMigrations(client);
   await runApiCommandIdempotencyMigrations(client);
   await runSensitiveMutationAuditMigrations(client);
+  await runExchangeOrderEvidenceMigrations(client);
   await runSessionAuthorityMigrations(client);
   await runSessionLegacyFallbackMigrations(client);
   await runAiMentorTrustMigrations(client);
