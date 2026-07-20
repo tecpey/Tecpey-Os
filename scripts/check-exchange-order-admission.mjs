@@ -3,6 +3,7 @@ import fs from "node:fs";
 const read = (path) => fs.readFileSync(path, "utf8");
 const route = read("src/app/api/orders/route.ts");
 const cancelRoute = read("src/app/api/orders/[id]/route.ts");
+const cancelAuthority = read("src/lib/trading/order-cancel-authority.ts");
 const validation = read("src/lib/trading/validation.ts");
 const financials = read("src/lib/trading/order-financials.ts");
 const wallet = read("src/lib/trading/wallet-service.ts");
@@ -20,6 +21,7 @@ const pureTest = read("src/tests/trading/order-admission.test.ts");
 const commandTest = read("src/tests/security/exchange-order-command.test.ts");
 const postgresHoldTest = read("src/tests/trading/order-admission-postgres.test.ts");
 const postgresAuthorityTest = read("src/tests/security/exchange-order-authority-postgres.test.ts");
+const cancelIdempotencyTest = read("src/tests/security/exchange-order-cancel-idempotency-postgres.test.ts");
 const orderBookAuthorityTest = read("src/tests/security/exchange-order-book-authority.test.ts");
 const feeSettlementTest = read("src/tests/security/exchange-order-fee-settlement.test.ts");
 const marketProtectionTest = read("src/tests/security/exchange-order-market-protection.test.ts");
@@ -51,10 +53,27 @@ for (const [text, message] of [
   ['body.stopPrice !== undefined && typeof body.stopPrice !== "string"', "stopPrice must be supplied as an exact JSON string"],
 ]) requireText(route, text, message);
 
-requireText(cancelRoute, "getCanonicalSession(req, { strictRevocation: true })", "order cancellation must require strict revocation authority");
-requireText(cancelRoute, "getMatchingEngine().cancelOrder", "cancellation must enter the matching ownership boundary");
-requireText(cancelRoute, "retryable: true", "ambiguous cancellation failures must be explicitly retryable");
-requireText(cancelRoute, "order_processing", "cancellation must not race a non-final admission command");
+for (const [text, message] of [
+  ["getCanonicalSession(req, { strictRevocation: true })", "order cancellation must require strict revocation authority"],
+  ["cancelOrderIdempotently", "cancellation must delegate to the durable idempotent authority"],
+  ["parseApiIdempotencyKey", "cancellation must require a validated Idempotency-Key"],
+  ["hashApiCommand", "cancellation must bind an immutable canonical request hash"],
+  ["retryable: true", "ambiguous cancellation failures must be explicitly retryable"],
+  ["order_processing", "cancellation must not race a non-final admission command"],
+  ["Idempotency-Replayed", "cancellation responses must expose exact replay state"],
+]) requireText(cancelRoute, text, message);
+rejectText(cancelRoute, "getMatchingEngine().cancelOrder", "route cancellation may not bypass the durable PostgreSQL authority");
+
+for (const [text, message] of [
+  ["withExchangeMarketExecutionLock", "cancellation must enter the distributed market ownership boundary"],
+  ["claimApiCommandTx", "cancellation must claim a durable tenant/principal-scoped receipt"],
+  ["completeApiCommandTx", "terminal cancellation results must be replayable"],
+  ["releaseOrderHoldResidualTx", "cancellation must release the exact residual hold"],
+  ["assertOrderHoldClosedTx", "cancellation must prove the order hold is closed"],
+  ["persistMissingOrderResult", "terminal order_not_found results must be persisted"],
+  ["idempotency_conflict", "changed-payload key reuse must fail closed"],
+  ["PLATFORM.DEFAULT_TENANT_ID", "cancellation receipts must be tenant scoped"],
+]) requireText(cancelAuthority, text, message);
 
 for (const forbidden of [
   "parseFloat(",
@@ -200,6 +219,11 @@ for (const evidence of [
   "one cross-instance owner for a market critical section",
   "serializes cancellation and closes the remaining hold exactly once",
 ]) requireText(postgresAuthorityTest, evidence, `missing adversarial PostgreSQL evidence: ${evidence}`);
+for (const evidence of [
+  "persists and replays order_not_found",
+  "idempotency_conflict",
+  "api_command_receipts",
+]) requireText(cancelIdempotencyTest, evidence, `missing durable cancellation idempotency evidence: ${evidence}`);
 requireText(orderBookAuthorityTest, "excludes admitted or processing commands", "non-final maker exclusion evidence is required");
 requireText(orderBookAuthorityTest, "getLevels(market, \"buy\").length, 0", "pre-final order-book exclusion assertion is required");
 requireText(feeSettlementTest, "exactly the committed notional plus fee reserve", "real crossing settlement must prove fee-covered admission");
@@ -218,4 +242,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Exchange order admission authority check passed: strict sessions, exact fee-covered financial admission, immutable idempotency, crash recovery, distributed market ownership, locked maker revalidation, final-command maker liquidity and terminal hold closure are enforced.");
+console.log("Exchange order admission authority check passed: strict sessions, exact fee-covered financial admission, immutable placement and cancellation idempotency, crash recovery, distributed market ownership, locked maker revalidation, final-command maker liquidity and terminal hold closure are enforced.");
