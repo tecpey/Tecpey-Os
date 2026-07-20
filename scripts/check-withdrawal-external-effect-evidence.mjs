@@ -7,6 +7,7 @@ const files = {
   authority: "src/lib/security/withdrawal-external-effect-authority.ts",
   schema: "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
   gate: "src/lib/db-migrate-withdrawal-external-effect-gate.ts",
+  gatePatch: "src/lib/db-migrate-withdrawal-external-effect-gate-amount-cast.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   executor: "src/lib/wallet/withdrawal-executor.ts",
   confirmation: "src/lib/wallet/confirmation/engine.ts",
@@ -98,6 +99,13 @@ for (const invariant of [
 ]) {
   requireText("gate", invariant, `missing database transition gate ${invariant}`);
 }
+for (const invariant of [
+  'FILENAME = "0044_withdrawal_external_effect_gate_amount_cast.sql"',
+  "AND amount = NEW.amount::numeric",
+  "patch target is missing",
+]) {
+  requireText("gatePatch", invariant, `missing immutable gate repair ${invariant}`);
+}
 requireText(
   "migrationPlan",
   "runWithdrawalExternalEffectEvidenceMigrations",
@@ -107,6 +115,11 @@ requireText(
   "migrationPlan",
   "runWithdrawalExternalEffectGateMigrations",
   "canonical migration plan must run gate 0043",
+);
+requireText(
+  "migrationPlan",
+  "runWithdrawalExternalEffectGateAmountCastMigrations",
+  "canonical migration plan must run gate repair 0044",
 );
 
 for (const functionName of [
@@ -183,6 +196,21 @@ requireText(
   "settleConfirmedWithdrawal",
   "confirmed settlement must use the canonical transaction authority",
 );
+requireText(
+  "confirmation",
+  "withdrawal_confirmation_monitor_authority_unavailable",
+  "provider observation must stop when monitor evidence cannot commit",
+);
+requireText(
+  "confirmation",
+  'row.state !== "confirming"',
+  "confirmation worker must require committed confirming authority",
+);
+rejectText(
+  "confirmation",
+  '["broadcasted", "confirming"].includes(row.state)',
+  "broadcasted cannot bypass monitor evidence",
+);
 
 requireText(
   "settlement",
@@ -193,6 +221,16 @@ requireText(
   "settlement",
   "completeWithdrawalConfirmationOutbox",
   "settlement must complete confirmation projection in the same transaction",
+);
+requireText(
+  "settlement",
+  'row.state !== "confirming"',
+  "settlement must require committed confirmation authority",
+);
+requireText(
+  "settlement",
+  "expectedTransactionHashFingerprint: transactionFingerprint",
+  "settlement evidence must match the database gate metadata contract",
 );
 requireText(
   "settlementTests",
