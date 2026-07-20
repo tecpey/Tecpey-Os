@@ -94,7 +94,7 @@ describe("Risk enforcement transaction authority", () => {
       const principalId = principal("risk-replay");
       const detectorIdentity = `duplicate:${randomUUID()}`;
       const previousRedis = globalThis.tecpeyRedisClient;
-      globalThis.tecpeyRedisClient = null;
+      globalThis.tecpeyRedisClient = undefined;
       try {
         const first = await recordRiskDecision({
           principalId,
@@ -223,7 +223,7 @@ describe("Risk enforcement transaction authority", () => {
     async () => {
       const principalId = principal("risk-concurrent");
       const previousRedis = globalThis.tecpeyRedisClient;
-      globalThis.tecpeyRedisClient = null;
+      globalThis.tecpeyRedisClient = undefined;
       try {
         const [review, block] = await Promise.all([
           recordRiskDecision({
