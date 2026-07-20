@@ -1,137 +1,100 @@
-# WebAuthn / Passkeys — TecPey Phase 36
+# WebAuthn / Passkeys — TecPey Credential Authority
 
-Zero-dependency native FIDO2 implementation. No `@simplewebauthn` or similar; all crypto via Node.js built-ins.
+TecPey implements the user WebAuthn credential boundary with Node.js cryptography, typed Redis ceremony envelopes and transaction-coupled PostgreSQL evidence.
 
-## Supported Algorithms
+## Supported algorithm
 
-| Algorithm | OID | Support |
-|-----------|-----|---------|
-| ES256 (P-256 ECDSA) | -7 | Full |
-| RS256 (RSA-PKCS1-v1_5) | -257 | Accepted at registration; not yet verified (rare path) |
+| Algorithm | COSE | Status |
+|---|---:|---|
+| ES256 / P-256 ECDSA | `-7` | Supported for registration and authentication |
+| RS256 | `-257` | Not advertised or accepted until a verifier and permanent tests exist |
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/api/auth/webauthn/register/challenge` | Required | Get registration challenge |
-| POST | `/api/auth/webauthn/register/verify` | Required | Verify + store new credential |
-| POST | `/api/auth/webauthn/auth/challenge` | Optional | Get authentication challenge |
-| POST | `/api/auth/webauthn/auth/verify` | None | Verify assertion + issue session |
-| GET | `/api/auth/webauthn/credentials` | Required | List registered credentials |
-| PATCH | `/api/auth/webauthn/credentials/[id]` | Required | Rename credential |
-| DELETE | `/api/auth/webauthn/credentials/[id]` | Required | Revoke credential |
+| Method | Path | Authority | Purpose |
+|---|---|---|---|
+| POST | `/api/auth/webauthn/register/challenge` | Strict authenticated session | Issue registration challenge |
+| POST | `/api/auth/webauthn/register/verify` | Strict authenticated session | Verify and transactionally register credential |
+| POST | `/api/auth/webauthn/auth/challenge` | Public, discoverable-only | Issue non-enumerating authentication challenge |
+| POST | `/api/auth/webauthn/auth/verify` | Public ceremony | Verify assertion and atomically advance credential counter |
+| GET | `/api/auth/webauthn/credentials` | Strict authenticated session | List the current principal's credentials |
+| PATCH | `/api/auth/webauthn/credentials/[id]` | Strict authenticated session | Transactionally rename owned credential |
+| DELETE | `/api/auth/webauthn/credentials/[id]` | Strict authenticated session | Transactionally revoke owned credential |
 
-## Registration Flow
+## Registration contract
 
-```
-Client                                   Server
-  │                                        │
-  ├── POST /register/challenge ──────────►│
-  │                                        ├─ generateChallenge() → 32 random bytes base64url
-  │                                        ├─ storeWebAuthnChallenge(challenge, userId) → Redis TTL 300s
-  │                                        ├─ listCredentials(userId) → excludeCredentials
-  │◄─────────────── {challenge, rp, user, pubKeyCredParams, excludeCredentials} ──┤
-  │                                        │
-  ├── navigator.credentials.create() ─────►│ (browser ↔ authenticator)
-  │                                        │
-  ├── POST /register/verify ────────────►│
-  │   {response: {attestationObject,       │
-  │     clientDataJSON}, deviceName}       ├─ verifyWebAuthnRegistration()
-  │                                        │   ├─ parse clientDataJSON: type=create, origin✓, challenge consumed
-  │                                        │   ├─ parse attestationObject CBOR → authData
-  │                                        │   ├─ verify: rpIdHash, UP flag set
-  │                                        │   ├─ extract credentialId + COSE ES256 key
-  │                                        │   └─ INSERT webauthn_credentials
-  │◄──────────── {credentialId, aaguid} ──┤
-```
+1. The current strict canonical session supplies the principal and actor.
+2. PostgreSQL credential discovery must succeed before a challenge is issued; database unavailability returns a truthful `503` rather than an empty exclusion list.
+3. Redis stores a versioned registration envelope with a five-minute TTL, `NX` collision protection and atomic consume-once behavior.
+4. New registrations require:
+   - a discoverable resident credential;
+   - user presence and user verification;
+   - ES256;
+   - exact RP ID, origin, challenge and credential-ID consistency.
+5. Credential insertion and mandatory append-only evidence share one PostgreSQL transaction.
+6. `ON CONFLICT DO NOTHING` is paired with `RETURNING id`; no insertion means no success response. A global credential conflict is rejected without transferring ownership.
 
-## Authentication Flow
+The registration evidence stores only bounded policy data and a domain-separated one-way credential fingerprint. It never stores the credential ID, public key, challenge, client data, attestation object, authenticator data, cookies or tokens.
 
-```
-Client                                   Server
-  │                                        │
-  ├── POST /auth/challenge ─────────────►│
-  │   {userId?}                            ├─ generateChallenge()
-  │                                        ├─ storeWebAuthnChallenge(challenge, userId ?? "anon")
-  │                                        ├─ allowCredentials from DB (or [] for resident keys)
-  │◄──── {challenge, allowCredentials} ──┤
-  │                                        │
-  ├── navigator.credentials.get() ─────────►│ (browser ↔ authenticator)
-  │                                        │
-  ├── POST /auth/verify ────────────────►│
-  │   {userId?, response}                  ├─ verifyWebAuthnAuthentication()
-  │                                        │   ├─ parse clientDataJSON: type=get, origin✓, challenge consumed
-  │                                        │   ├─ verify rpIdHash, UP+UV flags
-  │                                        │   ├─ verify signCount > stored (replay prevention)
-  │                                        │   ├─ reconstruct SPKI DER from stored COSE key
-  │                                        │   ├─ verify ECDSA signature: SHA-256(authData ∥ SHA-256(clientDataJSON))
-  │                                        │   └─ UPDATE counter, last_used_at
-  │                                        ├─ Fetch user from DB
-  │                                        ├─ signUnifiedSession() → access token (4h)
-  │                                        ├─ issueRefreshToken() → refresh token (30d)
-  │◄─── {authenticated: true} + cookies ─┤
-```
+## Authentication contract
 
-## Cryptographic Details
+Authentication challenge issuance is discoverable-only:
 
-### COSE ES256 Key Parsing
+- request-controlled `userId` is not accepted as principal authority;
+- `allowCredentials` is empty, so the authenticator selects the resident passkey;
+- the credential owner is resolved only after a signed assertion reaches the server;
+- the response does not expose another principal's credential IDs.
 
-The authenticator returns a COSE key map (CBOR format). We extract:
-- `-2` → X coordinate (32 bytes)
-- `-3` → Y coordinate (32 bytes)
+During verification:
 
-### P-256 SPKI DER Construction
+1. The typed Redis authentication envelope is consumed exactly once.
+2. The server verifies client-data type, exact challenge, origin, RP ID hash, user presence, user verification and ES256 signature.
+3. PostgreSQL locks the active credential row with `FOR UPDATE`.
+4. Counter decision, `counter`/`last_used_at` update and mandatory evidence commit atomically.
+5. If either stored or received counter is nonzero, an equal or lower received counter is rejected as clone/replay suspected.
+6. Counter rollback produces a durable typed `credential.webauthn.counter_rollback` outcome and does not advance state.
+7. Correlation replay with changed evidence conflicts and rolls back the attempted state transition.
 
-```
-3059          SEQUENCE
-  3013        SEQUENCE (algorithm identifier)
-    0607 2a8648ce3d020106  OID 1.2.840.10045.2.1 (ecPublicKey)
-    0608 2a8648ce3d030107  OID 1.2.840.10045.3.1.7 (P-256)
-  0342 00 04  BIT STRING (uncompressed point prefix 0x04)
-    <X 32 bytes>
-    <Y 32 bytes>
-```
+Passkeys whose authenticators legitimately keep both counters at zero remain usable; the one-time ceremony challenge still prevents assertion replay.
 
-Prefix (27 bytes): `3059301306072a8648ce3d020106082a8648ce3d03010703420004`
+## Credential management
 
-### Signature Verification
+Rename and revoke operations:
 
-```
-verificationData = authData ∥ SHA-256(clientDataJSON)
-verify: ECDSA-P256-SHA256(publicKey, verificationData, signature)
-```
+- derive tenant, actor and owner from the server session;
+- lock only the owned credential row;
+- commit state and typed evidence in one transaction;
+- distinguish absent credentials from database/evidence unavailability;
+- store label fingerprints rather than credential names in mandatory evidence.
 
-Uses Node.js `crypto.createVerify('SHA256').verify({ key: spkiDer, format: 'der', type: 'spki' })`.
+Credential list reads use strict revocation and return `503` on unavailable database authority rather than pretending the account has no credentials.
 
-## Database Schema
+## Mandatory evidence actions
 
-```sql
-CREATE TABLE webauthn_credentials (
-  id            TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       TEXT NOT NULL,
-  credential_id TEXT NOT NULL UNIQUE,  -- base64url
-  public_key    TEXT NOT NULL,         -- base64url CBOR COSE key bytes
-  counter       INTEGER NOT NULL DEFAULT 0,
-  device_name   TEXT NOT NULL DEFAULT 'Authenticator',
-  aaguid        TEXT,
-  transports    TEXT[] NOT NULL DEFAULT '{}',
-  is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_used_at  TIMESTAMPTZ
-);
-```
+- `credential.webauthn.register`
+- `credential.webauthn.authenticate`
+- `credential.webauthn.counter_rollback`
+- `credential.webauthn.rename`
+- `credential.webauthn.revoke`
 
-## Environment Variables
+Resource authority: `credential_webauthn`.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_SITE_URL` | Yes | Used to derive `rpId` (e.g. `https://tecpey.com` → `rpId: "tecpey.com"`) |
-| `WEBAUTHN_RP_ID` | No | Override the Relying Party ID (default: derived from NEXT_PUBLIC_SITE_URL hostname) |
+## Database schema
 
-## Security Properties
+`webauthn_credentials` currently has globally unique `credential_id`, per-user ownership, counter, label, AAGUID, transports, active state and timestamps.
 
-- **Challenge freshness**: Redis TTL 300s; consumed atomically (GET+DEL pipeline) — no replay
-- **Counter monotonicity**: `counter > stored_counter` enforced; clone detection
-- **Credential exclusion**: `excludeCredentials` prevents double-registration
-- **UV flag**: `userVerification: "required"` on authentication
-- **Origin binding**: `clientDataJSON.origin` must match server origin exactly
+The table does not yet contain the canonical tenant column/composite tenant-principal constraints required for full SaaS isolation. That residual is explicitly owned by #109 and #20; this credential slice does not claim to close platform-wide multi-tenancy.
+
+## Residual session boundary
+
+After credential verification and atomic counter evidence, `/api/auth/webauthn/auth/verify` still performs access-token signing, refresh-family issuance, session-registry admission and known-device updates. Their cross-resource atomicity and mandatory session/device evidence are the immediately following bounded #161 slice. Credential success cannot occur without credential evidence, but this document does not claim the downstream session program is complete.
+
+## Permanent verification
+
+The release gate includes:
+
+- source guards preventing best-effort credential audit, request-controlled owner/tenant/actor authority, unlocked counter updates, unchecked registration conflicts and credential enumeration;
+- PostgreSQL tests for rollback, duplicate conflicts, concurrent counters, clone-suspected evidence, replay conflicts and cross-principal management;
+- Redis ceremony one-time/collision tests;
+- API Security Manifest reviewed deltas;
+- TypeScript, ESLint, full suite, production build and runtime smoke on one unchanged head.
