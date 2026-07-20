@@ -49,6 +49,24 @@ BEGIN
      AND NEW.state IN ('failed', 'timeout') THEN
     IF OLD.state <> 'confirming' THEN
       RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
+    END IF;
+    expected_hash_fingerprint := tecpey_withdrawal_evidence_hash(
+      'withdrawal-expected-transaction-hash', lower(NEW.tx_hash)
+    );
+    execution_resource_id := tecpey_withdrawal_evidence_hash(
+      'withdrawal-execution', NEW.id
+    );
+    IF NOT EXISTS (
+      SELECT 1
+        FROM sensitive_mutation_audit_events
+       WHERE tenant_id = 'tecpey'
+         AND action = 'withdrawal.confirmation.monitor'
+         AND resource_type = 'withdrawal_execution'
+         AND resource_id = execution_resource_id
+         AND outcome = 'success'
+         AND metadata->>'expectedTransactionHashFingerprint' = expected_hash_fingerprint
+    ) THEN
+      RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
     END IF;$patch$
     );
 
@@ -65,6 +83,24 @@ BEGIN
       $patch$  IF NEW.state = 'completed' AND OLD.state IS DISTINCT FROM 'completed' THEN$patch$,
       $patch$  IF NEW.state = 'completed' AND OLD.state IS DISTINCT FROM 'completed' THEN
     IF OLD.state <> 'confirming' THEN
+      RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
+    END IF;
+    expected_hash_fingerprint := tecpey_withdrawal_evidence_hash(
+      'withdrawal-expected-transaction-hash', lower(NEW.tx_hash)
+    );
+    execution_resource_id := tecpey_withdrawal_evidence_hash(
+      'withdrawal-execution', NEW.id
+    );
+    IF NOT EXISTS (
+      SELECT 1
+        FROM sensitive_mutation_audit_events
+       WHERE tenant_id = 'tecpey'
+         AND action = 'withdrawal.confirmation.monitor'
+         AND resource_type = 'withdrawal_execution'
+         AND resource_id = execution_resource_id
+         AND outcome = 'success'
+         AND metadata->>'expectedTransactionHashFingerprint' = expected_hash_fingerprint
+    ) THEN
       RAISE EXCEPTION 'withdrawal confirmation monitor authority is missing';
     END IF;$patch$
     );
