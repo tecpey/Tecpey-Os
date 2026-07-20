@@ -3,7 +3,10 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { evaluateApiSecurityPolicy } from "./api-security-manifest-policy.mjs";
-import { applyReviewedManifestDeltas } from "./api-security-manifest-reviewed-deltas.mjs";
+import {
+  applyReviewedManifestDeltas,
+  mergeReviewedManifestDeltaRegistries,
+} from "./api-security-manifest-reviewed-deltas.mjs";
 
 const root = process.cwd();
 const baselinePath = path.resolve(
@@ -45,40 +48,32 @@ function stable(value) {
 async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
   const primaryRaw = await readFile(primaryPath, "utf8");
   const primary = JSON.parse(primaryRaw);
-  const shards = [];
+  let names = [];
 
   try {
-    const names = (await readdir(directoryPath, { withFileTypes: true }))
+    names = (await readdir(directoryPath, { withFileTypes: true }))
       .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
       .map((entry) => entry.name)
       .sort();
-    for (const name of names) {
-      const shardPath = path.join(directoryPath, name);
-      const raw = await readFile(shardPath, "utf8");
-      const shard = JSON.parse(raw);
-      if (shard.schemaVersion !== primary.schemaVersion) {
-        throw new Error(`api_security_manifest_delta_shard_schema_mismatch:${name}`);
-      }
-      if (shard.baselineBlobSha !== primary.baselineBlobSha) {
-        throw new Error(`api_security_manifest_delta_shard_baseline_mismatch:${name}`);
-      }
-      if (!Array.isArray(shard.entries)) {
-        throw new Error(`api_security_manifest_delta_shard_entries_invalid:${name}`);
-      }
-      shards.push(...shard.entries);
-    }
   } catch (error) {
     if (!(error instanceof Error) || !error.message.includes("ENOENT")) throw error;
   }
 
+  const shards = [];
+  let shardEntryCount = 0;
+  for (const name of names) {
+    const shardPath = path.join(directoryPath, name);
+    const raw = await readFile(shardPath, "utf8");
+    const registry = JSON.parse(raw);
+    shards.push({ name, registry });
+    shardEntryCount += Array.isArray(registry.entries) ? registry.entries.length : 0;
+  }
+
   return {
     primaryRaw,
-    registry: {
-      schemaVersion: primary.schemaVersion,
-      baselineBlobSha: primary.baselineBlobSha,
-      entries: [...primary.entries, ...shards],
-    },
+    registry: mergeReviewedManifestDeltaRegistries({ primary, shards }),
     shardCount: shards.length,
+    shardEntryCount,
   };
 }
 
@@ -158,7 +153,7 @@ try {
       + `${generated.totals.findings} governed findings, `
       + `${policy.exceptionCount} active exact exceptions, `
       + `${appliedDeltaCount} exact reviewed baseline deltas `
-      + `(${reviewed.shardCount} from additive shard entries).`,
+      + `(${reviewed.shardEntryCount} entries across ${reviewed.shardCount} additive shard files).`,
     );
   }
 } finally {
