@@ -22,6 +22,12 @@ export type AuthenticationMethod =
   | "password_2fa"
   | "webauthn";
 
+export type RefreshClaims = {
+  userId: string;
+  jti: string;
+  familyId: string;
+};
+
 export type SessionAdmissionInput = {
   userId: string;
   accessJti: string;
@@ -32,41 +38,6 @@ export type SessionAdmissionInput = {
   deviceFingerprint: string;
   method: AuthenticationMethod;
   audit: SessionAuditContext;
-};
-
-type RevocationEvidence = {
-  jti: string;
-  expiresAt: number;
-};
-
-type KnownDeviceRow = {
-  id: string;
-  is_new: boolean;
-};
-
-type RefreshClaims = {
-  userId: string;
-  jti: string;
-  familyId: string;
-};
-
-type RefreshRow = {
-  id: string;
-  family_id: string;
-  user_id: string;
-  is_revoked: boolean;
-  expires_at: Date;
-  known_device_id: string | null;
-};
-
-type SessionRow = {
-  id: string;
-  user_id: string;
-  refresh_family_id: string | null;
-  refresh_token_id: string | null;
-  known_device_id: string | null;
-  expires_at: Date;
-  is_revoked: boolean;
 };
 
 export type SessionAdmissionResult = {
@@ -98,19 +69,11 @@ export type SessionRotationResult =
     };
 
 export type SessionRevocationResult =
-  | {
-      ok: true;
-      revokedCount: number;
-      denyCachePending: boolean;
-    }
+  | { ok: true; revokedCount: number; denyCachePending: boolean }
   | { ok: false; reason: "session_not_found" | "database_unavailable" };
 
 export type DeviceMutationResult =
-  | {
-      ok: true;
-      revokedCount: number;
-      denyCachePending: boolean;
-    }
+  | { ok: true; revokedCount: number; denyCachePending: boolean }
   | { ok: false; reason: "device_not_found" | "database_unavailable" };
 
 export type KnownDeviceView = {
@@ -118,6 +81,29 @@ export type KnownDeviceView = {
   deviceName: string;
   firstSeenAt: Date;
   lastSeenAt: Date;
+};
+
+type RevocationEvidence = {
+  jti: string;
+  expiresAt: number;
+};
+
+type KnownDeviceRow = {
+  id: string;
+  is_new: boolean;
+};
+
+type RefreshRow = {
+  id: string;
+  family_id: string;
+  user_id: string;
+  is_revoked: boolean;
+  expires_at: Date;
+};
+
+type SessionRow = {
+  id: string;
+  refresh_family_id: string | null;
 };
 
 function refreshSecret(): Uint8Array | null {
@@ -133,20 +119,21 @@ function refreshSecret(): Uint8Array | null {
   return null;
 }
 
-async function verifyRefreshClaims(token: string): Promise<
+export async function verifyRefreshTokenClaims(
+  token: string,
+): Promise<
   | { ok: true; claims: RefreshClaims }
   | { ok: false; reason: "invalid_token" | "server_misconfigured" }
 > {
   const secret = refreshSecret();
   if (!secret) return { ok: false, reason: "server_misconfigured" };
   try {
-    const result = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    const payload = result.payload;
+    const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
     if (
       typeof payload.sub !== "string" ||
       typeof payload.jti !== "string" ||
       typeof payload.fid !== "string" ||
-      payload.v !== 1
+      (payload.v as unknown) !== 1
     ) {
       return { ok: false, reason: "invalid_token" };
     }
@@ -187,16 +174,17 @@ export function fingerprintRefreshFamily(value: string): string {
   return fingerprint("refresh-family", value);
 }
 
+function fingerprintRefreshToken(value: string): string {
+  return fingerprint("refresh-token", value);
+}
+
 function fingerprintLabel(value: string): string {
   return fingerprint("device-label", value);
 }
 
 async function upsertKnownDeviceTx(
   client: PoolClient,
-  input: {
-    userId: string;
-    fingerprint: string;
-  },
+  input: { userId: string; fingerprint: string },
 ): Promise<KnownDeviceRow> {
   const result = await client.query<KnownDeviceRow>(
     `INSERT INTO known_devices
@@ -290,7 +278,10 @@ async function enqueueRevocationsTx(
                  THEN session_revocation_outbox.status
                ELSE 'pending'
              END,
-             expires_at = GREATEST(session_revocation_outbox.expires_at, EXCLUDED.expires_at)`,
+             expires_at = GREATEST(
+               session_revocation_outbox.expires_at,
+               EXCLUDED.expires_at
+             )`,
       [tenantId, userId, session.jti, session.expiresAt],
     );
   }
@@ -300,11 +291,11 @@ async function publishRevocations(
   sessions: RevocationEvidence[],
 ): Promise<boolean> {
   if (sessions.length === 0) return true;
-  const published = await revokeMultiple(sessions);
+  const redisPublished = await revokeMultiple(sessions);
   try {
-    await withDb(async (client) => {
+    const persisted = await withDb(async (client) => {
       const ids = sessions.map((session) => session.jti);
-      if (published) {
+      if (redisPublished) {
         await client.query(
           `UPDATE session_revocation_outbox
               SET status = 'published',
@@ -326,19 +317,39 @@ async function publishRevocations(
       }
       return true;
     });
+    if (!persisted.enabled || !persisted.value) return false;
   } catch {
     return false;
   }
-  return published;
+  return redisPublished;
+}
+
+async function collectRevokedSessionsTx(
+  client: PoolClient,
+  input: {
+    userId: string;
+    conditionSql: string;
+    values: unknown[];
+  },
+): Promise<RevocationEvidence[]> {
+  const rows = await client.query<{ id: string; expires_at: Date }>(
+    `SELECT id, expires_at
+       FROM user_sessions
+      WHERE user_id = $1
+        AND ${input.conditionSql}
+        AND is_revoked = TRUE
+        AND expires_at > NOW()`,
+    [input.userId, ...input.values],
+  );
+  return rows.rows.map((row) => ({
+    jti: row.id,
+    expiresAt: Math.floor(row.expires_at.getTime() / 1000),
+  }));
 }
 
 async function revokeFamilyTx(
   client: PoolClient,
-  input: {
-    tenantId: string;
-    userId: string;
-    familyId: string;
-  },
+  input: { tenantId: string; userId: string; familyId: string },
 ): Promise<RevocationEvidence[]> {
   await client.query(
     `UPDATE refresh_tokens
@@ -349,23 +360,45 @@ async function revokeFamilyTx(
         AND is_revoked = FALSE`,
     [input.userId, input.familyId],
   );
-  const sessions = await client.query<{ id: string; expires_at: Date }>(
+  await client.query(
     `UPDATE user_sessions
         SET is_revoked = TRUE,
             revoked_at = COALESCE(revoked_at, NOW())
       WHERE user_id = $1
         AND refresh_family_id = $2
-        AND is_revoked = FALSE
-        AND expires_at > NOW()
-      RETURNING id, expires_at`,
+        AND is_revoked = FALSE`,
     [input.userId, input.familyId],
   );
-  const evidence = sessions.rows.map((row) => ({
-    jti: row.id,
-    expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-  }));
-  await enqueueRevocationsTx(client, input.tenantId, input.userId, evidence);
-  return evidence;
+  const sessions = await collectRevokedSessionsTx(client, {
+    userId: input.userId,
+    conditionSql: "refresh_family_id = $2",
+    values: [input.familyId],
+  });
+  await enqueueRevocationsTx(client, input.tenantId, input.userId, sessions);
+  return sessions;
+}
+
+async function revokeSessionIdsTx(
+  client: PoolClient,
+  input: { tenantId: string; userId: string; sessionIds: string[] },
+): Promise<RevocationEvidence[]> {
+  if (input.sessionIds.length === 0) return [];
+  await client.query(
+    `UPDATE user_sessions
+        SET is_revoked = TRUE,
+            revoked_at = COALESCE(revoked_at, NOW())
+      WHERE user_id = $1
+        AND id = ANY($2::text[])
+        AND is_revoked = FALSE`,
+    [input.userId, input.sessionIds],
+  );
+  const sessions = await collectRevokedSessionsTx(client, {
+    userId: input.userId,
+    conditionSql: "id = ANY($2::text[])",
+    values: [input.sessionIds],
+  });
+  await enqueueRevocationsTx(client, input.tenantId, input.userId, sessions);
+  return sessions;
 }
 
 export async function admitSession(
@@ -407,7 +440,7 @@ export async function admitSession(
         refreshFamilyFingerprint: fingerprintRefreshFamily(
           input.preparedRefresh.familyId,
         ),
-        deviceFingerprint: input.deviceFingerprint,
+        deviceEvidenceFingerprint: input.deviceFingerprint,
         isNewDevice: device.is_new,
       },
     });
@@ -434,7 +467,7 @@ export async function rotateSession(input: {
   correlationId: string;
   requestHash: string;
 }): Promise<SessionRotationResult> {
-  const verified = await verifyRefreshClaims(input.rawRefreshToken);
+  const verified = await verifyRefreshTokenClaims(input.rawRefreshToken);
   if (!verified.ok) {
     return { ok: false, reason: verified.reason, denyCachePending: false };
   }
@@ -449,7 +482,7 @@ export async function rotateSession(input: {
 
   const transaction = await withTx(async (client) => {
     const selected = await client.query<RefreshRow>(
-      `SELECT id, family_id, user_id, is_revoked, expires_at, known_device_id
+      `SELECT id, family_id, user_id, is_revoked, expires_at
          FROM refresh_tokens
         WHERE id = $1
         LIMIT 1
@@ -563,22 +596,21 @@ export async function rotateSession(input: {
       knownDeviceId: device.id,
     });
 
-    const superseded = await client.query<{ id: string; expires_at: Date }>(
+    await client.query(
       `UPDATE user_sessions
           SET is_revoked = TRUE,
               revoked_at = COALESCE(revoked_at, NOW())
         WHERE user_id = $1
           AND refresh_token_id = $2
           AND id <> $3
-          AND is_revoked = FALSE
-          AND expires_at > NOW()
-        RETURNING id, expires_at`,
+          AND is_revoked = FALSE`,
       [claims.userId, old.id, input.accessJti],
     );
-    const revokedSessions = superseded.rows.map((row) => ({
-      jti: row.id,
-      expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-    }));
+    const revokedSessions = await collectRevokedSessionsTx(client, {
+      userId: claims.userId,
+      conditionSql: "refresh_token_id = $2 AND id <> $3",
+      values: [old.id, input.accessJti],
+    });
     await enqueueRevocationsTx(
       client,
       input.tenantId,
@@ -593,9 +625,9 @@ export async function rotateSession(input: {
       outcome: "success",
       metadata: {
         policyVersion: SESSION_POLICY_VERSION,
-        previousSessionFingerprint: fingerprintSessionId(old.id),
+        previousRefreshFingerprint: fingerprintRefreshToken(old.id),
         nextSessionFingerprint: fingerprintSessionId(input.accessJti),
-        deviceFingerprint: input.deviceFingerprint,
+        deviceEvidenceFingerprint: input.deviceFingerprint,
         isNewDevice: device.is_new,
         supersededSessionCount: revokedSessions.length,
       },
@@ -622,34 +654,6 @@ export async function rotateSession(input: {
   } as SessionRotationResult;
 }
 
-async function revokeSessionsByIdsTx(
-  client: PoolClient,
-  input: {
-    tenantId: string;
-    userId: string;
-    sessionIds: string[];
-  },
-): Promise<RevocationEvidence[]> {
-  if (input.sessionIds.length === 0) return [];
-  const result = await client.query<{ id: string; expires_at: Date }>(
-    `UPDATE user_sessions
-        SET is_revoked = TRUE,
-            revoked_at = COALESCE(revoked_at, NOW())
-      WHERE user_id = $1
-        AND id = ANY($2::text[])
-        AND is_revoked = FALSE
-        AND expires_at > NOW()
-      RETURNING id, expires_at`,
-    [input.userId, input.sessionIds],
-  );
-  const evidence = result.rows.map((row) => ({
-    jti: row.id,
-    expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-  }));
-  await enqueueRevocationsTx(client, input.tenantId, input.userId, evidence);
-  return evidence;
-}
-
 export async function revokeExactSession(input: {
   sessionId: string;
   userId: string;
@@ -660,8 +664,7 @@ export async function revokeExactSession(input: {
   try {
     const transaction = await withTx(async (client) => {
       const selected = await client.query<SessionRow>(
-        `SELECT id, user_id, refresh_family_id, refresh_token_id,
-                known_device_id, expires_at, is_revoked
+        `SELECT id, refresh_family_id
            FROM user_sessions
           WHERE id = $1
             AND user_id = $2
@@ -672,20 +675,17 @@ export async function revokeExactSession(input: {
       const session = selected.rows[0];
       if (!session) return null;
 
-      let revokedSessions: RevocationEvidence[];
-      if (session.refresh_family_id) {
-        revokedSessions = await revokeFamilyTx(client, {
-          tenantId: input.audit.tenantId,
-          userId: input.userId,
-          familyId: session.refresh_family_id,
-        });
-      } else {
-        revokedSessions = await revokeSessionsByIdsTx(client, {
-          tenantId: input.audit.tenantId,
-          userId: input.userId,
-          sessionIds: [session.id],
-        });
-      }
+      const revokedSessions = session.refresh_family_id
+        ? await revokeFamilyTx(client, {
+            tenantId: input.audit.tenantId,
+            userId: input.userId,
+            familyId: session.refresh_family_id,
+          })
+        : await revokeSessionIdsTx(client, {
+            tenantId: input.audit.tenantId,
+            userId: input.userId,
+            sessionIds: [session.id],
+          });
       await writeSensitiveMutationAuditTx(client, {
         ...input.audit,
         action: input.action ?? "session.revoke",
@@ -725,19 +725,17 @@ export async function revokeAllUserSessions(input: {
   assertAuditActor(input.userId, input.audit);
   try {
     const transaction = await withTx(async (client) => {
+      const exceptSql = input.exceptSessionId ? "AND id <> $2" : "";
       const values = input.exceptSessionId
         ? [input.userId, input.exceptSessionId]
         : [input.userId];
-      const except = input.exceptSessionId ? "AND id <> $2" : "";
-      const sessions = await client.query<{ id: string; expires_at: Date }>(
+      await client.query(
         `UPDATE user_sessions
             SET is_revoked = TRUE,
                 revoked_at = COALESCE(revoked_at, NOW())
           WHERE user_id = $1
-            ${except}
-            AND is_revoked = FALSE
-            AND expires_at > NOW()
-          RETURNING id, expires_at`,
+            ${exceptSql}
+            AND is_revoked = FALSE`,
         values,
       );
       await client.query(
@@ -748,15 +746,16 @@ export async function revokeAllUserSessions(input: {
             AND is_revoked = FALSE`,
         [input.userId],
       );
-      const evidence = sessions.rows.map((row) => ({
-        jti: row.id,
-        expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-      }));
+      const sessions = await collectRevokedSessionsTx(client, {
+        userId: input.userId,
+        conditionSql: input.exceptSessionId ? "id <> $2" : "TRUE",
+        values: input.exceptSessionId ? [input.exceptSessionId] : [],
+      });
       await enqueueRevocationsTx(
         client,
         input.audit.tenantId,
         input.userId,
-        evidence,
+        sessions,
       );
       await writeSensitiveMutationAuditTx(client, {
         ...input.audit,
@@ -766,12 +765,12 @@ export async function revokeAllUserSessions(input: {
         outcome: "success",
         metadata: {
           policyVersion: SESSION_POLICY_VERSION,
-          revokedSessionCount: evidence.length,
+          revokedSessionCount: sessions.length,
           currentAccessRetained: Boolean(input.exceptSessionId),
           refreshScope: "all_user_tokens",
         },
       });
-      return evidence;
+      return sessions;
     });
     if (!transaction.enabled) {
       return { ok: false, reason: "database_unavailable" };
@@ -906,26 +905,25 @@ export async function removeKnownDevice(input: {
             AND is_revoked = FALSE`,
         [input.userId, device.id],
       );
-      const sessions = await client.query<{ id: string; expires_at: Date }>(
+      await client.query(
         `UPDATE user_sessions
             SET is_revoked = TRUE,
                 revoked_at = COALESCE(revoked_at, NOW())
           WHERE user_id = $1
             AND known_device_id = $2
-            AND is_revoked = FALSE
-            AND expires_at > NOW()
-          RETURNING id, expires_at`,
+            AND is_revoked = FALSE`,
         [input.userId, device.id],
       );
-      const evidence = sessions.rows.map((row) => ({
-        jti: row.id,
-        expiresAt: Math.floor(row.expires_at.getTime() / 1000),
-      }));
+      const sessions = await collectRevokedSessionsTx(client, {
+        userId: input.userId,
+        conditionSql: "known_device_id = $2",
+        values: [device.id],
+      });
       await enqueueRevocationsTx(
         client,
         input.audit.tenantId,
         input.userId,
-        evidence,
+        sessions,
       );
       await writeSensitiveMutationAuditTx(client, {
         ...input.audit,
@@ -935,11 +933,11 @@ export async function removeKnownDevice(input: {
         outcome: "success",
         metadata: {
           policyVersion: SESSION_POLICY_VERSION,
-          revokedSessionCount: evidence.length,
+          revokedSessionCount: sessions.length,
           refreshScope: "device_bound_families",
         },
       });
-      return evidence;
+      return sessions;
     });
     if (!transaction.enabled) {
       return { ok: false, reason: "database_unavailable" };
