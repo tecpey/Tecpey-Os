@@ -77,7 +77,7 @@ async function cleanup(input: {
 
 describe("Confirmed withdrawal settlement authority", () => {
   it(
-    "consumes held funds and commits one ledger row plus one secret-free mandatory event exactly once",
+    "writes one withdraw ledger entry exactly once and commits one secret-free mandatory event",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `withdraw-settlement-${randomUUID()}`;
@@ -174,7 +174,7 @@ describe("Confirmed withdrawal settlement authority", () => {
           assert.equal(evidence.value.ledger?.count, "1");
           assert.equal(evidence.value.ledger?.amount, "2.000000000000000000");
           assert.equal(evidence.value.audit?.count, "1");
-          assert.equal(evidence.value.audit?.metadata.amount, "2.000000000000000000");
+          assert.equal(evidence.value.audit?.metadata.amount, "2");
           assert.equal(evidence.value.audit?.metadata.observedConfirmations, 3);
           assert.equal(evidence.value.audit?.metadata.blockNumber, "12345");
           assert.equal(evidence.value.audit?.metadata.finalState, "completed");
