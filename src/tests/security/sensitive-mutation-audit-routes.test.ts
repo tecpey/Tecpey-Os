@@ -146,7 +146,13 @@ describe("Sensitive mutation route audit boundaries", () => {
       assert.match(authority, new RegExp(action.replace(".", "\\.")));
     }
     assert.match(authority, /credentialFingerprint/);
-    assert.doesNotMatch(authority, /metadata:\s*\{[^}]*plaintext/s);
-    assert.doesNotMatch(authority, /metadata:\s*\{[^}]*key_hash/s);
+    assert.doesNotMatch(
+      authority,
+      new RegExp("metadata:\\s*\\{[\\s\\S]*?\\bplaintext\\b"),
+    );
+    assert.doesNotMatch(
+      authority,
+      new RegExp("metadata:\\s*\\{[\\s\\S]*?\\bkey_hash\\b"),
+    );
   });
 });
