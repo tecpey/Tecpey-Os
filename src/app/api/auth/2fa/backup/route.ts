@@ -1,21 +1,20 @@
-// POST /api/auth/2fa/backup — use a backup code to verify identity.
+// POST /api/auth/2fa/backup — consume a one-time backup code.
 //
-// Backup codes are one-time use. On successful use, the code is removed from
-// the stored hashes so it cannot be reused.
-//
-// Body: { "code": "XXXXXXXX" }
-//
-// Returns: { verified: true, remainingCodes: N }
+// Consumption uses SELECT ... FOR UPDATE so concurrent reuse cannot succeed.
+// The hash removal and mandatory append-only evidence commit atomically.
 
 import { NextRequest } from "next/server";
-import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import { withDb } from "@/lib/db";
-import { findBackupCode } from "@/lib/security/totp";
-import { writeAudit } from "@/lib/security/audit-log";
+import { PLATFORM } from "@/lib/platform-config";
+import { consumeTwoFactorBackupCode } from "@/lib/security/two-factor-authority";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +34,6 @@ export async function POST(req: NextRequest) {
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
-    const ip = getClientIp(req);
     const boundedBodyRequest = await readBoundedJsonRequest(req, {
       maxBytes: 4_096,
       allowEmptyObject: true,
@@ -46,45 +44,52 @@ export async function POST(req: NextRequest) {
     req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const code = String(body.code ?? "").trim().toUpperCase();
-
     if (!code || code.length < 6) return apiError("invalid_code_format", 400);
 
-    const r = await withDb(async (db) => {
-      const result = await db.query<{ backup_code_hashes: string[]; enabled: boolean }>(
-        `SELECT backup_code_hashes, enabled FROM user_2fa WHERE user_id = $1 AND enabled = TRUE`,
-        [userId],
-      );
-      return result.rows[0] ?? null;
-    });
-
-    if (!r.enabled || !r.value) return apiError("2fa_not_enabled", 404);
-
-    const hashes = r.value.backup_code_hashes;
-    const matchIdx = findBackupCode(code, hashes);
-
-    if (matchIdx === -1) {
-      writeAudit({ actorId: userId, action: "2fa_disabled", ip, metadata: { event: "backup_failed" } });
-      return apiError("invalid_backup_code", 401);
-    }
-
-    // Remove used code
-    const newHashes = [...hashes.slice(0, matchIdx), ...hashes.slice(matchIdx + 1)];
-
-    await withDb(async (db) => {
-      await db.query(
-        `UPDATE user_2fa SET backup_code_hashes = $2, last_used_at = NOW() WHERE user_id = $1`,
-        [userId, newHashes],
-      );
-      return true;
-    });
-
-    writeAudit({
+    const actorType = session.isAdmin
+      ? "admin" as const
+      : session.userId
+        ? "user" as const
+        : "student" as const;
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    const requestHash = hashSensitiveAuditRequest({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorType,
       actorId: userId,
-      action: "2fa_enabled",
-      ip,
-      metadata: { event: "backup_code_used", remainingCodes: newHashes.length },
+      action: "credential.2fa.backup.consume",
     });
 
-    return apiOk({ verified: true, remainingCodes: newHashes.length });
+    try {
+      const result = await consumeTwoFactorBackupCode({
+        userId,
+        code,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType,
+          actorId: userId,
+          correlationId,
+          requestHash,
+        },
+      });
+      if (result.ok) {
+        return apiOk({
+          verified: true,
+          remainingCodes: result.remainingCodes ?? 0,
+        });
+      }
+
+      switch (result.status) {
+        case "not_enabled":
+          return apiError("2fa_not_enabled", 404);
+        case "invalid_code":
+          return apiError("invalid_backup_code", 401);
+        default:
+          return apiError("2fa_service_unavailable", 503);
+      }
+    } catch {
+      return apiError("2fa_service_unavailable", 503);
+    }
   });
 }
