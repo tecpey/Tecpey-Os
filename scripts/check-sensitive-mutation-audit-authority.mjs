@@ -28,12 +28,39 @@ const rejectText = (target, text, reason) => {
   if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
 };
 
-function auditCallBlock(target) {
+function balancedObject(source, start) {
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    if (character === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  return "";
+}
+
+function auditMetadataBlock(target) {
   const source = content[target];
-  const start = source.indexOf("writeSensitiveMutationAuditTx(");
-  if (start < 0) return "";
-  const end = source.indexOf("\n      });", start);
-  return end > start ? source.slice(start, end + 10) : source.slice(start);
+  const auditStart = source.indexOf("writeSensitiveMutationAuditTx(");
+  if (auditStart < 0) return "";
+  const metadataStart = source.indexOf("metadata:", auditStart);
+  if (metadataStart < 0) return "";
+  const objectStart = source.indexOf("{", metadataStart);
+  return objectStart >= 0 ? balancedObject(source, objectStart) : "";
 }
 
 for (const target of ["device", "conversations", "profile"]) {
@@ -47,20 +74,23 @@ for (const target of ["device", "conversations", "profile"]) {
   rejectText(target, "body.studentId", "caller-controlled student targeting is forbidden");
   rejectText(target, "body.userId", "caller-controlled user targeting is forbidden");
   rejectText(target, "body.actorId", "caller-controlled audit actors are forbidden");
+  if (!auditMetadataBlock(target)) {
+    failures.push(`${files[target]}: audit metadata object must be statically identifiable`);
+  }
 }
 
 requireText("device", "const tokenHash = hashSensitiveAuditRequest(token)", "raw push tokens must be represented by a one-way hash");
 requireText("device", "resourceId: tokenHash", "device audit resource identity must be the token hash");
 requireText("device", "tokenHash,", "safe token hash metadata is required");
-if (/\btoken\s*[,}]/.test(auditCallBlock("device"))) {
-  failures.push(`${files.device}: raw token must not appear in audit evidence`);
+if (/\btoken\s*[,}]/.test(auditMetadataBlock("device"))) {
+  failures.push(`${files.device}: raw token must not appear in audit metadata`);
 }
 
 requireText("conversations", "contentHash: hashSensitiveAuditRequest(message.content)", "conversation request evidence must contain only content hashes");
 for (const field of ["attemptedCount", "acceptedCount", "importedCount", "rejectedCount"]) {
   requireText("conversations", field, `conversation audit needs safe count: ${field}`);
 }
-if (/\b(?:content|messages|conversation)\b/.test(auditCallBlock("conversations"))) {
+if (/\b(?:content|messages|conversation)\b/.test(auditMetadataBlock("conversations"))) {
   failures.push(`${files.conversations}: raw conversation fields are forbidden in audit metadata`);
 }
 
@@ -73,7 +103,7 @@ for (const field of [
 ]) {
   requireText("profile", field, `profile audit needs safe derived metadata: ${field}`);
 }
-if (/\b(?:primaryGoal|weakAreas|strongAreas)\b/.test(auditCallBlock("profile"))) {
+if (/\b(?:primaryGoal|weakAreas|strongAreas)\b/.test(auditMetadataBlock("profile"))) {
   failures.push(`${files.profile}: behavioral text and area labels are forbidden in audit metadata`);
 }
 requireText("profileAuthority", "upsertMentorProfileUpdateTx", "profile mutation needs a transaction-injected writer");
@@ -96,9 +126,7 @@ for (const text of [
   "FORBIDDEN_METADATA_KEYS",
   "sensitive_audit_correlation_conflict",
   "writeSensitiveMutationAuditTx",
-  "octet",
 ]) {
-  if (text === "octet") continue;
   requireText("audit", text, `audit authority is missing invariant: ${text}`);
 }
 for (const forbidden of [
