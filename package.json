@@ -71,7 +71,7 @@
     "bounded-body:check": "node scripts/check-bounded-request-body-authority.mjs",
     "test:bounded-body": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/bounded-request-body.test.ts",
     "custody:check": "node scripts/check-wallet-custody-launch-gate.mjs",
-    "test:custody-gate": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/wallet/custody-launch-policy.test.ts src/tests/wallet/keystore-runtime-guard.test.ts"
+    "test:custody-gate": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/wallet/custody-launch-policy.test.ts src/tests/wallet/custody-env-validation.test.ts src/tests/wallet/keystore-runtime-guard.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.2.0",
