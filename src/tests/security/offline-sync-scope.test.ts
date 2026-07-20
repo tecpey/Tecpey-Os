@@ -86,7 +86,7 @@ describe("Offline principal scope authority", () => {
   it("does not acknowledge mismatched principal commands", async () => {
     const route = await readFile("src/app/api/offline-sync/route.ts", "utf8");
     const mismatchIndex = route.indexOf('reason: "principal_scope_mismatch"');
-    const processIndex = route.indexOf("processOfflineSyncCommand({");
+    const processIndex = route.indexOf("idempotencyProcessOfflineSyncCommand({");
     assert.ok(mismatchIndex >= 0);
     assert.ok(processIndex > mismatchIndex);
     assert.match(
