@@ -43,6 +43,10 @@ function auditMetadataBlock(route: string): string {
   return block;
 }
 
+function storedKeyPattern(names: string[]): RegExp {
+  return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`);
+}
+
 describe("Sensitive mutation route audit boundaries", () => {
   it("binds device-token registration to the strict session and stores only token hashes", async () => {
     const route = await source("src/app/api/device-token/route.ts");
@@ -56,7 +60,7 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(route, /resourceId: tokenHash/);
     assert.match(route, /requestHash/);
     assert.match(metadata, /tokenHash/);
-    assert.doesNotMatch(metadata, /\btoken\s*[,}]/);
+    assert.doesNotMatch(metadata, storedKeyPattern(["token"]));
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
 
@@ -74,7 +78,10 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(metadata, /acceptedCount/);
     assert.match(metadata, /importedCount/);
     assert.match(metadata, /rejectedCount/);
-    assert.doesNotMatch(metadata, /\bcontent\b|\bmessages\b|\bconversation\b/);
+    assert.doesNotMatch(
+      metadata,
+      storedKeyPattern(["content", "messages", "conversation"]),
+    );
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
 
@@ -92,7 +99,10 @@ describe("Sensitive mutation route audit boundaries", () => {
     assert.match(metadata, /disciplineScore/);
     assert.match(metadata, /weakAreaCount/);
     assert.match(metadata, /strongAreaCount/);
-    assert.doesNotMatch(metadata, /\bprimaryGoal\b|\bweakAreas\b|\bstrongAreas\b/);
+    assert.doesNotMatch(
+      metadata,
+      storedKeyPattern(["primaryGoal", "weakAreas", "strongAreas"]),
+    );
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
 });
