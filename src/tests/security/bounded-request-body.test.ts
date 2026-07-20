@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { NextRequest } from "next/server";
 import {
+  readBoundedJsonRequest,
   readJsonBody,
   type BoundedJsonBodyResult,
 } from "../../lib/security/bounded-request-body";
@@ -214,5 +216,39 @@ describe("streaming bounded JSON body authority", () => {
     const request = streamingRequest({ chunks: [encoder.encode("{}")] });
     const result = await readJsonBody(request, { maxBytes: 0 });
     expectFailure(result, "invalid_body_limit", 500);
+  });
+
+  it("reconstructs a safe NextRequest without losing route context", async () => {
+    const original = new NextRequest("https://tecpey.test/api/test?locale=fa", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        "content-length": "22",
+        cookie: "tecpey_session=test-token",
+        "x-tecpey-request-id": "request-123",
+      },
+      body: JSON.stringify({ visibility: "private" }),
+    });
+
+    const result = await readBoundedJsonRequest<{ visibility: string }>(original, {
+      maxBytes: 64,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+
+    assert.equal(result.request.method, "PATCH");
+    assert.equal(result.request.nextUrl.pathname, "/api/test");
+    assert.equal(result.request.nextUrl.searchParams.get("locale"), "fa");
+    assert.equal(result.request.cookies.get("tecpey_session")?.value, "test-token");
+    assert.equal(result.request.headers.get("x-tecpey-request-id"), "request-123");
+    assert.equal(result.request.headers.get("content-length"), null);
+    assert.equal(result.request.headers.get("content-encoding"), null);
+    assert.equal(result.request.headers.get("transfer-encoding"), null);
+    assert.equal(
+      result.request.headers.get("content-type"),
+      "application/json; charset=utf-8",
+    );
+    assert.deepEqual(await result.request.json(), { visibility: "private" });
+    assert.deepEqual(result.value, { visibility: "private" });
   });
 });
