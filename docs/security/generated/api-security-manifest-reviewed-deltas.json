@@ -199,6 +199,75 @@
           "resolved": true
         }
       }
+    },
+    {
+      "route": "/api/auth/password/change",
+      "method": "POST",
+      "previousSourceHash": "dd1f3f427b1dfe2f7f7b5f49",
+      "issue": "#176",
+      "owner": "security-platform",
+      "reason": "Password, password-history and session rotation now commit with mandatory append-only evidence in one PostgreSQL transaction.",
+      "replacement": {
+        "route": "/api/auth/password/change",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/password/change/route.ts",
+        "sourceHash": "11db05a081306219be00d092",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "password-change",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": true,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [
+          "src/tests/security/auth-password-change-postgres.test.ts",
+          "src/tests/security/password-rotation-audit-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/password/change/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
     }
   ]
 }
