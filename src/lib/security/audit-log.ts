@@ -9,6 +9,8 @@
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export type AuditAction =
   | "login" | "logout" | "logout_all" | "session_revoked"
   | "password_changed" | "2fa_enabled" | "2fa_disabled" | "2fa_verify_success" | "2fa_verify_failed"
@@ -28,6 +30,8 @@ export type AuditEvent = {
   userAgent?: string;
   metadata?: Record<string, unknown>;
 };
+
+// ── Write (fire-and-forget) ───────────────────────────────────────────────────
 
 export function writeAudit(event: AuditEvent): void {
   void writeAuditAsync(event);
@@ -56,6 +60,8 @@ async function writeAuditAsync(event: AuditEvent): Promise<void> {
     });
   }
 }
+
+// ── Query helpers ─────────────────────────────────────────────────────────────
 
 export type AuditRecord = {
   id: string;
