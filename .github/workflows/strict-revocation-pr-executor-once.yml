@@ -122,44 +122,37 @@ jobs:
           path.write_text(source[:start] + replacement + source[end:])
           PY
 
-      - name: Apply reviewed remediation directly
-        run: python3 scripts/apply-strict-revocation-once.py
-
-      - name: Capture strict revocation authority diagnostics
-        id: authority
-        continue-on-error: true
-        run: node scripts/check-strict-revocation-authority.mjs > strict-revocation-authority.log 2>&1
-
-      - name: Upload strict revocation authority diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: strict-revocation-authority-${{ github.sha }}
-          path: strict-revocation-authority.log
-          if-no-files-found: error
-          retention-days: 2
-
-      - name: Enforce strict revocation authority result
-        if: steps.authority.outcome != 'success'
-        run: |
-          cat strict-revocation-authority.log
-          exit 1
-
-      - name: Verify strict revocation evidence detector
-        run: node --test scripts/api-security-strict-revocation-evidence.test.mjs
-
-      - name: Verify clean patch
-        run: git diff --check
-
-      - name: Commit permanent remediation and remove temporary executors
+      - name: Apply and verify reviewed remediation
         run: |
           set -euo pipefail
-          test -n "$(git status --short)"
-          git rm \
-            .github/workflows/strict-revocation-remediation-once.yml \
-            .github/workflows/strict-revocation-pr-executor-once.yml \
-            scripts/apply-strict-revocation-once.py
-          git add -A
+          python3 scripts/apply-strict-revocation-once.py
+          node scripts/check-strict-revocation-authority.mjs
+          node --test scripts/api-security-strict-revocation-evidence.test.mjs
+          git diff --check
+
+      - name: Commit permanent source remediation
+        run: |
+          set -euo pipefail
+          git add \
+            package.json \
+            scripts/api-security-runtime-evidence.mjs \
+            scripts/generate-api-security-manifest.mjs \
+            scripts/api-security-strict-revocation-evidence.test.mjs \
+            scripts/check-strict-revocation-authority.mjs \
+            src/app/api/ai-mentor/route.ts \
+            src/app/api/auth/2fa/backup/route.ts \
+            src/app/api/auth/2fa/disable/route.ts \
+            src/app/api/auth/2fa/enroll/route.ts \
+            'src/app/api/auth/devices/[id]/route.ts' \
+            'src/app/api/auth/webauthn/credentials/[id]/route.ts' \
+            src/app/api/auth/webauthn/register/verify/route.ts \
+            src/app/api/community/profile/route.ts \
+            src/app/api/mentor-memory/route.ts \
+            src/app/api/notifications/consent/route.ts \
+            src/app/api/notifications/preferences/route.ts \
+            src/lib/community-career.ts \
+            src/lib/notifications/principal.ts \
+            src/tests/security/auth-strict-revocation-routes.test.ts
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix(security): require strict revocation on high-risk mutations"
