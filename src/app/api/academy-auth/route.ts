@@ -114,11 +114,6 @@ async function authenticateOrRegisterLocalAccount(input: {
 > {
   const store = await readLocalAuthStore();
   const existing = store.accountsByEmail[input.email];
-  const usernameOwner = store.emailByUsername[input.username];
-
-  if (usernameOwner && usernameOwner !== input.email) {
-    return { status: "username_taken" };
-  }
   if (existing) {
     if (!verifyAcademyPassword(input.password, existing.passwordHash)) {
       return { status: "invalid_credentials" };
@@ -135,6 +130,10 @@ async function authenticateOrRegisterLocalAccount(input: {
   }
   if (input.mode === "login") return { status: "invalid_credentials" };
 
+  const usernameOwner = store.emailByUsername[input.username];
+  if (usernameOwner && usernameOwner !== input.email) {
+    return { status: "username_taken" };
+  }
   const now = new Date().toISOString();
   const created: LocalAcademyAccount = {
     accountId: input.accountId,
@@ -272,6 +271,9 @@ export async function POST(req: NextRequest) {
       if (result.status === "username_taken") return apiError("username_taken", 409);
       if (result.status === "invalid_credentials") {
         return apiError("invalid_credentials", 401);
+      }
+      if (!("account" in result)) {
+        return apiError("academy_auth_authority_unavailable", 503);
       }
       const account = result.account;
 
