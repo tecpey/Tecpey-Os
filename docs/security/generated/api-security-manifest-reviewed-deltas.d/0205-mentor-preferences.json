@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/mentor-preferences",
+      "method": "PATCH",
+      "previousSourceHash": "a22aff080a4b8f43e07d7c3a",
+      "issue": "#205",
+      "owner": "security-platform",
+      "reason": "Mentor AI consent changes now delegate to a PostgreSQL transaction that preserves no-op timestamps and couples changed state with typed mandatory evidence.",
+      "replacement": {
+        "route": "/api/mentor-preferences",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/mentor-preferences/route.ts",
+        "sourceHash": "47d34ae0fc851ac4063b5e25",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-preferences-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-preferences",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-preferences/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
