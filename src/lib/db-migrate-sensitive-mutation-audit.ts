@@ -44,33 +44,37 @@ CREATE INDEX IF NOT EXISTS sensitive_mutation_audit_action_idx
   ON sensitive_mutation_audit_events
   (tenant_id, action, created_at DESC);
 
-CREATE OR REPLACE FUNCTION tecpey_sensitive_audit_has_forbidden_key(value JSONB)
+CREATE OR REPLACE FUNCTION tecpey_sensitive_audit_has_forbidden_key(document JSONB)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 DECLARE
-  entry RECORD;
-  item JSONB;
+  object_entry RECORD;
+  array_item JSONB;
 BEGIN
-  IF jsonb_typeof(value) = 'object' THEN
-    FOR entry IN SELECT key, value FROM jsonb_each(value)
+  IF jsonb_typeof(document) = 'object' THEN
+    FOR object_entry IN
+      SELECT object_item.key, object_item.value
+        FROM jsonb_each(document) AS object_item(key, value)
     LOOP
-      IF lower(entry.key) = ANY(ARRAY[
+      IF lower(object_entry.key) = ANY(ARRAY[
         'token', 'device_token', 'content', 'message', 'messages',
         'conversation', 'conversations', 'secret', 'password',
         'email', 'phone', 'raw', 'body', 'authorization', 'cookie'
       ]) THEN
         RETURN TRUE;
       END IF;
-      IF tecpey_sensitive_audit_has_forbidden_key(entry.value) THEN
+      IF tecpey_sensitive_audit_has_forbidden_key(object_entry.value) THEN
         RETURN TRUE;
       END IF;
     END LOOP;
-  ELSIF jsonb_typeof(value) = 'array' THEN
-    FOR item IN SELECT value FROM jsonb_array_elements(value)
+  ELSIF jsonb_typeof(document) = 'array' THEN
+    FOR array_item IN
+      SELECT array_element.value
+        FROM jsonb_array_elements(document) AS array_element(value)
     LOOP
-      IF tecpey_sensitive_audit_has_forbidden_key(item) THEN
+      IF tecpey_sensitive_audit_has_forbidden_key(array_item) THEN
         RETURN TRUE;
       END IF;
     END LOOP;
