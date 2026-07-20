@@ -199,13 +199,17 @@ export async function POST(req: NextRequest) {
     if (!marketDefinition) return apiError("market_not_active", 422);
 
     const tradeBlock = await enforceTradeAllowed(userId);
+    if (tradeBlock === "risk_authority_unavailable") {
+      return apiError(tradeBlock, 503);
+    }
     if (tradeBlock) return apiError(tradeBlock, 403);
-    checkOrderRisk({
+    const riskCheck = await checkOrderRisk({
       userId,
       market,
       ip: `principal:${userId}`,
       orderFingerprint: `${market}:${side}:${quantity}:${price ?? "market"}:${idempotencyKey}`,
     });
+    if (!riskCheck.ok) return apiError(riskCheck.reason, 503);
 
     const request: PlaceOrderRequest = {
       market,
