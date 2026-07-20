@@ -1,0 +1,447 @@
+name: One-shot Strict Revocation Remediation
+
+on:
+  push:
+    branches: [fix/strict-revocation-high-risk-mutations]
+    paths:
+      - .github/workflows/strict-revocation-remediation-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-strict-revocation-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/strict-revocation-high-risk-mutations
+          fetch-depth: 2
+
+      - name: Verify immutable one-shot ancestry
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "ebdcac1b33fb3942eca9811fd085f961d61ccf46"
+          test "$(git log -1 --pretty=%s)" = "chore(security): one-shot strict revocation remediation"
+
+      - name: Apply exact remediation
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          strict_files = [
+              "src/app/api/ai-mentor/route.ts",
+              "src/app/api/auth/2fa/backup/route.ts",
+              "src/app/api/auth/2fa/disable/route.ts",
+              "src/app/api/auth/2fa/enroll/route.ts",
+              "src/app/api/auth/devices/[id]/route.ts",
+              "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+              "src/app/api/auth/webauthn/register/verify/route.ts",
+              "src/app/api/mentor-memory/route.ts",
+          ]
+          for name in strict_files:
+              path = Path(name)
+              text = path.read_text()
+              updated, count = re.subn(
+                  r"getCanonicalSession\(req\);",
+                  "getCanonicalSession(req, { strictRevocation: true });",
+                  text,
+              )
+              if count < 1:
+                  raise SystemExit(f"no canonical session call updated in {name}")
+              path.write_text(updated)
+
+          Path("src/lib/notifications/principal.ts").write_text('''import { getCanonicalSession } from "../auth-session";
+
+export type NotificationIdentity = {
+  studentId: string;
+  userId: string | null;
+  email: string | null;
+};
+
+export async function getNotificationIdentityFromRequest(
+  request: Request,
+  options: { strictRevocation?: boolean } = {},
+): Promise<NotificationIdentity | null> {
+  const session = await getCanonicalSession(request, {
+    strictRevocation: options.strictRevocation === true,
+  });
+  if (!session.studentId) return null;
+  return {
+    studentId: session.studentId,
+    userId: session.userId,
+    email: session.email,
+  };
+}
+''')
+
+          consent = Path("src/app/api/notifications/consent/route.ts")
+          text = consent.read_text()
+          needle = '''export async function POST(req: NextRequest) {
+  const identity = await getNotificationIdentityFromRequest(req);'''
+          replacement = '''export async function POST(req: NextRequest) {
+  const identity = await getNotificationIdentityFromRequest(req, {
+    strictRevocation: true,
+  });'''
+          if needle not in text:
+              raise SystemExit("notification consent POST pattern missing")
+          consent.write_text(text.replace(needle, replacement, 1))
+
+          preferences = Path("src/app/api/notifications/preferences/route.ts")
+          text = preferences.read_text()
+          needle = '''export async function PATCH(req: NextRequest) {
+  const identity = await getNotificationIdentityFromRequest(req);'''
+          replacement = '''export async function PATCH(req: NextRequest) {
+  const identity = await getNotificationIdentityFromRequest(req, {
+    strictRevocation: true,
+  });'''
+          if needle not in text:
+              raise SystemExit("notification preferences PATCH pattern missing")
+          preferences.write_text(text.replace(needle, replacement, 1))
+
+          career = Path("src/lib/community-career.ts")
+          text = career.read_text()
+          marker = '''export async function getCurrentPublicProfile(): Promise<CommunityPublicProfile | null> {'''
+          addition = '''export async function setPublicVisibilityForStudent(
+  studentId: string,
+  visibility: CommunityPublicVisibility,
+): Promise<"updated" | "not_found" | "unavailable"> {
+  const result = await withDb(async (client) => {
+    const updated = await client.query(
+      `UPDATE academy_student_profiles
+          SET public_visibility = $2, updated_at = NOW()
+        WHERE student_id = $1::uuid
+        RETURNING student_id`,
+      [studentId, visibility],
+    );
+    return (updated.rowCount ?? 0) === 1;
+  });
+  if (!result.enabled) return "unavailable";
+  return result.value ? "updated" : "not_found";
+}
+
+'''
+          if marker not in text or "setPublicVisibilityForStudent" in text:
+              raise SystemExit("community strict setter insertion point invalid")
+          career.write_text(text.replace(marker, addition + marker, 1))
+
+          Path("src/app/api/community/profile/route.ts").write_text('''import { NextRequest } from "next/server";
+import { apiOk, apiError } from "@/lib/api-validation";
+import { getCanonicalSession } from "@/lib/auth-session";
+import { verifyCsrfOrigin } from "@/lib/csrf";
+import {
+  COMMUNITY_PUBLIC_VISIBILITY_VALUES,
+  getCurrentPublicProfile,
+  setPublicVisibilityForStudent,
+  type CommunityPublicVisibility,
+} from "@/lib/community-career";
+import { rateLimit } from "@/lib/rate-limit";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const limited = await rateLimit(req, {
+    namespace: "community-profile",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) return apiError("rate_limited", 429);
+  const profile = await getCurrentPublicProfile();
+  return apiOk({ profile });
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+  const session = await getCanonicalSession(req, { strictRevocation: true });
+  if (!session.studentId) return apiError("academy_profile_required", 401);
+  const limited = await rateLimit(req, {
+    namespace: "community-profile-update",
+    identity: session.studentId,
+    limit: 15,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) return apiError("rate_limited", 429);
+  const body = await req.json().catch(() => ({}));
+  const visibility = String(body.visibility ?? "") as CommunityPublicVisibility;
+  if (!COMMUNITY_PUBLIC_VISIBILITY_VALUES.includes(visibility)) {
+    return apiError("invalid_visibility", 400);
+  }
+  const result = await setPublicVisibilityForStudent(session.studentId, visibility);
+  if (result === "unavailable") return apiError("profile_storage_unavailable", 503);
+  if (result === "not_found") return apiError("profile_not_found", 404);
+  return apiOk({ visibility });
+}
+''')
+
+          runtime = Path("scripts/api-security-runtime-evidence.mjs")
+          text = runtime.read_text()
+          marker = '''export function detectAuditCall(handler) {'''
+          addition = '''export function detectStrictRevocationCall(handler) {
+  const source = runtimeEvidenceSource(handler);
+  return /strictRevocation\\s*:\\s*true|\\brevokeSessionStrict\\s*\\(|\\brequireStrictSession\\s*\\(|\\bassertSession[A-Za-z0-9_]*Strict\\s*\\(|\\bloadAdminPrincipal\\s*\\(|\\bauthorizeAdminRequest\\s*\\(/i.test(source);
+}
+
+'''
+          if marker not in text or "detectStrictRevocationCall" in text:
+              raise SystemExit("strict evidence insertion point invalid")
+          runtime.write_text(text.replace(marker, addition + marker, 1))
+
+          generator = Path("scripts/generate-api-security-manifest.mjs")
+          text = generator.read_text()
+          import_needle = '''  detectServiceIdentityEvidence,
+  detectSessionCookieWrite,
+  runtimeEvidenceSource,'''
+          import_replacement = '''  detectServiceIdentityEvidence,
+  detectSessionCookieWrite,
+  detectStrictRevocationCall,
+  runtimeEvidenceSource,'''
+          if import_needle not in text:
+              raise SystemExit("generator import pattern missing")
+          text = text.replace(import_needle, import_replacement, 1)
+          text, count = re.subn(
+              r'''strictRevocation:\s*/strictRevocation\\s\*:\\s\*true\|\\brevokeSessionStrict\\s\*\\\(\|\\brequireStrictSession\\s\*\\\(\|\\bassertSession\[A-Za-z0-9_\]\*Strict\\s\*\\\(/i\.test\(source\),''',
+              "strictRevocation: detectStrictRevocationCall(source),",
+              text,
+          )
+          if count != 1:
+              raise SystemExit(f"generator strict evidence replacement count={count}")
+          generator.write_text(text)
+
+          Path("scripts/api-security-strict-revocation-evidence.test.mjs").write_text('''import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { detectStrictRevocationCall } from "./api-security-runtime-evidence.mjs";
+
+describe("strict revocation runtime evidence", () => {
+  it("rejects import-only and comment-only evidence", () => {
+    assert.equal(
+      detectStrictRevocationCall(`import { loadAdminPrincipal } from "x";`),
+      false,
+    );
+    assert.equal(
+      detectStrictRevocationCall(`// getCanonicalSession(req, { strictRevocation: true });`),
+      false,
+    );
+  });
+
+  it("rejects a canonical session call without strict revocation", () => {
+    assert.equal(detectStrictRevocationCall(`await getCanonicalSession(req);`), false);
+  });
+
+  it("accepts explicit canonical and live admin authority", () => {
+    assert.equal(
+      detectStrictRevocationCall(
+        `await getCanonicalSession(req, { strictRevocation: true });`,
+      ),
+      true,
+    );
+    assert.equal(
+      detectStrictRevocationCall(`await loadAdminPrincipal(req);`),
+      true,
+    );
+  });
+});
+''')
+
+          Path("scripts/check-strict-revocation-authority.mjs").write_text('''import { readFile } from "node:fs/promises";
+
+const directStrictFiles = [
+  "src/app/api/ai-mentor/route.ts",
+  "src/app/api/auth/2fa/backup/route.ts",
+  "src/app/api/auth/2fa/disable/route.ts",
+  "src/app/api/auth/2fa/enroll/route.ts",
+  "src/app/api/auth/devices/[id]/route.ts",
+  "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+  "src/app/api/auth/webauthn/register/verify/route.ts",
+  "src/app/api/mentor-memory/route.ts",
+  "src/app/api/community/profile/route.ts",
+];
+const sources = new Map(
+  await Promise.all(
+    directStrictFiles.map(async (path) => [path, await readFile(path, "utf8")]),
+  ),
+);
+const failures = [];
+for (const [path, source] of sources) {
+  if (!source.includes("strictRevocation: true")) {
+    failures.push(`${path}: strict revocation evidence is missing`);
+  }
+  if (source.includes("getCanonicalSession(req);")) {
+    failures.push(`${path}: non-strict canonical session call remains`);
+  }
+}
+
+const alias = await readFile("src/app/api/ai-mentor-v2/route.ts", "utf8");
+if (!alias.includes('POST as canonicalPost')) {
+  failures.push("AI Mentor V2 must delegate POST to the canonical strict handler");
+}
+
+const adminLogout = await readFile("src/app/api/command-center/auth/logout/route.ts", "utf8");
+if (!adminLogout.includes("loadAdminPrincipal(req)")) {
+  failures.push("admin logout must resolve the live database principal");
+}
+
+const notificationPrincipal = await readFile("src/lib/notifications/principal.ts", "utf8");
+if (!notificationPrincipal.includes("getCanonicalSession(request")) {
+  failures.push("notification identity must use canonical session authority");
+}
+if (!notificationPrincipal.includes("options.strictRevocation === true")) {
+  failures.push("notification identity must expose strict revocation mode");
+}
+for (const path of [
+  "src/app/api/notifications/consent/route.ts",
+  "src/app/api/notifications/preferences/route.ts",
+]) {
+  const source = await readFile(path, "utf8");
+  if (!source.includes("strictRevocation: true")) {
+    failures.push(`${path}: sensitive notification mutation must request strict identity`);
+  }
+}
+
+const community = await readFile("src/app/api/community/profile/route.ts", "utf8");
+if (!community.includes("setPublicVisibilityForStudent")) {
+  failures.push("community visibility mutation must use the session-bound server setter");
+}
+if (community.includes("setCurrentPublicVisibility")) {
+  failures.push("community mutation may not resolve identity inside a non-strict helper");
+}
+
+const detector = await readFile("scripts/api-security-runtime-evidence.mjs", "utf8");
+if (!detector.includes("detectStrictRevocationCall")) {
+  failures.push("runtime evidence must expose strict revocation detection");
+}
+if (!detector.includes("loadAdminPrincipal")) {
+  failures.push("runtime evidence must recognize live admin principal authority");
+}
+
+if (failures.length) {
+  console.error("Strict revocation authority check failed:");
+  for (const failure of failures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+console.log("Strict revocation authority check passed for all 16 governed mutations.");
+''')
+
+          Path("src/tests/security/auth-strict-revocation-routes.test.ts").write_text('''import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { describe, it } from "node:test";
+
+const direct = [
+  "src/app/api/ai-mentor/route.ts",
+  "src/app/api/auth/2fa/backup/route.ts",
+  "src/app/api/auth/2fa/disable/route.ts",
+  "src/app/api/auth/2fa/enroll/route.ts",
+  "src/app/api/auth/devices/[id]/route.ts",
+  "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+  "src/app/api/auth/webauthn/register/verify/route.ts",
+  "src/app/api/mentor-memory/route.ts",
+  "src/app/api/community/profile/route.ts",
+];
+
+describe("high-risk mutation strict revocation boundaries", () => {
+  it("requires explicit strict canonical sessions on every direct route", async () => {
+    for (const path of direct) {
+      const source = await readFile(path, "utf8");
+      assert.match(source, /strictRevocation:\s*true/, path);
+      assert.doesNotMatch(source, /getCanonicalSession\(req\);/, path);
+    }
+  });
+
+  it("keeps the AI Mentor compatibility alias on the canonical strict handler", async () => {
+    const source = await readFile("src/app/api/ai-mentor-v2/route.ts", "utf8");
+    assert.match(source, /POST as canonicalPost/);
+    assert.match(source, /return canonicalPost\(req\)/);
+  });
+
+  it("uses live admin authority for command-center logout", async () => {
+    const source = await readFile(
+      "src/app/api/command-center/auth/logout/route.ts",
+      "utf8",
+    );
+    assert.match(source, /loadAdminPrincipal\(req\)/);
+    assert.match(source, /revokeAdminSession\(principal\.sessionId/);
+  });
+
+  it("requires strict notification identity for consent and preference mutations", async () => {
+    const principal = await readFile("src/lib/notifications/principal.ts", "utf8");
+    assert.match(principal, /getCanonicalSession\(request/);
+    assert.match(principal, /options\.strictRevocation === true/);
+    for (const path of [
+      "src/app/api/notifications/consent/route.ts",
+      "src/app/api/notifications/preferences/route.ts",
+    ]) {
+      const source = await readFile(path, "utf8");
+      assert.match(
+        source,
+        /getNotificationIdentityFromRequest\(req, \{[\s\S]*strictRevocation: true/,
+      );
+    }
+  });
+
+  it("binds community visibility to the strict session principal", async () => {
+    const route = await readFile("src/app/api/community/profile/route.ts", "utf8");
+    const authority = await readFile("src/lib/community-career.ts", "utf8");
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /setPublicVisibilityForStudent\(session\.studentId, visibility\)/);
+    assert.doesNotMatch(route, /setCurrentPublicVisibility/);
+    assert.match(authority, /setPublicVisibilityForStudent/);
+    assert.match(authority, /WHERE student_id = \$1::uuid/);
+  });
+});
+''')
+
+          package = Path("package.json")
+          text = package.read_text()
+          old = '"auth:check": "node scripts/check-auth-session-authority.mjs",'
+          new = '"auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-strict-revocation-authority.mjs",'
+          if old not in text:
+              raise SystemExit("auth check package pattern missing")
+          text = text.replace(old, new, 1)
+          old = "scripts/api-security-runtime-evidence.test.mjs scripts/api-security-operation-override-policy.test.mjs"
+          new = "scripts/api-security-runtime-evidence.test.mjs scripts/api-security-strict-revocation-evidence.test.mjs scripts/api-security-operation-override-policy.test.mjs"
+          if old not in text:
+              raise SystemExit("api security test package pattern missing")
+          package.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Verify deterministic scope
+        run: |
+          set -euo pipefail
+          node scripts/check-strict-revocation-authority.mjs
+          node --test scripts/api-security-strict-revocation-evidence.test.mjs
+          git diff --check
+
+      - name: Commit remediation and remove one-shot workflow
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/strict-revocation-remediation-once.yml
+          git add \
+            package.json \
+            scripts/api-security-runtime-evidence.mjs \
+            scripts/generate-api-security-manifest.mjs \
+            scripts/api-security-strict-revocation-evidence.test.mjs \
+            scripts/check-strict-revocation-authority.mjs \
+            src/app/api/ai-mentor/route.ts \
+            src/app/api/auth/2fa/backup/route.ts \
+            src/app/api/auth/2fa/disable/route.ts \
+            src/app/api/auth/2fa/enroll/route.ts \
+            'src/app/api/auth/devices/[id]/route.ts' \
+            'src/app/api/auth/webauthn/credentials/[id]/route.ts' \
+            src/app/api/auth/webauthn/register/verify/route.ts \
+            src/app/api/community/profile/route.ts \
+            src/app/api/mentor-memory/route.ts \
+            src/app/api/notifications/consent/route.ts \
+            src/app/api/notifications/preferences/route.ts \
+            src/lib/community-career.ts \
+            src/lib/notifications/principal.ts \
+            src/tests/security/auth-strict-revocation-routes.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): require strict revocation on high-risk mutations"
+          git push origin HEAD:fix/strict-revocation-high-risk-mutations
