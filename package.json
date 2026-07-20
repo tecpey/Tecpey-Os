@@ -37,7 +37,7 @@
     "auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-session-authority-completion.mjs && node scripts/check-strict-revocation-authority.mjs",
     "test:auth-session": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/auth-*.test.ts'",
     "auth:revocations:repair": "tsx scripts/reconcile-session-revocations.ts",
-    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs",
+    "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs && node scripts/check-mentor-preferences-authority.mjs",
     "test:ai-mentor-trust": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/ai-mentor-provider.test.ts src/tests/security/ai-mentor-trust-boundary.test.ts src/tests/security/ai-mentor-trust-store-postgres.test.ts",
     "ai:redteam:check": "npm run ai:trust:check && npm run test:ai-mentor-trust",
     "withdrawals:check": "node scripts/run-withdrawal-authority-checks.mjs && node scripts/check-withdrawal-prebroadcast-evidence.mjs && node scripts/check-withdrawal-external-effect-evidence.mjs",
