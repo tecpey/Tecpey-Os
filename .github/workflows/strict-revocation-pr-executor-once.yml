@@ -125,8 +125,25 @@ jobs:
       - name: Apply reviewed remediation directly
         run: python3 scripts/apply-strict-revocation-once.py
 
-      - name: Verify strict revocation authority
-        run: node scripts/check-strict-revocation-authority.mjs
+      - name: Capture strict revocation authority diagnostics
+        id: authority
+        continue-on-error: true
+        run: node scripts/check-strict-revocation-authority.mjs > strict-revocation-authority.log 2>&1
+
+      - name: Upload strict revocation authority diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strict-revocation-authority-${{ github.sha }}
+          path: strict-revocation-authority.log
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce strict revocation authority result
+        if: steps.authority.outcome != 'success'
+        run: |
+          cat strict-revocation-authority.log
+          exit 1
 
       - name: Verify strict revocation evidence detector
         run: node --test scripts/api-security-strict-revocation-evidence.test.mjs
