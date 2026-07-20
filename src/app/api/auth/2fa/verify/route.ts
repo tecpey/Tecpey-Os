@@ -10,22 +10,21 @@ import {
   verifyTotp,
   consumePreAuthToken,
 } from "@/lib/security/totp";
-import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 import {
   signUnifiedSession,
   extractJtiFromToken,
   extractExpFromToken,
 } from "@/lib/unified-session";
-import { registerSession } from "@/lib/security/session-store";
 import {
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
-  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
+import { admitSession } from "@/lib/security/session-authority";
+import { buildSessionAuditContext } from "@/lib/security/session-route-context";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
-import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import { deviceFingerprint } from "@/lib/security/webauthn";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
@@ -99,12 +98,6 @@ export async function POST(req: NextRequest) {
 
     if (!verifyTotp(rawSecret, code)) {
       trackAuthEvent("2fa_failed");
-      writeAudit({
-        actorId: userId,
-        action: "2fa_verify_failed",
-        ip,
-        metadata: { event: "verify_failed" },
-      });
       return apiError("invalid_totp_code", 401);
     }
 
@@ -118,13 +111,6 @@ export async function POST(req: NextRequest) {
     if (!touched.enabled) return apiError("db_unavailable", 503);
 
     trackAuthEvent("2fa_success");
-    writeAudit({
-      actorId: userId,
-      action: "2fa_verify_success",
-      ip,
-      metadata: { event: "verify_ok" },
-    });
-
     if (!isPreAuthFlow) return apiOk({ verified: true, userId });
 
     const accountResult = await withDb(async (db) => {
@@ -147,42 +133,44 @@ export async function POST(req: NextRequest) {
       displayName: account.display_name,
       username: account.username,
     });
-    const jti = extractJtiFromToken(accessToken);
-    const exp = extractExpFromToken(accessToken);
-    if (!jti || !exp) return apiError("session_issue_failed", 503);
+    const accessJti = extractJtiFromToken(accessToken);
+    const accessExp = extractExpFromToken(accessToken);
+    if (!accessJti || !accessExp) return apiError("session_issue_failed", 503);
 
     const familyId = crypto.randomUUID();
-    const refreshToken = await issueRefreshToken({
+    const preparedRefresh = await prepareRefreshToken({
       userId: account.id,
       familyId,
       deviceInfo,
       ip,
     });
-    if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+    if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-    const registered = await registerSession({
-      jti,
-      userId: account.id,
-      deviceInfo,
-      ip,
-      expiresAt: new Date(exp * 1000),
-    });
-    if (!registered) {
-      await revokeAllRefreshTokensForUser(account.id);
+    let admission;
+    try {
+      admission = await admitSession({
+        userId: account.id,
+        accessJti,
+        accessExpiresAt: new Date(accessExp * 1000),
+        preparedRefresh,
+        deviceInfo,
+        ip,
+        deviceFingerprint: deviceFingerprint(deviceInfo, ip),
+        method: "password_2fa",
+        audit: buildSessionAuditContext({
+          req,
+          userId: account.id,
+          actorType: "user",
+          action: "session.issue",
+          evidence: { authenticationMethod: "password_2fa" },
+        }),
+      });
+    } catch {
       return apiError("session_registry_unavailable", 503);
     }
 
-    const fingerprint = deviceFingerprint(deviceInfo, ip);
-    const { isNew } = await markDeviceSeen(account.id, fingerprint);
-    if (isNew) trackAuthEvent("new_device_detected");
+    if (admission.isNewDevice) trackAuthEvent("new_device_detected");
     trackAuthEvent("login_success");
-    writeAudit({
-      actorId: account.id,
-      action: "login",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { method: "password+2fa", isNewDevice: isNew },
-    });
 
     const response = apiOk({ authenticated: true });
     response.cookies.set(COOKIES.SESSION, accessToken, {
@@ -192,7 +180,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: ACCESS_COOKIE_TTL_S,
     });
-    setRefreshCookie(response, refreshToken);
+    setRefreshCookie(response, admission.refreshToken);
     return response;
   });
 }
