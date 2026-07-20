@@ -1,0 +1,78 @@
+name: One-shot Strict Revocation Manifest Sync
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/strict-revocation-manifest-sync-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-strict-revocation-manifest-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/strict-revocation-high-risk-mutations
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Regenerate exact manifest and remove resolved exception group
+        run: |
+          set -euo pipefail
+          node scripts/generate-api-security-manifest.mjs --output=docs/security/generated/api-security-manifest.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=docs/security/generated/api-security-manifest.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=docs/security/generated/api-security-manifest.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'config/api-security-exceptions.json';
+          const registry = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const before = registry.groups.length;
+          registry.groups = registry.groups.filter((group) => group.id !== 'strict-revocation');
+          if (registry.groups.length !== before - 1) {
+            throw new Error('strict-revocation exception group was not removed exactly once');
+          }
+          fs.writeFileSync(path, `${JSON.stringify(registry, null, 2)}\n`);
+          NODE
+          node <<'NODE'
+          const manifest = require('./docs/security/generated/api-security-manifest.json');
+          const counts = manifest.totals?.findingCounts ?? {};
+          if ((counts.required_strict_revocation_missing ?? 0) !== 0) {
+            throw new Error(`strict revocation findings remain: ${counts.required_strict_revocation_missing}`);
+          }
+          if (manifest.totals?.findings !== 48) {
+            throw new Error(`unexpected total finding count: ${manifest.totals?.findings}`);
+          }
+          if ((counts.parsed_body_without_size_limit ?? 0) !== 48) {
+            throw new Error('bounded-body debt count changed unexpectedly');
+          }
+          NODE
+          npm run api:security:check
+          git diff --check
+
+      - name: Commit governed snapshot and registry
+        run: |
+          set -euo pipefail
+          git add \
+            docs/security/generated/api-security-manifest.json \
+            config/api-security-exceptions.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(security): resolve strict revocation manifest debt"
+          git push origin HEAD:fix/strict-revocation-high-risk-mutations
