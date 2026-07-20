@@ -34,7 +34,7 @@
     "notifications:domain:check": "node scripts/check-notification-domain-outbox-authority.mjs",
     "notifications:worker:in-app": "tsx scripts/run-notification-in-app-worker.ts",
     "notifications:worker:domain": "tsx scripts/run-notification-domain-worker.ts",
-    "auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-strict-revocation-authority.mjs",
+    "auth:check": "node scripts/check-auth-session-authority.mjs && node scripts/check-session-authority-completion.mjs && node scripts/check-strict-revocation-authority.mjs",
     "test:auth-session": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/auth-*.test.ts'",
     "auth:revocations:repair": "tsx scripts/reconcile-session-revocations.ts",
     "ai:trust:check": "node scripts/check-ai-mentor-trust-boundary.mjs",
