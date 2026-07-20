@@ -199,7 +199,7 @@ describe("Academy logout route authority", () => {
   );
 
   it(
-    "returns durable success during Redis outage and repairs deny evidence through the outbox authority",
+    "returns durable success when deny publication fails and repairs evidence through the outbox authority",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `redis-outage-owner-${randomUUID()}`;
@@ -209,9 +209,19 @@ describe("Academy logout route authority", () => {
         ip: "127.0.0.1",
       });
       const previousRedis = globalThis.tecpeyRedisClient;
+      const failingPipelineRedis = {
+        get: (key: string) => redis!.get(key),
+        pipeline: () => ({
+          set: () => undefined,
+          exec: async () => {
+            throw new Error("redis_pipeline_unavailable");
+          },
+        }),
+      };
 
       try {
-        globalThis.tecpeyRedisClient = undefined;
+        globalThis.tecpeyRedisClient =
+          failingPipelineRedis as unknown as typeof previousRedis;
         const committed = await logout(logoutRequest(session.accessToken));
         assert.equal(committed.status, 200);
         assert.deepEqual(await committed.json(), {
