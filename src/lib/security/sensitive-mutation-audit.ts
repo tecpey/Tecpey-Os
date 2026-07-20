@@ -47,6 +47,17 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "session_id",
   "familyid",
   "family_id",
+  "withdrawalid",
+  "withdrawal_id",
+  "authorizationid",
+  "authorization_id",
+  "destinationaddress",
+  "destination_address",
+  "destinationtag",
+  "destination_tag",
+  "reviewnotes",
+  "review_notes",
+  "notes",
 ]);
 
 export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
@@ -81,7 +92,17 @@ export type SensitiveMutationAuditAction =
   | "exchange.order.admit"
   | "exchange.order.finalize"
   | "exchange.order.reject"
-  | "exchange.order.cancel";
+  | "exchange.order.cancel"
+  | "withdrawal.authorization.issue"
+  | "withdrawal.authorization.reject"
+  | "withdrawal.admit"
+  | "withdrawal.block"
+  | "withdrawal.review"
+  | "withdrawal.cancel"
+  | "withdrawal.admin.approve"
+  | "withdrawal.admin.reject"
+  | "withdrawal.admin.block"
+  | "withdrawal.admin.flag_review";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
@@ -94,7 +115,10 @@ export type SensitiveMutationAuditResource =
   | "auth_session"
   | "refresh_family"
   | "known_device"
-  | "exchange_order";
+  | "exchange_order"
+  | "withdrawal_authorization"
+  | "withdrawal_request"
+  | "withdrawal_admin_transition";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;
