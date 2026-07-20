@@ -29,19 +29,24 @@ describe("high-risk mutation strict revocation boundaries", () => {
     assert.match(source, /return canonicalPost\(req\)/);
   });
 
-  it("uses live admin authority for command-center logout", async () => {
+  it("uses live admin authority and atomic durable revocation for command-center logout", async () => {
     const source = await readFile(
       "src/app/api/command-center/auth/logout/route.ts",
       "utf8",
     );
     assert.match(source, /loadAdminPrincipal\(req\)/);
-    assert.match(source, /revokeAdminSession\(principal\.sessionId/);
+    assert.match(source, /withTx\(async \(client\) =>/);
+    assert.match(source, /UPDATE admin_sessions[\s\S]*revoked_at = NOW\(\)/);
+    assert.match(source, /WHERE id = \$2::uuid AND revoked_at IS NULL/);
+    assert.match(source, /principal\.sessionId/);
+    assert.match(source, /writeAdminAuditEvent\(client/);
   });
 
   it("requires strict notification identity for consent and preference mutations", async () => {
     const principal = await readFile("src/lib/notifications/principal.ts", "utf8");
     assert.match(principal, /getCanonicalSession\(request/);
     assert.match(principal, /options\.strictRevocation === true/);
+    assert.match(principal, /resolveNotificationPrincipal/);
     for (const path of [
       "src/app/api/notifications/consent/route.ts",
       "src/app/api/notifications/preferences/route.ts",
@@ -49,7 +54,7 @@ describe("high-risk mutation strict revocation boundaries", () => {
       const source = await readFile(path, "utf8");
       assert.match(
         source,
-        /getNotificationIdentityFromRequest\(req, \{[\s\S]*strictRevocation: true/,
+        /getNotificationIdentityFromRequest\(req, \{[\s\S]*?strictRevocation: true[\s\S]*?\}\)/,
       );
     }
   });
@@ -58,9 +63,14 @@ describe("high-risk mutation strict revocation boundaries", () => {
     const route = await readFile("src/app/api/community/profile/route.ts", "utf8");
     const authority = await readFile("src/lib/community-career.ts", "utf8");
     assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
-    assert.match(route, /setPublicVisibilityForStudent\(session\.studentId, visibility\)/);
+    assert.match(
+      route,
+      /setPublicVisibilityForStudent\(\s*session\.studentId,\s*visibility,?\s*\)/,
+    );
     assert.doesNotMatch(route, /setCurrentPublicVisibility/);
     assert.match(authority, /setPublicVisibilityForStudent/);
-    assert.match(authority, /WHERE student_id = \$1::uuid/);
+    assert.match(authority, /INSERT INTO academy_public_profiles/);
+    assert.match(authority, /VALUES\(\$1::uuid, \$2, now\(\)\)/);
+    assert.match(authority, /ON CONFLICT\(student_id\) DO UPDATE/);
   });
 });
