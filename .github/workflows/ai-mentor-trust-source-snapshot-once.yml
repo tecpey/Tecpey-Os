@@ -1,4 +1,4 @@
-name: One-shot AI Mentor Trust Source Snapshot
+name: One-shot AI Mentor Trust Finalizer
 
 on:
   pull_request:
@@ -7,52 +7,126 @@ on:
       - .github/workflows/ai-mentor-trust-source-snapshot-once.yml
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: one-shot-ai-mentor-trust-finalizer
+  cancel-in-progress: false
 
 jobs:
-  snapshot:
+  finalize:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/ai-mentor-trust-boundary
-      - name: Collect exact mentor trust context
+          fetch-depth: 2
+
+      - name: Apply exact contract fixes
         run: |
           set -euo pipefail
-          mkdir -p snapshot
-          files=(
-            package.json
-            src/app/api/ai-mentor/route.ts
-            src/app/api/ai-mentor-v2/route.ts
-            src/app/api/mentor-conversations/route.ts
-            src/app/api/mentor-memory/route.ts
-            src/lib/mentor-memory.ts
-            src/lib/mentor-events.ts
-            src/lib/mentor-signals.ts
-            src/lib/behavioral-context-server.ts
-            src/lib/behavioral-engine.ts
-            src/lib/db.ts
-            src/lib/db-migration-plan.ts
-            src/lib/db-migrate.ts
-            src/lib/security/audit-log.ts
-            src/lib/security/sensitive-mutation-audit.ts
-            scripts/check-sensitive-mutation-audit-authority.mjs
-            scripts/generate-api-security-manifest.mjs
+          python3 <<'PY'
+          from pathlib import Path
+
+          route = Path("src/app/api/ai-mentor/route.ts")
+          source = route.read_text()
+          old = '"mentor_conversation"'
+          count = source.count(old)
+          if count != 2:
+              raise SystemExit(f"expected two legacy mentor reasons, found {count}")
+          route.write_text(source.replace(old, '"mentor_conversation_saved"'))
+
+          preferences = Path("src/app/api/mentor-preferences/route.ts")
+          source = preferences.read_text()
+          source = source.replace(
+              'import { NextRequest } from "next/server";',
+              'import { NextRequest, NextResponse } from "next/server";',
+              1,
           )
-          for file in "${files[@]}"; do
-            test -f "$file"
-            mkdir -p "snapshot/$(dirname "$file")"
-            cp "$file" "snapshot/$file"
-          done
-          find src/tests -type f \( -iname '*mentor*' -o -iname '*ai*' \) -print0 | while IFS= read -r -d '' file; do
-            mkdir -p "snapshot/$(dirname "$file")"
-            cp "$file" "snapshot/$file"
-          done
-          git rev-parse HEAD > snapshot/HEAD_SHA.txt
-      - uses: actions/upload-artifact@v4
+          old = 'function noStore(response: Response): Response {'
+          new = 'function noStore<T>(response: NextResponse<T>): NextResponse<T> {'
+          if old not in source:
+              raise SystemExit("mentor preference response contract not found")
+          preferences.write_text(source.replace(old, new, 1))
+
+          test = Path("src/tests/security/ai-mentor-trust-boundary.test.ts")
+          source = test.read_text()
+          removals = [
+              '    createdAt: new Date().toISOString(),\n',
+              '    updatedAt: new Date().toISOString(),\n',
+              '      id: "conversation-1",\n',
+              '      studentId: "student-1",\n',
+              '      id: "conversation-2",\n',
+          ]
+          for value in removals:
+              if value not in source:
+                  raise SystemExit(f"test fixture contract not found: {value.strip()}")
+              source = source.replace(value, "", 1)
+          if '      studentId: "student-1",\n' not in source:
+              raise SystemExit("second conversation studentId fixture not found")
+          source = source.replace('      studentId: "student-1",\n', "", 1)
+          test.write_text(source)
+          PY
+
+      - name: Generate exact security manifest snapshot
+        run: |
+          set -euo pipefail
+          node scripts/generate-api-security-manifest.mjs --output=api-security-manifest.generated.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=api-security-manifest.generated.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=api-security-manifest.generated.json
+          cp api-security-manifest.generated.json docs/security/generated/api-security-manifest.json
+          rm api-security-manifest.generated.json
+          git diff --check
+
+      - uses: actions/setup-node@v4
         with:
-          name: ai-mentor-trust-source-${{ github.sha }}
-          path: snapshot
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: node --import tsx --test src/tests/security/ai-mentor-provider.test.ts src/tests/security/ai-mentor-trust-boundary.test.ts
+      - run: npm run api:security:check
+
+      - name: Record tested blob identities
+        run: |
+          set -euo pipefail
+          files=(
+            src/app/api/ai-mentor/route.ts
+            src/app/api/mentor-preferences/route.ts
+            src/tests/security/ai-mentor-trust-boundary.test.ts
+            docs/security/generated/api-security-manifest.json
+          )
+          : > ai-mentor-final-blobs.txt
+          for file in "${files[@]}"; do
+            printf '%s %s\n' "$(git hash-object "$file")" "$file" >> ai-mentor-final-blobs.txt
+          done
+          cat ai-mentor-final-blobs.txt
+
+      - name: Upload finalizer evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-mentor-finalizer-${{ github.sha }}
+          path: |
+            ai-mentor-final-blobs.txt
+            src/app/api/ai-mentor/route.ts
+            src/app/api/mentor-preferences/route.ts
+            src/tests/security/ai-mentor-trust-boundary.test.ts
+            docs/security/generated/api-security-manifest.json
           if-no-files-found: error
           retention-days: 2
+
+      - name: Publish object pack for Git Data finalization
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git add \
+            src/app/api/ai-mentor/route.ts \
+            src/app/api/mentor-preferences/route.ts \
+            src/tests/security/ai-mentor-trust-boundary.test.ts \
+            docs/security/generated/api-security-manifest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(ai): finalize Mentor trust boundary contracts"
+          git push origin HEAD:refs/heads/fix/ai-mentor-trust-boundary-applied
