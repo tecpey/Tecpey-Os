@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb } from "@/lib/db";
 import {
   academyAccountIdFromEmail,
@@ -403,10 +404,15 @@ export async function DELETE(req: NextRequest) {
       return response;
     }
 
-    const session = await verifyUnifiedSession(sessionToken);
+    const [session, canonical] = await Promise.all([
+      verifyUnifiedSession(sessionToken),
+      getCanonicalSession(req, { strictRevocation: true }),
+    ]);
     const jti = session?.jti ?? null;
-    const userId = session?.accountId ?? session?.studentId ?? null;
-    if (!session || !jti || !userId) {
+    const signedUserId = session?.accountId ?? session?.studentId ?? null;
+    const userId =
+      canonical.academyAccountId ?? canonical.studentId ?? canonical.userId ?? null;
+    if (!session || !jti || !signedUserId || !userId || signedUserId !== userId) {
       const response = apiError("invalid_session", 401);
       clearAllAuthCookies(response);
       return response;
@@ -422,7 +428,7 @@ export async function DELETE(req: NextRequest) {
         currentSessionJti: jti,
         audit: {
           tenantId: PLATFORM.DEFAULT_TENANT_ID,
-          actorType: "user",
+          actorType: session.accountId ? "user" : "student",
           actorId: userId,
           correlationId,
           requestHash: hashSensitiveAuditRequest({
