@@ -1,0 +1,58 @@
+name: One-shot AI Mentor Trust Source Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/ai-mentor-trust-source-snapshot-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ai-mentor-trust-boundary
+      - name: Collect exact mentor trust context
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot
+          files=(
+            package.json
+            src/app/api/ai-mentor/route.ts
+            src/app/api/ai-mentor-v2/route.ts
+            src/app/api/mentor-conversations/route.ts
+            src/app/api/mentor-memory/route.ts
+            src/lib/mentor-memory.ts
+            src/lib/mentor-events.ts
+            src/lib/mentor-signals.ts
+            src/lib/behavioral-context-server.ts
+            src/lib/behavioral-engine.ts
+            src/lib/db.ts
+            src/lib/db-migration-plan.ts
+            src/lib/db-migrate.ts
+            src/lib/security/audit-log.ts
+            src/lib/security/sensitive-mutation-audit.ts
+            scripts/check-sensitive-mutation-audit-authority.mjs
+            scripts/generate-api-security-manifest.mjs
+          )
+          for file in "${files[@]}"; do
+            test -f "$file"
+            mkdir -p "snapshot/$(dirname "$file")"
+            cp "$file" "snapshot/$file"
+          done
+          find src/tests -type f \( -iname '*mentor*' -o -iname '*ai*' \) -print0 | while IFS= read -r -d '' file; do
+            mkdir -p "snapshot/$(dirname "$file")"
+            cp "$file" "snapshot/$file"
+          done
+          git rev-parse HEAD > snapshot/HEAD_SHA.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-mentor-trust-source-${{ github.sha }}
+          path: snapshot
+          if-no-files-found: error
+          retention-days: 2
