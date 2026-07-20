@@ -17,6 +17,7 @@ import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admiss
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
 import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
 import { runSensitiveMutationAuditMigrations } from "./db-migrate-sensitive-mutation-audit";
+import { runSessionAuthorityMigrations } from "./db-migrate-session-authority";
 import { runAiMentorTrustMigrations } from "./db-migrate-ai-mentor-trust";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
@@ -44,6 +45,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runWithdrawalSettlementMigrations(client);
   await runApiCommandIdempotencyMigrations(client);
   await runSensitiveMutationAuditMigrations(client);
+  await runSessionAuthorityMigrations(client);
   await runAiMentorTrustMigrations(client);
 }
 
