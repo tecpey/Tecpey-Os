@@ -1,4 +1,10 @@
 import { withTx } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
+import { hashSensitiveAuditRequest } from "@/lib/security/sensitive-mutation-audit";
+import {
+  fingerprintExpectedTransactionHash,
+  writeWithdrawalExternalEffectEvidenceTx,
+} from "@/lib/security/withdrawal-external-effect-evidence";
 
 export async function settleConfirmedWithdrawal(input: {
   withdrawalId: string;
@@ -11,12 +17,17 @@ export async function settleConfirmedWithdrawal(input: {
       user_id: string;
       asset: string;
       amount: string;
+      network: string;
       state: string;
       tx_hash: string | null;
       funds_reserved_at: Date | null;
+      confirmation_count: number;
+      required_confirmations: number;
+      block_number: string | null;
     }>(
-      `SELECT user_id, asset, amount::text AS amount, state, tx_hash,
-              funds_reserved_at
+      `SELECT user_id, asset, amount::text AS amount, network, state, tx_hash,
+              funds_reserved_at, confirmation_count, required_confirmations,
+              block_number
          FROM withdrawals
         WHERE id = $1
         FOR UPDATE`,
@@ -41,6 +52,21 @@ export async function settleConfirmedWithdrawal(input: {
       if ((existingLedger.rowCount ?? 0) !== 1) {
         throw new Error(`Completed withdrawal ${input.withdrawalId} lacks withdraw ledger evidence`);
       }
+
+      // Compatibility-safe replay: current rows create the event in the same
+      // settlement transaction. A legacy completed row is backfilled exactly
+      // once from its locked authoritative facts rather than trusted from a
+      // caller-supplied payload.
+      await writeSettlementEvidence(client, {
+        withdrawalId: input.withdrawalId,
+        txHash: input.txHash,
+        asset: row.asset,
+        network: row.network,
+        amount: row.amount,
+        requiredConfirmations: row.required_confirmations,
+        confirmations: row.confirmation_count,
+        blockNumber: row.block_number,
+      });
       return "replayed" as const;
     }
     if (!["broadcasted", "confirming"].includes(row.state)) {
@@ -53,6 +79,11 @@ export async function settleConfirmedWithdrawal(input: {
     }
     if ((existingLedger.rowCount ?? 0) !== 0) {
       throw new Error(`Withdrawal ${input.withdrawalId} has premature withdraw ledger evidence`);
+    }
+    if (input.confirmations < row.required_confirmations) {
+      throw new Error(
+        `Withdrawal ${input.withdrawalId} does not meet required confirmations`,
+      );
     }
 
     const consumed = await client.query<{ available_balance: string }>(
@@ -110,9 +141,68 @@ export async function settleConfirmedWithdrawal(input: {
     if ((updated.rowCount ?? 0) !== 1) {
       throw new Error(`Withdrawal ${input.withdrawalId} completion transition rejected`);
     }
+
+    await writeSettlementEvidence(client, {
+      withdrawalId: input.withdrawalId,
+      txHash: input.txHash,
+      asset: row.asset,
+      network: row.network,
+      amount: row.amount,
+      requiredConfirmations: row.required_confirmations,
+      confirmations: input.confirmations,
+      blockNumber: input.blockNumber?.toString() ?? null,
+    });
     return "settled" as const;
   });
 
   if (!result.enabled) throw new Error("Withdrawal database unavailable");
   return result.value;
+}
+
+async function writeSettlementEvidence(
+  client: Parameters<typeof writeWithdrawalExternalEffectEvidenceTx>[0],
+  input: {
+    withdrawalId: string;
+    txHash: string;
+    asset: string;
+    network: string;
+    amount: string;
+    requiredConfirmations: number;
+    confirmations: number;
+    blockNumber: string | null;
+  },
+): Promise<void> {
+  const transactionFingerprint = fingerprintExpectedTransactionHash(input.txHash);
+  await writeWithdrawalExternalEffectEvidenceTx(client, {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    actorId: "withdrawal-settlement",
+    action: "withdrawal.settle",
+    resourceType: "withdrawal_settlement",
+    resourceIdentity: `${input.withdrawalId}\u001f${input.txHash.toLowerCase()}`,
+    correlationIdentity: `${input.withdrawalId}\u001f${input.txHash.toLowerCase()}`,
+    requestHash: hashSensitiveAuditRequest({
+      action: "withdrawal.settle",
+      withdrawalId: input.withdrawalId,
+      txHash: input.txHash.toLowerCase(),
+      asset: input.asset,
+      network: input.network,
+      amount: input.amount,
+      requiredConfirmations: input.requiredConfirmations,
+      confirmations: input.confirmations,
+      blockNumber: input.blockNumber,
+    }),
+    outcome: "success",
+    metadata: {
+      asset: input.asset,
+      network: input.network.toLowerCase(),
+      amount: input.amount,
+      requiredConfirmations: input.requiredConfirmations,
+      observedConfirmations: input.confirmations,
+      blockNumber: input.blockNumber,
+      transactionFingerprint,
+      ledgerType: "withdraw",
+      heldConsumed: true,
+      finalState: "completed",
+    },
+  });
 }
