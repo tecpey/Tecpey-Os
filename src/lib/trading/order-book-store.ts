@@ -6,6 +6,7 @@ import {
   canonicalMatchingInput,
   crossesLimit,
   decimalAdd,
+  isPositiveAmount,
   isZeroAmount,
 } from "./matching-financials";
 import { D } from "./decimal";
@@ -52,7 +53,7 @@ export interface OrderBookStore {
 
 export function pkStr(price: string): string {
   const canonical = canonicalMatchingInput(price, "book_price");
-  if (!D(canonical).isPositive()) throw new Error("invalid_book_price");
+  if (!isPositiveAmount(canonical)) throw new Error("invalid_book_price");
   return canonical;
 }
 
@@ -60,7 +61,7 @@ function normalizeEntry(entry: EngineOrder): EngineOrder {
   const pricePerUnit = pkStr(entry.pricePerUnit);
   const originalQty = canonicalMatchingInput(entry.originalQty, "book_original_quantity");
   const remaining = canonicalMatchingInput(entry.remaining, "book_remaining_quantity");
-  if (!D(originalQty).isPositive() || D(remaining).isNegative()) {
+  if (!isPositiveAmount(originalQty) || D(remaining).isNegative()) {
     throw new Error("invalid_book_quantity");
   }
   if (!Number.isSafeInteger(entry.ts) || entry.ts < 0) {
