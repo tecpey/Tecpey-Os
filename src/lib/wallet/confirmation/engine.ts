@@ -7,6 +7,7 @@ import { withDb } from "@/lib/db";
 import { trackWalletMetric } from "../observability";
 import {
   markWithdrawalConfirmationOutcome,
+  publishWithdrawalConfirmationOutbox,
 } from "@/lib/security/withdrawal-external-effect-authority";
 import { settleConfirmedWithdrawal } from "@/lib/security/withdrawal-settlement-authority";
 
@@ -30,6 +31,11 @@ type ConfirmationRecord = {
 };
 
 export async function checkConfirmation(data: ConfirmationJobData): Promise<boolean> {
+  // Enqueue may race the post-commit publication transaction. Re-running the
+  // idempotent publisher here establishes outbox state, confirming transition
+  // and mandatory monitor evidence before any provider observation is trusted.
+  await publishWithdrawalConfirmationOutbox(data.withdrawalId);
+
   const withdrawal = await loadAuthoritativeConfirmation(data.withdrawalId);
   if (!withdrawal) return true;
   if (!withdrawal.txHash) {
@@ -119,10 +125,6 @@ async function loadAuthoritativeConfirmation(
       throw new Error("withdrawal_confirmation_hash_missing");
     }
 
-    // The confirmation outbox publisher owns broadcasted -> confirming and
-    // mandatory monitor evidence. A job may race immediately after enqueue,
-    // so polling remains valid from either authoritative state without a
-    // second direct transition authority here.
     return row;
   });
 
