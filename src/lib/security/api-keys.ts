@@ -4,16 +4,21 @@
 // Storage: SHA-256(plaintext_key) — plaintext is returned once and NEVER stored.
 // Validation: hash the provided key, compare against key_hash column.
 //
-// Permissions: "read" | "trade" | "withdraw" (additive, not hierarchical)
-// IP whitelist: null = allow all; string[] = restrict to listed IPs
-// Expiration: optional; null = no expiry
+// Credential lifecycle mutations are transaction-coupled to mandatory audit
+// evidence. A create/enable/disable/rotate/delete operation cannot commit if its
+// append-only audit admission fails. The service—not a route-side telemetry call—
+// owns that invariant, so every caller receives the same fail-closed behavior.
 
-import { createHash, randomBytes } from "crypto";
-import { withDb } from "@/lib/db";
+import { createHash, randomBytes, randomUUID } from "crypto";
+import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import { ipInWhitelist } from "./cidr";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import {
+  hashSensitiveAuditRequest,
+  writeSensitiveMutationAuditTx,
+  type SensitiveMutationAuditEvent,
+} from "./sensitive-mutation-audit";
 
 export type ApiKeyPermission = "read" | "trade" | "withdraw";
 
@@ -39,38 +44,98 @@ export type ApiKeyValidation = {
   reason?: string;
 };
 
+export type ApiKeyMutationAuditContext = Pick<
+  SensitiveMutationAuditEvent,
+  "tenantId" | "actorType" | "actorId" | "correlationId" | "requestHash"
+>;
+
+type ApiKeyAuditAction =
+  | "api_key.create"
+  | "api_key.enable"
+  | "api_key.disable"
+  | "api_key.rotate"
+  | "api_key.delete";
+
 type DbApiKeyRow = {
-  id: string; user_id: string; name: string; key_prefix: string;
-  permissions: string[]; ip_whitelist: string[] | null;
-  expires_at: Date | null; last_used_at: Date | null;
-  is_active: boolean; created_at: Date; updated_at: Date;
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  permissions: string[];
+  ip_whitelist: string[] | null;
+  expires_at: Date | null;
+  last_used_at: Date | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
 };
 
-function rowToApiKey(r: DbApiKeyRow): ApiKey {
+function rowToApiKey(row: DbApiKeyRow): ApiKey {
   return {
-    id: r.id, userId: r.user_id, name: r.name, keyPrefix: r.key_prefix,
-    permissions: r.permissions as ApiKeyPermission[],
-    ipWhitelist: r.ip_whitelist, expiresAt: r.expires_at,
-    lastUsedAt: r.last_used_at, isActive: r.is_active,
-    createdAt: r.created_at, updatedAt: r.updated_at,
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    keyPrefix: row.key_prefix,
+    permissions: row.permissions as ApiKeyPermission[],
+    ipWhitelist: row.ip_whitelist,
+    expiresAt: row.expires_at,
+    lastUsedAt: row.last_used_at,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
-// ── Key generation ────────────────────────────────────────────────────────────
-
-function generateApiKey(): { plaintext: string; prefix: string; hash: string } {
-  const body = randomBytes(36).toString("base64url"); // 48 URL-safe chars
+function generateApiKey(): {
+  plaintext: string;
+  prefix: string;
+  hash: string;
+  credentialFingerprint: string;
+} {
+  const body = randomBytes(36).toString("base64url");
   const prefix = body.slice(0, 8);
   const plaintext = `tecpey_${prefix}_${body}`;
   const hash = createHash("sha256").update(plaintext).digest("hex");
-  return { plaintext, prefix, hash };
+  const credentialFingerprint = createHash("sha256")
+    .update(`tecpey-api-key-audit:${hash}`)
+    .digest("hex");
+  return { plaintext, prefix, hash, credentialFingerprint };
 }
 
 function hashApiKey(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex");
 }
 
-// ── Create ────────────────────────────────────────────────────────────────────
+function assertAuditActor(userId: string, audit: ApiKeyMutationAuditContext): void {
+  if (!userId || audit.actorId !== userId) {
+    throw new Error("api_key_audit_actor_mismatch");
+  }
+  if (audit.actorType !== "student" && audit.actorType !== "user") {
+    throw new Error("api_key_audit_actor_type_invalid");
+  }
+}
+
+function resolveApiKeyAuditContext(
+  userId: string,
+  action: ApiKeyAuditAction,
+  requestEvidence: Record<string, unknown>,
+  provided?: ApiKeyMutationAuditContext,
+): ApiKeyMutationAuditContext {
+  const audit = provided ?? {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    actorType: "user" as const,
+    actorId: userId,
+    correlationId: `api-key-${randomUUID()}`,
+    requestHash: hashSensitiveAuditRequest({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorId: userId,
+      action,
+      ...requestEvidence,
+    }),
+  };
+  assertAuditActor(userId, audit);
+  return audit;
+}
 
 export async function createApiKey(opts: {
   userId: string;
@@ -78,52 +143,88 @@ export async function createApiKey(opts: {
   permissions: ApiKeyPermission[];
   ipWhitelist?: string[] | null;
   expiresAt?: Date | null;
+  audit?: ApiKeyMutationAuditContext;
 }): Promise<{ apiKey: ApiKey; plaintext: string }> {
-  const { plaintext, prefix, hash } = generateApiKey();
+  const audit = resolveApiKeyAuditContext(
+    opts.userId,
+    "api_key.create",
+    {
+      name: opts.name.slice(0, 100),
+      permissions: [...opts.permissions].sort(),
+      ipWhitelist: opts.ipWhitelist ? [...opts.ipWhitelist].sort() : null,
+      expiresAt: opts.expiresAt?.toISOString() ?? null,
+    },
+    opts.audit,
+  );
+  const generated = generateApiKey();
 
-  const r = await withDb(async (db) => {
-    const countResult = await db.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM api_keys WHERE user_id = $1 AND is_active = TRUE`,
+  const result = await withTx(async (client) => {
+    const countResult = await client.query<{ count: string }>(
+      `SELECT COUNT(*) AS count
+         FROM api_keys
+        WHERE user_id = $1
+          AND is_active = TRUE`,
       [opts.userId],
     );
-    if (parseInt(countResult.rows[0].count) >= 20) {
+    if (Number.parseInt(countResult.rows[0]?.count ?? "0", 10) >= 20) {
       throw new Error("api_key_limit_reached");
     }
 
-    const result = await db.query<DbApiKeyRow>(
+    const inserted = await client.query<DbApiKeyRow>(
       `INSERT INTO api_keys
          (user_id, name, key_prefix, key_hash, permissions, ip_whitelist, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, user_id, name, key_prefix, permissions, ip_whitelist,
                  expires_at, last_used_at, is_active, created_at, updated_at`,
       [
-        opts.userId, opts.name.slice(0, 100), prefix, hash,
-        opts.permissions, opts.ipWhitelist ?? null, opts.expiresAt ?? null,
+        opts.userId,
+        opts.name.slice(0, 100),
+        generated.prefix,
+        generated.hash,
+        opts.permissions,
+        opts.ipWhitelist ?? null,
+        opts.expiresAt ?? null,
       ],
     );
-    return { apiKey: rowToApiKey(result.rows[0]), plaintext };
+    const row = inserted.rows[0];
+    if (!row) throw new Error("api_key_create_failed");
+
+    await writeSensitiveMutationAuditTx(client, {
+      ...audit,
+      action: "api_key.create",
+      resourceType: "api_key",
+      resourceId: row.id,
+      outcome: "success",
+      metadata: {
+        name: row.name,
+        permissions: row.permissions,
+        hasIpWhitelist: Boolean(row.ip_whitelist?.length),
+        expiresAt: row.expires_at?.toISOString() ?? null,
+        credentialFingerprint: generated.credentialFingerprint,
+      },
+    });
+
+    return { apiKey: rowToApiKey(row), plaintext: generated.plaintext };
   });
 
-  if (!r.enabled) throw new Error("db_unavailable");
-  return r.value;
+  if (!result.enabled) throw new Error("db_unavailable");
+  return result.value;
 }
-
-// ── List ──────────────────────────────────────────────────────────────────────
 
 export async function listApiKeys(userId: string): Promise<ApiKey[]> {
-  const r = await withDb(async (db) => {
-    const result = await db.query<DbApiKeyRow>(
+  const result = await withDb(async (client) => {
+    const query = await client.query<DbApiKeyRow>(
       `SELECT id, user_id, name, key_prefix, permissions, ip_whitelist,
               expires_at, last_used_at, is_active, created_at, updated_at
-       FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
+         FROM api_keys
+        WHERE user_id = $1
+        ORDER BY created_at DESC`,
       [userId],
     );
-    return result.rows.map(rowToApiKey);
+    return query.rows.map(rowToApiKey);
   });
-  return r.enabled ? r.value : [];
+  return result.enabled ? result.value : [];
 }
-
-// ── Validate ──────────────────────────────────────────────────────────────────
 
 export async function validateApiKey(
   rawKey: string,
@@ -131,96 +232,233 @@ export async function validateApiKey(
   callerIp?: string,
 ): Promise<ApiKeyValidation> {
   if (!rawKey.startsWith("tecpey_")) {
-    return { valid: false, userId: null, keyId: null, permissions: [], reason: "invalid_format" };
+    return {
+      valid: false,
+      userId: null,
+      keyId: null,
+      permissions: [],
+      reason: "invalid_format",
+    };
   }
 
   const hash = hashApiKey(rawKey);
-
-  const r = await withDb(async (db) => {
-    const result = await db.query<{
-      id: string; user_id: string; permissions: string[];
-      ip_whitelist: string[] | null; expires_at: Date | null; is_active: boolean;
+  const result = await withDb(async (client) => {
+    const query = await client.query<{
+      id: string;
+      user_id: string;
+      permissions: string[];
+      ip_whitelist: string[] | null;
+      expires_at: Date | null;
+      is_active: boolean;
     }>(
       `SELECT id, user_id, permissions, ip_whitelist, expires_at, is_active
-       FROM api_keys WHERE key_hash = $1`,
+         FROM api_keys
+        WHERE key_hash = $1`,
       [hash],
     );
 
-    if ((result.rowCount ?? 0) === 0) {
-      return { valid: false, userId: null, keyId: null, permissions: [] as ApiKeyPermission[], reason: "key_not_found" };
+    if ((query.rowCount ?? 0) === 0) {
+      return {
+        valid: false,
+        userId: null,
+        keyId: null,
+        permissions: [] as ApiKeyPermission[],
+        reason: "key_not_found",
+      };
     }
 
-    const k = result.rows[0];
-    const permissions = k.permissions as ApiKeyPermission[];
-
-    if (!k.is_active) {
-      return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "key_disabled" };
+    const key = query.rows[0];
+    const permissions = key.permissions as ApiKeyPermission[];
+    if (!key.is_active) {
+      return {
+        valid: false,
+        userId: key.user_id,
+        keyId: key.id,
+        permissions,
+        reason: "key_disabled",
+      };
     }
-    if (k.expires_at && k.expires_at < new Date()) {
-      return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "key_expired" };
+    if (key.expires_at && key.expires_at < new Date()) {
+      return {
+        valid: false,
+        userId: key.user_id,
+        keyId: key.id,
+        permissions,
+        reason: "key_expired",
+      };
     }
     if (!permissions.includes(requiredPermission)) {
-      return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "insufficient_permissions" };
+      return {
+        valid: false,
+        userId: key.user_id,
+        keyId: key.id,
+        permissions,
+        reason: "insufficient_permissions",
+      };
     }
-    if (k.ip_whitelist && k.ip_whitelist.length > 0 && callerIp && !ipInWhitelist(callerIp, k.ip_whitelist)) {
-      return { valid: false, userId: k.user_id, keyId: k.id, permissions, reason: "ip_not_whitelisted" };
+    if (
+      key.ip_whitelist &&
+      key.ip_whitelist.length > 0 &&
+      callerIp &&
+      !ipInWhitelist(callerIp, key.ip_whitelist)
+    ) {
+      return {
+        valid: false,
+        userId: key.user_id,
+        keyId: key.id,
+        permissions,
+        reason: "ip_not_whitelisted",
+      };
     }
 
-    void db.query(
-      `UPDATE api_keys SET last_used_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [k.id],
-    ).catch(() => { /* non-critical */ });
+    void client
+      .query(
+        `UPDATE api_keys
+            SET last_used_at = NOW(), updated_at = NOW()
+          WHERE id = $1`,
+        [key.id],
+      )
+      .catch(() => {
+        // last-used telemetry is explicitly non-authoritative
+      });
 
-    return { valid: true, userId: k.user_id, keyId: k.id, permissions };
+    return {
+      valid: true,
+      userId: key.user_id,
+      keyId: key.id,
+      permissions,
+    };
   });
 
-  if (!r.enabled) {
-    return { valid: false, userId: null, keyId: null, permissions: [], reason: "db_unavailable" };
+  if (!result.enabled) {
+    return {
+      valid: false,
+      userId: null,
+      keyId: null,
+      permissions: [],
+      reason: "db_unavailable",
+    };
   }
-  return r.value;
+  return result.value;
 }
 
-// ── Disable / Enable ──────────────────────────────────────────────────────────
-
-export async function setApiKeyActive(keyId: string, userId: string, active: boolean): Promise<boolean> {
-  const r = await withDb(async (db) => {
-    const result = await db.query(
-      `UPDATE api_keys SET is_active = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`,
+export async function setApiKeyActive(
+  keyId: string,
+  userId: string,
+  active: boolean,
+  providedAudit?: ApiKeyMutationAuditContext,
+): Promise<boolean> {
+  const action: ApiKeyAuditAction = active ? "api_key.enable" : "api_key.disable";
+  const audit = resolveApiKeyAuditContext(
+    userId,
+    action,
+    { resourceId: keyId, active },
+    providedAudit,
+  );
+  const result = await withTx(async (client) => {
+    const updated = await client.query<{ id: string }>(
+      `UPDATE api_keys
+          SET is_active = $1, updated_at = NOW()
+        WHERE id = $2
+          AND user_id = $3
+      RETURNING id`,
       [active, keyId, userId],
     );
-    return (result.rowCount ?? 0) > 0;
+    if (!updated.rows[0]?.id) return false;
+
+    await writeSensitiveMutationAuditTx(client, {
+      ...audit,
+      action,
+      resourceType: "api_key",
+      resourceId: keyId,
+      outcome: "success",
+      metadata: { active },
+    });
+    return true;
   });
-  return r.enabled ? r.value : false;
+
+  if (!result.enabled) throw new Error("db_unavailable");
+  return result.value;
 }
 
-// ── Delete ────────────────────────────────────────────────────────────────────
-
-export async function deleteApiKey(keyId: string, userId: string): Promise<boolean> {
-  const r = await withDb(async (db) => {
-    const result = await db.query(
-      `DELETE FROM api_keys WHERE id = $1 AND user_id = $2`,
+export async function deleteApiKey(
+  keyId: string,
+  userId: string,
+  providedAudit?: ApiKeyMutationAuditContext,
+): Promise<boolean> {
+  const audit = resolveApiKeyAuditContext(
+    userId,
+    "api_key.delete",
+    { resourceId: keyId },
+    providedAudit,
+  );
+  const result = await withTx(async (client) => {
+    const deleted = await client.query<{ id: string }>(
+      `DELETE FROM api_keys
+        WHERE id = $1
+          AND user_id = $2
+      RETURNING id`,
       [keyId, userId],
     );
-    return (result.rowCount ?? 0) > 0;
+    if (!deleted.rows[0]?.id) return false;
+
+    await writeSensitiveMutationAuditTx(client, {
+      ...audit,
+      action: "api_key.delete",
+      resourceType: "api_key",
+      resourceId: keyId,
+      outcome: "success",
+      metadata: { deleted: true },
+    });
+    return true;
   });
-  return r.enabled ? r.value : false;
+
+  if (!result.enabled) throw new Error("db_unavailable");
+  return result.value;
 }
 
-// ── Rotate ────────────────────────────────────────────────────────────────────
-
-export async function rotateApiKey(keyId: string, userId: string): Promise<{ plaintext: string } | null> {
-  const { plaintext, prefix, hash } = generateApiKey();
-  const r = await withDb(async (db) => {
-    const result = await db.query(
-      `UPDATE api_keys SET key_prefix = $1, key_hash = $2, updated_at = NOW()
-       WHERE id = $3 AND user_id = $4 AND is_active = TRUE`,
-      [prefix, hash, keyId, userId],
+export async function rotateApiKey(
+  keyId: string,
+  userId: string,
+  providedAudit?: ApiKeyMutationAuditContext,
+): Promise<{ plaintext: string } | null> {
+  const audit = resolveApiKeyAuditContext(
+    userId,
+    "api_key.rotate",
+    { resourceId: keyId },
+    providedAudit,
+  );
+  const generated = generateApiKey();
+  const result = await withTx(async (client) => {
+    const updated = await client.query<{ id: string }>(
+      `UPDATE api_keys
+          SET key_prefix = $1,
+              key_hash = $2,
+              updated_at = NOW()
+        WHERE id = $3
+          AND user_id = $4
+          AND is_active = TRUE
+      RETURNING id`,
+      [generated.prefix, generated.hash, keyId, userId],
     );
-    if ((result.rowCount ?? 0) === 0) {
+    if (!updated.rows[0]?.id) {
       logger.warn("[api-keys] rotate: key not found or inactive", { keyId, userId });
       return null;
     }
-    return { plaintext };
+
+    await writeSensitiveMutationAuditTx(client, {
+      ...audit,
+      action: "api_key.rotate",
+      resourceType: "api_key",
+      resourceId: keyId,
+      outcome: "success",
+      metadata: {
+        credentialFingerprint: generated.credentialFingerprint,
+      },
+    });
+    return { plaintext: generated.plaintext };
   });
-  return r.enabled ? r.value : null;
+
+  if (!result.enabled) throw new Error("db_unavailable");
+  return result.value;
 }
