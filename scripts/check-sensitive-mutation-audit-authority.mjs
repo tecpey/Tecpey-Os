@@ -221,7 +221,7 @@ requireText("package", "src/tests/security/password-rotation-audit-postgres.test
 requireText("package", "npm run audit:sensitive:check", "release gate must execute the sensitive audit guard");
 requireText("package", "npm run test:sensitive-mutation-audit", "release gate must execute focused sensitive audit tests");
 requireText("workflow", "Sensitive mutation audit authority guard", "dedicated CI must run the authority guard");
-requireText("workflow", "Sensitive mutation audit PostgreSQL tests", "dedicated CI must run focused PostgreSQL tests");
+requireText("workflow", "Sensitive mutation audit PostgreSQL and Redis tests", "dedicated CI must run focused PostgreSQL/Redis tests");
 requireText("workflow", "contents: read", "dedicated workflow must remain read-only");
 
 if (failures.length) {
@@ -230,4 +230,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Sensitive mutation audit authority check passed: strict sessions, server-derived actors, transaction-coupled append-only evidence, correlation integrity, recursive metadata redaction and fail-closed rollback are enforced.");
+console.log(
+  "Sensitive mutation audit authority check passed: strict sessions, server-derived actors, transaction-coupled append-only evidence, correlation integrity, recursive metadata redaction and fail-closed rollback are enforced.",
+);
