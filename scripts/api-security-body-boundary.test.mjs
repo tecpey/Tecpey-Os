@@ -15,10 +15,18 @@ function stage(role, source) {
 }
 
 describe("delegated request-body boundaries", () => {
-  it("detects parsers only from runtime calls", () => {
+  it("detects parsers only from runtime body-consumption calls", () => {
     assert.equal(detectBodyParser(`import { readBoundedJson } from "x";`), null);
     assert.equal(detectBodyParser(`// await req.json();\nreturn new Response();`), null);
     assert.equal(detectBodyParser(`const body = await req.json();`), "json");
+    assert.equal(
+      detectBodyParser(`const key = parseApiIdempotencyKey(req.headers.get("Idempotency-Key"));`),
+      null,
+    );
+    assert.equal(
+      detectBodyParser(`const body = parseRequestBody(raw);`),
+      "parseRequestBody",
+    );
   });
 
   it("fails when a local alias parses unbounded before a bounded canonical handler", () => {
