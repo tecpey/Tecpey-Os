@@ -34,14 +34,18 @@ export type SensitiveMutationAuditAction =
   | "api_key.disable"
   | "api_key.rotate"
   | "api_key.delete"
-  | "credential.password.change";
+  | "credential.password.change"
+  | "session.revoke_one"
+  | "session.revoke_others";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
   | "mentor_conversations"
   | "mentor_profile"
   | "api_key"
-  | "credential_account";
+  | "credential_account"
+  | "access_session"
+  | "session_authority";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;
