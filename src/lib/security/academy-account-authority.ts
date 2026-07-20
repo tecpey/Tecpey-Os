@@ -83,7 +83,11 @@ function assertAuthority(input: {
   }
 }
 
-async function lockAccountIdentities(
+async function lockIdentity(client: PoolClient, identity: string): Promise<void> {
+  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [identity]);
+}
+
+async function lockSignupIdentities(
   client: PoolClient,
   input: { email: string; username: string },
 ): Promise<void> {
@@ -91,9 +95,7 @@ async function lockAccountIdentities(
     `academy-account-email:${input.email}`,
     `academy-account-username:${input.username}`,
   ].sort();
-  for (const lock of locks) {
-    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [lock]);
-  }
+  for (const lock of locks) await lockIdentity(client, lock);
 }
 
 function accountFromRow(row: AcademyAccountRow): AcademyCredentialAccount {
@@ -117,7 +119,26 @@ export async function authenticateOrRegisterAcademyAccount(input: {
   assertAuthority(input);
 
   const transaction = await withTx(async (client) => {
-    await lockAccountIdentities(client, input);
+    if (input.mode === "login") {
+      await lockIdentity(client, `academy-account-email:${input.email}`);
+      const selected = await client.query<AcademyAccountRow>(
+        `SELECT id, email, username, display_name, password_hash
+           FROM academy_auth_accounts
+          WHERE email = $1
+          FOR UPDATE`,
+        [input.email],
+      );
+      const existing = selected.rows[0];
+      if (!existing || !verifyAcademyPassword(input.password, existing.password_hash)) {
+        return { status: "invalid_credentials" } as const;
+      }
+      return {
+        status: "authenticated",
+        account: accountFromRow(existing),
+      } as const;
+    }
+
+    await lockSignupIdentities(client, input);
     const selected = await client.query<AcademyAccountRow>(
       `SELECT id, email, username, display_name, password_hash
          FROM academy_auth_accounts
@@ -142,22 +163,12 @@ export async function authenticateOrRegisterAcademyAccount(input: {
       } as const;
     }
 
-    if (input.mode === "login") {
-      return { status: "invalid_credentials" } as const;
-    }
-
     const passwordHash = hashAcademyPassword(input.password);
     await client.query(
       `INSERT INTO academy_auth_accounts
          (id, email, username, display_name, password_hash)
        VALUES ($1, $2, $3, $4, $5)`,
-      [
-        input.accountId,
-        input.email,
-        input.username,
-        input.displayName,
-        passwordHash,
-      ],
+      [input.accountId, input.email, input.username, input.displayName, passwordHash],
     );
     await writeSensitiveMutationAuditTx(client, {
       ...input.audit,
