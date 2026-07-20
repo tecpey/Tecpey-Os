@@ -1,6 +1,6 @@
 # TecPey AI Mentor Trust and Egress Boundary
 
-**Policy version:** `2026-07-20.1`  
+**Policy version:** `2026-07-20.2`  
 **Tracked blocker:** #105  
 **Canonical API:** `POST /api/ai-mentor`
 
@@ -79,14 +79,33 @@ User and assistant turns are written in one PostgreSQL transaction under the sam
 
 AI request evidence is append-only and contains no prompt, message, answer, credential, token, authorization header, cookie, or secret-bearing payload.
 
+## Exact-head CI discipline
+
+A task is not complete when code has merely been pushed. Before another repair commit is created, the exact current PR head must be checked once, failures must be grouped by root cause, and all related defects must be corrected in one bounded patch.
+
+Temporary workflows that edit source code, generate commits, synchronize branches, or repeatedly retry failed checks are recovery-only assets. They must never be merged into `main`, and they must remove themselves in the same successful recovery commit.
+
+For this boundary, the required sequence is:
+
+1. run TypeScript and lint locally on the exact branch head;
+2. run the focused Mentor provider and trust-boundary tests;
+3. regenerate and verify the API security manifest whenever an API route changes;
+4. push one reviewed commit;
+5. wait for the resulting checks before issuing another patch;
+6. never treat several red workflows caused by one compiler/test failure as several independent defects.
+
 ## Verification
 
 Permanent release gates:
 
 ```bash
-npm run ai:trust:check
-npm run test:ai-mentor-trust
+npm run check
+node scripts/check-ai-mentor-trust-boundary.mjs
+node --import tsx --test \
+  src/tests/security/ai-mentor-provider.test.ts \
+  src/tests/security/ai-mentor-trust-boundary.test.ts
 npm run api:security:check
+npm run test:api-security-manifest
 ```
 
 Red-team coverage includes secret canaries, Unicode and Base64 obfuscation, client-history poisoning, stored prompt injection, provider timeouts, circuit breaking, oversized responses, output-signal rejection, cross-student consent isolation, atomic conversation rollback, and append-only evidence.
