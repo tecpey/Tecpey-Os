@@ -77,7 +77,11 @@ export type SensitiveMutationAuditAction =
   | "session.revoke_all"
   | "session.logout"
   | "device.rename"
-  | "device.remove";
+  | "device.remove"
+  | "exchange.order.admit"
+  | "exchange.order.finalize"
+  | "exchange.order.reject"
+  | "exchange.order.cancel";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
@@ -89,7 +93,8 @@ export type SensitiveMutationAuditResource =
   | "credential_webauthn"
   | "auth_session"
   | "refresh_family"
-  | "known_device";
+  | "known_device"
+  | "exchange_order";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;

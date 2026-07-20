@@ -7,7 +7,6 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
 import { checkOrderRisk } from "@/lib/security/risk-engine";
-import { writeAudit } from "@/lib/security/audit-log";
 import { enforceTradeAllowed } from "@/lib/security/risk-enforcement";
 import { getActiveMarketStrict } from "@/lib/trading/market-service";
 import { listOrders } from "@/lib/trading/order-service";
@@ -285,24 +284,6 @@ export async function POST(req: NextRequest) {
       `api-order-${randomUUID()}`,
     );
     if (processing.status === "final") {
-      writeAudit({
-        actorId: userId,
-        action: "order_placed",
-        resourceType: "order",
-        resourceId: processing.order.id,
-        metadata: {
-          commandId: processing.commandId,
-          market,
-          side,
-          type,
-          quantity,
-          holdAsset: hold.asset,
-          holdAmount: hold.amount,
-          accepted: processing.outcome.accepted,
-          tradeCount: processing.outcome.tradeIds.length,
-          replayed: admission.status === "replayed",
-        },
-      });
       logger.info("[orders] command finalized", {
         requestId: req.headers.get("x-tecpey-request-id") ?? undefined,
         commandId: processing.commandId,

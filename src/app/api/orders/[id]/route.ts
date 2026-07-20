@@ -9,7 +9,6 @@ import {
   hashApiCommand,
   parseApiIdempotencyKey,
 } from "@/lib/security/api-command-idempotency";
-import { writeAudit } from "@/lib/security/audit-log";
 import { cancelOrderIdempotently } from "@/lib/trading/order-cancel-authority";
 
 export const dynamic = "force-dynamic";
@@ -82,16 +81,6 @@ export async function DELETE(
         return apiError(reason, 409, { orderId, retryable: false });
       }
       return apiError(reason, 404, { orderId, retryable: false });
-    }
-
-    if (!result.replayed) {
-      writeAudit({
-        actorId: userId,
-        action: "order_cancelled",
-        resourceType: "order",
-        resourceId: orderId,
-        metadata: { replayed: false },
-      });
     }
 
     const response = apiOk({

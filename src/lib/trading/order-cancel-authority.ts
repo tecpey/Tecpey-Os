@@ -7,6 +7,11 @@ import {
   completeApiCommandTx,
   type ApiCommandScope,
 } from "@/lib/security/api-command-idempotency";
+import { writeSensitiveMutationAuditTx } from "@/lib/security/sensitive-mutation-audit";
+import {
+  buildExchangeOrderCancelEvidence,
+  type ExchangeOrderEvidenceContext,
+} from "./exchange-order-evidence";
 import { createTradingEvent } from "./events";
 import { getOrderBook } from "./order-book";
 import { rebuildMarketBookFromAuthority } from "./order-book-recovery";
@@ -88,6 +93,18 @@ async function persistMissingOrderResult(
     });
     return { cancelled: false, orderId, reason: "storage_unavailable" };
   }
+}
+
+function cancellationEvidenceContext(
+  scope: ApiCommandScope,
+): ExchangeOrderEvidenceContext {
+  return {
+    tenantId: scope.tenantId,
+    actorType: "user",
+    actorId: scope.principalId,
+    correlationSeed: `${scope.tenantId}:${scope.principalId}:${scope.idempotencyKey}`,
+    requestHash: scope.requestHash,
+  };
 }
 
 export async function cancelOrderIdempotently(input: {
@@ -188,7 +205,7 @@ export async function cancelOrderIdempotently(input: {
             throw new OrderCancelError("order_cancel_race_lost");
           }
 
-          await releaseOrderHoldResidualTx(
+          const releasedAmount = await releaseOrderHoldResidualTx(
             client,
             input.userId,
             command.rows[0].hold_asset,
@@ -211,6 +228,25 @@ export async function cancelOrderIdempotently(input: {
                 cancelledBy: "user",
               }),
             ],
+          );
+          await writeSensitiveMutationAuditTx(
+            client,
+            buildExchangeOrderCancelEvidence({
+              context: cancellationEvidenceContext(scope),
+              order: {
+                orderId: order.id,
+                market: order.market,
+                side: order.side,
+                orderType: order.type,
+                timeInForce: order.timeInForce,
+                quantity: order.quantity,
+                price: order.price,
+                stopPrice: order.stopPrice,
+              },
+              previousState: order.status,
+              holdAsset: command.rows[0].hold_asset,
+              releasedAmount,
+            }),
           );
           await completeApiCommandTx(client, scope, {
             httpStatus: 200,

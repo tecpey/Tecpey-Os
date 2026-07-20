@@ -7,11 +7,17 @@ on:
       - 'src/app/api/orders/**'
       - 'src/lib/trading/**'
       - 'src/lib/db-migrate-exchange-order-admission.ts'
+      - 'src/lib/db-migrate-exchange-order-evidence.ts'
+      - 'src/lib/db-migrate-exchange-order-final-evidence-gate.ts'
       - 'src/lib/db-migration-plan.ts'
+      - 'src/lib/security/sensitive-mutation-audit.ts'
       - 'src/tests/security/exchange-order*.test.ts'
       - 'src/tests/trading/order-admission*.test.ts'
       - 'scripts/check-exchange-order-admission.mjs'
+      - 'scripts/check-exchange-order-evidence.mjs'
       - 'scripts/run-exchange-order-worker.ts'
+      - 'docs/security/EXCHANGE_ORDER_EVIDENCE_INVENTORY.md'
+      - 'docs/security/EXCHANGE_ORDER_TRANSACTIONAL_EVIDENCE.md'
       - 'package.json'
       - '.github/workflows/exchange-authority.yml'
 
@@ -92,7 +98,10 @@ jobs:
         run: npm run db:migrate
 
       - name: Exchange order admission authority guard
-        run: npm run exchange:check
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run exchange:check 2>&1 | tee /tmp/tecpey-exchange-authority-guard.log
 
       - name: Exchange order authority tests
         run: |
@@ -104,7 +113,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: exchange-authority-diagnostics-${{ github.sha }}
-          path: /tmp/tecpey-exchange-authority-tests.log
+          path: |
+            /tmp/tecpey-exchange-authority-guard.log
+            /tmp/tecpey-exchange-authority-tests.log
           if-no-files-found: ignore
           retention-days: 7
 
