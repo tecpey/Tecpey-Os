@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -12,8 +13,12 @@ import {
   recordPasswordHistoryBatchWithClient,
   assessPasswordStrength,
 } from "@/lib/security/passwords";
-import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+  writeSensitiveMutationAuditTx,
+} from "@/lib/security/sensitive-mutation-audit";
 import {
   signUnifiedSession,
   verifyUnifiedSession,
@@ -34,7 +39,11 @@ import {
   revokeAllRefreshTokensForUserWithClient,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
-import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import {
+  shouldUseSecureCookie,
+  COOKIES,
+  PLATFORM,
+} from "@/lib/platform-config";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +75,7 @@ export async function POST(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
+    const actorType = session.userId ? "user" as const : "student" as const;
 
     const currentToken = req.cookies.get(COOKIES.SESSION)?.value;
     const verifiedCurrent = await verifyUnifiedSession(currentToken);
@@ -102,6 +112,24 @@ export async function POST(req: NextRequest) {
     const ip = getClientIp(req);
     const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const newHash = hashPassword(newPassword);
+    const credentialVersionFingerprint = createHash("sha256")
+      .update(`tecpey-password-audit:${newHash}`)
+      .digest("hex");
+    const currentSessionEvidenceHash = hashSensitiveAuditRequest({
+      jti: verifiedCurrent.jti,
+    });
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    const requestHash = hashSensitiveAuditRequest({
+      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      actorType,
+      actorId: userId,
+      action: "credential.password.change",
+      currentSessionEvidenceHash,
+      credentialVersionFingerprint,
+      strengthScore: strength.score,
+    });
 
     // Tokens are signed before the transaction, but are not valid until their
     // durable rows are inserted and the transaction commits.
@@ -188,6 +216,28 @@ export async function POST(req: NextRequest) {
         });
         if (!accessInserted) throw new Error("replacement_access_insert_failed");
 
+        await writeSensitiveMutationAuditTx(client, {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType,
+          actorId: userId,
+          action: "credential.password.change",
+          resourceType: "credential_account",
+          resourceId: userId,
+          outcome: "success",
+          correlationId,
+          requestHash,
+          metadata: {
+            policyVersion: "password-rotation-v1",
+            strengthScore: strength.score,
+            revokedAccessSessions: revokedAccess.revokedCount,
+            revokedRefreshTokens,
+            replacementAccessSession: true,
+            replacementRefreshSession: true,
+            currentSessionEvidenceHash,
+            credentialVersionFingerprint,
+          },
+        });
+
         return {
           ok: true,
           revokedAccessSessions: revokedAccess.revokedCount,
@@ -195,17 +245,7 @@ export async function POST(req: NextRequest) {
           revokedRefreshTokens,
         };
       });
-    } catch (err) {
-      writeAudit({
-        actorId: userId,
-        action: "password_changed",
-        ip,
-        userAgent: deviceInfo,
-        metadata: {
-          outcome: "rolled_back",
-          reason: err instanceof Error ? err.message : "transaction_failed",
-        },
-      });
+    } catch {
       return apiError("credential_rotation_unavailable", 503, {
         rolledBack: true,
       });
@@ -238,36 +278,10 @@ export async function POST(req: NextRequest) {
       });
       response.cookies.delete(COOKIES.SESSION);
       clearRefreshCookie(response);
-      writeAudit({
-        actorId: userId,
-        action: "password_changed",
-        ip,
-        userAgent: deviceInfo,
-        metadata: {
-          outcome: "durable_success_cache_sync_failed",
-          revokedAccessSessions: transaction.value.revokedAccessSessions,
-          revokedRefreshTokens: transaction.value.revokedRefreshTokens,
-        },
-      });
       return response;
     }
 
     trackAuthEvent("password_changed");
-    writeAudit({
-      actorId: userId,
-      action: "password_changed",
-      ip,
-      userAgent: deviceInfo,
-      metadata: {
-        outcome: "success",
-        strengthScore: strength.score,
-        sessionsRotated: true,
-        revokedAccessSessions: transaction.value.revokedAccessSessions,
-        revokedRefreshTokens: transaction.value.revokedRefreshTokens,
-        refreshScope: "all_user_tokens",
-        atomic: true,
-      },
-    });
 
     const response = apiOk({
       changed: true,

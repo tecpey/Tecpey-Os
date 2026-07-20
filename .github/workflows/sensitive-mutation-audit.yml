@@ -17,7 +17,7 @@ jobs:
   authority:
     name: Sensitive Mutation Audit Authority
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -33,9 +33,19 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
 
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
       TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
@@ -70,7 +80,7 @@ jobs:
           set -o pipefail
           npm run audit:sensitive:check 2>&1 | tee /tmp/tecpey-sensitive-audit-guard.log
 
-      - name: Sensitive mutation audit PostgreSQL tests
+      - name: Sensitive mutation audit PostgreSQL and Redis tests
         run: |
           set -o pipefail
           npm run test:sensitive-mutation-audit 2>&1 | tee /tmp/tecpey-sensitive-audit-tests.log
