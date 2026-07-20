@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 // GET  /api/auth/2fa/enroll — generate TOTP secret + QR code URI + backup codes.
 // POST /api/auth/2fa/enroll — verify the first TOTP code and enable 2FA.
 //
@@ -97,7 +98,12 @@ export async function POST(req: NextRequest) {
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const code = String(body.code ?? "").trim();
     if (!/^\d{6}$/.test(code)) return apiError("invalid_code_format", 400);
 

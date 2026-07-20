@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { parseAcademyLeadCommand } from "@/lib/crm/academy-lead-input";
 import { ingestAcademyLead } from "@/lib/crm/lead-authority";
@@ -29,11 +30,12 @@ export async function POST(req: NextRequest) {
     if (!rate.ok) return apiRateLimited(rate.retryAfterSeconds);
 
     try {
-      const raw = await req.text();
-      if (Buffer.byteLength(raw, "utf8") > MAX_PAYLOAD_BYTES) {
-        return apiError("payload_too_large", 413);
-      }
-      const body = JSON.parse(raw || "{}") as unknown;
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: MAX_PAYLOAD_BYTES,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const parsed = parseAcademyLeadCommand({
         body,
         tenantId: PLATFORM.DEFAULT_TENANT_ID,

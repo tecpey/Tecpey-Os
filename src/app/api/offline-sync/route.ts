@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
@@ -70,9 +71,12 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     try {
-      const raw = await req.text();
-      if (raw.length > 80_000) return apiError("payload_too_large", 413);
-      const body = JSON.parse(raw || "{}");
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 80_000,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const items = Array.isArray(body.items) ? body.items.slice(0, 50) : [];
       if (!items.length) return apiError("items_required", 400);
 

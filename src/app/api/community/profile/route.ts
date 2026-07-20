@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -36,7 +37,12 @@ export async function PATCH(req: NextRequest) {
       windowMs: 60_000,
     });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const visibility = body.visibility === "private" ? "private" : "public";
     const updated = await setPublicVisibilityForStudent(
       session.studentId,

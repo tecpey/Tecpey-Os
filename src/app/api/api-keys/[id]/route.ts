@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiOk, apiError } from "@/lib/api-validation";
@@ -26,8 +27,12 @@ export async function PATCH(
 
     const { id: keyId } = await params;
 
-    let body: unknown;
-    try { body = await req.json(); } catch { return apiError("invalid_input", 400); }
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const { action } = body as Record<string, unknown>;
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined;

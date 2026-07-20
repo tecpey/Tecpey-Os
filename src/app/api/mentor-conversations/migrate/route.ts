@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -31,12 +32,12 @@ export async function POST(req: NextRequest) {
   });
   if (!limit.ok) return apiError("rate_limited", 429);
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return apiError("invalid_body", 400);
-  }
+  const bodyResult = await readJsonBody(req, {
+    maxBytes: 512_000,
+    allowEmptyObject: true,
+  });
+  if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+  const body = bodyResult.value;
 
   const rawMessages = (body as { messages?: unknown[] })?.messages;
   const attemptedCount = Array.isArray(rawMessages) ? Math.min(rawMessages.length, 50) : 0;

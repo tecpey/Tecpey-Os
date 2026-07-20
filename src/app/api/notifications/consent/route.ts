@@ -1,5 +1,6 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
-import { checkBodySize } from "@/lib/api-validation";
+
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -70,9 +71,6 @@ export async function POST(req: NextRequest) {
       windowMs: 60_000,
     });
     if (!rate.ok) return notificationApiError("rate_limited", 429);
-    if (!checkBodySize(req.headers.get("content-length"), 2_048)) {
-      return notificationApiError("payload_too_large", 413);
-    }
 
     const identity = await getNotificationIdentityFromRequest(req, {
     strictRevocation: true,
@@ -84,12 +82,12 @@ export async function POST(req: NextRequest) {
       return notificationApiError("invalid_or_missing_idempotency_key", 400);
     }
 
-    let raw: unknown;
-    try {
-      raw = await req.json();
-    } catch {
-      return notificationApiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 2_048,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return notificationApiError(bodyResult.error, bodyResult.status);
+    const raw = bodyResult.value;
 
     const consent = parseNotificationConsentInput(raw);
     if (!consent) {

@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -56,7 +57,12 @@ export async function POST(req: NextRequest) {
 
       const ip = getClientIp(req);
       const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
-      const body = await req.json().catch(() => ({}));
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 64_000,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const challenge = extractWebAuthnClientChallenge(
         body.response?.response?.clientDataJSON,
         "webauthn.get",

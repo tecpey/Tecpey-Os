@@ -1,9 +1,10 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { withTx } from "@/lib/db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
+import { apiError, apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { cleanText } from "@/lib/student-cartax";
 import { canonicalizeLessonAnswers, gradeCanonicalLesson, type QuizAnswerMap } from "@/lib/academy-assessment";
@@ -44,7 +45,6 @@ function parseAnswers(value: unknown): QuizAnswerMap | null {
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-lesson-assessment" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
-    if (!checkBodySize(req.headers.get("content-length"), 64_000)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(req, { namespace: "academy-lesson-assessment", limit: 30, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
@@ -52,12 +52,12 @@ export async function POST(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("complete_account_required", 401);
 
-    let body: Record<string, unknown>;
-    try {
-      body = await req.json() as Record<string, unknown>;
-    } catch {
-      return apiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 64_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const locale = parseLocale(body.locale);
     if (locale !== "fa") return apiError("lesson_locale_not_supported", 400);

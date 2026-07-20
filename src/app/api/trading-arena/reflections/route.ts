@@ -1,8 +1,9 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { randomUUID } from "crypto";
 import type { PoolClient } from "pg";
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
+import { apiError, apiOk } from "@/lib/api-validation";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { recordLearningEvent } from "@/lib/learning-os";
@@ -206,9 +207,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: ROUTE }, async () => {
     if (!verifyCsrfOrigin(request)) return fail("forbidden", 403);
-    if (!checkBodySize(request.headers.get("content-length"), 20_000)) {
-      return fail("payload_too_large", 413);
-    }
 
     const limited = await rateLimit(request, {
       namespace: "arena-reflections-write",
@@ -220,12 +218,12 @@ export async function POST(request: NextRequest) {
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.studentId) return fail("academy_profile_required", 401);
 
-    let raw: unknown;
-    try {
-      raw = await request.json();
-    } catch {
-      return fail("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody(request, {
+      maxBytes: 20_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return fail(bodyResult.error, bodyResult.status);
+    const raw = bodyResult.value;
 
     const input = parseArenaReflectionInput(raw);
     const key = parseArenaReflectionIdempotencyKey(request.headers.get("idempotency-key"));

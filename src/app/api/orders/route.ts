@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -124,16 +125,12 @@ export async function POST(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    let body: Record<string, unknown>;
-    try {
-      const raw = await req.text();
-      if (Buffer.byteLength(raw, "utf8") > 4_000) {
-        return apiError("payload_too_large", 413);
-      }
-      body = JSON.parse(raw || "{}") as Record<string, unknown>;
-    } catch {
-      return apiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 4_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const market = String(body.market ?? "").toUpperCase().trim();
     const side = body.side;

@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
@@ -20,9 +21,12 @@ export async function POST(req: NextRequest) {
     const session = await getStudentSessionFromRequest(req);
     if (!session?.studentId) return apiError("complete_account_required", 401);
     try {
-      const raw = await req.text();
-      if (raw.length > 12_000) return apiError("payload_too_large", 413);
-      const body = JSON.parse(raw || "{}");
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 12_000,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const eventType = cleanText(body.eventType, 80) as LearningEventType;
       if (blockedServerEvents.has(eventType)) return apiError("server_event_only", 403);
       if (!clientAllowedEvents.has(eventType)) return apiError("invalid_event", 400);

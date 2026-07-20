@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import { apiOk, apiError } from "@/lib/api-validation";
@@ -81,7 +82,12 @@ export async function POST(
     if (!requestLimit.ok) return apiError("rate_limited", 429);
     if (!validWithdrawalId(id)) return apiError("invalid_withdrawal_id", 400);
 
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const action = body.action as AuthoritativeAdminWithdrawalAction;
     if (!VALID_ACTIONS.has(action)) {
       return apiError("invalid_action", 400, {

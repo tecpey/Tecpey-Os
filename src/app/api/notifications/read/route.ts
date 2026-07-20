@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
@@ -17,7 +18,12 @@ export async function POST(req: NextRequest) {
     const session = await getStudentSessionFromRequest(req);
     if (!session?.studentId) return apiError("complete_account_required", 401);
     try {
-      const body = await req.json().catch(() => ({}));
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 8_192,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const id = cleanText(body.id, 80);
       if (!id) return apiError("invalid_notification", 400);
       await withDb(async (client) => {

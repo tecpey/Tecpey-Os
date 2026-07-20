@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 // POST /api/auth/2fa/backup — use a backup code to verify identity.
 //
 // Backup codes are one-time use. On successful use, the code is removed from
@@ -35,7 +36,12 @@ export async function POST(req: NextRequest) {
     if (!userId) return apiError("authentication_required", 401);
 
     const ip = getClientIp(req);
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const code = String(body.code ?? "").trim().toUpperCase();
 
     if (!code || code.length < 6) return apiError("invalid_code_format", 400);

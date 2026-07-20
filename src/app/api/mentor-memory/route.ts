@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
@@ -73,14 +74,12 @@ export async function POST(req: NextRequest) {
     if (!session.studentId) return apiError("academy_profile_required", 401);
     const studentId = session.studentId;
 
-    let body: Record<string, unknown>;
-    try {
-      const raw = await req.text();
-      if (raw.length > 4_000) return apiError("payload_too_large", 413);
-      body = JSON.parse(raw || "{}");
-    } catch {
-      return apiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 4_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const category = cleanText(body.category, 40).toLowerCase();
     if (!(MEMORY_CATEGORIES as readonly string[]).includes(category)) {

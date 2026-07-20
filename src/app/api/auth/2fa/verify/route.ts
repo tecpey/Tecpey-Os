@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -47,7 +48,12 @@ export async function POST(req: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const code = String(body.code ?? "").trim();
     const preAuthToken = String(body.preAuthToken ?? "").trim();
     if (!/^\d{6}$/.test(code)) return apiError("invalid_code_format", 400);

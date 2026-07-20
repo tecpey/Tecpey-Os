@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { randomUUID } from "crypto";
 import type { PoolClient } from "pg";
 import { NextRequest } from "next/server";
@@ -8,7 +9,7 @@ import { cleanText, numeric } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
 import { withTx } from "@/lib/db";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
-import { apiOk, apiError, checkBodySize } from "@/lib/api-validation";
+import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
   ARENA_ATTEMPTS_PER_CYCLE,
@@ -289,7 +290,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/trading-arena" }, async () => {
     if (!verifyCsrfOrigin(request)) return apiError("forbidden", 403);
-    if (!checkBodySize(request.headers.get("content-length"), 8_000)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(request, {
       namespace: "trading-arena-write",
@@ -301,12 +301,12 @@ export async function POST(request: NextRequest) {
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
 
-    let body: Record<string, unknown>;
-    try {
-      body = await request.json() as Record<string, unknown>;
-    } catch {
-      return apiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody<Record<string, unknown>>(request, {
+      maxBytes: 8_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const decision = normalizeDecision(body, session.studentId);
     if (decision.entryReason.length < 8 || decision.plan.length < 8) {

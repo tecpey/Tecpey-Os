@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { academyPathTerms } from "@/data/academyPath";
 import { caseStudiesForTerm } from "@/data/academyCaseStudies";
@@ -162,10 +163,12 @@ export async function POST(request: NextRequest) {
   const studentId = session.studentId;
 
   try {
-    const raw = await request.text();
-    if (raw.length > 6000) return apiError("payload_too_large", 413);
-
-    const body = JSON.parse(raw) as MentorRequest;
+    const bodyResult = await readJsonBody(request, {
+      maxBytes: 6_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const question = clean(body.question, MAX_QUESTION_LENGTH);
     if (question.length < 2) return apiError("empty_question", 400);
 

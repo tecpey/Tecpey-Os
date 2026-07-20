@@ -1,5 +1,6 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
-import { checkBodySize } from "@/lib/api-validation";
+
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -76,21 +77,18 @@ export async function PATCH(req: NextRequest) {
       windowMs: 60_000,
     });
     if (!rate.ok) return notificationApiError("rate_limited", 429);
-    if (!checkBodySize(req.headers.get("content-length"), 8_192)) {
-      return notificationApiError("payload_too_large", 413);
-    }
 
     const identity = await getNotificationIdentityFromRequest(req, {
     strictRevocation: true,
   });
     if (!identity) return notificationApiError("authentication_required", 401);
 
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return notificationApiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return notificationApiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const record = body && typeof body === "object" && !Array.isArray(body)
       ? (body as Record<string, unknown>)

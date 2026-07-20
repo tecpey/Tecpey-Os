@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { academySimulations } from "@/data/academySimulationWorld";
@@ -56,9 +57,12 @@ export async function POST(req: NextRequest) {
     if (!session?.studentId) return apiError("complete_account_required", 401);
 
     try {
-      const raw = await req.text();
-      if (raw.length > 5000) return apiError("payload_too_large", 413);
-      const body = JSON.parse(raw || "{}");
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 5_000,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const locale = cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa";
       const scenarioId = cleanText(body.scenarioId, 120);
       const choiceId = cleanText(body.choiceId, 120);

@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -28,7 +29,12 @@ export async function POST(req: NextRequest) {
   if (!limit.ok) return apiError("rate_limited", 429);
 
   try {
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const platform = cleanText(body.platform, 20);
     const token = cleanText(body.token, 1000);
     const locale = cleanText(body.locale || "fa", 10);

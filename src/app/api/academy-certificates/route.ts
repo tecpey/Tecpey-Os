@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -38,7 +39,12 @@ export async function POST(req: NextRequest) {
     const studentId = cleanText(session?.studentId, 80);
     if (!studentId) return apiError("complete_account_required", 401);
     try {
-      const body = await req.json().catch(() => ({}));
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 16_384,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const termNumber = Number(body.termNumber || 1);
       const result = await withDb(async (client) => {
         await client.query(

@@ -1,9 +1,10 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb, withTx } from "@/lib/db";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
-import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
+import { apiError, apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import {
@@ -64,7 +65,6 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-reflections" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
-    if (!checkBodySize(req.headers.get("content-length"), 16_384)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(req, { namespace: "academy-reflection-write", limit: 60, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
@@ -72,12 +72,12 @@ export async function PUT(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("complete_account_required", 401);
 
-    let body: Record<string, unknown>;
-    try {
-      body = await req.json() as Record<string, unknown>;
-    } catch {
-      return apiError("invalid_json", 400);
-    }
+    const bodyResult = await readJsonBody<Record<string, unknown>>(req, {
+      maxBytes: 16_384,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
 
     const locale = parseLocale(body.locale);
     const lessonId = normalizeLessonId(body.lessonId);

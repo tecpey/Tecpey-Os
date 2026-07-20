@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { NextRequest } from "next/server";
 import { pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
@@ -167,7 +168,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const body = await req.json();
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 8_192,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const mode = body.mode === "login" ? "login" : "signup";
       const email = normalizeAcademyEmail(body.email);
       const password = String(body.password || "");

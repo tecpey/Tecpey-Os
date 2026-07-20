@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
@@ -33,7 +34,12 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
     if (!verifyAdminBootstrapToken(req)) return apiError("admin_bootstrap_unauthorized", 401);
 
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     if (!validEmail(body.email)) return apiError("invalid_email", 400);
     if (typeof body.displayName !== "string" || body.displayName.trim().length < 2) {
       return apiError("invalid_display_name", 400);

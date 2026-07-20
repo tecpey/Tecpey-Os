@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 // POST /api/auth/withdraw  — create a server-authoritative withdrawal request
 // GET  /api/auth/withdraw  — list the current user's withdrawal history
 
@@ -37,7 +38,12 @@ export async function POST(req: NextRequest) {
     });
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 16_384,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     if (
       Object.prototype.hasOwnProperty.call(body, "amountUsd") ||
       Object.prototype.hasOwnProperty.call(body, "twoFaVerified")

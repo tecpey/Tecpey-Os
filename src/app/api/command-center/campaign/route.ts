@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -30,7 +31,12 @@ export async function POST(req: NextRequest) {
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
     try {
-      const body = await req.json().catch(() => ({}));
+      const bodyResult = await readJsonBody(req, {
+        maxBytes: 64_000,
+        allowEmptyObject: true,
+      });
+      if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+      const body = bodyResult.value;
       const title = cleanText(body.title, 160);
       const message = cleanText(body.body, 500);
       if (!title || !message) return apiError("invalid_campaign", 400);

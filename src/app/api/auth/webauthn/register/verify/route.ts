@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 // POST /api/auth/webauthn/register/verify
 // Verify the authenticator response from navigator.credentials.create().
 
@@ -32,7 +33,12 @@ export async function POST(req: NextRequest) {
     if (!userId) return apiError("authentication_required", 401);
 
     const ip = getClientIp(req);
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 128_000,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const challenge = extractWebAuthnClientChallenge(
       body.response?.response?.clientDataJSON,
       "webauthn.create",

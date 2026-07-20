@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { mkdir, readFile, writeFile } from "fs/promises";
@@ -228,9 +229,12 @@ export async function POST(req: NextRequest) {
       if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
       try {
-        const raw = await req.text();
-        if (raw.length > 20_000) return apiError("payload_too_large", 413);
-        const body = JSON.parse(raw);
+        const bodyResult = await readJsonBody(req, {
+          maxBytes: 20_000,
+          allowEmptyObject: true,
+        });
+        if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+        const body = bodyResult.value;
         if (!isSessionConfigured()) {
           return apiError("session_service_not_configured", 503);
         }

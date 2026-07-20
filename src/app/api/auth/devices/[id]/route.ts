@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 // PATCH /api/auth/devices/[id]  — rename a known device
 // DELETE /api/auth/devices/[id] — remove a device from the trusted registry
 
@@ -27,7 +28,12 @@ export async function PATCH(
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
-    const body = await req.json().catch(() => ({}));
+    const bodyResult = await readJsonBody(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+    const body = bodyResult.value;
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : null;
     if (!name) return apiError("name_required", 400);
 

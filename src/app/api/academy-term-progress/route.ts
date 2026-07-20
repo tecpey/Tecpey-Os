@@ -1,3 +1,4 @@
+import { readJsonBody } from "@/lib/security/request-body";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { academyPathTerms } from "@/data/academyPath";
@@ -132,9 +133,12 @@ export async function POST(req: NextRequest) {
       const studentId = session.studentId;
 
       try {
-        const raw = await req.text();
-        if (raw.length > 20_000) return apiError("payload_too_large", 413);
-        const body = JSON.parse(raw || "{}") as Record<string, unknown>;
+        const bodyResult = await readJsonBody(req, {
+          maxBytes: 20_000,
+          allowEmptyObject: true,
+        });
+        if (!bodyResult.ok) return apiError(bodyResult.error, bodyResult.status);
+        const body = bodyResult.value;
         const termNumber = Math.max(
           1,
           Math.min(7, Math.round(Number(body.termNumber) || 1)),
