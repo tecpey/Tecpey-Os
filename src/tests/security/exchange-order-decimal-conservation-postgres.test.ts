@@ -54,7 +54,11 @@ async function admitAndProcess(input: {
     admitted.commandId,
     `decimal-worker-${randomUUID()}`,
   );
-  assert.equal(processed.status, "final");
+  assert.equal(
+    processed.status,
+    "final",
+    `exchange command did not finalize: ${JSON.stringify(processed)}`,
+  );
   if (processed.status !== "final") throw new Error("test_order_not_final");
   return { admitted, processed };
 }
