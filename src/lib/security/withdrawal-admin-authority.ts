@@ -8,7 +8,6 @@ import {
   type ApiCommandScope,
 } from "./api-command-idempotency";
 import { trackAuthEvent } from "./auth-metrics";
-import { writeAudit } from "./audit-log";
 
 export type AuthoritativeAdminWithdrawalAction =
   | "approve"
@@ -16,11 +15,28 @@ export type AuthoritativeAdminWithdrawalAction =
   | "block"
   | "flag_review";
 
+export type AdminWithdrawalAuthorizationEvidence = {
+  permission: string;
+  stepUpWithinSeconds: number;
+  roleSetFingerprint: string;
+  sessionEvidenceFingerprint: string;
+  reviewReasonFingerprint: string | null;
+};
+
 export type AuthoritativeAdminWithdrawalResult =
-  | { ok: true; replayed: boolean; state: string; userId: string; asset: string; amount: string }
+  | {
+      ok: true;
+      replayed: boolean;
+      withdrawalId: string;
+      state: string;
+      userId: string;
+      asset: string;
+      amount: string;
+    }
   | { ok: false; reason: string; code: number };
 
 type AdminWithdrawalReceipt = {
+  withdrawalId: string;
   state: string;
   userId: string;
   asset: string;
@@ -36,6 +52,13 @@ class AdminWithdrawalError extends Error {
   }
 }
 
+const ACTION_PERMISSION: Record<AuthoritativeAdminWithdrawalAction, string> = {
+  approve: "withdrawals.approve",
+  reject: "withdrawals.reject",
+  block: "withdrawals.hold",
+  flag_review: "withdrawals.hold",
+};
+
 function complianceApprovalReady(evidence: unknown): boolean {
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return false;
   const root = evidence as Record<string, unknown>;
@@ -50,6 +73,36 @@ function complianceApprovalReady(evidence: unknown): boolean {
     sanctions?.status === "ok" &&
     sanctions?.matched === false
   );
+}
+
+function validateAuthorizationEvidence(
+  action: AuthoritativeAdminWithdrawalAction,
+  evidence: AdminWithdrawalAuthorizationEvidence,
+): void {
+  if (evidence.permission !== ACTION_PERMISSION[action]) {
+    throw new AdminWithdrawalError("admin_permission_evidence_mismatch", 403);
+  }
+  if (
+    !Number.isSafeInteger(evidence.stepUpWithinSeconds) ||
+    evidence.stepUpWithinSeconds <= 0 ||
+    evidence.stepUpWithinSeconds > 900
+  ) {
+    throw new AdminWithdrawalError("admin_step_up_evidence_invalid", 403);
+  }
+  for (const value of [
+    evidence.roleSetFingerprint,
+    evidence.sessionEvidenceFingerprint,
+  ]) {
+    if (!/^[0-9a-f]{64}$/.test(value)) {
+      throw new AdminWithdrawalError("admin_identity_evidence_invalid", 403);
+    }
+  }
+  if (
+    evidence.reviewReasonFingerprint !== null &&
+    !/^[0-9a-f]{64}$/.test(evidence.reviewReasonFingerprint)
+  ) {
+    throw new AdminWithdrawalError("admin_reason_evidence_invalid", 400);
+  }
 }
 
 async function releaseReservedFundsTx(
@@ -106,10 +159,19 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
   adminId: string;
   action: AuthoritativeAdminWithdrawalAction;
   notes?: string;
-  metadata?: Record<string, unknown>;
+  authorizationEvidence: AdminWithdrawalAuthorizationEvidence;
   idempotencyKey: string;
   requestHash: string;
 }): Promise<AuthoritativeAdminWithdrawalResult> {
+  try {
+    validateAuthorizationEvidence(input.action, input.authorizationEvidence);
+  } catch (error) {
+    if (error instanceof AdminWithdrawalError) {
+      return { ok: false, reason: error.reason, code: error.code };
+    }
+    return { ok: false, reason: "admin_authorization_evidence_invalid", code: 403 };
+  }
+
   const stateMap: Record<AuthoritativeAdminWithdrawalAction, string> = {
     approve: "approved",
     reject: "rejected",
@@ -136,6 +198,9 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
         throw new AdminWithdrawalError("idempotency_in_progress", 409);
       }
       if (claim.status === "replayed") {
+        if (claim.response.withdrawalId !== input.withdrawalId) {
+          throw new AdminWithdrawalError("idempotency_conflict", 409);
+        }
         return { ...claim.response, replayed: true };
       }
 
@@ -158,8 +223,8 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       if (!row) throw new AdminWithdrawalError("withdrawal_not_found", 404);
 
       if (row.state === requestedState) {
-        const response = {
-          replayed: true,
+        const response: AdminWithdrawalReceipt = {
+          withdrawalId: input.withdrawalId,
           state: row.state,
           userId: row.user_id,
           asset: row.asset,
@@ -167,14 +232,9 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
         };
         await completeApiCommandTx(client, receiptScope, {
           httpStatus: 200,
-          response: {
-            state: response.state,
-            userId: response.userId,
-            asset: response.asset,
-            amount: response.amount,
-          },
+          response,
         });
-        return response;
+        return { ...response, replayed: true };
       }
 
       if (!["pending", "compliance_review"].includes(row.state)) {
@@ -226,7 +286,7 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
           input.adminId,
           input.action,
           input.notes ?? null,
-          JSON.stringify(input.metadata ?? {}),
+          JSON.stringify(input.authorizationEvidence),
         ],
       );
 
@@ -242,8 +302,8 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
         [input.withdrawalId, input.action],
       );
 
-      const response = {
-        replayed: false,
+      const response: AdminWithdrawalReceipt = {
+        withdrawalId: input.withdrawalId,
         state: requestedState,
         userId: row.user_id,
         asset: row.asset,
@@ -251,14 +311,9 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       };
       await completeApiCommandTx(client, receiptScope, {
         httpStatus: 200,
-        response: {
-          state: response.state,
-          userId: response.userId,
-          asset: response.asset,
-          amount: response.amount,
-        },
+        response,
       });
-      return response;
+      return { ...response, replayed: false };
     });
 
     if (!result.enabled) {
@@ -269,18 +324,6 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
       if (input.action === "approve") trackAuthEvent("withdrawal_approved");
       else if (input.action === "reject") trackAuthEvent("withdrawal_rejected");
       else if (input.action === "block") trackAuthEvent("withdrawal_blocked");
-
-      writeAudit({
-        actorId: input.adminId,
-        action: "admin_action",
-        resourceType: "withdrawal",
-        resourceId: input.withdrawalId,
-        metadata: {
-          action: input.action,
-          notes: input.notes ?? null,
-          resultingState: result.value.state,
-        },
-      });
     }
 
     return { ok: true, ...result.value };
