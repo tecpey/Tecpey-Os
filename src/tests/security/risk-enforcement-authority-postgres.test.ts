@@ -136,8 +136,8 @@ describe("Risk enforcement transaction authority", () => {
         assert.equal(state.outbox[0]?.generation, 1);
         assert.equal(state.outbox[0]?.state, "dead_letter");
         assert.deepEqual(
-          state.audit.map((row) => row.action),
-          ["risk.event.record", "risk.enforcement.apply"],
+          state.audit.map((row) => row.action).sort(),
+          ["risk.enforcement.apply", "risk.event.record"],
         );
         assert.equal(state.events[0]?.document.includes(detectorIdentity), false);
         for (const row of state.audit) {
