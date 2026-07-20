@@ -1,27 +1,28 @@
-type WalletRuntimeEnv = Record<string, string | undefined>;
+import {
+  assertProductionCustodyConfiguration,
+  configuredUnimplementedSignerBackends,
+  type WalletRuntimeEnv,
+} from "../custody-launch-policy";
 
 export type UnsupportedKeyStore = "hsm" | "mpc";
 
 export function configuredUnsupportedKeyStores(
   env: WalletRuntimeEnv = process.env,
 ): UnsupportedKeyStore[] {
-  const configured: UnsupportedKeyStore[] = [];
-
-  if (env.HSM_ENDPOINT || env.HSM_KEY_ID) configured.push("hsm");
-  if (env.MPC_ENDPOINT || env.MPC_PARTY_ID) configured.push("mpc");
-
-  return configured;
+  return configuredUnimplementedSignerBackends(env);
 }
 
 /**
- * HSM and MPC classes are interface stubs in the current wallet implementation.
- * Never allow withdrawal workers to start while either backend is configured:
- * createKeyStore() would otherwise select a provider that throws only after a
- * withdrawal reaches the signing path.
+ * Preserve the historical entry point while enforcing the complete custody
+ * launch policy. In production, raw environment private keys, real-withdrawal
+ * activation, simulation and unimplemented signer backends are rejected before
+ * workers or signing code can start.
  */
 export function assertSupportedWalletKeyStoreConfig(
   env: WalletRuntimeEnv = process.env,
 ): void {
+  assertProductionCustodyConfiguration(env);
+
   const unsupported = configuredUnsupportedKeyStores(env);
   if (unsupported.length === 0) return;
 
