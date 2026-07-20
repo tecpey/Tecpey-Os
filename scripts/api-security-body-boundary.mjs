@@ -7,6 +7,8 @@ import { runtimeEvidenceSource } from "./api-security-runtime-evidence.mjs";
 const BOUNDED_READER_PATTERN = new RegExp(
   `\\b(${GOVERNED_BODY_READERS.join("|")})\\s*\\(`,
 );
+const EXPLICIT_BODY_PARSER_PATTERN =
+  /\b(parse[A-Z][A-Za-z0-9_]*(?:Body|Payload|RequestBody))\s*\(/;
 
 export function detectBodyParser(source) {
   const runtime = runtimeEvidenceSource(source);
@@ -15,7 +17,7 @@ export function detectBodyParser(source) {
   if (/\b(?:req|request)\.text\s*\(/.test(runtime)) return "text";
   const boundedReader = runtime.match(BOUNDED_READER_PATTERN)?.[1] ?? null;
   if (boundedReader) return "bounded-json-helper";
-  return runtime.match(/\b(parse[A-Z][A-Za-z0-9_]*)\s*\(/)?.[1] ?? null;
+  return runtime.match(EXPLICIT_BODY_PARSER_PATTERN)?.[1] ?? null;
 }
 
 export function evaluateBodyBoundaryStages(stages) {
