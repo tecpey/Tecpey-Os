@@ -4,7 +4,6 @@ import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { D } from "@/lib/trading/decimal";
 import { trackAuthEvent } from "./auth-metrics";
-import { writeAudit } from "./audit-log";
 import {
   notifyRiskyWithdrawal,
   notifyWithdrawalBlocked,
@@ -466,24 +465,6 @@ export async function createAuthoritativeWithdrawal(
 
   if (!transactionResult.replayed) {
     trackAuthEvent("withdrawal_requested");
-    writeAudit({
-      actorId: command.userId,
-      action: "wallet_withdrawal",
-      ip: input.ip,
-      userAgent: input.userAgent,
-      resourceType: "withdrawal",
-      resourceId: withdrawal.id,
-      metadata: {
-        event: "withdrawal_admitted",
-        requestHash,
-        asset: command.asset,
-        amount: command.amount,
-        amountUsd: valuation.evidence.amountUsd,
-        state: withdrawal.state,
-        complianceReason: compliance.reason,
-        priceSnapshotId: valuation.evidence.snapshotId,
-      },
-    });
 
     if (withdrawal.state === "blocked") {
       trackAuthEvent("withdrawal_blocked");
