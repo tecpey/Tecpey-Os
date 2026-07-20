@@ -30,7 +30,7 @@ type OrderIdentity = {
 
 function domainHash(domain: string, value: string): string {
   return createHash("sha256")
-    .update(`tecpey:${domain}:v1\0`)
+    .update(`tecpey:${domain}:v1\u001f`)
     .update(value)
     .digest("hex");
 }
@@ -99,11 +99,11 @@ export function fingerprintExchangeOrder(orderId: string): string {
   if (!orderId || orderId.length > 300) {
     throw new Error("invalid_exchange_evidence_order");
   }
-  return `exchange-order-${domainHash("order", orderId)}`;
+  return `exchange-order-${domainHash("exchange-order", orderId)}`;
 }
 
 export function fingerprintExchangeMarket(market: string): string {
-  return `exchange-market-${domainHash("market", normalizedMarket(market))}`;
+  return `exchange-market-${domainHash("exchange-market", normalizedMarket(market))}`;
 }
 
 function baseEvent(
