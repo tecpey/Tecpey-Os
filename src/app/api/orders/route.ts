@@ -210,6 +210,7 @@ export async function POST(req: NextRequest) {
       orderFingerprint: `${market}:${side}:${quantity}:${price ?? "market"}:${idempotencyKey}`,
     });
     if (!riskCheck.ok) return apiError(riskCheck.reason, 503);
+    if (riskCheck.blocked) return apiError("account_trade_restricted", 403);
 
     const request: PlaceOrderRequest = {
       market,
