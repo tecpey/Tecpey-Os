@@ -1,0 +1,63 @@
+name: Bounded Withdrawal Import Cleanup
+
+on:
+  push:
+    branches:
+      - fix/withdrawal-external-effect-evidence
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bounded-withdrawal-import-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/withdrawal-external-effect-evidence
+
+      - name: Apply exact import cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/lib/security/withdrawal-external-effect-authority.ts")
+          source = path.read_text()
+          replacements = [
+              (
+                  'import { createHash, randomUUID } from "node:crypto";',
+                  'import { createHash } from "node:crypto";',
+              ),
+              ('  fingerprintBroadcastAttempt,\n', ''),
+              ('  fingerprintWithdrawalExecution,\n', ''),
+              (
+                  'import type { ChainId, FeeSpeed } from "@/lib/wallet/types";',
+                  'import type { ChainId } from "@/lib/wallet/types";',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"bounded cleanup expected exactly one match, found {count}: {old!r}")
+              source = source.replace(old, new, 1)
+
+          path.write_text(source)
+          PY
+
+      - name: Commit exact cleanup
+        run: |
+          if git diff --quiet -- src/lib/security/withdrawal-external-effect-authority.ts; then
+            echo "No bounded cleanup needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/security/withdrawal-external-effect-authority.ts
+          git commit -m "chore(withdrawal): remove unused authority imports"
+          git push origin HEAD:fix/withdrawal-external-effect-evidence
