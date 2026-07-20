@@ -25,7 +25,9 @@ jobs:
           fetch-depth: 2
 
       - name: Apply deterministic custody integration
-        run: python3 scripts/apply-custody-launch-gate-once.py
+        run: |
+          echo "custody-launch-gate-integration-v2"
+          python3 scripts/apply-custody-launch-gate-once.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
