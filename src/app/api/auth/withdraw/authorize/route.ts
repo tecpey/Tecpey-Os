@@ -5,7 +5,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { PLATFORM } from "@/lib/platform-config";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -13,13 +13,18 @@ import {
   parseApiIdempotencyKey,
   type ApiCommandScope,
 } from "@/lib/security/api-command-idempotency";
-import { writeAudit } from "@/lib/security/audit-log";
 import { decryptTotpSecret, verifyTotpStep } from "@/lib/security/totp";
 import {
   canonicalizeWithdrawalCommand,
   issueWithdrawalAuthorizationTx,
   WITHDRAWAL_ADMISSION_POLICY_VERSION,
+  WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
 } from "@/lib/security/withdrawal-admission-authority";
+import {
+  fingerprintWithdrawalDestination,
+  fingerprintWithdrawalRequest,
+  writeWithdrawalEvidenceTx,
+} from "@/lib/security/withdrawal-evidence";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +108,22 @@ export async function POST(req: NextRequest) {
           totpCodeHash: hashApiCommand(code),
         }),
       };
+      const requestFingerprint = fingerprintWithdrawalRequest(
+        canonical.requestHash,
+      );
+      const destinationFingerprint = fingerprintWithdrawalDestination({
+        network: canonical.command.network,
+        destinationAddress: canonical.command.destinationAddress,
+        destinationTag: canonical.command.destinationTag,
+      });
+      const evidenceMetadata = {
+        admissionPolicyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
+        requestFingerprint,
+        destinationFingerprint,
+        asset: canonical.command.asset,
+        network: canonical.command.network,
+        amount: canonical.command.amount,
+      };
 
       try {
         const issued = await withTx<AuthorizationTransactionResult>(async (db) => {
@@ -140,6 +161,22 @@ export async function POST(req: NextRequest) {
               outcome: "2fa_required",
               withdrawalRequestHash: canonical.requestHash,
             };
+            await writeWithdrawalEvidenceTx(db, {
+              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              actorType: "user",
+              actorId: userId,
+              action: "withdrawal.authorization.reject",
+              resourceType: "withdrawal_authorization",
+              resourceIdentity: canonical.requestHash,
+              correlationIdentity: `${receiptScope.requestHash}:2fa_required`,
+              requestHash: receiptScope.requestHash,
+              outcome: "rejected",
+              metadata: {
+                ...evidenceMetadata,
+                reason: "2fa_required",
+                factorPresent: false,
+              },
+            });
             await completeApiCommandTx(db, receiptScope, {
               httpStatus: 403,
               response: receipt,
@@ -158,6 +195,22 @@ export async function POST(req: NextRequest) {
               outcome: "invalid_totp",
               withdrawalRequestHash: canonical.requestHash,
             };
+            await writeWithdrawalEvidenceTx(db, {
+              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              actorType: "user",
+              actorId: userId,
+              action: "withdrawal.authorization.reject",
+              resourceType: "withdrawal_authorization",
+              resourceIdentity: canonical.requestHash,
+              correlationIdentity: `${receiptScope.requestHash}:invalid_totp`,
+              requestHash: receiptScope.requestHash,
+              outcome: "rejected",
+              metadata: {
+                ...evidenceMetadata,
+                reason: "invalid_totp",
+                factorPresent: true,
+              },
+            });
             await completeApiCommandTx(db, receiptScope, {
               httpStatus: 401,
               response: receipt,
@@ -192,6 +245,23 @@ export async function POST(req: NextRequest) {
             expiresAt: authorization.expiresAt.toISOString(),
             withdrawalRequestHash: canonical.requestHash,
           };
+          await writeWithdrawalEvidenceTx(db, {
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            actorType: "user",
+            actorId: userId,
+            action: "withdrawal.authorization.issue",
+            resourceType: "withdrawal_authorization",
+            resourceIdentity: authorization.id,
+            correlationIdentity: `${receiptScope.requestHash}:issued`,
+            requestHash: receiptScope.requestHash,
+            outcome: "success",
+            metadata: {
+              ...evidenceMetadata,
+              factorPresent: true,
+              authorizationLifetimeSeconds:
+                WITHDRAWAL_AUTHORIZATION_TTL_SECONDS,
+            },
+          });
           await completeApiCommandTx(db, receiptScope, {
             httpStatus: 200,
             response: receipt,
@@ -209,36 +279,8 @@ export async function POST(req: NextRequest) {
           return apiError("2fa_required", 403);
         }
         if (issued.value.receipt.outcome === "invalid_totp") {
-          if (!issued.value.replayed) {
-            writeAudit({
-              actorId: userId,
-              action: "wallet_withdrawal",
-              ip: getClientIp(req),
-              metadata: {
-                event: "withdrawal_authorization_failed",
-                reason: "invalid_totp",
-                requestHash: canonical.requestHash,
-              },
-            });
-          }
           return apiError("invalid_totp_code", 401, {
             replayed: issued.value.replayed,
-          });
-        }
-
-        if (!issued.value.replayed) {
-          writeAudit({
-            actorId: userId,
-            action: "wallet_withdrawal",
-            ip: getClientIp(req),
-            userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
-            metadata: {
-              event: "withdrawal_authorized",
-              authorizationId: issued.value.receipt.authorizationId,
-              requestHash: canonical.requestHash,
-              policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
-              expiresAt: issued.value.receipt.expiresAt,
-            },
           });
         }
         return apiOk({

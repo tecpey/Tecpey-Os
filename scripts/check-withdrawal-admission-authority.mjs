@@ -181,8 +181,31 @@ requireText("postgresTests", "type = 'hold'", "tests must inspect the real ledge
 requireText("postgresTests", "type = 'release'", "tests must inspect the real ledger release type");
 requireText("replayTests", "resolves exact replay from PostgreSQL without external providers", "committed replay needs a provider-independent DB test");
 requireText("replayTests", "checks committed replay before authorization", "route ordering must be regression tested");
-requireText("reservationTests", "clears funds_reserved_at in PostgreSQL", "terminal states must prove reservation metadata is cleared");
-requireText("reservationTests", 'for (const terminalState of ["rejected", "blocked", "cancelled"]', "every terminal release state needs metadata coverage");
+requireText(
+  "reservationTests",
+  "rejects a direct approved transition without Admin action and receipt",
+  "approved state must require canonical Admin authority",
+);
+requireText(
+  "reservationTests",
+  'for (const terminalState of ["approved", "rejected", "blocked"]',
+  "all Admin-governed pre-broadcast states need bypass rejection coverage",
+);
+requireText(
+  "reservationTests",
+  "rejects a direct cancelled transition without the canonical receipt and release evidence",
+  "cancellation must require canonical receipt and release authority",
+);
+requireText(
+  "reservationTests",
+  "withdrawal pre-broadcast transition authority is missing",
+  "direct Admin-governed transitions must fail closed",
+);
+requireText(
+  "reservationTests",
+  "withdrawal cancellation receipt evidence is missing",
+  "direct cancellation must fail closed",
+);
 requireText("priceEvidenceTests", "accepts a fresh matching snapshot", "database price validation needs a positive control");
 requireText("priceEvidenceTests", "rejects a stale snapshot", "database price validation must reject stale evidence");
 requireText("priceEvidenceTests", "rejects client-style amountUsd manipulation", "database price validation must recompute valuation");
@@ -192,4 +215,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; 2FA issuance is atomic; canonical commands, one-time TOTP, signed fresh pricing, database price recomputation, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, terminal metadata cleanup, durable outbox and custody launch blocking are enforced.");
+console.log(
+  "Withdrawal admission authority check passed: browser facts are rejected; committed replay is provider-independent; 2FA issuance is atomic; canonical commands, one-time TOTP, signed fresh pricing, database price recomputation, strict risk, fail-closed compliance, PostgreSQL velocity/idempotency, exact atomic reservation, canonical Admin/cancel transition gates, durable outbox and custody launch blocking are enforced.",
+);

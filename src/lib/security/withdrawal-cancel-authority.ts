@@ -8,7 +8,6 @@ import {
   type ApiCommandScope,
 } from "./api-command-idempotency";
 import { trackAuthEvent } from "./auth-metrics";
-import { writeAudit } from "./audit-log";
 import {
   fetchWithdrawal,
   type WithdrawalRecord,
@@ -104,6 +103,9 @@ export async function cancelWithdrawalIdempotently(input: {
         throw new WithdrawalCancelError("idempotency_in_progress", 409);
       }
       if (claim.status === "replayed") {
+        if (claim.response.withdrawalId !== input.withdrawalId) {
+          throw new WithdrawalCancelError("idempotency_conflict", 409);
+        }
         return { withdrawalId: claim.response.withdrawalId, replayed: true };
       }
 
@@ -181,17 +183,6 @@ export async function cancelWithdrawalIdempotently(input: {
 
     if (!transaction.value.replayed) {
       trackAuthEvent("withdrawal_cancelled");
-      writeAudit({
-        actorId: input.userId,
-        action: "wallet_withdrawal",
-        resourceType: "withdrawal",
-        resourceId: input.withdrawalId,
-        metadata: {
-          event: "withdrawal_cancelled",
-          previousState: "pending_or_review",
-          resultingState: "cancelled",
-        },
-      });
     }
 
     return {
