@@ -1,0 +1,68 @@
+name: Repository Audit Evidence
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: repository-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repository-audit:
+    name: Tracked-file denominator and line scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate deterministic audit evidence
+        run: npm run qa:repository:evidence
+
+      - name: Verify denominator integrity
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const cp = require('node:child_process');
+          const inventory = JSON.parse(fs.readFileSync('.artifacts/repository-audit/inventory.json', 'utf8'));
+          const scan = JSON.parse(fs.readFileSync('.artifacts/repository-audit/line-scan.json', 'utf8'));
+          const head = cp.execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          const tracked = cp.execFileSync('git', ['ls-files'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+          if (inventory.commit !== head) throw new Error(`Inventory commit ${inventory.commit} != HEAD ${head}`);
+          if (inventory.totals.trackedFiles !== tracked.length) {
+            throw new Error(`Inventory denominator ${inventory.totals.trackedFiles} != tracked paths ${tracked.length}`);
+          }
+          if (inventory.files.length !== tracked.length) throw new Error('Per-path inventory is incomplete');
+          if (scan.commit !== head) throw new Error(`Line scan commit ${scan.commit} != HEAD ${head}`);
+          if (scan.totals.scannedTextFiles !== inventory.totals.textualFiles) {
+            throw new Error(`Scanned text files ${scan.totals.scannedTextFiles} != inventory text files ${inventory.totals.textualFiles}`);
+          }
+          console.log(`Verified ${inventory.totals.trackedFiles} tracked paths and ${scan.totals.scannedTextLines} text lines at ${head}`);
+          NODE
+
+      - name: Print audit summaries
+        run: |
+          cat .artifacts/repository-audit/inventory.md
+          printf '\n'
+          cat .artifacts/repository-audit/line-scan.md
+
+      - name: Upload repository audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-audit-evidence-${{ github.sha }}
+          path: .artifacts/repository-audit/
+          if-no-files-found: error
+          retention-days: 30
