@@ -59,7 +59,7 @@ BEGIN
     encode(
       digest(
         convert_to(
-          'tecpey:exchange.order.admit:v1' || chr(0) ||
+          'tecpey:exchange.order.admit:v1' || chr(31) ||
           NEW.tenant_id || ':' || NEW.user_id || ':' || NEW.idempotency_key,
           'UTF8'
         ),
@@ -73,7 +73,7 @@ BEGIN
   resource_value := 'exchange-order-' || encode(
     digest(
       convert_to(
-        'tecpey:exchange-order:v1' || chr(0) || NEW.order_id::text,
+        'tecpey:exchange-order:v1' || chr(31) || NEW.order_id::text,
         'UTF8'
       ),
       'sha256'
@@ -83,7 +83,7 @@ BEGIN
   market_value := 'exchange-market-' || encode(
     digest(
       convert_to(
-        'tecpey:exchange-market:v1' || chr(0) || upper(NEW.market),
+        'tecpey:exchange-market:v1' || chr(31) || upper(NEW.market),
         'UTF8'
       ),
       'sha256'
