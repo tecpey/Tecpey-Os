@@ -126,10 +126,19 @@ try {
 }
 
 const packageJson = JSON.parse(await source("package.json"));
-if (!packageJson.scripts?.["ai:trust:check"]) failures.push("package: ai:trust:check is missing");
-if (!packageJson.scripts?.["test:ai-mentor-trust"]) failures.push("package: test:ai-mentor-trust is missing");
-if (!packageJson.scripts?.["release:check"]?.includes("npm run ai:trust:check")) {
-  failures.push("package: release:check does not enforce AI trust guard");
+const scripts = packageJson.scripts ?? {};
+if (!scripts["ai:trust:check"]) failures.push("package: ai:trust:check is missing");
+if (!scripts["test:ai-mentor-trust"]) failures.push("package: test:ai-mentor-trust is missing");
+if (!scripts["ai:redteam:check"]) failures.push("package: ai:redteam:check is missing");
+if (
+  scripts["ai:redteam:check"] &&
+  (!scripts["ai:redteam:check"].includes("npm run ai:trust:check") ||
+    !scripts["ai:redteam:check"].includes("npm run test:ai-mentor-trust"))
+) {
+  failures.push("package: ai:redteam:check must enforce both source guard and focused tests");
+}
+if (!scripts["release:check"]?.includes("npm run ai:redteam:check")) {
+  failures.push("package: release:check does not enforce the AI Mentor red-team gate");
 }
 
 if (failures.length) {
