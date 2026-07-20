@@ -88,7 +88,6 @@ export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry })
   }
 
   const effective = structuredClone(baseline);
-  const seen = new Set();
 
   for (const [index, entry] of registry.entries.entries()) {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -116,9 +115,6 @@ export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry })
     }
 
     const key = operationKey(entry.route, entry.method);
-    if (seen.has(key)) throw new Error(`api_security_manifest_delta_duplicate:${key}`);
-    seen.add(key);
-
     const matchingIndexes = effective.routes
       .map((route, routeIndex) => ({ route, routeIndex }))
       .filter(({ route }) => route.route === entry.route && route.method === entry.method)
@@ -144,6 +140,9 @@ export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry })
     }
     if (!/^[0-9a-f]{24}$/.test(replacement.sourceHash ?? "")) {
       throw new Error(`api_security_manifest_delta_replacement_hash_invalid:${key}`);
+    }
+    if (replacement.sourceHash === entry.previousSourceHash) {
+      throw new Error(`api_security_manifest_delta_noop:${key}:${replacement.sourceHash}`);
     }
 
     effective.routes[routeIndex] = structuredClone(replacement);
