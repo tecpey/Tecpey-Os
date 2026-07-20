@@ -181,10 +181,11 @@ export async function cancelWithdrawalIdempotently(input: {
       trackAuthEvent("withdrawal_cancelled");
       writeAudit({
         actorId: input.userId,
-        action: "withdrawal_cancelled",
+        action: "wallet_withdrawal",
         resourceType: "withdrawal",
         resourceId: input.withdrawalId,
         metadata: {
+          event: "withdrawal_cancelled",
           previousState: "pending_or_review",
           resultingState: "cancelled",
         },
