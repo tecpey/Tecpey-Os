@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import Decimal from "decimal.js";
 import { logger } from "@/lib/logger";
 import { withDb, withTx } from "@/lib/db";
 import { getEventBus, nextSeq } from "@/lib/event-bus";
@@ -13,15 +12,11 @@ import type {
 } from "./matching-engine";
 import { getOrderBook } from "./order-book";
 import { getMarket } from "./market-service";
-import { getOrderByIdTx, updateOrderFillTx } from "./order-service";
+import { getOrderByIdTx } from "./order-service";
 import { createTradeTx } from "./trade-service";
 import {
   assertOrderHoldClosedTx,
-  chargeTradeFeeTx,
-  creditTradeFundsTx,
-  debitTradeFundsTx,
   getOrderHoldResidualTx,
-  releaseMatchedOrderFundsTx,
   releaseOrderHoldResidualTx,
 } from "./wallet-service";
 import { createTradingEvent } from "./events";
@@ -34,8 +29,24 @@ import { rebuildMarketBookFromAuthority } from "./order-book-recovery";
 import { withExchangeMarketExecutionLock } from "./market-execution-lock";
 import { invalidateStatsCache } from "./market-stats-cache";
 import { D } from "./decimal";
+import {
+  calculateExactTradeAmounts,
+  canonicalMatchingInput,
+  crossesLimit,
+  decimalAdd,
+  decimalMin,
+  decimalSubtract,
+  exactAveragePrice,
+  isPositiveAmount,
+  isZeroAmount,
+  toSettlementAmount,
+  type ExactTradeAmounts,
+} from "./matching-financials";
+import { applyExactOrderFillTx } from "./matching-order-service";
+import { settleExactTradeTx } from "./matching-settlement-authority";
 
 const marketLocks = new Map<string, Promise<void>>();
+const ZERO_AMOUNT = "0.0000000000";
 
 async function withLocalMarketLock<T>(
   market: string,
@@ -50,19 +61,24 @@ async function withLocalMarketLock<T>(
 type FillRecord = {
   tradeId: string;
   maker: EngineOrder;
-  makerPriceKey: string;
-  fillQty: number;
-  tradePrice: number;
-  makerNewRemaining: number;
+  fillQty: string;
+  tradePrice: string;
+  makerNewRemaining: string;
   makerNewStatus: OrderStatus;
   buyerOrderId: string;
   sellerOrderId: string;
   buyerUserId: string;
   sellerUserId: string;
-  feeBuyer: number;
-  feeSeller: number;
-  buyerHoldRelease: number;
-  sellerHoldRelease: number;
+  buyerHoldBasis: string;
+  sellerHoldBasis: string;
+  amounts: ExactTradeAmounts;
+};
+
+type FillPlan = {
+  records: FillRecord[];
+  remaining: string;
+  totalFilled: string;
+  cumulativeQuote: string;
 };
 
 async function appendOrderEventTx(
@@ -78,68 +94,87 @@ async function appendOrderEventTx(
   );
 }
 
+function feeRatesForMaker(
+  makerSide: OrderSide,
+  makerFee: string,
+  takerFee: string,
+): { buyerFeeRate: string; sellerFeeRate: string } {
+  return makerSide === "buy"
+    ? { buyerFeeRate: makerFee, sellerFeeRate: takerFee }
+    : { buyerFeeRate: takerFee, sellerFeeRate: makerFee };
+}
+
 function computeFills(
   order: Order,
-  limitPrice: number,
-  isMarket: boolean,
-  makerFeeRate: number,
-  takerFeeRate: number,
-): {
-  records: FillRecord[];
-  remaining: number;
-  totalFilled: number;
-  vwapNumerator: number;
-} {
+  makerFeeRate: string,
+  takerFeeRate: string,
+): FillPlan {
   const store = getOrderBookStore();
   const opposite: OrderSide = order.side === "buy" ? "sell" : "buy";
   const levels = store.getLevels(order.market, opposite);
   const records: FillRecord[] = [];
-  const makerAllocated = new Map<string, number>();
-  let remaining = Number(order.quantity);
-  let totalFilled = 0;
-  let vwapNumerator = 0;
+  const makerAllocated = new Map<string, string>();
+  const takerLimit = order.type === "market"
+    ? null
+    : canonicalMatchingInput(order.price ?? "", "taker_limit_price");
+  let remaining = canonicalMatchingInput(
+    order.remainingQuantity,
+    "taker_remaining_quantity",
+  );
+  let totalFilled = ZERO_AMOUNT;
+  let cumulativeQuote = ZERO_AMOUNT;
 
   outer: for (const level of levels) {
-    if (remaining <= 1e-10) break;
-    if (!isMarket) {
-      if (order.side === "buy" && level.price > limitPrice) break;
-      if (order.side === "sell" && level.price < limitPrice) break;
+    if (isZeroAmount(remaining)) break;
+    if (!crossesLimit({
+      takerSide: order.side,
+      takerLimit,
+      makerPrice: level.price,
+    })) {
+      break;
     }
 
     for (const maker of level.orders) {
-      if (remaining <= 1e-10) break outer;
+      if (isZeroAmount(remaining)) break outer;
       if (maker.orderId === order.id || maker.userId === order.userId) continue;
-      const allocated = makerAllocated.get(maker.orderId) ?? 0;
-      const effectiveRemaining = maker.remaining - allocated;
-      if (effectiveRemaining <= 1e-10) continue;
+      const allocated = makerAllocated.get(maker.orderId) ?? ZERO_AMOUNT;
+      const effectiveRemaining = decimalSubtract(maker.remaining, allocated);
+      if (!isPositiveAmount(effectiveRemaining)) continue;
 
-      const fillQty = Math.min(remaining, effectiveRemaining);
+      const fillQty = decimalMin(remaining, effectiveRemaining);
+      if (!isPositiveAmount(fillQty)) continue;
       const tradePrice = level.price;
-      const makerNewRemaining = effectiveRemaining - fillQty;
-      const makerNewStatus: OrderStatus = makerNewRemaining <= 1e-10
+      const makerNewRemaining = decimalSubtract(effectiveRemaining, fillQty);
+      const makerNewStatus: OrderStatus = isZeroAmount(makerNewRemaining)
         ? "FILLED"
         : "PARTIALLY_FILLED";
       const buyerOrderId = order.side === "buy" ? order.id : maker.orderId;
       const sellerOrderId = order.side === "sell" ? order.id : maker.orderId;
       const buyerUserId = order.side === "buy" ? order.userId : maker.userId;
       const sellerUserId = order.side === "sell" ? order.userId : maker.userId;
-      const feeBuyer = new Decimal(fillQty)
-        .times(tradePrice)
-        .times(maker.side === "buy" ? makerFeeRate : takerFeeRate)
-        .toNumber();
-      const feeSeller = new Decimal(fillQty)
-        .times(tradePrice)
-        .times(maker.side === "sell" ? makerFeeRate : takerFeeRate)
-        .toNumber();
-      const effectiveLimit = limitPrice > 0 ? limitPrice : tradePrice;
-      const buyerHoldRelease = order.side === "buy"
-        ? fillQty * effectiveLimit
-        : fillQty * maker.pricePerUnit;
+      const feeRates = feeRatesForMaker(
+        maker.side,
+        makerFeeRate,
+        takerFeeRate,
+      );
+      const amounts = calculateExactTradeAmounts({
+        quantity: fillQty,
+        price: tradePrice,
+        ...feeRates,
+      });
+      const buyerHoldPrice = order.side === "buy"
+        ? order.type === "market"
+          ? tradePrice
+          : canonicalMatchingInput(order.price ?? "", "buyer_limit_price")
+        : maker.pricePerUnit;
+      const buyerHoldBasis = toSettlementAmount(
+        D(fillQty).times(D(buyerHoldPrice)),
+        "buyer_hold_basis",
+      );
 
       records.push({
         tradeId: randomUUID(),
         maker,
-        makerPriceKey: level.priceKey,
         fillQty,
         tradePrice,
         makerNewRemaining,
@@ -148,19 +183,18 @@ function computeFills(
         sellerOrderId,
         buyerUserId,
         sellerUserId,
-        feeBuyer,
-        feeSeller,
-        buyerHoldRelease,
-        sellerHoldRelease: fillQty,
+        buyerHoldBasis,
+        sellerHoldBasis: fillQty,
+        amounts,
       });
-      makerAllocated.set(maker.orderId, allocated + fillQty);
-      remaining -= fillQty;
-      totalFilled += fillQty;
-      vwapNumerator += fillQty * tradePrice;
+      makerAllocated.set(maker.orderId, decimalAdd(allocated, fillQty));
+      remaining = decimalSubtract(remaining, fillQty);
+      totalFilled = decimalAdd(totalFilled, fillQty);
+      cumulativeQuote = decimalAdd(cumulativeQuote, amounts.quoteGross);
     }
   }
 
-  return { records, remaining, totalFilled, vwapNumerator };
+  return { records, remaining, totalFilled, cumulativeQuote };
 }
 
 async function commitTerminalOrder(
@@ -288,7 +322,7 @@ async function validateLockedOrdersTx(
       !D(maker.quantity).eq(fill.maker.originalQty) ||
       !D(maker.remaining_quantity).eq(fill.maker.remaining) ||
       !["NEW", "PARTIALLY_FILLED"].includes(maker.status) ||
-      D(maker.remaining_quantity).lt(fill.fillQty)
+      D(maker.remaining_quantity).lt(D(fill.fillQty))
     ) {
       throw new Error("maker_order_state_changed");
     }
@@ -353,19 +387,19 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       displayBook.cancel(
         admittedEntry.side,
         pkStr(admittedEntry.pricePerUnit),
-        admittedEntry.remaining.toFixed(10),
+        admittedEntry.remaining,
       );
     }
 
     const baseAsset = market.baseAsset;
     const quoteAsset = market.quoteAsset;
-    const makerFeeRate = Number(market.makerFee);
-    const takerFeeRate = Number(market.takerFee);
     const isMarket = order.type === "market";
     const isFOK = order.timeInForce === "FOK";
     const isIOC = order.timeInForce === "IOC";
     const isGTC = !isMarket && !isFOK && !isIOC;
-    const limitPrice = order.price ? Number(order.price) : 0;
+    const limitPrice = isMarket
+      ? null
+      : canonicalMatchingInput(order.price ?? "", "taker_limit_price");
     const holdAsset = order.side === "buy" ? quoteAsset : baseAsset;
 
     if (isFOK) {
@@ -374,8 +408,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
         order.side,
         limitPrice,
       );
-      const requested = Number(order.quantity);
-      if (available < requested - 1e-10) {
+      if (D(available).lt(D(order.remainingQuantity))) {
         try {
           await commitTerminalOrder(
             order,
@@ -405,17 +438,12 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       }
     }
 
-    const fills = computeFills(
-      order,
-      limitPrice,
-      isMarket,
-      makerFeeRate,
-      takerFeeRate,
-    );
-    const fullyFilled = fills.remaining <= 1e-10;
-    const averagePrice = fills.totalFilled > 0
-      ? fills.vwapNumerator / fills.totalFilled
-      : 0;
+    const fills = computeFills(order, market.makerFee, market.takerFee);
+    const fullyFilled = isZeroAmount(fills.remaining);
+    const averagePrice = exactAveragePrice({
+      cumulativeQuote: fills.cumulativeQuote,
+      cumulativeQuantity: fills.totalFilled,
+    });
 
     if (isFOK && !fullyFilled) {
       try {
@@ -446,16 +474,13 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       }
     }
 
-    if (isMarket && order.side === "buy" && fills.totalFilled > 0) {
-      const plannedBuyerFee = fills.records
+    if (isMarket && order.side === "buy" && isPositiveAmount(fills.totalFilled)) {
+      const plannedSpend = fills.records
         .filter((fill) => fill.buyerOrderId === order.id)
         .reduce(
-          (sum, fill) => sum.plus(new Decimal(fill.feeBuyer)),
-          new Decimal(0),
+          (sum, fill) => decimalAdd(sum, fill.amounts.buyerQuoteDebit),
+          ZERO_AMOUNT,
         );
-      const plannedSpend = new Decimal(fills.vwapNumerator)
-        .plus(plannedBuyerFee)
-        .toFixed(10);
       const residualResult = await withDb((client) =>
         getOrderHoldResidualTx(client, order.userId, holdAsset, order.id),
       );
@@ -467,7 +492,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
           reason: "storage_unavailable",
         };
       }
-      if (D(residualResult.value).lt(plannedSpend)) {
+      if (D(residualResult.value).lt(D(plannedSpend))) {
         try {
           await commitTerminalOrder(
             order,
@@ -501,6 +526,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       accepted: boolean;
       tradeIds: string[];
       reason?: string;
+      takerStatus: OrderStatus;
     };
     let committed: TxResult;
     try {
@@ -516,82 +542,32 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
             sellerOrderId: fill.sellerOrderId,
             price: fill.tradePrice,
             quantity: fill.fillQty,
-            feeBuyer: fill.feeBuyer,
-            feeSeller: fill.feeSeller,
+            feeBuyer: fill.amounts.buyerFee,
+            feeSeller: fill.amounts.sellerFee,
             makerSide: fill.maker.side,
           });
           if (!trade) throw new Error("trade_creation_failed");
           tradeIds.push(fill.tradeId);
 
-          await releaseMatchedOrderFundsTx(
-            client,
-            fill.buyerUserId,
-            quoteAsset,
-            fill.buyerHoldRelease,
-            fill.buyerOrderId,
-          );
-          await debitTradeFundsTx(
-            client,
-            fill.buyerUserId,
-            quoteAsset,
-            fill.fillQty * fill.tradePrice,
-            fill.tradeId,
-          );
-          await creditTradeFundsTx(
-            client,
-            fill.buyerUserId,
+          await settleExactTradeTx(client, {
+            tradeId: fill.tradeId,
             baseAsset,
-            fill.fillQty,
-            fill.tradeId,
-          );
-          if (fill.feeBuyer > 1e-12) {
-            await chargeTradeFeeTx(
-              client,
-              fill.buyerUserId,
-              quoteAsset,
-              fill.feeBuyer,
-              fill.tradeId,
-            );
-          }
+            quoteAsset,
+            buyerUserId: fill.buyerUserId,
+            sellerUserId: fill.sellerUserId,
+            buyerOrderId: fill.buyerOrderId,
+            sellerOrderId: fill.sellerOrderId,
+            buyerHoldBasis: fill.buyerHoldBasis,
+            sellerHoldBasis: fill.sellerHoldBasis,
+            amounts: fill.amounts,
+          });
 
-          await releaseMatchedOrderFundsTx(
-            client,
-            fill.sellerUserId,
-            baseAsset,
-            fill.sellerHoldRelease,
-            fill.sellerOrderId,
-          );
-          await debitTradeFundsTx(
-            client,
-            fill.sellerUserId,
-            baseAsset,
-            fill.fillQty,
-            fill.tradeId,
-          );
-          await creditTradeFundsTx(
-            client,
-            fill.sellerUserId,
-            quoteAsset,
-            fill.fillQty * fill.tradePrice,
-            fill.tradeId,
-          );
-          if (fill.feeSeller > 1e-12) {
-            await chargeTradeFeeTx(
-              client,
-              fill.sellerUserId,
-              quoteAsset,
-              fill.feeSeller,
-              fill.tradeId,
-            );
-          }
-
-          const makerUpdated = await updateOrderFillTx(
-            client,
-            fill.maker.orderId,
-            fill.fillQty,
-            fill.tradePrice,
-            fill.makerNewStatus,
-          );
+          const makerUpdated = await applyExactOrderFillTx(client, {
+            orderId: fill.maker.orderId,
+            fillQuantity: fill.fillQty,
+            fillPrice: fill.tradePrice,
+            newStatus: fill.makerNewStatus,
+          });
           if (!makerUpdated) throw new Error("maker_fill_rejected");
           await appendOrderEventTx(
             client,
@@ -629,13 +605,12 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
         }
 
         if (fullyFilled) {
-          const updated = await updateOrderFillTx(
-            client,
-            order.id,
-            fills.totalFilled,
-            averagePrice,
-            "FILLED",
-          );
+          const updated = await applyExactOrderFillTx(client, {
+            orderId: order.id,
+            fillQuantity: fills.totalFilled,
+            fillPrice: averagePrice,
+            newStatus: "FILLED",
+          });
           if (!updated) throw new Error("taker_fill_rejected");
           await releaseOrderHoldResidualTx(
             client,
@@ -652,21 +627,20 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
           await appendOrderEventTx(client, order.id, "OrderFilled", {
             orderId: order.id,
             market: order.market,
-            filledQty: fills.totalFilled.toFixed(10),
-            avgFillPrice: averagePrice.toFixed(10),
+            filledQty: fills.totalFilled,
+            avgFillPrice: averagePrice,
           });
-          return { accepted: true, tradeIds };
+          return { accepted: true, tradeIds, takerStatus: "FILLED" };
         }
 
-        if (fills.totalFilled > 0) {
+        if (isPositiveAmount(fills.totalFilled)) {
           const status: OrderStatus = isGTC ? "PARTIALLY_FILLED" : "CANCELLED";
-          const updated = await updateOrderFillTx(
-            client,
-            order.id,
-            fills.totalFilled,
-            averagePrice,
-            status,
-          );
+          const updated = await applyExactOrderFillTx(client, {
+            orderId: order.id,
+            fillQuantity: fills.totalFilled,
+            fillPrice: averagePrice,
+            newStatus: status,
+          });
           if (!updated) throw new Error("taker_fill_rejected");
           if (isGTC) {
             await appendOrderEventTx(
@@ -676,9 +650,9 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
               {
                 orderId: order.id,
                 market: order.market,
-                filledQty: fills.totalFilled.toFixed(10),
-                remainingQty: fills.remaining.toFixed(10),
-                avgFillPrice: averagePrice.toFixed(10),
+                filledQty: fills.totalFilled,
+                remainingQty: fills.remaining,
+                avgFillPrice: averagePrice,
               },
             );
           } else {
@@ -699,14 +673,14 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
               reason: "ioc_remainder",
             });
           }
-          return { accepted: true, tradeIds };
+          return { accepted: true, tradeIds, takerStatus: status };
         }
 
         if (isGTC) {
           await appendOrderEventTx(client, order.id, "OrderAccepted", {
             orderId: order.id,
           });
-          return { accepted: true, tradeIds };
+          return { accepted: true, tradeIds, takerStatus: "NEW" };
         }
 
         const expired = await client.query(
@@ -732,7 +706,12 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
           orderId: order.id,
           reason: "no_liquidity",
         });
-        return { accepted: false, tradeIds, reason: "no_liquidity" };
+        return {
+          accepted: false,
+          tradeIds,
+          reason: "no_liquidity",
+          takerStatus: "EXPIRED",
+        };
       });
       if (!transaction.enabled) {
         return {
@@ -752,7 +731,7 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       try {
         await rebuildMarketBookFromAuthority(order.market);
       } catch {
-        // The command remains retryable; recovery will attempt another rebuild.
+        // Recovery will retry from PostgreSQL authority.
       }
       return {
         accepted: false,
@@ -783,7 +762,12 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
       accepted: committed.accepted,
       tradeCount: committed.tradeIds.length,
     });
-    this.emitCommittedEvents(order, fills.records, committed, averagePrice);
+    this.emitCommittedEvents(
+      order,
+      fills,
+      committed,
+      averagePrice,
+    );
 
     return {
       accepted: committed.accepted,
@@ -795,20 +779,25 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
 
   private emitCommittedEvents(
     order: Order,
-    fills: FillRecord[],
-    result: { accepted: boolean; tradeIds: string[]; reason?: string },
-    averagePrice: number,
+    fills: FillPlan,
+    result: {
+      accepted: boolean;
+      tradeIds: string[];
+      reason?: string;
+      takerStatus: OrderStatus;
+    },
+    averagePrice: string,
   ): void {
-    if (!result.accepted || fills.length === 0) return;
+    if (!result.accepted || fills.records.length === 0) return;
     const bus = getEventBus();
     invalidateStatsCache(order.market);
-    for (const fill of fills) {
+    for (const fill of fills.records) {
       const executedAt = new Date().toISOString();
       bus.emit("trade:executed", {
         tradeId: fill.tradeId,
         market: order.market,
-        price: fill.tradePrice.toFixed(10),
-        quantity: fill.fillQty.toFixed(10),
+        price: fill.tradePrice,
+        quantity: fill.fillQty,
         buyerOrderId: fill.buyerOrderId,
         sellerOrderId: fill.sellerOrderId,
         buyerUserId: fill.buyerUserId,
@@ -821,31 +810,22 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
         userId: fill.maker.userId,
         market: order.market,
         status: fill.makerNewStatus,
-        filledQuantity: (
-          fill.maker.originalQty - fill.makerNewRemaining
-        ).toFixed(10),
-        remainingQuantity: fill.makerNewRemaining.toFixed(10),
-        avgFillPrice: fill.tradePrice.toFixed(10),
+        filledQuantity: decimalSubtract(
+          fill.maker.originalQty,
+          fill.makerNewRemaining,
+        ),
+        remainingQuantity: fill.makerNewRemaining,
+        avgFillPrice: fill.tradePrice,
       });
     }
     bus.emit("order:updated", {
       orderId: order.id,
       userId: order.userId,
       market: order.market,
-      status:
-        fills.reduce((sum, fill) => sum + fill.fillQty, 0) >=
-        Number(order.quantity) - 1e-10
-          ? "FILLED"
-          : "PARTIALLY_FILLED",
-      filledQuantity: fills
-        .reduce((sum, fill) => sum + fill.fillQty, 0)
-        .toFixed(10),
-      remainingQuantity: Math.max(
-        0,
-        Number(order.quantity) -
-          fills.reduce((sum, fill) => sum + fill.fillQty, 0),
-      ).toFixed(10),
-      avgFillPrice: averagePrice > 0 ? averagePrice.toFixed(10) : null,
+      status: result.takerStatus,
+      filledQuantity: fills.totalFilled,
+      remainingQuantity: fills.remaining,
+      avgFillPrice: isPositiveAmount(fills.totalFilled) ? averagePrice : null,
     });
     bus.emit("orderbook:changed", {
       market: order.market,
@@ -962,8 +942,8 @@ export class InProcessMatchingEngine implements MatchingEngineInterface {
               userId,
               market: transaction.value.market,
               status: "CANCELLED",
-              filledQuantity: "0",
-              remainingQuantity: "0",
+              filledQuantity: ZERO_AMOUNT,
+              remainingQuantity: ZERO_AMOUNT,
               avgFillPrice: null,
             });
             bus.emit("orderbook:changed", {

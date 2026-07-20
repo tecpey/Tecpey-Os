@@ -2,8 +2,7 @@ import { randomUUID } from "crypto";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { MakerSide, Trade } from "./types";
-
-// ── Row mapper ────────────────────────────────────────────────────────────────
+import { canonicalMatchingInput } from "./matching-financials";
 
 function rowToTrade(row: Record<string, unknown>): Trade {
   return {
@@ -20,84 +19,69 @@ function rowToTrade(row: Record<string, unknown>): Trade {
   };
 }
 
-// ── Create trade (engine-internal) ───────────────────────────────────────────
-
 export type CreateTradeInput = {
   id: string;
   market: string;
   buyerOrderId: string;
   sellerOrderId: string;
-  price: number;
-  quantity: number;
-  feeBuyer: number;
-  feeSeller: number;
+  price: string;
+  quantity: string;
+  feeBuyer: string;
+  feeSeller: string;
   makerSide: MakerSide;
 };
 
-// Transaction-aware variant — uses caller-provided PoolClient.
+function canonicalTradeInput(input: CreateTradeInput): CreateTradeInput {
+  return {
+    ...input,
+    market: input.market.toUpperCase(),
+    price: canonicalMatchingInput(input.price, "trade_price"),
+    quantity: canonicalMatchingInput(input.quantity, "trade_quantity"),
+    feeBuyer: canonicalMatchingInput(input.feeBuyer, "buyer_trade_fee"),
+    feeSeller: canonicalMatchingInput(input.feeSeller, "seller_trade_fee"),
+  };
+}
+
 export async function createTradeTx(
   client: import("pg").PoolClient,
-  input: CreateTradeInput,
+  rawInput: CreateTradeInput,
 ): Promise<Trade | null> {
+  const input = canonicalTradeInput(rawInput);
   const id = input.id || randomUUID();
   try {
     const rows = await client.query(
       `INSERT INTO trades
          (id, market, buyer_order_id, seller_order_id, price, quantity,
           fee_buyer, fee_seller, maker_side)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       VALUES ($1,$2,$3,$4,$5::numeric,$6::numeric,$7::numeric,$8::numeric,$9)
        RETURNING *`,
       [
         id,
-        input.market.toUpperCase(),
+        input.market,
         input.buyerOrderId,
         input.sellerOrderId,
-        input.price.toFixed(10),
-        input.quantity.toFixed(10),
-        input.feeBuyer.toFixed(10),
-        input.feeSeller.toFixed(10),
+        input.price,
+        input.quantity,
+        input.feeBuyer,
+        input.feeSeller,
         input.makerSide,
       ],
     );
     return rows.rows[0] ? rowToTrade(rows.rows[0]) : null;
-  } catch (err) {
-    logger.error("[trade-service] createTradeTx failed", { input, err });
+  } catch (error) {
+    logger.error("[trade-service] createTradeTx failed", { input, error });
     return null;
   }
 }
 
 export async function createTrade(input: CreateTradeInput): Promise<Trade | null> {
-  const id = input.id || randomUUID();
-  const result = await withDb(async (client) => {
-    const rows = await client.query(
-      `INSERT INTO trades
-         (id, market, buyer_order_id, seller_order_id, price, quantity,
-          fee_buyer, fee_seller, maker_side)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING *`,
-      [
-        id,
-        input.market.toUpperCase(),
-        input.buyerOrderId,
-        input.sellerOrderId,
-        input.price.toFixed(10),
-        input.quantity.toFixed(10),
-        input.feeBuyer.toFixed(10),
-        input.feeSeller.toFixed(10),
-        input.makerSide,
-      ],
-    );
-    return rows.rows[0] ? rowToTrade(rows.rows[0]) : null;
-  });
-
+  const result = await withDb((client) => createTradeTx(client, input));
   if (!result.enabled || !result.value) {
     logger.error("[trade-service] failed to create trade", { input });
     return null;
   }
   return result.value;
 }
-
-// ── Public trade history ───────────────────────────────────────────────────────
 
 export type TradeQueryOptions = {
   market: string;
@@ -111,7 +95,6 @@ export async function listTrades(options: TradeQueryOptions): Promise<Trade[]> {
   const result = await withDb(async (client) => {
     const params: unknown[] = [options.market.toUpperCase()];
     const conditions: string[] = ["market = $1"];
-
     if (options.before) {
       params.push(options.before);
       conditions.push(`executed_at < $${params.length}`);
@@ -124,44 +107,47 @@ export async function listTrades(options: TradeQueryOptions): Promise<Trade[]> {
       params.push(options.to);
       conditions.push(`executed_at <= $${params.length}`);
     }
-
     const limit = Math.min(options.limit ?? 50, 500);
     params.push(limit);
-
     const rows = await client.query(
-      `SELECT * FROM trades WHERE ${conditions.join(" AND ")} ORDER BY executed_at DESC LIMIT $${params.length}`,
+      `SELECT * FROM trades WHERE ${conditions.join(" AND ")}
+       ORDER BY executed_at DESC LIMIT $${params.length}`,
       params,
     );
     return rows.rows.map(rowToTrade);
   });
-
   if (!result.enabled) {
-    logger.warn("[trade-service] DB not available for trades query", { market: options.market });
+    logger.warn("[trade-service] DB not available for trades query", {
+      market: options.market,
+    });
     return [];
   }
   return result.value ?? [];
 }
 
-// ── User trade history ─────────────────────────────────────────────────────────
-// Uses UNION of buyer/seller subqueries for index-friendly execution.
-
-export async function listUserTrades(userId: string, market?: string, limit = 50, before?: string): Promise<Trade[]> {
+export async function listUserTrades(
+  userId: string,
+  market?: string,
+  limit = 50,
+  before?: string,
+): Promise<Trade[]> {
   const result = await withDb(async (client) => {
     const safeLimit = Math.min(limit, 200);
-    const marketFilter = market ? `AND market = '${market.toUpperCase().replace(/'/g, "''")}'` : "";
-    const beforeFilter = before ? `AND executed_at < $2` : "";
     const params: unknown[] = [userId];
+    const beforeFilter = before ? `AND executed_at < $2` : "";
     if (before) params.push(before);
-
+    const marketFilter = market
+      ? `AND market = '${market.toUpperCase().replace(/'/g, "''")}'`
+      : "";
     const rows = await client.query(
       `SELECT * FROM (
          SELECT t.* FROM trades t
-         WHERE t.buyer_order_id IN (SELECT id FROM orders WHERE user_id = $1)
-         ${marketFilter} ${beforeFilter}
+          WHERE t.buyer_order_id IN (SELECT id FROM orders WHERE user_id = $1)
+          ${marketFilter} ${beforeFilter}
          UNION
          SELECT t.* FROM trades t
-         WHERE t.seller_order_id IN (SELECT id FROM orders WHERE user_id = $1)
-         ${marketFilter} ${beforeFilter}
+          WHERE t.seller_order_id IN (SELECT id FROM orders WHERE user_id = $1)
+          ${marketFilter} ${beforeFilter}
        ) combined
        ORDER BY executed_at DESC
        LIMIT ${safeLimit}`,
@@ -169,7 +155,6 @@ export async function listUserTrades(userId: string, market?: string, limit = 50
     );
     return rows.rows.map(rowToTrade);
   });
-
   if (!result.enabled) return [];
   return result.value ?? [];
 }
