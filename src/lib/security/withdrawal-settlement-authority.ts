@@ -2,6 +2,9 @@ import { withTx } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
 import { hashSensitiveAuditRequest } from "@/lib/security/sensitive-mutation-audit";
 import {
+  completeWithdrawalConfirmationOutbox,
+} from "@/lib/security/withdrawal-external-effect-authority";
+import {
   fingerprintExpectedTransactionHash,
   writeWithdrawalExternalEffectEvidenceTx,
 } from "@/lib/security/withdrawal-external-effect-evidence";
@@ -57,6 +60,7 @@ export async function settleConfirmedWithdrawal(input: {
       // settlement transaction. A legacy completed row is backfilled exactly
       // once from its locked authoritative facts rather than trusted from a
       // caller-supplied payload.
+      await completeWithdrawalConfirmationOutbox(client, input.withdrawalId);
       await writeSettlementEvidence(client, {
         withdrawalId: input.withdrawalId,
         txHash: input.txHash,
@@ -142,6 +146,7 @@ export async function settleConfirmedWithdrawal(input: {
       throw new Error(`Withdrawal ${input.withdrawalId} completion transition rejected`);
     }
 
+    await completeWithdrawalConfirmationOutbox(client, input.withdrawalId);
     await writeSettlementEvidence(client, {
       withdrawalId: input.withdrawalId,
       txHash: input.txHash,
