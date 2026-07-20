@@ -6,16 +6,13 @@
 //
 // Credential lifecycle mutations are transaction-coupled to mandatory audit
 // evidence. A create/enable/disable/rotate/delete operation cannot commit if its
-// append-only audit admission fails. The service—not a route-side telemetry call—
-// owns that invariant, so every caller receives the same fail-closed behavior.
+// append-only audit admission fails.
 
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { PLATFORM } from "@/lib/platform-config";
 import { ipInWhitelist } from "./cidr";
 import {
-  hashSensitiveAuditRequest,
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
 } from "./sensitive-mutation-audit";
@@ -48,13 +45,6 @@ export type ApiKeyMutationAuditContext = Pick<
   SensitiveMutationAuditEvent,
   "tenantId" | "actorType" | "actorId" | "correlationId" | "requestHash"
 >;
-
-type ApiKeyAuditAction =
-  | "api_key.create"
-  | "api_key.enable"
-  | "api_key.disable"
-  | "api_key.rotate"
-  | "api_key.delete";
 
 type DbApiKeyRow = {
   id: string;
@@ -115,47 +105,15 @@ function assertAuditActor(userId: string, audit: ApiKeyMutationAuditContext): vo
   }
 }
 
-function resolveApiKeyAuditContext(
-  userId: string,
-  action: ApiKeyAuditAction,
-  requestEvidence: Record<string, unknown>,
-  provided?: ApiKeyMutationAuditContext,
-): ApiKeyMutationAuditContext {
-  const audit = provided ?? {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
-    actorType: "user" as const,
-    actorId: userId,
-    correlationId: `api-key-${randomUUID()}`,
-    requestHash: hashSensitiveAuditRequest({
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
-      actorId: userId,
-      action,
-      ...requestEvidence,
-    }),
-  };
-  assertAuditActor(userId, audit);
-  return audit;
-}
-
 export async function createApiKey(opts: {
   userId: string;
   name: string;
   permissions: ApiKeyPermission[];
   ipWhitelist?: string[] | null;
   expiresAt?: Date | null;
-  audit?: ApiKeyMutationAuditContext;
+  audit: ApiKeyMutationAuditContext;
 }): Promise<{ apiKey: ApiKey; plaintext: string }> {
-  const audit = resolveApiKeyAuditContext(
-    opts.userId,
-    "api_key.create",
-    {
-      name: opts.name.slice(0, 100),
-      permissions: [...opts.permissions].sort(),
-      ipWhitelist: opts.ipWhitelist ? [...opts.ipWhitelist].sort() : null,
-      expiresAt: opts.expiresAt?.toISOString() ?? null,
-    },
-    opts.audit,
-  );
+  assertAuditActor(opts.userId, opts.audit);
   const generated = generateApiKey();
 
   const result = await withTx(async (client) => {
@@ -190,7 +148,7 @@ export async function createApiKey(opts: {
     if (!row) throw new Error("api_key_create_failed");
 
     await writeSensitiveMutationAuditTx(client, {
-      ...audit,
+      ...opts.audit,
       action: "api_key.create",
       resourceType: "api_key",
       resourceId: row.id,
@@ -346,15 +304,9 @@ export async function setApiKeyActive(
   keyId: string,
   userId: string,
   active: boolean,
-  providedAudit?: ApiKeyMutationAuditContext,
+  audit: ApiKeyMutationAuditContext,
 ): Promise<boolean> {
-  const action: ApiKeyAuditAction = active ? "api_key.enable" : "api_key.disable";
-  const audit = resolveApiKeyAuditContext(
-    userId,
-    action,
-    { resourceId: keyId, active },
-    providedAudit,
-  );
+  assertAuditActor(userId, audit);
   const result = await withTx(async (client) => {
     const updated = await client.query<{ id: string }>(
       `UPDATE api_keys
@@ -368,7 +320,7 @@ export async function setApiKeyActive(
 
     await writeSensitiveMutationAuditTx(client, {
       ...audit,
-      action,
+      action: active ? "api_key.enable" : "api_key.disable",
       resourceType: "api_key",
       resourceId: keyId,
       outcome: "success",
@@ -384,14 +336,9 @@ export async function setApiKeyActive(
 export async function deleteApiKey(
   keyId: string,
   userId: string,
-  providedAudit?: ApiKeyMutationAuditContext,
+  audit: ApiKeyMutationAuditContext,
 ): Promise<boolean> {
-  const audit = resolveApiKeyAuditContext(
-    userId,
-    "api_key.delete",
-    { resourceId: keyId },
-    providedAudit,
-  );
+  assertAuditActor(userId, audit);
   const result = await withTx(async (client) => {
     const deleted = await client.query<{ id: string }>(
       `DELETE FROM api_keys
@@ -420,14 +367,9 @@ export async function deleteApiKey(
 export async function rotateApiKey(
   keyId: string,
   userId: string,
-  providedAudit?: ApiKeyMutationAuditContext,
+  audit: ApiKeyMutationAuditContext,
 ): Promise<{ plaintext: string } | null> {
-  const audit = resolveApiKeyAuditContext(
-    userId,
-    "api_key.rotate",
-    { resourceId: keyId },
-    providedAudit,
-  );
+  assertAuditActor(userId, audit);
   const generated = generateApiKey();
   const result = await withTx(async (client) => {
     const updated = await client.query<{ id: string }>(
