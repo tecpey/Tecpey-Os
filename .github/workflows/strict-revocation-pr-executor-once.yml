@@ -1,0 +1,89 @@
+name: One-shot Strict Revocation PR Executor
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/strict-revocation-pr-executor-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-strict-revocation-pr-executor
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/strict-revocation-high-risk-mutations
+          fetch-depth: 2
+
+      - name: Verify immutable executor ancestry
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "9d01878008b4e4a60948933648a1121755b28985"
+          test "$(git log -1 --pretty=%s)" = "chore(security): execute strict revocation remediation"
+
+      - name: Execute the reviewed remediation block
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          source = Path(".github/workflows/strict-revocation-remediation-once.yml").read_text()
+          start_marker = "      - name: Apply exact remediation\n        run: |\n"
+          end_marker = "\n      - name: Verify deterministic scope"
+          start = source.index(start_marker) + len(start_marker)
+          end = source.index(end_marker, start)
+          lines = source[start:end].splitlines()
+          normalized = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in lines
+          ) + "\n"
+          Path("/tmp/apply-strict-revocation.sh").write_text(normalized)
+          PY
+          bash /tmp/apply-strict-revocation.sh
+
+      - name: Verify deterministic scope
+        run: |
+          set -euo pipefail
+          node scripts/check-strict-revocation-authority.mjs
+          node --test scripts/api-security-strict-revocation-evidence.test.mjs
+          git diff --check
+
+      - name: Commit permanent remediation and remove executors
+        run: |
+          set -euo pipefail
+          git rm \
+            .github/workflows/strict-revocation-remediation-once.yml \
+            .github/workflows/strict-revocation-pr-executor-once.yml
+          git add \
+            package.json \
+            scripts/api-security-runtime-evidence.mjs \
+            scripts/generate-api-security-manifest.mjs \
+            scripts/api-security-strict-revocation-evidence.test.mjs \
+            scripts/check-strict-revocation-authority.mjs \
+            src/app/api/ai-mentor/route.ts \
+            src/app/api/auth/2fa/backup/route.ts \
+            src/app/api/auth/2fa/disable/route.ts \
+            src/app/api/auth/2fa/enroll/route.ts \
+            'src/app/api/auth/devices/[id]/route.ts' \
+            'src/app/api/auth/webauthn/credentials/[id]/route.ts' \
+            src/app/api/auth/webauthn/register/verify/route.ts \
+            src/app/api/community/profile/route.ts \
+            src/app/api/mentor-memory/route.ts \
+            src/app/api/notifications/consent/route.ts \
+            src/app/api/notifications/preferences/route.ts \
+            src/lib/community-career.ts \
+            src/lib/notifications/principal.ts \
+            src/tests/security/auth-strict-revocation-routes.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): require strict revocation on high-risk mutations"
+          git push origin HEAD:fix/strict-revocation-high-risk-mutations
