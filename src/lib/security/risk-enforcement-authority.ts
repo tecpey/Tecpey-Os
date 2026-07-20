@@ -52,7 +52,6 @@ type EventRow = {
   severity: RiskSeverity;
   market: string | null;
   desired_level: RiskLevel | null;
-  desired_expires_at: Date | null;
   request_hash: string;
 };
 
@@ -66,6 +65,13 @@ type DesiredEnforcement = {
   level: RiskLevel;
   expiresAt: Date;
 } | null;
+
+type TransitionValue = {
+  level: EffectiveRiskLevel;
+  generation: number;
+  expiresAt: Date | null;
+  projectionRequired: boolean;
+};
 
 function deriveDesiredEnforcement(input: {
   eventType: RiskEventType;
@@ -138,7 +144,7 @@ function sameEvent(
     eventType: RiskEventType;
     severity: RiskSeverity;
     market: string | null;
-    desired: DesiredEnforcement;
+    desiredLevel: RiskLevel | null;
     requestHash: string;
   },
 ): boolean {
@@ -147,9 +153,7 @@ function sameEvent(
     row.event_type === input.eventType &&
     row.severity === input.severity &&
     row.market === input.market &&
-    row.desired_level === input.desired?.level &&
-    (row.desired_expires_at?.toISOString() ?? null) ===
-      (input.desired?.expiresAt.toISOString() ?? null) &&
+    row.desired_level === input.desiredLevel &&
     row.request_hash === input.requestHash
   );
 }
@@ -163,7 +167,7 @@ async function writeEventEvidence(
     eventType: RiskEventType;
     severity: RiskSeverity;
     market: string | null;
-    desired: DesiredEnforcement;
+    desiredLevel: RiskLevel | null;
     requestHash: string;
   },
 ): Promise<void> {
@@ -181,13 +185,12 @@ async function writeEventEvidence(
       eventType: input.eventType,
       severity: input.severity,
       market: input.market,
-      desiredLevel: input.desired?.level ?? "none",
-      desiredExpiresAt: input.desired?.expiresAt.toISOString() ?? null,
+      desiredLevel: input.desiredLevel ?? "none",
     },
   });
 }
 
-async function upsertOutbox(
+async function replaceProjectionDebt(
   client: PoolClient,
   input: {
     tenantId: string;
@@ -198,6 +201,15 @@ async function upsertOutbox(
     expiresAt: Date | null;
   },
 ): Promise<void> {
+  await client.query(
+    `UPDATE risk_enforcement_outbox
+        SET state = 'completed', completed_at = NOW()
+      WHERE tenant_id = $1
+        AND principal_id = $2
+        AND generation < $3
+        AND state <> 'completed'`,
+    [input.tenantId, input.principalId, input.generation],
+  );
   await client.query(
     `INSERT INTO risk_enforcement_outbox
        (tenant_id, principal_id, principal_fingerprint, generation,
@@ -223,6 +235,7 @@ export async function recordRiskDecision(
   if (!principalId || principalId.length > 300) {
     throw new Error("invalid_risk_principal");
   }
+
   const market = boundedMarket(input.market);
   const detectorFacts = boundedDetectorFacts(input.detectorFacts);
   const principalFingerprint = fingerprintRiskPrincipal(principalId);
@@ -242,15 +255,19 @@ export async function recordRiskDecision(
     severity: input.severity,
     now,
   });
-  const requestHash = hashSensitiveAuditRequest({
+  const desiredLevel = desired?.level ?? null;
+
+  // Expiry is an enforcement outcome, not part of immutable event identity.
+  // Replaying the same detector decision at a later instant must resolve to the
+  // original event rather than conflict because wall-clock time advanced.
+  const eventRequestHash = hashSensitiveAuditRequest({
     tenantId,
     principalFingerprint,
     eventKey,
     eventType: input.eventType,
     severity: input.severity,
     market,
-    desiredLevel: desired?.level ?? null,
-    desiredExpiresAt: desired?.expiresAt.toISOString() ?? null,
+    desiredLevel,
     detectorFacts,
     policyVersion: RISK_ENFORCEMENT_POLICY_VERSION,
   });
@@ -274,9 +291,9 @@ export async function recordRiskDecision(
         input.severity,
         market,
         RISK_ENFORCEMENT_POLICY_VERSION,
-        desired?.level ?? null,
+        desiredLevel,
         desired?.expiresAt ?? null,
-        requestHash,
+        eventRequestHash,
         JSON.stringify(detectorFacts),
       ],
     );
@@ -285,8 +302,8 @@ export async function recordRiskDecision(
     const replayed = !eventId;
     if (!eventId) {
       const existing = await client.query<EventRow>(
-        `SELECT id, event_key, event_type, severity, market, desired_level,
-                desired_expires_at, request_hash
+        `SELECT id, event_key, event_type, severity, market,
+                desired_level, request_hash
            FROM risk_authority_events
           WHERE tenant_id = $1 AND event_key = $2
           LIMIT 1`,
@@ -300,8 +317,8 @@ export async function recordRiskDecision(
           eventType: input.eventType,
           severity: input.severity,
           market,
-          desired,
-          requestHash,
+          desiredLevel,
+          requestHash: eventRequestHash,
         })
       ) {
         throw new Error("risk_event_replay_conflict");
@@ -316,8 +333,8 @@ export async function recordRiskDecision(
       eventType: input.eventType,
       severity: input.severity,
       market,
-      desired,
-      requestHash,
+      desiredLevel,
+      requestHash: eventRequestHash,
     });
 
     const currentResult = await client.query<EnforcementRow>(
@@ -421,7 +438,7 @@ export async function recordRiskDecision(
         expiresAt: nextExpiry.toISOString(),
       },
     });
-    await upsertOutbox(client, {
+    await replaceProjectionDebt(client, {
       tenantId,
       principalId,
       principalFingerprint,
@@ -456,15 +473,14 @@ export async function recordRiskDecision(
 async function transitionToNone(input: {
   principalId: string;
   action: "risk.enforcement.clear" | "risk.enforcement.expire";
-  actorId: "risk-authority" | "risk-admin";
   expectedExpired?: boolean;
 }): Promise<RiskAuthorityResolution> {
   const tenantId = PLATFORM.DEFAULT_TENANT_ID;
-  const result = await withTx(async (client) => {
+  const result = await withTx(async (client): Promise<TransitionValue> => {
     await lockPrincipal(client, tenantId, input.principalId);
-    const currentResult = await client.query<EnforcementRow & {
-      principal_fingerprint: string;
-    }>(
+    const currentResult = await client.query<
+      EnforcementRow & { principal_fingerprint: string }
+    >(
       `SELECT level, generation::integer AS generation, expires_at,
               principal_fingerprint
          FROM risk_effective_enforcements
@@ -474,7 +490,12 @@ async function transitionToNone(input: {
     );
     const current = currentResult.rows[0];
     if (!current || current.level === "none") {
-      return { level: "none" as const, generation: current?.generation ?? 0 };
+      return {
+        level: "none",
+        generation: current?.generation ?? 0,
+        expiresAt: null,
+        projectionRequired: false,
+      };
     }
     if (
       input.expectedExpired &&
@@ -484,6 +505,7 @@ async function transitionToNone(input: {
         level: current.level,
         generation: current.generation,
         expiresAt: current.expires_at,
+        projectionRequired: false,
       };
     }
 
@@ -512,7 +534,7 @@ async function transitionToNone(input: {
     );
     await writeRiskEvidenceTx(client, {
       tenantId,
-      actorId: input.actorId,
+      actorId: "risk-authority",
       action: input.action,
       resourceType: "risk_enforcement",
       resourceIdentity: `${tenantId}\u001f${input.principalId}\u001f${generation}`,
@@ -526,7 +548,7 @@ async function transitionToNone(input: {
         generation,
       },
     });
-    await upsertOutbox(client, {
+    await replaceProjectionDebt(client, {
       tenantId,
       principalId: input.principalId,
       principalFingerprint,
@@ -534,11 +556,18 @@ async function transitionToNone(input: {
       level: "none",
       expiresAt: null,
     });
-    return { level: "none" as const, generation };
+    return {
+      level: "none",
+      generation,
+      expiresAt: null,
+      projectionRequired: true,
+    };
   });
 
   if (!result.enabled) return { available: false };
-  await publishRiskEnforcementOutbox(input.principalId);
+  if (result.value.projectionRequired) {
+    await publishRiskEnforcementOutbox(input.principalId);
+  }
   return {
     available: true,
     level: result.value.level,
@@ -553,7 +582,6 @@ export async function clearRiskEnforcement(
   return transitionToNone({
     principalId,
     action: "risk.enforcement.clear",
-    actorId: "risk-admin",
   });
 }
 
@@ -584,7 +612,6 @@ export async function resolveRiskEnforcement(
     return transitionToNone({
       principalId,
       action: "risk.enforcement.expire",
-      actorId: "risk-authority",
       expectedExpired: true,
     });
   }
@@ -611,13 +638,20 @@ export async function publishRiskEnforcementOutbox(
       level: EffectiveRiskLevel;
       expires_at: Date | null;
     }>(
-      `SELECT principal_id, generation::integer AS generation, level, expires_at
-         FROM risk_enforcement_outbox
-        WHERE tenant_id = $1
-          AND state IN ('pending', 'dead_letter')
-          AND available_at <= NOW()
-          AND ($2::text IS NULL OR principal_id = $2)
-        ORDER BY created_at
+      `SELECT outbox.principal_id,
+              outbox.generation::integer AS generation,
+              outbox.level,
+              outbox.expires_at
+         FROM risk_enforcement_outbox outbox
+         JOIN risk_effective_enforcements enforcement
+           ON enforcement.tenant_id = outbox.tenant_id
+          AND enforcement.principal_id = outbox.principal_id
+          AND enforcement.generation = outbox.generation
+        WHERE outbox.tenant_id = $1
+          AND outbox.state IN ('pending', 'dead_letter')
+          AND outbox.available_at <= NOW()
+          AND ($2::text IS NULL OR outbox.principal_id = $2)
+        ORDER BY outbox.created_at
         LIMIT 50`,
       [tenantId, principalId ?? null],
     );
@@ -644,7 +678,7 @@ export async function publishRiskEnforcementOutbox(
         ttlSeconds,
       );
       const marked = await withDb(async (client) => {
-        await client.query(
+        const updated = await client.query(
           `UPDATE risk_enforcement_outbox
               SET state = 'published', attempts = attempts + 1,
                   published_at = COALESCE(published_at, NOW()),
@@ -653,9 +687,11 @@ export async function publishRiskEnforcementOutbox(
               AND state IN ('pending', 'dead_letter')`,
           [tenantId, row.principal_id, row.generation],
         );
-        return true;
+        return updated.rowCount === 1;
       });
-      if (!marked.enabled) throw new Error("risk_outbox_mark_unavailable");
+      if (!marked.enabled || !marked.value) {
+        throw new Error("risk_outbox_mark_unavailable");
+      }
     } catch (error) {
       allPublished = false;
       await withDb(async (client) => {
@@ -665,7 +701,7 @@ export async function publishRiskEnforcementOutbox(
                   available_at = NOW() + INTERVAL '1 minute',
                   last_error_category = $4
             WHERE tenant_id = $1 AND principal_id = $2 AND generation = $3
-              AND state <> 'completed'`,
+              AND state IN ('pending', 'dead_letter')`,
           [
             tenantId,
             row.principal_id,
