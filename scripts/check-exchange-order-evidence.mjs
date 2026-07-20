@@ -175,7 +175,7 @@ for (const evidenceText of [
   "releases: \"0\"",
   "events: \"0\"",
   "receipts: \"0\"",
-  "residual: \"10.0100000000\"",
+  "residual: \"10.01\"",
 ]) {
   requireText(
     cancelPostgresTest,
