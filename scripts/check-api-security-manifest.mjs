@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { evaluateApiSecurityPolicy } from "./api-security-manifest-policy.mjs";
@@ -16,6 +16,12 @@ const reviewedDeltasPath = path.resolve(
   process.argv.find((arg) => arg.startsWith("--reviewed-deltas="))
     ?.slice("--reviewed-deltas=".length)
     ?? "docs/security/generated/api-security-manifest-reviewed-deltas.json",
+);
+const reviewedDeltasDirectory = path.resolve(
+  root,
+  process.argv.find((arg) => arg.startsWith("--reviewed-deltas-dir="))
+    ?.slice("--reviewed-deltas-dir=".length)
+    ?? "docs/security/generated/api-security-manifest-reviewed-deltas.d",
 );
 const exceptionsPath = path.resolve(
   root,
@@ -34,6 +40,46 @@ const checkDate = process.env.API_SECURITY_CHECK_DATE
 
 function stable(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
+  const primaryRaw = await readFile(primaryPath, "utf8");
+  const primary = JSON.parse(primaryRaw);
+  const shards = [];
+
+  try {
+    const names = (await readdir(directoryPath, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => entry.name)
+      .sort();
+    for (const name of names) {
+      const shardPath = path.join(directoryPath, name);
+      const raw = await readFile(shardPath, "utf8");
+      const shard = JSON.parse(raw);
+      if (shard.schemaVersion !== primary.schemaVersion) {
+        throw new Error(`api_security_manifest_delta_shard_schema_mismatch:${name}`);
+      }
+      if (shard.baselineBlobSha !== primary.baselineBlobSha) {
+        throw new Error(`api_security_manifest_delta_shard_baseline_mismatch:${name}`);
+      }
+      if (!Array.isArray(shard.entries)) {
+        throw new Error(`api_security_manifest_delta_shard_entries_invalid:${name}`);
+      }
+      shards.push(...shard.entries);
+    }
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("ENOENT")) throw error;
+  }
+
+  return {
+    primaryRaw,
+    registry: {
+      schemaVersion: primary.schemaVersion,
+      baselineBlobSha: primary.baselineBlobSha,
+      entries: [...primary.entries, ...shards],
+    },
+    shardCount: shards.length,
+  };
 }
 
 const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "tecpey-api-security-"));
@@ -60,14 +106,13 @@ try {
     { cwd: root, stdio: "inherit" },
   );
 
-  const [baselineRaw, reviewedDeltasRaw, generatedRaw, exceptionsRaw] = await Promise.all([
+  const [baselineRaw, reviewed, generatedRaw, exceptionsRaw] = await Promise.all([
     readFile(baselinePath, "utf8"),
-    readFile(reviewedDeltasPath, "utf8"),
+    readReviewedDeltaRegistry(reviewedDeltasPath, reviewedDeltasDirectory),
     readFile(generatedPath, "utf8"),
     readFile(exceptionsPath, "utf8"),
   ]);
   const baseline = JSON.parse(baselineRaw);
-  const reviewedDeltas = JSON.parse(reviewedDeltasRaw);
   const generated = JSON.parse(generatedRaw);
   const registry = JSON.parse(exceptionsRaw);
   const failures = [];
@@ -78,7 +123,7 @@ try {
     const applied = applyReviewedManifestDeltas({
       baselineRaw,
       baseline,
-      registry: reviewedDeltas,
+      registry: reviewed.registry,
     });
     effectiveBaseline = applied.manifest;
     appliedDeltaCount = applied.appliedCount;
@@ -112,7 +157,8 @@ try {
       + `${generated.totals.mutatingOperations} mutating operations, `
       + `${generated.totals.findings} governed findings, `
       + `${policy.exceptionCount} active exact exceptions, `
-      + `${appliedDeltaCount} exact reviewed baseline deltas.`,
+      + `${appliedDeltaCount} exact reviewed baseline deltas `
+      + `(${reviewed.shardCount} from additive shard entries).`,
     );
   }
 } finally {
