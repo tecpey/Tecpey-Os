@@ -74,6 +74,10 @@ function operationKey(route, method) {
   return `${method} ${route}`;
 }
 
+function sameOperation(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry }) {
   assertRegistryShape(registry, "api_security_manifest_delta_registry");
 
@@ -141,7 +145,7 @@ export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry })
     if (!/^[0-9a-f]{24}$/.test(replacement.sourceHash ?? "")) {
       throw new Error(`api_security_manifest_delta_replacement_hash_invalid:${key}`);
     }
-    if (replacement.sourceHash === entry.previousSourceHash) {
+    if (sameOperation(current, replacement)) {
       throw new Error(`api_security_manifest_delta_noop:${key}:${replacement.sourceHash}`);
     }
 
