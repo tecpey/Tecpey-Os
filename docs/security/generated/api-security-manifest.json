@@ -8,7 +8,7 @@
     "DELETE"
   ],
   "totals": {
-    "routeFiles": 92,
+    "routeFiles": 93,
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
