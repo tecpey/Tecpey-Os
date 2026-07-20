@@ -23,7 +23,6 @@ import { recoverExpiredWithdrawalBroadcastAttempt } from "@/lib/security/withdra
 import { createKeyStore } from "./signing/keystore";
 import { assertCustodyCapability } from "./custody-launch-policy";
 import { getProvider } from "./providers/registry";
-import { enqueueRecovery } from "./queue/withdrawal-queue";
 import { trackWalletMetric, recordLatency } from "./observability";
 import {
   assertQueueIdentityMatchesRecord,
@@ -57,6 +56,9 @@ export async function executeWithdrawal(job: WithdrawalJobData): Promise<void> {
     job.withdrawalId,
   );
   if (leaseRecovery === "active") {
+    // Load BullMQ only for the projection path. Importing queue singletons at
+    // module scope leaves Redis handles open in authority-only test processes.
+    const { enqueueRecovery } = await import("./queue/withdrawal-queue");
     await enqueueRecovery(job, {
       delay: BROADCAST_LEASE_RECOVERY_DELAY_MS,
     });
