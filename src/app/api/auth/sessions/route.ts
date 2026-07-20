@@ -4,12 +4,9 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import {
-  listActiveSessionsStrict,
-  revokeAllSessionsStrict,
-} from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import { listActiveSessionsStrict } from "@/lib/security/session-store";
+import { revokeAllUserSessions } from "@/lib/security/session-authority";
+import { buildSessionAuditContext } from "@/lib/security/session-route-context";
 import {
   extractJtiFromToken,
   UNIFIED_SESSION_COOKIE,
@@ -41,7 +38,8 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// DELETE /api/auth/sessions — revoke other access sessions and all refresh authority.
+// DELETE /api/auth/sessions — retain the current short-lived access token while
+// atomically revoking every other access session and all refresh authority.
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
@@ -61,50 +59,33 @@ export async function DELETE(req: NextRequest) {
     const currentJti = extractJtiFromToken(currentToken);
     if (!currentJti) return apiError("invalid_session", 401);
 
-    // Keep the current access token active for the remainder of its short TTL,
-    // but revoke every other access session and all refresh tokens. Until access
-    // tokens are bound to a refresh family, retaining one current refresh token
-    // cannot be proven safely, so refresh authority is revoked security-first.
-    const accessResult = await revokeAllSessionsStrict(userId, currentJti);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "logout_all",
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          revokedCount: accessResult.revokedCount,
-          refreshRevoked,
-        },
-      });
+    const actorType = session.isAdmin
+      ? "admin" as const
+      : session.userId
+        ? "user" as const
+        : "student" as const;
+    const result = await revokeAllUserSessions({
+      userId,
+      exceptSessionId: currentJti,
+      audit: buildSessionAuditContext({
+        req,
+        userId,
+        actorType,
+        action: "session.revoke_all",
+        evidence: { currentSessionId: currentJti },
+      }),
+    });
+    if (!result.ok) {
       return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        revokedCount: accessResult.revokedCount,
-        refreshRevoked,
+        reason: result.reason,
       });
     }
 
-    writeAudit({
-      actorId: userId,
-      action: "logout_all",
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        revokedCount: accessResult.revokedCount,
-        currentAccessRetained: true,
-        refreshScope: "all_user_tokens",
-      },
-    });
-
     return apiOk({
-      revokedCount: accessResult.revokedCount,
+      revokedCount: result.revokedCount,
       currentAccessRetained: true,
       refreshRevoked: true,
+      denyCachePending: result.denyCachePending,
     });
   });
 }
