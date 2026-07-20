@@ -1,20 +1,18 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
 import { hashSensitiveAuditRequest } from "@/lib/security/sensitive-mutation-audit";
 import {
   classifyWithdrawalBroadcastError,
-  fingerprintBroadcastAttempt,
   fingerprintExpectedTransactionHash,
   fingerprintPreparedTransaction,
-  fingerprintWithdrawalExecution,
   fingerprintWithdrawalProvider,
   fingerprintWithdrawalSigner,
   writeWithdrawalExternalEffectEvidenceTx,
   type WithdrawalBroadcastOutcomeCategory,
 } from "@/lib/security/withdrawal-external-effect-evidence";
-import type { ChainId, FeeSpeed } from "@/lib/wallet/types";
+import type { ChainId } from "@/lib/wallet/types";
 
 const EXECUTION_LEASE_SECONDS = 5 * 60;
 const BROADCAST_LEASE_SECONDS = 2 * 60;
