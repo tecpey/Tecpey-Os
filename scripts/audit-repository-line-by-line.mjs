@@ -13,34 +13,28 @@ const EXCEPTIONS_PATH = "config/repository-qa-exceptions.json";
 const DEFAULT_OUTPUT_DIR = "repository-qa-artifacts";
 const SEVERITY_RANK = { P0: 0, P1: 1, P2: 2, P3: 3, INFO: 4 };
 
+const BINARY_EXTENSIONS = new Set([
+  ".avif", ".bmp", ".eot", ".gif", ".ico", ".jpeg", ".jpg", ".mp3", ".mp4",
+  ".ogg", ".otf", ".pdf", ".png", ".ttf", ".wav", ".webm", ".webp", ".woff", ".woff2", ".zip",
+]);
+
 function parseArgs(argv) {
-  const result = {
-    outputDir: DEFAULT_OUTPUT_DIR,
-    failOn: null,
-    jsonOnly: false,
-  };
+  const args = { outputDir: DEFAULT_OUTPUT_DIR, failOn: null, jsonOnly: false };
   for (const arg of argv) {
-    if (arg.startsWith("--output-dir=")) result.outputDir = arg.slice("--output-dir=".length);
-    else if (arg.startsWith("--fail-on=")) result.failOn = arg.slice("--fail-on=".length).toUpperCase();
-    else if (arg === "--json-only") result.jsonOnly = true;
+    if (arg.startsWith("--output-dir=")) args.outputDir = arg.slice("--output-dir=".length);
+    else if (arg.startsWith("--fail-on=")) args.failOn = arg.slice("--fail-on=".length).toUpperCase();
+    else if (arg === "--json-only") args.jsonOnly = true;
     else if (arg === "--help") {
       console.log(`Usage: node ${SCRIPT_PATH} [--output-dir=DIR] [--fail-on=P0|P1|P2|P3] [--json-only]`);
       process.exit(0);
-    } else {
-      throw new Error(`Unknown argument: ${arg}`);
-    }
+    } else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (result.failOn && !(result.failOn in SEVERITY_RANK)) {
-    throw new Error(`Unsupported --fail-on severity: ${result.failOn}`);
-  }
-  return result;
+  if (args.failOn && !(args.failOn in SEVERITY_RANK)) throw new Error(`Unsupported --fail-on severity: ${args.failOn}`);
+  return args;
 }
 
 function git(...args) {
-  return execFileSync("git", args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
 function sha256(buffer) {
@@ -75,15 +69,21 @@ function domainOf(filePath) {
   return "repository-root";
 }
 
-const BINARY_EXTENSIONS = new Set([
-  ".avif", ".bmp", ".eot", ".gif", ".ico", ".jpeg", ".jpg", ".mp3", ".mp4",
-  ".ogg", ".otf", ".pdf", ".png", ".ttf", ".wav", ".webm", ".webp", ".woff", ".woff2", ".zip",
-]);
+function classificationOf(filePath, binary) {
+  const p = filePath.toLowerCase();
+  if (binary) return "binary-asset";
+  if (p.startsWith("public/charting_library/") || p.includes("/bundles/") || /\.min\.[cm]?js$/.test(p)) return "vendored-generated";
+  if (p.startsWith("docs/engineering/phase39/") && p.includes("-candidates/")) return "archived-candidate";
+  if (p.endsWith("package-lock.json") || p.endsWith(".lock")) return "generated-lock";
+  if (p.startsWith("docs/")) return "documentation";
+  if (p.startsWith("src/tests/") || /\.test\.[cm]?[jt]sx?$/.test(p)) return "test";
+  if (p.startsWith("scripts/") || p.startsWith(".github/")) return "engineering-governance";
+  return "runtime-source";
+}
 
 function looksBinary(filePath, buffer) {
   if (BINARY_EXTENSIONS.has(extensionOf(filePath))) return true;
-  const sample = buffer.subarray(0, Math.min(buffer.length, 8192));
-  return sample.includes(0);
+  return buffer.subarray(0, Math.min(buffer.length, 8192)).includes(0);
 }
 
 function isTestOrFixture(filePath) {
@@ -94,6 +94,10 @@ function isDocumentation(filePath) {
   return filePath.endsWith(".md") || filePath.startsWith("docs/") || filePath === "README.md";
 }
 
+function isRuntimeSource(filePath) {
+  return filePath.startsWith("src/") && !isTestOrFixture(filePath);
+}
+
 function isFinancialPath(filePath) {
   return /(exchange|matching|order|ledger|balance|wallet|withdraw|custody|trade|trading|arena|fee|pnl)/i.test(filePath);
 }
@@ -102,9 +106,8 @@ function isSecurityPath(filePath) {
   return /(auth|session|security|admin|passkey|csrf|wallet|withdraw|custody|api-key|token)/i.test(filePath);
 }
 
-function confidenceForContext(base, filePath) {
-  if (isTestOrFixture(filePath) || isDocumentation(filePath)) return base === "certain" ? "high" : "medium";
-  return base;
+function contextualSeverity(filePath, runtimeSeverity, nonRuntimeSeverity = "P3") {
+  return isRuntimeSource(filePath) || filePath === "server.ts" ? runtimeSeverity : nonRuntimeSeverity;
 }
 
 async function loadJsonIfPresent(filePath, fallback) {
@@ -116,22 +119,20 @@ async function loadJsonIfPresent(filePath, fallback) {
   }
 }
 
-function normalizeException(exception) {
+function normalizeException(value) {
   return {
-    path: String(exception.path ?? ""),
-    rule: String(exception.rule ?? ""),
-    line: exception.line === undefined ? null : Number(exception.line),
-    owner: String(exception.owner ?? ""),
-    issue: String(exception.issue ?? ""),
-    reason: String(exception.reason ?? ""),
-    expiresAt: String(exception.expiresAt ?? ""),
+    path: String(value.path ?? ""),
+    rule: String(value.rule ?? ""),
+    line: value.line === undefined ? null : Number(value.line),
+    owner: String(value.owner ?? ""),
+    issue: String(value.issue ?? ""),
+    reason: String(value.reason ?? ""),
+    expiresAt: String(value.expiresAt ?? ""),
   };
 }
 
 function exceptionMatches(exception, finding) {
-  return exception.path === finding.path &&
-    exception.rule === finding.rule &&
-    (exception.line === null || exception.line === finding.line);
+  return exception.path === finding.path && exception.rule === finding.rule && (exception.line === null || exception.line === finding.line);
 }
 
 function validateExceptions(exceptions) {
@@ -139,258 +140,144 @@ function validateExceptions(exceptions) {
   const now = Date.now();
   for (const exception of exceptions) {
     if (!exception.path || !exception.rule || !exception.owner || !exception.issue || !exception.reason || !exception.expiresAt) {
-      findings.push({
-        path: EXCEPTIONS_PATH,
-        line: 1,
-        rule: "qa.invalid_exception",
-        severity: "P1",
-        confidence: "certain",
-        domain: "ci-governance",
-        message: "Every QA exception requires path, rule, owner, issue, reason and expiresAt.",
-        excerpt: JSON.stringify(exception),
-      });
+      findings.push(baseFinding(EXCEPTIONS_PATH, 1, "qa.invalid_exception", "P1", "certain", "Every QA exception requires path, rule, owner, issue, reason and expiresAt.", JSON.stringify(exception)));
       continue;
     }
-    const expires = Date.parse(exception.expiresAt);
-    if (!Number.isFinite(expires) || expires <= now) {
-      findings.push({
-        path: EXCEPTIONS_PATH,
-        line: 1,
-        rule: "qa.expired_exception",
-        severity: "P1",
-        confidence: "certain",
-        domain: "ci-governance",
-        message: `QA exception is expired or invalid for ${exception.path} / ${exception.rule}.`,
-        excerpt: JSON.stringify(exception),
-      });
+    const expiry = Date.parse(exception.expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= now) {
+      findings.push(baseFinding(EXCEPTIONS_PATH, 1, "qa.expired_exception", "P1", "certain", `QA exception expired or invalid for ${exception.path} / ${exception.rule}.`, JSON.stringify(exception)));
     }
   }
   return findings;
 }
 
 function sanitizeExcerpt(line) {
-  const compact = line.trim().replace(/\s+/g, " ");
+  const compact = String(line ?? "").trim().replace(/\s+/g, " ");
   return compact.length > 240 ? `${compact.slice(0, 237)}...` : compact;
 }
 
-function makeFinding({ filePath, lineNumber, rule, severity, confidence, message, line }) {
-  return {
-    path: filePath,
-    line: lineNumber,
-    rule,
-    severity,
-    confidence: confidenceForContext(confidence, filePath),
-    domain: domainOf(filePath),
-    message,
-    excerpt: sanitizeExcerpt(line),
-  };
+function baseFinding(filePath, line, rule, severity, confidence, message, excerpt) {
+  return { path: filePath, line, rule, severity, confidence, domain: domainOf(filePath), message, excerpt: sanitizeExcerpt(excerpt) };
+}
+
+function secretSeverity(filePath, line) {
+  if (isRuntimeSource(filePath) && !/(canary|placeholder|example|sample|dummy|redacted|test)/i.test(line)) return "P0";
+  return isDocumentation(filePath) || isTestOrFixture(filePath) ? "P2" : "P1";
+}
+
+function scanSupplyChainLine(filePath, line, lineNumber) {
+  const findings = [];
+  const push = (rule, severity, confidence, message) => findings.push(baseFinding(filePath, lineNumber, rule, severity, confidence, message, line));
+  if (/-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/.test(line)) push("secret.private_key_block", secretSeverity(filePath, line), "certain", "Private-key material must never be committed.");
+  if (/\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9_]{20,}\b|\bsk-[A-Za-z0-9_-]{20,}\b|\bxox[baprs]-[A-Za-z0-9-]{20,}\b/.test(line)) push("secret.provider_token", secretSeverity(filePath, line), "high", "Possible live provider credential pattern.");
+  if (/[\u202A-\u202E\u2066-\u2069]/u.test(line)) push("unicode.bidi_control", "P1", "certain", "Bidirectional control characters can hide source-code intent.");
+  if (/[\u200B\u200D]/u.test(line) || (lineNumber > 1 && /\uFEFF/u.test(line))) push("unicode.zero_width", "P2", "high", "Unexpected zero-width character requires review; Persian ZWNJ U+200C is intentionally allowed.");
+  return findings;
 }
 
 function scanLine(filePath, line, lineNumber) {
-  const findings = [];
-  const push = (rule, severity, confidence, message) => findings.push(makeFinding({
-    filePath, lineNumber, rule, severity, confidence, message, line,
-  }));
-
-  if (/-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/.test(line)) {
-    push("secret.private_key_block", "P0", "certain", "Private-key material must never be committed.");
-  }
+  const findings = scanSupplyChainLine(filePath, line, lineNumber);
+  const push = (rule, severity, confidence, message) => findings.push(baseFinding(filePath, lineNumber, rule, severity, confidence, message, line));
 
   const secretAssignment = /\b(password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key)\b\s*[:=]\s*["'`]([^"'`]{12,})["'`]/i.exec(line);
   if (secretAssignment) {
-    const candidate = secretAssignment[2].toLowerCase();
-    const clearlyPlaceholder = /(placeholder|example|sample|dummy|redacted|changeme|local-|test-|ci-|your[_-]|process\.env|<[^>]+>)/i.test(candidate);
-    if (!clearlyPlaceholder) push("secret.hardcoded_credential", "P0", "high", "Possible hard-coded credential or secret literal.");
+    const candidate = secretAssignment[2];
+    const clearlyNonSecret = /(placeholder|example|sample|dummy|redacted|changeme|local-|test-|ci-|your[_-]|process\.env|<[^>]+>|\/|\.tsx?$|\.mjs$|^[A-Z0-9_]+$)/i.test(candidate);
+    if (!clearlyNonSecret) push("secret.hardcoded_credential", secretSeverity(filePath, line), "high", "Possible hard-coded credential or secret literal.");
   }
 
   if (/\b(seed phrase|mnemonic)\b.{0,40}\b(?:[a-z]{3,12}\s+){11,23}[a-z]{3,12}\b/i.test(line)) {
-    push("secret.mnemonic_phrase", "P0", "high", "Possible wallet recovery phrase committed in text.");
+    push("secret.mnemonic_phrase", secretSeverity(filePath, line), "high", "Possible wallet recovery phrase committed in text.");
   }
 
-  if (/[\u202A-\u202E\u2066-\u2069]/u.test(line)) {
-    push("unicode.bidi_control", "P1", "certain", "Bidirectional control characters can hide source-code intent.");
-  }
-  if (/[\u200B-\u200D\uFEFF]/u.test(line) && lineNumber > 1) {
-    push("unicode.zero_width", "P2", "high", "Unexpected zero-width character requires review.");
-  }
+  if (/\b(TODO|FIXME|HACK|XXX|TEMPORARY|BYPASS)\b/i.test(line)) push("debt.marker", contextualSeverity(filePath, "P2", "P3"), "high", "Unresolved implementation or governance debt marker.");
 
-  if (/\b(TODO|FIXME|HACK|XXX|TEMPORARY|BYPASS)\b/i.test(line)) {
-    push("debt.marker", "P2", "high", "Unresolved implementation or governance debt marker.");
-  }
+  if (/catch\s*(?:\([^)]*\))?\s*\{\s*\}/.test(line)) push("error.empty_catch", contextualSeverity(filePath, "P1", "P2"), "certain", "Empty catch block silently discards failure evidence.");
+  if (/\.catch\(\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)?\s*=>\s*(?:\{\s*\}|undefined|null)\s*\)/.test(line)) push("error.swallowed_promise", contextualSeverity(filePath, "P2", "P3"), "high", "Promise rejection is explicitly swallowed or converted to an untyped null/undefined path.");
+  if (/\bvoid\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\(/.test(line) && isRuntimeSource(filePath)) push("durability.fire_and_forget", "P2", "medium", "Fire-and-forget execution may hide write or delivery failure.");
 
-  if (/catch\s*(?:\([^)]*\))?\s*\{\s*\}/.test(line)) {
-    push("error.empty_catch", "P1", "certain", "Empty catch block silently discards failure evidence.");
-  }
-  if (/\.catch\(\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)?\s*=>\s*(?:\{\s*\}|undefined|null)\s*\)/.test(line)) {
-    push("error.swallowed_promise", "P1", "high", "Promise rejection is explicitly swallowed.");
-  }
-  if (/\bvoid\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\(/.test(line) && !isTestOrFixture(filePath)) {
-    push("durability.fire_and_forget", "P2", "medium", "Fire-and-forget execution may hide write or delivery failure.");
-  }
+  if (/\b(localStorage|sessionStorage|indexedDB)\b/.test(line) && isRuntimeSource(filePath)) push("persistence.browser_authority", "P1", "high", "Browser persistence requires classification as disposable cache, UI preference, migration aid or prohibited source of truth.");
 
-  if (/\b(localStorage|sessionStorage|indexedDB)\b/.test(line) && filePath.startsWith("src/") && !isTestOrFixture(filePath)) {
-    push("persistence.browser_authority", "P1", "high", "Browser persistence requires classification as disposable cache, migration aid or prohibited source of truth.");
-  }
+  if (/\bprocess\.env\b/.test(line) && !/(platform-config|validate-env|env-validation|\.test\.|scripts\/)/i.test(filePath)) push("config.direct_process_env", "P2", "high", "Direct environment access bypasses centralized configuration and validation.");
 
-  if (/\bprocess\.env\b/.test(line) &&
-      !/(platform-config|validate-env|env-validation|\.test\.|scripts\/)/i.test(filePath)) {
-    push("config.direct_process_env", "P2", "high", "Direct environment access bypasses centralized configuration and validation.");
-  }
+  if (/(^|[^\w$.])eval\s*\(/.test(line) || /\bnew\s+Function\s*\(/.test(line) || /\bFunction\s*\(\s*["'`]/.test(line)) push("security.dynamic_execution", contextualSeverity(filePath, "P0", "P2"), "certain", "JavaScript dynamic code execution is prohibited without an explicit sandboxed design.");
+  if (/dangerouslySetInnerHTML/.test(line)) push("security.dangerous_html", contextualSeverity(filePath, "P2", "P3"), "high", "Raw HTML injection surface requires trusted serialization/sanitization evidence.");
+  if (/\b(execFileSync|execSync|spawn|spawnSync)\s*\(|\bchild_process\.exec\s*\(/.test(line) && filePath !== SCRIPT_PATH) push("security.process_execution", contextualSeverity(filePath, "P1", "P2"), "high", "Process execution requires fixed arguments, no user input and bounded output.");
+  if (/\bMath\.random\s*\(/.test(line) && isSecurityPath(filePath)) push("security.weak_randomness", contextualSeverity(filePath, "P1", "P3"), "high", "Security-sensitive randomness must use a cryptographically secure source.");
 
-  if (/\b(eval|Function)\s*\(/.test(line) || /new\s+Function\s*\(/.test(line)) {
-    push("security.dynamic_execution", "P0", "certain", "Dynamic code execution is prohibited without an explicit sandboxed design.");
-  }
-  if (/dangerouslySetInnerHTML/.test(line)) {
-    push("security.dangerous_html", "P1", "high", "Raw HTML injection surface requires sanitization and threat-model evidence.");
-  }
-  if (/\b(exec|execSync|spawn|spawnSync)\s*\(/.test(line) && filePath !== SCRIPT_PATH) {
-    push("security.shell_execution", filePath.startsWith("scripts/") ? "P2" : "P1", "high", "Process or shell execution requires fixed arguments, no user input and bounded output.");
-  }
-  if (/\bMath\.random\s*\(/.test(line) && isSecurityPath(filePath)) {
-    push("security.weak_randomness", "P1", "high", "Security-sensitive randomness must use a cryptographically secure source.");
-  }
+  if (isFinancialPath(filePath) && /\b(parseFloat|parseInt|Number)\s*\(|\.toFixed\s*\(|Math\.(round|floor|ceil)\s*\(/.test(line)) push("financial.numeric_precision", contextualSeverity(filePath, "P1", "P3"), "medium", "Financial-path conversion or rounding requires classification as non-financial metadata or Decimal/integer-unit proof.");
 
-  if (isFinancialPath(filePath) && /\b(parseFloat|parseInt|Number)\s*\(|\.toFixed\s*\(|Math\.(round|floor|ceil)\s*\(/.test(line)) {
-    push("financial.numeric_precision", "P1", "medium", "Financial-path number conversion or rounding requires Decimal/integer-unit proof.");
-  }
+  if (/\b(client\.)?query\s*\(\s*`[^`]*\$\{/.test(line) || /\b(SELECT|INSERT|UPDATE|DELETE)\b[^\n]*\$\{/i.test(line)) push("sql.dynamic_interpolation", contextualSeverity(filePath, "P1", "P3"), "high", "Interpolated SQL requires proof that only reviewed SQL fragments—not user data—are inserted.");
+  if (/\bSELECT\s+\*/i.test(line) && /query|sql|`/.test(line)) push("sql.select_star", contextualSeverity(filePath, "P2", "P3"), "medium", "SELECT * weakens schema control and may expose newly added sensitive columns.");
 
-  if (/\b(client\.)?query\s*\(\s*`[^`]*\$\{/.test(line) || /\b(SELECT|INSERT|UPDATE|DELETE)\b[^\n]*\$\{/i.test(line)) {
-    push("sql.dynamic_interpolation", "P1", "high", "Interpolated SQL may bypass parameterization or ownership constraints.");
-  }
-  if (/\bSELECT\s+\*/i.test(line) && /query|sql|`/.test(line)) {
-    push("sql.select_star", "P2", "medium", "SELECT * weakens schema control and may expose newly added sensitive columns.");
-  }
+  if (/\b(describe|it|test)\.only\s*\(/.test(line)) push("test.focused_only", "P0", "certain", "Focused test prevents the full suite from executing.");
+  if (/\b(describe|it|test)\.skip\s*\(/.test(line)) push("test.skipped", "P1", "certain", "Skipped test requires an explicit issue, owner and expiry.");
 
-  if (/\b(describe|it|test)\.only\s*\(/.test(line)) {
-    push("test.focused_only", "P0", "certain", "Focused test prevents the full suite from executing.");
-  }
-  if (/\b(describe|it|test)\.skip\s*\(/.test(line)) {
-    push("test.skipped", "P1", "certain", "Skipped test requires an explicit issue, owner and expiry.");
-  }
-
-  if (/\bconsole\.(log|debug|info)\s*\(/.test(line) && filePath.startsWith("src/") && !isTestOrFixture(filePath)) {
-    push("observability.console_output", "P3", "high", "Production source should use governed structured logging.");
-  }
-
-  if (/\b(error|err)\.message\b/.test(line) && /NextResponse\.json|Response\.json|json\s*\(/.test(line)) {
-    push("api.raw_error_exposure", "P1", "medium", "Raw internal error text may be returned to a client.");
-  }
-
-  if (/\bas\s+any\b|:\s*any\b|<any>/.test(line) && filePath.startsWith("src/") && !isTestOrFixture(filePath)) {
-    push("typescript.explicit_any", "P3", "high", "Explicit any weakens contract and trust-boundary verification.");
-  }
-
-  if (/onClick=/.test(line) && /<(div|span)\b/.test(line) && !/(role=|tabIndex=|onKeyDown=|onKeyUp=)/.test(line)) {
-    push("accessibility.clickable_noninteractive", "P2", "medium", "Clickable non-interactive element may be inaccessible to keyboard and assistive technology.");
-  }
-
-  if (isDocumentation(filePath) && /\b(?:production[- ]ready|fully secure|100% complete|no risk)\b/i.test(line)) {
-    push("docs.unsupported_readiness_claim", "P1", "high", "Absolute readiness/security claim requires direct release evidence.");
-  }
+  if (/\bconsole\.(log|debug|info)\s*\(/.test(line) && isRuntimeSource(filePath)) push("observability.console_output", "P3", "high", "Production source should use governed structured logging.");
+  if (/\b(error|err)\.message\b/.test(line) && /NextResponse\.json|Response\.json|json\s*\(/.test(line)) push("api.raw_error_exposure", contextualSeverity(filePath, "P1", "P3"), "medium", "Raw internal error text may be returned to a client.");
+  if (/\bas\s+any\b|:\s*any\b|<any>/.test(line) && isRuntimeSource(filePath)) push("typescript.explicit_any", "P3", "high", "Explicit any weakens contract and trust-boundary verification.");
+  if (/onClick=/.test(line) && /<(div|span)\b/.test(line) && !/(role=|tabIndex=|onKeyDown=|onKeyUp=)/.test(line)) push("accessibility.clickable_noninteractive", contextualSeverity(filePath, "P2", "P3"), "medium", "Clickable non-interactive element may be inaccessible to keyboard and assistive technology.");
+  if (isDocumentation(filePath) && /\b(?:production[- ]ready|fully secure|100% complete|no risk)\b/i.test(line)) push("docs.unsupported_readiness_claim", "P2", "high", "Absolute readiness/security claim requires direct release evidence and current scope.");
 
   return findings;
 }
 
 function scanFileLevel(filePath, text, lines) {
   const findings = [];
-  const add = (rule, severity, confidence, message, lineNumber = 1) => findings.push(makeFinding({
-    filePath,
-    lineNumber,
-    rule,
-    severity,
-    confidence,
-    message,
-    line: lines[lineNumber - 1] ?? "",
-  }));
-
-  if (/catch\s*(?:\([^)]*\))?\s*\{\s*\}/s.test(text)) {
-    const index = text.search(/catch\s*(?:\([^)]*\))?\s*\{\s*\}/s);
-    const lineNumber = text.slice(0, index).split(/\r?\n/).length;
-    if (!findings.some((finding) => finding.rule === "error.empty_catch" && finding.line === lineNumber)) {
-      add("error.empty_catch", "P1", "certain", "Empty catch block silently discards failure evidence.", lineNumber);
-    }
-  }
+  const add = (rule, severity, confidence, message, lineNumber = 1) => findings.push(baseFinding(filePath, lineNumber, rule, severity, confidence, message, lines[lineNumber - 1] ?? ""));
 
   if (/\/route\.[cm]?[jt]sx?$/.test(filePath) && /(?:request|req)\.json\s*\(/.test(text) && !/readBoundedJsonRequest|readBoundedRequestBody/.test(text)) {
     const index = text.search(/(?:request|req)\.json\s*\(/);
     add("api.unbounded_json_body", "P1", "high", "API route parses JSON without the governed bounded-body helper.", text.slice(0, index).split(/\r?\n/).length);
   }
-
-  if (/\bfetch\s*\(/.test(text) && !/(AbortController|AbortSignal|signal\s*:|timeout|withTimeout)/.test(text) && !isTestOrFixture(filePath)) {
+  if (/\bfetch\s*\(/.test(text) && !/(AbortController|AbortSignal|signal\s*:|timeout|withTimeout)/.test(text) && isRuntimeSource(filePath)) {
     const index = text.search(/\bfetch\s*\(/);
     add("network.fetch_without_cancellation", "P2", "medium", "Network call has no visible cancellation or timeout boundary in the same file.", text.slice(0, index).split(/\r?\n/).length);
   }
-
-  if (lines.length > 900 && !isDocumentation(filePath)) {
-    add("maintainability.oversized_file", "P2", "certain", `Source file contains ${lines.length} lines and requires decomposition review.`);
-  }
-
+  if (lines.length > 900 && isRuntimeSource(filePath)) add("maintainability.oversized_file", "P2", "certain", `Runtime source contains ${lines.length} lines and requires decomposition review.`);
   if (isDocumentation(filePath) && /\b\d{1,3}%\b/.test(text) && /(ready|readiness|complete|completion|progress|آماد|پیشرفت|تکمیل)/i.test(text)) {
     const index = text.search(/\b\d{1,3}%\b/);
     add("docs.percentage_claim", "P2", "medium", "Readiness percentage must link to a current, reproducible scoring model.", text.slice(0, index).split(/\r?\n/).length);
   }
-
   return findings;
 }
 
 function toMarkdown(report) {
-  const lines = [];
-  lines.push("# TecPey Repository-Wide Line Audit");
-  lines.push("");
-  lines.push(`- Commit: \`${report.commit}\``);
-  lines.push(`- Generated: ${report.generatedAt}`);
-  lines.push(`- Tracked files: **${report.summary.totalFiles}**`);
-  lines.push(`- Text files inspected: **${report.summary.textFiles}**`);
-  lines.push(`- Binary files inventoried: **${report.summary.binaryFiles}**`);
-  lines.push(`- Text lines scanned: **${report.summary.linesScanned.toLocaleString("en-US")}**`);
-  lines.push(`- Unsuppressed findings: **${report.summary.unsuppressedFindings}**`);
-  lines.push("");
-  lines.push("## Severity summary");
-  lines.push("");
-  lines.push("| Severity | Count |");
-  lines.push("|---|---:|");
-  for (const severity of ["P0", "P1", "P2", "P3", "INFO"]) {
-    lines.push(`| ${severity} | ${report.summary.bySeverity[severity] ?? 0} |`);
-  }
-  lines.push("");
-  lines.push("## Domain summary");
-  lines.push("");
-  lines.push("| Domain | Findings |");
-  lines.push("|---|---:|");
-  for (const [domain, count] of Object.entries(report.summary.byDomain).sort((a, b) => b[1] - a[1])) {
-    lines.push(`| ${domain} | ${count} |`);
-  }
-  lines.push("");
-  lines.push("## Highest-priority findings");
-  lines.push("");
-  lines.push("| Severity | Path | Line | Rule | Finding |");
-  lines.push("|---|---|---:|---|---|");
-  for (const finding of report.findings.filter((item) => !item.suppressed).slice(0, 250)) {
-    lines.push(`| ${finding.severity} | \`${finding.path}\` | ${finding.line} | \`${finding.rule}\` | ${finding.message.replaceAll("|", "\\|")} |`);
-  }
-  lines.push("");
-  lines.push("> Deterministic scanning is repository-wide, but it is not a substitute for domain-aware human review, runtime testing, financial reconciliation, threat modeling or operational drills.");
-  lines.push("");
-  return `${lines.join("\n")}\n`;
+  const out = [
+    "# TecPey Repository-Wide Line Audit",
+    "",
+    `- Commit: \`${report.commit}\``,
+    `- Generated: ${report.generatedAt}`,
+    `- Tracked files: **${report.summary.totalFiles}**`,
+    `- Text files inspected: **${report.summary.textFiles}**`,
+    `- Binary files inventoried: **${report.summary.binaryFiles}**`,
+    `- Text lines processed: **${report.summary.linesScanned.toLocaleString("en-US")}**`,
+    `- Unsuppressed findings: **${report.summary.unsuppressedFindings}**`,
+    "",
+    "## Severity summary",
+    "",
+    "| Severity | Count |",
+    "|---|---:|",
+  ];
+  for (const severity of ["P0", "P1", "P2", "P3", "INFO"]) out.push(`| ${severity} | ${report.summary.bySeverity[severity] ?? 0} |`);
+  out.push("", "## Classification coverage", "", "| Classification | Files |", "|---|---:|");
+  for (const [classification, count] of Object.entries(report.summary.byClassification).sort((a, b) => b[1] - a[1])) out.push(`| ${classification} | ${count} |`);
+  out.push("", "## Domain summary", "", "| Domain | Findings |", "|---|---:|");
+  for (const [domain, count] of Object.entries(report.summary.byDomain).sort((a, b) => b[1] - a[1])) out.push(`| ${domain} | ${count} |`);
+  out.push("", "## Highest-priority findings", "", "| Severity | Path | Line | Rule | Finding |", "|---|---|---:|---|---|");
+  for (const finding of report.findings.filter((item) => !item.suppressed).slice(0, 300)) out.push(`| ${finding.severity} | \`${finding.path}\` | ${finding.line} | \`${finding.rule}\` | ${finding.message.replaceAll("|", "\\|")} |`);
+  out.push("", "> Every tracked text line is processed. Vendored/generated artifacts receive supply-chain and encoding checks rather than misleading application-semantic rules. Deterministic scanning remains an input to human review, runtime testing, financial reconciliation and operational drills.", "");
+  return `${out.join("\n")}\n`;
 }
 
 function toSarif(report) {
   const rules = new Map();
-  for (const finding of report.findings) {
-    if (!rules.has(finding.rule)) {
-      rules.set(finding.rule, {
-        id: finding.rule,
-        name: finding.rule.replaceAll(".", "_"),
-        shortDescription: { text: finding.message },
-        properties: { severity: finding.severity, domain: finding.domain },
-      });
-    }
-  }
+  for (const finding of report.findings) if (!rules.has(finding.rule)) rules.set(finding.rule, { id: finding.rule, name: finding.rule.replaceAll(".", "_"), shortDescription: { text: finding.message }, properties: { severity: finding.severity, domain: finding.domain } });
   return {
     version: "2.1.0",
     $schema: "https://json.schemastore.org/sarif-2.1.0.json",
     runs: [{
-      tool: { driver: { name: "TecPey Repository Line Audit", version: "1.0.0", rules: [...rules.values()] } },
+      tool: { driver: { name: "TecPey Repository Line Audit", version: "1.1.0", rules: [...rules.values()] } },
       results: report.findings.filter((finding) => !finding.suppressed).map((finding) => ({
         ruleId: finding.rule,
         level: finding.severity === "P0" || finding.severity === "P1" ? "error" : finding.severity === "P2" ? "warning" : "note",
@@ -407,7 +294,6 @@ async function main() {
   const policy = await loadJsonIfPresent(POLICY_PATH, { version: 1 });
   const exceptionDocument = await loadJsonIfPresent(EXCEPTIONS_PATH, { version: 1, exceptions: [] });
   const exceptions = (exceptionDocument.exceptions ?? []).map(normalizeException);
-
   const commit = git("rev-parse", "HEAD");
   const trackedFiles = git("ls-files", "-z").split("\0").filter(Boolean).sort();
   const inventory = [];
@@ -416,7 +302,7 @@ async function main() {
   let textFiles = 0;
   let binaryFiles = 0;
   let totalBytes = 0;
-
+  const byClassification = {};
   const decoder = new TextDecoder("utf-8", { fatal: true });
 
   for (const filePath of trackedFiles) {
@@ -424,16 +310,9 @@ async function main() {
     const buffer = await readFile(filePath);
     totalBytes += buffer.length;
     const binary = looksBinary(filePath, buffer);
-    const entry = {
-      path: filePath,
-      domain: domainOf(filePath),
-      extension: extensionOf(filePath),
-      bytes: buffer.length,
-      executable: (fileStat.mode & 0o111) !== 0,
-      sha256: sha256(buffer),
-      binary,
-      lines: null,
-    };
+    const classification = classificationOf(filePath, binary);
+    byClassification[classification] = (byClassification[classification] ?? 0) + 1;
+    const entry = { path: filePath, domain: domainOf(filePath), classification, extension: extensionOf(filePath), bytes: buffer.length, executable: (fileStat.mode & 0o111) !== 0, sha256: sha256(buffer), binary, lines: null };
 
     if (binary) {
       binaryFiles += 1;
@@ -445,15 +324,7 @@ async function main() {
     try {
       text = decoder.decode(buffer);
     } catch {
-      findings.push(makeFinding({
-        filePath,
-        lineNumber: 1,
-        rule: "encoding.invalid_utf8",
-        severity: "P1",
-        confidence: "certain",
-        message: "Tracked non-binary file is not valid UTF-8.",
-        line: "",
-      }));
+      findings.push(baseFinding(filePath, 1, "encoding.invalid_utf8", "P1", "certain", "Tracked non-binary file is not valid UTF-8.", ""));
       inventory.push(entry);
       continue;
     }
@@ -464,23 +335,19 @@ async function main() {
     linesScanned += lines.length;
     inventory.push(entry);
 
-    if (filePath !== SCRIPT_PATH) {
-      for (let index = 0; index < lines.length; index += 1) {
-        findings.push(...scanLine(filePath, lines[index], index + 1));
-      }
-      findings.push(...scanFileLevel(filePath, text, lines));
+    if (filePath === SCRIPT_PATH) continue;
+    if (classification === "vendored-generated" || classification === "generated-lock") {
+      for (let index = 0; index < lines.length; index += 1) findings.push(...scanSupplyChainLine(filePath, lines[index], index + 1));
+      continue;
     }
+    for (let index = 0; index < lines.length; index += 1) findings.push(...scanLine(filePath, lines[index], index + 1));
+    findings.push(...scanFileLevel(filePath, text, lines));
   }
 
   findings = findings.map((finding) => {
     const matched = exceptions.find((exception) => exceptionMatches(exception, finding));
     return matched ? { ...finding, suppressed: true, exception: matched } : { ...finding, suppressed: false };
-  });
-  findings.sort((a, b) =>
-    SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
-    a.path.localeCompare(b.path) ||
-    a.line - b.line ||
-    a.rule.localeCompare(b.rule));
+  }).sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.path.localeCompare(b.path) || a.line - b.line || a.rule.localeCompare(b.rule));
 
   const unsuppressed = findings.filter((finding) => !finding.suppressed);
   const bySeverity = Object.fromEntries(["P0", "P1", "P2", "P3", "INFO"].map((severity) => [severity, 0]));
@@ -493,7 +360,7 @@ async function main() {
   }
 
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     commit,
     policy,
@@ -509,6 +376,7 @@ async function main() {
       bySeverity,
       byDomain,
       byRule,
+      byClassification,
     },
     inventory,
     findings,
@@ -525,7 +393,7 @@ async function main() {
   if (args.jsonOnly) console.log(JSON.stringify(report.summary));
   else {
     console.log(`Repository line audit complete for ${commit}`);
-    console.log(`Files: ${trackedFiles.length}; text: ${textFiles}; binary: ${binaryFiles}; lines: ${linesScanned}`);
+    console.log(`Files: ${trackedFiles.length}; text: ${textFiles}; binary: ${binaryFiles}; lines processed: ${linesScanned}`);
     console.log(`Findings: ${unsuppressed.length} unsuppressed (${bySeverity.P0} P0, ${bySeverity.P1} P1, ${bySeverity.P2} P2, ${bySeverity.P3} P3)`);
     console.log(`Artifacts: ${args.outputDir}`);
   }
