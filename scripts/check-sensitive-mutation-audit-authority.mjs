@@ -8,11 +8,13 @@ const files = {
   apiKeysRoute: "src/app/api/api-keys/route.ts",
   apiKeyByIdRoute: "src/app/api/api-keys/[id]/route.ts",
   apiKeysAuthority: "src/lib/security/api-keys.ts",
+  passwordRoute: "src/app/api/auth/password/change/route.ts",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   migration: "src/lib/db-migrate-sensitive-mutation-audit.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   postgresTests: "src/tests/security/sensitive-mutation-audit-postgres.test.ts",
   apiKeyPostgresTests: "src/tests/security/api-key-transactional-audit-postgres.test.ts",
+  passwordPostgresTests: "src/tests/security/password-rotation-audit-postgres.test.ts",
   routeTests: "src/tests/security/sensitive-mutation-audit-routes.test.ts",
   package: "package.json",
   workflow: ".github/workflows/sensitive-mutation-audit.yml",
@@ -136,6 +138,34 @@ rejectText("apiKeysAuthority", "writeAudit(", "legacy best-effort audit must not
 if (/metadata:\s*\{[^}]*\bplaintext\b/s.test(content.apiKeysAuthority)) failures.push(`${files.apiKeysAuthority}: API key plaintext is forbidden in audit metadata`);
 if (/metadata:\s*\{[^}]*\bkey_hash\b/s.test(content.apiKeysAuthority)) failures.push(`${files.apiKeysAuthority}: stored API key hash is forbidden in audit metadata`);
 
+requireText("passwordRoute", "getCanonicalSession(req, { strictRevocation: true })", "password rotation must use strict revocation-aware identity");
+requireText("passwordRoute", "verifyUnifiedSession(currentToken)", "password rotation must bind the current unified session");
+requireText("passwordRoute", "PLATFORM.DEFAULT_TENANT_ID", "password rotation tenant authority must be server-derived");
+requireText("passwordRoute", "resolveSensitiveAuditCorrelation", "password rotation must bind stable correlation evidence");
+requireText("passwordRoute", "hashSensitiveAuditRequest", "password rotation must bind canonical request evidence");
+requireText("passwordRoute", "withTx<RotationTransactionResult>(async (client)", "password and evidence must share one PostgreSQL transaction");
+requireText("passwordRoute", "writeSensitiveMutationAuditTx(client", "password rotation must append mandatory evidence before commit");
+requireText("passwordRoute", 'action: "credential.password.change"', "password rotation needs its dedicated audit action");
+requireText("passwordRoute", 'resourceType: "credential_account"', "password rotation needs a credential resource boundary");
+requireText("passwordRoute", "currentSessionEvidenceHash", "password rotation must bind current-session evidence without raw JTI storage");
+requireText("passwordRoute", "credentialVersionFingerprint", "password rotation must bind a one-way credential version fingerprint");
+requireText("passwordRoute", 'policyVersion: "password-rotation-v1"', "password rotation evidence must identify its policy version");
+rejectText("passwordRoute", "writeAudit(", "committed password rotation cannot rely on best-effort audit");
+rejectText("passwordRoute", "metadata: { currentPassword", "current password is forbidden in evidence metadata");
+rejectText("passwordRoute", "metadata: { newPassword", "new password is forbidden in evidence metadata");
+const passwordMetadata = auditMetadataBlock("passwordRoute");
+if (!passwordMetadata) failures.push(`${files.passwordRoute}: password audit metadata must be statically identifiable`);
+if (containsStoredKey(passwordMetadata, ["password", "currentPassword", "newPassword", "currentHash", "newHash", "accessToken", "refreshToken", "cookie"])) {
+  failures.push(`${files.passwordRoute}: password audit metadata contains a credential or token field`);
+}
+const passwordAuditIndex = content.passwordRoute.indexOf("writeSensitiveMutationAuditTx(client");
+const redisProjectionIndex = content.passwordRoute.indexOf("revokeMultiple(");
+if (passwordAuditIndex < 0 || redisProjectionIndex < 0 || passwordAuditIndex >= redisProjectionIndex) {
+  failures.push(`${files.passwordRoute}: durable password evidence must be admitted before Redis projection synchronization`);
+}
+requireText("audit", "credential.password.change", "sensitive audit action type is missing password rotation");
+requireText("audit", "credential_account", "sensitive audit resource type is missing credential account");
+
 for (const text of [
   "sensitive_mutation_audit_events",
   "UNIQUE (tenant_id, action, correlation_id)",
@@ -171,6 +201,12 @@ for (const evidence of [
   "does not mutate or emit success evidence for another principal's key",
 ]) requireText("apiKeyPostgresTests", evidence, `missing API key PostgreSQL evidence: ${evidence}`);
 for (const evidence of [
+  "commits password rotation and one secret-free audit event atomically",
+  "rolls back password, history and session rotation when audit admission fails",
+  "rejects changed replay evidence and rolls back the second credential generation",
+  "keeps committed password evidence truthful when Redis deny synchronization fails",
+]) requireText("passwordPostgresTests", evidence, `missing password PostgreSQL evidence: ${evidence}`);
+for (const evidence of [
   "binds device-token registration to the strict session",
   "binds conversation migration to the strict session",
   "writes profile and audit in one transaction",
@@ -181,6 +217,7 @@ for (const evidence of [
 requireText("package", '"audit:sensitive:check"', "package must expose the sensitive audit guard");
 requireText("package", '"test:sensitive-mutation-audit"', "package must expose focused sensitive audit tests");
 requireText("package", "src/tests/security/api-key-transactional-audit-postgres.test.ts", "focused audit test command must include API key PostgreSQL evidence");
+requireText("package", "src/tests/security/password-rotation-audit-postgres.test.ts", "focused audit test command must include password PostgreSQL evidence");
 requireText("package", "npm run audit:sensitive:check", "release gate must execute the sensitive audit guard");
 requireText("package", "npm run test:sensitive-mutation-audit", "release gate must execute focused sensitive audit tests");
 requireText("workflow", "Sensitive mutation audit authority guard", "dedicated CI must run the authority guard");
