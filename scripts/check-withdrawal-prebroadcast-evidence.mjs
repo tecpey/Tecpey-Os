@@ -13,6 +13,7 @@ const files = {
   legacy: "src/lib/security/withdrawal-service.ts",
   migration: "src/lib/db-migrate-withdrawal-prebroadcast-evidence.ts",
   hardening: "src/lib/db-migrate-withdrawal-admin-evidence-hardening.ts",
+  transition: "src/lib/db-migrate-withdrawal-prebroadcast-transition-gate.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   inventory: "docs/security/WITHDRAWAL_PREBROADCAST_EVIDENCE_INVENTORY.md",
 };
@@ -123,6 +124,18 @@ for (const invariant of [
 ]) {
   requireText("hardening", invariant, `missing Admin evidence hardening ${invariant}`);
 }
+for (const invariant of [
+  'FILENAME = "0041_withdrawal_prebroadcast_transition_gate.sql"',
+  "withdrawal_prebroadcast_transition_authority",
+  "withdrawal pre-broadcast transition authority is missing",
+  "withdrawal pre-broadcast transition receipt is missing",
+  "approved withdrawal reservation authority is missing",
+  "terminal withdrawal release authority is incomplete",
+  "review transition changed reservation authority",
+  "DEFERRABLE INITIALLY DEFERRED",
+]) {
+  requireText("transition", invariant, `missing state-transition gate ${invariant}`);
+}
 requireText(
   "migrationPlan",
   "runWithdrawalPrebroadcastEvidenceMigrations",
@@ -132,6 +145,11 @@ requireText(
   "migrationPlan",
   "runWithdrawalAdminEvidenceHardeningMigrations",
   "canonical migration plan must run Admin receipt hardening",
+);
+requireText(
+  "migrationPlan",
+  "runWithdrawalPrebroadcastTransitionGateMigrations",
+  "canonical migration plan must run direct transition gate",
 );
 
 for (const invariant of [
@@ -160,19 +178,14 @@ if (
     `${files.authorizeRoute}: mandatory authorization evidence must precede receipt completion`,
   );
 }
-rejectText(
-  "authorizeRoute",
-  "writeAudit(",
-  "best-effort audit cannot remain authorization authority",
-);
-
-for (const target of ["cancel", "admin"]) {
+for (const target of ["authorizeRoute", "admission", "cancel", "admin"]) {
   rejectText(
     target,
     "writeAudit(",
     "best-effort audit cannot remain pre-broadcast financial authority",
   );
 }
+
 for (const invariant of [
   "claimApiCommandTx",
   "FOR UPDATE",
@@ -208,10 +221,6 @@ for (const invariant of [
   requireText("adminRoute", invariant, `Admin route is missing ${invariant}`);
 }
 
-// Admission may keep non-authoritative telemetry temporarily, but the durable
-// PostgreSQL gate is mandatory and any future route/service may not treat
-// writeAudit as proof. The legacy split create/cancel functions are quarantined
-// by rejecting all production callers outside their definition files.
 requireText(
   "admission",
   "withdrawal_admission_outbox",
@@ -286,5 +295,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Withdrawal pre-broadcast evidence check passed: authorization, admission, cancellation and Admin transitions are typed, secret-free, receipt-bound, transaction-coupled and isolated from legacy production mutation paths.",
+  "Withdrawal pre-broadcast evidence check passed: authorization, admission, cancellation and Admin transitions are typed, secret-free, receipt-bound, transaction-coupled, direct-state-gated and isolated from legacy production mutation paths.",
 );
