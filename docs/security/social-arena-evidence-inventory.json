@@ -41,8 +41,8 @@
     {
       "module": "@/lib/trading-dna",
       "source": "src/lib/trading-dna.ts",
-      "classification": "historical-unreachable",
-      "reason": "browser-derived behavioral signals; no active caller may promote them"
+      "classification": "pure-server-input-scoring",
+      "reason": "contains scoring primitives only; browser collection is disabled and callers must supply verified server-derived signals"
     },
     {
       "module": "@/lib/smart-review",
