@@ -1,0 +1,68 @@
+name: One-shot Custody Launch Gate Integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/custody-launch-gate-integration-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-custody-launch-gate-integration
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/custody-launch-gate
+          fetch-depth: 2
+
+      - name: Apply deterministic custody integration
+        run: python3 scripts/apply-custody-launch-gate-once.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify custody policy, env behavior and permanent guard
+        run: |
+          set -euo pipefail
+          npm run custody:check
+          npm run test:custody-gate
+          NODE_ENV=test node --import tsx --test --test-force-exit \
+            src/tests/wallet/custody-env-validation.test.ts
+          git diff --check
+
+      - name: Verify TypeScript and ESLint
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm run lint
+
+      - name: Commit permanent custody integration
+        run: |
+          set -euo pipefail
+          git add \
+            package.json \
+            scripts/validate-env.mjs \
+            server.ts \
+            src/lib/security/withdrawal-admin-authority.ts \
+            src/lib/wallet/signing/keystore.ts \
+            src/lib/wallet/withdrawal-executor.ts \
+            src/workers/withdrawal-worker.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(security): enforce custody gate on production runtime"
+          git push origin HEAD:fix/custody-launch-gate
