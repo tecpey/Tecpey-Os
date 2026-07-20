@@ -100,6 +100,7 @@ export type SensitiveMutationAuditAction =
   | "api_key.disable"
   | "api_key.rotate"
   | "api_key.delete"
+  | "credential.account.create"
   | "credential.password.change"
   | "credential.2fa.enroll.start"
   | "credential.2fa.enable"
