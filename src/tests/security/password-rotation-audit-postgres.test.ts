@@ -422,7 +422,7 @@ describe("Password rotation mandatory audit evidence", { concurrency: 1 }, () =>
       };
 
       try {
-        globalThis.tecpeyRedisClient = failedRedis as typeof globalThis.tecpeyRedisClient;
+        globalThis.tecpeyRedisClient = failedRedis as unknown as typeof globalThis.tecpeyRedisClient;
         const response = await changePassword(
           request(credentials.accessToken, currentPassword, newPassword, requestId),
         );
