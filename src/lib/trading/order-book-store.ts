@@ -155,7 +155,7 @@ class InMemoryOrderBookStore implements OrderBookStore {
     limitPrice: string | null,
   ): string {
     const oppositeSide: OrderSide = takerSide === "buy" ? "sell" : "buy";
-    let total = D(0);
+    let total = "0.0000000000";
     for (const level of this.getLevels(market, oppositeSide)) {
       if (!crossesLimit({
         takerSide,
@@ -164,9 +164,11 @@ class InMemoryOrderBookStore implements OrderBookStore {
       })) {
         break;
       }
-      for (const order of level.orders) total = total.plus(D(order.remaining));
+      for (const order of level.orders) {
+        total = decimalAdd(total, order.remaining);
+      }
     }
-    return canonicalMatchingInput(total.toFixed(), "fok_volume");
+    return total;
   }
 
   updateMakerRemaining(orderId: string, rawRemaining: string): void {
