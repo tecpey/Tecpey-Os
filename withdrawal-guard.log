@@ -1,3 +1,1 @@
-Withdrawal external-effect evidence guard failed:
-- docs/security/WITHDRAWAL_EXTERNAL_EFFECT_EVIDENCE_INVENTORY.md: inventory/non-goal contract is missing: confirmed ambiguity window
-- docs/security/WITHDRAWAL_EXTERNAL_EFFECT_EVIDENCE_INVENTORY.md: inventory/non-goal contract is missing: does not by itself approve real-money custody
+Withdrawal external-effect evidence guard passed: preparation, broadcast attempts, lease expiry, ambiguity reconciliation, confirmation projection/outcomes and settlement are PostgreSQL-authoritative, mandatory-evidence-coupled, secret-free and protected from direct mutation paths.

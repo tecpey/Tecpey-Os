@@ -11,6 +11,8 @@ This document is the authoritative inventory for the withdrawal lifecycle **afte
 
 It begins where the pre-broadcast authority completed by #190 / PR #192 ends. It covers worker claim, transaction construction, signing, durable preparation, RPC broadcast, confirmation monitoring, dropped/timeout outcomes and confirmed settlement.
 
+This slice does not by itself approve real-money custody, a production signer or any custody launch.
+
 It does not:
 
 - approve a production signer;
@@ -51,6 +53,8 @@ The external effect is the chain RPC call that submits an already signed transac
 4. typed outcome classification after RPC;
 5. reconciliation of ambiguous outcomes before any rebroadcast;
 6. mandatory evidence coupled to every authoritative database transition.
+
+The confirmed ambiguity window is the interval after an RPC may have accepted the signed transaction but before the accepted outcome commits to PostgreSQL. It must become durable reconciliation debt before any rebroadcast.
 
 ### 2.3 Projection authority
 
