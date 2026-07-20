@@ -1,3 +1,5 @@
+import { NextRequest } from "next/server";
+
 export type BoundedJsonBodyErrorCode =
   | "invalid_body_limit"
   | "invalid_content_length"
@@ -8,17 +10,28 @@ export type BoundedJsonBodyErrorCode =
   | "invalid_utf8"
   | "invalid_json";
 
+export type BoundedJsonBodyFailure = {
+  ok: false;
+  error: BoundedJsonBodyErrorCode;
+  status: 400 | 413 | 415 | 500;
+};
+
 export type BoundedJsonBodyResult<T = unknown> =
   | {
       ok: true;
       value: T;
       bytesRead: number;
     }
+  | BoundedJsonBodyFailure;
+
+export type BoundedJsonRequestResult<T = unknown> =
   | {
-      ok: false;
-      error: BoundedJsonBodyErrorCode;
-      status: 400 | 413 | 415 | 500;
-    };
+      ok: true;
+      request: NextRequest;
+      value: T;
+      bytesRead: number;
+    }
+  | BoundedJsonBodyFailure;
 
 export type ReadJsonBodyOptions = {
   maxBytes: number;
@@ -31,7 +44,7 @@ const MAX_GOVERNED_BODY_BYTES = 8 * 1024 * 1024;
 function failure(
   error: BoundedJsonBodyErrorCode,
   status: 400 | 413 | 415 | 500,
-): BoundedJsonBodyResult<never> {
+): BoundedJsonBodyFailure {
   return { ok: false, error, status };
 }
 
@@ -44,7 +57,7 @@ function validJsonContentType(value: string | null): boolean {
 function declaredContentLength(
   value: string | null,
   maxBytes: number,
-): BoundedJsonBodyResult<null> | null {
+): BoundedJsonBodyFailure | null {
   if (value === null || value.trim() === "") return null;
   if (!/^\d+$/.test(value.trim())) {
     return failure("invalid_content_length", 400);
@@ -172,4 +185,45 @@ export async function readJsonBody<T = unknown>(
   } catch {
     return failure("invalid_json", 400);
   }
+}
+
+/**
+ * Preserves a route's existing parser and validation semantics while replacing
+ * its unbounded body source with a normalized NextRequest backed by JSON that
+ * has already passed the streaming byte limit and media-type authority.
+ *
+ * Call this at the exact point where the route would otherwise invoke
+ * `request.json()` or `request.text()`, after its existing CSRF/auth/rate-limit
+ * checks. The returned request keeps the original URL, method, cookies, custom
+ * headers, request ID and abort signal.
+ */
+export async function readBoundedJsonRequest<T = unknown>(
+  request: NextRequest,
+  options: ReadJsonBodyOptions,
+): Promise<BoundedJsonRequestResult<T>> {
+  const parsed = await readJsonBody<T>(request, options);
+  if (!parsed.ok) return parsed;
+
+  const serialized = JSON.stringify(parsed.value);
+  if (serialized === undefined) return failure("invalid_json", 400);
+
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  headers.delete("transfer-encoding");
+  headers.set("content-type", "application/json; charset=utf-8");
+
+  const boundedRequest = new NextRequest(request.url, {
+    method: request.method,
+    headers,
+    body: serialized,
+    signal: request.signal,
+  });
+
+  return {
+    ok: true,
+    request: boundedRequest,
+    value: parsed.value,
+    bytesRead: parsed.bytesRead,
+  };
 }
