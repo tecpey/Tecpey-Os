@@ -178,6 +178,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: AI Mentor red-team gate
+        run: |
+          set -o pipefail
+          npm run ai:redteam:check 2>&1 | tee /tmp/tecpey-ai-mentor-redteam-tests.log
+
+      - name: Upload AI Mentor red-team diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-mentor-redteam-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-ai-mentor-redteam-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Withdrawal admission authority guard
         run: npm run withdrawals:check
 
