@@ -2,7 +2,7 @@
  * Smart Review projection boundary.
  *
  * The previous implementation built personalized Mentor decisions directly
- * from browser-owned progress, flashcards and reflection localStorage. That
+ * from browser-owned progress, flashcards and reflection browser storage. That
  * data is not official evidence. Until the server review authority is exposed,
  * this module returns an explicit unavailable projection rather than silently
  * personalizing Mentor or scholarship-facing surfaces from browser state.
