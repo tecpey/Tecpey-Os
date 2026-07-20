@@ -8,7 +8,9 @@ import {
   offlineManifest,
   type OfflineSyncResult,
 } from "@/lib/offline-sync";
-import { processOfflineSyncCommand } from "@/lib/offline-sync-authority";
+import {
+  processOfflineSyncCommand as idempotencyProcessOfflineSyncCommand,
+} from "@/lib/offline-sync-authority";
 import {
   issueOfflineSyncScope,
   verifyOfflineSyncScope,
@@ -126,7 +128,7 @@ export async function POST(req: NextRequest) {
         }
 
         results.push(
-          await processOfflineSyncCommand({
+          await idempotencyProcessOfflineSyncCommand({
             tenantId: platform.tenantId,
             studentId: session.studentId,
             item: normalized.item,
