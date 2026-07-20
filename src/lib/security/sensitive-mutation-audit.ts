@@ -20,6 +20,8 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "raw",
   "body",
   "authorization",
+  "authorizationid",
+  "authorization_id",
   "cookie",
   "public_key",
   "publickey",
@@ -34,10 +36,14 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "rawid",
   "raw_id",
   "ip",
+  "ipaddress",
+  "ip_address",
   "useragent",
   "user_agent",
   "deviceinfo",
   "device_info",
+  "devicefingerprint",
+  "device_fingerprint",
   "access_token",
   "accesstoken",
   "refresh_token",
@@ -47,6 +53,23 @@ const FORBIDDEN_METADATA_KEYS = new Set([
   "session_id",
   "familyid",
   "family_id",
+  "address",
+  "destination",
+  "destinationaddress",
+  "destination_address",
+  "destinationtag",
+  "destination_tag",
+  "notes",
+  "reviewnotes",
+  "review_notes",
+  "roles",
+  "metadata",
+  "document",
+  "documents",
+  "kycdocument",
+  "kyc_document",
+  "kycdocuments",
+  "kyc_documents",
 ]);
 
 export type SensitiveAuditOutcome = "success" | "no_op" | "rejected" | "failed";
@@ -81,7 +104,13 @@ export type SensitiveMutationAuditAction =
   | "exchange.order.admit"
   | "exchange.order.finalize"
   | "exchange.order.reject"
-  | "exchange.order.cancel";
+  | "exchange.order.cancel"
+  | "withdrawal.admit"
+  | "withdrawal.cancel"
+  | "withdrawal.admin.approve"
+  | "withdrawal.admin.reject"
+  | "withdrawal.admin.block"
+  | "withdrawal.admin.flag_review";
 
 export type SensitiveMutationAuditResource =
   | "device_token"
@@ -94,7 +123,8 @@ export type SensitiveMutationAuditResource =
   | "auth_session"
   | "refresh_family"
   | "known_device"
-  | "exchange_order";
+  | "exchange_order"
+  | "withdrawal";
 
 export type SensitiveMutationAuditEvent = {
   tenantId: string;
