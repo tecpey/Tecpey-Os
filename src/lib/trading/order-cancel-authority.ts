@@ -48,12 +48,63 @@ async function completeFailure(
   return { ok: false, reason, replayed: false };
 }
 
+async function persistMissingOrderResult(
+  scope: ApiCommandScope,
+  orderId: string,
+): Promise<IdempotentOrderCancelResult> {
+  try {
+    const transaction = await withTx(async (client) => {
+      const claim = await claimApiCommandTx<OrderCancelReceipt>(client, scope);
+      if (claim.status === "conflict") {
+        return { reason: "idempotency_conflict", replayed: false };
+      }
+      if (claim.status === "in_progress") {
+        return { reason: "idempotency_in_progress", replayed: false };
+      }
+      if (claim.status === "replayed") {
+        return {
+          reason: claim.response.reason ?? "order_not_found",
+          replayed: true,
+        };
+      }
+      await completeApiCommandTx(client, scope, {
+        httpStatus: 404,
+        response: { cancelled: false, orderId, reason: "order_not_found" },
+      });
+      return { reason: "order_not_found", replayed: false };
+    });
+    if (!transaction.enabled) {
+      return { cancelled: false, orderId, reason: "storage_unavailable" };
+    }
+    return {
+      cancelled: false,
+      orderId,
+      reason: transaction.value.reason,
+    };
+  } catch (error) {
+    logger.error("[order-cancel-authority] missing-order receipt failed", {
+      orderId,
+      error,
+    });
+    return { cancelled: false, orderId, reason: "storage_unavailable" };
+  }
+}
+
 export async function cancelOrderIdempotently(input: {
   orderId: string;
   userId: string;
   idempotencyKey: string;
   requestHash: string;
 }): Promise<IdempotentOrderCancelResult> {
+  const scope: ApiCommandScope = {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    principalType: "user",
+    principalId: input.userId,
+    operation: "order.cancel",
+    idempotencyKey: input.idempotencyKey,
+    requestHash: input.requestHash,
+  };
+
   const lookup = await withDb(async (client) => {
     const row = await client.query<{ market: string }>(
       "SELECT market FROM orders WHERE id = $1::uuid AND user_id = $2",
@@ -69,21 +120,8 @@ export async function cancelOrderIdempotently(input: {
     };
   }
   if (!lookup.value) {
-    return {
-      cancelled: false,
-      orderId: input.orderId,
-      reason: "order_not_found",
-    };
+    return persistMissingOrderResult(scope, input.orderId);
   }
-
-  const scope: ApiCommandScope = {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
-    principalType: "user",
-    principalId: input.userId,
-    operation: "order.cancel",
-    idempotencyKey: input.idempotencyKey,
-    requestHash: input.requestHash,
-  };
 
   const execution = await withExchangeMarketExecutionLock(
     lookup.value,
