@@ -32,6 +32,16 @@ jobs:
           gzip -dc /tmp/custody-gate.patch.gz > /tmp/custody-gate.patch
           git apply --check /tmp/custody-gate.patch
           git apply /tmp/custody-gate.patch
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path("src/lib/wallet/custody-policy.ts")
+          source = path.read_text()
+          old = "return evaluateCore(env) as CustodyRuntimeStatus;"
+          new = "return evaluateCore(env as NodeJS.ProcessEnv) as CustodyRuntimeStatus;"
+          if old not in source:
+              raise SystemExit("custody environment wrapper contract not found")
+          path.write_text(source.replace(old, new, 1))
+          PY
           rm -f \
             .github/workflows/custody-source-snapshot-temp.yml \
             .github/workflows/custody-remediation-once.yml \
@@ -48,26 +58,7 @@ jobs:
       - run: npm run custody:check
       - run: npm run test:custody
       - run: npm run withdrawals:check
-
-      - name: Capture TypeScript diagnostics
-        id: typecheck
-        continue-on-error: true
-        run: npm run check > custody-typescript.log 2>&1
-
-      - name: Upload TypeScript diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: custody-typescript-${{ github.sha }}
-          path: custody-typescript.log
-          if-no-files-found: error
-          retention-days: 2
-
-      - name: Enforce TypeScript result
-        if: steps.typecheck.outcome != 'success'
-        run: |
-          cat custody-typescript.log
-          exit 1
+      - run: npm run check
 
       - name: Prove production disabled mode and raw-key denial
         run: |
