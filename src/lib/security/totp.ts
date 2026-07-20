@@ -189,6 +189,10 @@ function redisClient() {
   return globalThis.tecpeyRedisClient ?? null;
 }
 
+export type PreAuthTokenResult =
+  | { available: true; userId: string | null }
+  | { available: false; userId: null };
+
 export async function storePreAuthToken(token: string, userId: string): Promise<void> {
   const r = redisClient();
   if (!r) {
@@ -198,17 +202,41 @@ export async function storePreAuthToken(token: string, userId: string): Promise<
   await r.set(`${PREAUTH_PREFIX}${token}`, userId, "EX", PREAUTH_TTL_S);
 }
 
-export async function consumePreAuthToken(token: string): Promise<string | null> {
+/** Resolve the server principal without consuming the one-time challenge. */
+export async function peekPreAuthToken(token: string): Promise<PreAuthTokenResult> {
   const r = redisClient();
-  if (!r) return null;
+  if (!r) return { available: false, userId: null };
   try {
-    const pipeline = r.pipeline();
-    pipeline.get(`${PREAUTH_PREFIX}${token}`);
-    pipeline.del(`${PREAUTH_PREFIX}${token}`);
-    const results = await pipeline.exec();
-    const userId = results?.[0]?.[1];
-    return typeof userId === "string" ? userId : null;
+    const userId = await r.get(`${PREAUTH_PREFIX}${token}`);
+    return { available: true, userId };
   } catch {
-    return null;
+    return { available: false, userId: null };
   }
+}
+
+/** Atomically claim the challenge after TOTP verification. */
+export async function claimPreAuthToken(token: string): Promise<PreAuthTokenResult> {
+  const r = redisClient();
+  if (!r) return { available: false, userId: null };
+  try {
+    const result = await r.eval(
+      `local value = redis.call('GET', KEYS[1])
+       if value then redis.call('DEL', KEYS[1]) end
+       return value`,
+      1,
+      `${PREAUTH_PREFIX}${token}`,
+    );
+    return {
+      available: true,
+      userId: typeof result === "string" ? result : null,
+    };
+  } catch {
+    return { available: false, userId: null };
+  }
+}
+
+/** Legacy compatibility wrapper; new login flows must use peek then claim. */
+export async function consumePreAuthToken(token: string): Promise<string | null> {
+  const claimed = await claimPreAuthToken(token);
+  return claimed.available ? claimed.userId : null;
 }

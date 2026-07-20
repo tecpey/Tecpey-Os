@@ -6,11 +6,9 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { withDb } from "@/lib/db";
 import {
-  decryptTotpSecret,
-  verifyTotp,
-  consumePreAuthToken,
+  claimPreAuthToken,
+  peekPreAuthToken,
 } from "@/lib/security/totp";
-import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 import {
   signUnifiedSession,
@@ -23,10 +21,12 @@ import {
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
 import { admitSessionAuthority } from "@/lib/security/session-authority";
+import { verifyTwoFactorCredential } from "@/lib/security/two-factor-authority";
 import { PLATFORM, shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import {
   hashSensitiveAuditRequest,
   resolveSensitiveAuditCorrelation,
+  type SensitiveMutationAuditEvent,
 } from "@/lib/security/sensitive-mutation-audit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
@@ -38,6 +38,11 @@ type AccountRow = {
   username: string;
   display_name: string;
 };
+
+type VerificationActorType = Extract<
+  SensitiveMutationAuditEvent["actorType"],
+  "student" | "user" | "admin"
+>;
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/2fa/verify" }, async () => {
@@ -70,67 +75,70 @@ export async function POST(req: NextRequest) {
     );
     const isPreAuthFlow = Boolean(preAuthToken);
     let userId: string | null = null;
+    let actorType: VerificationActorType = "user";
 
     if (isPreAuthFlow) {
-      userId = await consumePreAuthToken(preAuthToken);
+      const resolved = await peekPreAuthToken(preAuthToken);
+      if (!resolved.available) {
+        return apiError("preauth_authority_unavailable", 503);
+      }
+      userId = resolved.userId;
       if (!userId) return apiError("preauth_token_invalid", 401);
     } else {
       const session = await getCanonicalSession(req, { strictRevocation: true });
       userId = session.academyAccountId ?? session.userId ?? session.studentId ?? null;
       if (!userId) return apiError("authentication_required", 401);
+      actorType = session.isAdmin
+        ? "admin"
+        : session.studentId && !session.userId && !session.academyAccountId
+          ? "student"
+          : "user";
     }
 
-    const twoFactor = await withDb(async (db) => {
-      const result = await db.query<{
-        encrypted_secret: string;
-        enabled: boolean;
-      }>(
-        `SELECT encrypted_secret, enabled
-           FROM user_2fa
-          WHERE user_id = $1 AND enabled = TRUE`,
-        [userId],
-      );
-      return result.rows[0] ?? null;
-    });
-    if (!twoFactor.enabled) return apiError("db_unavailable", 503);
-    if (!twoFactor.value) return apiError("2fa_not_enabled", 404);
-
-    let rawSecret: string;
+    let verification;
     try {
-      rawSecret = decryptTotpSecret(twoFactor.value.encrypted_secret);
+      verification = await verifyTwoFactorCredential({
+        userId,
+        code,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType,
+          actorId: userId,
+          correlationId,
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "credential.2fa.verify",
+            userId,
+            flow: isPreAuthFlow ? "password_2fa" : "step_up",
+          }),
+        },
+      });
     } catch {
+      return apiError("db_unavailable", 503);
+    }
+
+    if (!verification.ok) {
+      if (verification.status === "invalid_code") {
+        trackAuthEvent("2fa_failed");
+        return apiError("invalid_totp_code", 401);
+      }
+      if (verification.status === "not_enabled") {
+        return apiError("2fa_not_enabled", 404);
+      }
       return apiError("2fa_secret_corrupt", 500);
     }
 
-    if (!verifyTotp(rawSecret, code)) {
-      trackAuthEvent("2fa_failed");
-      writeAudit({
-        actorId: userId,
-        action: "2fa_verify_failed",
-        ip,
-        metadata: { event: "verify_failed" },
-      });
-      return apiError("invalid_totp_code", 401);
-    }
-
-    const touched = await withDb(async (db) => {
-      await db.query(
-        `UPDATE user_2fa SET last_used_at = NOW() WHERE user_id = $1`,
-        [userId],
-      );
-      return true;
-    });
-    if (!touched.enabled) return apiError("db_unavailable", 503);
-
     trackAuthEvent("2fa_success");
-    writeAudit({
-      actorId: userId,
-      action: "2fa_verify_success",
-      ip,
-      metadata: { event: "verify_ok" },
-    });
-
     if (!isPreAuthFlow) return apiOk({ verified: true, userId });
+
+    const claimed = await claimPreAuthToken(preAuthToken);
+    if (!claimed.available) {
+      return apiError("preauth_authority_unavailable", 503);
+    }
+    if (!claimed.userId) return apiError("preauth_token_invalid", 401);
+    if (claimed.userId !== userId) {
+      return apiError("preauth_principal_mismatch", 401);
+    }
 
     const accountResult = await withDb(async (db) => {
       const result = await db.query<AccountRow>(

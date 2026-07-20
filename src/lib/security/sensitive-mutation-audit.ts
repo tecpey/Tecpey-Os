@@ -105,6 +105,7 @@ export type SensitiveMutationAuditAction =
   | "credential.2fa.enable"
   | "credential.2fa.disable"
   | "credential.2fa.backup.consume"
+  | "credential.2fa.verify"
   | "credential.webauthn.register"
   | "credential.webauthn.authenticate"
   | "credential.webauthn.counter_rollback"

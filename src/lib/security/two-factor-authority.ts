@@ -4,6 +4,7 @@ import {
   decryptTotpSecret,
   findBackupCode,
   verifyTotp,
+  verifyTotpStep,
 } from "@/lib/security/totp";
 import {
   writeSensitiveMutationAuditTx,
@@ -25,6 +26,17 @@ export type TwoFactorMutationResult =
         | "not_enabled"
         | "invalid_code"
         | "secret_corrupt";
+    };
+
+export type TwoFactorVerificationResult =
+  | {
+      ok: true;
+      status: "verified";
+      acceptedStepFingerprint: string;
+    }
+  | {
+      ok: false;
+      status: "not_enabled" | "invalid_code" | "secret_corrupt";
     };
 
 type TwoFactorRow = {
@@ -52,6 +64,95 @@ export function fingerprintTwoFactorGeneration(input: {
     .update("\0")
     .update([...input.backupCodeHashes].sort().join("\0"))
     .digest("hex");
+}
+
+export function fingerprintAcceptedTotpStep(input: {
+  userId: string;
+  step: number;
+}): string {
+  return createHash("sha256")
+    .update("tecpey-2fa-accepted-step-v1\0")
+    .update(input.userId)
+    .update("\0")
+    .update(String(input.step))
+    .digest("hex");
+}
+
+export async function verifyTwoFactorCredential(input: {
+  userId: string;
+  code: string;
+  audit: TwoFactorAuditContext;
+}): Promise<TwoFactorVerificationResult> {
+  assertAuditActor(input.userId, input.audit);
+
+  const result = await withTx(async (client) => {
+    const rowResult = await client.query<TwoFactorRow>(
+      `SELECT encrypted_secret, backup_code_hashes, enabled
+         FROM user_2fa
+        WHERE user_id = $1
+        FOR UPDATE`,
+      [input.userId],
+    );
+    const row = rowResult.rows[0];
+    if (!row?.enabled) {
+      return { ok: false, status: "not_enabled" } as const;
+    }
+
+    let rawSecret: string;
+    try {
+      rawSecret = decryptTotpSecret(row.encrypted_secret);
+    } catch {
+      return { ok: false, status: "secret_corrupt" } as const;
+    }
+
+    const acceptedStep = verifyTotpStep(rawSecret, input.code);
+    if (acceptedStep === null) {
+      await writeSensitiveMutationAuditTx(client, {
+        ...input.audit,
+        action: "credential.2fa.verify",
+        resourceType: "credential_2fa",
+        resourceId: input.userId,
+        outcome: "rejected",
+        metadata: {
+          policyVersion: "2fa-verification-v1",
+          resultCategory: "invalid_totp",
+        },
+      });
+      return { ok: false, status: "invalid_code" } as const;
+    }
+
+    const acceptedStepFingerprint = fingerprintAcceptedTotpStep({
+      userId: input.userId,
+      step: acceptedStep,
+    });
+    await client.query(
+      `UPDATE user_2fa
+          SET last_used_at = NOW()
+        WHERE user_id = $1`,
+      [input.userId],
+    );
+    await writeSensitiveMutationAuditTx(client, {
+      ...input.audit,
+      action: "credential.2fa.verify",
+      resourceType: "credential_2fa",
+      resourceId: input.userId,
+      outcome: "success",
+      metadata: {
+        policyVersion: "2fa-verification-v1",
+        resultCategory: "verified",
+        acceptedStepFingerprint,
+      },
+    });
+
+    return {
+      ok: true,
+      status: "verified",
+      acceptedStepFingerprint,
+    } as const;
+  });
+
+  if (!result.enabled) throw new Error("db_unavailable");
+  return result.value;
 }
 
 export async function startTwoFactorEnrollment(input: {
