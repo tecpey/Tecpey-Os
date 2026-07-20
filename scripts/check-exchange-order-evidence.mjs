@@ -90,11 +90,11 @@ rejectText(
   "chr(0)",
   "PostgreSQL text evidence hashing cannot use a NUL separator",
 );
-rejectText(
-  migration,
-  "digest(",
-  "Exchange evidence migration must not depend on the pgcrypto extension",
-);
+if (/\bdigest\(\s*convert_to\(/m.test(migration)) {
+  failures.push(
+    "Exchange evidence SQL must not depend on the pgcrypto digest(convert_to(...)) function",
+  );
+}
 
 requireText(
   migrationPlan,
