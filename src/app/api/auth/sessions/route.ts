@@ -4,20 +4,21 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import {
-  listActiveSessionsStrict,
-  revokeAllSessionsStrict,
-} from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import { listActiveSessionsStrict } from "@/lib/security/session-store";
+import { revokeOtherSessionsAuthority } from "@/lib/security/session-authority";
 import {
   extractJtiFromToken,
   UNIFIED_SESSION_COOKIE,
 } from "@/lib/unified-session";
+import { PLATFORM } from "@/lib/platform-config";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/auth/sessions — list the current user's active sessions
+// GET /api/auth/sessions — list the current user's active sessions.
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
     const rl = await rateLimit(req, {
@@ -41,7 +42,8 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// DELETE /api/auth/sessions — revoke other access sessions and all refresh authority.
+// DELETE /api/auth/sessions — revoke every other session while retaining the
+// current access session and its bound refresh family.
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
@@ -61,50 +63,36 @@ export async function DELETE(req: NextRequest) {
     const currentJti = extractJtiFromToken(currentToken);
     if (!currentJti) return apiError("invalid_session", 401);
 
-    // Keep the current access token active for the remainder of its short TTL,
-    // but revoke every other access session and all refresh tokens. Until access
-    // tokens are bound to a refresh family, retaining one current refresh token
-    // cannot be proven safely, so refresh authority is revoked security-first.
-    const accessResult = await revokeAllSessionsStrict(userId, currentJti);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "logout_all",
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          revokedCount: accessResult.revokedCount,
-          refreshRevoked,
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    let result;
+    try {
+      result = await revokeOtherSessionsAuthority({
+        userId,
+        currentSessionJti: currentJti,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType: "user",
+          actorId: userId,
+          correlationId,
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "session.revoke_all",
+            userId,
+            currentSessionFingerprintVersion: 1,
+          }),
         },
       });
-      return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        revokedCount: accessResult.revokedCount,
-        refreshRevoked,
-      });
+    } catch {
+      return apiError("session_revocation_unavailable", 503);
     }
 
-    writeAudit({
-      actorId: userId,
-      action: "logout_all",
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        revokedCount: accessResult.revokedCount,
-        currentAccessRetained: true,
-        refreshScope: "all_user_tokens",
-      },
-    });
-
     return apiOk({
-      revokedCount: accessResult.revokedCount,
+      revokedCount: result.revokedCount,
       currentAccessRetained: true,
-      refreshRevoked: true,
+      currentRefreshFamilyRetained: true,
+      revocationPending: result.revocationPending,
     });
   });
 }

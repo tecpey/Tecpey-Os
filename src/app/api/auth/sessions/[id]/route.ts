@@ -4,13 +4,17 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { revokeSessionStrict } from "@/lib/security/session-store";
-import { revokeAllRefreshTokensForUser } from "@/lib/security/refresh-tokens";
-import { writeAudit } from "@/lib/security/audit-log";
+import { revokeSessionAuthority } from "@/lib/security/session-authority";
+import { PLATFORM } from "@/lib/platform-config";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 
 export const dynamic = "force-dynamic";
 
-// DELETE /api/auth/sessions/[id] — revoke a specific access session by JTI.
+// DELETE /api/auth/sessions/[id] — revoke the exact owned access session and
+// its bound refresh family through one durable authority transaction.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -34,54 +38,37 @@ export async function DELETE(
       return apiError("invalid_input", 400);
     }
 
-    const accessResult = await revokeSessionStrict(sessionId, userId);
-    if (!accessResult.ok && accessResult.reason === "session_not_found") {
-      return apiError("not_found", 404);
-    }
-
-    // Access sessions are not yet bound to one refresh-token family. Revoking
-    // only the selected JTI would let that device immediately mint a new access
-    // token. Security-first behavior therefore revokes all refresh authority for
-    // the principal until family binding is implemented.
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessResult.ok || !refreshRevoked) {
-      writeAudit({
-        actorId: userId,
-        action: "session_revoked",
-        resourceType: "session",
-        resourceId: sessionId,
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-        userAgent: req.headers.get("user-agent") ?? undefined,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessResult.ok ? null : accessResult.reason,
-          refreshRevoked,
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    let result;
+    try {
+      result = await revokeSessionAuthority({
+        userId,
+        sessionJti: sessionId,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType: "user",
+          actorId: userId,
+          correlationId,
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "session.revoke",
+            userId,
+            targetSessionFingerprintVersion: 1,
+          }),
         },
       });
-      return apiError("session_revocation_unavailable", 503, {
-        accessReason: accessResult.ok ? null : accessResult.reason,
-        refreshRevoked,
-      });
+    } catch {
+      return apiError("session_revocation_unavailable", 503);
     }
 
-    writeAudit({
-      actorId: userId,
-      action: "session_revoked",
-      resourceType: "session",
-      resourceId: sessionId,
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined,
-      userAgent: req.headers.get("user-agent") ?? undefined,
-      metadata: {
-        outcome: "success",
-        refreshScope: "all_user_tokens",
-      },
-    });
-
+    if (!result.ok) return apiError("not_found", 404);
     return apiOk({
       revoked: true,
-      refreshRevoked: true,
-      refreshScope: "all_user_tokens",
+      revokedCount: result.revokedCount,
+      refreshFamilyRevoked: true,
+      revocationPending: result.revocationPending,
     });
   });
 }

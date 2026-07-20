@@ -41,7 +41,14 @@ jobs:
 
       - name: Verify exact manifest and governed exceptions
         id: manifest-policy
-        run: npm run api:security:check
+        shell: bash
+        run: |
+          mkdir -p artifacts/api-security-manifest
+          set +e
+          npm run api:security:check 2>&1 | tee artifacts/api-security-manifest/check.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
 
       - name: Run manifest policy and response-cache tests
         if: ${{ always() }}
@@ -50,15 +57,15 @@ jobs:
       - name: Generate exact diagnostic manifest
         if: ${{ failure() }}
         run: |
-          node scripts/generate-api-security-manifest.mjs --output=api-security-manifest.diagnostic.json
-          node scripts/postprocess-api-security-manifest.mjs --manifest=api-security-manifest.diagnostic.json
-          node scripts/apply-api-security-operation-overrides.mjs --manifest=api-security-manifest.diagnostic.json
+          node scripts/generate-api-security-manifest.mjs --output=artifacts/api-security-manifest/api-security-manifest.diagnostic.json
+          node scripts/postprocess-api-security-manifest.mjs --manifest=artifacts/api-security-manifest/api-security-manifest.diagnostic.json
+          node scripts/apply-api-security-operation-overrides.mjs --manifest=artifacts/api-security-manifest/api-security-manifest.diagnostic.json
 
       - name: Upload manifest diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: api-security-manifest-diagnostics-${{ github.sha }}
-          path: api-security-manifest.diagnostic.json
+          path: artifacts/api-security-manifest/**
           if-no-files-found: error
           retention-days: 7

@@ -1,4 +1,6 @@
-// Refresh token rotation — PostgreSQL-backed, fail-closed authority.
+// Refresh token primitives. Session issuance and rotation authority lives in
+// session-authority.ts; this module owns signing, signature verification and
+// compatibility wrappers only.
 
 import { SignJWT, jwtVerify } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
@@ -52,9 +54,13 @@ export type PreparedRefreshToken = {
   expiresAt: Date;
 };
 
+export type RefreshTokenSignatureResult =
+  | { ok: true; userId: string; jti: string; familyId: string }
+  | { ok: false; reason: "server_misconfigured" | "invalid_token" | "invalid_payload" };
+
 /**
  * Sign a refresh token without publishing it as valid. The token becomes valid
- * only after persistPreparedRefreshTokenWithClient commits its durable row.
+ * only after the caller commits its durable row.
  */
 export async function prepareRefreshToken(
   opts: RefreshTokenIssueOptions,
@@ -84,15 +90,53 @@ export async function prepareRefreshToken(
   };
 }
 
+/** Verify cryptographic refresh claims without consulting durable state. */
+export async function verifyRefreshTokenSignature(
+  token: string,
+): Promise<RefreshTokenSignatureResult> {
+  const secret = refreshSecret();
+  if (!secret) return { ok: false, reason: "server_misconfigured" };
+
+  let payload: RefreshPayload;
+  try {
+    const result = await jwtVerify(token, secret, { algorithms: ["HS256"] });
+    const parsed = result.payload;
+    if (
+      typeof parsed.sub !== "string" ||
+      typeof parsed.jti !== "string" ||
+      typeof parsed.fid !== "string" ||
+      (parsed.v as unknown) !== 1
+    ) {
+      return { ok: false, reason: "invalid_payload" };
+    }
+    payload = {
+      sub: parsed.sub,
+      jti: parsed.jti,
+      fid: parsed.fid,
+      v: 1,
+    };
+  } catch {
+    return { ok: false, reason: "invalid_token" };
+  }
+
+  return {
+    ok: true,
+    userId: payload.sub,
+    jti: payload.jti,
+    familyId: payload.fid,
+  };
+}
+
 /** Persist one previously signed refresh token inside the caller's transaction. */
 export async function persistPreparedRefreshTokenWithClient(
   db: PoolClient,
   prepared: PreparedRefreshToken,
+  binding: { knownDeviceId?: string | null } = {},
 ): Promise<boolean> {
   const inserted = await db.query<{ id: string }>(
     `INSERT INTO refresh_tokens
-      (id, family_id, user_id, parent_id, device_info, ip, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (id, family_id, user_id, parent_id, device_info, ip, expires_at, known_device_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (id) DO NOTHING
      RETURNING id`,
     [
@@ -103,11 +147,16 @@ export async function persistPreparedRefreshTokenWithClient(
       prepared.deviceInfo,
       prepared.ip,
       prepared.expiresAt,
+      binding.knownDeviceId ?? null,
     ],
   );
   return (inserted.rowCount ?? 0) === 1;
 }
 
+/**
+ * Compatibility issuance wrapper. Production authentication routes must use
+ * session-authority.ts so refresh and access admission commit atomically.
+ */
 export async function issueRefreshToken(
   opts: RefreshTokenIssueOptions,
 ): Promise<string | null> {
@@ -140,31 +189,10 @@ type RefreshVerifyResult =
   | { ok: true; userId: string; jti: string; familyId: string }
   | { ok: false; reason: string; familyId?: string };
 
+/** Compatibility durable verification wrapper. Rotation uses Session Authority. */
 export async function verifyRefreshToken(token: string): Promise<RefreshVerifyResult> {
-  const secret = refreshSecret();
-  if (!secret) return { ok: false, reason: "server_misconfigured" };
-
-  let payload: RefreshPayload;
-  try {
-    const result = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    const parsed = result.payload;
-    if (
-      typeof parsed.sub !== "string" ||
-      typeof parsed.jti !== "string" ||
-      typeof parsed.fid !== "string" ||
-      (parsed.v as unknown) !== 1
-    ) {
-      return { ok: false, reason: "invalid_payload" };
-    }
-    payload = {
-      sub: parsed.sub,
-      jti: parsed.jti,
-      fid: parsed.fid,
-      v: 1,
-    };
-  } catch {
-    return { ok: false, reason: "invalid_token" };
-  }
+  const claims = await verifyRefreshTokenSignature(token);
+  if (!claims.ok) return claims;
 
   const result = await withDb(async (db) => {
     const rows = await db.query<{
@@ -177,11 +205,11 @@ export async function verifyRefreshToken(token: string): Promise<RefreshVerifyRe
       `SELECT id, family_id, user_id, is_revoked, expires_at
          FROM refresh_tokens
         WHERE id = $1`,
-      [payload.jti],
+      [claims.jti],
     );
 
     if (rows.rowCount === 0) {
-      return { notFound: true as const, familyId: payload.fid };
+      return { notFound: true as const, familyId: claims.familyId };
     }
 
     const row = rows.rows[0];
@@ -191,7 +219,7 @@ export async function verifyRefreshToken(token: string): Promise<RefreshVerifyRe
     if (row.expires_at.getTime() <= Date.now()) {
       return { expired: true as const, familyId: row.family_id };
     }
-    if (row.user_id !== payload.sub || row.family_id !== payload.fid) {
+    if (row.user_id !== claims.userId || row.family_id !== claims.familyId) {
       return { mismatch: true as const, familyId: row.family_id };
     }
 
@@ -261,6 +289,14 @@ export async function revokeFamily(familyId: string): Promise<boolean> {
             AND is_revoked = FALSE`,
         [familyId],
       );
+      await db.query(
+        `UPDATE refresh_token_families
+            SET status = 'revoked',
+                revoked_at = COALESCE(revoked_at, NOW()),
+                revoke_reason = COALESCE(revoke_reason, 'compatibility_revoke')
+          WHERE id = $1`,
+        [familyId],
+      );
       return true;
     });
     if (!result.enabled) return false;
@@ -280,6 +316,15 @@ export async function revokeAllRefreshTokensForUserWithClient(
   db: PoolClient,
   userId: string,
 ): Promise<number> {
+  await db.query(
+    `UPDATE refresh_token_families
+        SET status = 'revoked',
+            revoked_at = COALESCE(revoked_at, NOW()),
+            revoke_reason = COALESCE(revoke_reason, 'user_scope_revoke')
+      WHERE user_id = $1
+        AND status <> 'revoked'`,
+    [userId],
+  );
   const updated = await db.query(
     `UPDATE refresh_tokens
         SET is_revoked = TRUE,

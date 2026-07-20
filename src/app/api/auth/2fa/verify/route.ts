@@ -17,15 +17,17 @@ import {
   extractJtiFromToken,
   extractExpFromToken,
 } from "@/lib/unified-session";
-import { registerSession } from "@/lib/security/session-store";
 import {
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
-  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
-import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
-import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import { admitSessionAuthority } from "@/lib/security/session-authority";
+import { PLATFORM, shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +65,9 @@ export async function POST(req: NextRequest) {
 
     const ip = getClientIp(req);
     const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
     const isPreAuthFlow = Boolean(preAuthToken);
     let userId: string | null = null;
 
@@ -152,37 +157,46 @@ export async function POST(req: NextRequest) {
     if (!jti || !exp) return apiError("session_issue_failed", 503);
 
     const familyId = crypto.randomUUID();
-    const refreshToken = await issueRefreshToken({
+    const preparedRefresh = await prepareRefreshToken({
       userId: account.id,
       familyId,
       deviceInfo,
       ip,
     });
-    if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+    if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-    const registered = await registerSession({
-      jti,
-      userId: account.id,
-      deviceInfo,
-      ip,
-      expiresAt: new Date(exp * 1000),
-    });
-    if (!registered) {
-      await revokeAllRefreshTokensForUser(account.id);
+    let admitted;
+    try {
+      admitted = await admitSessionAuthority({
+        userId: account.id,
+        access: {
+          jti,
+          userId: account.id,
+          expiresAt: new Date(exp * 1000),
+        },
+        refresh: preparedRefresh,
+        deviceInfo,
+        ip,
+        method: "password_2fa",
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType: "user",
+          actorId: account.id,
+          correlationId,
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "session.issue",
+            method: "password_2fa",
+            userId: account.id,
+          }),
+        },
+      });
+    } catch {
       return apiError("session_registry_unavailable", 503);
     }
 
-    const fingerprint = deviceFingerprint(deviceInfo, ip);
-    const { isNew } = await markDeviceSeen(account.id, fingerprint);
-    if (isNew) trackAuthEvent("new_device_detected");
+    if (admitted.isNewDevice) trackAuthEvent("new_device_detected");
     trackAuthEvent("login_success");
-    writeAudit({
-      actorId: account.id,
-      action: "login",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { method: "password+2fa", isNewDevice: isNew },
-    });
 
     const response = apiOk({ authenticated: true });
     response.cookies.set(COOKIES.SESSION, accessToken, {
@@ -192,7 +206,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       maxAge: ACCESS_COOKIE_TTL_S,
     });
-    setRefreshCookie(response, refreshToken);
+    setRefreshCookie(response, admitted.refreshToken);
     return response;
   });
 }

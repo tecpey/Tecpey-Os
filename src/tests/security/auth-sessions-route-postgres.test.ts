@@ -7,17 +7,12 @@ import { NextRequest } from "next/server";
 import { DELETE as logoutAll } from "../../app/api/auth/sessions/route";
 import { getCanonicalSession } from "../../lib/auth-session";
 import { withDb } from "../../lib/db";
+import { verifyRefreshToken } from "../../lib/security/refresh-tokens";
+import { UNIFIED_SESSION_COOKIE } from "../../lib/unified-session";
 import {
-  issueRefreshToken,
-  verifyRefreshToken,
-} from "../../lib/security/refresh-tokens";
-import { registerSession } from "../../lib/security/session-store";
-import {
-  extractExpFromToken,
-  extractJtiFromToken,
-  signUnifiedSession,
-  UNIFIED_SESSION_COOKIE,
-} from "../../lib/unified-session";
+  cleanupBoundSessions,
+  issueBoundSession,
+} from "./session-authority-test-fixtures";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -55,46 +50,6 @@ function request(accessToken: string): NextRequest {
   });
 }
 
-async function issueAccessSession(userId: string, deviceInfo: string): Promise<{
-  accessToken: string;
-  jti: string;
-}> {
-  const accessToken = await signUnifiedSession({
-    accountId: userId,
-    studentId: null,
-    email: `${userId}@tecpey.invalid`,
-    displayName: "Sessions Test",
-    username: `sessions-${randomUUID()}`,
-  });
-  const jti = extractJtiFromToken(accessToken);
-  const exp = extractExpFromToken(accessToken);
-  assert.ok(jti);
-  assert.ok(exp);
-  assert.equal(
-    await registerSession({
-      jti,
-      userId,
-      deviceInfo,
-      ip: "127.0.0.1",
-      expiresAt: new Date(exp * 1000),
-    }),
-    true,
-  );
-  return { accessToken, jti };
-}
-
-async function cleanup(userId: string, jtis: string[]): Promise<void> {
-  const deleted = await withDb(async (client) => {
-    await client.query("DELETE FROM refresh_tokens WHERE user_id = $1", [userId]);
-    await client.query("DELETE FROM user_sessions WHERE user_id = $1", [userId]);
-    return true;
-  });
-  assert.equal(deleted.enabled, true);
-  if (redis && jtis.length > 0) {
-    await redis.del(...jtis.map(denyKey));
-  }
-}
-
 before(async () => {
   delete process.env.UPSTASH_REDIS_REST_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -129,26 +84,20 @@ after(async () => {
 
 describe("Logout-all session authority", () => {
   it(
-    "revokes every other access session and all refresh tokens while retaining the current short-lived access token",
+    "revokes every other session family while retaining the current access and refresh family",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `logout-all-owner-${randomUUID()}`;
-      const current = await issueAccessSession(userId, "current-device");
-      const other = await issueAccessSession(userId, "other-device");
-      const firstRefresh = await issueRefreshToken({
+      const current = await issueBoundSession({
         userId,
-        familyId: randomUUID(),
         deviceInfo: "current-device",
         ip: "127.0.0.1",
       });
-      const secondRefresh = await issueRefreshToken({
+      const other = await issueBoundSession({
         userId,
-        familyId: randomUUID(),
         deviceInfo: "other-device",
         ip: "127.0.0.2",
       });
-      assert.ok(firstRefresh);
-      assert.ok(secondRefresh);
 
       try {
         const currentRequest = request(current.accessToken);
@@ -158,7 +107,8 @@ describe("Logout-all session authority", () => {
           ok: true,
           revokedCount: 1,
           currentAccessRetained: true,
-          refreshRevoked: true,
+          currentRefreshFamilyRetained: true,
+          revocationPending: false,
         });
 
         const evidence = await withDb(async (client) => {
@@ -171,27 +121,42 @@ describe("Logout-all session authority", () => {
               WHERE user_id = $1`,
             [userId],
           );
-          const refresh = await client.query<{ active: string }>(
-            `SELECT COUNT(*)::text AS active
+          const families = await client.query<{ id: string; status: string }>(
+            "SELECT id, status FROM refresh_token_families WHERE user_id = $1",
+            [userId],
+          );
+          const refresh = await client.query<{
+            family_id: string;
+            active: string;
+          }>(
+            `SELECT family_id, COUNT(*) FILTER (WHERE is_revoked = FALSE)::text AS active
                FROM refresh_tokens
               WHERE user_id = $1
-                AND is_revoked = FALSE`,
+              GROUP BY family_id`,
             [userId],
           );
           return {
             access: new Map(access.rows.map((row) => [row.id, row.is_revoked])),
-            activeRefreshTokens: Number(refresh.rows[0]?.active ?? "0"),
+            families: new Map(
+              families.rows.map((row) => [row.id, row.status] as const),
+            ),
+            refresh: new Map(
+              refresh.rows.map((row) => [row.family_id, Number(row.active)] as const),
+            ),
           };
         });
         assert.equal(evidence.enabled, true);
         if (evidence.enabled) {
-          assert.equal(evidence.value.access.get(current.jti), false);
-          assert.equal(evidence.value.access.get(other.jti), true);
-          assert.equal(evidence.value.activeRefreshTokens, 0);
+          assert.equal(evidence.value.access.get(current.accessJti), false);
+          assert.equal(evidence.value.access.get(other.accessJti), true);
+          assert.equal(evidence.value.families.get(current.familyId), "active");
+          assert.equal(evidence.value.families.get(other.familyId), "revoked");
+          assert.equal(evidence.value.refresh.get(current.familyId), 1);
+          assert.equal(evidence.value.refresh.get(other.familyId), 0);
         }
 
-        assert.equal(await redis!.get(denyKey(current.jti)), null);
-        assert.equal(await redis!.get(denyKey(other.jti)), "1");
+        assert.equal(await redis!.get(denyKey(current.accessJti)), null);
+        assert.equal(await redis!.get(denyKey(other.accessJti)), "1");
 
         const currentSession = await getCanonicalSession(currentRequest, {
           strictRevocation: true,
@@ -203,28 +168,33 @@ describe("Logout-all session authority", () => {
         });
         assert.equal(otherSession.role, "guest");
 
-        assert.equal((await verifyRefreshToken(firstRefresh)).ok, false);
-        assert.equal((await verifyRefreshToken(secondRefresh)).ok, false);
+        assert.equal((await verifyRefreshToken(current.refreshToken)).ok, true);
+        assert.equal((await verifyRefreshToken(other.refreshToken)).ok, false);
       } finally {
-        await cleanup(userId, [current.jti, other.jti]);
+        await cleanupBoundSessions({
+          userId,
+          accessJtis: [current.accessJti, other.accessJti],
+          redis,
+        });
       }
     },
   );
 
   it(
-    "returns 503 on Redis pipeline failure and repairs deny evidence on retry",
+    "returns durable success on Redis pipeline failure and repairs deny evidence on retry",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const userId = `logout-all-retry-${randomUUID()}`;
-      const current = await issueAccessSession(userId, "current-device");
-      const other = await issueAccessSession(userId, "other-device");
-      const refreshToken = await issueRefreshToken({
+      const current = await issueBoundSession({
         userId,
-        familyId: randomUUID(),
+        deviceInfo: "current-device",
+        ip: "127.0.0.1",
+      });
+      const other = await issueBoundSession({
+        userId,
         deviceInfo: "other-device",
         ip: "127.0.0.2",
       });
-      assert.ok(refreshToken);
       const originalRedis = globalThis.tecpeyRedisClient;
 
       const failingPipelineRedis = {
@@ -240,38 +210,48 @@ describe("Logout-all session authority", () => {
       try {
         globalThis.tecpeyRedisClient =
           failingPipelineRedis as unknown as typeof originalRedis;
-        const failed = await logoutAll(request(current.accessToken));
-        assert.equal(failed.status, 503);
-        const failedBody = await failed.json();
-        assert.equal(failedBody.ok, false);
-        assert.equal(failedBody.error, "session_revocation_unavailable");
-        assert.equal(
-          failedBody.details?.accessReason,
-          "revocation_store_unavailable",
-        );
-        assert.equal(failedBody.details?.revokedCount, 1);
-        assert.equal(failedBody.details?.refreshRevoked, true);
+        const committed = await logoutAll(request(current.accessToken));
+        assert.equal(committed.status, 200);
+        assert.deepEqual(await committed.json(), {
+          ok: true,
+          revokedCount: 1,
+          currentAccessRetained: true,
+          currentRefreshFamilyRetained: true,
+          revocationPending: true,
+        });
 
         const durable = await withDb(async (client) => {
           const access = await client.query<{ is_revoked: boolean }>(
             "SELECT is_revoked FROM user_sessions WHERE id = $1",
-            [other.jti],
+            [other.accessJti],
           );
-          const refresh = await client.query<{ is_revoked: boolean }>(
-            "SELECT is_revoked FROM refresh_tokens WHERE user_id = $1 LIMIT 1",
-            [userId],
+          const currentFamily = await client.query<{ status: string }>(
+            "SELECT status FROM refresh_token_families WHERE id = $1",
+            [current.familyId],
+          );
+          const otherFamily = await client.query<{ status: string }>(
+            "SELECT status FROM refresh_token_families WHERE id = $1",
+            [other.familyId],
+          );
+          const outbox = await client.query<{ status: string }>(
+            "SELECT status FROM session_revocation_outbox WHERE session_jti = $1",
+            [other.accessJti],
           );
           return {
             accessRevoked: access.rows[0]?.is_revoked ?? false,
-            refreshRevoked: refresh.rows[0]?.is_revoked ?? false,
+            currentFamilyStatus: currentFamily.rows[0]?.status,
+            otherFamilyStatus: otherFamily.rows[0]?.status,
+            outboxStatus: outbox.rows[0]?.status,
           };
         });
         assert.equal(durable.enabled, true);
         if (durable.enabled) {
           assert.equal(durable.value.accessRevoked, true);
-          assert.equal(durable.value.refreshRevoked, true);
+          assert.equal(durable.value.currentFamilyStatus, "active");
+          assert.equal(durable.value.otherFamilyStatus, "revoked");
+          assert.equal(durable.value.outboxStatus, "pending");
         }
-        assert.equal(await redis!.get(denyKey(other.jti)), null);
+        assert.equal(await redis!.get(denyKey(other.accessJti)), null);
 
         globalThis.tecpeyRedisClient = originalRedis;
         const repaired = await logoutAll(request(current.accessToken));
@@ -280,13 +260,19 @@ describe("Logout-all session authority", () => {
           ok: true,
           revokedCount: 0,
           currentAccessRetained: true,
-          refreshRevoked: true,
+          currentRefreshFamilyRetained: true,
+          revocationPending: false,
         });
-        assert.equal(await redis!.get(denyKey(other.jti)), "1");
-        assert.equal((await verifyRefreshToken(refreshToken)).ok, false);
+        assert.equal(await redis!.get(denyKey(other.accessJti)), "1");
+        assert.equal((await verifyRefreshToken(current.refreshToken)).ok, true);
+        assert.equal((await verifyRefreshToken(other.refreshToken)).ok, false);
       } finally {
         globalThis.tecpeyRedisClient = originalRedis;
-        await cleanup(userId, [current.jti, other.jti]);
+        await cleanupBoundSessions({
+          userId,
+          accessJtis: [current.accessJti, other.accessJti],
+          redis,
+        });
       }
     },
   );

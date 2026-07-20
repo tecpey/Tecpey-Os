@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { withDb } from "@/lib/db";
 import {
   academyAccountIdFromEmail,
@@ -24,22 +25,24 @@ import {
 } from "@/lib/unified-session";
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import {
-  registerSession,
-  revokeSessionStrict,
-} from "@/lib/security/session-store";
 import { writeAudit } from "@/lib/security/audit-log";
 import {
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
   clearRefreshCookie,
-  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
-import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import {
+  admitSessionAuthority,
+  logoutSessionAuthority,
+} from "@/lib/security/session-authority";
+import { shouldUseSecureCookie, COOKIES, PLATFORM } from "@/lib/platform-config";
 import { storePreAuthToken } from "@/lib/security/totp";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
-import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type AcademyAccount = {
@@ -285,6 +288,9 @@ export async function POST(req: NextRequest) {
 
       const ip = getClientIp(req);
       const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+      const correlationId = resolveSensitiveAuditCorrelation(
+        req.headers.get("x-tecpey-request-id"),
+      );
 
       if (mode === "login" && dbResult.enabled) {
         const twoFaResult = await withDb(async (db) => {
@@ -304,7 +310,7 @@ export async function POST(req: NextRequest) {
             action: "login",
             ip,
             userAgent: deviceInfo,
-            metadata: { mode, email: account!.email, step: "2fa_required" },
+            metadata: { mode, step: "2fa_required" },
           });
           return apiOk({ requires2fa: true, preAuthToken });
         }
@@ -322,28 +328,44 @@ export async function POST(req: NextRequest) {
       const exp = extractExpFromToken(accessToken);
       if (!jti || !exp) return apiError("session_issue_failed", 503);
 
-      const refreshToken = await issueRefreshToken({
+      const preparedRefresh = await prepareRefreshToken({
         userId: account.accountId,
         familyId,
         deviceInfo,
         ip,
       });
-      if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+      if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-      const registered = await registerSession({
-        jti,
-        userId: account.accountId,
-        deviceInfo,
-        ip,
-        expiresAt: new Date(exp * 1000),
-      });
-      if (!registered) {
-        await revokeAllRefreshTokensForUser(account.accountId);
+      let admitted;
+      try {
+        admitted = await admitSessionAuthority({
+          userId: account.accountId,
+          access: {
+            jti,
+            userId: account.accountId,
+            expiresAt: new Date(exp * 1000),
+          },
+          refresh: preparedRefresh,
+          deviceInfo,
+          ip,
+          method: "password",
+          audit: {
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            actorType: "user",
+            actorId: account.accountId,
+            correlationId,
+            requestHash: hashSensitiveAuditRequest({
+              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              action: "session.issue",
+              method: "password",
+              mode,
+              userId: account.accountId,
+            }),
+          },
+        });
+      } catch {
         return apiError("session_registry_unavailable", 503);
       }
-
-      const fingerprint = deviceFingerprint(deviceInfo, ip);
-      const { isNew } = await markDeviceSeen(account.accountId, fingerprint);
 
       const response = apiOk({
         authenticated: true,
@@ -360,18 +382,10 @@ export async function POST(req: NextRequest) {
         sameSite: "lax",
         maxAge: ACCESS_COOKIE_TTL_S,
       });
-      setRefreshCookie(response, refreshToken);
+      setRefreshCookie(response, admitted.refreshToken);
 
       trackAuthEvent("login_success");
-      if (isNew) trackAuthEvent("new_device_detected");
-      writeAudit({
-        actorId: account.accountId,
-        action: "login",
-        ip,
-        userAgent: deviceInfo,
-        metadata: { mode, email: account.email, isNewDevice: isNew },
-      });
-
+      if (admitted.isNewDevice) trackAuthEvent("new_device_detected");
       return response;
     } catch {
       return apiError("server_error", 500);
@@ -383,57 +397,59 @@ export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const ip = getClientIp(req);
-    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
-
     if (!sessionToken) {
       const response = apiOk({ revoked: false, alreadyLoggedOut: true });
       clearAllAuthCookies(response);
       return response;
     }
 
-    const session = await verifyUnifiedSession(sessionToken);
+    const [session, canonical] = await Promise.all([
+      verifyUnifiedSession(sessionToken),
+      getCanonicalSession(req, { strictRevocation: true }),
+    ]);
     const jti = session?.jti ?? null;
-    const userId = session?.accountId ?? session?.studentId ?? null;
-    if (!session || !jti || !userId) {
+    const signedUserId = session?.accountId ?? session?.studentId ?? null;
+    const userId =
+      canonical.academyAccountId ?? canonical.studentId ?? canonical.userId ?? null;
+    if (!session || !jti || !signedUserId || !userId || signedUserId !== userId) {
       const response = apiError("invalid_session", 401);
       clearAllAuthCookies(response);
       return response;
     }
 
-    const accessRevocation = await revokeSessionStrict(jti, userId);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
-
-    if (!accessRevocation.ok || !refreshRevoked) {
-      const response = apiError("logout_revocation_unavailable", 503, {
-        accessReason: accessRevocation.ok ? null : accessRevocation.reason,
-        refreshRevoked,
-      });
-      clearAllAuthCookies(response);
-      writeAudit({
-        actorId: userId,
-        action: "logout",
-        ip,
-        userAgent: deviceInfo,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessRevocation.ok ? null : accessRevocation.reason,
-          refreshRevoked,
+    const correlationId = resolveSensitiveAuditCorrelation(
+      req.headers.get("x-tecpey-request-id"),
+    );
+    let revoked;
+    try {
+      revoked = await logoutSessionAuthority({
+        userId,
+        currentSessionJti: jti,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType: session.accountId ? "user" : "student",
+          actorId: userId,
+          correlationId,
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "session.logout",
+            userId,
+          }),
         },
       });
+    } catch {
+      const response = apiError("logout_revocation_unavailable", 503);
+      clearAllAuthCookies(response);
       return response;
     }
 
-    const response = apiOk({ revoked: true });
-    clearAllAuthCookies(response);
-    writeAudit({
-      actorId: userId,
-      action: "logout",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { outcome: "success", refreshScope: "all_user_tokens" },
+    const response = apiOk({
+      revoked: true,
+      revokedCount: revoked.revokedCount,
+      revocationPending: revoked.revocationPending,
     });
+    clearAllAuthCookies(response);
     return response;
   });
 }

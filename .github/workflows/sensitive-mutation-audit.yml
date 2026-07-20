@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: sensitive-mutation-audit-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
 
 jobs:
   authority:
@@ -86,7 +86,9 @@ jobs:
           npm run test:sensitive-mutation-audit 2>&1 | tee /tmp/tecpey-sensitive-audit-tests.log
 
       - name: TypeScript
-        run: ./node_modules/.bin/tsc --noEmit
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/tsc --noEmit 2>&1 | tee /tmp/tecpey-sensitive-audit-typescript.log
 
       - name: Upload sensitive audit diagnostics
         if: ${{ failure() }}
@@ -96,5 +98,6 @@ jobs:
           path: |
             /tmp/tecpey-sensitive-audit-guard.log
             /tmp/tecpey-sensitive-audit-tests.log
+            /tmp/tecpey-sensitive-audit-typescript.log
           if-no-files-found: ignore
           retention-days: 7

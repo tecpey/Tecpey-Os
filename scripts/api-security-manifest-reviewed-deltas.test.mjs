@@ -104,6 +104,46 @@ describe("reviewed API security manifest deltas", () => {
     assert.equal(value.baseline.routes[0].sourceHash, "a".repeat(24));
   });
 
+  it("applies an ordered chain for the same operation when every hash link is exact", () => {
+    const value = fixture();
+    const finalReplacement = {
+      route: "/api/example",
+      method: "POST",
+      sourceHash: "c".repeat(24),
+      controls: { failClosed: true, transaction: true },
+    };
+    value.registry.entries.push({
+      route: "/api/example",
+      method: "POST",
+      previousSourceHash: "b".repeat(24),
+      issue: "#183",
+      owner: "security-platform",
+      reason: "A later reviewed authority slice advanced this exact operation again.",
+      replacement: finalReplacement,
+    });
+
+    const result = applyReviewedManifestDeltas(value);
+    assert.equal(result.appliedCount, 2);
+    assert.deepEqual(result.manifest.routes[0], finalReplacement);
+    assert.equal(value.baseline.routes[0].sourceHash, "a".repeat(24));
+  });
+
+  it("applies a delegated-only contract change while the route source hash stays fixed", () => {
+    const value = fixture();
+    value.baseline.routes[0].delegatedSourceHash = "d".repeat(24);
+    value.baselineRaw = `${JSON.stringify(value.baseline, null, 2)}\n`;
+    value.registry.baselineBlobSha = gitBlobSha(value.baselineRaw);
+    value.registry.entries[0].replacement = {
+      ...structuredClone(value.baseline.routes[0]),
+      delegatedSourceHash: "e".repeat(24),
+      controls: { failClosed: true },
+    };
+
+    const result = applyReviewedManifestDeltas(value);
+    assert.equal(result.manifest.routes[0].sourceHash, "a".repeat(24));
+    assert.equal(result.manifest.routes[0].delegatedSourceHash, "e".repeat(24));
+  });
+
   it("rejects a different baseline blob", () => {
     const value = fixture();
     value.registry.baselineBlobSha = "0".repeat(40);
@@ -116,10 +156,16 @@ describe("reviewed API security manifest deltas", () => {
     assert.throws(() => applyReviewedManifestDeltas(value), /previous_hash_mismatch/);
   });
 
-  it("rejects duplicate operation deltas", () => {
+  it("rejects a repeated operation that does not continue the exact hash chain", () => {
     const value = fixture();
     value.registry.entries.push(structuredClone(value.registry.entries[0]));
-    assert.throws(() => applyReviewedManifestDeltas(value), /duplicate/);
+    assert.throws(() => applyReviewedManifestDeltas(value), /previous_hash_mismatch/);
+  });
+
+  it("rejects a structurally exact no-op ledger entry", () => {
+    const value = fixture();
+    value.registry.entries[0].replacement = structuredClone(value.baseline.routes[0]);
+    assert.throws(() => applyReviewedManifestDeltas(value), /delta_noop/);
   });
 
   it("rejects a replacement aimed at another operation", () => {

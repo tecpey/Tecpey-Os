@@ -45,6 +45,60 @@ function stable(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function firstDifference(expected, actual, pathLabel = "manifest") {
+  if (Object.is(expected, actual)) return null;
+  if (typeof expected !== typeof actual) {
+    return { path: pathLabel, expected, actual };
+  }
+  if (expected === null || actual === null || typeof expected !== "object") {
+    return { path: pathLabel, expected, actual };
+  }
+  if (Array.isArray(expected) !== Array.isArray(actual)) {
+    return { path: pathLabel, expected, actual };
+  }
+  if (Array.isArray(expected)) {
+    if (expected.length !== actual.length) {
+      return {
+        path: `${pathLabel}.length`,
+        expected: expected.length,
+        actual: actual.length,
+      };
+    }
+    for (let index = 0; index < expected.length; index += 1) {
+      const difference = firstDifference(
+        expected[index],
+        actual[index],
+        `${pathLabel}[${index}]`,
+      );
+      if (difference) return difference;
+    }
+    return null;
+  }
+
+  const expectedKeys = Object.keys(expected);
+  const actualKeys = Object.keys(actual);
+  if (expectedKeys.length !== actualKeys.length) {
+    return { path: `${pathLabel}.keys`, expected: expectedKeys, actual: actualKeys };
+  }
+  for (const key of expectedKeys) {
+    if (!(key in actual)) {
+      return { path: `${pathLabel}.${key}`, expected: expected[key], actual: "<missing>" };
+    }
+    const difference = firstDifference(
+      expected[key],
+      actual[key],
+      `${pathLabel}.${key}`,
+    );
+    if (difference) return difference;
+  }
+  return null;
+}
+
+function boundedDiagnosticValue(value) {
+  const encoded = JSON.stringify(value);
+  return encoded.length <= 500 ? encoded : `${encoded.slice(0, 500)}…`;
+}
+
 async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
   const primaryRaw = await readFile(primaryPath, "utf8");
   const primary = JSON.parse(primaryRaw);
@@ -130,8 +184,13 @@ try {
   }
 
   if (stable(effectiveBaseline) !== stable(generated)) {
+    const difference = firstDifference(effectiveBaseline, generated);
+    const diagnostic = difference
+      ? ` First difference at ${difference.path}: expected=${boundedDiagnosticValue(difference.expected)} actual=${boundedDiagnosticValue(difference.actual)}.`
+      : "";
     failures.push(
-      "Committed API security manifest plus its exact reviewed delta ledger is stale. Regenerate from the exact branch head and review every changed operation.",
+      "Committed API security manifest plus its exact reviewed delta ledger is stale. Regenerate from the exact branch head and review every changed operation."
+      + diagnostic,
     );
   }
 
