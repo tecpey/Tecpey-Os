@@ -3,13 +3,18 @@ import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
-import { writeAudit } from "@/lib/security/audit-log";
 import {
   loadMentorAiPreferences,
   setMentorAiPreferences,
+  fingerprintMentorPreferenceStudent,
 } from "@/lib/ai/mentor-trust-store";
+import { PLATFORM } from "@/lib/platform-config";
+import {
+  hashSensitiveAuditRequest,
+  resolveSensitiveAuditCorrelation,
+} from "@/lib/security/sensitive-mutation-audit";
 
 export const dynamic = "force-dynamic";
 
@@ -70,31 +75,42 @@ export async function PATCH(req: NextRequest) {
         return noStore(apiError("invalid_mentor_preferences", 400));
       }
 
+      const studentFingerprint = fingerprintMentorPreferenceStudent(
+        session.studentId,
+      );
       const updated = await setMentorAiPreferences({
         studentId: session.studentId,
         externalProviderEnabled: body.externalProviderEnabled,
-        behavioralPersonalizationEnabled: body.behavioralPersonalizationEnabled,
-      });
-      if (!updated.ok) return noStore(apiError("mentor_preferences_unavailable", 503));
-
-      writeAudit({
-        actorId: session.studentId,
-        action: "risk_event",
-        resourceType: "mentor_ai_preferences",
-        resourceId: session.studentId,
-        ip: getClientIp(req),
-        userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
-        metadata: {
-          event: "mentor_ai_preferences_changed",
-          externalProviderEnabled: updated.preferences.externalProviderEnabled,
-          behavioralPersonalizationEnabled:
-            updated.preferences.behavioralPersonalizationEnabled,
-          realExchangeSignalsEnabled: false,
-          consentVersion: updated.preferences.consentVersion,
+        behavioralPersonalizationEnabled:
+          body.behavioralPersonalizationEnabled,
+        audit: {
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          actorType: "student",
+          actorId: session.studentId,
+          correlationId: resolveSensitiveAuditCorrelation(
+            req.headers.get("x-tecpey-request-id"),
+          ),
+          requestHash: hashSensitiveAuditRequest({
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            action: "mentor.preferences.update",
+            studentFingerprint,
+            externalProviderEnabled: body.externalProviderEnabled,
+            behavioralPersonalizationEnabled:
+              body.behavioralPersonalizationEnabled,
+            realExchangeSignalsEnabled: false,
+          }),
         },
       });
+      if (!updated.ok) {
+        return noStore(apiError("mentor_preferences_unavailable", 503));
+      }
 
-      return noStore(apiOk({ preferences: updated.preferences }));
+      return noStore(
+        apiOk({
+          preferences: updated.preferences,
+          changed: updated.changed,
+        }),
+      );
     },
   );
 }
