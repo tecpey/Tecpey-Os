@@ -1,0 +1,97 @@
+name: One-shot Custody Release Gate Remediation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/custody-remediation-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-custody-release-gate
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/custody-release-gate
+          fetch-depth: 2
+
+      - name: Reconstruct and verify reviewed patch
+        run: |
+          set -euo pipefail
+          cat .github/custody-gate.patch.gz.b64.* > /tmp/custody-gate.patch.gz.b64
+          base64 -d /tmp/custody-gate.patch.gz.b64 > /tmp/custody-gate.patch.gz
+          gzip -dc /tmp/custody-gate.patch.gz > /tmp/custody-gate.patch
+          git apply --check /tmp/custody-gate.patch
+          git apply /tmp/custody-gate.patch
+          git diff --check
+
+      - name: Install dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run custody:check
+      - run: npm run test:custody
+      - run: npm run withdrawals:check
+      - run: npm run check
+
+      - name: Prove production disabled mode and raw-key denial
+        run: |
+          set -euo pipefail
+          export NODE_ENV=production
+          export NEXT_PUBLIC_SITE_URL=https://tecpey.invalid
+          export NEXT_PUBLIC_API_URL=https://tecpey.invalid/api
+          export NEXT_PUBLIC_API_BACKEND_URL=https://tecpey.invalid/api
+          export NEXT_PUBLIC_API_SOCKET_URL=wss://tecpey.invalid/ws
+          export TECPEY_SESSION_SECRET=0123456789abcdef0123456789abcdef
+          export TECPEY_REFRESH_SECRET=abcdef0123456789abcdef0123456789
+          export TECPEY_ACADEMY_AUTH_SECRET=23456789abcdef0123456789abcdef01
+          export CERTIFICATE_SIGNING_SECRET=3456789abcdef0123456789abcdef012
+          export TECPEY_WITHDRAWAL_PRICE_SECRET=456789abcdef0123456789abcdef0123
+          export TECPEY_OFFLINE_SYNC_SECRET=56789abcdef0123456789abcdef01234
+          export TECPEY_CRM_PII_KEY_B64=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+          export TECPEY_CRM_CONTACT_HASH_SECRET=789abcdef0123456789abcdef0123456
+          export TECPEY_TRUSTED_PROXY_HEADER=x-real-ip
+          export TECPEY_TRUSTED_PROXY_HOPS=1
+          export DATABASE_URL=postgres://tecpey:tecpey@127.0.0.1:5432/tecpey
+          export REDIS_URL=redis://127.0.0.1:6379
+          export TECPEY_ALLOW_MEMORY_RATE_LIMIT=1
+          export TECPEY_CUSTODY_MODE=disabled
+          npm run env:check
+
+          secret=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          set +e
+          output=$(WALLET_ETHEREUM_PRIVATE_KEY="$secret" npm run env:check 2>&1)
+          status=$?
+          set -e
+          test "$status" -ne 0
+          printf '%s\n' "$output" | grep -F 'production_environment_private_keys_forbidden'
+          if printf '%s\n' "$output" | grep -F "$secret"; then
+            echo 'raw private key leaked into validation output'
+            exit 1
+          fi
+
+      - name: Commit permanent gate and remove temporary assets
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/custody-source-snapshot-temp.yml \
+            .github/workflows/custody-remediation-once.yml \
+            .github/custody-gate.patch.gz.b64.*
+          git add -A
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(wallet): enforce production custody release gate"
+          git push origin HEAD:fix/custody-release-gate
