@@ -439,7 +439,7 @@ describe("Password rotation mandatory audit evidence", { concurrency: 1 }, () =>
         const clearedSessionCookie = response.cookies.get(COOKIES.SESSION);
         assert.ok(clearedSessionCookie);
         assert.equal(clearedSessionCookie.value, "");
-        assert.equal(clearedSessionCookie.expires?.getTime(), 0);
+        assert.equal(new Date(clearedSessionCookie.expires ?? 0).getTime(), 0);
 
         const state = await withDb(async (client) => {
           const account = await client.query<{ password_hash: string }>(
