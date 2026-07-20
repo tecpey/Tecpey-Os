@@ -87,30 +87,10 @@
         { "route": "/api/auth/webauthn/register/verify", "method": "POST", "owner": "identity-security" },
         { "route": "/api/command-center/auth/logout", "method": "POST", "owner": "admin-security-platform" },
         { "route": "/api/community/profile", "method": "PATCH", "owner": "social-platform-security" },
-        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
         { "route": "/api/mentor-memory", "method": "DELETE", "owner": "mentor-ai-platform" },
         { "route": "/api/mentor-memory", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" },
         { "route": "/api/notifications/consent", "method": "POST", "owner": "notification-platform-security" },
         { "route": "/api/notifications/preferences", "method": "PATCH", "owner": "notification-platform-security" }
-      ]
-    },
-    {
-      "id": "durable-audit",
-      "finding": "missing_audit_or_observability_evidence",
-      "issue": "#144",
-      "reason": "The sensitive mutation remains inventoried while durable actor-scoped and privacy-safe audit evidence is added.",
-      "compensatingControls": [
-        "The exact operation and current control evidence remain pinned in the generated manifest.",
-        "Existing authentication, authorization, and private response controls remain active.",
-        "Issue #144 tracks durable evidence, redaction, sink-failure behavior, and negative tests."
-      ],
-      "expiresOn": "2026-08-12",
-      "operations": [
-        { "route": "/api/device-token", "method": "POST", "owner": "notification-platform-security" },
-        { "route": "/api/mentor-conversations/migrate", "method": "POST", "owner": "mentor-ai-platform" },
-        { "route": "/api/mentor-profile/recompute", "method": "POST", "owner": "mentor-ai-platform" }
       ]
     }
   ]
