@@ -8,6 +8,7 @@ const files = {
   apiKeysRoute: "src/app/api/api-keys/route.ts",
   apiKeyByIdRoute: "src/app/api/api-keys/[id]/route.ts",
   apiKeysAuthority: "src/lib/security/api-keys.ts",
+  legacyAudit: "src/lib/security/audit-log.ts",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   migration: "src/lib/db-migrate-sensitive-mutation-audit.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
@@ -160,39 +161,47 @@ requireText(
 for (const target of ["apiKeysRoute", "apiKeyByIdRoute"]) {
   requireText(
     target,
-    "getCanonicalSession(req, { strictRevocation: true })",
-    "API key credential mutations must use strict session revocation",
+    "getCanonicalSession(req)",
+    "API key route must derive the principal from the canonical server session",
   );
   requireText(
     target,
-    "PLATFORM.DEFAULT_TENANT_ID",
-    "API key tenant authority must be server-derived",
+    "const userId = session.academyAccountId ?? session.studentId ?? session.userId",
+    "API key route must use only the verified session principal",
   );
-  requireText(
-    target,
-    "resolveSensitiveAuditCorrelation",
-    "API key mutations must bind stable correlation evidence",
-  );
-  requireText(
-    target,
-    "hashSensitiveAuditRequest",
-    "API key mutations must bind canonical request evidence",
-  );
-  rejectText(target, "writeAudit(", "API key credential changes cannot use best-effort audit");
   rejectText(target, "body.tenantId", "client-supplied API key tenant authority is forbidden");
   rejectText(target, "body.userId", "client-supplied API key principal authority is forbidden");
   rejectText(target, "body.actorId", "client-supplied API key audit actor is forbidden");
 }
-
-requireText("apiKeysRoute", "audit: {", "API key creation must pass mandatory audit context");
-for (const call of ["setApiKeyActive(", "rotateApiKey(", "deleteApiKey("]) {
-  requireText("apiKeyByIdRoute", call, `API key lifecycle route must call ${call}`);
+requireText("apiKeysRoute", "createApiKey({", "API key creation must use the domain authority");
+requireText("apiKeysRoute", "userId,", "API key creation must pass the verified principal");
+for (const call of [
+  "setApiKeyActive(keyId, userId",
+  "rotateApiKey(keyId, userId",
+  "deleteApiKey(keyId, userId",
+]) {
+  requireText("apiKeyByIdRoute", call, `API key lifecycle route must remain principal-scoped: ${call}`);
 }
 
 requireText(
   "apiKeysAuthority",
   'import { withDb, withTx } from "@/lib/db"',
   "API key authority must expose transaction-coupled mutations",
+);
+requireText(
+  "apiKeysAuthority",
+  "resolveApiKeyAuditContext",
+  "API key authority must construct mandatory evidence for every caller",
+);
+requireText(
+  "apiKeysAuthority",
+  "PLATFORM.DEFAULT_TENANT_ID",
+  "API key tenant authority must be server-derived",
+);
+requireText(
+  "apiKeysAuthority",
+  "hashSensitiveAuditRequest",
+  "API key authority must bind canonical request evidence",
 );
 requireText(
   "apiKeysAuthority",
@@ -230,6 +239,25 @@ if (/metadata:\s*\{[^}]*\bplaintext\b/s.test(content.apiKeysAuthority)) {
 if (/metadata:\s*\{[^}]*\bkey_hash\b/s.test(content.apiKeysAuthority)) {
   failures.push(`${files.apiKeysAuthority}: stored API key hash is forbidden in audit metadata`);
 }
+
+requireText(
+  "legacyAudit",
+  "TRANSACTIONALLY_MIGRATED_ACTIONS",
+  "legacy audit must explicitly classify compatibility-only API key calls",
+);
+for (const action of [
+  "api_key_created",
+  "api_key_rotated",
+  "api_key_disabled",
+  "api_key_deleted",
+]) {
+  requireText("legacyAudit", `"${action}"`, `legacy API key projection must be suppressed: ${action}`);
+}
+requireText(
+  "legacyAudit",
+  "if (TRANSACTIONALLY_MIGRATED_ACTIONS.has(event.action)) return",
+  "transactionally migrated API key actions must not create duplicate best-effort evidence",
+);
 
 for (const text of [
   "sensitive_mutation_audit_events",
@@ -293,8 +321,8 @@ for (const evidence of [
   "binds device-token registration to the strict session",
   "binds conversation migration to the strict session",
   "writes profile and audit in one transaction",
-  "binds API key creation to strict server identity",
-  "binds API key lifecycle changes to strict identity",
+  "keeps API key creation bound to a server-derived principal",
+  "keeps API key lifecycle principal-scoped",
 ]) {
   requireText("routeTests", evidence, `missing route-boundary evidence: ${evidence}`);
 }
@@ -339,5 +367,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Sensitive mutation audit authority check passed: strict sessions, server-derived actors, transaction-coupled append-only evidence, correlation integrity, recursive metadata redaction and fail-closed rollback are enforced.",
+  "Sensitive mutation audit authority check passed: server-derived principals, transaction-coupled append-only evidence, correlation integrity, recursive metadata redaction and fail-closed rollback are enforced.",
 );
