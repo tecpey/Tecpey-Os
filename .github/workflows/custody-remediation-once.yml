@@ -96,7 +96,7 @@ jobs:
             exit 1
           fi
 
-      - name: Commit permanent source changes
+      - name: Publish validated permanent tree
         run: |
           set -euo pipefail
           mv /tmp/custody-temp-workflows/custody-source-snapshot-temp.yml .github/workflows/
@@ -108,4 +108,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "fix(wallet): enforce production custody release gate"
-          git push origin HEAD:fix/custody-release-gate
+          git push origin HEAD:refs/heads/fix/custody-release-gate-applied
