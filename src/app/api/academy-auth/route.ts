@@ -25,21 +25,20 @@ import {
 import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
-  registerSession,
-  revokeSessionStrict,
-} from "@/lib/security/session-store";
-import { writeAudit } from "@/lib/security/audit-log";
-import {
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
   clearRefreshCookie,
-  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
+import {
+  admitSession,
+  revokeExactSession,
+} from "@/lib/security/session-authority";
+import { buildSessionAuditContext } from "@/lib/security/session-route-context";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { storePreAuthToken } from "@/lib/security/totp";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
-import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import { deviceFingerprint } from "@/lib/security/webauthn";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type AcademyAccount = {
@@ -294,23 +293,17 @@ export async function POST(req: NextRequest) {
           );
           return result.rows[0]?.enabled ?? false;
         });
-
-        if (twoFaResult.enabled && twoFaResult.value) {
+        if (!twoFaResult.enabled) {
+          return apiError("authentication_policy_unavailable", 503);
+        }
+        if (twoFaResult.value) {
           const preAuthToken = crypto.randomUUID();
           await storePreAuthToken(preAuthToken, account!.accountId);
           trackAuthEvent("login_2fa_required");
-          writeAudit({
-            actorId: account!.accountId,
-            action: "login",
-            ip,
-            userAgent: deviceInfo,
-            metadata: { mode, email: account!.email, step: "2fa_required" },
-          });
           return apiOk({ requires2fa: true, preAuthToken });
         }
       }
 
-      const familyId = crypto.randomUUID();
       const accessToken = await signUnifiedSession({
         accountId: account.accountId,
         studentId: null,
@@ -318,32 +311,44 @@ export async function POST(req: NextRequest) {
         displayName: account.displayName,
         username: account.username,
       });
-      const jti = extractJtiFromToken(accessToken);
-      const exp = extractExpFromToken(accessToken);
-      if (!jti || !exp) return apiError("session_issue_failed", 503);
+      const accessJti = extractJtiFromToken(accessToken);
+      const accessExp = extractExpFromToken(accessToken);
+      if (!accessJti || !accessExp) return apiError("session_issue_failed", 503);
 
-      const refreshToken = await issueRefreshToken({
+      const familyId = crypto.randomUUID();
+      const preparedRefresh = await prepareRefreshToken({
         userId: account.accountId,
         familyId,
         deviceInfo,
         ip,
       });
-      if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+      if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-      const registered = await registerSession({
-        jti,
-        userId: account.accountId,
-        deviceInfo,
-        ip,
-        expiresAt: new Date(exp * 1000),
-      });
-      if (!registered) {
-        await revokeAllRefreshTokensForUser(account.accountId);
+      let admission;
+      try {
+        admission = await admitSession({
+          userId: account.accountId,
+          accessJti,
+          accessExpiresAt: new Date(accessExp * 1000),
+          preparedRefresh,
+          deviceInfo,
+          ip,
+          deviceFingerprint: deviceFingerprint(deviceInfo, ip),
+          method: mode === "login" ? "password" : "password_signup",
+          audit: buildSessionAuditContext({
+            req,
+            userId: account.accountId,
+            actorType: "user",
+            action: "session.issue",
+            evidence: {
+              authenticationMethod:
+                mode === "login" ? "password" : "password_signup",
+            },
+          }),
+        });
+      } catch {
         return apiError("session_registry_unavailable", 503);
       }
-
-      const fingerprint = deviceFingerprint(deviceInfo, ip);
-      const { isNew } = await markDeviceSeen(account.accountId, fingerprint);
 
       const response = apiOk({
         authenticated: true,
@@ -360,18 +365,10 @@ export async function POST(req: NextRequest) {
         sameSite: "lax",
         maxAge: ACCESS_COOKIE_TTL_S,
       });
-      setRefreshCookie(response, refreshToken);
+      setRefreshCookie(response, admission.refreshToken);
 
       trackAuthEvent("login_success");
-      if (isNew) trackAuthEvent("new_device_detected");
-      writeAudit({
-        actorId: account.accountId,
-        action: "login",
-        ip,
-        userAgent: deviceInfo,
-        metadata: { mode, email: account.email, isNewDevice: isNew },
-      });
-
+      if (admission.isNewDevice) trackAuthEvent("new_device_detected");
       return response;
     } catch {
       return apiError("server_error", 500);
@@ -383,10 +380,7 @@ export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
-    const ip = getClientIp(req);
-    const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
-
     if (!sessionToken) {
       const response = apiOk({ revoked: false, alreadyLoggedOut: true });
       clearAllAuthCookies(response);
@@ -394,46 +388,41 @@ export async function DELETE(req: NextRequest) {
     }
 
     const session = await verifyUnifiedSession(sessionToken);
-    const jti = session?.jti ?? null;
+    const sessionId = session?.jti ?? null;
     const userId = session?.accountId ?? session?.studentId ?? null;
-    if (!session || !jti || !userId) {
+    if (!session || !sessionId || !userId) {
       const response = apiError("invalid_session", 401);
       clearAllAuthCookies(response);
       return response;
     }
 
-    const accessRevocation = await revokeSessionStrict(jti, userId);
-    const refreshRevoked = await revokeAllRefreshTokensForUser(userId);
+    const result = await revokeExactSession({
+      sessionId,
+      userId,
+      action: "session.logout",
+      audit: buildSessionAuditContext({
+        req,
+        userId,
+        actorType: session.accountId ? "user" : "student",
+        action: "session.logout",
+        evidence: { sessionId },
+      }),
+    });
 
-    if (!accessRevocation.ok || !refreshRevoked) {
+    if (!result.ok) {
       const response = apiError("logout_revocation_unavailable", 503, {
-        accessReason: accessRevocation.ok ? null : accessRevocation.reason,
-        refreshRevoked,
+        reason: result.reason,
       });
       clearAllAuthCookies(response);
-      writeAudit({
-        actorId: userId,
-        action: "logout",
-        ip,
-        userAgent: deviceInfo,
-        metadata: {
-          outcome: "failed",
-          accessReason: accessRevocation.ok ? null : accessRevocation.reason,
-          refreshRevoked,
-        },
-      });
       return response;
     }
 
-    const response = apiOk({ revoked: true });
-    clearAllAuthCookies(response);
-    writeAudit({
-      actorId: userId,
-      action: "logout",
-      ip,
-      userAgent: deviceInfo,
-      metadata: { outcome: "success", refreshScope: "all_user_tokens" },
+    const response = apiOk({
+      revoked: true,
+      revokedCount: result.revokedCount,
+      denyCachePending: result.denyCachePending,
     });
+    clearAllAuthCookies(response);
     return response;
   });
 }
