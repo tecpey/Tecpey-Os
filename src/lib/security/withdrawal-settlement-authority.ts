@@ -1,9 +1,7 @@
 import { withTx } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
 import { hashSensitiveAuditRequest } from "@/lib/security/sensitive-mutation-audit";
-import {
-  completeWithdrawalConfirmationOutbox,
-} from "@/lib/security/withdrawal-external-effect-authority";
+import { completeWithdrawalConfirmationOutbox } from "@/lib/security/withdrawal-external-effect-authority";
 import {
   fingerprintExpectedTransactionHash,
   writeWithdrawalExternalEffectEvidenceTx,
@@ -73,7 +71,7 @@ export async function settleConfirmedWithdrawal(input: {
       });
       return "replayed" as const;
     }
-    if (!["broadcasted", "confirming"].includes(row.state)) {
+    if (row.state !== "confirming") {
       throw new Error(
         `Withdrawal ${input.withdrawalId} is not settleable from state ${row.state}`,
       );
@@ -126,14 +124,14 @@ export async function settleConfirmedWithdrawal(input: {
       `UPDATE withdrawals SET
          state = 'completed',
          confirmation_count = $3,
-         block_number = $4,
+         block_number = $4::numeric,
          completed_at = NOW(),
          funds_reserved_at = NULL,
          execution_error = NULL,
          updated_at = NOW()
        WHERE id = $1
          AND tx_hash = $2
-         AND state IN ('broadcasted', 'confirming')
+         AND state = 'confirming'
        RETURNING id`,
       [
         input.withdrawalId,
@@ -205,6 +203,7 @@ async function writeSettlementEvidence(
       observedConfirmations: input.confirmations,
       blockNumber: input.blockNumber,
       transactionFingerprint,
+      expectedTransactionHashFingerprint: transactionFingerprint,
       ledgerType: "withdraw",
       heldConsumed: true,
       finalState: "completed",
