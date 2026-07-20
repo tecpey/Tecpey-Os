@@ -12,12 +12,11 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 53,
-    "findings": 70,
+    "operationsWithFindings": 52,
+    "findings": 64,
     "findingCounts": {
-      "missing_audit_or_observability_evidence": 3,
       "parsed_body_without_size_limit": 48,
-      "required_strict_revocation_missing": 19
+      "required_strict_revocation_missing": 16
     }
   },
   "routes": [
@@ -3068,12 +3067,12 @@
       "route": "/api/device-token",
       "method": "POST",
       "sourcePath": "src/app/api/device-token/route.ts",
-      "sourceHash": "44c916354fa07e1dc46505d9",
+      "sourceHash": "0605f4ac8a60fd50cf324a5d",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
       "classification": "authenticated",
-      "principalSource": "getStudentSessionFromRequest",
+      "principalSource": "getCanonicalSession",
       "tenantSource": null,
       "risk": [
         "credential",
@@ -3081,19 +3080,19 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "device-token-register",
         "expectsBody": true,
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "local:json",
-        "idempotency": false,
+        "idempotency": true,
         "transaction": true,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
         "noStore": true,
-        "audit": false,
+        "audit": true,
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
@@ -3103,7 +3102,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "device-token",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3117,9 +3118,7 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
-        "parsed_body_without_size_limit",
-        "missing_audit_or_observability_evidence"
+        "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/device-token/route.ts",
@@ -3303,7 +3302,7 @@
       "route": "/api/mentor-conversations/migrate",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
-      "sourceHash": "39718934b6f919e04bf3bc70",
+      "sourceHash": "283d5243036c91c23474e894",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3315,19 +3314,19 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "mentor-conversations-migrate",
         "expectsBody": true,
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "local:json",
-        "idempotency": false,
+        "idempotency": true,
         "transaction": true,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
         "noStore": true,
-        "audit": false,
+        "audit": true,
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
@@ -3337,7 +3336,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-conversations",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3351,9 +3352,7 @@
         "serviceIdentity": false
       },
       "findings": [
-        "required_strict_revocation_missing",
-        "parsed_body_without_size_limit",
-        "missing_audit_or_observability_evidence"
+        "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-conversations/migrate/route.ts",
@@ -3486,7 +3485,7 @@
       "route": "/api/mentor-profile/recompute",
       "method": "POST",
       "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
-      "sourceHash": "0f2dd25cfddda9d9ceb38c33",
+      "sourceHash": "821dffc9f31a0e503e5a28e4",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3499,19 +3498,19 @@
       ],
       "controls": {
         "csrf": true,
-        "strictRevocation": false,
+        "strictRevocation": true,
         "rateLimit": true,
         "rateLimitNamespace": "mentor-profile-recompute",
         "expectsBody": false,
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": null,
-        "idempotency": false,
-        "transaction": false,
+        "idempotency": true,
+        "transaction": true,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
         "noStore": true,
-        "audit": false,
+        "audit": true,
         "redaction": true,
         "failClosed": true,
         "serviceIdentity": false,
@@ -3521,7 +3520,9 @@
         "bodySizeLimitAuthority": null
       },
       "domainOwner": "mentor-profile",
-      "testReferences": [],
+      "testReferences": [
+        "src/tests/security/sensitive-mutation-audit-routes.test.ts"
+      ],
       "requirements": {
         "csrf": true,
         "strictRevocation": true,
@@ -3534,10 +3535,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "required_strict_revocation_missing",
-        "missing_audit_or_observability_evidence"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/mentor-profile/recompute/route.ts",
         "method": "POST",
