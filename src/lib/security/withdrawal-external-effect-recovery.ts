@@ -3,24 +3,27 @@ import { finalizeWithdrawalBroadcastFailure } from "@/lib/security/withdrawal-ex
 
 export async function recoverExpiredWithdrawalBroadcastAttempt(
   withdrawalId: string,
-): Promise<"recovered" | "none"> {
+): Promise<"recovered" | "active" | "none"> {
   const selected = await withDb(async (client) => {
-    const result = await client.query<{ id: string }>(
-      `SELECT id
+    const result = await client.query<{
+      id: string;
+      expired: boolean;
+    }>(
+      `SELECT id, lease_expires_at <= NOW() AS expired
          FROM withdrawal_broadcast_attempts
         WHERE withdrawal_id = $1
           AND state = 'calling'
-          AND lease_expires_at <= NOW()
         ORDER BY attempt_number DESC
         LIMIT 1`,
       [withdrawalId],
     );
-    return result.rows[0]?.id ?? null;
+    return result.rows[0] ?? null;
   });
   if (!selected.enabled) {
     throw new Error("Withdrawal database unavailable");
   }
   if (!selected.value) return "none";
+  if (!selected.value.expired) return "active";
 
   // A stale `calling` attempt may have reached the provider before the worker
   // died. It is therefore unknown, never a normal retry. The canonical
@@ -28,7 +31,7 @@ export async function recoverExpiredWithdrawalBroadcastAttempt(
   // reconcile the deterministic expected hash before another RPC submission.
   await finalizeWithdrawalBroadcastFailure({
     withdrawalId,
-    attemptId: selected.value,
+    attemptId: selected.value.id,
     error: new Error("withdrawal_broadcast_lease_timeout"),
   });
   return "recovered";
