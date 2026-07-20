@@ -6,6 +6,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { setApiKeyActive, deleteApiKey, rotateApiKey } from "@/lib/security/api-keys";
 import { writeAudit } from "@/lib/security/audit-log";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,13 @@ export async function PATCH(
     const { id: keyId } = await params;
 
     let body: unknown;
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 4_096,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     try { body = await req.json(); } catch { return apiError("invalid_input", 400); }
 
     const { action } = body as Record<string, unknown>;

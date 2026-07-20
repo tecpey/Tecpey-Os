@@ -7,6 +7,7 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { createApiKey, listApiKeys } from "@/lib/security/api-keys";
 import { writeAudit } from "@/lib/security/audit-log";
 import type { ApiKeyPermission } from "@/lib/security/api-keys";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,13 @@ export async function POST(req: NextRequest) {
     if (!userId) return apiError("unauthorized", 401);
 
     let body: unknown;
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 8_192,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     try { body = await req.json(); } catch { return apiError("invalid_input", 400); }
 
     const { name, permissions, ipWhitelist, expiresAt } = body as Record<string, unknown>;

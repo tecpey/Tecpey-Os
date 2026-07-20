@@ -33,6 +33,7 @@ import type {
   TimeInForce,
 } from "@/lib/trading/types";
 import { PLATFORM } from "@/lib/platform-config";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,14 @@ export async function POST(req: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 4_000,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const raw = await req.text();
       if (Buffer.byteLength(raw, "utf8") > 4_000) {
         return apiError("payload_too_large", 413);

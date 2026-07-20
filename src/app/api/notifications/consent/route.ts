@@ -18,6 +18,7 @@ import {
   recordNotificationConsent,
   validConsentIdempotencyKey,
 } from "@/lib/notifications/preferences";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -86,6 +87,13 @@ export async function POST(req: NextRequest) {
 
     let raw: unknown;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 2_048,
+      });
+      if (!boundedBodyRequest.ok) {
+        return notificationApiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       raw = await req.json();
     } catch {
       return notificationApiError("invalid_json", 400);

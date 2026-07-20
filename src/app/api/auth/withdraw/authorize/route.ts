@@ -20,6 +20,7 @@ import {
   issueWithdrawalAuthorizationTx,
   WITHDRAWAL_ADMISSION_POLICY_VERSION,
 } from "@/lib/security/withdrawal-admission-authority";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,14 @@ export async function POST(req: NextRequest) {
       });
       if (!limited.ok) return apiError("rate_limited", 429);
 
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 16_384,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json().catch(() => ({})) as Record<string, unknown>;
       const code = typeof body.code === "string" ? body.code.trim() : "";
       if (!/^\d{6}$/.test(code)) return apiError("invalid_code_format", 400);

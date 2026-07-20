@@ -8,6 +8,7 @@ import { awardMilestonesAfterCertificate } from "@/lib/phase5-achievement-engine
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-certificates" }, async () => {
@@ -38,6 +39,14 @@ export async function POST(req: NextRequest) {
     const studentId = cleanText(session?.studentId, 80);
     if (!studentId) return apiError("complete_account_required", 401);
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 2_048,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json().catch(() => ({}));
       const termNumber = Number(body.termNumber || 1);
       const result = await withDb(async (client) => {

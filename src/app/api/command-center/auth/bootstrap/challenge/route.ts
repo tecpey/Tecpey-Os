@@ -11,6 +11,7 @@ import {
   getAdminWebAuthnRpConfig,
   storeAdminWebAuthnChallenge,
 } from "@/lib/security/admin-webauthn";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,14 @@ export async function POST(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
     if (!verifyAdminBootstrapToken(req)) return apiError("admin_bootstrap_unauthorized", 401);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 8_192,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     if (!validEmail(body.email)) return apiError("invalid_email", 400);
     if (typeof body.displayName !== "string" || body.displayName.trim().length < 2) {

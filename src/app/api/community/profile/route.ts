@@ -9,6 +9,7 @@ import {
 } from "@/lib/community-career";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/community/profile" }, async () => {
@@ -36,6 +37,14 @@ export async function PATCH(req: NextRequest) {
       windowMs: 60_000,
     });
     if (!limit.ok) return apiError("rate_limited", 429);
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 2_048,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const visibility = body.visibility === "private" ? "private" : "public";
     const updated = await setPublicVisibilityForStudent(

@@ -18,6 +18,7 @@ import {
   type ArenaAttempt,
   type ArenaDecision,
 } from "@/lib/trading-arena-account";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -303,6 +304,13 @@ export async function POST(request: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(request, {
+        maxBytes: 8_000,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      request = boundedBodyRequest.request;
       body = await request.json() as Record<string, unknown>;
     } catch {
       return apiError("invalid_json", 400);

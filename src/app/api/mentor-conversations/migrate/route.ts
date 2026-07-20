@@ -11,6 +11,7 @@ import {
 } from "@/lib/security/sensitive-mutation-audit";
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,13 @@ export async function POST(req: NextRequest) {
 
   let body: unknown;
   try {
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 262_144,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     body = await req.json();
   } catch {
     return apiError("invalid_body", 400);

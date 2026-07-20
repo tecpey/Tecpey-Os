@@ -16,6 +16,7 @@ import {
 } from "@/lib/academy-authority";
 import { ACADEMY_XP } from "@/lib/academy-reward-policy";
 import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type Queryable = {
   query: (
@@ -132,6 +133,14 @@ export async function POST(req: NextRequest) {
       const studentId = session.studentId;
 
       try {
+        const boundedBodyRequest = await readBoundedJsonRequest(req, {
+          maxBytes: 80_000,
+          allowEmptyObject: true,
+        });
+        if (!boundedBodyRequest.ok) {
+          return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+        }
+        req = boundedBodyRequest.request;
         const raw = await req.text();
         if (raw.length > 20_000) return apiError("payload_too_large", 413);
         const body = JSON.parse(raw || "{}") as Record<string, unknown>;

@@ -29,6 +29,7 @@ import { writeAudit } from "@/lib/security/audit-log";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { withDb } from "@/lib/db";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,13 @@ export async function POST(req: NextRequest) {
 
       const ip = getClientIp(req);
       const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 131_072,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json().catch(() => ({}));
       const challenge = extractWebAuthnClientChallenge(
         body.response?.response?.clientDataJSON,

@@ -40,6 +40,7 @@ import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { storePreAuthToken } from "@/lib/security/totp";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type AcademyAccount = {
   accountId: string;
@@ -167,6 +168,13 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 8_192,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json();
       const mode = body.mode === "login" ? "login" : "signup";
       const email = normalizeAcademyEmail(body.email);

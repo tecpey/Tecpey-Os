@@ -35,6 +35,7 @@ import {
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,13 @@ export async function POST(req: NextRequest) {
       return apiError("invalid_session", 401);
     }
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 8_192,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const currentPassword =
       typeof body.currentPassword === "string" ? body.currentPassword : "";

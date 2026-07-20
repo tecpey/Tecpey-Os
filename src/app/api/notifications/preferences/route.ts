@@ -20,6 +20,7 @@ import {
   updateNotificationSettings,
   upsertNotificationPreference,
 } from "@/lib/notifications/preferences";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -87,6 +88,13 @@ export async function PATCH(req: NextRequest) {
 
     let body: unknown;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 8_192,
+      });
+      if (!boundedBodyRequest.ok) {
+        return notificationApiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       body = await req.json();
     } catch {
       return notificationApiError("invalid_json", 400);

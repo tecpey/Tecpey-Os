@@ -26,6 +26,7 @@ import {
 } from "@/lib/security/refresh-tokens";
 import { shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { deviceFingerprint, markDeviceSeen } from "@/lib/security/webauthn";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,14 @@ export async function POST(req: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const code = String(body.code ?? "").trim();
     const preAuthToken = String(body.preAuthToken ?? "").trim();

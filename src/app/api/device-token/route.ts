@@ -11,6 +11,7 @@ import {
 } from "@/lib/security/sensitive-mutation-audit";
 import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
@@ -28,6 +29,14 @@ export async function POST(req: NextRequest) {
   if (!limit.ok) return apiError("rate_limited", 429);
 
   try {
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 4_096,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const platform = cleanText(body.platform, 20);
     const token = cleanText(body.token, 1000);

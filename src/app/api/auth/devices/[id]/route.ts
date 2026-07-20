@@ -9,6 +9,7 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { withDb } from "@/lib/db";
 import { writeAudit } from "@/lib/security/audit-log";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,14 @@ export async function PATCH(
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
+    const boundedBodyRequest = await readBoundedJsonRequest(req, {
+      maxBytes: 2_048,
+      allowEmptyObject: true,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
     const body = await req.json().catch(() => ({}));
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 100) : null;
     if (!name) return apiError("name_required", 400);

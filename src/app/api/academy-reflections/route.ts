@@ -12,6 +12,7 @@ import {
   normalizeReflectionText,
   saveReflectionEntry,
 } from "@/lib/academy-reflections";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,6 +75,13 @@ export async function PUT(req: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 16_384,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       body = await req.json() as Record<string, unknown>;
     } catch {
       return apiError("invalid_json", 400);

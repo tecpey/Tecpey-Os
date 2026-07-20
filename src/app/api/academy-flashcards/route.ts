@@ -7,6 +7,7 @@ import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { normalizeDeck } from "@/lib/spaced-repetition";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +59,13 @@ export async function PUT(req: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 512_000,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       body = await req.json() as Record<string, unknown>;
     } catch {
       return apiError("invalid_json", 400);

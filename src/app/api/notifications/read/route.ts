@@ -7,6 +7,7 @@ import { recordLearningEvent } from "@/lib/learning-os";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/notifications/read" }, async () => {
@@ -17,6 +18,14 @@ export async function POST(req: NextRequest) {
     const session = await getStudentSessionFromRequest(req);
     if (!session?.studentId) return apiError("complete_account_required", 401);
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(req, {
+        maxBytes: 2_048,
+        allowEmptyObject: true,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      req = boundedBodyRequest.request;
       const body = await req.json().catch(() => ({}));
       const id = cleanText(body.id, 80);
       if (!id) return apiError("invalid_notification", 400);

@@ -27,6 +27,7 @@ import {
   type ArenaPriceSnapshot,
 } from "@/lib/trading-arena-execution-v2";
 import { validateArenaExecutionStateV2 } from "@/lib/trading-arena-execution-state-validation";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -409,6 +410,13 @@ export async function POST(request: NextRequest) {
 
     let body: Record<string, unknown>;
     try {
+      const boundedBodyRequest = await readBoundedJsonRequest(request, {
+        maxBytes: 12_000,
+      });
+      if (!boundedBodyRequest.ok) {
+        return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+      }
+      request = boundedBodyRequest.request;
       body = await request.json() as Record<string, unknown>;
     } catch {
       return apiError("invalid_json", 400);

@@ -15,6 +15,7 @@ import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { computeBehavioralSnapshot } from "@/lib/behavioral-engine";
 import { buildBehavioralPrompt, collectBehavioralInputs } from "@/lib/behavioral-context-server";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 type MentorRequest = {
   question?: string;
@@ -162,6 +163,13 @@ export async function POST(request: NextRequest) {
   const studentId = session.studentId;
 
   try {
+    const boundedBodyRequest = await readBoundedJsonRequest(request, {
+      maxBytes: 24_000,
+    });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    request = boundedBodyRequest.request;
     const raw = await request.text();
     if (raw.length > 6000) return apiError("payload_too_large", 413);
 
