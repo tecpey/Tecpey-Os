@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 const failures = [];
 const source = async (path) => readFile(path, "utf8");
@@ -112,6 +112,17 @@ if (/realExchangeSignalsEnabled:\s*true/.test(preferences)) {
 const alias = await source("src/app/api/ai-mentor-v2/route.ts");
 if (!/POST as canonicalPost/.test(alias) || !/return canonicalPost\(req\)/.test(alias)) {
   failures.push("AI Mentor V2 must delegate to the canonical trust boundary");
+}
+
+const forbiddenRecoveryWorkflow =
+  ".github/workflows/ai-mentor-trust-source-snapshot-once.yml";
+try {
+  await access(forbiddenRecoveryWorkflow);
+  failures.push(
+    "CI governance: self-modifying AI Mentor recovery workflow must not remain in the repository",
+  );
+} catch {
+  // Expected: recovery workflows are temporary and must remove themselves.
 }
 
 const packageJson = JSON.parse(await source("package.json"));
