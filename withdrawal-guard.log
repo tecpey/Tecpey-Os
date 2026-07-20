@@ -1,1 +1,0 @@
-Withdrawal external-effect evidence guard passed: preparation, broadcast attempts, lease expiry, ambiguity reconciliation, confirmation projection/outcomes and settlement are PostgreSQL-authoritative, mandatory-evidence-coupled, secret-free and protected from direct mutation paths.
