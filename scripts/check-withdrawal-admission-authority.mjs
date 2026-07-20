@@ -73,14 +73,18 @@ requireText("authorizeRoute", "issueWithdrawalAuthorizationTx", "authorization i
 requireText("authorizeRoute", "withdrawal_2fa_disabled_during_authorization", "2FA disable races must roll back issuance");
 requireText("authorizeRoute", "totp_code_already_used", "one TOTP step may issue only one authorization");
 requireText("authorizeRoute", "requestHash", "authorization must bind a request hash");
+requireText("authorizeRoute", "claimApiCommandTx", "authorization must claim durable command idempotency in its issuance transaction");
+requireText("authorizeRoute", "completeApiCommandTx", "authorization terminal results must be replayable");
 rejectText("authorizeRoute", "withDb", "authorization may not read 2FA outside the issuance transaction");
 rejectText("genericTwoFactor", 'body.purpose === "withdrawal"', "withdrawal TOTP must remain on one dedicated route");
 rejectText("genericTwoFactor", "issueWithdrawalAuthorization", "generic 2FA may not issue withdrawal evidence");
 
-requireText("detailRoute", "cancelAuthoritativeWithdrawal", "cancellation must release funds transactionally");
+requireText("detailRoute", "cancelWithdrawalIdempotently", "cancellation must share one transaction with its durable command receipt");
+requireText("detailRoute", "parseApiIdempotencyKey", "cancellation requires a validated Idempotency-Key");
+requireText("detailRoute", "hashApiCommand", "cancellation must bind an immutable request hash");
 requireText("detailRoute", "fetchWithdrawal(id, userId)", "detail reads must be owner-bound");
 requireText("detailRoute", "strictRevocation: true", "detail and cancellation require strict sessions");
-rejectText("detailRoute", "cancelWithdrawal", "routes may not use cancellation without ledger release");
+rejectText("detailRoute", "cancelAuthoritativeWithdrawal", "routes may not use the superseded non-receipt cancellation authority");
 
 requireText("totp", "verifyTotpStep", "TOTP verification must expose a replay-prevention step");
 requireText("totp", "timingSafeEqual", "TOTP comparison must remain constant-time");
