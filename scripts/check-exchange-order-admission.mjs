@@ -45,7 +45,7 @@ for (const [text, message] of [
   ["calculateOrderHold", "order route must use exact hold calculation"],
   ["getAvailableBalanceAmount", "order route must read exact balance strings"],
   ["D(available).lt(hold.amount)", "order preflight must compare Decimal values"],
-  ["holdAmount: hold.amount", "audit evidence must retain the exact hold string"],
+  ["hold: { asset: hold.asset, amount: hold.amount }", "route must pass the exact hold string into the transactional command authority"],
   ["order_reconciliation_required", "terminal command failure must be surfaced as a release blocker"],
   ['state: processing.status', "non-final execution must return explicit processing state"],
   ['typeof body.quantity !== "string"', "quantity must be supplied as an exact JSON string"],
