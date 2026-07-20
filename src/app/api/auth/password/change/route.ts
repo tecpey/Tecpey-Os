@@ -197,9 +197,11 @@ export async function POST(req: NextRequest) {
           newHash,
         ]);
 
-        const revokedAccess = await revokeAllSessionsWithClient(client, userId);
+        // Revoke refresh authority first so the legacy unbound-session trigger
+        // cannot consume the refresh-token count before this transaction reports it.
         const revokedRefreshTokens =
           await revokeAllRefreshTokensForUserWithClient(client, userId);
+        const revokedAccess = await revokeAllSessionsWithClient(client, userId);
 
         const refreshInserted = await persistPreparedRefreshTokenWithClient(
           client,
