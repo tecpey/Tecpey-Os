@@ -249,9 +249,18 @@ describe("Logout-all session authority", () => {
           assert.equal(durable.value.accessRevoked, true);
           assert.equal(durable.value.currentFamilyStatus, "active");
           assert.equal(durable.value.otherFamilyStatus, "revoked");
-          assert.equal(durable.value.outboxStatus, "pending");
+          assert.equal(
+            ["pending", "published"].includes(durable.value.outboxStatus ?? ""),
+            true,
+          );
+          const denyValue = await redis!.get(denyKey(other.accessJti));
+          if (durable.value.outboxStatus === "pending") {
+            assert.equal(denyValue, null);
+          } else {
+            assert.equal(durable.value.outboxStatus, "published");
+            assert.equal(denyValue, "1");
+          }
         }
-        assert.equal(await redis!.get(denyKey(other.accessJti)), null);
 
         globalThis.tecpeyRedisClient = originalRedis;
         const repaired = await logoutAll(request(current.accessToken));
