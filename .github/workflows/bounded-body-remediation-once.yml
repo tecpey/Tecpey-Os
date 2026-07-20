@@ -24,10 +24,31 @@ jobs:
           ref: fix/bounded-mutating-request-bodies
           fetch-depth: 2
 
+      - name: Check reviewed bounded-body patch
+        id: patchcheck
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          git apply --check --verbose .github/bounded-body-remediation.patch > bounded-body-patch.log 2>&1
+
+      - name: Upload patch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bounded-body-patch-${{ github.sha }}
+          path: bounded-body-patch.log
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Enforce patch check
+        if: steps.patchcheck.outcome != 'success'
+        run: |
+          cat bounded-body-patch.log
+          exit 1
+
       - name: Apply reviewed bounded-body patch
         run: |
           set -euo pipefail
-          git apply --check .github/bounded-body-remediation.patch
           git apply .github/bounded-body-remediation.patch
           git diff --check
 
