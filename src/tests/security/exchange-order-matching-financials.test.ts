@@ -6,6 +6,7 @@ import {
   decimalAdd,
   decimalMin,
   exactAveragePrice,
+  isPositiveAmount,
 } from "../../lib/trading/matching-financials";
 import {
   getOrderBookStore,
@@ -53,6 +54,27 @@ describe("Exact Exchange matching primitives", () => {
         sellerQuoteNet: "0.0299700000",
         platformFeeCredit: "0.0000600000",
       },
+    );
+  });
+
+  it("treats Decimal positive zero as non-positive", () => {
+    assert.equal(isPositiveAmount("0"), false);
+    assert.equal(isPositiveAmount("0.0000000000"), false);
+    assert.equal(
+      exactAveragePrice({
+        cumulativeQuote: "0.0000000000",
+        cumulativeQuantity: "0.0000000000",
+      }),
+      "0.0000000000",
+    );
+    assert.throws(
+      () => calculateExactTradeAmounts({
+        quantity: "0.0000000000",
+        price: "1.0000000000",
+        buyerFeeRate: "0.001",
+        sellerFeeRate: "0.001",
+      }),
+      /invalid_matching_amount/,
     );
   });
 
