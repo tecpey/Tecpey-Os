@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: api-security-manifest-${{ github.event.pull_request.number || github.ref }}
@@ -19,65 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: fix/risk-event-enforcement-evidence
-
-      - name: Apply exact risk replay patch
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("src/lib/security/risk-enforcement-authority.ts")
-          source = path.read_text()
-          replacements = [
-              (
-                  """    row.desired_level === input.desired?.level &&
-    (row.desired_expires_at?.toISOString() ?? null) ===
-      (input.desired?.expiresAt.toISOString() ?? null) &&
-    row.request_hash === input.requestHash""",
-                  """    row.desired_level === (input.desired?.level ?? null) &&
-    row.request_hash === input.requestHash""",
-              ),
-              (
-                  """      desiredLevel: input.desired?.level ?? \"none\",
-      desiredExpiresAt: input.desired?.expiresAt.toISOString() ?? null,""",
-                  """      desiredLevel: input.desired?.level ?? \"none\",""",
-              ),
-              (
-                  """    desiredLevel: desired?.level ?? null,
-    desiredExpiresAt: desired?.expiresAt.toISOString() ?? null,
-    detectorFacts,""",
-                  """    desiredLevel: desired?.level ?? null,
-    detectorFacts,""",
-              ),
-          ]
-          changed = False
-          for old, new in replacements:
-              count = source.count(old)
-              if count == 1:
-                  source = source.replace(old, new, 1)
-                  changed = True
-              elif count == 0 and new in source:
-                  continue
-              else:
-                  raise SystemExit(
-                      f"bounded replay patch expected one match, found {count}: {old!r}"
-                  )
-          if changed:
-              path.write_text(source)
-          PY
-
-          if git diff --quiet -- src/lib/security/risk-enforcement-authority.ts; then
-            echo "Replay patch already applied."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/lib/security/risk-enforcement-authority.ts
-            git commit -m "fix(risk): make detector replay identity time-stable"
-            git push origin HEAD:fix/risk-event-enforcement-evidence
-          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
