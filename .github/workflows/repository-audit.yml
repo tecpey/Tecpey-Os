@@ -60,6 +60,13 @@ jobs:
           console.log(`Verified ${inventory.totals.trackedFiles} tracked paths and ${scan.totals.scannedTextLines} text lines at exact head ${head}`);
           NODE
 
+      - name: Package exact-head tracked source snapshot
+        run: |
+          git archive \
+            --format=tar.gz \
+            --output=".artifacts/repository-audit/source-${EXPECTED_AUDIT_SHA}.tar.gz" \
+            HEAD
+
       - name: Print audit summaries
         run: |
           cat .artifacts/repository-audit/inventory.md
