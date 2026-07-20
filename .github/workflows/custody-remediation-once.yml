@@ -24,7 +24,7 @@ jobs:
           ref: fix/custody-release-gate
           fetch-depth: 2
 
-      - name: Reconstruct and verify reviewed patch
+      - name: Reconstruct reviewed patch and remove temporary assets
         run: |
           set -euo pipefail
           cat .github/custody-gate.patch.gz.b64.* > /tmp/custody-gate.patch.gz.b64
@@ -32,6 +32,10 @@ jobs:
           gzip -dc /tmp/custody-gate.patch.gz > /tmp/custody-gate.patch
           git apply --check /tmp/custody-gate.patch
           git apply /tmp/custody-gate.patch
+          rm -f \
+            .github/workflows/custody-source-snapshot-temp.yml \
+            .github/workflows/custody-remediation-once.yml \
+            .github/custody-gate.patch.gz.b64.*
           git diff --check
 
       - name: Install dependencies
@@ -82,13 +86,9 @@ jobs:
             exit 1
           fi
 
-      - name: Commit permanent gate and remove temporary assets
+      - name: Commit permanent gate
         run: |
           set -euo pipefail
-          rm -f \
-            .github/workflows/custody-source-snapshot-temp.yml \
-            .github/workflows/custody-remediation-once.yml \
-            .github/custody-gate.patch.gz.b64.*
           git add -A
           git diff --cached --check
           git config user.name "github-actions[bot]"
