@@ -105,4 +105,48 @@ describe("Sensitive mutation route audit boundaries", () => {
     );
     assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
   });
+
+  it("binds API key creation to strict server identity and mandatory audit context", async () => {
+    const route = await source("src/app/api/api-keys/route.ts");
+
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /const userId = session\.academyAccountId \?\? session\.studentId \?\? session\.userId/);
+    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(route, /resolveSensitiveAuditCorrelation/);
+    assert.match(route, /hashSensitiveAuditRequest/);
+    assert.match(route, /audit: \{/);
+    assert.match(route, /actorId: userId/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+  });
+
+  it("binds API key lifecycle changes to strict identity and the transactional authority", async () => {
+    const route = await source("src/app/api/api-keys/[id]/route.ts");
+    const authority = await source("src/lib/security/api-keys.ts");
+
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /tenantId: PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(route, /resolveSensitiveAuditCorrelation/);
+    assert.match(route, /hashSensitiveAuditRequest/);
+    assert.match(route, /setApiKeyActive\(/);
+    assert.match(route, /rotateApiKey\(/);
+    assert.match(route, /deleteApiKey\(/);
+    assert.doesNotMatch(route, /body\.tenantId|body\.userId|body\.actorId/);
+    assert.doesNotMatch(route, /\bwriteAudit\s*\(/);
+
+    assert.match(authority, /withTx\(async \(client\)/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+    for (const action of [
+      "api_key.create",
+      "api_key.enable",
+      "api_key.disable",
+      "api_key.rotate",
+      "api_key.delete",
+    ]) {
+      assert.match(authority, new RegExp(action.replace(".", "\\.")));
+    }
+    assert.match(authority, /credentialFingerprint/);
+    assert.doesNotMatch(authority, /metadata:\s*\{[^}]*plaintext/s);
+    assert.doesNotMatch(authority, /metadata:\s*\{[^}]*key_hash/s);
+  });
 });
