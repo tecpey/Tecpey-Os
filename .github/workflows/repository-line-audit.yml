@@ -1,0 +1,66 @@
+name: Repository Line Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/world-class-repository-qa-20260720
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: repository-line-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repository-audit:
+    name: Every Tracked File and Text Line
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify audit configuration
+        run: |
+          node -e 'JSON.parse(require("fs").readFileSync("config/repository-qa-policy.json", "utf8"))'
+          node -e 'JSON.parse(require("fs").readFileSync("config/repository-qa-exceptions.json", "utf8"))'
+
+      - name: Scan every tracked file and eligible text line
+        run: |
+          set -o pipefail
+          node scripts/audit-repository-line-by-line.mjs \
+            --output-dir=repository-qa-artifacts \
+            2>&1 | tee repository-qa-artifacts.log
+
+      - name: Publish audit summary
+        if: always()
+        run: |
+          if [ -f repository-qa-artifacts/repository-audit-report.md ]; then
+            cat repository-qa-artifacts/repository-audit-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '## Repository line audit failed before producing a report\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload full audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-line-audit-${{ github.sha }}
+          path: |
+            repository-qa-artifacts/
+            repository-qa-artifacts.log
+          if-no-files-found: error
+          retention-days: 30
