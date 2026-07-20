@@ -51,7 +51,7 @@
     "test:crm-leads": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/crm-lead*.test.ts'",
     "crm:worker": "tsx scripts/run-crm-lead-delivery-worker.ts",
     "crm:retention": "tsx scripts/run-crm-lead-retention.ts",
-    "exchange:check": "node scripts/check-exchange-order-admission.mjs",
+    "exchange:check": "node scripts/check-exchange-order-admission.mjs && node scripts/check-exchange-order-evidence.mjs",
     "test:exchange-order-authority": "NODE_ENV=test node --import tsx --test 'src/tests/security/exchange-order*.test.ts' 'src/tests/trading/order-admission*.test.ts'",
     "exchange:worker": "tsx scripts/run-exchange-order-worker.ts",
     "api:security:check": "node scripts/check-api-security-manifest.mjs",
