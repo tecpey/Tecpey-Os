@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { POST as canonicalMentorPost } from "@/app/api/ai-mentor/route";
+import { POST as canonicalPost } from "@/app/api/ai-mentor/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,6 @@ export const dynamic = "force-dynamic";
  * as `behavioralContext` are intentionally ignored by the canonical handler;
  * browser-local state is no longer authoritative AI context.
  */
-export async function POST(request: NextRequest) {
-  return canonicalMentorPost(request);
+export async function POST(req: NextRequest) {
+  return canonicalPost(req);
 }
