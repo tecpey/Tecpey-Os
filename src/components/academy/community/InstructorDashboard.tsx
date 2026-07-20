@@ -116,7 +116,7 @@ export function InstructorDashboard() {
         <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
         <p className="text-xs font-bold leading-6 text-amber-200">
           اشتراک واقعی با مدرس تا ایجاد consent و دسترسی سرورمحور غیرفعال است. تنظیمات
-          localStorage نمی‌توانند مجوز مشاهده ایجاد کنند و آمار Arena، ژورنال، رتبه یا
+          ذخیره‌شده در مرورگر نمی‌توانند مجوز مشاهده ایجاد کنند و آمار Arena، ژورنال، رتبه یا
           چالش مرورگر در این صفحه evidence رسمی محسوب نمی‌شود.
         </p>
       </div>
