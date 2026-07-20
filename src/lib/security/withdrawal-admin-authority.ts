@@ -1,5 +1,6 @@
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -116,6 +117,7 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
   };
   const requestedState = stateMap[input.action];
   const receiptScope: ApiCommandScope = {
+    tenantId: PLATFORM.DEFAULT_TENANT_ID,
     principalType: "admin",
     principalId: input.adminId,
     operation: "withdrawal.admin_action",
