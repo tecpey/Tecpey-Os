@@ -38,6 +38,54 @@ function requireAll(key, entries) {
   for (const [text, reason] of entries) requireText(key, text, reason);
 }
 
+function balancedObject(source, start) {
+  let depth = 0;
+  let quote = null;
+  let escaped = false;
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    if (character === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  return "";
+}
+
+function auditMetadataBlocks(source) {
+  const blocks = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const auditStart = source.indexOf("writeSensitiveMutationAuditTx(client", cursor);
+    if (auditStart < 0) break;
+    const callObjectStart = source.indexOf("{", auditStart);
+    if (callObjectStart < 0) break;
+    const callObject = balancedObject(source, callObjectStart);
+    if (!callObject) break;
+    const metadataStart = callObject.indexOf("metadata:");
+    if (metadataStart >= 0) {
+      const metadataObjectStart = callObject.indexOf("{", metadataStart);
+      if (metadataObjectStart >= 0) {
+        const metadata = balancedObject(callObject, metadataObjectStart);
+        if (metadata) blocks.push(metadata);
+      }
+    }
+    cursor = callObjectStart + callObject.length;
+  }
+  return blocks;
+}
+
 for (const key of ["device", "conversations", "profile"]) {
   requireAll(key, [
     ["getCanonicalSession(req, { strictRevocation: true })", "strict revocation is required"],
@@ -122,13 +170,14 @@ for (const action of mandatoryApiKeyActions) {
   requireText("audit", action, `missing sensitive audit type ${action}`);
 }
 
-const auditMetadataObjects = [...files.apiKeysAuthority.matchAll(/metadata:\s*\{([\s\S]*?)\n\s*\},/g)]
-  .map((match) => match[1]);
-if (auditMetadataObjects.length < 3) {
-  failures.push(`${paths.apiKeysAuthority}: API key audit metadata blocks are not statically reviewable`);
+const apiKeyAuditMetadata = auditMetadataBlocks(files.apiKeysAuthority);
+if (apiKeyAuditMetadata.length !== 4) {
+  failures.push(
+    `${paths.apiKeysAuthority}: expected 4 statically reviewable API key audit metadata blocks, found ${apiKeyAuditMetadata.length}`,
+  );
 }
-for (const metadata of auditMetadataObjects) {
-  if (/\b(?:plaintext|key_hash)\b\s*(?=:|[,}])/.test(metadata)) {
+for (const metadata of apiKeyAuditMetadata) {
+  if (/\b(?:plaintext|key_hash)\b\s*:/.test(metadata)) {
     failures.push(`${paths.apiKeysAuthority}: plaintext or stored key hash entered audit metadata`);
   }
 }
