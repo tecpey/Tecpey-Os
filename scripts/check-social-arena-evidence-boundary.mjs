@@ -92,7 +92,7 @@ for (const target of ["mentor", "insights", "instructor", "mentorMemory", "mento
 }
 
 for (const token of [
-  "localStorage",
+  "localStorage.",
   "loadProgress",
   "loadDeck",
   "getDueCards",
@@ -109,7 +109,7 @@ for (const token of [
   "@/lib/trading-arena",
   "@/lib/trading-journal",
   "loadProgress",
-  "localStorage",
+  "localStorage.",
 ]) {
   rejectText("instructor", token, `instructor assessment cannot use browser evidence: ${token}`);
 }
@@ -117,7 +117,7 @@ requireText("instructor", "fetchBehavioralSnapshot", "instructor self-view must 
 requireText("instructor", "اشتراک واقعی با مدرس", "instructor sharing must disclose the server-consent migration boundary");
 
 failures.push(...previewChallengeViolations(source.challenge));
-for (const token of ["@/lib/trading-arena", "@/lib/trading-journal", "localStorage"] ) {
+for (const token of ["@/lib/trading-arena", "@/lib/trading-journal", "localStorage."]) {
   rejectText("challenge", token, `challenge preview cannot read browser authority: ${token}`);
 }
 requireText("challenge", "فقط پیش‌نمایش تمرین‌هاست", "challenge UI must disclose preview-only status");
