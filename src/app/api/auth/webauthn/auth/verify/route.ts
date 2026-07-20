@@ -3,10 +3,6 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
-import {
-  deviceFingerprint,
-  markDeviceSeen,
-} from "@/lib/security/webauthn";
 import { verifyAndAdvanceWebAuthnAuthentication } from "@/lib/security/webauthn-credential-authority";
 import {
   consumeWebAuthnCeremonyChallenge,
@@ -17,13 +13,12 @@ import {
   extractJtiFromToken,
   extractExpFromToken,
 } from "@/lib/unified-session";
-import { registerSession } from "@/lib/security/session-store";
 import {
-  issueRefreshToken,
+  prepareRefreshToken,
   setRefreshCookie,
-  revokeAllRefreshTokensForUser,
   ACCESS_COOKIE_TTL_S,
 } from "@/lib/security/refresh-tokens";
+import { admitSessionAuthority } from "@/lib/security/session-authority";
 import { trackAuthEvent } from "@/lib/security/auth-metrics";
 import { PLATFORM, shouldUseSecureCookie, COOKIES } from "@/lib/platform-config";
 import { withDb } from "@/lib/db";
@@ -58,6 +53,9 @@ export async function POST(req: NextRequest) {
 
       const ip = getClientIp(req);
       const deviceInfo = (req.headers.get("user-agent") ?? "").slice(0, 500);
+      const correlationId = resolveSensitiveAuditCorrelation(
+        req.headers.get("x-tecpey-request-id"),
+      );
       const boundedBodyRequest = await readBoundedJsonRequest(req, {
         maxBytes: 131_072,
       });
@@ -89,9 +87,7 @@ export async function POST(req: NextRequest) {
           response: body.response,
           audit: {
             tenantId: PLATFORM.DEFAULT_TENANT_ID,
-            correlationId: resolveSensitiveAuditCorrelation(
-              req.headers.get("x-tecpey-request-id"),
-            ),
+            correlationId,
             requestHash: hashSensitiveAuditRequest({
               tenantId: PLATFORM.DEFAULT_TENANT_ID,
               action: "credential.webauthn.authenticate",
@@ -104,8 +100,7 @@ export async function POST(req: NextRequest) {
       }
       if (!assertion.ok) {
         trackAuthEvent("webauthn_failed");
-        const status = assertion.reason === "credential_not_found" ? 401 : 401;
-        return apiError(assertion.reason, status);
+        return apiError(assertion.reason, 401);
       }
 
       const accountResult = await withDb(async (db) => {
@@ -133,33 +128,46 @@ export async function POST(req: NextRequest) {
       if (!jti || !exp) return apiError("session_issue_failed", 503);
 
       const familyId = crypto.randomUUID();
-      const refreshToken = await issueRefreshToken({
+      const preparedRefresh = await prepareRefreshToken({
         userId: account.id,
         familyId,
         deviceInfo,
         ip,
       });
-      if (!refreshToken) return apiError("refresh_session_unavailable", 503);
+      if (!preparedRefresh) return apiError("refresh_session_unavailable", 503);
 
-      const registered = await registerSession({
-        jti,
-        userId: account.id,
-        deviceInfo,
-        ip,
-        expiresAt: new Date(exp * 1000),
-      });
-      if (!registered) {
-        await revokeAllRefreshTokensForUser(account.id);
+      let admitted;
+      try {
+        admitted = await admitSessionAuthority({
+          userId: account.id,
+          access: {
+            jti,
+            userId: account.id,
+            expiresAt: new Date(exp * 1000),
+          },
+          refresh: preparedRefresh,
+          deviceInfo,
+          ip,
+          method: "webauthn",
+          audit: {
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
+            actorType: "user",
+            actorId: account.id,
+            correlationId,
+            requestHash: hashSensitiveAuditRequest({
+              tenantId: PLATFORM.DEFAULT_TENANT_ID,
+              action: "session.issue",
+              method: "webauthn",
+              userId: account.id,
+            }),
+          },
+        });
+      } catch {
         return apiError("session_registry_unavailable", 503);
       }
 
-      // Session issuance, refresh-family durability and known-device evidence are
-      // the next bounded #161 slice. Credential counter authority is already
-      // committed before this point and cannot be reported without its evidence.
-      const fingerprint = deviceFingerprint(deviceInfo, ip);
-      const { isNew } = await markDeviceSeen(account.id, fingerprint);
       trackAuthEvent("webauthn_success");
-      if (isNew) trackAuthEvent("new_device_detected");
+      if (admitted.isNewDevice) trackAuthEvent("new_device_detected");
 
       const response = apiOk({ authenticated: true });
       response.cookies.set(COOKIES.SESSION, accessToken, {
@@ -169,7 +177,7 @@ export async function POST(req: NextRequest) {
         sameSite: "lax",
         maxAge: ACCESS_COOKIE_TTL_S,
       });
-      setRefreshCookie(response, refreshToken);
+      setRefreshCookie(response, admitted.refreshToken);
       return response;
     },
   );
