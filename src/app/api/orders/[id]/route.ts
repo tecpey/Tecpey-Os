@@ -5,8 +5,12 @@ import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { logger } from "@/lib/logger";
-import { getMatchingEngine } from "@/lib/trading/engine";
+import {
+  hashApiCommand,
+  parseApiIdempotencyKey,
+} from "@/lib/security/api-command-idempotency";
 import { writeAudit } from "@/lib/security/audit-log";
+import { cancelOrderIdempotently } from "@/lib/trading/order-cancel-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -32,17 +36,34 @@ export async function DELETE(
     if (!rlimit.ok) return apiError("rate_limited", 429);
 
     const { id: orderId } = await params;
-    if (!orderId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) {
+    if (
+      !orderId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        orderId,
+      )
+    ) {
       return apiError("invalid_order_id", 400);
     }
 
-    const result = await getMatchingEngine().cancelOrder(orderId, userId);
-    logger.info("[orders] cancel command completed", {
+    const idempotencyKey = parseApiIdempotencyKey(
+      req.headers.get("Idempotency-Key"),
+    );
+    if (!idempotencyKey) return apiError("idempotency_key_required", 400);
+
+    const result = await cancelOrderIdempotently({
+      orderId,
+      userId,
+      idempotencyKey,
+      requestHash: hashApiCommand({ orderId }),
+    });
+
+    logger.info("[orders] idempotent cancel command completed", {
       requestId: req.headers.get("x-tecpey-request-id") ?? undefined,
       userId,
       orderId,
       cancelled: result.cancelled,
-      reason: result.reason,
+      replayed: result.cancelled ? result.replayed : undefined,
+      reason: result.cancelled ? undefined : result.reason,
       latencyMs: Date.now() - startedAt,
     });
 
@@ -51,26 +72,37 @@ export async function DELETE(
       if (["storage_unavailable", "cancel_failed"].includes(reason)) {
         return apiError(reason, 503, { orderId, retryable: true });
       }
+      if (reason === "idempotency_in_progress") {
+        return apiError(reason, 425, { orderId, retryable: true });
+      }
       if (["market_busy", "order_processing"].includes(reason)) {
         return apiError(reason, 409, { orderId, retryable: true });
       }
-      if (reason === "order_already_terminal") {
+      if (["idempotency_conflict", "order_already_terminal"].includes(reason)) {
         return apiError(reason, 409, { orderId, retryable: false });
       }
-      return apiError(reason, 404);
+      return apiError(reason, 404, { orderId, retryable: false });
     }
 
-    writeAudit({
-      actorId: userId,
-      action: "order_cancelled",
-      resourceType: "order",
-      resourceId: orderId,
-      metadata: { replayed: result.reason === "already_cancelled" },
-    });
-    return apiOk({
+    if (!result.replayed) {
+      writeAudit({
+        actorId: userId,
+        action: "order_cancelled",
+        resourceType: "order",
+        resourceId: orderId,
+        metadata: { replayed: false },
+      });
+    }
+
+    const response = apiOk({
       orderId,
       cancelled: true,
-      replayed: result.reason === "already_cancelled",
+      replayed: result.replayed,
     });
+    response.headers.set(
+      "Idempotency-Replayed",
+      result.replayed ? "true" : "false",
+    );
+    return response;
   });
 }
