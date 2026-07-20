@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { describe, it } from "node:test";
 
+type EnvOverrides = Record<string, string | undefined>;
+
 function baseProductionEnv(): NodeJS.ProcessEnv {
   const secret = (label: string) => `${label}-${"x".repeat(48)}`;
   return {
@@ -28,7 +30,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
   };
 }
 
-function validate(overrides: NodeJS.ProcessEnv = {}) {
+function validate(overrides: EnvOverrides = {}) {
   return spawnSync(process.execPath, ["scripts/validate-env.mjs"], {
     cwd: process.cwd(),
     env: { ...baseProductionEnv(), ...overrides },
