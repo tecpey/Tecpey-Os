@@ -74,7 +74,7 @@ export function isZeroAmount(value: string): boolean {
 }
 
 export function isPositiveAmount(value: string): boolean {
-  return D(value).isPositive();
+  return D(value).gt(0);
 }
 
 export function crossesLimit(input: {
@@ -100,8 +100,8 @@ export function calculateExactTradeAmounts(input: {
   const sellerFeeRate = parseOrderDecimal(input.sellerFeeRate);
   if (!buyerFeeRate || !sellerFeeRate) throw new Error("invalid_matching_fee_rate");
   if (
-    !quantity.isPositive() ||
-    !price.isPositive() ||
+    !quantity.gt(0) ||
+    !price.gt(0) ||
     buyerFeeRate.isNegative() ||
     sellerFeeRate.isNegative()
   ) {
@@ -112,7 +112,7 @@ export function calculateExactTradeAmounts(input: {
     quantity.times(price),
     "trade_quote_gross",
   );
-  if (!D(quoteGross).isPositive()) {
+  if (!D(quoteGross).gt(0)) {
     throw new Error("trade_amount_below_settlement_scale");
   }
   const buyerFee = toSettlementAmount(
@@ -144,7 +144,7 @@ export function exactAveragePrice(input: {
   cumulativeQuantity: string;
 }): string {
   const quantity = D(input.cumulativeQuantity);
-  if (!quantity.isPositive()) return D(0).toFixed(DATABASE_AMOUNT_SCALE);
+  if (!quantity.gt(0)) return D(0).toFixed(DATABASE_AMOUNT_SCALE);
   return toSettlementAmount(
     D(input.cumulativeQuote).div(quantity),
     "average_fill_price",
