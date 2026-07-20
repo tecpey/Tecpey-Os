@@ -1,0 +1,46 @@
+name: Request Body Boundary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/app/api/**/route.ts
+      - src/lib/security/request-body.ts
+      - src/tests/security/request-body-*.test.ts
+      - scripts/api-security-body-*.mjs
+      - docs/security/generated/api-security-manifest.json
+      - config/api-security-exceptions.json
+      - package.json
+      - .github/workflows/request-body-boundary.yml
+  push:
+    branches: [main]
+    paths:
+      - src/app/api/**/route.ts
+      - src/lib/security/request-body.ts
+      - src/tests/security/request-body-*.test.ts
+      - scripts/api-security-body-*.mjs
+      - docs/security/generated/api-security-manifest.json
+      - config/api-security-exceptions.json
+      - package.json
+      - .github/workflows/request-body-boundary.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: request-body-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:request-body-boundary
+      - run: npm run api:security:check
