@@ -92,6 +92,21 @@ async function commandState(commandId: string) {
   return result.value;
 }
 
+async function makeRetryableCommandDue(commandId: string): Promise<void> {
+  const result = await withDb((client) =>
+    client.query(
+      `UPDATE exchange_order_commands
+          SET available_at = NOW(), updated_at = NOW()
+        WHERE id = $1::uuid
+          AND state = 'retryable'`,
+      [commandId],
+    ),
+  );
+  assert.equal(result.enabled, true);
+  if (!result.enabled) throw new Error("test_database_unavailable");
+  assert.equal(result.value.rowCount, 1);
+}
+
 async function finalEvidence(userId: string, orderId: string) {
   const result = await withDb(async (client) => {
     const rows = await client.query<{
@@ -157,24 +172,26 @@ describe("Exchange order final outcome mandatory evidence", () => {
     assert.equal(admitted.status, "admitted");
     if (admitted.status !== "admitted") throw new Error("test_order_not_admitted");
 
-    const forged = await withDb((client) =>
-      client.query(
-        `UPDATE exchange_order_commands
-            SET state = 'final',
-                result = $2::jsonb,
-                finalized_at = NOW()
-          WHERE id = $1::uuid`,
-        [
-          admitted.commandId,
-          JSON.stringify({
-            accepted: true,
-            tradeIds: [],
-            orderStatus: "NEW",
-          }),
-        ],
+    await assert.rejects(
+      () => withDb((client) =>
+        client.query(
+          `UPDATE exchange_order_commands
+              SET state = 'final',
+                  result = $2::jsonb,
+                  finalized_at = NOW()
+            WHERE id = $1::uuid`,
+          [
+            admitted.commandId,
+            JSON.stringify({
+              accepted: true,
+              tradeIds: [],
+              orderStatus: "NEW",
+            }),
+          ],
+        ),
       ),
+      /exchange order final evidence is missing or mismatched/,
     );
-    assert.equal(forged.enabled, false);
     assert.equal((await commandState(admitted.commandId)).state, "admitted");
 
     const processed = await processExchangeOrderCommand(
@@ -309,6 +326,7 @@ describe("Exchange order final outcome mandatory evidence", () => {
       );
     }
 
+    await makeRetryableCommandDue(admitted.commandId);
     const recovered = await processExchangeOrderCommand(
       admitted.commandId,
       `reject-recovery-worker-${randomUUID()}`,
