@@ -31,10 +31,16 @@ type ConfirmationRecord = {
 };
 
 export async function checkConfirmation(data: ConfirmationJobData): Promise<boolean> {
-  // Enqueue may race the post-commit publication transaction. Re-running the
-  // idempotent publisher here establishes outbox state, confirming transition
-  // and mandatory monitor evidence before any provider observation is trusted.
-  await publishWithdrawalConfirmationOutbox(data.withdrawalId);
+  // A Redis job is only a projection. Before any provider observation, the
+  // PostgreSQL outbox publisher must prove the monitoring transition and its
+  // mandatory evidence committed. A failed publication/evidence transaction
+  // is retryable debt, never permission to continue from `broadcasted`.
+  const monitoringAuthorityCommitted = await publishWithdrawalConfirmationOutbox(
+    data.withdrawalId,
+  );
+  if (!monitoringAuthorityCommitted) {
+    throw new Error("withdrawal_confirmation_monitor_authority_unavailable");
+  }
 
   const withdrawal = await loadAuthoritativeConfirmation(data.withdrawalId);
   if (!withdrawal) return true;
@@ -116,9 +122,9 @@ async function loadAuthoritativeConfirmation(
     if (["completed", "timeout", "cancelled", "failed"].includes(row.state)) {
       return null;
     }
-    if (!["broadcasted", "confirming"].includes(row.state)) {
+    if (row.state !== "confirming") {
       throw new Error(
-        `Withdrawal ${withdrawalId} is not confirmable from state ${row.state}`,
+        `Withdrawal ${withdrawalId} lacks committed confirmation monitor authority from state ${row.state}`,
       );
     }
     if (!row.txHash) {
