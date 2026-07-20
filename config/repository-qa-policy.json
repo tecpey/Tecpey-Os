@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "program": "repository-wide-line-audit",
+  "authority": "docs/qa/REPOSITORY_QA_GOVERNANCE.md",
+  "baselineIssue": 157,
+  "severityModel": {
+    "P0": "Immediate release or confidentiality/integrity blocker",
+    "P1": "High-risk defect requiring closure before confident controlled launch",
+    "P2": "Material engineering, maintainability, accessibility or governance debt",
+    "P3": "Low-risk cleanup or consistency finding",
+    "INFO": "Inventory or review note"
+  },
+  "requiredExceptionFields": [
+    "path",
+    "rule",
+    "owner",
+    "issue",
+    "reason",
+    "expiresAt"
+  ],
+  "principles": [
+    "Every Git-tracked file must be inventoried.",
+    "Every eligible text line must be processed by deterministic rules.",
+    "Scanner output is evidence input, not a substitute for human domain review.",
+    "P0 and P1 findings require a fix or an explicit release-blocking issue.",
+    "Exceptions must be narrow, owned, issue-linked and expiring.",
+    "README and product documentation must describe verified reality rather than aspiration."
+  ]
+}
