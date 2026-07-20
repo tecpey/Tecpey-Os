@@ -33,6 +33,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Verify README engineering contract
+        run: node scripts/check-readme-contract.mjs
+
       - name: Generate deterministic audit evidence
         run: npm run qa:repository:evidence
 
