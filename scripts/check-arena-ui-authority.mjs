@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 
+await import("./check-social-arena-evidence-boundary.mjs");
+
 const files = {
   page: "src/app/academy/trading-arena/page.tsx",
   client: "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx",
