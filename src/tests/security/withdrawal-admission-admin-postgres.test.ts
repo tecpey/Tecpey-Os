@@ -15,6 +15,7 @@ import {
 } from "../../lib/security/withdrawal-admission-authority";
 import { createAuthoritativeWithdrawal } from "../../lib/security/withdrawal-admission-service";
 import { adminActOnAuthoritativeWithdrawal } from "../../lib/security/withdrawal-admin-authority";
+import { hashApiCommand } from "../../lib/security/api-command-idempotency";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -152,7 +153,7 @@ async function seedWithdrawal(userId: string): Promise<string> {
   return created.withdrawal.id;
 }
 
-async function cleanup(userId: string): Promise<void> {
+async function cleanup(userId: string, adminId?: string): Promise<void> {
   await withDb(async (client) => {
     await client.query(
       "DELETE FROM withdrawal_admin_actions WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)",
@@ -166,6 +167,12 @@ async function cleanup(userId: string): Promise<void> {
     await client.query("DELETE FROM withdrawals WHERE user_id = $1", [userId]);
     await client.query("DELETE FROM withdrawal_authorizations WHERE user_id = $1", [userId]);
     await client.query("DELETE FROM wallet_balances WHERE user_id = $1", [userId]);
+    if (adminId) {
+      await client.query(
+        "DELETE FROM api_command_receipts WHERE principal_type = 'admin' AND principal_id = $1",
+        [adminId],
+      );
+    }
     return true;
   });
 }
@@ -202,13 +209,21 @@ describe("Authoritative admin withdrawal transitions", () => {
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
       const userId = `withdraw-admin-approve-${randomUUID()}`;
+      const adminId = `admin-approve-${randomUUID()}`;
       const withdrawalId = await seedWithdrawal(userId);
+      const idempotencyKey = `admin-approve-${randomUUID()}`;
       try {
         assert.deepEqual(
           await adminActOnAuthoritativeWithdrawal({
             withdrawalId,
-            adminId: "admin-test",
+            adminId,
             action: "approve",
+            idempotencyKey,
+            requestHash: hashApiCommand({
+              withdrawalId,
+              action: "approve",
+              notes: null,
+            }),
           }),
           { ok: false, reason: "custody_launch_gate_disabled", code: 409 },
         );
@@ -234,7 +249,7 @@ describe("Authoritative admin withdrawal transitions", () => {
           assert.equal(evidence.value.heldBalance, "2.000000000000000000");
         }
       } finally {
-        await cleanup(userId);
+        await cleanup(userId, adminId);
       }
     },
   );
@@ -244,13 +259,22 @@ describe("Authoritative admin withdrawal transitions", () => {
     { skip: !integrationConfigured, timeout: 45_000 },
     async () => {
       const userId = `withdraw-admin-reject-${randomUUID()}`;
+      const adminId = `admin-reject-${randomUUID()}`;
       const withdrawalId = await seedWithdrawal(userId);
+      const idempotencyKey = `admin-reject-${randomUUID()}`;
+      const requestHash = hashApiCommand({
+        withdrawalId,
+        action: "reject",
+        notes: "verified rejection",
+      });
       try {
         const first = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
-          adminId: "admin-test",
+          adminId,
           action: "reject",
           notes: "verified rejection",
+          idempotencyKey,
+          requestHash,
         });
         assert.equal(first.ok, true);
         if (!first.ok) return;
@@ -259,9 +283,11 @@ describe("Authoritative admin withdrawal transitions", () => {
 
         const replay = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
-          adminId: "admin-test",
+          adminId,
           action: "reject",
           notes: "verified rejection",
+          idempotencyKey,
+          requestHash,
         });
         assert.equal(replay.ok, true);
         if (!replay.ok) return;
@@ -290,10 +316,21 @@ describe("Authoritative admin withdrawal transitions", () => {
             "SELECT status FROM withdrawal_admission_outbox WHERE withdrawal_id = $1",
             [withdrawalId],
           );
+          const receipts = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM api_command_receipts
+              WHERE principal_type = 'admin'
+                AND principal_id = $1
+                AND operation = 'withdrawal.admin_action'
+                AND idempotency_key = $2
+                AND status = 'completed'`,
+            [adminId, idempotencyKey],
+          );
           return {
             balance: balance.rows[0],
             releases: Number(releases.rows[0]?.count ?? "0"),
             actions: Number(actions.rows[0]?.count ?? "0"),
+            receipts: Number(receipts.rows[0]?.count ?? "0"),
             outboxStatus: outbox.rows[0]?.status,
           };
         });
@@ -303,10 +340,11 @@ describe("Authoritative admin withdrawal transitions", () => {
           assert.equal(evidence.value.balance?.held_balance, "0.000000000000000000");
           assert.equal(evidence.value.releases, 1);
           assert.equal(evidence.value.actions, 1);
+          assert.equal(evidence.value.receipts, 1);
           assert.equal(evidence.value.outboxStatus, "cancelled");
         }
       } finally {
-        await cleanup(userId);
+        await cleanup(userId, adminId);
       }
     },
   );

@@ -12,12 +12,11 @@
     "mutatingOperations": 69,
     "activeOperations": 65,
     "denyOnlyOperations": 4,
-    "operationsWithFindings": 55,
-    "findings": 75,
+    "operationsWithFindings": 53,
+    "findings": 70,
     "findingCounts": {
       "missing_audit_or_observability_evidence": 3,
       "parsed_body_without_size_limit": 48,
-      "replayable_command_without_idempotency": 5,
       "required_strict_revocation_missing": 19
     }
   },
@@ -1093,7 +1092,7 @@
       "route": "/api/admin/withdrawals/[id]",
       "method": "POST",
       "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
-      "sourceHash": "2f2d23520ba38569a02418fd",
+      "sourceHash": "427cce40edf9d07506e10ffe",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -1113,7 +1112,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "local:json",
-        "idempotency": false,
+        "idempotency": true,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -1146,8 +1145,7 @@
         "serviceIdentity": false
       },
       "findings": [
-        "parsed_body_without_size_limit",
-        "replayable_command_without_idempotency"
+        "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
@@ -2499,7 +2497,7 @@
       "route": "/api/auth/withdraw/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/auth/withdraw/[id]/route.ts",
-      "sourceHash": "3bdaff7b9afeaa63777dbc55",
+      "sourceHash": "e039c66c6f27c0442792e678",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2519,7 +2517,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": null,
-        "idempotency": false,
+        "idempotency": true,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -2547,9 +2545,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "replayable_command_without_idempotency"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/withdraw/[id]/route.ts",
         "method": "DELETE",
@@ -2560,7 +2556,7 @@
       "route": "/api/auth/withdraw/authorize",
       "method": "POST",
       "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
-      "sourceHash": "794f62474aea53b42f7c8b67",
+      "sourceHash": "b03989d2c93fbdc1baa370d5",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -2580,7 +2576,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "local:json",
-        "idempotency": false,
+        "idempotency": true,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -2609,8 +2605,7 @@
         "serviceIdentity": false
       },
       "findings": [
-        "parsed_body_without_size_limit",
-        "replayable_command_without_idempotency"
+        "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/auth/withdraw/authorize/route.ts",
@@ -3903,7 +3898,7 @@
       "route": "/api/offline-sync",
       "method": "POST",
       "sourcePath": "src/app/api/offline-sync/route.ts",
-      "sourceHash": "57009aa3539a0d80a5cacb89",
+      "sourceHash": "9709ca5771b11e1413847940",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -3920,7 +3915,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": "local:text",
-        "idempotency": false,
+        "idempotency": true,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -3953,8 +3948,7 @@
         "serviceIdentity": false
       },
       "findings": [
-        "parsed_body_without_size_limit",
-        "replayable_command_without_idempotency"
+        "parsed_body_without_size_limit"
       ],
       "evidenceSource": {
         "sourcePath": "src/app/api/offline-sync/route.ts",
@@ -4026,7 +4020,7 @@
       "route": "/api/orders/[id]",
       "method": "DELETE",
       "sourcePath": "src/app/api/orders/[id]/route.ts",
-      "sourceHash": "7fd40481a98eaf46b833afd5",
+      "sourceHash": "17dc51913c51e977dff9ceba",
       "delegatedTo": null,
       "delegatedSourceHash": null,
       "mutationMode": "active",
@@ -4045,7 +4039,7 @@
         "bodySizeLimit": false,
         "contentTypeCheck": false,
         "inputParser": null,
-        "idempotency": false,
+        "idempotency": true,
         "transaction": false,
         "verifiedPrincipal": true,
         "tenantFromVerifiedContext": false,
@@ -4073,9 +4067,7 @@
         "redaction": true,
         "serviceIdentity": false
       },
-      "findings": [
-        "replayable_command_without_idempotency"
-      ],
+      "findings": [],
       "evidenceSource": {
         "sourcePath": "src/app/api/orders/[id]/route.ts",
         "method": "DELETE",

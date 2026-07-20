@@ -7,8 +7,12 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import {
+  hashApiCommand,
+  parseApiIdempotencyKey,
+} from "@/lib/security/api-command-idempotency";
+import { cancelWithdrawalIdempotently } from "@/lib/security/withdrawal-cancel-authority";
 import { fetchWithdrawal } from "@/lib/security/withdrawal-service";
-import { cancelAuthoritativeWithdrawal } from "@/lib/security/withdrawal-admission-service";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +59,23 @@ export async function DELETE(
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
-    const result = await cancelAuthoritativeWithdrawal(id, userId);
+    const idempotencyKey = parseApiIdempotencyKey(
+      req.headers.get("Idempotency-Key"),
+    );
+    if (!idempotencyKey) return apiError("idempotency_key_required", 400);
+
+    const result = await cancelWithdrawalIdempotently({
+      withdrawalId: id,
+      userId,
+      idempotencyKey,
+      requestHash: hashApiCommand({ withdrawalId: id }),
+    });
     if (!result.ok) return apiError(result.reason, result.code);
 
-    return apiOk({ cancelled: true });
+    return apiOk({
+      cancelled: true,
+      replayed: result.replayed,
+      withdrawal: result.withdrawal,
+    });
   });
 }

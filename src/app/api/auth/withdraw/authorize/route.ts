@@ -4,7 +4,15 @@ import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
+import { PLATFORM } from "@/lib/platform-config";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import {
+  claimApiCommandTx,
+  completeApiCommandTx,
+  hashApiCommand,
+  parseApiIdempotencyKey,
+  type ApiCommandScope,
+} from "@/lib/security/api-command-idempotency";
 import { writeAudit } from "@/lib/security/audit-log";
 import { decryptTotpSecret, verifyTotpStep } from "@/lib/security/totp";
 import {
@@ -15,12 +23,23 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type AuthorizationTransactionResult =
-  | { status: "issued"; authorization: { id: string; expiresAt: Date } }
-  | { status: "2fa_required" }
-  | { status: "invalid_totp" }
-  | { status: "2fa_secret_corrupt" }
-  | { status: "authorization_store_unavailable" };
+type AuthorizationReceipt = {
+  outcome: "issued" | "2fa_required" | "invalid_totp";
+  authorizationId?: string;
+  expiresAt?: string;
+  withdrawalRequestHash: string;
+};
+
+type AuthorizationTransactionResult = {
+  receipt: AuthorizationReceipt;
+  replayed: boolean;
+};
+
+class AuthorizationDependencyError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+  }
+}
 
 export async function POST(req: NextRequest) {
   return withObservability(
@@ -41,9 +60,15 @@ export async function POST(req: NextRequest) {
       });
       if (!limited.ok) return apiError("rate_limited", 429);
 
-      const body = await req.json().catch(() => ({}));
+      const body = await req.json().catch(() => ({})) as Record<string, unknown>;
       const code = typeof body.code === "string" ? body.code.trim() : "";
       if (!/^\d{6}$/.test(code)) return apiError("invalid_code_format", 400);
+
+      const idempotencyKey = parseApiIdempotencyKey(
+        req.headers.get("Idempotency-Key"),
+        body.idempotencyKey,
+      );
+      if (!idempotencyKey) return apiError("idempotency_key_required", 400);
 
       const canonical = canonicalizeWithdrawalCommand({
         userId,
@@ -54,13 +79,44 @@ export async function POST(req: NextRequest) {
         destinationTag:
           typeof body.destinationTag === "string" ? body.destinationTag : null,
         network: typeof body.network === "string" ? body.network : "",
-        idempotencyKey:
-          typeof body.idempotencyKey === "string" ? body.idempotencyKey : "",
+        idempotencyKey,
       });
       if (!canonical.ok) return apiError(canonical.reason, 400);
 
+      const receiptScope: ApiCommandScope = {
+        tenantId: PLATFORM.DEFAULT_TENANT_ID,
+        principalType: "user",
+        principalId: userId,
+        operation: "withdrawal.authorize",
+        idempotencyKey,
+        requestHash: hashApiCommand({
+          withdrawalRequestHash: canonical.requestHash,
+          totpCodeHash: hashApiCommand(code),
+        }),
+      };
+
       try {
         const issued = await withTx<AuthorizationTransactionResult>(async (db) => {
+          const claim = await claimApiCommandTx<AuthorizationReceipt>(
+            db,
+            receiptScope,
+          );
+          if (claim.status === "conflict") {
+            return {
+              receipt: {
+                outcome: "invalid_totp",
+                withdrawalRequestHash: "idempotency_conflict",
+              },
+              replayed: false,
+            };
+          }
+          if (claim.status === "in_progress") {
+            throw new AuthorizationDependencyError("idempotency_in_progress");
+          }
+          if (claim.status === "replayed") {
+            return { receipt: claim.response, replayed: true };
+          }
+
           const factor = await db.query<{ encrypted_secret: string }>(
             `SELECT encrypted_secret
                FROM user_2fa
@@ -70,15 +126,35 @@ export async function POST(req: NextRequest) {
             [userId],
           );
           const row = factor.rows[0];
-          if (!row) return { status: "2fa_required" };
+          if (!row) {
+            const receipt: AuthorizationReceipt = {
+              outcome: "2fa_required",
+              withdrawalRequestHash: canonical.requestHash,
+            };
+            await completeApiCommandTx(db, receiptScope, {
+              httpStatus: 403,
+              response: receipt,
+            });
+            return { receipt, replayed: false };
+          }
 
           let step: number | null;
           try {
             step = verifyTotpStep(decryptTotpSecret(row.encrypted_secret), code);
           } catch {
-            return { status: "2fa_secret_corrupt" };
+            throw new AuthorizationDependencyError("2fa_secret_corrupt");
           }
-          if (step === null) return { status: "invalid_totp" };
+          if (step === null) {
+            const receipt: AuthorizationReceipt = {
+              outcome: "invalid_totp",
+              withdrawalRequestHash: canonical.requestHash,
+            };
+            await completeApiCommandTx(db, receiptScope, {
+              httpStatus: 401,
+              response: receipt,
+            });
+            return { receipt, replayed: false };
+          }
 
           const authorization = await issueWithdrawalAuthorizationTx(db, {
             userId,
@@ -86,7 +162,7 @@ export async function POST(req: NextRequest) {
             verificationStep: step,
           });
           if (!authorization) {
-            return { status: "authorization_store_unavailable" };
+            throw new AuthorizationDependencyError("authorization_store_unavailable");
           }
 
           const touched = await db.query(
@@ -100,52 +176,74 @@ export async function POST(req: NextRequest) {
           if ((touched.rowCount ?? 0) !== 1) {
             throw new Error("withdrawal_2fa_disabled_during_authorization");
           }
-          return { status: "issued", authorization };
+
+          const receipt: AuthorizationReceipt = {
+            outcome: "issued",
+            authorizationId: authorization.id,
+            expiresAt: authorization.expiresAt.toISOString(),
+            withdrawalRequestHash: canonical.requestHash,
+          };
+          await completeApiCommandTx(db, receiptScope, {
+            httpStatus: 200,
+            response: receipt,
+          });
+          return { receipt, replayed: false };
         });
         if (!issued.enabled) return apiError("db_unavailable", 503);
 
-        if (issued.value.status === "2fa_required") {
+        if (
+          issued.value.receipt.withdrawalRequestHash === "idempotency_conflict"
+        ) {
+          return apiError("idempotency_key_conflict", 409);
+        }
+        if (issued.value.receipt.outcome === "2fa_required") {
           return apiError("2fa_required", 403);
         }
-        if (issued.value.status === "2fa_secret_corrupt") {
-          return apiError("2fa_secret_corrupt", 500);
+        if (issued.value.receipt.outcome === "invalid_totp") {
+          if (!issued.value.replayed) {
+            writeAudit({
+              actorId: userId,
+              action: "wallet_withdrawal",
+              ip: getClientIp(req),
+              metadata: {
+                event: "withdrawal_authorization_failed",
+                reason: "invalid_totp",
+                requestHash: canonical.requestHash,
+              },
+            });
+          }
+          return apiError("invalid_totp_code", 401, {
+            replayed: issued.value.replayed,
+          });
         }
-        if (issued.value.status === "authorization_store_unavailable") {
-          return apiError("authorization_store_unavailable", 503);
-        }
-        if (issued.value.status === "invalid_totp") {
+
+        if (!issued.value.replayed) {
           writeAudit({
             actorId: userId,
             action: "wallet_withdrawal",
             ip: getClientIp(req),
+            userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
             metadata: {
-              event: "withdrawal_authorization_failed",
-              reason: "invalid_totp",
+              event: "withdrawal_authorized",
+              authorizationId: issued.value.receipt.authorizationId,
               requestHash: canonical.requestHash,
+              policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
+              expiresAt: issued.value.receipt.expiresAt,
             },
           });
-          return apiError("invalid_totp_code", 401);
         }
-
-        writeAudit({
-          actorId: userId,
-          action: "wallet_withdrawal",
-          ip: getClientIp(req),
-          userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
-          metadata: {
-            event: "withdrawal_authorized",
-            authorizationId: issued.value.authorization.id,
-            requestHash: canonical.requestHash,
-            policyVersion: WITHDRAWAL_ADMISSION_POLICY_VERSION,
-            expiresAt: issued.value.authorization.expiresAt.toISOString(),
-          },
-        });
         return apiOk({
-          authorizationId: issued.value.authorization.id,
+          authorizationId: issued.value.receipt.authorizationId,
           requestHash: canonical.requestHash,
-          expiresAt: issued.value.authorization.expiresAt.toISOString(),
+          expiresAt: issued.value.receipt.expiresAt,
+          replayed: issued.value.replayed,
         });
       } catch (error) {
+        if (error instanceof AuthorizationDependencyError) {
+          const code = error.reason === "idempotency_in_progress" ? 409 :
+            error.reason === "2fa_secret_corrupt" ? 500 : 503;
+          return apiError(error.reason, code);
+        }
         const codeValue =
           typeof error === "object" && error !== null && "code" in error
             ? String((error as { code?: unknown }).code ?? "")

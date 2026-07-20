@@ -15,6 +15,7 @@ import { runAcademyProgressHardeningMigrations } from "./db-migrate-academy-prog
 import { runExchangeOrderAdmissionMigrations } from "./db-migrate-exchange-order-admission";
 import { runWithdrawalAdmissionMigrations } from "./db-migrate-withdrawal-admission";
 import { runWithdrawalSettlementMigrations } from "./db-migrate-withdrawal-settlement";
+import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
 
@@ -39,6 +40,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runExchangeOrderAdmissionMigrations(client);
   await runWithdrawalAdmissionMigrations(client);
   await runWithdrawalSettlementMigrations(client);
+  await runApiCommandIdempotencyMigrations(client);
 }
 
 /**

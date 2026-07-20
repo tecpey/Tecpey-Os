@@ -97,25 +97,6 @@
       ]
     },
     {
-      "id": "idempotency",
-      "finding": "replayable_command_without_idempotency",
-      "issue": "#143",
-      "reason": "The command remains inventoried while it migrates to principal-scoped durable idempotency and exact replay semantics.",
-      "compensatingControls": [
-        "Existing transaction, ownership, and domain guards remain enforced where present.",
-        "The exact replay gap is pinned by route, method, finding, and source hash in CI.",
-        "Issue #143 tracks exact replay, conflict, concurrency, and cross-principal tests."
-      ],
-      "expiresOn": "2026-08-12",
-      "operations": [
-        { "route": "/api/admin/withdrawals/[id]", "method": "POST", "owner": "admin-security-platform" },
-        { "route": "/api/auth/withdraw/[id]", "method": "DELETE", "owner": "identity-security" },
-        { "route": "/api/auth/withdraw/authorize", "method": "POST", "owner": "identity-security" },
-        { "route": "/api/offline-sync", "method": "POST", "owner": "offline-sync-platform" },
-        { "route": "/api/orders/[id]", "method": "DELETE", "owner": "exchange-wallet-security" }
-      ]
-    },
-    {
       "id": "durable-audit",
       "finding": "missing_audit_or_observability_evidence",
       "issue": "#144",

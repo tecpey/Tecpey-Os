@@ -4,6 +4,10 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import {
+  hashApiCommand,
+  parseApiIdempotencyKey,
+} from "@/lib/security/api-command-idempotency";
 import { fetchWithdrawal } from "@/lib/security/withdrawal-service";
 import {
   adminActOnAuthoritativeWithdrawal,
@@ -77,13 +81,19 @@ export async function POST(
     if (!requestLimit.ok) return apiError("rate_limited", 429);
     if (!validWithdrawalId(id)) return apiError("invalid_withdrawal_id", 400);
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     const action = body.action as AuthoritativeAdminWithdrawalAction;
     if (!VALID_ACTIONS.has(action)) {
       return apiError("invalid_action", 400, {
         allowed: [...VALID_ACTIONS],
       });
     }
+
+    const idempotencyKey = parseApiIdempotencyKey(
+      req.headers.get("Idempotency-Key"),
+      body.idempotencyKey,
+    );
+    if (!idempotencyKey) return apiError("idempotency_key_required", 400);
 
     const authorization = await authorizeAdminRequest(
       req,
@@ -100,6 +110,11 @@ export async function POST(
       return apiError("review_notes_required", 400);
     }
 
+    const requestHash = hashApiCommand({
+      withdrawalId: id,
+      action,
+      notes: notes ?? null,
+    });
     const ip = getClientIp(req);
     const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
     const result = await adminActOnAuthoritativeWithdrawal({
@@ -107,6 +122,8 @@ export async function POST(
       adminId: authorization.principal.adminId,
       action,
       notes,
+      idempotencyKey,
+      requestHash,
       metadata: {
         ip,
         userAgent,
