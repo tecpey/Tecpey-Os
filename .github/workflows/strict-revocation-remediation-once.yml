@@ -28,6 +28,7 @@ jobs:
       - name: Apply reviewed source remediation
         run: |
           set -euo pipefail
+          echo "strict-revocation-remediation-v2"
           python3 scripts/apply-strict-revocation-once.py
           node scripts/check-strict-revocation-authority.mjs
           node --test scripts/api-security-strict-revocation-evidence.test.mjs
