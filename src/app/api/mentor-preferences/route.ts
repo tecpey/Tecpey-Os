@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -13,7 +13,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-function noStore(response: Response): Response {
+function noStore<T>(response: NextResponse<T>): NextResponse<T> {
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }

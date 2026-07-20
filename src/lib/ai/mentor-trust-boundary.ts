@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import type { MentorContext } from "@/lib/mentor-memory";
 
-export const AI_MENTOR_TRUST_POLICY_VERSION = "2026-07-20.1";
+export const AI_MENTOR_TRUST_POLICY_VERSION = "2026-07-20.2";
 
 export type MentorDataClass =
   | "public"
@@ -94,7 +94,7 @@ const LABELED_VALUE_PATTERN =
   /(?:password|passphrase|secret|token|api[\s_-]*key|private[\s_-]*key|otp|2fa|رمز|پسورد|کلید\s*خصوصی|کد\s*تأیید)\s*(?:=|:|است|هست)?\s*["']?([^\s,"'}]{4,})/gi;
 
 const INJECTION_PATTERNS: Array<[string, RegExp]> = [
-  ["ignore_policy", /ignore\s+(?:all\s+)?(?:previous|prior|system)\s+(?:instructions|rules)|دستور(?:ات)?\s+(?:قبلی|سیستم)\s+را\s+نادیده/i],
+  ["ignore_policy", /ignore\s+(?:all\s+)?(?:(?:previous|prior)\s+)?(?:system\s+)?(?:instructions|rules|messages|prompts)|(?:دستور(?:ات)?|قواعد|پیام(?:‌| )?های?)\s+(?:قبلی|پیشین|سیستم)(?:\s+سیستم)?\s+را\s+نادیده/i],
   ["role_impersonation", /(?:^|\n)\s*(?:system|developer|assistant)\s*:/i],
   ["reveal_prompt", /reveal|show|print|leak.{0,24}(?:system\s+prompt|instructions)|پرامپت\s+سیستم\s+را\s+(?:نشان|افشا)/i],
   ["tool_override", /use\s+(?:the\s+)?tool|call\s+(?:an\s+)?api|اجرا\s+کن|ابزار\s+را\s+فراخوانی/i],

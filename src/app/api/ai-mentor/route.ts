@@ -390,7 +390,7 @@ export async function POST(request: NextRequest) {
         },
       });
       if (memoryPersisted && studentId) {
-        scheduleMentorProfileUpdate(studentId, "mentor_conversation");
+        scheduleMentorProfileUpdate(studentId, "mentor_conversation_saved");
       }
       return { memoryPersisted, evidencePersisted };
     };
@@ -558,7 +558,7 @@ export async function POST(request: NextRequest) {
       },
     });
     if (memoryPersisted && studentId) {
-      scheduleMentorProfileUpdate(studentId, "mentor_conversation");
+      scheduleMentorProfileUpdate(studentId, "mentor_conversation_saved");
     }
 
     return apiOk(
