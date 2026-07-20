@@ -127,7 +127,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: typescript-diagnostics-${{ github.sha }}
-          path: /tmp/tecpey-typescript-diagnostics.log
+          path: |
+            /tmp/tecpey-typescript-diagnostics.log
+            src/lib/security/session-authority.ts
           if-no-files-found: ignore
           retention-days: 3
 
