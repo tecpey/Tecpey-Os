@@ -1,58 +1,48 @@
-// Lightweight real-time risk engine — Phase 34.
+// Real-time risk detector backed by a durable PostgreSQL decision authority.
 //
-// Phase 34 scope: emit risk events only. No account freezing, no order blocking.
-// Phase 35+: enforcement (freeze, rate-limit, 2FA escalation on high-severity events).
-//
-// Risk checks (all fire-and-forget; do NOT block order execution):
-//   1. order_frequency_high  — > 10 orders/min per user per market
-//   2. order_burst           — > 3 orders within 5s per user
-//   3. ip_switch_detected    — IP changed within 5-minute window
-//   4. duplicate_request     — Same order fingerprint within 5s
-//   5. suspicious_api_behavior — > 50 API calls/min per key
+// Redis counters remain advisory detector inputs. Once a threshold produces a
+// decision, the caller waits for event/enforcement/evidence commit before a
+// financial admission may continue.
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { writeAudit } from "./audit-log";
-import { setRiskLevel } from "./risk-enforcement";
+import { recordRiskDecision } from "./risk-enforcement-authority";
+import {
+  fingerprintRiskDetectorValue,
+  fingerprintRiskPrincipal,
+  type RiskEventType,
+  type RiskSeverity,
+} from "./risk-enforcement-evidence";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+export type { RiskEventType, RiskSeverity };
 
-export type RiskEventType =
-  | "order_frequency_high"
-  | "order_burst"
-  | "ip_switch_detected"
-  | "duplicate_request"
-  | "suspicious_api_behavior";
+export type RiskCheckResult =
+  | { ok: true; decisions: number }
+  | { ok: false; reason: "risk_authority_unavailable" };
 
-export type RiskSeverity = "low" | "medium" | "high";
-
-type RiskEvent = {
-  userId: string;
+type RiskDecision = {
+  principalId: string;
   eventType: RiskEventType;
   severity: RiskSeverity;
+  detectorIdentity: string;
   market?: string;
-  ip?: string;
-  metadata?: Record<string, unknown>;
+  detectorFacts?: Record<string, unknown>;
 };
-
-// ── Thresholds (move to feature flags in Phase 35) ────────────────────────────
 
 const FREQ_PER_MIN = 10;
 const BURST_5S = 3;
 const API_PER_MIN = 50;
-
-// ── Redis helpers ─────────────────────────────────────────────────────────────
 
 function redis() {
   return globalThis.tecpeyRedisClient ?? null;
 }
 
 async function incr(key: string, ttl: number): Promise<number> {
-  const r = redis();
-  if (!r) return 0;
-  const n = await r.incr(key);
-  if (n === 1) void r.expire(key, ttl);
-  return n;
+  const client = redis();
+  if (!client) return 0;
+  const count = await client.incr(key);
+  if (count === 1) await client.expire(key, ttl);
+  return count;
 }
 
 async function get(key: string): Promise<string | null> {
@@ -60,116 +50,172 @@ async function get(key: string): Promise<string | null> {
 }
 
 async function setex(key: string, value: string, ttl: number): Promise<void> {
-  void redis()?.set(key, value, "EX", ttl);
+  const client = redis();
+  if (client) await client.set(key, value, "EX", ttl);
 }
 
-// ── Event persister ───────────────────────────────────────────────────────────
-
-async function emit(ev: RiskEvent): Promise<void> {
-  try {
-    await withDb(async (db) => {
-      await db.query(
-        `INSERT INTO risk_events (user_id, event_type, severity, market, ip, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          ev.userId, ev.eventType, ev.severity,
-          ev.market ?? null, ev.ip?.slice(0, 80) ?? null,
-          JSON.stringify(ev.metadata ?? {}),
-        ],
-      );
-      return true;
-    });
-    writeAudit({
-      actorId: ev.userId, action: "risk_event", ip: ev.ip,
-      metadata: { eventType: ev.eventType, severity: ev.severity, market: ev.market },
-    });
-    logger.warn("[risk-engine] event", {
-      userId: ev.userId, type: ev.eventType, severity: ev.severity,
-    });
-
-    // Phase 35: enforcement — set block level on high-severity repeated events
-    if (ev.severity === "high") {
-      void setRiskLevel(ev.userId, "trade_blocked", 3_600); // 1-hour auto-release
-    } else if (ev.eventType === "duplicate_request" && ev.severity === "medium") {
-      void setRiskLevel(ev.userId, "review", 300); // 5-min review flag
-    }
-  } catch (err) {
-    logger.error("[risk-engine] persist failed", { err: String(err) });
-  }
+async function commitDecision(decision: RiskDecision): Promise<void> {
+  const result = await recordRiskDecision({
+    principalId: decision.principalId,
+    eventType: decision.eventType,
+    severity: decision.severity,
+    detectorIdentity: decision.detectorIdentity,
+    market: decision.market,
+    detectorFacts: decision.detectorFacts,
+  });
+  logger.warn("[risk-engine] durable decision committed", {
+    principalFingerprint: fingerprintRiskPrincipal(decision.principalId),
+    eventFingerprint: result.eventFingerprint,
+    eventType: decision.eventType,
+    severity: decision.severity,
+    effectiveLevel: result.effectiveLevel,
+    generation: result.generation,
+    replayed: result.replayed,
+    projectionPending: !result.projectionPublished,
+  });
 }
 
-// ── Order risk check ──────────────────────────────────────────────────────────
-
-/** Called before order placement. All checks are fire-and-forget. */
-export function checkOrderRisk(opts: {
+/**
+ * Called before Exchange order admission. A detected decision must commit
+ * before the route may continue; Redis detector absence alone is not a block.
+ */
+export async function checkOrderRisk(opts: {
   userId: string;
   market: string;
   ip: string;
   orderFingerprint: string;
-}): void {
-  void runOrderRisk(opts);
-}
+}): Promise<RiskCheckResult> {
+  const { userId, market } = opts;
+  const principalFingerprint = fingerprintRiskPrincipal(userId);
+  const ipFingerprint = fingerprintRiskDetectorValue(opts.ip);
+  const orderFingerprint = fingerprintRiskDetectorValue(opts.orderFingerprint);
+  const minuteBucket = Math.floor(Date.now() / 60_000);
+  const burstBucket = Math.floor(Date.now() / 5_000);
 
-async function runOrderRisk(opts: {
-  userId: string; market: string; ip: string; orderFingerprint: string;
-}): Promise<void> {
-  const { userId, market, ip, orderFingerprint } = opts;
-  const minBucket = Math.floor(Date.now() / 60_000);
   try {
-    const [freqCount, burstCount, prevIp, dedupExists] = await Promise.all([
-      incr(`tecpey:risk:freq:${userId}:${market}:${minBucket}`, 70),
-      incr(`tecpey:risk:burst:${userId}`, 5),
-      get(`tecpey:risk:ip:${userId}`),
-      get(`tecpey:risk:dedup:${orderFingerprint}`),
-    ]);
-    void setex(`tecpey:risk:ip:${userId}`, ip, 300);
-    void setex(`tecpey:risk:dedup:${orderFingerprint}`, "1", 5);
+    const [freqCount, burstCount, previousIpFingerprint, duplicateExists] =
+      await Promise.all([
+        incr(
+          `tecpey:risk:freq:${principalFingerprint}:${market}:${minuteBucket}`,
+          70,
+        ),
+        incr(`tecpey:risk:burst:${principalFingerprint}:${burstBucket}`, 10),
+        get(`tecpey:risk:ip:${principalFingerprint}`),
+        get(`tecpey:risk:dedup:${orderFingerprint}`),
+      ]);
 
+    await Promise.all([
+      setex(`tecpey:risk:ip:${principalFingerprint}`, ipFingerprint, 300),
+      setex(`tecpey:risk:dedup:${orderFingerprint}`, "1", 5),
+    ]);
+
+    const decisions: RiskDecision[] = [];
     if (freqCount > FREQ_PER_MIN) {
-      void emit({ userId, market, ip, eventType: "order_frequency_high", severity: "medium",
-        metadata: { ordersThisMinute: freqCount, threshold: FREQ_PER_MIN } });
+      decisions.push({
+        principalId: userId,
+        market,
+        eventType: "order_frequency_high",
+        severity: "medium",
+        detectorIdentity: `frequency:${market}:${minuteBucket}`,
+        detectorFacts: {
+          observedCount: freqCount,
+          threshold: FREQ_PER_MIN,
+          windowSeconds: 60,
+        },
+      });
     }
     if (burstCount > BURST_5S) {
-      void emit({ userId, market, ip, eventType: "order_burst", severity: "low",
-        metadata: { burst5s: burstCount, threshold: BURST_5S } });
+      decisions.push({
+        principalId: userId,
+        market,
+        eventType: "order_burst",
+        severity: "low",
+        detectorIdentity: `burst:${market}:${burstBucket}`,
+        detectorFacts: {
+          observedCount: burstCount,
+          threshold: BURST_5S,
+          windowSeconds: 5,
+        },
+      });
     }
-    if (prevIp && prevIp !== ip) {
-      void emit({ userId, market, ip, eventType: "ip_switch_detected", severity: "low",
-        metadata: { prevIp, currentIp: ip } });
+    if (previousIpFingerprint && previousIpFingerprint !== ipFingerprint) {
+      decisions.push({
+        principalId: userId,
+        market,
+        eventType: "ip_switch_detected",
+        severity: "low",
+        detectorIdentity: `ip-switch:${minuteBucket}:${ipFingerprint}`,
+        detectorFacts: {
+          previousIpFingerprint,
+          currentIpFingerprint: ipFingerprint,
+          windowSeconds: 300,
+        },
+      });
     }
-    if (dedupExists) {
-      void emit({ userId, market, ip, eventType: "duplicate_request", severity: "medium",
-        metadata: { fingerprint: orderFingerprint.slice(0, 16) } });
+    if (duplicateExists) {
+      decisions.push({
+        principalId: userId,
+        market,
+        eventType: "duplicate_request",
+        severity: "medium",
+        detectorIdentity: `duplicate:${orderFingerprint}`,
+        detectorFacts: {
+          orderFingerprint,
+          windowSeconds: 5,
+        },
+      });
     }
-  } catch (err) {
-    logger.warn("[risk-engine] check failed", { userId, err: String(err) });
+
+    for (const decision of decisions) await commitDecision(decision);
+    return { ok: true, decisions: decisions.length };
+  } catch (error) {
+    logger.error("[risk-engine] durable order decision failed", {
+      principalFingerprint,
+      market,
+      errorCategory: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+    });
+    return { ok: false, reason: "risk_authority_unavailable" };
   }
 }
 
-// ── API key risk check ────────────────────────────────────────────────────────
-
-/** Called on API key usage. Detects abnormal call rates. */
-export function checkApiKeyRisk(opts: {
-  userId: string; keyId: string; ip: string;
-}): void {
-  void runApiKeyRisk(opts);
-}
-
-async function runApiKeyRisk(opts: { userId: string; keyId: string; ip: string }): Promise<void> {
-  const { userId, keyId, ip } = opts;
-  const minBucket = Math.floor(Date.now() / 60_000);
+/** Dormant until an authenticated API-key caller explicitly integrates it. */
+export async function checkApiKeyRisk(opts: {
+  userId: string;
+  keyId: string;
+  ip: string;
+}): Promise<RiskCheckResult> {
+  const principalFingerprint = fingerprintRiskPrincipal(opts.userId);
+  const keyFingerprint = fingerprintRiskDetectorValue(opts.keyId);
+  const minuteBucket = Math.floor(Date.now() / 60_000);
   try {
-    const count = await incr(`tecpey:risk:apicall:${keyId}:${minBucket}`, 70);
-    if (count > API_PER_MIN) {
-      void emit({ userId, ip, eventType: "suspicious_api_behavior", severity: "medium",
-        metadata: { keyId, callsThisMinute: count, threshold: API_PER_MIN } });
-    }
-  } catch (err) {
-    logger.warn("[risk-engine] api check failed", { userId, err: String(err) });
+    const count = await incr(
+      `tecpey:risk:apicall:${keyFingerprint}:${minuteBucket}`,
+      70,
+    );
+    if (count <= API_PER_MIN) return { ok: true, decisions: 0 };
+
+    await commitDecision({
+      principalId: opts.userId,
+      eventType: "suspicious_api_behavior",
+      severity: "medium",
+      detectorIdentity: `api-frequency:${keyFingerprint}:${minuteBucket}`,
+      detectorFacts: {
+        keyFingerprint,
+        ipFingerprint: fingerprintRiskDetectorValue(opts.ip),
+        observedCount: count,
+        threshold: API_PER_MIN,
+        windowSeconds: 60,
+      },
+    });
+    return { ok: true, decisions: 1 };
+  } catch (error) {
+    logger.error("[risk-engine] durable API-key decision failed", {
+      principalFingerprint,
+      errorCategory: error instanceof Error ? error.message.slice(0, 120) : "unknown",
+    });
+    return { ok: false, reason: "risk_authority_unavailable" };
   }
 }
-
-// ── Query ─────────────────────────────────────────────────────────────────────
 
 export type RiskRecord = {
   id: string;
@@ -177,28 +223,43 @@ export type RiskRecord = {
   eventType: string;
   severity: string;
   market: string | null;
-  ip: string | null;
+  ip: null;
   metadata: Record<string, unknown>;
   createdAt: Date;
 };
 
-export async function getRecentRiskEvents(userId: string, limit = 50): Promise<RiskRecord[]> {
-  const r = await withDb(async (db) => {
-    const result = await db.query<{
-      id: string; user_id: string; event_type: string; severity: string;
-      market: string | null; ip: string | null;
-      metadata: Record<string, unknown>; created_at: Date;
+export async function getRecentRiskEvents(
+  userId: string,
+  limit = 50,
+): Promise<RiskRecord[]> {
+  const result = await withDb(async (client) => {
+    const selected = await client.query<{
+      id: string;
+      principal_id: string;
+      event_type: string;
+      severity: string;
+      market: string | null;
+      detector_facts: Record<string, unknown>;
+      created_at: Date;
     }>(
-      `SELECT id, user_id, event_type, severity, market, ip, metadata, created_at
-       FROM risk_events WHERE user_id = $1
-       ORDER BY created_at DESC LIMIT $2`,
-      [userId, Math.min(limit, 200)],
+      `SELECT id, principal_id, event_type, severity, market,
+              detector_facts, created_at
+         FROM risk_authority_events
+        WHERE tenant_id = 'tecpey' AND principal_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2`,
+      [userId, Math.min(Math.max(limit, 1), 200)],
     );
-    return result.rows.map((row) => ({
-      id: row.id, userId: row.user_id, eventType: row.event_type,
-      severity: row.severity, market: row.market, ip: row.ip,
-      metadata: row.metadata, createdAt: row.created_at,
+    return selected.rows.map((row) => ({
+      id: row.id,
+      userId: row.principal_id,
+      eventType: row.event_type,
+      severity: row.severity,
+      market: row.market,
+      ip: null,
+      metadata: row.detector_facts,
+      createdAt: row.created_at,
     }));
   });
-  return r.enabled ? r.value : [];
+  return result.enabled ? result.value : [];
 }
