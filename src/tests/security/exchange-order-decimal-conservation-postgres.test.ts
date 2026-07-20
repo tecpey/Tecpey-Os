@@ -228,10 +228,9 @@ describe("Exchange Decimal settlement conservation", () => {
       evidence.value.residuals.every((row) => D(row.residual).isZero()),
       true,
     );
-    assert.deepEqual(
-      evidence.value.platformCredits.map((row) => row.amount),
-      ["0.0000200000", "0.0000800000"],
-    );
+    assert.equal(evidence.value.platformCredits.length, 2);
+    assertAmount(evidence.value.platformCredits[0]?.amount, "0.0000200000");
+    assertAmount(evidence.value.platformCredits[1]?.amount, "0.0000800000");
 
     const balances = byBalance(evidence.value.balances);
     assertAmount(balances.get(`${buyerId}:USDT`)?.available, "0.9499500000");
