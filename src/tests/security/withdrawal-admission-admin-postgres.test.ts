@@ -14,8 +14,17 @@ import {
   recordWithdrawalPriceSnapshot,
 } from "../../lib/security/withdrawal-admission-authority";
 import { createAuthoritativeWithdrawal } from "../../lib/security/withdrawal-admission-service";
-import { adminActOnAuthoritativeWithdrawal } from "../../lib/security/withdrawal-admin-authority";
+import {
+  adminActOnAuthoritativeWithdrawal,
+  type AdminWithdrawalAuthorizationEvidence,
+  type AuthoritativeAdminWithdrawalAction,
+} from "../../lib/security/withdrawal-admin-authority";
 import { hashApiCommand } from "../../lib/security/api-command-idempotency";
+import {
+  fingerprintWithdrawalReviewReason,
+  fingerprintWithdrawalRoleSet,
+  fingerprintWithdrawalSession,
+} from "../../lib/security/withdrawal-evidence";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -31,6 +40,33 @@ const originalRedis = globalThis.tecpeyRedisClient;
 const originalRealWithdrawals = process.env.TECPEY_REAL_WITHDRAWALS_ENABLED;
 let redis: Redis | null = null;
 let verificationStep = Math.floor(Date.now() / 30_000) + 200_000;
+
+const ACTION_PERMISSION: Record<AuthoritativeAdminWithdrawalAction, string> = {
+  approve: "withdrawals.approve",
+  reject: "withdrawals.reject",
+  block: "withdrawals.hold",
+  flag_review: "withdrawals.hold",
+};
+
+function adminAuthorizationEvidence(
+  action: AuthoritativeAdminWithdrawalAction,
+  notes?: string,
+): AdminWithdrawalAuthorizationEvidence {
+  return {
+    permission: ACTION_PERMISSION[action],
+    stepUpWithinSeconds: 300,
+    roleSetFingerprint: fingerprintWithdrawalRoleSet([
+      "admin",
+      ACTION_PERMISSION[action],
+    ]),
+    sessionEvidenceFingerprint: fingerprintWithdrawalSession(
+      `withdrawal-admin-test-session:${action}`,
+    ),
+    reviewReasonFingerprint: notes
+      ? fingerprintWithdrawalReviewReason(notes)
+      : null,
+  };
+}
 
 function passingProviders() {
   const kyc: KYCProvider = {
@@ -155,10 +191,21 @@ async function seedWithdrawal(userId: string): Promise<string> {
 
 async function cleanup(userId: string, adminId?: string): Promise<void> {
   await withDb(async (client) => {
-    await client.query(
-      "DELETE FROM withdrawal_admin_actions WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)",
+    const immutableActions = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+         FROM withdrawal_admin_actions
+        WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)`,
       [userId],
     );
+    if (adminId) {
+      await client.query(
+        "DELETE FROM api_command_receipts WHERE principal_type = 'admin' AND principal_id = $1",
+        [adminId],
+      );
+    }
+    if (Number(immutableActions.rows[0]?.count ?? "0") > 0) {
+      return true;
+    }
     await client.query(
       "DELETE FROM withdrawal_admission_outbox WHERE withdrawal_id IN (SELECT id FROM withdrawals WHERE user_id = $1)",
       [userId],
@@ -167,12 +214,6 @@ async function cleanup(userId: string, adminId?: string): Promise<void> {
     await client.query("DELETE FROM withdrawals WHERE user_id = $1", [userId]);
     await client.query("DELETE FROM withdrawal_authorizations WHERE user_id = $1", [userId]);
     await client.query("DELETE FROM wallet_balances WHERE user_id = $1", [userId]);
-    if (adminId) {
-      await client.query(
-        "DELETE FROM api_command_receipts WHERE principal_type = 'admin' AND principal_id = $1",
-        [adminId],
-      );
-    }
     return true;
   });
 }
@@ -218,6 +259,7 @@ describe("Authoritative admin withdrawal transitions", () => {
             withdrawalId,
             adminId,
             action: "approve",
+            authorizationEvidence: adminAuthorizationEvidence("approve"),
             idempotencyKey,
             requestHash: hashApiCommand({
               withdrawalId,
@@ -262,36 +304,42 @@ describe("Authoritative admin withdrawal transitions", () => {
       const adminId = `admin-reject-${randomUUID()}`;
       const withdrawalId = await seedWithdrawal(userId);
       const idempotencyKey = `admin-reject-${randomUUID()}`;
+      const notes = "verified rejection";
       const requestHash = hashApiCommand({
         withdrawalId,
         action: "reject",
-        notes: "verified rejection",
+        notes,
       });
+      const authorizationEvidence = adminAuthorizationEvidence("reject", notes);
       try {
         const first = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
           adminId,
           action: "reject",
-          notes: "verified rejection",
+          notes,
+          authorizationEvidence,
           idempotencyKey,
           requestHash,
         });
         assert.equal(first.ok, true);
         if (!first.ok) return;
         assert.equal(first.replayed, false);
+        assert.equal(first.withdrawalId, withdrawalId);
         assert.equal(first.state, "rejected");
 
         const replay = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
           adminId,
           action: "reject",
-          notes: "verified rejection",
+          notes,
+          authorizationEvidence,
           idempotencyKey,
           requestHash,
         });
         assert.equal(replay.ok, true);
         if (!replay.ok) return;
         assert.equal(replay.replayed, true);
+        assert.equal(replay.withdrawalId, withdrawalId);
 
         const evidence = await withDb(async (client) => {
           const balance = await client.query<{
@@ -323,14 +371,26 @@ describe("Authoritative admin withdrawal transitions", () => {
                 AND principal_id = $1
                 AND operation = 'withdrawal.admin_action'
                 AND idempotency_key = $2
-                AND status = 'completed'`,
-            [adminId, idempotencyKey],
+                AND status = 'completed'
+                AND response_body->>'withdrawalId' = $3`,
+            [adminId, idempotencyKey, withdrawalId],
+          );
+          const mandatoryEvidence = await client.query<{ count: string }>(
+            `SELECT COUNT(*)::text AS count
+               FROM sensitive_mutation_audit_events
+              WHERE actor_type = 'admin'
+                AND actor_id = $1
+                AND action = 'withdrawal.admin.reject'`,
+            [adminId],
           );
           return {
             balance: balance.rows[0],
             releases: Number(releases.rows[0]?.count ?? "0"),
             actions: Number(actions.rows[0]?.count ?? "0"),
             receipts: Number(receipts.rows[0]?.count ?? "0"),
+            mandatoryEvidence: Number(
+              mandatoryEvidence.rows[0]?.count ?? "0",
+            ),
             outboxStatus: outbox.rows[0]?.status,
           };
         });
@@ -341,6 +401,7 @@ describe("Authoritative admin withdrawal transitions", () => {
           assert.equal(evidence.value.releases, 1);
           assert.equal(evidence.value.actions, 1);
           assert.equal(evidence.value.receipts, 1);
+          assert.equal(evidence.value.mandatoryEvidence, 1);
           assert.equal(evidence.value.outboxStatus, "cancelled");
         }
       } finally {
