@@ -23,15 +23,23 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout exact candidate
+      - name: Checkout exact candidate head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Verify exact checked-out head
+        run: |
+          printf 'Checked out: '
+          git rev-parse HEAD
+          printf 'Expected:    %s\n' '${{ github.event.pull_request.head.sha || github.sha }}'
+          test "$(git rev-parse HEAD)" = '${{ github.event.pull_request.head.sha || github.sha }}'
 
       - name: Verify audit configuration
         run: |
@@ -58,7 +66,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: repository-line-audit-${{ github.sha }}
+          name: repository-line-audit-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             repository-qa-artifacts/
             repository-qa-artifacts.log
