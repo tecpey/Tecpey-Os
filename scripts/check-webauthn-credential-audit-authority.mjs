@@ -123,6 +123,10 @@ for (const forbidden of [
   '"authenticatordata"',
   '"attestationobject"',
   '"userhandle"',
+  '"credentialid"',
+  '"credential_id"',
+  '"rawid"',
+  '"raw_id"',
 ]) {
   requireText("audit", forbidden, `audit metadata policy must reject WebAuthn secret-bearing key ${forbidden}`);
 }
@@ -134,9 +138,13 @@ for (const unsafeMetadata of [
   /metadata:\s*\{[^}]*\bclientDataJSON\s*:/s,
   /metadata:\s*\{[^}]*\bauthenticatorData\s*:/s,
   /metadata:\s*\{[^}]*\battestationObject\s*:/s,
+  /metadata:\s*\{[^}]*\bcredentialId\s*:/s,
+  /metadata:\s*\{[^}]*\bcredential_id\s*:/s,
+  /metadata:\s*\{[^}]*\brawId\s*:/s,
+  /metadata:\s*\{[^}]*\braw_id\s*:/s,
 ]) {
   if (unsafeMetadata.test(content.authority)) {
-    failures.push(`${files.authority}: raw WebAuthn ceremony or key material appears in audit metadata`);
+    failures.push(`${files.authority}: raw WebAuthn ceremony, key or credential identifier appears in audit metadata`);
     break;
   }
 }
@@ -166,5 +174,5 @@ if (failures.length) {
 }
 
 console.log(
-  "WebAuthn credential authority check passed: discoverable challenge privacy, strict identity, one exclusive transaction-coupled credential authority, row locking, replay conflict handling, clone-suspected outcomes and secret-redaction controls are enforced.",
+  "WebAuthn credential authority check passed: discoverable challenge privacy, strict identity, one exclusive transaction-coupled credential authority, row locking, replay conflict handling, clone-suspected outcomes and raw identifier/secret redaction controls are enforced.",
 );
