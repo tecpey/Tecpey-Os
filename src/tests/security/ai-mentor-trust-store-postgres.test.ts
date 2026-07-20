@@ -129,11 +129,10 @@ describe("AI Mentor durable trust store", () => {
         await withClient(async (client) => {
           const evidence = await client.query<{
             outcome: string;
-            document: string;
             metadata: Record<string, unknown>;
           }>(
-            `SELECT outcome, row_to_json(event)::text AS document, metadata
-               FROM sensitive_mutation_audit_events event
+            `SELECT outcome, metadata
+               FROM sensitive_mutation_audit_events
               WHERE tenant_id = $1
                 AND actor_id = $2
                 AND action = 'mentor.preferences.update'`,
@@ -146,7 +145,7 @@ describe("AI Mentor durable trust store", () => {
             fingerprintMentorPreferenceStudent(first),
           );
           assert.equal(evidence.rows[0]?.metadata.realExchangeSignalsEnabled, false);
-          assert.equal(evidence.rows[0]?.document.includes(first), false);
+          assert.equal(JSON.stringify(evidence.rows[0]?.metadata).includes(first), false);
         });
       } finally {
         await withClient(async (client) => {
@@ -181,16 +180,13 @@ describe("AI Mentor durable trust store", () => {
 
         const before = await withClient(async (client) => {
           const preference = await client.query<{ consented_at: Date }>(
-            `SELECT consented_at
-               FROM mentor_ai_preferences
-              WHERE student_id = $1::uuid`,
+            `SELECT consented_at FROM mentor_ai_preferences WHERE student_id = $1::uuid`,
             [studentId],
           );
           const evidence = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
                FROM sensitive_mutation_audit_events
-              WHERE tenant_id = $1
-                AND actor_id = $2
+              WHERE tenant_id = $1 AND actor_id = $2
                 AND action = 'mentor.preferences.update'`,
             [tenantId, studentId],
           );
@@ -218,16 +214,13 @@ describe("AI Mentor durable trust store", () => {
 
         const after = await withClient(async (client) => {
           const preference = await client.query<{ consented_at: Date }>(
-            `SELECT consented_at
-               FROM mentor_ai_preferences
-              WHERE student_id = $1::uuid`,
+            `SELECT consented_at FROM mentor_ai_preferences WHERE student_id = $1::uuid`,
             [studentId],
           );
           const evidence = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
                FROM sensitive_mutation_audit_events
-              WHERE tenant_id = $1
-                AND actor_id = $2
+              WHERE tenant_id = $1 AND actor_id = $2
                 AND action = 'mentor.preferences.update'`,
             [tenantId, studentId],
           );
@@ -285,8 +278,7 @@ describe("AI Mentor durable trust store", () => {
         await withClient(async (client) => {
           const count = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
-               FROM mentor_ai_preferences
-              WHERE student_id = $1::uuid`,
+               FROM mentor_ai_preferences WHERE student_id = $1::uuid`,
             [studentId],
           );
           assert.equal(Number(count.rows[0]?.count ?? "0"), 0);
@@ -330,17 +322,16 @@ describe("AI Mentor durable trust store", () => {
         ]);
         assert.equal(first.ok, true);
         assert.equal(second.ok, true);
-        const changedCount = [first, second].filter(
-          (result) => result.ok && result.changed,
-        ).length;
-        assert.equal(changedCount, 1);
+        assert.equal(
+          [first, second].filter((result) => result.ok && result.changed).length,
+          1,
+        );
 
         await withClient(async (client) => {
           const evidence = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
                FROM sensitive_mutation_audit_events
-              WHERE tenant_id = $1
-                AND actor_id = $2
+              WHERE tenant_id = $1 AND actor_id = $2
                 AND action = 'mentor.preferences.update'`,
             [tenantId, studentId],
           );
@@ -371,7 +362,6 @@ describe("AI Mentor durable trust store", () => {
           }),
           true,
         );
-
         await withClient(async (client) => {
           const rows = await client.query<{
             role: string;
@@ -387,10 +377,7 @@ describe("AI Mentor durable trust store", () => {
           assert.equal(rows.rows.length, 2);
           assert.deepEqual(new Set(rows.rows.map((row) => row.role)), new Set(["user", "assistant"]));
           assert.equal(rows.rows.every((row) => row.retention_class === "mentor_history_90d"), true);
-          assert.equal(
-            rows.rows.find((row) => row.role === "user")?.content_class,
-            "financial_sensitive",
-          );
+          assert.equal(rows.rows.find((row) => row.role === "user")?.content_class, "financial_sensitive");
         });
       } finally {
         await withClient((client) => cleanupStudent(client, studentId));
@@ -425,7 +412,6 @@ describe("AI Mentor durable trust store", () => {
                FOR EACH ROW EXECUTE FUNCTION ${functionName}()`,
           );
         });
-
         assert.equal(
           await persistMentorConversationPair({
             requestId,
@@ -436,7 +422,6 @@ describe("AI Mentor durable trust store", () => {
           }),
           false,
         );
-
         await withClient(async (client) => {
           const count = await client.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count
