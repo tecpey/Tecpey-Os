@@ -40,6 +40,7 @@ for (const invariant of [
   "buildExchangeOrderCancelEvidence",
   "tradeSetFingerprint",
   "releasedAmount",
+  "\\u001f",
 ]) {
   requireText(evidence, invariant, `bounded Exchange evidence invariant is missing: ${invariant}`);
 }
@@ -47,7 +48,6 @@ for (const forbidden of [
   "metadata: { orderId",
   "metadata: { userId",
   "tradeIds: tradeIds",
-  "correlationSeed:",
 ]) {
   rejectText(
     evidence,
@@ -64,10 +64,14 @@ for (const invariant of [
   "INSERT INTO sensitive_mutation_audit_events",
   "'exchange.order.admit'",
   "'exchange_order'",
+  "evidence.actor_id = command.user_id",
+  "evidence.resource_id = 'exchange-order-'",
+  "evidence.correlation_id = 'exchange-order-admit-'",
   "NEW.request_hash",
   "NEW.hold_amount::text",
   "holdRepresentation",
   "wallet_ledger",
+  "chr(31)",
 ]) {
   requireText(
     migration,
@@ -79,6 +83,11 @@ rejectText(
   migration,
   "ON CONFLICT DO NOTHING",
   "mandatory Exchange admission evidence must not silently suppress conflicts",
+);
+rejectText(
+  migration,
+  "chr(0)",
+  "PostgreSQL text evidence hashing cannot use a NUL separator",
 );
 
 requireText(
@@ -139,5 +148,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Exchange order evidence authority check passed: typed bounded events, fail-closed transactional admission trigger, canonical migration ordering, legacy cutover guard and rollback/replay evidence are permanent.",
+  "Exchange order evidence authority check passed: typed bounded events, fail-closed transactional admission trigger, canonical migration ordering, exact legacy cutover identity and rollback/replay evidence are permanent.",
 );
