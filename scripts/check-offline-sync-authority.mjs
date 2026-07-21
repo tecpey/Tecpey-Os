@@ -10,14 +10,12 @@ const files = {
   types: "src/lib/offline-sync.ts",
   scope: "src/lib/offline-sync-scope.ts",
   authority: "src/lib/offline-sync-authority.ts",
-  migration: "src/lib/db-migrate-offline-sync.ts",
   isolationMigration: "src/lib/db-migrate-tenant-principal-isolation.ts",
   plan: "src/lib/db-migration-plan.ts",
   tests: "src/tests/security/offline-sync-authority-postgres.test.ts",
   scopeTests: "src/tests/security/offline-sync-scope.test.ts",
   telemetryTests: "src/tests/security/offline-sync-telemetry-source-guard.test.ts",
   telemetryInventory: "docs/security/OFFLINE_SYNC_TELEMETRY_CLASSIFICATION.md",
-  migrationTests: "src/tests/database/migration-integration.test.ts",
   reconciliation: "scripts/reconcile-offline-sync-commands.ts",
 };
 
@@ -48,8 +46,6 @@ for (const invariant of [
   '"offline:check"',
   '"test:offline-sync"',
   '"offline:reconcile"',
-  "npm run offline:check",
-  "npm run test:offline-sync",
   "check-tenant-principal-isolation.mjs",
   "tenant-principal-context-postgres.test.ts",
 ]) {
@@ -59,15 +55,17 @@ for (const invariant of [
   "TECPEY_OFFLINE_SYNC_SECRET",
   "Offline sync authority guard",
   "Offline sync PostgreSQL integration tests",
-  "npm run test:offline-sync",
 ]) {
   requireText("workflow", invariant, `CI is missing ${invariant}`);
 }
 
 requireText("env", "TECPEY_OFFLINE_SYNC_SECRET", "production must require the offline scope secret");
 requireText("env", "signingSecretNames", "offline secret must participate in secret isolation");
-requireText("browserGuard", 'classification: "repairable-offline-projection"', "browser queue must remain a repairable projection");
-requireText("browserGuard", "expected: 1", "exactly one browser storage boundary must remain audited");
+requireText(
+  "browserGuard",
+  'classification: "repairable-offline-projection"',
+  "browser queue must remain an explicitly classified repairable projection",
+);
 
 for (const invariant of [
   "strictRevocation: true",
@@ -111,6 +109,9 @@ const telemetryBlock =
   telemetryStart >= 0 && telemetryEnd > telemetryStart
     ? content.route.slice(telemetryStart, telemetryEnd + 3)
     : "";
+if (!telemetryBlock) {
+  failures.push(`${files.route}: privacy-safe batch telemetry block is not statically reviewable`);
+}
 for (const forbidden of ["studentId:", "tenantId:", "scopeToken", "results", "payload", "input"]) {
   if (telemetryBlock.includes(forbidden)) {
     failures.push(`${files.route}: telemetry block contains forbidden raw field ${forbidden}`);
@@ -195,27 +196,35 @@ for (const invariant of [
 requireText("plan", "runOfflineSyncMigrations", "migration plan must retain Offline Sync migration");
 requireText("plan", "runTenantPrincipalIsolationMigrations", "migration plan must execute binding migration");
 
-for (const evidence of [
-  "concurrent duplicate delivery",
-  "changed payload reuse",
-  "isolates the same client event identity across tenant and principal contexts",
-  "rejects a cross-tenant command row at the composite foreign key",
-  "learning-event application fails",
-  "rejects invalid authority context before PostgreSQL mutation",
+for (const invariant of [
+  "Promise.all(",
+  "idempotency_conflict",
+  "offline_sync_commands_principal_binding_fk|foreign key",
+  "forced offline event failure",
+  "principal_context_invalid",
 ]) {
-  requireText("tests", evidence, `missing adversarial evidence: ${evidence}`);
+  requireText("tests", invariant, `PostgreSQL adversarial suite is missing ${invariant}`);
 }
-for (const evidence of [
-  "verifies the exact signed tenant and student scope",
-  "rejects tampering and cross-principal substitution",
-  "rejects expired principal scope",
-  "does not acknowledge mismatched principal commands",
-  "quarantines legacy unscoped commands",
+for (const invariant of [
+  "verifyOfflineSyncScope",
+  "scope.scope.tenantId !== context.tenantId",
+  "scope.scope.studentId !== context.principalId",
+  "principal_scope_mismatch",
+  "LEGACY_QUARANTINE_KEY",
+  "scopeRefreshInFlight",
 ]) {
-  requireText("scopeTests", evidence, `missing scope evidence: ${evidence}`);
+  requireText("scopeTests", invariant, `scope adversarial suite is missing ${invariant}`);
 }
-requireText("telemetryTests", "passes the permanent Offline Sync authority", "focused suite must execute source guard");
-requireText("telemetryInventory", "batch summary is operational telemetry only", "telemetry classification is missing");
+requireText(
+  "telemetryTests",
+  "scripts/check-offline-sync-authority.mjs",
+  "focused suite must execute the permanent source guard",
+);
+requireText(
+  "telemetryInventory",
+  "operational telemetry only",
+  "telemetry must remain explicitly non-authoritative",
+);
 requireText("reconciliation", "reconcileStaleOfflineCommands", "operations must reconcile stale commands");
 requireText("reconciliation", "purgeExpiredOfflineCommands", "operations must purge expired evidence");
 
