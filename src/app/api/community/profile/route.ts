@@ -281,16 +281,23 @@ export async function PATCH(req: NextRequest) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
 
-      const limited = await rateLimit(req, {
-        namespace:
-          view === "journal-challenge"
-            ? "community-journal-challenge-claim"
-            : "community-profile-write",
-        identity: session.studentId,
-        limit: view === "journal-challenge" ? 12 : 10,
-        windowMs: 60_000,
-      });
-      if (!limited.ok) return noStore(apiError("rate_limited", 429));
+      if (view === "journal-challenge") {
+        const challengeLimited = await rateLimit(req, {
+          namespace: "community-journal-challenge-claim",
+          identity: session.studentId,
+          limit: 12,
+          windowMs: 60_000,
+        });
+        if (!challengeLimited.ok) return noStore(apiError("rate_limited", 429));
+      } else {
+        const profileLimited = await rateLimit(req, {
+          namespace: "community-profile-write",
+          identity: session.studentId,
+          limit: 10,
+          windowMs: 60_000,
+        });
+        if (!profileLimited.ok) return noStore(apiError("rate_limited", 429));
+      }
 
       const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? "";
       if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
