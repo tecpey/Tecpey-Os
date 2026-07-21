@@ -69,10 +69,51 @@ async function seedIdentity(label: string): Promise<Identity> {
          VALUES ($1::uuid, 'fa', $2, $3)`,
         [identity.studentId, `Discipline ${label}`, username],
       );
+
+      // Re-home the fixture from compatibility defaults into its isolated
+      // tenant/workspace, then explicitly grant scoring consent. This suite
+      // tests the score policy; consent default/transition behavior is covered
+      // by the dedicated scoring-consent integration suite.
+      await client.query(
+        "DELETE FROM academy_public_profiles WHERE student_id = $1::uuid",
+        [identity.studentId],
+      );
+      await client.query(
+        `DELETE FROM platform_principal_bindings
+          WHERE principal_type = 'student'
+            AND principal_id = $1`,
+        [identity.studentId],
+      );
       await client.query(
         `INSERT INTO platform_principal_bindings
            (tenant_id, workspace_id, principal_type, principal_id, source)
          VALUES ($1, $2, 'student', $3, 'journal_discipline_score_test')`,
+        [identity.tenantId, identity.workspaceId, identity.studentId],
+      );
+      await client.query(
+        `INSERT INTO academy_public_profiles
+           (student_id, tenant_id, workspace_id, principal_type,
+            public_profile_id, visibility, leaderboard_visible,
+            journal_sharing_enabled, instructor_review_consent,
+            challenge_participation, study_group_discovery,
+            revision, consent_version, consented_at, created_at, updated_at)
+         VALUES
+           ($1::uuid, $2, $3, 'student', gen_random_uuid(), 'private', FALSE,
+            FALSE, FALSE, FALSE, FALSE, 0,
+            'community-profile-consent-v1', NULL, NOW(), NOW())`,
+        [identity.studentId, identity.tenantId, identity.workspaceId],
+      );
+      await client.query(
+        `UPDATE academy_community_reputation_scoring_consents
+            SET enabled = TRUE,
+                revision = revision + 1,
+                consented_at = NOW(),
+                updated_at = NOW()
+          WHERE tenant_id = $1
+            AND workspace_id = $2
+            AND principal_type = 'student'
+            AND principal_id = $3
+            AND revision = 0`,
         [identity.tenantId, identity.workspaceId, identity.studentId],
       );
       await client.query("COMMIT");
@@ -175,15 +216,17 @@ async function seedTerminalCycle(input: {
 }
 
 async function revoke(identity: Identity): Promise<void> {
-  await withClient((client) => client.query(
-    `UPDATE platform_principal_bindings
-        SET status = 'revoked', updated_at = NOW()
-      WHERE tenant_id = $1
-        AND workspace_id = $2
-        AND principal_type = 'student'
-        AND principal_id = $3`,
-    [identity.tenantId, identity.workspaceId, identity.studentId],
-  ));
+  await withClient((client) =>
+    client.query(
+      `UPDATE platform_principal_bindings
+          SET status = 'revoked', updated_at = NOW()
+        WHERE tenant_id = $1
+          AND workspace_id = $2
+          AND principal_type = 'student'
+          AND principal_id = $3`,
+      [identity.tenantId, identity.workspaceId, identity.studentId],
+    ),
+  );
 }
 
 before(async () => {
@@ -212,6 +255,7 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
     }
     const insufficient = await loadJournalDisciplineScore(context(identity));
     assert.equal(insufficient.available, true);
+    assert.equal(insufficient.consentRequired, false);
     assert.equal(insufficient.score?.status, "insufficient_evidence");
     assert.equal(insufficient.score?.evaluatedCycles, 3);
     assert.equal(insufficient.score?.scoreBasisPoints, null);
@@ -219,6 +263,7 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
     await seedTerminalCycle({ identity, offset: 4, eligible: 5, reflected: 4 });
     const available = await loadJournalDisciplineScore(context(identity));
     assert.equal(available.available, true);
+    assert.equal(available.consentRequired, false);
     assert.equal(available.score?.status, "available");
     assert.equal(available.score?.evaluatedCycles, 4);
     assert.equal(available.score?.scoreBasisPoints, 9_200);
@@ -236,6 +281,7 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
 
     const loaded = await loadJournalDisciplineScore(context(identity));
     assert.equal(loaded.available, true);
+    assert.equal(loaded.consentRequired, false);
     assert.equal(loaded.score?.completedCycles, 2);
     assert.equal(loaded.score?.completionConsistencyBasisPoints, 5_000);
     assert.equal(loaded.score?.meanCoverageBasisPoints, 5_000);
@@ -259,6 +305,7 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
     }
     const loaded = await loadJournalDisciplineScore(context(identity));
     assert.equal(loaded.available, true);
+    assert.equal(loaded.consentRequired, false);
     assert.equal(loaded.score?.evaluatedCycles, 12);
     assert.equal(loaded.score?.completedCycles, 12);
     assert.equal(loaded.score?.meanCoverageBasisPoints, 8_000);
@@ -281,12 +328,14 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
 
     const isolated = await loadJournalDisciplineScore(context(identityB));
     assert.equal(isolated.available, true);
+    assert.equal(isolated.consentRequired, false);
     assert.equal(isolated.score?.evaluatedCycles, 0);
     assert.equal(isolated.score?.scoreBasisPoints, null);
 
     await revoke(identityA);
     const revoked = await loadJournalDisciplineScore(context(identityA));
     assert.equal(revoked.available, false);
+    assert.equal(revoked.consentRequired, false);
     assert.equal(revoked.score, null);
   });
 });
