@@ -225,9 +225,19 @@ const allowedWithdrawalReadBindings = new Set([
 for (const [path, source] of sourceByPath.entries()) {
   if (path === "src/lib/security/withdrawal-service.ts") continue;
 
-  const importPattern =
-    /import\s+[\s\S]*?\s+from\s+["'][^"']*withdrawal-service["']\s*;?/g;
-  const statements = source.match(importPattern) ?? [];
+  const targetReferences =
+    source.match(/from\s+["'][^"']*withdrawal-service["']/g) ?? [];
+  const statements =
+    source.match(
+      /import\s+(?:type\s+)?\{[^;]*?\}\s+from\s+["'][^"']*withdrawal-service["']\s*;?/g,
+    ) ?? [];
+
+  if (targetReferences.length !== statements.length) {
+    failures.push(
+      `${path}: withdrawal-service compatibility access must use named ES imports only`,
+    );
+  }
+
   for (const statement of statements) {
     const bindings = importBindings(statement);
     if (!bindings) {
