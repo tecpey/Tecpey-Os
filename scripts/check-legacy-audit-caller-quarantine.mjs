@@ -276,9 +276,10 @@ for (const [symbol, owner] of [
   ["adminActOnWithdrawal", "src/lib/security/withdrawal-service.ts"],
   ["cancelWithdrawal", "src/lib/security/withdrawal-service.ts"],
 ]) {
+  const symbolPattern = new RegExp(`\\b${symbol}\\b`);
   const externalReferences = [...sourceByPath.entries()]
     .filter(([path]) => path !== owner)
-    .filter(([, source]) => source.includes(symbol))
+    .filter(([, source]) => symbolPattern.test(source))
     .map(([path]) => path);
   if (externalReferences.length > 0) {
     failures.push(
