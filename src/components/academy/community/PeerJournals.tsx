@@ -1,258 +1,396 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BookOpen, Info, Lock, Shield, ToggleLeft, ToggleRight } from "lucide-react";
+import Link from "next/link";
 import {
-  loadCommunityProfile,
-  updatePrivacy,
-  type CommunityProfile,
-} from "@/lib/community-profile";
-import { loadJournal, MISTAKE_TAG_LABEL, type JournalEntry } from "@/lib/trading-journal";
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  Info,
+  LoaderCircle,
+  Lock,
+  RefreshCw,
+  ShieldCheck,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  communityJournalUiError,
+  createCommunityJournalIdempotencyKey,
+  parseCommunityConsentMutationPayload,
+  parseCommunityJournalFeedPayload,
+  parseCommunityOwnedProfilePayload,
+  type CommunityJournalEntryClient,
+  type CommunityJournalMistakeTag,
+  type CommunityOwnedProfileClient,
+} from "@/lib/community-journal-client";
 
-// ─── Sanitized shared entry ───────────────────────────────────────────────────
+const TAG_LABEL: Record<CommunityJournalMistakeTag, string> = {
+  "late-entry": "ورود دیرهنگام",
+  "early-exit": "خروج زودهنگام",
+  "oversized-position": "حجم بیش از حد",
+  "missing-stop-loss": "نبود حد ضرر",
+  "moved-stop-loss": "جابه‌جایی حد ضرر",
+  "fomo-entry": "ورود FOMO",
+  "revenge-trade": "معامله انتقامی",
+  "ignored-plan": "نادیده‌گرفتن برنامه",
+  "poor-risk-reward": "نسبت ریسک‌به‌بازده ضعیف",
+  overtrading: "بیش‌معامله‌گری",
+  none: "بدون خطای ثبت‌شده",
+};
 
-interface SanitizedEntry {
-  id: string;
-  asset: string;
-  setup: string;
-  plan: string;
-  mistakeTags: string[];
-  lesson: string;
-  mentorNote: string;
-  sharedAt: number;
-  isMyEntry: boolean;
-  isDemoEntry: boolean;
+function faDateTime(value: string): string {
+  return new Intl.DateTimeFormat("fa-IR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
-function sanitizeForSharing(entry: JournalEntry): SanitizedEntry | null {
-  if (!entry.completedAt) return null;
-  if (!entry.lessonLearned && !entry.postReflection) return null;
-
-  return {
-    id: entry.id,
-    asset: entry.asset,
-    setup: entry.preTradePlan.slice(0, 200),           // truncated, no PII
-    plan: entry.entryReason.slice(0, 150),
-    mistakeTags: entry.mistakeTags,
-    lesson: entry.lessonLearned.slice(0, 300),
-    mentorNote: buildMentorNote(entry),
-    sharedAt: entry.completedAt,
-    isMyEntry: true,
-    isDemoEntry: false,
-  };
+function errorCode(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "invalid_response";
+  const error = (value as Record<string, unknown>).error;
+  return typeof error === "string" ? error : "invalid_response";
 }
 
-function buildMentorNote(entry: JournalEntry): string {
-  const hasMistakes = entry.mistakeTags.length > 0;
-  if (!hasMistakes) return "این معامله بدون علامت اشتباه ثبت شده — نشانه خوبی است.";
-  const worst = entry.mistakeTags[0];
-  const messages: Record<string, string> = {
-    "no-stop-loss": "داشتن حد ضرر در هر معامله ضروری است. بدون آن ریسک کنترل نشده است.",
-    "fomo": "FOMO یکی از اصلی‌ترین دشمنان معامله‌گر است. صبر بهتر از عجله است.",
-    "revenge-trade": "معامله انتقامی پس از ضرر معمولاً ضررهای بیشتری می‌آورد. استراحت کنید.",
-    "over-risk": "ریسک بیش از ۵٪ در یک معامله خطرناک است. اندازه موقعیت مهم است.",
-    "impulse-entry": "ورود تکانشی بدون تحلیل معمولاً نتیجه خوبی ندارد.",
-  };
-  return messages[worst!] ?? "این نقطه ضعف را به عنوان فرصت یادگیری ببینید.";
+async function json(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
-// Demo shared entries from community
-const DEMO_SHARED_ENTRIES: SanitizedEntry[] = [
-  {
-    id: "demo-1",
-    asset: "BTC",
-    setup: "قیمت به حمایت ۶۴۰۰۰ رسید و نشانه‌های برگشت دیدم.",
-    plan: "خرید در حمایت با حد ضرر زیر ۶۳۵۰۰",
-    mistakeTags: ["early-exit"],
-    lesson: "زود از معامله خارج شدم و بقیه رشد را از دست دادم. باید بیشتر صبر کنم.",
-    mentorNote: "خروج زودهنگام ضرر مستقیم ندارد ولی از سود بیشتر محروم می‌شوید. به برنامه اولیه‌تان اعتماد کنید.",
-    sharedAt: Date.now() - 3 * 60 * 60 * 1000,
-    isMyEntry: false,
-    isDemoEntry: true,
-  },
-  {
-    id: "demo-2",
-    asset: "ETH",
-    setup: "در نوسانات شبیه‌ساز سعی کردم آرامش خود را حفظ کنم.",
-    plan: "صبر برای تثبیت قیمت، ورود با حد ضرر مشخص",
-    mistakeTags: [],
-    lesson: "حفظ آرامش در نوسان مهارتی است که با تمرین شکل می‌گیرد. امروز یک قدم بهتر بودم.",
-    mentorNote: "این معامله بدون علامت اشتباه ثبت شده — نشانه خوبی است.",
-    sharedAt: Date.now() - 6 * 60 * 60 * 1000,
-    isMyEntry: false,
-    isDemoEntry: true,
-  },
-  {
-    id: "demo-3",
-    asset: "BTC",
-    setup: "قیمت با اخبار سریع بالا رفت. احساس FOMO داشتم.",
-    plan: "می‌خواستم وارد شوم ولی صبر کردم. بعد قیمت ریخت.",
-    mistakeTags: [],
-    lesson: "یادگرفتم که FOMO را تشخیص دهم. وقتی احساس اضطرار می‌کنم، باید صبر کنم.",
-    mentorNote: "مقاومت در برابر FOMO یکی از ارزشمندترین مهارت‌های معامله‌گری است.",
-    sharedAt: Date.now() - 24 * 60 * 60 * 1000,
-    isMyEntry: false,
-    isDemoEntry: true,
-  },
-];
+function mergeEntries(
+  current: CommunityJournalEntryClient[],
+  incoming: CommunityJournalEntryClient[],
+): CommunityJournalEntryClient[] {
+  const entries = new Map(current.map((entry) => [entry.entryId, entry]));
+  for (const entry of incoming) entries.set(entry.entryId, entry);
+  return [...entries.values()];
+}
 
-// ─── Shared entry card ────────────────────────────────────────────────────────
-
-function SharedEntryCard({ entry }: { entry: SanitizedEntry }) {
-  const timeAgo = (ms: number) => {
-    const d = Math.floor((Date.now() - ms) / 60000);
-    if (d < 60) return `${d} دقیقه پیش`;
-    if (d < 1440) return `${Math.floor(d / 60)} ساعت پیش`;
-    return `${Math.floor(d / 1440)} روز پیش`;
-  };
-
+function SharedEntryCard({ entry }: { entry: CommunityJournalEntryClient }) {
   return (
-    <div className={`rounded-[24px] border p-5 space-y-3 ${entry.isMyEntry ? "border-cyan-300/20 bg-cyan-400/5" : "border-white/10 bg-slate-900/60"}`}>
-      <div className="flex items-start justify-between">
+    <article className={`space-y-4 rounded-[24px] border p-5 ${entry.isMine
+      ? "border-cyan-300/25 bg-cyan-400/5"
+      : "border-white/10 bg-slate-900/60"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-800 text-xs font-black text-slate-400">
-            {entry.asset[0]}
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-slate-950/50 text-xs font-black text-slate-300">
+            {entry.asset}
           </div>
-          <span className="text-sm font-black">{entry.asset}</span>
-          {entry.isMyEntry && <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[9px] font-black text-cyan-300">من</span>}
-          {entry.isDemoEntry && <span className="rounded-sm bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">نمایشی</span>}
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-black text-slate-100">{entry.authorAlias}</p>
+              {entry.isMine && (
+                <span className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2 py-0.5 text-[9px] font-black text-cyan-200">
+                  بازتاب من
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[10px] font-bold text-slate-500">
+              بسته‌شدن معامله: {faDateTime(entry.closedAt)}
+            </p>
+          </div>
         </div>
-        <span className="text-[10px] font-bold text-slate-600">{timeAgo(entry.sharedAt)}</span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black text-emerald-200">
+          <ShieldCheck className="h-3.5 w-3.5" /> بازتاب معتبر آرنا
+        </span>
       </div>
 
-      {entry.setup && (
-        <div>
-          <p className="text-xs font-black text-slate-500 mb-1">تنظیم:</p>
-          <p className="text-sm font-bold text-slate-300">{entry.setup}</p>
-        </div>
-      )}
-
-      {entry.mistakeTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {entry.mistakeTags.map((tag) => (
-            <span key={tag} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-300">
-              {MISTAKE_TAG_LABEL[tag as keyof typeof MISTAKE_TAG_LABEL] ?? tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {entry.lesson && (
-        <div className="rounded-xl border border-violet-400/20 bg-violet-400/5 p-3">
-          <p className="text-xs font-black text-violet-300 mb-1">درس کلیدی</p>
-          <p className="text-sm font-bold leading-7 text-violet-200">{entry.lesson}</p>
-        </div>
-      )}
-
-      <div className="flex items-start gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3">
-        <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
-        <p className="text-xs font-bold text-emerald-200">{entry.mentorNote}</p>
+      <div className="rounded-2xl border border-violet-400/20 bg-violet-400/5 p-4">
+        <p className="text-xs font-black text-violet-300">درس کلیدی</p>
+        <p className="mt-2 text-sm font-bold leading-7 text-violet-100">{entry.learnedLesson}</p>
       </div>
-    </div>
-  );
-}
 
-// ─── Privacy toggle ───────────────────────────────────────────────────────────
+      <div className="flex flex-wrap gap-2">
+        {entry.mistakeTags.map((tag) => (
+          <span
+            key={tag}
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${tag === "none"
+              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+              : "border-amber-400/25 bg-amber-400/10 text-amber-200"}`}
+          >
+            {TAG_LABEL[tag]}
+          </span>
+        ))}
+      </div>
 
-function SharingToggle({ profile, onUpdate }: { profile: CommunityProfile; onUpdate: (p: CommunityProfile) => void }) {
-  const enabled = profile.privacy.journalSharingEnabled;
-  return (
-    <div className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          <p className="font-black mb-1">اشتراک‌گذاری ژورنال (اختیاری)</p>
-          <p className="text-xs font-bold leading-6 text-slate-400">
-            با فعال کردن این گزینه، بازتاب‌های تکمیل‌شده شما (بدون اطلاعات شخصی) با جامعه به اشتراک گذاشته می‌شود. هر زمان می‌توانید غیرفعال کنید.
+      {entry.nextActionCommitment && (
+        <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+          <p className="text-xs font-black text-slate-500">تعهد برای معامله بعدی</p>
+          <p className="mt-2 text-sm font-bold leading-7 text-slate-300">
+            {entry.nextActionCommitment}
           </p>
-          <p className="mt-2 text-xs font-bold text-slate-600">چه چیزی حذف می‌شود: نام واقعی، موجودی دقیق، نکات شخصی</p>
         </div>
-        <button
-          onClick={() => onUpdate(updatePrivacy(profile, { journalSharingEnabled: !enabled }))}
-          className="shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded-xl"
-          aria-label={enabled ? "غیرفعال کردن اشتراک‌گذاری" : "فعال کردن اشتراک‌گذاری"}
-          aria-checked={enabled}
-          role="switch"
-        >
-          {enabled ? <ToggleRight className="h-8 w-8 text-cyan-400" /> : <ToggleLeft className="h-8 w-8 text-slate-600" />}
-        </button>
-      </div>
-    </div>
+      )}
+
+      <p className="text-[10px] font-bold text-slate-600">
+        آخرین نسخه اشتراک‌گذاری‌شده: {faDateTime(entry.sharedAt)}
+      </p>
+    </article>
   );
 }
-
-// ─── Main PeerJournals ────────────────────────────────────────────────────────
 
 export function PeerJournals() {
-  const [profile, setProfile] = useState<CommunityProfile | null>(null);
-  const [mySharedEntries, setMySharedEntries] = useState<SanitizedEntry[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const [profile, setProfile] = useState<CommunityOwnedProfileClient | null>(null);
+  const [entries, setEntries] = useState<CommunityJournalEntryClient[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const p = loadCommunityProfile();
-    setProfile(p);
+  const loadInitial = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    let loadedProfile: CommunityOwnedProfileClient | null = null;
+    try {
+      const [profileResponse, feedResponse] = await Promise.all([
+        fetch("/api/community/profile", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch("/api/community/profile?view=journal-feed&limit=20", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+      const [profilePayload, feedPayload] = await Promise.all([
+        json(profileResponse),
+        json(feedResponse),
+      ]);
+      if (!profileResponse.ok) throw new Error(errorCode(profilePayload));
+      loadedProfile = parseCommunityOwnedProfilePayload(profilePayload);
+      if (!loadedProfile) throw new Error("invalid_response");
+      setProfile(loadedProfile);
 
-    if (p?.privacy.journalSharingEnabled) {
-      const journal = loadJournal();
-      const shared = journal.flatMap((e) => {
-        const s = sanitizeForSharing(e);
-        return s ? [s] : [];
-      });
-      setMySharedEntries(shared);
+      if (!feedResponse.ok) throw new Error(errorCode(feedPayload));
+      const parsedFeed = parseCommunityJournalFeedPayload(feedPayload);
+      if (!parsedFeed) throw new Error("invalid_response");
+      setEntries(parsedFeed.entries);
+      setNextCursor(parsedFeed.nextCursor);
+    } catch (caught) {
+      if (!loadedProfile) setProfile(null);
+      setEntries([]);
+      setNextCursor(null);
+      setError(communityJournalUiError(caught instanceof Error ? caught.message : caught));
+    } finally {
+      setLoading(false);
     }
-    setLoaded(true);
   }, []);
 
-  const allEntries = [
-    ...mySharedEntries,
-    ...DEMO_SHARED_ENTRIES,
-  ].sort((a, b) => b.sharedAt - a.sharedAt);
+  useEffect(() => {
+    void loadInitial();
+  }, [loadInitial]);
 
-  if (!loaded) return <div className="flex h-64 items-center justify-center text-sm font-bold text-slate-500">در حال بارگذاری...</div>;
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/community/profile?view=journal-feed&limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: "include", cache: "no-store" },
+      );
+      const payload = await json(response);
+      if (!response.ok) throw new Error(errorCode(payload));
+      const parsed = parseCommunityJournalFeedPayload(payload);
+      if (!parsed) throw new Error("invalid_response");
+      setEntries((current) => mergeEntries(current, parsed.entries));
+      setNextCursor(parsed.nextCursor);
+    } catch (caught) {
+      setError(communityJournalUiError(caught instanceof Error ? caught.message : caught));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor]);
+
+  const toggleSharing = useCallback(async () => {
+    if (!profile || saving) return;
+    setSaving(true);
+    setError(null);
+    const consent = {
+      ...profile.consent,
+      journalSharingEnabled: !profile.consent.journalSharingEnabled,
+    };
+    try {
+      const response = await fetch("/api/community/profile", {
+        method: "PATCH",
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": createCommunityJournalIdempotencyKey(),
+        },
+        body: JSON.stringify({
+          expectedRevision: profile.revision,
+          ...consent,
+        }),
+      });
+      const payload = await json(response);
+      if (!response.ok) {
+        const code = errorCode(payload);
+        if (code === "community_profile_revision_conflict") {
+          await loadInitial();
+        }
+        throw new Error(code);
+      }
+      const updated = parseCommunityConsentMutationPayload(payload);
+      if (!updated) throw new Error("invalid_response");
+      setProfile(updated);
+
+      const feedResponse = await fetch("/api/community/profile?view=journal-feed&limit=20", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const feedPayload = await json(feedResponse);
+      if (!feedResponse.ok) throw new Error(errorCode(feedPayload));
+      const feed = parseCommunityJournalFeedPayload(feedPayload);
+      if (!feed) throw new Error("invalid_response");
+      setEntries(feed.entries);
+      setNextCursor(feed.nextCursor);
+    } catch (caught) {
+      setError(communityJournalUiError(caught instanceof Error ? caught.message : caught));
+    } finally {
+      setSaving(false);
+    }
+  }, [loadInitial, profile, saving]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-64 items-center justify-center gap-2 text-sm font-bold text-slate-400">
+        <LoaderCircle className="h-5 w-5 animate-spin" /> دریافت ژورنال‌های معتبر از سرور
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" dir="rtl">
-      <div className="flex items-start justify-between">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black">ژورنال‌های مشترک</h1>
-          <p className="mt-1 text-sm font-bold text-slate-400">بازتاب‌های گمنام یادگیرندگان — بدون اطلاعات شخصی</p>
+          <h1 className="text-2xl font-black text-white">ژورنال‌های مشترک</h1>
+          <p className="mt-2 max-w-xl text-sm font-bold leading-7 text-slate-400">
+            درس‌های اختیاری از Reflectionهای واقعی Trading Arena با حذف شناسه‌های رایج، Secrets، لینک‌های تماس و سیگنال‌های آشکار.
+          </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10">
           <BookOpen className="h-6 w-6 text-cyan-300" />
         </div>
+      </header>
+
+      <div className="flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-4">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+        <div>
+          <p className="text-xs font-black text-emerald-200">مرجع یگانه: سرور تک‌پی</p>
+          <p className="mt-1 text-xs font-bold leading-6 text-emerald-100/80">
+            این صفحه فقط Reflectionهای ذخیره‌شده در PostgreSQL و متصل به معامله بسته‌شده معتبر را نمایش می‌دهد. داده مرورگر و نمونه نمایشی وارد Feed نمی‌شود.
+          </p>
+        </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        <div>
-          <p className="text-xs font-black text-amber-300 mb-1">حریم خصوصی اول</p>
-          <p className="text-xs font-bold text-amber-200">همه اطلاعات شخصی از ژورنال‌های مشترک حذف می‌شود. اشتراک‌گذاری کاملاً اختیاری است.</p>
-        </div>
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-4">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        <p className="text-xs font-bold leading-6 text-amber-100/80">
+          این محتوا توسط یادگیرندگان نوشته می‌شود و توصیه مالی یا سیگنال نیست. فیلتر خودکار جایگزین خودداری از نوشتن اطلاعات شخصی و محرمانه نیست.
+        </p>
       </div>
 
       {!profile ? (
         <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/5 p-6 text-center">
-          <Lock className="mx-auto h-8 w-8 text-amber-300 mb-3" />
-          <p className="font-black text-amber-200">پروفایل جامعه لازم است</p>
+          <Lock className="mx-auto mb-3 h-8 w-8 text-amber-300" />
+          <p className="font-black text-amber-100">پروفایل معتبر جامعه در دسترس نیست</p>
+          <p className="mt-2 text-sm font-bold leading-7 text-amber-100/70">
+            بدون پروفایل حساب‌محور، مشاهده یا تغییر اشتراک‌گذاری انجام نمی‌شود.
+          </p>
         </div>
       ) : (
-        <SharingToggle profile={profile} onUpdate={setProfile} />
+        <section className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="max-w-xl">
+              <p className="font-black text-white">اشتراک‌گذاری بازتاب‌های معتبر من</p>
+              <p className="mt-2 text-xs font-bold leading-6 text-slate-400">
+                با فعال‌سازی، فقط درس کلیدی، برچسب خطا، اقدام بعدی، دارایی و زمان معتبر Reflectionهای تکمیل‌شده در Feed همین مستاجر نمایش داده می‌شود. متن آزاد پیش از نمایش پاک‌سازی و فیلتر می‌شود؛ خاموش‌کردن، بازتاب‌های شما را فوراً از Feed حذف می‌کند.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void toggleSharing()}
+              disabled={saving}
+              className="shrink-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={profile.consent.journalSharingEnabled
+                ? "غیرفعال کردن اشتراک‌گذاری ژورنال"
+                : "فعال کردن اشتراک‌گذاری ژورنال"}
+              aria-checked={profile.consent.journalSharingEnabled}
+              aria-busy={saving}
+              role="switch"
+            >
+              {saving ? (
+                <LoaderCircle className="h-8 w-8 animate-spin text-cyan-300" />
+              ) : profile.consent.journalSharingEnabled ? (
+                <ToggleRight className="h-9 w-9 text-cyan-400" />
+              ) : (
+                <ToggleLeft className="h-9 w-9 text-slate-600" />
+              )}
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black ${profile.consent.journalSharingEnabled
+              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+              : "border-slate-500/20 bg-slate-500/10 text-slate-400"}`}>
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {profile.consent.journalSharingEnabled ? "رضایت فعال" : "رضایت غیرفعال"}
+            </span>
+            <Link
+              href="/academy/trading-arena/journal"
+              className="text-xs font-black text-cyan-300 transition hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              ثبت و مدیریت Reflectionهای من
+            </Link>
+          </div>
+        </section>
       )}
 
-      {/* Entries */}
-      <div className="space-y-4">
-        {allEntries.length > 0 ? (
-          allEntries.map((entry) => <SharedEntryCard key={entry.id} entry={entry} />)
+      {error && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-red-400/25 bg-red-400/10 p-4" role="alert">
+          <div className="flex items-start gap-2 text-xs font-bold leading-6 text-red-100">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadInitial()}
+            className="inline-flex items-center gap-1 rounded-xl border border-red-300/25 px-3 py-2 text-xs font-black text-red-100"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> تلاش دوباره
+          </button>
+        </div>
+      )}
+
+      <section className="space-y-4" aria-label="بازتاب‌های مشترک معتبر">
+        {entries.length > 0 ? (
+          entries.map((entry) => <SharedEntryCard key={entry.entryId} entry={entry} />)
         ) : (
           <div className="rounded-[24px] border border-dashed border-white/10 p-8 text-center">
-            <BookOpen className="mx-auto h-8 w-8 text-slate-600 mb-3" />
-            <p className="font-black text-slate-400">ژورنال‌های مشترک</p>
-            <p className="mt-2 text-sm font-bold leading-7 text-slate-600">
-              وقتی اشتراک‌گذاری را فعال کنید و بازتاب ثبت کنید،<br />
-              بازتاب‌های پاک‌شده اینجا نمایش داده می‌شوند.
+            <BookOpen className="mx-auto mb-3 h-8 w-8 text-slate-600" />
+            <p className="font-black text-slate-300">هنوز بازتاب مشترک معتبری وجود ندارد</p>
+            <p className="mx-auto mt-2 max-w-md text-sm font-bold leading-7 text-slate-500">
+              Feed فقط زمانی پر می‌شود که یک یادگیرنده Reflection معتبر Arena داشته باشد و رضایت اشتراک‌گذاری حساب‌محور او فعال باشد.
             </p>
           </div>
         )}
-      </div>
+      </section>
+
+      {nextCursor && (
+        <button
+          type="button"
+          onClick={() => void loadMore()}
+          disabled={loadingMore}
+          className="mx-auto flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loadingMore ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          نمایش بازتاب‌های بیشتر
+        </button>
+      )}
     </div>
   );
 }

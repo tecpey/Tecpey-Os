@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
   "issue": 168,
-  "followUpIssue": 212,
-  "baseCommit": "8acf086c3db273efe095251941b929e63d2679e7",
+  "followUpIssue": 214,
+  "baseCommit": "2878872a2dd5a2a8e021c005c84ca8c5830a4552",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
     "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
-    "legacyMigrationRule": "legacy browser records may be displayed as unverified preview but may not be promoted to durable truth",
-    "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context"
+    "legacyMigrationRule": "legacy browser records may be displayed only on explicitly quarantined historical surfaces and may never be promoted to durable truth",
+    "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
+    "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields"
   },
   "canonicalAuthorities": [
     {
@@ -20,7 +21,15 @@
     },
     {
       "path": "src/app/api/community/profile/route.ts",
-      "purpose": "strict-session, bounded, revisioned and idempotent HTTP contract"
+      "purpose": "strict-session profile reads, revisioned consent mutation and tenant-context-bound shared-journal read view"
+    },
+    {
+      "path": "src/lib/community-journal-authority.ts",
+      "purpose": "server-only same-tenant pseudonymous and safety-filtered projection from canonical Trading Arena reflections gated by evidenced account consent"
+    },
+    {
+      "path": "src/lib/community-journal-client.ts",
+      "purpose": "strict runtime parsing and secure idempotency identity for the Community journal UI"
     }
   ],
   "legacyModules": [
@@ -33,8 +42,8 @@
     {
       "module": "@/lib/trading-journal",
       "source": "src/lib/trading-journal.ts",
-      "classification": "quarantined-legacy-authority",
-      "reason": "browser-owned journal records and completion rate"
+      "classification": "quarantined-historical-authority",
+      "reason": "browser-owned journal records remain referenced only by historical preview components; Community journals and official Arena journal do not import or promote them"
     },
     {
       "module": "@/lib/community-profile",
@@ -100,8 +109,8 @@
     },
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
-      "classification": "preview-only",
-      "allowedAuthority": "no official journal evidence"
+      "classification": "canonical-server-feed",
+      "allowedAuthority": "same-tenant pseudonymous, identifier-redacted and safety-filtered canonical Arena reflection projection plus revisioned Community consent; consent controls remain available if Feed loading alone fails"
     },
     {
       "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
@@ -130,6 +139,10 @@
     "src/lib/behavioral-engine.ts",
     "src/lib/coaching-engine.ts",
     "src/lib/community-profile-authority.ts",
+    "src/lib/community-journal-authority.ts",
+    "src/lib/community-journal-client.ts",
+    "src/app/api/community/profile/route.ts",
+    "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/v2/MentorV2.tsx",
     "src/components/academy/v2/LearningInsightsDashboard.tsx",
     "src/components/academy/community/InstructorDashboard.tsx",

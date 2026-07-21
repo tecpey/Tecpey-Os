@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import {
+  listCommunityJournalFeed,
+  parseCommunityJournalCursor,
+} from "@/lib/community-journal-authority";
+import {
   fingerprintCommunityProfilePrincipal,
   loadOwnedCommunityProfile,
   loadPublicCommunityProfile,
@@ -34,7 +38,14 @@ const PATCH_FIELDS = new Set([
 
 function noStore<T>(response: NextResponse<T>): NextResponse<T> {
   response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("Vary", "Cookie");
   return response;
+}
+
+function parseFeedLimit(value: string | null): number | null {
+  if (!value) return 20;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 50 ? parsed : null;
 }
 
 function parseConsentPatch(value: unknown):
@@ -78,8 +89,14 @@ export async function GET(req: NextRequest) {
     req,
     { route: "/api/community/profile GET" },
     async () => {
-      const publicIdentifier = new URL(req.url).searchParams.get("id")?.trim();
+      const searchParams = new URL(req.url).searchParams;
+      const publicIdentifier = searchParams.get("id")?.trim();
+      const view = searchParams.get("view")?.trim() ?? "profile";
+
       if (publicIdentifier) {
+        if (view !== "profile" || searchParams.has("cursor") || searchParams.has("limit")) {
+          return noStore(apiError("invalid_community_profile_view", 400));
+        }
         const limited = await rateLimit(req, {
           namespace: "community-profile-public-read",
           limit: 60,
@@ -99,9 +116,55 @@ export async function GET(req: NextRequest) {
         return noStore(apiOk({ authenticated: false, profile: loaded.profile }));
       }
 
+      if (view !== "profile" && view !== "journal-feed") {
+        return noStore(apiError("invalid_community_profile_view", 400));
+      }
+
       const session = await getCanonicalSession(req, { strictRevocation: true });
       if (!session.studentId) {
         return noStore(apiError("academy_profile_required", 401));
+      }
+
+      if (view === "journal-feed") {
+        const limited = await rateLimit(req, {
+          namespace: "community-journal-feed",
+          identity: session.studentId,
+          limit: 60,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const limit = parseFeedLimit(searchParams.get("limit"));
+        if (!limit) return noStore(apiError("invalid_limit", 400));
+        const parsedCursor = parseCommunityJournalCursor(searchParams.get("cursor"));
+        if (!parsedCursor.ok) {
+          return noStore(apiError("invalid_community_journal_cursor", 400));
+        }
+
+        const journalContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:journal:read"],
+          requestId: resolveSensitiveAuditCorrelation(
+            req.headers.get("x-tecpey-request-id"),
+          ),
+        });
+        if (!journalContext.available) {
+          return noStore(apiError("community_journal_unavailable", 503));
+        }
+        const feed = await listCommunityJournalFeed({
+          context: journalContext,
+          cursor: parsedCursor.cursor,
+          limit,
+        });
+        if (!feed.available) {
+          return noStore(apiError("community_journal_unavailable", 503));
+        }
+        return noStore(apiOk(feed.page));
+      }
+
+      if (searchParams.has("cursor") || searchParams.has("limit")) {
+        return noStore(apiError("invalid_community_profile_view", 400));
       }
       const limited = await rateLimit(req, {
         namespace: "community-profile-self-read",

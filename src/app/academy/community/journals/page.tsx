@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { PeerJournals } from "@/components/academy/community/PeerJournals";
 
 export const metadata: Metadata = {
-  title: "ژورنال‌های مشترک | جامعه تک‌پی",
-  description: "بازتاب‌های گمنام یادگیرندگان تک‌پی — اشتراک‌گذاری اختیاری، بدون اطلاعات شخصی",
+  title: "ژورنال‌های مشترک معتبر | جامعه تک‌پی",
+  description: "بازتاب‌های اختیاری و حریم‌خصوصی‌محور از معاملات بسته‌شده معتبر Trading Arena",
   alternates: { canonical: "https://tecpey.ir/academy/community/journals" },
 };
 
