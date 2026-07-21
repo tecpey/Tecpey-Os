@@ -1,3 +1,4 @@
+import "./check-legacy-audit-caller-quarantine.mjs";
 import { readFile } from "node:fs/promises";
 
 const files = {

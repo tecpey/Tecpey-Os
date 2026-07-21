@@ -3,7 +3,7 @@ import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
-import { listPendingReviewWithdrawals } from "@/lib/security/withdrawal-service";
+import { listPendingReviewWithdrawalsStrict } from "@/lib/security/withdrawal-read-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +29,18 @@ export async function GET(req: NextRequest) {
       0,
     );
 
-    const withdrawals = await listPendingReviewWithdrawals(limit, offset);
-    return apiOk({ withdrawals, limit, offset, count: withdrawals.length }, 200, {
-      "Cache-Control": "no-store, max-age=0",
-    });
+    const result = await listPendingReviewWithdrawalsStrict(limit, offset);
+    if (!result.ok) return apiError(result.reason, 503);
+
+    return apiOk(
+      {
+        withdrawals: result.withdrawals,
+        limit,
+        offset,
+        count: result.withdrawals.length,
+      },
+      200,
+      { "Cache-Control": "no-store, max-age=0" },
+    );
   });
 }
