@@ -1,6 +1,6 @@
 # TecPey Official Journal Reflection Challenge Authority
 
-Issues: #217, #221  
+Issues: #217, #221, #223  
 Parent: #160
 
 ## Bounded pilot
@@ -63,32 +63,76 @@ Interactive completion uses `finalization_source = interactive`. Post-cycle resu
 
 ## Post-cycle finalizer
 
-The scheduler-ready command is:
+The direct one-batch command remains available for controlled repair and testing:
 
 `npm run community:challenge:finalize`
 
-Optional batch size:
+The production scheduler entrypoint is:
 
-`COMMUNITY_CHALLENGE_FINALIZATION_BATCH=100`
+`npm run community:challenge:finalize:scheduled`
 
-The worker:
+The scheduled orchestrator:
 
-- uses PostgreSQL `NOW()`;
-- selects only ended active enrollments;
-- uses a bounded batch with `FOR UPDATE SKIP LOCKED`;
-- calculates evidence from immutable `started_at` through exclusive `cycle_ends_at`;
-- processes each row under an independent savepoint;
-- commits one terminal result and one append-only finalization event atomically;
-- reports only enrollment fingerprints and controlled reason codes;
-- skips terminal rows on rerun.
+- uses the same finalization authority;
+- drains bounded batches under one stable run ID;
+- stops when the queue is drained, a row fails closed or the configured maximum batch count is reached;
+- preserves healthy committed finalizations when a later row or operational-evidence write fails;
+- writes an immutable PostgreSQL run projection when database authority is available;
+- writes a private atomic last-run file on the server;
+- emits no alert for a healthy empty or healthy completed run;
+- emits a warning for `partial_failure` and a critical alert for `authority_unavailable`.
 
-Exit behavior:
+Result and exit behavior:
 
-- `0`: authority available and no per-row failures;
-- `1`: PostgreSQL/finalizer authority unavailable;
-- `2`: batch committed healthy rows but one or more isolated enrollments failed closed.
+- `succeeded` / `0`: authority available, bounded drain completed and no failure;
+- `authority_unavailable` / `1`: PostgreSQL/finalizer authority unavailable and no completion is claimed;
+- `partial_failure` / `2`: healthy rows may be committed, but one or more rows failed, the drain bound was reached, or operational evidence could not be committed.
 
-An external scheduler should run the command repeatedly after UTC rollover. The worker is idempotent and safe for concurrent runners.
+## systemd scheduling authority
+
+Deployable assets are stored under `deploy/systemd/`:
+
+- `tecpey-community-challenge-finalizer.service` is a hardened `Type=oneshot` service;
+- `tecpey-community-challenge-finalizer.timer` runs hourly at minute 05 UTC and uses `Persistent=true` for catch-up after downtime;
+- `tecpey-ops-alert-delivery.service` delivers pending operational alerts;
+- `tecpey-ops-alert-delivery.timer` retries every five minutes.
+
+The services run under an explicit non-root identity, use a read-only application directory, can write only the configured operational state directory, have no Linux capability set and apply systemd process/filesystem/kernel hardening.
+
+The repository provides an idempotent installer and a no-write dry-run. Repository presence does not prove installation on a production host. Host activation must be verified according to [`COMMUNITY_CHALLENGE_SCHEDULER_RUNBOOK.md`](../operations/COMMUNITY_CHALLENGE_SCHEDULER_RUNBOOK.md).
+
+## Operational evidence
+
+Migration 0050 adds append-only evidence for:
+
+- scheduled job runs;
+- operator alerts;
+- alert delivery attempts.
+
+Run evidence contains only the run ID, job/unit/host, timestamps, classification, bounded counts, drain flag, approved enrollment fingerprints and controlled reason codes. Student, tenant and principal identifiers, environment values, raw exceptions and stack traces are forbidden.
+
+Exact replay with the same identity and content is accepted. Divergent content under the same run, alert or attempt identity fails closed.
+
+## Outage-safe alert spool
+
+The server-local state directory contains:
+
+- `community-challenge-finalization-last-run.json`;
+- `alerts/pending/`;
+- `alerts/delivered/`;
+- `alerts/quarantine/`.
+
+Spool files are bounded JSON, written with mode `0600` through an atomic temporary-file/fsync/rename sequence. Managed directories use mode `0700`. Symlinks, non-files, oversized files and invalid payloads are rejected or quarantined.
+
+Alert delivery:
+
+- requires HTTPS outside explicit test mode;
+- uses a stable `Idempotency-Key`;
+- supports an optional bearer token without logging it;
+- never reads or logs response bodies;
+- archives 2xx responses as delivered;
+- retries 408, 425, 429, 5xx, timeout and network failures with bounded exponential backoff;
+- quarantines terminal 4xx responses and exhausted attempts.
 
 ## Finalization events
 
@@ -129,15 +173,16 @@ Completion must not enter Mentor, reputation, leaderboard, scholarship, instruct
 - missing Academy identity: `401`;
 - malformed interactive command: `400`;
 - consent/cycle/idempotency conflict: `409`;
-- missing PostgreSQL/context/evidence authority: `503`;
-- finalizer isolates corrupt rows and returns exit code `2`;
-- no localStorage, filesystem, demo or browser-computed fallback.
+- missing PostgreSQL/context/evidence authority: `503` for request paths and exit `1` for the scheduler;
+- isolated finalizer failure or bounded drain exhaustion: exit `2`;
+- pending alerts survive database or provider outage in the private local spool;
+- no localStorage, demo or browser-computed fallback.
 
 ## Remaining bounded follow-ups
 
+- verify installation and alert receipt on each production/staging host as deployment evidence;
 - normalized/indexed closed-trade evidence for large histories;
-- finalization scheduling and operational alerting in deployment infrastructure;
-- retention/account-deletion policy for append-only evidence;
+- retention/account-deletion policy for append-only challenge and operational evidence;
 - official scenario challenge authorities;
 - audited XP, badge and reward issuance;
 - canonical reputation/leaderboard projection;

@@ -2,14 +2,16 @@
   "schemaVersion": 1,
   "issue": 168,
   "followUpIssue": 221,
-  "baseCommit": "8b2312c08839b8600e7bff739f8ba868eaf073d8",
+  "operationalFollowUpIssue": 223,
+  "baseCommit": "abf235f19326d113153e899ec6c90d9af29b8492",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
     "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
     "legacyMigrationRule": "legacy browser records may be displayed only on explicitly quarantined historical surfaces and may never be promoted to durable truth",
     "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
     "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields",
-    "officialChallenges": "only journal-reflection-week v1 is official; current-cycle evaluation and post-cycle finalization share one exact Arena trade/reflection evidence authority; ended active enrollments become immutable completed or not_completed records; XP, badge, financial reward, leaderboard, Mentor and instructor outcomes remain disabled"
+    "officialChallenges": "only journal-reflection-week v1 is official; current-cycle evaluation and post-cycle finalization share one exact Arena trade/reflection evidence authority; ended active enrollments become immutable completed or not_completed records; XP, badge, financial reward, leaderboard, Mentor and instructor outcomes remain disabled",
+    "operationalFinalization": "hourly persistent systemd scheduling is represented by hardened deployable assets; each run and alert is privacy-minimized and append-only in PostgreSQL when available, with an atomic local spool for database/provider outage; repository merge alone is not proof of host installation"
   },
   "canonicalAuthorities": [
     {
@@ -58,7 +60,35 @@
     },
     {
       "path": "scripts/finalize-community-journal-challenges.ts",
-      "purpose": "scheduler-ready runner with explicit unavailable and partial-failure exit codes"
+      "purpose": "direct bounded finalizer runner with explicit unavailable and partial-failure exit codes"
+    },
+    {
+      "path": "src/lib/db-migrate-operational-job-evidence.ts",
+      "purpose": "append-only scheduled run, alert and delivery-attempt evidence schema"
+    },
+    {
+      "path": "src/lib/ops/operational-job-evidence.ts",
+      "purpose": "canonical privacy-minimized operational evidence validation, hashing, replay and conflict authority"
+    },
+    {
+      "path": "src/lib/ops/community-challenge-finalization-job.ts",
+      "purpose": "bounded multi-batch scheduled orchestration, drain classification and 0/1/2 exit authority"
+    },
+    {
+      "path": "src/lib/ops/operational-alert-spool.ts",
+      "purpose": "atomic private outage-safe spool with HTTPS idempotent retry, delivery archive and quarantine"
+    },
+    {
+      "path": "scripts/run-community-challenge-finalization-scheduled.ts",
+      "purpose": "production one-shot scheduler entrypoint with sanitized output"
+    },
+    {
+      "path": "scripts/deliver-operational-alerts.ts",
+      "purpose": "bounded one-shot alert delivery entrypoint"
+    },
+    {
+      "path": "scripts/install-community-challenge-scheduler.sh",
+      "purpose": "idempotent validated systemd installation and dry-run authority"
     }
   ],
   "legacyModules": [
@@ -179,6 +209,9 @@
     "src/lib/community-journal-challenge-finalization.ts",
     "src/lib/community-journal-challenge-client.ts",
     "src/lib/community-journal-challenge-history-client.ts",
+    "src/lib/ops/operational-job-evidence.ts",
+    "src/lib/ops/community-challenge-finalization-job.ts",
+    "src/lib/ops/operational-alert-spool.ts",
     "src/lib/community-challenges.ts",
     "src/app/api/community/profile/route.ts",
     "src/components/academy/community/PeerJournals.tsx",
