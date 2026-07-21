@@ -22,6 +22,7 @@ export const OFFICIAL_JOURNAL_CHALLENGE_VERSION = "journal-reflection-v1";
 export const OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES = 3;
 export const OFFICIAL_JOURNAL_CHALLENGE_REQUIRED_RATE = 0.8;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_RE = /^[A-Za-z0-9._:-]{16,120}$/;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
 const OPERATION_PREFIX = "community.challenge.journal-reflection-v1";
@@ -104,7 +105,7 @@ type EnrollmentRow = {
   cycle_key: string;
   cycle_starts_at: Date | string;
   cycle_ends_at: Date | string;
-  status: "active" | "completed" | "expired";
+  status: "active" | "completed";
   revision: string | number;
   started_at: Date | string;
   evaluated_at: Date | string | null;
@@ -156,6 +157,16 @@ function iso(value: Date | string): string {
   return parsed.toISOString();
 }
 
+function nullableIso(value: Date | string | null): string | null {
+  return value === null ? null : iso(value);
+}
+
+function safeInteger(value: string | number, code: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new Error(code);
+  return parsed;
+}
+
 function startOfUtcIsoWeek(date: Date): Date {
   const normalized = new Date(date.getTime());
   if (!Number.isFinite(normalized.getTime())) {
@@ -185,14 +196,35 @@ export function deriveOfficialJournalChallengeCycle(
   };
 }
 
+function progressFromCounts(
+  eligibleClosedTrades: number,
+  validReflections: number,
+): EvidenceProgress {
+  if (
+    !Number.isSafeInteger(eligibleClosedTrades) || eligibleClosedTrades < 0 ||
+    !Number.isSafeInteger(validReflections) || validReflections < 0 ||
+    validReflections > eligibleClosedTrades
+  ) {
+    throw new Error("community_challenge_progress_invalid");
+  }
+  const coverageRate = eligibleClosedTrades === 0
+    ? 0
+    : Number((validReflections / eligibleClosedTrades).toFixed(6));
+  return {
+    eligibleClosedTrades,
+    validReflections,
+    coverageRate,
+    eligibleToComplete:
+      eligibleClosedTrades >= OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES &&
+      validReflections * 5 >= eligibleClosedTrades * 4,
+  };
+}
+
 function emptyProgress(): OfficialJournalChallengeProgress {
   return {
-    eligibleClosedTrades: 0,
-    validReflections: 0,
-    coverageRate: 0,
+    ...progressFromCounts(0, 0),
     minimumTrades: OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES,
     requiredRate: OFFICIAL_JOURNAL_CHALLENGE_REQUIRED_RATE,
-    eligibleToComplete: false,
   };
 }
 
@@ -219,6 +251,7 @@ function isEmptyExecutionState(value: unknown): boolean {
 }
 
 function loadAttemptState(row: AttemptRow): ArenaExecutionStateV2 {
+  if (!UUID_RE.test(row.id)) throw new Error("community_challenge_attempt_identity_invalid");
   return isEmptyExecutionState(row.execution_state)
     ? createArenaExecutionStateV2(row.starting_balance)
     : validateArenaExecutionStateV2(row.execution_state);
@@ -240,28 +273,59 @@ function reflectionMatchesTrade(
     sameStringArray(reflection.evidence.mentorFlags, trade.mentorFlags);
 }
 
-function progressFromCounts(
-  eligibleClosedTrades: number,
-  validReflections: number,
-): EvidenceProgress {
+function validateEnrollmentRow(
+  row: EnrollmentRow,
+  cycle: OfficialJournalChallengeCycle,
+): {
+  revision: number;
+  startedAt: string;
+  evaluatedAt: string | null;
+  completedAt: string | null;
+  progress: EvidenceProgress;
+} {
+  if (!UUID_RE.test(row.id)) throw new Error("community_challenge_enrollment_identity_invalid");
   if (
-    !Number.isSafeInteger(eligibleClosedTrades) || eligibleClosedTrades < 0 ||
-    !Number.isSafeInteger(validReflections) || validReflections < 0 ||
-    validReflections > eligibleClosedTrades
+    row.challenge_id !== OFFICIAL_JOURNAL_CHALLENGE_ID ||
+    row.challenge_version !== OFFICIAL_JOURNAL_CHALLENGE_VERSION ||
+    row.cycle_key !== cycle.key ||
+    iso(row.cycle_starts_at) !== cycle.startsAt ||
+    iso(row.cycle_ends_at) !== cycle.endsAt ||
+    (row.status !== "active" && row.status !== "completed")
   ) {
-    throw new Error("community_challenge_progress_invalid");
+    throw new Error("community_challenge_enrollment_authority_invalid");
   }
-  const coverageRate = eligibleClosedTrades === 0
-    ? 0
-    : Number((validReflections / eligibleClosedTrades).toFixed(6));
-  return {
-    eligibleClosedTrades,
-    validReflections,
-    coverageRate,
-    eligibleToComplete:
-      eligibleClosedTrades >= OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES &&
-      validReflections * 5 >= eligibleClosedTrades * 4,
-  };
+  const revision = safeInteger(row.revision, "community_challenge_revision_invalid");
+  if (revision < 1) throw new Error("community_challenge_revision_invalid");
+  const startedAt = iso(row.started_at);
+  if (startedAt < cycle.startsAt || startedAt >= cycle.endsAt) {
+    throw new Error("community_challenge_started_at_invalid");
+  }
+  const eligible = safeInteger(
+    row.eligible_closed_trade_count,
+    "community_challenge_eligible_count_invalid",
+  );
+  const valid = safeInteger(
+    row.valid_reflection_count,
+    "community_challenge_reflection_count_invalid",
+  );
+  const progress = progressFromCounts(eligible, valid);
+  const databaseCoverage = Number(row.coverage_rate);
+  if (
+    !Number.isFinite(databaseCoverage) ||
+    Math.abs(databaseCoverage - progress.coverageRate) > 0.000001
+  ) {
+    throw new Error("community_challenge_coverage_invalid");
+  }
+  const evaluatedAt = nullableIso(row.evaluated_at);
+  const completedAt = nullableIso(row.completed_at);
+  if (row.status === "completed") {
+    if (!completedAt || !progress.eligibleToComplete) {
+      throw new Error("community_challenge_completion_invalid");
+    }
+  } else if (completedAt !== null) {
+    throw new Error("community_challenge_active_completion_invalid");
+  }
+  return { revision, startedAt, evaluatedAt, completedAt, progress };
 }
 
 async function loadConsent(
@@ -336,7 +400,6 @@ async function calculateEvidenceProgress(
       ORDER BY created_at ASC, id ASC`,
     [studentId],
   );
-
   const startMs = new Date(startsAt).getTime();
   const endMs = new Date(endsAt).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
@@ -381,9 +444,11 @@ async function calculateEvidenceProgress(
     if (!trade || !reflectionMatchesTrade(reflection, trade)) {
       throw new Error("community_challenge_reflection_evidence_corrupt");
     }
+    if (validReflectionKeys.has(key)) {
+      throw new Error("community_challenge_reflection_identity_duplicate");
+    }
     validReflectionKeys.add(key);
   }
-
   return progressFromCounts(eligibleTrades.size, validReflectionKeys.size);
 }
 
@@ -391,44 +456,43 @@ function stateFrom(
   cycle: OfficialJournalChallengeCycle,
   consentEnabled: boolean,
   enrollment: EnrollmentRow | null,
-  progress: EvidenceProgress | null,
+  liveProgress: EvidenceProgress | null,
 ): OfficialJournalChallengeState {
-  const effective = progress ?? (enrollment
-    ? progressFromCounts(
-        Number(enrollment.eligible_closed_trade_count),
-        Number(enrollment.valid_reflection_count),
-      )
-    : null);
-  const normalizedProgress: OfficialJournalChallengeProgress = effective
-    ? {
-        ...effective,
-        minimumTrades: OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES,
-        requiredRate: OFFICIAL_JOURNAL_CHALLENGE_REQUIRED_RATE,
-      }
-    : emptyProgress();
-
+  if (!enrollment) {
+    return {
+      challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
+      challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
+      cycle,
+      consentEnabled,
+      status: "not_joined",
+      enrollmentId: null,
+      revision: null,
+      startedAt: null,
+      evaluatedAt: null,
+      completedAt: null,
+      progress: emptyProgress(),
+      rewards: { xp: 0, badge: null, financialReward: null, status: "disabled" },
+    };
+  }
+  const validated = validateEnrollmentRow(enrollment, cycle);
+  const progress = liveProgress ?? validated.progress;
   return {
     challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
     challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
     cycle,
     consentEnabled,
-    status: enrollment?.status === "completed"
-      ? "completed"
-      : enrollment
-        ? "active"
-        : "not_joined",
-    enrollmentId: enrollment?.id ?? null,
-    revision: enrollment ? Number(enrollment.revision) : null,
-    startedAt: enrollment ? iso(enrollment.started_at) : null,
-    evaluatedAt: enrollment?.evaluated_at ? iso(enrollment.evaluated_at) : null,
-    completedAt: enrollment?.completed_at ? iso(enrollment.completed_at) : null,
-    progress: normalizedProgress,
-    rewards: {
-      xp: 0,
-      badge: null,
-      financialReward: null,
-      status: "disabled",
+    status: enrollment.status,
+    enrollmentId: enrollment.id,
+    revision: validated.revision,
+    startedAt: validated.startedAt,
+    evaluatedAt: validated.evaluatedAt,
+    completedAt: validated.completedAt,
+    progress: {
+      ...progress,
+      minimumTrades: OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES,
+      requiredRate: OFFICIAL_JOURNAL_CHALLENGE_REQUIRED_RATE,
     },
+    rewards: { xp: 0, badge: null, financialReward: null, status: "disabled" },
   };
 }
 
@@ -449,16 +513,29 @@ function operation(action: OfficialJournalChallengeCommand["action"]): string {
 
 function parseStoredCommandResult(value: unknown): OfficialJournalChallengeState | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const raw = value as Record<string, unknown>;
-  if (!raw.state || typeof raw.state !== "object" || Array.isArray(raw.state)) return null;
-  return raw.state as OfficialJournalChallengeState;
+  const state = (value as Record<string, unknown>).state;
+  if (!state || typeof state !== "object" || Array.isArray(state)) return null;
+  const raw = state as Record<string, unknown>;
+  if (
+    raw.challengeId !== OFFICIAL_JOURNAL_CHALLENGE_ID ||
+    raw.challengeVersion !== OFFICIAL_JOURNAL_CHALLENGE_VERSION ||
+    !raw.cycle || typeof raw.cycle !== "object" || Array.isArray(raw.cycle) ||
+    !raw.progress || typeof raw.progress !== "object" || Array.isArray(raw.progress) ||
+    !raw.rewards || typeof raw.rewards !== "object" || Array.isArray(raw.rewards)
+  ) return null;
+  const rewards = raw.rewards as Record<string, unknown>;
+  if (
+    rewards.xp !== 0 || rewards.badge !== null ||
+    rewards.financialReward !== null || rewards.status !== "disabled"
+  ) return null;
+  return state as OfficialJournalChallengeState;
 }
 
 async function claimCommandReceipt(
   client: PoolClient,
   context: AvailableTenantPrincipalContext,
   command: OfficialJournalChallengeCommand,
-  hash: string,
+  requestHash: string,
 ): Promise<
   | { kind: "claimed" }
   | { kind: "replay"; state: OfficialJournalChallengeState }
@@ -479,7 +556,7 @@ async function claimCommandReceipt(
   );
   const row = existing.rows[0];
   if (row) {
-    if (row.request_hash !== hash) return { kind: "conflict" };
+    if (row.request_hash !== requestHash) return { kind: "conflict" };
     if (row.status === "processing") return { kind: "processing" };
     const state = parseStoredCommandResult(row.response_body);
     if (!state || row.http_status !== 200) {
@@ -487,13 +564,12 @@ async function claimCommandReceipt(
     }
     return { kind: "replay", state };
   }
-
   await client.query(
     `INSERT INTO api_command_receipts
        (tenant_id, principal_type, principal_id, operation,
         idempotency_key, request_hash, status)
      VALUES ($1, 'student', $2, $3, $4, $5, 'processing')`,
-    [context.tenantId, context.principalId, operation(command.action), command.idempotencyKey, hash],
+    [context.tenantId, context.principalId, operation(command.action), command.idempotencyKey, requestHash],
   );
   return { kind: "claimed" };
 }
@@ -545,12 +621,8 @@ async function writeEvent(
        (id, enrollment_id, event_type, idempotency_key, request_hash, evidence)
      VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb)`,
     [
-      randomUUID(),
-      input.enrollmentId,
-      input.type,
-      input.command.idempotencyKey,
-      input.requestHash,
-      JSON.stringify(input.evidence),
+      randomUUID(), input.enrollmentId, input.type, input.command.idempotencyKey,
+      input.requestHash, JSON.stringify(input.evidence),
     ],
   );
 }
@@ -574,11 +646,14 @@ async function currentStateInTransaction(
   if (enrollment.status === "completed") {
     return stateFrom(cycle, consentEnabled, enrollment, null);
   }
-  const evidenceEnd = new Date(Math.min(now.getTime(), new Date(cycle.endsAt).getTime())).toISOString();
+  const validated = validateEnrollmentRow(enrollment, cycle);
+  const evidenceEnd = new Date(
+    Math.min(now.getTime(), new Date(cycle.endsAt).getTime()),
+  ).toISOString();
   const progress = await calculateEvidenceProgress(
     client,
     context.principalId,
-    iso(enrollment.started_at),
+    validated.startedAt,
     evidenceEnd,
   );
   return stateFrom(cycle, consentEnabled, enrollment, progress);
@@ -616,7 +691,6 @@ export async function processOfficialJournalChallengeCommand(
     if (!IDEMPOTENCY_RE.test(command.idempotencyKey)) {
       throw new Error("community_challenge_idempotency_invalid");
     }
-
     const transaction = await withTx(async (client) => {
       const now = await databaseNow(client);
       const cycle = deriveOfficialJournalChallengeCycle(now);
@@ -628,13 +702,21 @@ export async function processOfficialJournalChallengeCommand(
         return { ok: false, reason: "challenge_consent_required" } as const;
       }
 
+      const lockIdentity = JSON.stringify([
+        OPERATION_PREFIX,
+        context.tenantId,
+        context.workspaceId,
+        context.principalId,
+        cycle.key,
+        command.action,
+      ]);
       await client.query(
         "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
-        [`${context.tenantId}\0${context.principalId}\0${cycle.key}\0${command.action}`],
+        [lockIdentity],
       );
 
-      const hash = commandHash(command);
-      const receipt = await claimCommandReceipt(client, context, command, hash);
+      const requestHash = commandHash(command);
+      const receipt = await claimCommandReceipt(client, context, command, requestHash);
       if (receipt.kind === "conflict") {
         return { ok: false, reason: "idempotency_conflict" } as const;
       }
@@ -663,27 +745,21 @@ export async function processOfficialJournalChallengeCommand(
              DO NOTHING
              RETURNING id::text`,
             [
-              randomUUID(),
-              context.tenantId,
-              context.workspaceId,
-              context.principalId,
-              OFFICIAL_JOURNAL_CHALLENGE_ID,
-              OFFICIAL_JOURNAL_CHALLENGE_VERSION,
-              cycle.key,
-              cycle.startsAt,
-              cycle.endsAt,
-              now.toISOString(),
+              randomUUID(), context.tenantId, context.workspaceId, context.principalId,
+              OFFICIAL_JOURNAL_CHALLENGE_ID, OFFICIAL_JOURNAL_CHALLENGE_VERSION,
+              cycle.key, cycle.startsAt, cycle.endsAt, now.toISOString(),
             ],
           );
           created = Boolean(inserted.rows[0]);
           enrollment = await loadEnrollment(client, context, cycle.key, true);
           if (!enrollment) throw new Error("community_challenge_enrollment_insert_missing");
+          validateEnrollmentRow(enrollment, cycle);
           if (created) {
             await writeEvent(client, {
               enrollmentId: enrollment.id,
               type: "joined",
               command,
-              requestHash: hash,
+              requestHash,
               evidence: {
                 challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
                 challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
@@ -709,13 +785,14 @@ export async function processOfficialJournalChallengeCommand(
         return { ok: true, replayed: false, state } as const;
       }
 
+      const validated = validateEnrollmentRow(enrollment, cycle);
       const evidenceEnd = new Date(
         Math.min(now.getTime(), new Date(cycle.endsAt).getTime()),
       ).toISOString();
       const progress = await calculateEvidenceProgress(
         client,
         context.principalId,
-        iso(enrollment.started_at),
+        validated.startedAt,
         evidenceEnd,
       );
       const completed = progress.eligibleToComplete;
@@ -737,28 +814,25 @@ export async function processOfficialJournalChallengeCommand(
                     eligible_closed_trade_count, valid_reflection_count,
                     coverage_rate::text`,
         [
-          enrollment.id,
-          context.tenantId,
-          context.principalId,
-          completed ? "completed" : "active",
-          now.toISOString(),
-          progress.eligibleClosedTrades,
-          progress.validReflections,
+          enrollment.id, context.tenantId, context.principalId,
+          completed ? "completed" : "active", now.toISOString(),
+          progress.eligibleClosedTrades, progress.validReflections,
         ],
       );
       enrollment = updated.rows[0] ?? null;
       if (!enrollment) throw new Error("community_challenge_evaluation_update_missing");
+      validateEnrollmentRow(enrollment, cycle);
 
       await writeEvent(client, {
         enrollmentId: enrollment.id,
         type: completed ? "completed" : "evaluated",
         command,
-        requestHash: hash,
+        requestHash,
         evidence: {
           challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
           challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
           cycleKey: cycle.key,
-          evidenceStartsAt: iso(enrollment.started_at),
+          evidenceStartsAt: validated.startedAt,
           evidenceEndsAt: evidenceEnd,
           eligibleClosedTrades: progress.eligibleClosedTrades,
           validReflections: progress.validReflections,
@@ -774,7 +848,6 @@ export async function processOfficialJournalChallengeCommand(
       await completeCommandReceipt(client, context, command, state);
       return { ok: true, replayed: false, state } as const;
     });
-
     if (!transaction.enabled) {
       return { ok: false, reason: "challenge_authority_unavailable" };
     }
