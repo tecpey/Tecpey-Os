@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -115,12 +116,16 @@ async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
 
   const shards = [];
   let shardEntryCount = 0;
+  let shardReadOnlyRouteCount = 0;
   for (const name of names) {
     const shardPath = path.join(directoryPath, name);
     const raw = await readFile(shardPath, "utf8");
     const registry = JSON.parse(raw);
     shards.push({ name, registry });
     shardEntryCount += Array.isArray(registry.entries) ? registry.entries.length : 0;
+    shardReadOnlyRouteCount += Array.isArray(registry.readOnlyRoutes)
+      ? registry.readOnlyRoutes.length
+      : 0;
   }
 
   return {
@@ -128,7 +133,74 @@ async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
     registry: mergeReviewedManifestDeltaRegistries({ primary, shards }),
     shardCount: shards.length,
     shardEntryCount,
+    shardReadOnlyRouteCount,
   };
+}
+
+function hasMethodExport(source, method) {
+  return [
+    new RegExp(`export\\s+(?:async\\s+)?function\\s+${method}\\b`),
+    new RegExp(`export\\s+const\\s+${method}\\b`),
+    new RegExp(`export\\s*\\{[^}]*\\b${method}\\b[^}]*\\}`),
+  ].some((pattern) => pattern.test(source));
+}
+
+async function verifyReviewedReadOnlyRoutes(entries) {
+  const failures = [];
+  for (const entry of entries) {
+    const expectedSourcePath = `src/app${entry.route}/route.ts`;
+    if (entry.sourcePath !== expectedSourcePath) {
+      failures.push(
+        `Reviewed read-only route path mismatch for ${entry.route}: expected ${expectedSourcePath}, got ${entry.sourcePath}.`,
+      );
+      continue;
+    }
+    const absolute = path.resolve(root, entry.sourcePath);
+    const sourceRoot = path.resolve(root, "src", "app", "api") + path.sep;
+    if (!absolute.startsWith(sourceRoot)) {
+      failures.push(`Reviewed read-only route escapes API root: ${entry.sourcePath}.`);
+      continue;
+    }
+    let source;
+    try {
+      source = await readFile(absolute, "utf8");
+    } catch {
+      failures.push(`Reviewed read-only route source is missing: ${entry.sourcePath}.`);
+      continue;
+    }
+    const sourceHash = createHash("sha256").update(source).digest("hex").slice(0, 24);
+    if (sourceHash !== entry.sourceHash) {
+      failures.push(
+        `Reviewed read-only route hash mismatch for ${entry.route}: expected ${entry.sourceHash}, got ${sourceHash}.`,
+      );
+    }
+    if (!hasMethodExport(source, "GET")) {
+      failures.push(`Reviewed read-only route does not export GET: ${entry.sourcePath}.`);
+    }
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      if (hasMethodExport(source, method)) {
+        failures.push(
+          `Reviewed read-only route unexpectedly exports ${method}: ${entry.sourcePath}.`,
+        );
+      }
+    }
+    if (!/getCanonicalSession\s*\(/.test(source) || !/strictRevocation\s*:\s*true/.test(source)) {
+      failures.push(`Reviewed read-only route lacks strict canonical session evidence: ${entry.sourcePath}.`);
+    }
+    if (!/\brateLimit\s*\(/.test(source)) {
+      failures.push(`Reviewed read-only route lacks rate limiting: ${entry.sourcePath}.`);
+    }
+    if (!/resolveTenantPrincipalContext\s*\(/.test(source)) {
+      failures.push(`Reviewed read-only route lacks verified tenant/principal context: ${entry.sourcePath}.`);
+    }
+    if (!/Cache-Control["']\s*,\s*["']private, no-store/.test(source) || !/Vary["']\s*,\s*["']Cookie/.test(source)) {
+      failures.push(`Reviewed read-only route lacks private no-store cookie variance: ${entry.sourcePath}.`);
+    }
+    if (!/searchParams\.keys\s*\(\)/.test(source) || !/\b400\b/.test(source)) {
+      failures.push(`Reviewed read-only route does not reject all query parameters: ${entry.sourcePath}.`);
+    }
+  }
+  return failures;
 }
 
 const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "tecpey-api-security-"));
@@ -168,6 +240,8 @@ try {
 
   let effectiveBaseline;
   let appliedDeltaCount = 0;
+  let appliedOperationDeltaCount = 0;
+  let appliedReadOnlyRouteCount = 0;
   try {
     const applied = applyReviewedManifestDeltas({
       baselineRaw,
@@ -176,6 +250,9 @@ try {
     });
     effectiveBaseline = applied.manifest;
     appliedDeltaCount = applied.appliedCount;
+    appliedOperationDeltaCount = applied.operationDeltaCount;
+    appliedReadOnlyRouteCount = applied.readOnlyRouteCount;
+    failures.push(...await verifyReviewedReadOnlyRoutes(applied.readOnlyRoutes));
   } catch (error) {
     failures.push(
       `Reviewed API security manifest delta validation failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -212,7 +289,8 @@ try {
       + `${generated.totals.findings} governed findings, `
       + `${policy.exceptionCount} active exact exceptions, `
       + `${appliedDeltaCount} exact reviewed baseline deltas `
-      + `(${reviewed.shardEntryCount} entries across ${reviewed.shardCount} additive shard files).`,
+      + `(${appliedOperationDeltaCount} operation replacements and ${appliedReadOnlyRouteCount} read-only route files; `
+      + `${reviewed.shardEntryCount} operation entries and ${reviewed.shardReadOnlyRouteCount} read-only entries across ${reviewed.shardCount} additive shard files).`,
     );
   }
 } finally {

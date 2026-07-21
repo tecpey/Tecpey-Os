@@ -10,6 +10,24 @@ const ENTRY_FIELDS = new Set([
   "reason",
   "replacement",
 ]);
+const READ_ONLY_ROUTE_FIELDS = new Set([
+  "route",
+  "sourcePath",
+  "sourceHash",
+  "issue",
+  "owner",
+  "reason",
+  "controls",
+]);
+const READ_ONLY_CONTROL_FIELDS = new Set([
+  "classification",
+  "strictRevocation",
+  "rateLimit",
+  "verifiedPrincipal",
+  "tenantFromVerifiedContext",
+  "noStore",
+  "queryParameters",
+]);
 
 function assertExactFields(value, allowed, label) {
   for (const field of Object.keys(value)) {
@@ -33,6 +51,13 @@ function assertRegistryShape(registry, label) {
   if (!Array.isArray(registry.entries)) {
     throw new Error(`${label}_entries_invalid`);
   }
+  if (registry.readOnlyRoutes !== undefined && !Array.isArray(registry.readOnlyRoutes)) {
+    throw new Error(`${label}_read_only_routes_invalid`);
+  }
+}
+
+function readOnlyRoutes(registry) {
+  return registry.readOnlyRoutes ?? [];
 }
 
 export function mergeReviewedManifestDeltaRegistries({ primary, shards = [] }) {
@@ -42,6 +67,7 @@ export function mergeReviewedManifestDeltaRegistries({ primary, shards = [] }) {
   }
 
   const entries = [...primary.entries];
+  const reviewedReadOnlyRoutes = [...readOnlyRoutes(primary)];
   for (const [index, shardRecord] of shards.entries()) {
     const name = shardRecord?.name ?? `index-${index}`;
     const shard = shardRecord?.registry;
@@ -53,12 +79,14 @@ export function mergeReviewedManifestDeltaRegistries({ primary, shards = [] }) {
       throw new Error(`api_security_manifest_delta_shard_baseline_mismatch:${name}`);
     }
     entries.push(...shard.entries);
+    reviewedReadOnlyRoutes.push(...readOnlyRoutes(shard));
   }
 
   return {
     schemaVersion: primary.schemaVersion,
     baselineBlobSha: primary.baselineBlobSha,
     entries,
+    readOnlyRoutes: reviewedReadOnlyRoutes,
   };
 }
 
@@ -76,6 +104,59 @@ function operationKey(route, method) {
 
 function sameOperation(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function validateReadOnlyRouteEntry(entry, index, seenRoutes, seenPaths) {
+  const label = `api_security_read_only_route_${index}`;
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    throw new Error(`${label}_invalid`);
+  }
+  assertExactFields(entry, READ_ONLY_ROUTE_FIELDS, label);
+  if (typeof entry.route !== "string" || !entry.route.startsWith("/api/")) {
+    throw new Error(`${label}_route_invalid`);
+  }
+  if (
+    typeof entry.sourcePath !== "string"
+    || !/^src\/app\/api\/(?:[A-Za-z0-9._\-\[\]]+\/)*route\.ts$/.test(entry.sourcePath)
+    || entry.sourcePath.includes("..")
+  ) {
+    throw new Error(`${label}_source_path_invalid`);
+  }
+  if (!/^[0-9a-f]{24}$/.test(entry.sourceHash)) {
+    throw new Error(`${label}_source_hash_invalid`);
+  }
+  if (!/^#[1-9][0-9]*$/.test(entry.issue)) {
+    throw new Error(`${label}_issue_invalid`);
+  }
+  if (typeof entry.owner !== "string" || entry.owner.trim().length < 3) {
+    throw new Error(`${label}_owner_invalid`);
+  }
+  if (typeof entry.reason !== "string" || entry.reason.trim().length < 20) {
+    throw new Error(`${label}_reason_invalid`);
+  }
+  if (!entry.controls || typeof entry.controls !== "object" || Array.isArray(entry.controls)) {
+    throw new Error(`${label}_controls_invalid`);
+  }
+  assertExactFields(entry.controls, READ_ONLY_CONTROL_FIELDS, `${label}_controls`);
+  if (
+    entry.controls.classification !== "authenticated"
+    || entry.controls.strictRevocation !== true
+    || entry.controls.rateLimit !== true
+    || entry.controls.verifiedPrincipal !== true
+    || entry.controls.tenantFromVerifiedContext !== true
+    || entry.controls.noStore !== true
+    || entry.controls.queryParameters !== "none"
+  ) {
+    throw new Error(`${label}_controls_invalid`);
+  }
+  if (seenRoutes.has(entry.route)) {
+    throw new Error(`${label}_duplicate_route:${entry.route}`);
+  }
+  if (seenPaths.has(entry.sourcePath)) {
+    throw new Error(`${label}_duplicate_source:${entry.sourcePath}`);
+  }
+  seenRoutes.add(entry.route);
+  seenPaths.add(entry.sourcePath);
 }
 
 export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry }) {
@@ -152,5 +233,24 @@ export function applyReviewedManifestDeltas({ baselineRaw, baseline, registry })
     effective.routes[routeIndex] = structuredClone(replacement);
   }
 
-  return { manifest: effective, appliedCount: registry.entries.length };
+  const reviewedReadOnlyRoutes = readOnlyRoutes(registry);
+  const seenRoutes = new Set();
+  const seenPaths = new Set();
+  for (const [index, entry] of reviewedReadOnlyRoutes.entries()) {
+    validateReadOnlyRouteEntry(entry, index, seenRoutes, seenPaths);
+  }
+  if (reviewedReadOnlyRoutes.length > 0) {
+    if (!effective.totals || !Number.isSafeInteger(effective.totals.routeFiles)) {
+      throw new Error("api_security_manifest_route_file_total_invalid");
+    }
+    effective.totals.routeFiles += reviewedReadOnlyRoutes.length;
+  }
+
+  return {
+    manifest: effective,
+    appliedCount: registry.entries.length + reviewedReadOnlyRoutes.length,
+    operationDeltaCount: registry.entries.length,
+    readOnlyRouteCount: reviewedReadOnlyRoutes.length,
+    readOnlyRoutes: structuredClone(reviewedReadOnlyRoutes),
+  };
 }

@@ -20,6 +20,7 @@ import {
   type CommunityProfile,
 } from "@/lib/community-profile";
 import { COMMUNITY_SAFETY_RULES } from "@/lib/community-leaderboard";
+import { ReputationEvidencePanel } from "./ReputationEvidencePanel";
 
 function ProfileSetup({ onCreate }: { onCreate: (profile: CommunityProfile) => void }) {
   const [name, setName] = useState("");
@@ -158,27 +159,6 @@ function NavTile({ href, icon, title, description, badge }: NavTileProps) {
   );
 }
 
-function PreviewScoreBoundary() {
-  return (
-    <section className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
-      <div className="flex items-start gap-3">
-        <Trophy className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-black text-slate-300">امتیاز و Leaderboard</p>
-            <span className="rounded-full border border-slate-500/20 bg-slate-500/10 px-2 py-0.5 text-[10px] font-black text-slate-500">
-              Preview Only
-            </span>
-          </div>
-          <p className="mt-2 text-xs font-bold leading-6 text-slate-500">
-            تا تکمیل Reputation و Leaderboard Authority، هیچ Score مرورگری به‌عنوان رتبه، پاداش، بورسیه یا شواهد Mentor پذیرفته نمی‌شود.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function SafetyRules() {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -264,7 +244,7 @@ export function CommunityHub() {
       )}
 
       <OfficialChallengeCard />
-      <PreviewScoreBoundary />
+      <ReputationEvidencePanel />
 
       <section className="grid gap-3 sm:grid-cols-2">
         <NavTile
@@ -285,8 +265,8 @@ export function CommunityHub() {
           href="/academy/community/leaderboard"
           icon={<Trophy className="h-5 w-5 text-amber-300" />}
           title="جدول رتبه‌بندی"
-          description="فعلاً پیش‌نمایش؛ Reputation و Reward رسمی غیرفعال‌اند"
-          badge="Preview"
+          description="Evidence رسمی آماده است؛ Rank و Reward هنوز غیرفعال‌اند"
+          badge="Evidence"
         />
         <NavTile
           href="/academy/community/instructors"
