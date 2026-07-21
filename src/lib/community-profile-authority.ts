@@ -70,7 +70,14 @@ export type CommunityConsentUpdateResult =
       replayed: boolean;
       profile: CommunityOwnedProfile;
     }
-  | { ok: false; reason: "unavailable" | "not_found" | "revision_conflict" | "idempotency_conflict" };
+  | {
+      ok: false;
+      reason:
+        | "unavailable"
+        | "not_found"
+        | "revision_conflict"
+        | "idempotency_conflict";
+    };
 
 type CommunityProfileRow = {
   student_id: string;
@@ -136,7 +143,11 @@ function normalizeUsername(value: unknown): string {
 }
 
 function normalizePublicIdentifier(value: string): string {
-  return value.trim().replace(/^@/, "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 64);
+  return value
+    .trim()
+    .replace(/^@/, "")
+    .replace(/[^A-Za-z0-9_.-]/g, "")
+    .slice(0, 64);
 }
 
 function iso(value: Date | string | null): string | null {
@@ -171,7 +182,10 @@ function mapProfile(row: CommunityProfileRow): CommunityOwnedProfile {
   const careerScore = scoreClamp((mentorScore + overallProgress) / 2);
   const publicStudentId =
     String(row.public_student_id ?? "").trim() ||
-    `TP-PROFILE-${row.public_profile_id.replaceAll("-", "").slice(0, 10).toUpperCase()}`;
+    `TP-PROFILE-${row.public_profile_id
+      .replaceAll("-", "")
+      .slice(0, 10)
+      .toUpperCase()}`;
 
   return {
     publicProfileId: row.public_profile_id,
@@ -218,15 +232,30 @@ function mapProfile(row: CommunityProfileRow): CommunityOwnedProfile {
   };
 }
 
-function publicProjection(profile: CommunityOwnedProfile): CommunityPublicProfile {
-  const {
-    revision: _revision,
-    consentVersion: _consentVersion,
-    consentedAt: _consentedAt,
-    consent: _consent,
-    ...publicProfile
-  } = profile;
-  return publicProfile;
+function publicProjection(
+  profile: CommunityOwnedProfile,
+): CommunityPublicProfile {
+  return {
+    publicProfileId: profile.publicProfileId,
+    publicStudentId: profile.publicStudentId,
+    displayName: profile.displayName,
+    username: profile.username,
+    avatar: profile.avatar,
+    level: profile.level,
+    currentTerm: profile.currentTerm,
+    xp: profile.xp,
+    streak: profile.streak,
+    achievementsCount: profile.achievementsCount,
+    certificatesCount: profile.certificatesCount,
+    mentorScore: profile.mentorScore,
+    arenaScore: profile.arenaScore,
+    careerScore: profile.careerScore,
+    tradingStyle: profile.tradingStyle,
+    visibility: profile.visibility,
+    strengths: profile.strengths,
+    growthAreas: profile.growthAreas,
+    updatedAt: profile.updatedAt,
+  };
 }
 
 function sameConsent(
@@ -298,7 +327,7 @@ const PROFILE_SELECT = `
          profile.consent_version,
          profile.consented_at,
          profile.updated_at,
-         COALESCE(student.public_student_id, cartax.public_student_id) AS public_student_id,
+         student.public_student_id,
          student.display_name,
          student.username,
          student.avatar,
@@ -370,7 +399,7 @@ export async function loadPublicCommunityProfile(input: {
             AND (
               profile.public_profile_id::text = $3
               OR lower(student.username) = lower($3)
-              OR lower(COALESCE(student.public_student_id, cartax.public_student_id, '')) = lower($3)
+              OR lower(COALESCE(student.public_student_id, '')) = lower($3)
             )
           LIMIT 1`,
         [input.tenantId, input.workspaceId, identifier],
