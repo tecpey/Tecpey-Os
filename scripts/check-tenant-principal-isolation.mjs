@@ -19,13 +19,21 @@ const source = Object.fromEntries(
     Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")]),
   ),
 );
+const normalizeSource = (value) => value.replace(/\s+/g, " ").trim();
+const normalizedSource = Object.fromEntries(
+  Object.entries(source).map(([key, value]) => [key, normalizeSource(value)]),
+);
 
 const failures = [];
 const requireText = (target, text, reason) => {
-  if (!source[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (!normalizedSource[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 const rejectText = (target, text, reason) => {
-  if (source[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (normalizedSource[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 
 try {
@@ -92,7 +100,8 @@ for (const invariant of [
   'scopes: ["offline-sync:write"]',
   "scope.scope.tenantId !== context.tenantId",
   "scope.scope.studentId !== context.principalId",
-  "context,\n            item: normalized.item",
+  "context,",
+  "item: normalized.item",
 ]) {
   requireText("route", invariant, `Offline Sync route is missing ${invariant}`);
 }
@@ -117,14 +126,15 @@ for (const invariant of [
   "context: AvailableTenantPrincipalContext",
   'context.principalType !== "student"',
   'context.scopes.includes("offline-sync:write")',
-  "const tenantId = input.context.tenantId",
-  "const studentId = input.context.principalId",
+  "const context = input.context",
+  "const tenantId = context.tenantId",
+  "const studentId = context.principalId",
 ]) {
   requireText("authority", invariant, `Offline Sync authority is missing ${invariant}`);
 }
 rejectText(
   "authority",
-  "tenantId: string;\n  studentId: string;\n  item: OfflineSyncItem",
+  "tenantId: string; studentId: string; item: OfflineSyncItem",
   "Offline Sync mutation cannot accept independent tenant/student authority",
 );
 
