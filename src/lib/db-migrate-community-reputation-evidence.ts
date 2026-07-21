@@ -1,14 +1,82 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
-import {
-  materializeCommunityReputationEvidenceTx,
-} from "@/lib/community-reputation-evidence-authority";
-import type { OfficialJournalChallengeEnrollmentRow } from "@/lib/community-journal-challenge-authority";
 
 const FILENAME = "0051_community_reputation_evidence.sql";
-const BACKFILL_VERSION = "community-reputation-evidence-backfill-v1";
+const BACKFILL_VERSION = "community-reputation-evidence-backfill-v2";
 
 export const COMMUNITY_REPUTATION_EVIDENCE_SQL = `
+CREATE OR REPLACE FUNCTION tecpey_community_reputation_coverage_bps(
+  eligible_count INTEGER,
+  reflection_count INTEGER
+)
+RETURNS INTEGER AS $$
+BEGIN
+  IF eligible_count = 0 THEN
+    RETURN 0;
+  END IF;
+  RETURN (
+    (reflection_count::bigint * 10000 + eligible_count::bigint / 2)
+    / eligible_count::bigint
+  )::integer;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE STRICT;
+
+CREATE OR REPLACE FUNCTION tecpey_community_reputation_source_digest(
+  p_tenant_id TEXT,
+  p_workspace_id TEXT,
+  p_principal_type TEXT,
+  p_principal_id TEXT,
+  p_student_id UUID,
+  p_source_enrollment_id UUID,
+  p_challenge_id TEXT,
+  p_challenge_version TEXT,
+  p_cycle_key TEXT,
+  p_cycle_starts_at TIMESTAMPTZ,
+  p_cycle_ends_at TIMESTAMPTZ,
+  p_outcome TEXT,
+  p_finalized_at TIMESTAMPTZ,
+  p_eligible_count INTEGER,
+  p_reflection_count INTEGER,
+  p_coverage_bps INTEGER,
+  p_completion_met BOOLEAN,
+  p_finalization_source TEXT,
+  p_finalization_run_id UUID
+)
+RETURNS TEXT AS $$
+  SELECT encode(
+    sha256(
+      convert_to(
+        concat_ws(
+          E'\\n',
+          'community-reputation-evidence-v1',
+          'official_journal_challenge_finalization',
+          p_tenant_id,
+          p_workspace_id,
+          p_principal_type,
+          p_principal_id,
+          p_student_id::text,
+          p_source_enrollment_id::text,
+          p_challenge_id,
+          p_challenge_version,
+          p_cycle_key,
+          to_char(p_cycle_starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          to_char(p_cycle_ends_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          p_outcome,
+          to_char(p_finalized_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+          p_eligible_count::text,
+          p_reflection_count::text,
+          p_coverage_bps::text,
+          CASE WHEN p_completion_met THEN 'true' ELSE 'false' END,
+          p_finalization_source,
+          COALESCE(p_finalization_run_id::text, '')
+        ),
+        'UTF8'
+      )
+    ),
+    'hex'
+  );
+$$ LANGUAGE sql IMMUTABLE;
+
 CREATE TABLE IF NOT EXISTS academy_community_reputation_evidence (
   id UUID PRIMARY KEY,
   tenant_id TEXT NOT NULL,
@@ -60,13 +128,10 @@ CREATE TABLE IF NOT EXISTS academy_community_reputation_evidence (
   CONSTRAINT academy_community_reputation_coverage_check
     CHECK (
       coverage_basis_points BETWEEN 0 AND 10000
-      AND coverage_basis_points = CASE
-        WHEN eligible_closed_trade_count = 0 THEN 0
-        ELSE (
-          (valid_reflection_count::bigint * 10000 + eligible_closed_trade_count::bigint / 2)
-          / eligible_closed_trade_count::bigint
-        )::integer
-      END
+      AND coverage_basis_points = tecpey_community_reputation_coverage_bps(
+        eligible_closed_trade_count,
+        valid_reflection_count
+      )
     ),
   CONSTRAINT academy_community_reputation_completion_check
     CHECK (
@@ -112,9 +177,9 @@ CREATE OR REPLACE FUNCTION tecpey_validate_community_reputation_evidence_insert(
 RETURNS TRIGGER AS $$
 DECLARE
   source academy_community_challenge_enrollments%ROWTYPE;
-  binding_active BOOLEAN;
   expected_coverage INTEGER;
   expected_completion BOOLEAN;
+  expected_digest TEXT;
 BEGIN
   SELECT enrollment.*
     INTO source
@@ -127,21 +192,6 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  SELECT EXISTS (
-    SELECT 1
-      FROM platform_principal_bindings AS binding
-     WHERE binding.tenant_id = source.tenant_id
-       AND binding.workspace_id = source.workspace_id
-       AND binding.principal_type = source.principal_type
-       AND binding.principal_id = source.principal_id
-       AND binding.status = 'active'
-  ) INTO binding_active;
-
-  IF NOT binding_active THEN
-    RAISE EXCEPTION 'community reputation principal binding inactive'
-      USING ERRCODE = '55000';
-  END IF;
-
   IF source.status NOT IN ('completed', 'not_completed')
      OR source.finalized_at IS NULL
      OR source.finalization_source IS NULL THEN
@@ -149,23 +199,44 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  expected_coverage := CASE
-    WHEN source.eligible_closed_trade_count = 0 THEN 0
-    ELSE (
-      (source.valid_reflection_count::bigint * 10000 + source.eligible_closed_trade_count::bigint / 2)
-      / source.eligible_closed_trade_count::bigint
-    )::integer
-  END;
+  expected_coverage := tecpey_community_reputation_coverage_bps(
+    source.eligible_closed_trade_count,
+    source.valid_reflection_count
+  );
   expected_completion := (
     source.eligible_closed_trade_count >= 3
     AND source.valid_reflection_count * 5 >= source.eligible_closed_trade_count * 4
   );
+  expected_digest := tecpey_community_reputation_source_digest(
+    source.tenant_id,
+    source.workspace_id,
+    source.principal_type,
+    source.principal_id,
+    source.student_id,
+    source.id,
+    source.challenge_id,
+    source.challenge_version,
+    source.cycle_key,
+    source.cycle_starts_at,
+    source.cycle_ends_at,
+    source.status,
+    source.finalized_at,
+    source.eligible_closed_trade_count,
+    source.valid_reflection_count,
+    expected_coverage,
+    expected_completion,
+    source.finalization_source,
+    source.finalization_run_id
+  );
 
-  IF NEW.tenant_id IS DISTINCT FROM source.tenant_id
+  IF NEW.id IS DISTINCT FROM source.id
+     OR NEW.tenant_id IS DISTINCT FROM source.tenant_id
      OR NEW.workspace_id IS DISTINCT FROM source.workspace_id
      OR NEW.principal_type IS DISTINCT FROM source.principal_type
      OR NEW.principal_id IS DISTINCT FROM source.principal_id
      OR NEW.student_id IS DISTINCT FROM source.student_id
+     OR NEW.evidence_version IS DISTINCT FROM 'community-reputation-evidence-v1'
+     OR NEW.source_type IS DISTINCT FROM 'official_journal_challenge_finalization'
      OR NEW.challenge_id IS DISTINCT FROM source.challenge_id
      OR NEW.challenge_version IS DISTINCT FROM source.challenge_version
      OR NEW.cycle_key IS DISTINCT FROM source.cycle_key
@@ -178,7 +249,8 @@ BEGIN
      OR NEW.coverage_basis_points IS DISTINCT FROM expected_coverage
      OR NEW.completion_criteria_met IS DISTINCT FROM expected_completion
      OR NEW.finalization_source IS DISTINCT FROM source.finalization_source
-     OR NEW.finalization_run_id IS DISTINCT FROM source.finalization_run_id THEN
+     OR NEW.finalization_run_id IS DISTINCT FROM source.finalization_run_id
+     OR NEW.source_digest IS DISTINCT FROM expected_digest THEN
     RAISE EXCEPTION 'community reputation evidence does not match terminal source'
       USING ERRCODE = '55000';
   END IF;
@@ -217,31 +289,227 @@ DROP TRIGGER IF EXISTS academy_community_reputation_append_only_delete
 CREATE TRIGGER academy_community_reputation_append_only_delete
 BEFORE DELETE ON academy_community_reputation_evidence
 FOR EACH ROW EXECUTE FUNCTION tecpey_reject_community_reputation_evidence_mutation();
-`;
 
-const BACKFILL_ENROLLMENT_SELECT = `
-  enrollment.id::text,
+CREATE OR REPLACE FUNCTION tecpey_materialize_community_reputation_evidence()
+RETURNS TRIGGER AS $$
+DECLARE
+  binding_active BOOLEAN;
+  expected_coverage INTEGER;
+  expected_completion BOOLEAN;
+  expected_digest TEXT;
+  materialized academy_community_reputation_evidence%ROWTYPE;
+BEGIN
+  IF NEW.status NOT IN ('completed', 'not_completed') THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+      FROM platform_principal_bindings AS binding
+     WHERE binding.tenant_id = NEW.tenant_id
+       AND binding.workspace_id = NEW.workspace_id
+       AND binding.principal_type = NEW.principal_type
+       AND binding.principal_id = NEW.principal_id
+       AND binding.status = 'active'
+  ) INTO binding_active;
+
+  IF NOT binding_active THEN
+    RAISE EXCEPTION 'community reputation finalization binding inactive'
+      USING ERRCODE = '55000';
+  END IF;
+
+  expected_coverage := tecpey_community_reputation_coverage_bps(
+    NEW.eligible_closed_trade_count,
+    NEW.valid_reflection_count
+  );
+  expected_completion := (
+    NEW.eligible_closed_trade_count >= 3
+    AND NEW.valid_reflection_count * 5 >= NEW.eligible_closed_trade_count * 4
+  );
+  expected_digest := tecpey_community_reputation_source_digest(
+    NEW.tenant_id,
+    NEW.workspace_id,
+    NEW.principal_type,
+    NEW.principal_id,
+    NEW.student_id,
+    NEW.id,
+    NEW.challenge_id,
+    NEW.challenge_version,
+    NEW.cycle_key,
+    NEW.cycle_starts_at,
+    NEW.cycle_ends_at,
+    NEW.status,
+    NEW.finalized_at,
+    NEW.eligible_closed_trade_count,
+    NEW.valid_reflection_count,
+    expected_coverage,
+    expected_completion,
+    NEW.finalization_source,
+    NEW.finalization_run_id
+  );
+
+  INSERT INTO academy_community_reputation_evidence
+    (id, tenant_id, workspace_id, principal_type, principal_id, student_id,
+     evidence_version, source_type, source_enrollment_id,
+     challenge_id, challenge_version, cycle_key, cycle_starts_at, cycle_ends_at,
+     outcome, finalized_at, eligible_closed_trade_count, valid_reflection_count,
+     coverage_basis_points, completion_criteria_met, finalization_source,
+     finalization_run_id, source_digest)
+  VALUES
+    (NEW.id, NEW.tenant_id, NEW.workspace_id, NEW.principal_type,
+     NEW.principal_id, NEW.student_id,
+     'community-reputation-evidence-v1',
+     'official_journal_challenge_finalization',
+     NEW.id,
+     NEW.challenge_id, NEW.challenge_version, NEW.cycle_key,
+     NEW.cycle_starts_at, NEW.cycle_ends_at,
+     NEW.status, NEW.finalized_at,
+     NEW.eligible_closed_trade_count, NEW.valid_reflection_count,
+     expected_coverage, expected_completion,
+     NEW.finalization_source, NEW.finalization_run_id, expected_digest)
+  ON CONFLICT (source_enrollment_id) DO NOTHING;
+
+  SELECT evidence.*
+    INTO materialized
+    FROM academy_community_reputation_evidence AS evidence
+   WHERE evidence.source_enrollment_id = NEW.id
+   LIMIT 1;
+
+  IF NOT FOUND
+     OR materialized.id IS DISTINCT FROM NEW.id
+     OR materialized.tenant_id IS DISTINCT FROM NEW.tenant_id
+     OR materialized.workspace_id IS DISTINCT FROM NEW.workspace_id
+     OR materialized.principal_type IS DISTINCT FROM NEW.principal_type
+     OR materialized.principal_id IS DISTINCT FROM NEW.principal_id
+     OR materialized.student_id IS DISTINCT FROM NEW.student_id
+     OR materialized.outcome IS DISTINCT FROM NEW.status
+     OR materialized.finalized_at IS DISTINCT FROM NEW.finalized_at
+     OR materialized.eligible_closed_trade_count IS DISTINCT FROM NEW.eligible_closed_trade_count
+     OR materialized.valid_reflection_count IS DISTINCT FROM NEW.valid_reflection_count
+     OR materialized.coverage_basis_points IS DISTINCT FROM expected_coverage
+     OR materialized.completion_criteria_met IS DISTINCT FROM expected_completion
+     OR materialized.finalization_source IS DISTINCT FROM NEW.finalization_source
+     OR materialized.finalization_run_id IS DISTINCT FROM NEW.finalization_run_id
+     OR materialized.source_digest IS DISTINCT FROM expected_digest THEN
+    RAISE EXCEPTION 'community reputation materialization conflict'
+      USING ERRCODE = '55000';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS academy_community_challenge_reputation_materialization
+  ON academy_community_challenge_enrollments;
+CREATE TRIGGER academy_community_challenge_reputation_materialization
+AFTER UPDATE ON academy_community_challenge_enrollments
+FOR EACH ROW
+WHEN (
+  NEW.status IN ('completed', 'not_completed')
+  AND OLD.status IS DISTINCT FROM NEW.status
+)
+EXECUTE FUNCTION tecpey_materialize_community_reputation_evidence();
+
+INSERT INTO academy_community_reputation_evidence
+  (id, tenant_id, workspace_id, principal_type, principal_id, student_id,
+   evidence_version, source_type, source_enrollment_id,
+   challenge_id, challenge_version, cycle_key, cycle_starts_at, cycle_ends_at,
+   outcome, finalized_at, eligible_closed_trade_count, valid_reflection_count,
+   coverage_basis_points, completion_criteria_met, finalization_source,
+   finalization_run_id, source_digest)
+SELECT
+  enrollment.id,
   enrollment.tenant_id,
   enrollment.workspace_id,
   enrollment.principal_type,
   enrollment.principal_id,
-  enrollment.student_id::text,
+  enrollment.student_id,
+  'community-reputation-evidence-v1',
+  'official_journal_challenge_finalization',
+  enrollment.id,
   enrollment.challenge_id,
   enrollment.challenge_version,
   enrollment.cycle_key,
   enrollment.cycle_starts_at,
   enrollment.cycle_ends_at,
   enrollment.status,
-  enrollment.revision::text,
-  enrollment.started_at,
-  enrollment.evaluated_at,
-  enrollment.completed_at,
   enrollment.finalized_at,
-  enrollment.finalization_source,
-  enrollment.finalization_run_id::text,
   enrollment.eligible_closed_trade_count,
   enrollment.valid_reflection_count,
-  enrollment.coverage_rate::text
+  tecpey_community_reputation_coverage_bps(
+    enrollment.eligible_closed_trade_count,
+    enrollment.valid_reflection_count
+  ),
+  (
+    enrollment.eligible_closed_trade_count >= 3
+    AND enrollment.valid_reflection_count * 5 >= enrollment.eligible_closed_trade_count * 4
+  ),
+  enrollment.finalization_source,
+  enrollment.finalization_run_id,
+  tecpey_community_reputation_source_digest(
+    enrollment.tenant_id,
+    enrollment.workspace_id,
+    enrollment.principal_type,
+    enrollment.principal_id,
+    enrollment.student_id,
+    enrollment.id,
+    enrollment.challenge_id,
+    enrollment.challenge_version,
+    enrollment.cycle_key,
+    enrollment.cycle_starts_at,
+    enrollment.cycle_ends_at,
+    enrollment.status,
+    enrollment.finalized_at,
+    enrollment.eligible_closed_trade_count,
+    enrollment.valid_reflection_count,
+    tecpey_community_reputation_coverage_bps(
+      enrollment.eligible_closed_trade_count,
+      enrollment.valid_reflection_count
+    ),
+    (
+      enrollment.eligible_closed_trade_count >= 3
+      AND enrollment.valid_reflection_count * 5 >= enrollment.eligible_closed_trade_count * 4
+    ),
+    enrollment.finalization_source,
+    enrollment.finalization_run_id
+  )
+FROM academy_community_challenge_enrollments AS enrollment
+WHERE enrollment.challenge_id = 'journal-reflection-week'
+  AND enrollment.challenge_version = 'journal-reflection-v1'
+  AND enrollment.status IN ('completed', 'not_completed')
+ON CONFLICT (source_enrollment_id) DO NOTHING;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM academy_community_challenge_enrollments AS enrollment
+      LEFT JOIN academy_community_reputation_evidence AS evidence
+        ON evidence.source_enrollment_id = enrollment.id
+     WHERE enrollment.challenge_id = 'journal-reflection-week'
+       AND enrollment.challenge_version = 'journal-reflection-v1'
+       AND enrollment.status IN ('completed', 'not_completed')
+       AND (
+         evidence.id IS NULL
+         OR evidence.id IS DISTINCT FROM enrollment.id
+         OR evidence.tenant_id IS DISTINCT FROM enrollment.tenant_id
+         OR evidence.workspace_id IS DISTINCT FROM enrollment.workspace_id
+         OR evidence.principal_type IS DISTINCT FROM enrollment.principal_type
+         OR evidence.principal_id IS DISTINCT FROM enrollment.principal_id
+         OR evidence.student_id IS DISTINCT FROM enrollment.student_id
+         OR evidence.outcome IS DISTINCT FROM enrollment.status
+         OR evidence.finalized_at IS DISTINCT FROM enrollment.finalized_at
+         OR evidence.eligible_closed_trade_count IS DISTINCT FROM enrollment.eligible_closed_trade_count
+         OR evidence.valid_reflection_count IS DISTINCT FROM enrollment.valid_reflection_count
+         OR evidence.finalization_source IS DISTINCT FROM enrollment.finalization_source
+         OR evidence.finalization_run_id IS DISTINCT FROM enrollment.finalization_run_id
+       )
+  ) THEN
+    RAISE EXCEPTION 'community reputation evidence backfill mismatch'
+      USING ERRCODE = '55000';
+  END IF;
+END;
+$$;
 `;
 
 function checksum(sql: string): string {
@@ -271,24 +539,6 @@ export async function runCommunityReputationEvidenceMigrations(
   await client.query("BEGIN");
   try {
     await client.query(COMMUNITY_REPUTATION_EVIDENCE_SQL);
-    const terminal = await client.query<OfficialJournalChallengeEnrollmentRow>(
-      `SELECT ${BACKFILL_ENROLLMENT_SELECT}
-         FROM academy_community_challenge_enrollments AS enrollment
-         JOIN platform_principal_bindings AS binding
-           ON binding.tenant_id = enrollment.tenant_id
-          AND binding.workspace_id = enrollment.workspace_id
-          AND binding.principal_type = enrollment.principal_type
-          AND binding.principal_id = enrollment.principal_id
-          AND binding.status = 'active'
-        WHERE enrollment.challenge_id = 'journal-reflection-week'
-          AND enrollment.challenge_version = 'journal-reflection-v1'
-          AND enrollment.status IN ('completed', 'not_completed')
-        ORDER BY enrollment.finalized_at ASC, enrollment.id ASC
-        FOR SHARE OF enrollment`,
-    );
-    for (const enrollment of terminal.rows) {
-      await materializeCommunityReputationEvidenceTx(client, enrollment);
-    }
     await client.query(
       "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
       [FILENAME, cs],
