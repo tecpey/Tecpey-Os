@@ -162,12 +162,9 @@ before(async () => {
 after(async () => {
   if (pool) {
     await withClient(async (client) => {
-      for (const tenantId of tenants) {
-        await client.query(
-          "DELETE FROM sensitive_mutation_audit_events WHERE tenant_id = $1",
-          [tenantId],
-        );
-      }
+      // Mandatory audit evidence is append-only by design and intentionally
+      // survives fixture cleanup. CI databases are ephemeral; only mutable
+      // fixture rows are removed here.
       for (const studentId of students) {
         await client.query("DELETE FROM academy_students WHERE id = $1::uuid", [studentId]);
       }
