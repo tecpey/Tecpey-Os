@@ -38,7 +38,8 @@ Numeric values are read as text from PostgreSQL before controlled mapping. The e
 - asset amount remains a decimal string;
 - `amountUsd` remains a number for compatibility with the existing API contract;
 - compliance metadata defaults to an empty object only when the stored JSON column is null;
-- timestamps retain the existing string representation.
+- PostgreSQL timestamps are normalized through `Date#toISOString()`;
+- malformed timestamp projection data fails closed instead of leaking an ambiguous representation.
 
 ## Identity isolation
 
@@ -105,23 +106,26 @@ No active source imports `withdrawal-service.ts` after this migration.
 
 ## Evidence
 
-`withdrawal-admission-read-authority-postgres.test.ts` proves:
+`withdrawal-admission-read-authority-postgres.integration.ts` proves:
 
 - owner isolation;
 - successful not-found semantics;
-- stable record mapping;
+- stable decimal and ISO timestamp mapping;
 - principal-only history;
 - pagination normalization;
 - Admin queue state filtering;
 - deterministic oldest-first review ordering.
 
+It is intentionally excluded from the generic `*.test.ts` suite. The focused `test:withdrawal-read-authority` command executes it with the `react-server` condition required by the `server-only` authority.
+
 `check-withdrawal-read-authority.mjs` proves:
 
 - no mutation or browser authority is present in the read module;
-- no `SELECT *` is used;
+- no `SELECT *` or timestamp text-cast drift is used;
 - all seven consumers bind to the new authority;
 - routes distinguish outage from absence;
-- no active import, export or CommonJS load of the mixed legacy module remains.
+- focused server-only PostgreSQL evidence remains wired;
+- no active import, export, dynamic import or CommonJS load of the mixed legacy module remains.
 
 The guard runs through both the Withdrawal authority suite and the Sensitive Mutation Audit workflow.
 
