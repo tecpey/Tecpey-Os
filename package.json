@@ -42,7 +42,7 @@
     "ai:redteam:check": "npm run ai:trust:check && npm run test:ai-mentor-trust",
     "withdrawals:check": "node scripts/run-withdrawal-authority-checks.mjs && node scripts/check-withdrawal-prebroadcast-evidence.mjs && node scripts/check-withdrawal-external-effect-evidence.mjs",
     "test:withdrawal-read-authority": "NODE_PATH=src/tests/stubs NODE_ENV=test node --conditions=react-server --import tsx --test --test-force-exit src/tests/security/withdrawal-admission-read-authority-postgres.integration.ts",
-    "test:withdrawal-admission": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/withdrawal-admission*.test.ts' 'src/tests/security/withdrawal-external-effect*.test.ts' 'src/tests/security/withdrawal-price-producer.test.ts' 'src/tests/security/withdrawal-settlement-postgres.test.ts' && npm run test:withdrawal-read-authority",
+    "test:withdrawal-admission": "NODE_PATH=src/tests/stubs NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/withdrawal-admission*.test.ts' 'src/tests/security/withdrawal-external-effect*.test.ts' 'src/tests/security/withdrawal-price-producer.test.ts' 'src/tests/security/withdrawal-settlement-postgres.test.ts' && npm run test:withdrawal-read-authority",
     "risk:check": "node scripts/check-risk-enforcement-authority.mjs",
     "test:risk-enforcement": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/risk-enforcement*.test.ts'",
     "risk:repair": "tsx scripts/reconcile-risk-enforcement.ts",
