@@ -129,11 +129,13 @@ CREATE INDEX IF NOT EXISTS academy_public_profiles_public_lookup_idx
 CREATE OR REPLACE FUNCTION tecpey_reject_community_profile_identity_change()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- principal_id is a stored generated projection of student_id. PostgreSQL
+  -- finalizes generated columns after BEFORE triggers, so comparing NEW and OLD
+  -- principal_id here would reject every legitimate consent-only update.
   IF NEW.student_id IS DISTINCT FROM OLD.student_id
      OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
      OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
      OR NEW.principal_type IS DISTINCT FROM OLD.principal_type
-     OR NEW.principal_id IS DISTINCT FROM OLD.principal_id
      OR NEW.public_profile_id IS DISTINCT FROM OLD.public_profile_id THEN
     RAISE EXCEPTION 'community profile identity is immutable'
       USING ERRCODE = '55000';
