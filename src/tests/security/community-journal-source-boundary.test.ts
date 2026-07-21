@@ -31,14 +31,16 @@ describe("Community journal source boundary", () => {
 
   it("keeps feed reads on strict tenant/principal context and the governed profile route", async () => {
     const route = await readFile(routePath, "utf8");
-    assert.match(route, /view !== "profile" && view !== "journal-feed"/);
+    assert.match(route, /view !== "profile"/);
+    assert.match(route, /view !== "journal-feed"/);
+    assert.match(route, /view !== "journal-reflection-challenge"/);
     assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
     assert.match(route, /scopes: \["community:journal:read"\]/);
     assert.match(route, /listCommunityJournalFeed\(\{/);
     assert.match(route, /response\.headers\.set\("Vary", "Cookie"\)/);
 
     const journalStart = route.indexOf('if (view === "journal-feed")');
-    const journalEnd = route.indexOf('if (searchParams.has("cursor")', journalStart);
+    const journalEnd = route.indexOf('if (view === "journal-reflection-challenge")', journalStart);
     assert.notEqual(journalStart, -1);
     assert.notEqual(journalEnd, -1);
     const journalBlock = route.slice(journalStart, journalEnd);
