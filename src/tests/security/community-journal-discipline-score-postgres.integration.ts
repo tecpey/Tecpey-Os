@@ -110,6 +110,7 @@ async function seedTerminalCycle(input: {
   ).toISOString();
   const completed =
     input.eligible >= 3 && input.reflected * 5 >= input.eligible * 4;
+  const finalizationRunId = completed ? null : randomUUID();
   await withClient(async (client) => {
     await client.query("BEGIN");
     try {
@@ -140,8 +141,11 @@ async function seedTerminalCycle(input: {
                 evaluated_at = $6::timestamptz,
                 completed_at = CASE WHEN $5 = 'completed' THEN $6::timestamptz ELSE NULL END,
                 finalized_at = $6::timestamptz,
-                finalization_source = 'interactive',
-                finalization_run_id = NULL,
+                finalization_source = CASE
+                  WHEN $5 = 'completed' THEN 'interactive'
+                  ELSE 'worker'
+                END,
+                finalization_run_id = $9::uuid,
                 eligible_closed_trade_count = $7,
                 valid_reflection_count = $8
           WHERE id = $1::uuid
@@ -158,6 +162,7 @@ async function seedTerminalCycle(input: {
           finalizedAt,
           input.eligible,
           input.reflected,
+          finalizationRunId,
         ],
       );
       await client.query("COMMIT");
