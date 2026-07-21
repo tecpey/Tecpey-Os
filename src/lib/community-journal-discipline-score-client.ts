@@ -14,8 +14,21 @@ export type JournalDisciplineScoreClient = JournalDisciplineScoreProjection & {
 };
 
 export type JournalDisciplineScoreClientResult =
-  | { available: true; score: JournalDisciplineScoreClient }
-  | { available: false; score: null };
+  | {
+      available: true;
+      consentRequired: false;
+      score: JournalDisciplineScoreClient;
+    }
+  | {
+      available: false;
+      consentRequired: true;
+      score: null;
+    }
+  | {
+      available: false;
+      consentRequired: false;
+      score: null;
+    };
 
 const SCORE_KEYS = [
   "policyVersion",
@@ -44,7 +57,7 @@ const SCORE_KEYS = [
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -54,12 +67,16 @@ function exactKeys(
 ): boolean {
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
-  return actual.length === wanted.length &&
-    actual.every((key, index) => key === wanted[index]);
+  return (
+    actual.length === wanted.length &&
+    actual.every((key, index) => key === wanted[index])
+  );
 }
 
 function count(value: unknown, maximum: number): number | null {
-  return Number.isSafeInteger(value) && Number(value) >= 0 && Number(value) <= maximum
+  return Number.isSafeInteger(value) &&
+    Number(value) >= 0 &&
+    Number(value) <= maximum
     ? Number(value)
     : null;
 }
@@ -122,10 +139,11 @@ export function parseJournalDisciplineScorePayload(
     completionConsistencyBasisPoints === null ||
     meanCoverageBasisPoints === null ||
     completedCycles + notCompletedCycles !== evaluatedCycles ||
-    remainingCycles !== Math.max(
-      0,
-      JOURNAL_DISCIPLINE_SCORE_MINIMUM_CYCLES - evaluatedCycles,
-    ) ||
+    remainingCycles !==
+      Math.max(
+        0,
+        JOURNAL_DISCIPLINE_SCORE_MINIMUM_CYCLES - evaluatedCycles,
+      ) ||
     raw.rank !== null ||
     raw.percentile !== null ||
     raw.publicLeaderboardEligible !== false ||
@@ -139,12 +157,13 @@ export function parseJournalDisciplineScorePayload(
     return undefined;
   }
 
-  const expectedCompletion = evaluatedCycles === 0
-    ? 0
-    : journalDisciplineRoundHalfUp(
-        completedCycles * 10_000,
-        evaluatedCycles,
-      );
+  const expectedCompletion =
+    evaluatedCycles === 0
+      ? 0
+      : journalDisciplineRoundHalfUp(
+          completedCycles * 10_000,
+          evaluatedCycles,
+        );
   if (completionConsistencyBasisPoints !== expectedCompletion) {
     return undefined;
   }
@@ -155,23 +174,21 @@ export function parseJournalDisciplineScorePayload(
       : "insufficient_evidence";
   if (raw.status !== expectedStatus) return undefined;
 
-  const expectedScore = expectedStatus === "available"
-    ? journalDisciplineRoundHalfUp(
-        completionConsistencyBasisPoints *
-          JOURNAL_DISCIPLINE_COMPLETION_WEIGHT_BPS +
-          meanCoverageBasisPoints *
-          JOURNAL_DISCIPLINE_COVERAGE_WEIGHT_BPS,
-        10_000,
-      )
-    : null;
+  const expectedScore =
+    expectedStatus === "available"
+      ? journalDisciplineRoundHalfUp(
+          completionConsistencyBasisPoints *
+            JOURNAL_DISCIPLINE_COMPLETION_WEIGHT_BPS +
+            meanCoverageBasisPoints * JOURNAL_DISCIPLINE_COVERAGE_WEIGHT_BPS,
+          10_000,
+        )
+      : null;
   if (raw.scoreBasisPoints !== expectedScore) return undefined;
 
-  const windowStartsAt = raw.windowStartsAt === null
-    ? null
-    : exactIso(raw.windowStartsAt);
-  const windowEndsAt = raw.windowEndsAt === null
-    ? null
-    : exactIso(raw.windowEndsAt);
+  const windowStartsAt =
+    raw.windowStartsAt === null ? null : exactIso(raw.windowStartsAt);
+  const windowEndsAt =
+    raw.windowEndsAt === null ? null : exactIso(raw.windowEndsAt);
   if (
     (raw.windowStartsAt !== null && !windowStartsAt) ||
     (raw.windowEndsAt !== null && !windowEndsAt) ||
@@ -219,12 +236,17 @@ export async function loadJournalDisciplineScoreClient(): Promise<
       cache: "no-store",
       headers: { Accept: "application/json" },
     });
-    if (!response.ok) return { available: false, score: null };
+    if (response.status === 409) {
+      return { available: false, consentRequired: true, score: null };
+    }
+    if (!response.ok) {
+      return { available: false, consentRequired: false, score: null };
+    }
     const score = parseJournalDisciplineScorePayload(await response.json());
     return score
-      ? { available: true, score }
-      : { available: false, score: null };
+      ? { available: true, consentRequired: false, score }
+      : { available: false, consentRequired: false, score: null };
   } catch {
-    return { available: false, score: null };
+    return { available: false, consentRequired: false, score: null };
   }
 }

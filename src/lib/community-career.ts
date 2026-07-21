@@ -10,9 +10,22 @@ import { PLATFORM } from "@/lib/platform-config";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
-export type PublicLearnerProfile = CommunityPublicProfile;
+/**
+ * Legacy Community career and Hall-of-Fame presentation authority.
+ *
+ * These values are educational previews derived from Academy profile data.
+ * They are not Community Reputation Ranking v1 evidence, scores or ranks and
+ * must never authorize rewards, scholarships, funded accounts, Mentor
+ * decisions, Instructor grants, employability claims or financial controls.
+ */
+export const COMMUNITY_CAREER_AUTHORITY = "preview-only" as const;
+
+export type PublicLearnerProfile = CommunityPublicProfile & {
+  authority: typeof COMMUNITY_CAREER_AUTHORITY;
+};
 
 export type CareerSnapshot = {
+  authority: typeof COMMUNITY_CAREER_AUTHORITY;
   publicProfileId: string;
   displayName: string;
   tradingStyle: string;
@@ -27,6 +40,7 @@ export type CareerSnapshot = {
 };
 
 export type ProfessionalChallenge = {
+  authority: typeof COMMUNITY_CAREER_AUTHORITY;
   id: string;
   title: string;
   description: string;
@@ -38,6 +52,13 @@ export type ProfessionalChallenge = {
 
 function scoreClamp(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function previewProfile(profile: CommunityPublicProfile): PublicLearnerProfile {
+  return {
+    ...profile,
+    authority: COMMUNITY_CAREER_AUTHORITY,
+  };
 }
 
 export async function getCurrentAcademyStudentId(
@@ -63,7 +84,7 @@ export async function getCurrentPublicProfile(
   if (!tenantContext.available) return null;
   const loaded = await loadOwnedCommunityProfile(tenantContext);
   if (!loaded.available || !loaded.profile) return null;
-  return {
+  return previewProfile({
     publicProfileId: loaded.profile.publicProfileId,
     publicStudentId: loaded.profile.publicStudentId,
     displayName: loaded.profile.displayName,
@@ -83,7 +104,7 @@ export async function getCurrentPublicProfile(
     strengths: loaded.profile.strengths,
     growthAreas: loaded.profile.growthAreas,
     updatedAt: loaded.profile.updatedAt,
-  };
+  });
 }
 
 export async function getPublicProfile(
@@ -94,7 +115,9 @@ export async function getPublicProfile(
     workspaceId: PLATFORM.DEFAULT_WORKSPACE_ID,
     identifier,
   });
-  return loaded.available ? loaded.profile : null;
+  return loaded.available && loaded.profile
+    ? previewProfile(loaded.profile)
+    : null;
 }
 
 export async function getHallOfFame(): Promise<PublicLearnerProfile[]> {
@@ -103,7 +126,9 @@ export async function getHallOfFame(): Promise<PublicLearnerProfile[]> {
     workspaceId: PLATFORM.DEFAULT_WORKSPACE_ID,
     limit: 12,
   });
-  return loaded.available && loaded.profile ? loaded.profile : [];
+  return loaded.available && loaded.profile
+    ? loaded.profile.map(previewProfile)
+    : [];
 }
 
 export async function getCareerSnapshot(
@@ -127,6 +152,7 @@ export async function getCareerSnapshot(
   );
 
   return {
+    authority: COMMUNITY_CAREER_AUTHORITY,
     publicProfileId: profile.publicProfileId,
     displayName: profile.displayName,
     tradingStyle:
@@ -186,6 +212,7 @@ export async function getProfessionalChallenges(
 
   return [
     {
+      authority: COMMUNITY_CAREER_AUTHORITY,
       id: "risk-foundation-20",
       title: "چالش ۲۰ تصمیم مسئولانه",
       description:
@@ -200,6 +227,7 @@ export async function getProfessionalChallenges(
       progress: 0,
     },
     {
+      authority: COMMUNITY_CAREER_AUTHORITY,
       id: "psychology-control-10",
       title: "چالش کنترل احساسات",
       description:
@@ -214,6 +242,7 @@ export async function getProfessionalChallenges(
       progress: 0,
     },
     {
+      authority: COMMUNITY_CAREER_AUTHORITY,
       id: "professional-review",
       title: "درخواست بررسی مسیر حرفه‌ای",
       description:

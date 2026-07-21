@@ -20,6 +20,7 @@ import {
   communityReputationSourceDigest,
   type CommunityReputationEvidenceRow,
 } from "@/lib/community-reputation-evidence-authority";
+import { isCommunityReputationScoringConsentEnabledTx } from "@/lib/community-reputation-scoring-consent-authority";
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { AvailableTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
@@ -33,8 +34,21 @@ export type JournalDisciplineScore = JournalDisciplineScoreProjection & {
 };
 
 export type JournalDisciplineScoreLoadResult =
-  | { available: true; score: JournalDisciplineScore }
-  | { available: false; score: null };
+  | {
+      available: true;
+      consentRequired: false;
+      score: JournalDisciplineScore;
+    }
+  | {
+      available: true;
+      consentRequired: true;
+      score: null;
+    }
+  | {
+      available: false;
+      consentRequired: false;
+      score: null;
+    };
 
 const EVIDENCE_SELECT = `
   evidence.id::text,
@@ -139,10 +153,11 @@ function validateEvidenceRow(
     validReflections * 5 >= eligibleClosedTrades * 4;
   if (
     validReflections > eligibleClosedTrades ||
-    coverageBasisPoints !== communityReputationCoverageBasisPoints(
-      eligibleClosedTrades,
-      validReflections,
-    ) ||
+    coverageBasisPoints !==
+      communityReputationCoverageBasisPoints(
+        eligibleClosedTrades,
+        validReflections,
+      ) ||
     row.completion_criteria_met !== completionCriteriaMet ||
     (row.outcome === "completed") !== completionCriteriaMet ||
     (row.finalization_source === "interactive" &&
@@ -215,7 +230,6 @@ async function selectValidatedWindow(
   client: PoolClient,
   context: AvailableTenantPrincipalContext,
 ): Promise<JournalDisciplineScoreCycleInput[]> {
-  await requireActiveBinding(client, context);
   const selected = await client.query<CommunityReputationEvidenceRow>(
     `SELECT ${EVIDENCE_SELECT}
        FROM academy_community_reputation_evidence AS evidence
@@ -255,17 +269,33 @@ export async function loadJournalDisciplineScore(
       await client.query("SET TRANSACTION READ ONLY");
       await client.query("SET LOCAL statement_timeout = '5000ms'");
       await client.query("SET LOCAL lock_timeout = '1000ms'");
+
+      await requireActiveBinding(client, context);
+      const consentEnabled =
+        await isCommunityReputationScoringConsentEnabledTx(client, context);
+      if (!consentEnabled) {
+        return {
+          consentRequired: true as const,
+          score: null,
+        };
+      }
+
       const cycles = await selectValidatedWindow(client, context);
       const evaluated = evaluateJournalDisciplineScore(cycles);
       return {
-        ...evaluated.projection,
-        evaluatedEvidenceDigest: createHash("sha256")
-          .update(evaluated.digestCanonicalInput)
-          .digest("hex"),
-      } satisfies JournalDisciplineScore;
+        consentRequired: false as const,
+        score: {
+          ...evaluated.projection,
+          evaluatedEvidenceDigest: createHash("sha256")
+            .update(evaluated.digestCanonicalInput)
+            .digest("hex"),
+        } satisfies JournalDisciplineScore,
+      };
     });
-    if (!transaction.enabled) return { available: false, score: null };
-    return { available: true, score: transaction.value };
+    if (!transaction.enabled) {
+      return { available: false, consentRequired: false, score: null };
+    }
+    return { available: true, ...transaction.value };
   } catch (error) {
     logger.error("[journal-discipline-score] load failed", {
       requestId: context.requestId,
@@ -274,6 +304,6 @@ export async function loadJournalDisciplineScore(
         .digest("hex"),
       error: String(error),
     });
-    return { available: false, score: null };
+    return { available: false, consentRequired: false, score: null };
   }
 }

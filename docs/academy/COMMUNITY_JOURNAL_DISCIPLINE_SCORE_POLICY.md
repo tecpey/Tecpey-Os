@@ -2,7 +2,8 @@
 
 Issue: #233  
 Parent: #160  
-Evidence predecessor: #230 / PR #231
+Evidence predecessor: #230 / PR #231  
+Consent authority: #235
 
 ## Purpose
 
@@ -10,9 +11,33 @@ Evidence predecessor: #230 / PR #231
 
 It is not a global reputation score. It does not measure trading skill, profitability, financial safety, investment knowledge, employability or suitability for funded capital.
 
+## Explicit scoring consent
+
+The score is **default off** and must not be computed until the authenticated learner explicitly enables the separate server-authoritative consent:
+
+```text
+community-reputation-scoring-consent-v1
+```
+
+The scoring decision is independent from Community profile visibility and `leaderboard_visible`.
+
+Permanent rules:
+
+- public profile visibility never authorizes private scoring;
+- leaderboard visibility never authorizes private scoring;
+- participation in the journal challenge never authorizes private scoring;
+- historical profile consent is never reinterpreted as scoring consent;
+- all existing and new learners begin with scoring disabled;
+- when consent is disabled, the server does not select or evaluate the learner's evidence window;
+- the API returns `journal_discipline_score_consent_required` rather than a score, estimate or empty authoritative result;
+- consent revocation blocks future computation immediately without deleting immutable source evidence;
+- a revoked principal binding remains an authority failure, not a consent-required state.
+
+Consent state is resolved inside the same read-only PostgreSQL transaction used for the score authority. The client cannot submit consent state to the score endpoint.
+
 ## Source of truth
 
-The policy consumes only immutable rows from:
+After active principal binding and explicit scoring consent are proven, the policy consumes only immutable rows from:
 
 `academy_community_reputation_evidence`
 
@@ -44,12 +69,14 @@ Every selected cycle has equal influence. A cycle with 100 trades has the same p
 
 A score is available only after at least 4 finalized cycles.
 
-Below four cycles:
+Below four cycles, after scoring consent is active:
 
 - status is `insufficient_evidence`;
 - `scoreBasisPoints` is `null`;
 - the UI shows only evidence-building progress;
 - no estimated or fallback score is produced.
+
+Insufficient evidence and absent consent are different states. Absent consent prevents computation entirely.
 
 ## Integer formula
 
@@ -120,18 +147,20 @@ Controls:
 - server-resolved tenant/workspace/student principal context;
 - scope `community:reputation:read`;
 - explicit active-binding verification;
+- explicit default-off scoring-consent verification;
 - read-only PostgreSQL transaction;
 - five-second statement timeout and one-second lock timeout;
 - bounded rate limiting;
 - `Cache-Control: private, no-store`;
 - `Vary: Cookie`;
-- fail-closed `503` on authority or storage failure.
+- explicit `409 journal_discipline_score_consent_required` when consent is absent;
+- fail-closed `503` on authority, binding or storage failure.
 
-The endpoint accepts no identity, policy version, cycle selection, score, count, timestamp or digest from the client.
+The endpoint accepts no identity, consent, policy version, cycle selection, score, count, timestamp or digest from the client.
 
 ## Response boundary
 
-The private projection may expose:
+Only after consent is active, the private projection may expose:
 
 - policy version and `journal_discipline_only` scope;
 - status;
@@ -163,7 +192,14 @@ No XP, Badge, financial reward, funded-account decision, Mentor action or Instru
 
 The UI must call the result **امتیاز خصوصی انضباط ژورنال** or **Journal Discipline Score**.
 
-It must not call it:
+Before consent, the UI must explain that:
+
+- computation is default off;
+- explicit learner approval is required;
+- scoring consent is independent from public visibility;
+- no estimate or browser fallback exists.
+
+It must not call the result:
 
 - overall reputation;
 - trader score;
@@ -176,7 +212,7 @@ The public Leaderboard remains locked and empty.
 
 ## Policy evolution
 
-Any change to weights, minimum cycles, lookback, source set, rounding, status semantics or allowed downstream use requires a new policy version and a separate migration/compatibility decision. Historical v1 results must remain reproducible from the immutable evidence window and canonical digest.
+Any change to weights, minimum cycles, lookback, source set, rounding, consent semantics, status semantics or allowed downstream use requires a new policy version and a separate migration/compatibility decision. Historical v1 results must remain reproducible from the immutable evidence window and canonical digest.
 
 ## Failure behavior
 
@@ -184,9 +220,10 @@ The projection fails closed when:
 
 - principal binding is missing or revoked;
 - database authority is unavailable;
+- scoring consent authority is unavailable or corrupt;
 - a source row has corrupt identity, time, counts, completion or digest;
 - duplicate cycles or source identities appear;
 - canonical ordering is violated;
 - the API or client payload contains unknown or contradictory fields.
 
-No browser fallback or synthetic score is permitted.
+Absent consent returns an explicit consent-required state and no score. No browser fallback or synthetic score is permitted.

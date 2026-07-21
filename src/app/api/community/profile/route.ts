@@ -17,6 +17,11 @@ import {
   updateCommunityProfileConsent,
   type CommunityConsentSettings,
 } from "@/lib/community-profile-authority";
+import {
+  fingerprintCommunityReputationScoringPrincipal,
+  loadCommunityReputationScoringConsent,
+  updateCommunityReputationScoringConsent,
+} from "@/lib/community-reputation-scoring-consent-authority";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { PLATFORM } from "@/lib/platform-config";
@@ -40,6 +45,10 @@ const PATCH_FIELDS = new Set([
   "instructorReviewConsent",
   "challengeParticipation",
   "studyGroupDiscovery",
+]);
+const REPUTATION_SCORING_CONSENT_FIELDS = new Set([
+  "expectedRevision",
+  "reputationScoringEnabled",
 ]);
 const CHALLENGE_COMMAND_FIELDS = new Set(["action", "cycleKey"]);
 
@@ -88,6 +97,33 @@ function parseConsentPatch(value: unknown):
       challengeParticipation: body.challengeParticipation,
       studyGroupDiscovery: body.studyGroupDiscovery,
     },
+  };
+}
+
+function parseReputationScoringConsentPatch(value: unknown):
+  | {
+      ok: true;
+      expectedRevision: number;
+      reputationScoringEnabled: boolean;
+    }
+  | { ok: false } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false };
+  }
+  const body = value as Record<string, unknown>;
+  if (
+    Object.keys(body).length !== REPUTATION_SCORING_CONSENT_FIELDS.size ||
+    Object.keys(body).some((key) => !REPUTATION_SCORING_CONSENT_FIELDS.has(key)) ||
+    !Number.isInteger(body.expectedRevision) ||
+    Number(body.expectedRevision) < 0 ||
+    typeof body.reputationScoringEnabled !== "boolean"
+  ) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    expectedRevision: Number(body.expectedRevision),
+    reputationScoringEnabled: body.reputationScoringEnabled,
   };
 }
 
@@ -147,7 +183,8 @@ export async function GET(req: NextRequest) {
         view !== "profile" &&
         view !== "journal-feed" &&
         view !== "journal-reflection-challenge" &&
-        view !== "journal-reflection-history"
+        view !== "journal-reflection-history" &&
+        view !== "reputation-scoring-consent"
       ) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
@@ -255,6 +292,37 @@ export async function GET(req: NextRequest) {
         return noStore(apiOk({ latestFinalized: loaded.result }));
       }
 
+      if (view === "reputation-scoring-consent") {
+        if (searchParams.has("cursor") || searchParams.has("limit")) {
+          return noStore(apiError("invalid_community_profile_view", 400));
+        }
+        const limited = await rateLimit(req, {
+          namespace: "community-reputation-scoring-consent-read",
+          identity: session.studentId,
+          limit: 60,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const tenantContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:profile:read"],
+          requestId: resolveSensitiveAuditCorrelation(
+            req.headers.get("x-tecpey-request-id"),
+          ),
+        });
+        if (!tenantContext.available) {
+          return noStore(apiError("community_reputation_scoring_consent_unavailable", 503));
+        }
+        const loaded = await loadCommunityReputationScoringConsent(tenantContext);
+        if (!loaded.available) {
+          return noStore(apiError("community_reputation_scoring_consent_unavailable", 503));
+        }
+        if (!loaded.consent) return noStore(apiError("profile_not_found", 404));
+        return noStore(apiOk({ consent: loaded.consent }));
+      }
+
       if (searchParams.has("cursor") || searchParams.has("limit")) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
@@ -299,7 +367,11 @@ export async function PATCH(req: NextRequest) {
       }
 
       const view = new URL(req.url).searchParams.get("view")?.trim() ?? "profile";
-      if (view !== "profile" && view !== "journal-reflection-challenge") {
+      if (
+        view !== "profile" &&
+        view !== "journal-reflection-challenge" &&
+        view !== "reputation-scoring-consent"
+      ) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
 
@@ -359,6 +431,77 @@ export async function PATCH(req: NextRequest) {
           return noStore(apiError("community_challenge_unavailable", 503));
         }
         return noStore(apiOk({ state: result.state, replayed: result.replayed }));
+      }
+
+      if (view === "reputation-scoring-consent") {
+        const limited = await rateLimit(req, {
+          namespace: "community-reputation-scoring-consent-write",
+          identity: session.studentId,
+          limit: 10,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const parsed = parseReputationScoringConsentPatch(bounded.value);
+        if (!parsed.ok) {
+          return noStore(apiError("invalid_community_reputation_scoring_consent", 400));
+        }
+
+        const tenantContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:profile:write"],
+          requestId: idempotencyKey,
+        });
+        if (!tenantContext.available) {
+          return noStore(apiError("community_reputation_scoring_consent_unavailable", 503));
+        }
+        const principalFingerprint = fingerprintCommunityReputationScoringPrincipal({
+          tenantId: tenantContext.tenantId,
+          principalId: tenantContext.principalId,
+        });
+        const updated = await updateCommunityReputationScoringConsent({
+          context: tenantContext,
+          expectedRevision: parsed.expectedRevision,
+          enabled: parsed.reputationScoringEnabled,
+          audit: {
+            tenantId: tenantContext.tenantId,
+            actorType: "student",
+            actorId: tenantContext.principalId,
+            correlationId: idempotencyKey,
+            requestHash: hashSensitiveAuditRequest({
+              tenantId: tenantContext.tenantId,
+              workspaceId: tenantContext.workspaceId,
+              action: "community.profile.consent.update",
+              authority: "community-reputation-scoring-consent-authority-v1",
+              principalFingerprint,
+              expectedRevision: parsed.expectedRevision,
+              reputationScoringEnabled: parsed.reputationScoringEnabled,
+            }),
+          },
+        });
+        if (!updated.ok) {
+          if (updated.reason === "not_found") {
+            return noStore(apiError("profile_not_found", 404));
+          }
+          if (updated.reason === "revision_conflict") {
+            return noStore(
+              apiError("community_reputation_scoring_consent_revision_conflict", 409),
+            );
+          }
+          if (updated.reason === "idempotency_conflict") {
+            return noStore(apiError("idempotency_conflict", 409));
+          }
+          return noStore(apiError("community_reputation_scoring_consent_unavailable", 503));
+        }
+
+        return noStore(
+          apiOk({
+            consent: updated.consent,
+            changed: updated.changed,
+            replayed: updated.replayed,
+          }),
+        );
       }
 
       const limited = await rateLimit(req, {
