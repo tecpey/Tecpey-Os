@@ -162,6 +162,12 @@ It is intentionally excluded from the generic `*.test.ts` suite. The focused `te
 
 Both guards run through protected Withdrawal and Sensitive Mutation Audit workflows.
 
+## Reserved forbidden path
+
+`src/lib/security/withdrawal-service.ts` is permanently reserved as a forbidden legacy path. Future Withdrawal capabilities must extend a named single-purpose authority—read, admission, authorization, Admin transition, cancellation, pre-broadcast, external effect or settlement—rather than recreate a mixed orchestration service.
+
+Reintroducing the deleted path requires an explicit architecture decision, a new P0 review and corresponding guard migration; ordinary feature work must fail CI if it recreates or references the path.
+
 ## Residual legacy audit boundary
 
 The legacy `audit-log.ts` writer must not be removed until the dormant signed API-key adapter and historical read compatibility are separately resolved. It remains explicitly non-authoritative and cannot prove a sensitive mutation committed.
