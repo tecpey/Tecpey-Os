@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import {
   BookCheck,
@@ -88,6 +88,7 @@ export function JournalDisciplineScorePanel() {
   const [result, setResult] =
     useState<JournalDisciplineScoreClientResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadSequenceRef = useRef(0);
 
   const percent = useCallback(
     (basisPoints: number): string =>
@@ -104,13 +105,22 @@ export function JournalDisciplineScorePanel() {
   );
 
   const load = useCallback(async () => {
+    const sequence = loadSequenceRef.current + 1;
+    loadSequenceRef.current = sequence;
     setLoading(true);
-    setResult(await loadJournalDisciplineScoreClient());
+
+    const nextResult = await loadJournalDisciplineScoreClient();
+    if (sequence !== loadSequenceRef.current) return;
+
+    setResult(nextResult);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
+    return () => {
+      loadSequenceRef.current += 1;
+    };
   }, [load]);
 
   let scoreContent: React.ReactNode = null;
