@@ -4,67 +4,70 @@ Issue: #232
 Parent: #160  
 Implementation successor: #226  
 Evidence authority: #230 / `COMMUNITY_REPUTATION_EVIDENCE_AUTHORITY.md`  
-Operational staging dependency: #229
+Operational staging dependency: #229  
+Policy id: `community-reputation-ranking`  
+Policy version: `community-reputation-ranking-v1`
 
 ## Status
 
-**Proposed policy. Runtime disabled.**
+**Approved governance policy. Runtime disabled.**
 
-This document defines the narrowest Community ranking policy that can be supported by the current immutable evidence authority without overstating trading skill, silently profiling users or exposing private behavior.
+This document authorizes only the policy contract. It does not activate a score, rank, public leaderboard, reward, scholarship, funded account, Mentor decision or Instructor decision.
 
 Until a separate implementation PR satisfies every gate in this document:
 
-- `score` remains `null` in active APIs;
-- `rank` remains `null` in active APIs;
-- no private score is computed without explicit scoring consent;
-- no public leaderboard is authorized;
-- no reward, XP, Badge, scholarship, funded account, Mentor decision or Instructor decision is authorized.
-
-Merging this document does not activate ranking.
+- active API `score` values remain `null`;
+- active API `rank` values remain `null`;
+- no production principal is scored without explicit scoring consent;
+- no public ranking snapshot is generated or exposed;
+- no downstream outcome may consume reputation evidence or a future score.
 
 ## Executive decision
 
-Ranking v1 is limited to one educational behavior category:
+Ranking v1 supports exactly one educational behavior category:
 
 ```text
 journal-consistency
 ```
 
-The current evidence proves Reflection coverage and challenge completion consistency. It does **not** prove Reflection quality, trading skill, profitability, risk competence, employability or future performance.
+The current immutable evidence can prove bounded Reflection coverage and repeated completion of the official journal-reflection challenge. It cannot prove:
 
-Accordingly:
+- Reflection quality;
+- trading skill;
+- profitability or future performance;
+- risk competence;
+- employability;
+- suitability for financial rewards, scholarships or funded accounts.
 
-- the legacy label `journal-quality` is not an official v1 claim;
-- `overall` is unavailable in v1;
-- `discipline`, `risk-management`, `learning-consistency` and `scenario-mastery` are unavailable until independent official authorities exist;
-- private scoring and public visibility require separate explicit consent;
-- public ranking, when eligible, is a same-tenant ranking of journal consistency only.
+The following categories are unavailable in v1:
 
-## Purpose
+```text
+journal-quality
+overall
+discipline
+risk-management
+learning-consistency
+scenario-mastery
+```
 
-The permitted purpose is to help Academy users understand and improve a repeatable Reflection habit after official Arena trades.
+Unavailable categories are not treated as zero and are never silently included in a composite.
+
+## Permitted purpose
+
+The permitted purpose is to help a learner understand and improve a repeatable Reflection habit after official Arena trades.
 
 The policy may support:
 
 - private self-understanding;
-- transparent progress explanations;
+- transparent educational explanations;
 - voluntary same-tenant community participation;
-- educational encouragement without financial claims.
+- non-financial encouragement.
 
-The policy must never be represented as:
+It must never be represented as financial advice, a trading signal, a certificate of skill, a safety rating, an employability score or a downstream eligibility decision.
 
-- financial advice;
-- a trading signal;
-- proof of profitability;
-- a risk-limit recommendation;
-- a trading-skill certification;
-- an employability score;
-- a scholarship or funded-account decision;
-- a Mentor or Instructor decision.
+## Separate consent authorities
 
-## Consent separation
-
-Ranking v1 requires two independent revisioned server-authoritative consent fields:
+Ranking v1 requires two independent, revisioned, PostgreSQL-authoritative decisions:
 
 ```text
 reputation_scoring_enabled
@@ -74,26 +77,27 @@ leaderboard_visible
 Rules:
 
 - both default to `false`;
-- `reputation_scoring_enabled=true` permits private shadow/self scoring only;
-- `leaderboard_visible=true` permits inclusion in a public same-tenant cohort only when private scoring consent is also active;
-- enabling public visibility must not implicitly enable private scoring;
-- disabling private scoring automatically makes public visibility ineffective, but must not silently rewrite the stored public preference;
-- disabling public visibility removes the user from future public snapshots but may preserve private scoring when scoring consent remains active;
-- consent is derived only from the revisioned PostgreSQL Community consent authority;
-- browser storage, UI defaults and request-supplied identity are never consent authority;
-- consent changes do not delete immutable evidence.
+- scoring consent permits only private self scoring under the approved policy;
+- public visibility permits public cohort inclusion only while scoring consent is also active;
+- enabling public visibility never enables scoring consent;
+- disabling scoring consent immediately prevents future score materialization and makes public visibility ineffective;
+- disabling scoring consent must not silently rewrite the stored public preference;
+- disabling public visibility removes the principal from future public snapshots while private scoring may continue;
+- consent comes only from the revisioned server authority;
+- browser state, UI defaults, challenge participation and historical profile visibility are never consent;
+- consent changes do not delete immutable source evidence.
 
-The existing `leaderboard_visible` field cannot be reused as consent for private profiling. The implementation must add or formally govern the separate scoring-consent field before any private score is computed.
+`leaderboard_visible` must never be reinterpreted as permission for private profiling.
 
 ## Authoritative evidence
 
-Ranking v1 may consume only immutable rows from:
+Ranking v1 may consume only verified immutable rows from:
 
 ```text
 academy_community_reputation_evidence
 ```
 
-with:
+with all of the following identities:
 
 ```text
 evidence_version = community-reputation-evidence-v1
@@ -104,67 +108,67 @@ challenge_version = journal-reflection-v1
 
 Every consumed row must:
 
-- belong to the exact active tenant/workspace/student principal binding;
-- pass canonical digest verification;
-- represent a terminal `completed` or `not_completed` challenge cycle;
-- preserve the source UTC ISO-week identity;
-- remain append-only and unsuperseded by any future governed correction event.
+- belong to the exact active tenant, workspace and principal binding;
+- pass canonical digest and invariant verification;
+- represent one terminal `completed` or `not_completed` cycle;
+- preserve the canonical UTC ISO-week identity;
+- be append-only and not affected by an unresolved correction or integrity conflict.
 
-No browser state, request body, display name, local profile, raw Reflection text, raw PnL, balance, order size, trade ID, manually entered score or client timestamp may affect eligibility, score or ordering.
+The following inputs are forbidden:
 
-## Policy identity
-
-```text
-policy_id = community-reputation-ranking
-policy_version = community-reputation-ranking-v1
-category = journal-consistency
-score_scale = integer basis points, 0..10000
-```
-
-A ranking snapshot must contain exactly one policy version. Rows from different policy versions must never be mixed in one cohort, page or rank calculation.
+- browser or request-supplied evidence;
+- display names or mutable profile fields;
+- raw Reflection text;
+- PnL, returns, balances, order size or trade volume bonuses;
+- trade or order identifiers in a response;
+- client timestamps, manually entered scores or random values.
 
 ## Evidence window
 
-For a snapshot at PostgreSQL time `T`:
+For a snapshot created at PostgreSQL time `T`:
 
-1. consider official finalized cycles whose `cycle_end` is within the trailing 12 complete UTC ISO weeks before or at `T`;
-2. order cycles by `cycle_end DESC`, then immutable source evidence id;
-3. retain at most the newest 8 finalized cycles for the principal;
-4. use each retained cycle exactly once.
+1. consider finalized cycles ending within the trailing 12 complete UTC ISO weeks;
+2. order by canonical `cycle_end DESC`, then immutable source evidence id;
+3. retain at most the newest 8 cycles;
+4. consume each retained cycle exactly once.
 
-The window is based on PostgreSQL time and canonical cycle boundaries, never browser time.
+Browser time cannot define or alter the window.
 
 ## Private scoring eligibility
 
-A principal is `privately_scorable` only when all conditions are true:
+A principal is `privately_scorable` only when every condition is true:
 
-- the active Community consent revision has `reputation_scoring_enabled = true`;
-- the principal binding is active at snapshot creation;
+- `reputation_scoring_enabled = true` on the active consent revision;
+- the canonical principal binding is active;
 - at least 4 finalized cycles exist in the policy window;
 - retained cycles contain at least 12 total eligible closed trades;
+- at least 2 retained cycles have terminal outcome `completed`;
 - every retained evidence row passes digest and invariant verification;
-- no unresolved governed correction or integrity conflict affects a retained row.
+- no retained row has a pending governed correction or integrity conflict.
 
-Otherwise the private state is `unscored` with exactly one primary reason code:
+The completed-cycle minimum prevents high Reflection coverage on repeatedly ineligible or under-threshold weeks from being presented as established challenge consistency.
+
+An ineligible principal is `unscored` with one primary reason:
 
 ```text
 scoring_not_enabled
 insufficient_finalized_cycles
 insufficient_eligible_trades
+insufficient_completed_cycles
 inactive_principal_binding
 evidence_integrity_unavailable
 evidence_correction_pending
 policy_unavailable
 ```
 
-There is no fallback score, default score, synthetic peer or inferred score.
+There is no fallback, default, synthetic or inferred score.
 
 ## Public ranking eligibility
 
 A principal is `publicly_rankable` only when:
 
-- every private scoring eligibility condition is true; and
-- the same active consent revision has `leaderboard_visible = true`.
+- every private scoring condition is true; and
+- `leaderboard_visible = true` on the active public-visibility consent revision.
 
 When private scoring is available but public visibility is disabled:
 
@@ -174,24 +178,22 @@ public_state = not_publicly_opted_in
 rank = null
 ```
 
-Public opt-out must not hide the user’s own private explanation when scoring consent remains enabled.
+The learner may still see their own private explanation.
 
-## Cycle-level values
+## Cycle values
 
-For each retained finalized cycle `i`:
+For each retained cycle `i`:
 
 ```text
-coverage_i_bps = canonical evidence coverage basis points, 0..10000
+coverage_i_bps = verified coverage basis points, 0..10000
 completion_i = 1 when outcome = completed, otherwise 0
 ```
 
-Each cycle has equal policy weight. Trade volume does not increase the weight of a cycle.
-
-This prevents high-frequency activity from dominating lower-volume users who satisfy the same minimum evidence contract.
+Every cycle has equal weight. Additional trade volume does not increase cycle weight.
 
 ## Score formula
 
-Let `N` be the number of retained cycles.
+Let `N` be the number of retained cycles:
 
 ```text
 mean_coverage_bps = round_half_up(sum(coverage_i_bps) / N)
@@ -202,97 +204,84 @@ journal_consistency_score_bps = round_half_up(
 )
 ```
 
-All operations use integer or exact Decimal arithmetic. JavaScript floating-point arithmetic is forbidden in authoritative computation.
+Requirements:
 
-The final score is clamped only as an invariant assertion to `0..10000`; an out-of-range intermediate is an authority error, not a value to silently repair.
+- authoritative computation uses integer or exact Decimal arithmetic;
+- JavaScript floating-point arithmetic is forbidden;
+- the formula runs only after eligibility succeeds;
+- an out-of-range intermediate is an authority error;
+- clamping is permitted only as a final invariant assertion, never as silent repair.
 
-## Formula rationale
-
-- `mean_coverage_bps` measures how consistently eligible closed trades receive valid canonical Reflections.
-- `completion_rate_bps` measures whether the user repeatedly satisfies the official minimum cycle contract.
-- equal cycle weighting avoids rewarding raw trade volume;
-- the formula uses no profit, return, balance, order size, trading-frequency bonus or semantic analysis of free-form text;
-- the 80/20 weighting keeps the score primarily tied to Reflection coverage while retaining a bounded consistency signal.
-
-This formula does not claim to measure the quality or correctness of the Reflection content.
+The score measures bounded Reflection coverage and completed-cycle consistency. It does not measure the correctness or semantic quality of Reflection content.
 
 ## Worked examples
 
-### Example A — privately scored and publicly eligible
-
-Four cycles:
+### Eligible and publicly visible
 
 ```text
 coverage = [10000, 9000, 8000, 10000]
 outcome = [completed, completed, completed, completed]
 reputation_scoring_enabled = true
 leaderboard_visible = true
-```
 
-```text
 mean_coverage_bps = 9250
 completion_rate_bps = 10000
-score = 9400
+score_bps = 9400
 ```
 
-The score may enter a public cohort only when the minimum public cohort gate is also satisfied.
+Public rank still requires the minimum cohort and a valid immutable snapshot.
 
-### Example B — eligible with mixed completion
-
-Four cycles:
+### Eligible with mixed completion
 
 ```text
 coverage = [8000, 8000, 6000, 9000]
 outcome = [completed, completed, not_completed, completed]
-```
 
-```text
 mean_coverage_bps = 7750
 completion_rate_bps = 7500
-score = 7700
+score_bps = 7700
 ```
 
-### Example C — insufficient evidence
-
-Three finalized cycles and 18 eligible trades:
+### Too few finalized cycles
 
 ```text
+finalized_cycles = 3
+eligible_trades = 18
 private_state = unscored
 reason = insufficient_finalized_cycles
 score = null
 rank = null
 ```
 
-### Example D — private score, public opt-out
+### No completed cycles
 
-Eight valid cycles with:
+```text
+finalized_cycles = 6
+eligible_trades = 12
+completed_cycles = 0
+private_state = unscored
+reason = insufficient_completed_cycles
+score = null
+rank = null
+```
+
+High coverage alone cannot bypass the completed-cycle eligibility gate.
+
+### Private score with public opt-out
 
 ```text
 reputation_scoring_enabled = true
 leaderboard_visible = false
-```
-
-Result:
-
-```text
 private_state = scored
 public_state = not_publicly_opted_in
-score = private value
 rank = null
 ```
 
-### Example E — no scoring consent
-
-Eight valid cycles with:
+### Public visibility without scoring consent
 
 ```text
 reputation_scoring_enabled = false
 leaderboard_visible = true
-```
-
-Result:
-
-```text
 private_state = unscored
 reason = scoring_not_enabled
 public_state = ineligible_without_scoring_consent
@@ -300,11 +289,9 @@ score = null
 rank = null
 ```
 
-No profile is silently scored because public visibility was previously enabled.
+## Private educational bands
 
-## Private bands
-
-A private self view may describe the exact score using non-judgmental educational bands:
+A private self view may use only these non-judgmental labels:
 
 ```text
 9000..10000 = highly_consistent
@@ -313,39 +300,34 @@ A private self view may describe the exact score using non-judgmental educationa
 0..6999     = building_consistency
 ```
 
-Bands must not use language such as expert, profitable, safe trader, low risk, employable or certified.
+Bands may not use terms such as expert, profitable, safe trader, low risk, employable or certified.
 
-## Same-tenant cohort
+## Same-tenant public cohort
 
-Public ranking is permitted only inside one exact tenant and workspace.
-
-A public cohort contains only principals who:
+A public cohort is restricted to one exact tenant and workspace and contains only principals who:
 
 - are `publicly_rankable` under the same policy version and snapshot;
-- have active principal bindings;
-- have active `reputation_scoring_enabled = true` consent;
-- have active `leaderboard_visible = true` consent.
+- have active canonical principal bindings;
+- have active scoring consent;
+- have active public-visibility consent.
 
-Cross-tenant or cross-workspace discovery is forbidden.
+Cross-tenant and cross-workspace discovery are forbidden.
 
 ## Minimum cohort and suppression
 
 A public leaderboard requires at least 25 publicly rankable principals in the exact tenant/workspace snapshot.
 
-When the cohort contains fewer than 25 principals:
+Below that threshold:
 
 ```text
 public_state = suppressed_small_cohort
 public_entries = []
-```
-
-The API must not return the exact suppressed cohort size. It may return only:
-
-```text
 cohort_size_bucket = below_public_threshold
 ```
 
-For visible cohorts, permitted buckets are:
+The exact suppressed cohort size is never returned.
+
+Visible cohort buckets are limited to:
 
 ```text
 25-49
@@ -354,19 +336,22 @@ For visible cohorts, permitted buckets are:
 250+
 ```
 
-The exact cohort size is private operational telemetry and is not part of the public contract.
-
 ## Pseudonymous identity
 
-Public entries must use a policy-versioned pseudonym derived server-side from a dedicated tenant-scoped secret version and immutable principal identity.
+Public entries use a policy-versioned pseudonym generated server-side.
+
+The HMAC key is the actual high-entropy tenant-scoped secret material. A secret version is metadata and may be included in the message for domain separation, but it is never used as the cryptographic key by itself.
 
 Conceptual derivation:
 
 ```text
-HMAC-SHA256(secret_version, tenant_id || workspace_id || principal_id || policy_version)
+HMAC-SHA256(
+  tenant_scoped_secret_material,
+  secret_version || tenant_id || workspace_id || principal_id || policy_version
+)
 ```
 
-The public representation may expose a bounded token such as:
+The public token may be a bounded representation such as:
 
 ```text
 TP-7F31A9C2
@@ -375,47 +360,53 @@ TP-7F31A9C2
 Requirements:
 
 - raw tenant, workspace, principal and student identifiers are never exposed;
-- display name, email, phone, username and avatar are not required for ranking;
-- pseudonyms are stable within one policy version;
-- secret rotation requires an explicit version transition and must not silently merge old and new snapshots;
-- the HMAC input and full digest are never returned to clients.
+- display name, email, phone, username and avatar are not required;
+- pseudonyms remain stable only within the governed secret and policy version;
+- secret material is stored and rotated through an approved secret-management authority;
+- rotation creates an explicit version transition and never mixes incompatible snapshots;
+- HMAC input, key material and full digest are never returned to clients or logs.
 
-## Rank and ties
+## Rank and deterministic ties
 
-Public rank uses dense ranking on `journal_consistency_score_bps DESC`.
+Public rank uses dense ranking on:
 
-Principals with the same exact score receive the same rank.
+```text
+journal_consistency_score_bps DESC
+```
 
-Display order inside an equal-score tie uses a non-public deterministic HMAC sort key derived from the snapshot identity and principal identity. The tie sort key has no product meaning and cannot change the shared rank.
+Equal scores receive the same rank.
 
-Browser time, random IDs, mutable display names, enrollment time, wealth, trade count beyond eligibility and exact finalization time are forbidden tie-breakers.
+Display ordering within a tie uses a separate non-public HMAC sort key keyed by approved secret material and bound to snapshot identity, principal identity and a distinct domain label. The tie key has no product meaning and cannot alter shared rank.
 
-## Snapshot and pagination
+Forbidden tie-breakers include browser time, randomness, mutable display name, wealth, enrollment time, raw volume and exact evidence timestamps.
 
-Authoritative ranking is generated as an immutable PostgreSQL snapshot.
+## Immutable snapshots
 
-A snapshot records at minimum:
+An authoritative ranking snapshot records at minimum:
 
 - snapshot id;
 - policy id and version;
-- tenant/workspace identity;
+- exact tenant/workspace identity;
 - PostgreSQL creation time;
 - evidence boundary;
 - scoring-consent revision boundary;
 - public-visibility consent revision boundary;
-- cohort state and permitted cohort-size bucket;
+- pseudonym secret version, never secret material;
+- cohort state and permitted cohort bucket;
 - canonical digest of ordered projection rows.
 
-Public reads use only the latest completed valid snapshot. Partially generated or conflicting snapshots are unavailable.
+Only the latest completed, verified snapshot may serve public reads. Partial, conflicting or integrity-invalid snapshots are unavailable.
 
-Pagination requirements:
+## Pagination
 
-- opaque signed cursor;
-- cursor bound to exact snapshot id, policy version and page size;
-- stable ordering for the complete life of the snapshot;
-- changed or expired snapshot cursor fails closed and instructs the client to restart;
-- maximum page size is bounded by the API authority;
-- no offset pagination for authoritative public ranking.
+Public pagination requires:
+
+- an opaque authenticated cursor;
+- binding to exact snapshot id, policy version and page size;
+- stable ordering for the snapshot lifetime;
+- bounded maximum page size;
+- fail-closed rejection of changed, expired or invalid cursors;
+- no authoritative offset pagination.
 
 ## Private response allowlist
 
@@ -445,15 +436,15 @@ rank
 
 Rules:
 
-- `scoreBps` and `band` are non-null only when private scoring consent and evidence eligibility permit them;
-- `rank` is non-null only when public visibility, cohort and snapshot rules permit it;
-- `rank` is null when the public cohort is suppressed, even if the private score is available;
-- dates are bounded policy dates, not raw evidence timestamps;
-- no other principal’s private breakdown is exposed.
+- `scoreBps` and `band` are non-null only after private eligibility succeeds;
+- `rank` is non-null only after public eligibility, cohort and snapshot gates succeed;
+- rank remains null for a suppressed cohort;
+- dates are bounded policy dates, not raw event timestamps;
+- another principal’s private breakdown is never exposed.
 
 ## Public response allowlist
 
-A visible public leaderboard may expose only:
+A visible public response may contain only:
 
 ```text
 policyVersion
@@ -472,235 +463,186 @@ rank
 band
 ```
 
-Public responses must not expose:
-
-- exact score;
-- exact cohort size;
-- tenant/workspace/principal/student/evidence identifiers;
-- display name, contact information or avatar;
-- exact timestamps;
-- trades, orders, balances, PnL or returns;
-- eligible-trade counts or Reflection counts;
-- raw Reflection text;
-- consent revision identifiers;
-- anti-gaming flags, appeal state or correction state;
-- Mentor, Instructor, reward or scholarship data.
+Public responses must not expose exact score, exact cohort size, internal identifiers, contact data, avatar, trades, orders, balances, PnL, returns, Reflection counts, raw text, consent revisions, anti-gaming state, appeal state or downstream decision data.
 
 ## Anti-gaming controls
 
-Ranking v1 must remain bounded to facts already validated by the official challenge authority.
-
-Mandatory controls:
+Mandatory controls include:
 
 - one official evidence row per finalized challenge cycle;
 - equal cycle weighting;
 - no volume bonus;
-- no client-selected cycle or evidence exclusion;
-- no direct free-form text scoring;
-- no score changes from repeated reads or refresh requests;
-- exact idempotent snapshot refresh;
+- no client-selected inclusion or exclusion;
+- no free-form semantic scoring;
+- read operations cannot change score;
+- exact snapshot replay is idempotent;
 - divergent replay conflicts;
-- anomaly telemetry for impossible coverage, duplicate source identity, rapid consent churn and repeated integrity failures.
+- impossible coverage, duplicate source identity, consent churn and integrity failures produce bounded operational telemetry.
 
-A future semantic Reflection-quality model requires a separate AI/data-governance policy, evaluation set, language fairness review, privacy review and appeal process. It is not part of v1.
+A future semantic quality model requires a separate AI/data policy, evaluation set, multilingual fairness review, privacy review and appeal process.
 
-Anti-gaming evidence must not silently create financial restrictions, account suspension, scholarship denial, Mentor judgment or Instructor denial.
+## Fairness and exclusion controls
 
-## Fairness and harm boundaries
+Ranking v1 excludes:
 
-Ranking v1 intentionally excludes features likely to create unfair advantage or harmful incentives:
+- PnL, returns, balances and capital;
+- trading frequency beyond minimum eligibility;
+- subscription tier or payment history;
+- social popularity, followers, reactions and referrals;
+- device, geography or network quality;
+- Mentor sentiment or hidden AI inference;
+- private demographic or protected-class data.
 
-- profit and return;
-- account balance or purchasing power;
-- number or size of trades beyond minimum eligibility;
-- device type, network quality or browser activity;
-- language style, writing length or vocabulary sophistication;
-- time-of-day or time-zone activity;
-- social popularity, followers, reactions or referrals;
-- paid subscription tier.
+Before public rollout, an approved review must examine consent, eligibility, suppression, score distribution, opt-out and appeal patterns. A material unexplained disparity blocks rollout.
 
-The rollout review must compare consent, eligibility, score distribution, opt-out rate, suppressed-cohort rate and appeal rate across product-relevant cohorts without collecting unnecessary sensitive personal attributes.
-
-A material unexplained disparity blocks public rollout.
-
-## Explainability
+## Explanation and appeal
 
 The private self view must explain:
 
-- the exact policy version;
-- whether scoring consent and public visibility consent are active;
-- the evidence window;
-- why the user is scored or unscored;
-- why the user is publicly ranked, opted out or cohort-suppressed;
-- finalized and completed cycle counts;
-- total eligible-trade count used only for eligibility;
-- mean Reflection coverage;
-- completion rate;
-- the exact 80/20 formula;
-- why profit, balance and trade volume do not affect the result;
-- why unavailable categories are not treated as zero.
+- policy version and category;
+- both consent states;
+- evidence window;
+- scored/unscored reason;
+- public ranked/opted-out/suppressed reason;
+- finalized, completed and eligible-trade counts;
+- mean coverage and completion rate;
+- exact integer formula;
+- exclusion of profit, balance and volume;
+- unavailable categories.
 
-No explanation may disclose another principal’s evidence, consent or anti-gaming state.
+A user may challenge missing evidence, consent state, principal binding, source integrity, correction state or policy/window selection.
 
-## Appeal and correction
+Corrections are append-only and governed. Source evidence and historical snapshots are never silently mutated.
 
-A user may challenge:
-
-- missing official cycle evidence;
-- incorrect scoring-consent state;
-- incorrect public-visibility consent state;
-- incorrect principal binding;
-- a verified source integrity error;
-- application of the wrong policy version or evidence window.
-
-Appeals do not mutate immutable evidence rows or historical snapshots.
-
-A valid correction requires a separately governed append-only supersession/correction event. A new snapshot may consume the correction only when its policy explicitly supports that correction version.
-
-Pending correction state produces:
+Pending correction produces:
 
 ```text
 private_state = unscored
 reason = evidence_correction_pending
 ```
 
-The public API exposes no appeal details.
-
 ## Consent lifecycle
 
-- both consent fields are default-private and revisioned;
-- private scoring starts only after explicit scoring consent is committed;
-- public inclusion starts only after explicit public visibility consent is committed and scoring consent is active;
-- opt-out affects the next valid snapshot and bounded public caches;
-- historical immutable snapshots remain audit evidence but are not publicly queryable by identity;
-- consent revocation prevents future score materialization when scoring consent is off;
-- consent revocation does not delete immutable source evidence;
-- no server worker may infer consent from prior participation or challenge completion.
+- both consent authorities are default-off and revisioned;
+- private scoring begins only after committed scoring consent;
+- public inclusion begins only after committed public consent and active scoring consent;
+- revocation affects the next valid snapshot and bounded caches;
+- scoring revocation stops future score materialization;
+- immutable evidence and consent history remain retained under their governing policies;
+- no worker may infer consent from participation, profile visibility or prior scoring.
 
 ## Rollout stages
 
-### Stage 0 — current state
+### Stage 0 — policy only
 
-- Evidence v1 active;
-- ranking runtime disabled;
-- all score/rank outputs remain null;
-- no scoring consent field is assumed;
-- no public leaderboard.
+- evidence authority may exist;
+- runtime scoring and ranking remain disabled;
+- all score and rank outputs remain null.
 
 ### Stage 1 — consent-safe shadow validation
 
 Minimum duration: 4 complete UTC ISO weeks.
 
-Requirements:
+- use synthetic fixtures and explicitly consented test principals only;
+- prove SQL/TypeScript formula parity and exact replay;
+- prove tenant isolation, cohort suppression, pseudonym key governance and rollback;
+- expose no score or rank to production users.
 
-- validate formula determinism against synthetic/non-user fixtures and explicitly consented test principals only;
-- do not silently score production users who have not granted scoring consent;
-- verify deterministic replay and exact digest stability;
-- verify no cross-tenant or cross-principal leakage;
-- measure eligibility, suppression and integrity-failure rates only for permitted test/consented scope;
-- run anti-gaming and fairness review;
-- preserve existing UI as evidence-only.
-
-### Stage 2 — private self preview
+### Stage 2 — private self pilot
 
 Minimum duration: 14 days after accepted Stage 1 evidence.
 
-Requirements:
-
-- obtain explicit `reputation_scoring_enabled` consent;
-- expose only the user’s own breakdown;
+- require explicit scoring consent;
+- expose only the principal’s own explanation;
 - keep public ranking disabled;
-- collect explanation comprehension, scoring opt-out and appeal signals;
-- no downstream decision use.
+- collect bounded comprehension, opt-out and appeal evidence;
+- permit no downstream decision use.
 
-### Stage 3 — public same-tenant pilot
+### Stage 3 — same-tenant public pilot
 
-Requirements:
+- all prior evidence is approved;
+- at least one tenant/workspace has 25 publicly rankable principals;
+- scoring and public consent flows are independently tested;
+- privacy and re-identification review is accepted;
+- cursor, snapshot, secret rotation and rollback have been exercised in staging;
+- public output matches the strict allowlist.
 
-- all Stage 1 and Stage 2 acceptance evidence approved;
-- at least one tenant/workspace has 25 publicly rankable opted-in principals;
-- privacy and re-identification review accepted;
-- scoring and public-visibility consent flows tested independently;
-- stable cursor and snapshot tests pass;
-- rollback has been exercised in staging;
-- public output contains only the allowlisted fields.
+No wider rollout occurs without a separate approval record.
 
-Public rollout remains tenant-scoped and reversible.
+## Monitoring
 
-## Monitoring and rollback
+Monitor only minimum-necessary operational signals:
 
-Monitor at minimum:
-
-- snapshot generation success/failure;
-- exact replay and divergent replay conflicts;
-- evidence-integrity failures;
-- scoring-consent and public-visibility consent transitions;
-- cohort suppression rate;
+- snapshot success/failure;
+- replay conflicts;
+- integrity and correction states;
+- scoring/public consent transitions;
 - scored/unscored reason distribution;
-- publicly ranked/not-ranked reason distribution;
-- appeal and correction rate;
-- score distribution and boundary concentration;
-- pagination/cursor rejection rate;
-- cross-tenant negative-test results;
-- public cache invalidation correctness.
+- public eligibility and suppression buckets;
+- appeal/correction rate;
+- score boundary concentration;
+- cursor rejection rate;
+- rollback readiness.
+
+Telemetry must not contain secret material, raw evidence text or public re-identification data.
+
+## Rollback
 
 Rollback must:
 
 - disable private score and public rank display;
-- stop new ranking snapshot materialization;
-- return the UI to Evidence v1 only;
+- stop new snapshot materialization;
 - stop public snapshot reads;
+- restore Evidence v1-only UI behavior;
 - preserve immutable evidence, consent history, policy versions and historical snapshots;
-- create no replacement fallback score or demo peers.
+- create no demo peers, fallback score or replacement ranking.
 
 ## Explicitly unsupported outcomes
 
-Ranking v1 cannot directly or indirectly authorize:
+Ranking v1 cannot issue or influence:
 
-- XP or Badge issuance;
-- financial or token rewards;
-- scholarships;
-- funded trading accounts;
-- employment or Instructor eligibility;
-- Mentor recommendations or behavioral labels;
-- exchange limits, custody permissions or risk restrictions;
-- KYC/AML decisions;
-- public cross-tenant discovery;
-- trading signals or copy trading;
-- claims of skill, safety or profitability.
+- XP, badges or financial rewards;
+- scholarships or funded accounts;
+- Mentor or Instructor decisions;
+- employability or certification;
+- Exchange limits, fees or access;
+- custody, withdrawal, KYC, AML, compliance or risk decisions;
+- lending, credit, insurance or pricing.
 
-Each future downstream use requires a separate versioned policy, issue, implementation authority and adversarial test gate.
+Each future use requires an independent policy, issue, implementation, privacy review, adversarial evidence and rollback plan.
 
-## Implementation gates for #226
+## Implementation gate for #226
 
-Runtime work under #226 may begin only after this document is approved and the implementation plan proves:
+Runtime work may begin only as a separate shadow-only PR that proves:
 
-1. an additive revisioned `reputation_scoring_enabled` consent authority separate from `leaderboard_visible`;
-2. a PostgreSQL-owned immutable snapshot schema;
-3. exact policy-version and evidence-boundary identity;
-4. integer/Decimal-safe formula parity in SQL and TypeScript;
-5. active scoring-consent and public-visibility consent snapshot binding;
+1. immutable PostgreSQL snapshot schema;
+2. exact policy/evidence/consent boundaries;
+3. integer or Decimal-safe formula parity;
+4. the minimum of 2 completed cycles;
+5. independent scoring and public consent;
 6. same-tenant cohort isolation;
 7. minimum cohort suppression;
-8. pseudonym HMAC secret/version governance;
-9. dense rank and stable tie ordering;
-10. opaque signed cursor pagination;
-11. strict private/public parsers with unknown-field rejection;
-12. consent-safe shadow mode and rollback controls;
-13. permanent guards against PnL, browser state, demo peers and downstream decisions;
-14. PostgreSQL, tenant-isolation, concurrency, replay, privacy, consent, parser, build and runtime evidence on one unchanged head.
+8. pseudonym and tie HMACs keyed by actual secret material;
+9. governed secret versioning and rotation;
+10. dense rank and stable tie ordering;
+11. authenticated opaque cursors;
+12. strict private/public parsers with unknown-field rejection;
+13. deterministic replay and divergent conflict;
+14. correction and integrity fail-closed states;
+15. no browser/demo authority;
+16. no downstream decision output;
+17. staging rollback evidence;
+18. Security, Privacy and Product approval.
 
-## Approval record
+## Change governance
 
-Before changing status from `Proposed policy` to `Approved for shadow implementation`, record:
+Any change to category, evidence source, eligibility minimum, formula, weight, band, consent behavior, cohort threshold, pseudonym derivation, response field, rollout stage or downstream use requires:
 
-- policy owner;
-- product owner;
-- privacy/security reviewer;
-- Academy/Arena evidence owner;
-- approval date;
-- exact document blob SHA;
-- unresolved exceptions, if any;
-- successor implementation issue and PR.
+- a new policy version;
+- explicit migration and compatibility rules;
+- new test fixtures and adversarial evidence;
+- Security and Privacy review;
+- Product approval;
+- independent rollback evidence.
 
-No approval may be inferred from code merge, issue assignment or the existence of this document.
+The approved v1 policy remains immutable once a runtime snapshot references it.
