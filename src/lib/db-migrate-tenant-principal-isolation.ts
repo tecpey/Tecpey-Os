@@ -20,6 +20,19 @@ VALUES
   )
 ON CONFLICT (id) DO NOTHING;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM platform_workspaces
+     WHERE id = 'workspace-primary'
+       AND tenant_id = 'tecpey'
+  ) THEN
+    RAISE EXCEPTION 'workspace-primary must belong to tenant tecpey';
+  END IF;
+END;
+$$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS platform_workspaces_id_tenant_unique
   ON platform_workspaces (id, tenant_id);
 
