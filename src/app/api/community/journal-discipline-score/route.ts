@@ -54,6 +54,9 @@ export async function GET(req: NextRequest) {
       if (!loaded.available) {
         return noStore(apiError("journal_discipline_score_unavailable", 503));
       }
+      if (loaded.consentRequired) {
+        return noStore(apiError("journal_discipline_score_consent_required", 409));
+      }
       return noStore(apiOk({ score: loaded.score }));
     },
   );
