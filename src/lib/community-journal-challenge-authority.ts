@@ -393,6 +393,13 @@ async function calculateEvidenceProgress(
   startsAt: string,
   endsAt: string,
 ): Promise<EvidenceProgress> {
+  const startMs = new Date(startsAt).getTime();
+  const endMs = new Date(endsAt).getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
+    throw new Error("community_challenge_evidence_window_invalid");
+  }
+  if (endMs === startMs) return progressFromCounts(0, 0);
+
   const attempts = await client.query<AttemptRow>(
     `SELECT id::text, starting_balance::text, execution_state
        FROM academy_trading_arena_attempts
@@ -400,11 +407,6 @@ async function calculateEvidenceProgress(
       ORDER BY created_at ASC, id ASC`,
     [studentId],
   );
-  const startMs = new Date(startsAt).getTime();
-  const endMs = new Date(endsAt).getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
-    throw new Error("community_challenge_evidence_window_invalid");
-  }
 
   const eligibleTrades = new Map<string, ArenaClosedTradeV2>();
   for (const attempt of attempts.rows) {
