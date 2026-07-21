@@ -1,7 +1,8 @@
 {
   "schemaVersion": 1,
   "issue": 168,
-  "followUpIssue": 223,
+  "followUpIssue": 221,
+  "operationalFollowUpIssue": 223,
   "baseCommit": "abf235f19326d113153e899ec6c90d9af29b8492",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
