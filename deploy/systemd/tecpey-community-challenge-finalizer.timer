@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey Community Challenge Finalizer Hourly
+Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/operations/COMMUNITY_CHALLENGE_SCHEDULER_RUNBOOK.md
+
+[Timer]
+OnCalendar=*-*-* *:05:00 UTC
+Persistent=true
+RandomizedDelaySec=60
+AccuracySec=30s
+Unit=tecpey-community-challenge-finalizer.service
+
+[Install]
+WantedBy=timers.target
