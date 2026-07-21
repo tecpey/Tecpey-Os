@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tecpey.ir/schemas/operations/community-challenge-host-evidence-v1.schema.json",
+  "title": "TecPey Community Challenge Scheduler Host Evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "collectorVersion",
+    "environment",
+    "collectionStartedAt",
+    "collectedAt",
+    "expectedReleaseSha",
+    "observedSourceSha",
+    "observedApplicationSha",
+    "applicationWorkingTreeClean",
+    "hostFingerprint",
+    "runtime",
+    "systemd",
+    "health",
+    "database",
+    "spool",
+    "alertProbe",
+    "contentDigest"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "collectorVersion": { "const": "community-challenge-staging-host-evidence-v1" },
+    "environment": { "enum": ["staging", "production"] },
+    "collectionStartedAt": { "$ref": "#/$defs/timestamp" },
+    "collectedAt": { "$ref": "#/$defs/timestamp" },
+    "expectedReleaseSha": { "$ref": "#/$defs/gitSha" },
+    "observedSourceSha": { "$ref": "#/$defs/gitSha" },
+    "observedApplicationSha": { "$ref": "#/$defs/gitSha" },
+    "applicationWorkingTreeClean": { "const": true },
+    "hostFingerprint": { "$ref": "#/$defs/sha256" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currentUser",
+        "currentGroup",
+        "expectedUser",
+        "expectedGroup",
+        "identityMatches",
+        "environmentFile",
+        "stateDirectory"
+      ],
+      "properties": {
+        "currentUser": { "$ref": "#/$defs/accountName" },
+        "currentGroup": { "$ref": "#/$defs/accountName" },
+        "expectedUser": { "$ref": "#/$defs/accountName" },
+        "expectedGroup": { "$ref": "#/$defs/accountName" },
+        "identityMatches": { "const": true },
+        "environmentFile": { "$ref": "#/$defs/privateFile" },
+        "stateDirectory": { "$ref": "#/$defs/privateDirectory" }
+      }
+    },
+    "systemd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finalizerService",
+        "finalizerTimer",
+        "alertDeliveryService",
+        "alertDeliveryTimer"
+      ],
+      "properties": {
+        "finalizerService": { "$ref": "#/$defs/serviceUnit" },
+        "finalizerTimer": { "$ref": "#/$defs/timerUnit" },
+        "alertDeliveryService": { "$ref": "#/$defs/serviceUnit" },
+        "alertDeliveryTimer": { "$ref": "#/$defs/timerUnit" }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "httpStatus",
+        "ok",
+        "health",
+        "service",
+        "environment",
+        "commit",
+        "database",
+        "redis",
+        "migrationsStatus",
+        "migrationsApplied"
+      ],
+      "properties": {
+        "httpStatus": { "const": 200 },
+        "ok": { "const": true },
+        "health": { "const": "ok" },
+        "service": { "const": "tecpey-web" },
+        "environment": { "const": "production" },
+        "commit": { "$ref": "#/$defs/gitSha" },
+        "database": { "const": "ok" },
+        "redis": { "const": "ok" },
+        "migrationsStatus": { "const": "tracked" },
+        "migrationsApplied": { "type": "integer", "minimum": 1, "maximum": 100000 }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migration0050Applied", "latestRun"],
+      "properties": {
+        "migration0050Applied": { "const": true },
+        "latestRun": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/latestRun" }
+          ]
+        }
+      }
+    },
+    "spool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pending", "delivered", "quarantine"],
+      "properties": {
+        "pending": { "$ref": "#/$defs/count" },
+        "delivered": { "$ref": "#/$defs/count" },
+        "quarantine": { "$ref": "#/$defs/count" }
+      }
+    },
+    "alertProbe": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/alertProbe" }
+      ]
+    },
+    "contentDigest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "accountName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,32}$"
+    },
+    "mode": {
+      "type": "string",
+      "pattern": "^0[0-7]{3}$"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "privateFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "symlink", "mode", "private"],
+      "properties": {
+        "kind": { "const": "regular_file" },
+        "symlink": { "const": false },
+        "mode": { "$ref": "#/$defs/mode" },
+        "private": { "const": true }
+      }
+    },
+    "privateDirectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "symlink", "mode", "private"],
+      "properties": {
+        "kind": { "const": "directory" },
+        "symlink": { "const": false },
+        "mode": { "$ref": "#/$defs/mode" },
+        "private": { "const": true }
+      }
+    },
+    "unitBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "kind",
+        "enabled",
+        "active",
+        "activeState",
+        "subState",
+        "unitFileState",
+        "nextElapseAt",
+        "lastTriggerAt",
+        "expectedSha256",
+        "installedSha256",
+        "matchesExpected"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9@_.:-]{3,200}\\.(service|timer)$"
+        },
+        "kind": { "enum": ["service", "timer"] },
+        "enabled": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "activeState": { "type": "string", "maxLength": 40 },
+        "subState": { "type": "string", "maxLength": 40 },
+        "unitFileState": { "type": "string", "maxLength": 60 },
+        "nextElapseAt": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/timestamp" }
+          ]
+        },
+        "lastTriggerAt": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/timestamp" }
+          ]
+        },
+        "expectedSha256": { "$ref": "#/$defs/sha256" },
+        "installedSha256": { "$ref": "#/$defs/sha256" },
+        "matchesExpected": { "type": "boolean" }
+      }
+    },
+    "serviceUnit": {
+      "allOf": [
+        { "$ref": "#/$defs/unitBase" },
+        {
+          "properties": {
+            "kind": { "const": "service" },
+            "nextElapseAt": { "type": "null" },
+            "lastTriggerAt": { "type": "null" }
+          }
+        }
+      ]
+    },
+    "timerUnit": {
+      "allOf": [
+        { "$ref": "#/$defs/unitBase" },
+        {
+          "properties": {
+            "kind": { "const": "timer" },
+            "enabled": { "const": true },
+            "active": { "const": true },
+            "nextElapseAt": { "$ref": "#/$defs/timestamp" }
+          }
+        }
+      ]
+    },
+    "latestRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "resultStatus",
+        "startedAt",
+        "completedAt",
+        "batchesProcessed",
+        "selectedCount",
+        "finalizedCompletedCount",
+        "finalizedNotCompletedCount",
+        "failureCount",
+        "drainLimitReached"
+      ],
+      "properties": {
+        "runId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "resultStatus": {
+          "enum": ["succeeded", "partial_failure", "authority_unavailable"]
+        },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "completedAt": { "$ref": "#/$defs/timestamp" },
+        "batchesProcessed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "selectedCount": { "$ref": "#/$defs/count" },
+        "finalizedCompletedCount": { "$ref": "#/$defs/count" },
+        "finalizedNotCompletedCount": { "$ref": "#/$defs/count" },
+        "failureCount": { "$ref": "#/$defs/count" },
+        "drainLimitReached": { "type": "boolean" }
+      }
+    },
+    "alertProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "alertId",
+        "enqueuedAt",
+        "deliveredAt",
+        "delivered",
+        "pendingDuplicate"
+      ],
+      "properties": {
+        "requested": { "const": true },
+        "alertId": {
+          "type": "string",
+          "pattern": "^staging-alert-verification:[0-9a-f-]{36}$"
+        },
+        "enqueuedAt": { "$ref": "#/$defs/timestamp" },
+        "deliveredAt": { "$ref": "#/$defs/timestamp" },
+        "delivered": { "const": true },
+        "pendingDuplicate": { "const": false }
+      }
+    }
+  }
+}
