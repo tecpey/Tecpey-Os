@@ -315,12 +315,6 @@ export async function claimJournalChallenge(input: {
   assertAudit(input.context, input.audit);
   const now = input.now ?? new Date();
   const cycle = getChallengeCycle(now);
-  if (
-    input.challengeId !== JOURNAL_REFLECTION_CHALLENGE_ID ||
-    input.weekKey !== cycle.weekKey
-  ) {
-    return { ok: false, reason: "inactive", status: null };
-  }
 
   try {
     const result = await withTx(async (client) => {
@@ -340,8 +334,8 @@ export async function claimJournalChallenge(input: {
       );
 
       const request = {
-        challengeId: JOURNAL_REFLECTION_CHALLENGE_ID,
-        weekKey: cycle.weekKey,
+        challengeId: input.challengeId,
+        weekKey: input.weekKey,
       };
       const existing = await readLearningCommand<{
         status: JournalChallengeStatus;
@@ -364,6 +358,12 @@ export async function claimJournalChallenge(input: {
           replayed: true,
           ...existing.response,
         };
+      }
+      if (
+        input.challengeId !== JOURNAL_REFLECTION_CHALLENGE_ID ||
+        input.weekKey !== cycle.weekKey
+      ) {
+        return { ok: false as const, reason: "inactive" as const, status: null };
       }
 
       const loaded = await loadStatusTx(client, input.context, now, true);
