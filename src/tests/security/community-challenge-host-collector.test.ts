@@ -258,7 +258,11 @@ describe("Community challenge host evidence collector", () => {
     const dirty = await fixture();
     const original = dirty.deps.runCommand;
     dirty.deps.runCommand = async (command, args, timeout) => {
-      if (command === "git" && args.includes("status") && args[2] === dirty.options.applicationDirectory) {
+      if (
+        command === "git" &&
+        args.includes("status") &&
+        args[1] === dirty.options.applicationDirectory
+      ) {
         return " M package.json\n";
       }
       return original(command, args, timeout);
