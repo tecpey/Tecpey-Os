@@ -163,14 +163,15 @@ describe("Offline sync PostgreSQL command authority", () => {
       try {
         await withClient(async (client) => {
           await client.query(
-            `INSERT INTO platform_tenants (id, slug, display_name, status, settings)
-             VALUES ($1, $1, $1, 'active', '{}'::jsonb)`,
+            `INSERT INTO platform_tenants
+               (id, slug, display_name, plan, products)
+             VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
             [tenantId],
           );
           await client.query(
             `INSERT INTO platform_workspaces
-               (id, tenant_id, slug, display_name, is_default, products, settings)
-             VALUES ($1, $2, $1, $1, TRUE, '{}'::jsonb, '{}'::jsonb)`,
+               (id, tenant_id, slug, display_name, products, settings)
+             VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
             [workspaceId, tenantId],
           );
           await assert.rejects(
@@ -186,7 +187,6 @@ describe("Offline sync PostgreSQL command authority", () => {
             ),
             /offline_sync_commands_principal_binding_fk|foreign key/i,
           );
-          await client.query("ROLLBACK").catch(() => undefined);
           await client.query("DELETE FROM platform_tenants WHERE id = $1", [tenantId]);
         });
       } finally {
@@ -245,7 +245,7 @@ describe("Offline sync PostgreSQL command authority", () => {
     },
   );
 
-  it("returns retryable evidence when PostgreSQL is unavailable", async () => {
+  it("rejects invalid authority context before PostgreSQL mutation", async () => {
     const invalidContext = {
       ...context(randomUUID()),
       scopes: [],
