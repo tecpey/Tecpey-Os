@@ -3,23 +3,26 @@ import { describe, it } from "node:test";
 import { minimizeCommunityJournalPublicText } from "../../lib/community-journal-authority";
 
 describe("Community journal public text minimization", () => {
-  it("redacts direct identifiers and wallet addresses without dropping the lesson", () => {
+  it("redacts direct identifiers, contact links and wallet addresses without dropping the lesson", () => {
     const email = "learner@example.com";
     const phone = "+989121234567";
     const ethereum = "0x52908400098527886E0F7030069857D2E4169EE7";
     const bitcoin = "1BoatSLRHtKNngkdXEeobR76b53LETtpyT";
+    const telegram = "https://t.me/private_group";
+    const handle = "@privategroup";
     const output = minimizeCommunityJournalPublicText(
-      `درس من این بود؛ تماس ${email} یا ${phone} و کیف‌ها ${ethereum} ${bitcoin}`,
+      `درس من این بود؛ تماس ${email} یا ${phone}، کیف‌ها ${ethereum} ${bitcoin} و ${telegram} ${handle}`,
       1_200,
     );
 
-    for (const forbidden of [email, phone, ethereum, bitcoin]) {
+    for (const forbidden of [email, phone, ethereum, bitcoin, telegram, handle]) {
       assert.equal(output.includes(forbidden), false);
     }
     assert.match(output, /درس من این بود/);
     assert.match(output, /ایمیل حذف شد/);
     assert.match(output, /شماره تماس حذف شد/);
     assert.match(output, /آدرس کیف‌پول حذف شد/);
+    assert.match(output, /لینک یا شناسه ارتباطی حذف شد/);
   });
 
   it("removes token and private-key material", () => {
@@ -48,7 +51,21 @@ describe("Community journal public text minimization", () => {
     assert.equal(output.includes("NeverPublishThisValue"), false);
   });
 
-  it("normalizes and bounds ordinary public text", () => {
+  it("fails closed on explicit signals, guaranteed-return claims and recruitment", () => {
+    for (const unsafe of [
+      "الان بخر و سود تضمینی بگیر",
+      "سیگنال خرید قطعی",
+      "buy now for guaranteed profit",
+      "join my channel for entries",
+    ]) {
+      assert.equal(
+        minimizeCommunityJournalPublicText(unsafe, 1_200),
+        "[متن به‌دلیل سیاست ایمنی جامعه نمایش داده نشد]",
+      );
+    }
+  });
+
+  it("normalizes and bounds ordinary educational text", () => {
     const output = minimizeCommunityJournalPublicText(`  ${"درس مفید ".repeat(400)}  `, 80);
     assert.equal(output.length <= 80, true);
     assert.equal(output.startsWith("درس مفید"), true);
