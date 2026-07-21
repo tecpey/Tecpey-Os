@@ -107,7 +107,9 @@ FOR EACH ROW EXECUTE FUNCTION tecpey_bind_default_account_principal();
 
 ALTER TABLE offline_sync_commands
   ADD COLUMN IF NOT EXISTS workspace_id TEXT,
-  ADD COLUMN IF NOT EXISTS principal_type TEXT;
+  ADD COLUMN IF NOT EXISTS principal_type TEXT,
+  ADD COLUMN IF NOT EXISTS principal_id TEXT
+    GENERATED ALWAYS AS (student_id::text) STORED;
 
 UPDATE offline_sync_commands
    SET workspace_id = COALESCE(workspace_id, 'workspace-primary'),
@@ -126,14 +128,14 @@ ALTER TABLE offline_sync_commands
   ADD CONSTRAINT offline_sync_commands_principal_type_check
     CHECK (principal_type = 'student'),
   ADD CONSTRAINT offline_sync_commands_principal_binding_fk
-    FOREIGN KEY (tenant_id, workspace_id, principal_type, student_id)
+    FOREIGN KEY (tenant_id, workspace_id, principal_type, principal_id)
     REFERENCES platform_principal_bindings
       (tenant_id, workspace_id, principal_type, principal_id)
     ON DELETE RESTRICT;
 
 CREATE INDEX IF NOT EXISTS offline_sync_commands_tenant_principal_idx
   ON offline_sync_commands
-    (tenant_id, workspace_id, principal_type, student_id, created_at DESC);
+    (tenant_id, workspace_id, principal_type, principal_id, created_at DESC);
 
 ALTER TABLE learning_events
   ADD COLUMN IF NOT EXISTS tenant_id TEXT,
