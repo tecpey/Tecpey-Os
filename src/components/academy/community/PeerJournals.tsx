@@ -144,6 +144,7 @@ export function PeerJournals() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
+    let loadedProfile: CommunityOwnedProfileClient | null = null;
     try {
       const [profileResponse, feedResponse] = await Promise.all([
         fetch("/api/community/profile", {
@@ -160,15 +161,17 @@ export function PeerJournals() {
         json(feedResponse),
       ]);
       if (!profileResponse.ok) throw new Error(errorCode(profilePayload));
+      loadedProfile = parseCommunityOwnedProfilePayload(profilePayload);
+      if (!loadedProfile) throw new Error("invalid_response");
+      setProfile(loadedProfile);
+
       if (!feedResponse.ok) throw new Error(errorCode(feedPayload));
-      const parsedProfile = parseCommunityOwnedProfilePayload(profilePayload);
       const parsedFeed = parseCommunityJournalFeedPayload(feedPayload);
-      if (!parsedProfile || !parsedFeed) throw new Error("invalid_response");
-      setProfile(parsedProfile);
+      if (!parsedFeed) throw new Error("invalid_response");
       setEntries(parsedFeed.entries);
       setNextCursor(parsedFeed.nextCursor);
     } catch (caught) {
-      setProfile(null);
+      if (!loadedProfile) setProfile(null);
       setEntries([]);
       setNextCursor(null);
       setError(communityJournalUiError(caught instanceof Error ? caught.message : caught));
@@ -268,7 +271,7 @@ export function PeerJournals() {
         <div>
           <h1 className="text-2xl font-black text-white">ژورنال‌های مشترک</h1>
           <p className="mt-2 max-w-xl text-sm font-bold leading-7 text-slate-400">
-            درس‌های اختیاری و حریم‌خصوصی‌محور از Reflectionهای واقعی Trading Arena؛ بدون اطلاعات هویتی، موجودی یا PnL دقیق.
+            درس‌های اختیاری از Reflectionهای واقعی Trading Arena با حذف شناسه‌های رایج، Secrets، لینک‌های تماس و سیگنال‌های آشکار.
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10">
@@ -286,6 +289,13 @@ export function PeerJournals() {
         </div>
       </div>
 
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-4">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        <p className="text-xs font-bold leading-6 text-amber-100/80">
+          این محتوا توسط یادگیرندگان نوشته می‌شود و توصیه مالی یا سیگنال نیست. فیلتر خودکار جایگزین خودداری از نوشتن اطلاعات شخصی و محرمانه نیست.
+        </p>
+      </div>
+
       {!profile ? (
         <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/5 p-6 text-center">
           <Lock className="mx-auto mb-3 h-8 w-8 text-amber-300" />
@@ -300,7 +310,7 @@ export function PeerJournals() {
             <div className="max-w-xl">
               <p className="font-black text-white">اشتراک‌گذاری بازتاب‌های معتبر من</p>
               <p className="mt-2 text-xs font-bold leading-6 text-slate-400">
-                با فعال‌سازی، فقط درس کلیدی، برچسب خطا، اقدام بعدی، دارایی و زمان معتبر Reflectionهای تکمیل‌شده در Feed همین مستاجر نمایش داده می‌شود. خاموش‌کردن، بازتاب‌های شما را فوراً از Feed حذف می‌کند.
+                با فعال‌سازی، فقط درس کلیدی، برچسب خطا، اقدام بعدی، دارایی و زمان معتبر Reflectionهای تکمیل‌شده در Feed همین مستاجر نمایش داده می‌شود. متن آزاد پیش از نمایش پاک‌سازی و فیلتر می‌شود؛ خاموش‌کردن، بازتاب‌های شما را فوراً از Feed حذف می‌کند.
               </p>
             </div>
             <button
