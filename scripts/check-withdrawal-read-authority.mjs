@@ -1,6 +1,7 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
+const deletedLegacyService = "src/lib/security/withdrawal-service.ts";
 const files = {
   authority: "src/lib/security/withdrawal-read-authority.ts",
   admission: "src/lib/security/withdrawal-admission-service.ts",
@@ -48,6 +49,24 @@ async function listSourceFiles(root) {
     }),
   );
   return nested.flat();
+}
+
+async function pathExists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+if (await pathExists(deletedLegacyService)) {
+  failures.push(
+    `${deletedLegacyService}: dormant legacy Withdrawal service must remain deleted`,
+  );
 }
 
 for (const invariant of [
@@ -210,7 +229,6 @@ rejectText(
 const sourcePaths = await listSourceFiles("src");
 for (const path of sourcePaths) {
   const normalizedPath = relative(".", path).split(sep).join("/");
-  if (normalizedPath === "src/lib/security/withdrawal-service.ts") continue;
   const source = await readFile(path, "utf8");
   if (
     /from\s+["'][^"']*withdrawal-service["']/.test(source) ||
@@ -219,7 +237,7 @@ for (const path of sourcePaths) {
     /export\s+[\s\S]*?from\s+["'][^"']*withdrawal-service["']/.test(source)
   ) {
     failures.push(
-      `${normalizedPath}: active dependency on mixed legacy withdrawal-service is forbidden`,
+      `${normalizedPath}: deleted legacy Withdrawal service must not be referenced`,
     );
   }
 }
@@ -231,5 +249,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Withdrawal read authority passed: explicit projections, ISO timestamp normalization, owner isolation, bounded pagination, deterministic ordering, strict outage semantics, focused server-only PostgreSQL evidence and zero active imports from the mixed legacy withdrawal service are enforced.",
+  "Withdrawal read authority passed: strict projections and PostgreSQL evidence remain enforced, and the dormant legacy Withdrawal service remains deleted with zero source references.",
 );
