@@ -4,7 +4,38 @@ import {
   parseOfficialJournalChallengePayload,
 } from "../../lib/community-journal-challenge-client";
 
-function validState() {
+type ChallengeFixture = {
+  challengeId: string;
+  challengeVersion: string;
+  cycle: {
+    key: string;
+    startsAt: string;
+    endsAt: string;
+  };
+  consentEnabled: boolean;
+  status: string;
+  enrollmentId: string | null;
+  revision: number | null;
+  startedAt: string | null;
+  evaluatedAt: string | null;
+  completedAt: string | null;
+  progress: {
+    eligibleClosedTrades: number;
+    validReflections: number;
+    coverageRate: number;
+    minimumTrades: number;
+    requiredRate: number;
+    eligibleToComplete: boolean;
+  };
+  rewards: {
+    xp: number;
+    badge: string | null;
+    financialReward: string | null;
+    status: string;
+  };
+};
+
+function validState(): ChallengeFixture {
   return {
     challengeId: "journal-reflection-week",
     challengeVersion: "journal-reflection-v1",
@@ -47,10 +78,10 @@ describe("Official journal challenge client contract", () => {
 
   it("rejects forged progress and reward fields", () => {
     for (const mutate of [
-      (state: ReturnType<typeof validState>) => { state.progress.coverageRate = 0.8; },
-      (state: ReturnType<typeof validState>) => { state.progress.eligibleToComplete = true; },
-      (state: ReturnType<typeof validState>) => { state.rewards.xp = 10 as 0; },
-      (state: ReturnType<typeof validState>) => { state.rewards.badge = "journal-master" as null; },
+      (state: ChallengeFixture) => { state.progress.coverageRate = 0.8; },
+      (state: ChallengeFixture) => { state.progress.eligibleToComplete = true; },
+      (state: ChallengeFixture) => { state.rewards.xp = 10; },
+      (state: ChallengeFixture) => { state.rewards.badge = "journal-master"; },
     ]) {
       const state = validState();
       mutate(state);
