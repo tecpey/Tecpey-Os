@@ -128,6 +128,29 @@ describe("Community challenge scheduled finalization", () => {
     assert.equal(test.alerts.length, 1);
   });
 
+  it("preserves committed progress when database authority drops mid-drain", async () => {
+    const test = harness([
+      {
+        available: true,
+        runId: RUN_ID,
+        selected: 2,
+        finalizedCompleted: 2,
+        finalizedNotCompleted: 0,
+        failures: [],
+      },
+      { available: false, runId: RUN_ID },
+    ]);
+    const result = await runScheduledCommunityChallengeFinalization(test.options);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.run.resultStatus, "partial_failure");
+    assert.equal(result.run.selectedCount, 2);
+    assert.equal(result.run.finalizedCompletedCount, 2);
+    assert.ok(
+      result.run.reasonCodes.includes("database_authority_unavailable_after_progress"),
+    );
+    assert.equal(result.alert?.severity, "warning");
+  });
+
   it("fails closed when the configured drain bound is exhausted", async () => {
     const test = harness([
       {
