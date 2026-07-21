@@ -55,6 +55,11 @@ const persistencePolicy = new Map(
   }),
 );
 
+const serverAuthoritativeSurfaces = new Set([
+  "src/components/academy/community/PeerJournals.tsx",
+  "src/lib/community-journal-client.ts",
+]);
+
 async function walk(directory) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
   const files = [];
@@ -67,15 +72,25 @@ async function walk(directory) {
 }
 
 const actualMatches = new Map();
+const discoveredFiles = new Set();
 for (const absolute of await walk(ROOT)) {
   const relative = path.relative(process.cwd(), absolute).split(path.sep).join("/");
   if (relative.startsWith("src/tests/")) continue;
+  discoveredFiles.add(relative);
   const content = await fs.readFile(absolute, "utf8");
   const count = content.split(/\r?\n/).filter((line) => PERSISTENCE_PATTERN.test(line)).length;
   if (count > 0) actualMatches.set(relative, count);
 }
 
 const errors = [];
+for (const file of serverAuthoritativeSurfaces) {
+  if (!discoveredFiles.has(file)) {
+    errors.push(`${file}: protected server-authoritative surface is missing`);
+  } else if ((actualMatches.get(file) ?? 0) > 0) {
+    errors.push(`${file}: browser persistence is forbidden on the Community journal authority surface`);
+  }
+}
+
 const files = new Set([...persistencePolicy.keys(), ...actualMatches.keys()]);
 for (const file of [...files].sort()) {
   const policy = persistencePolicy.get(file);
@@ -108,5 +123,5 @@ const quarantined = [...persistencePolicy.values()].filter((entry) =>
   entry.classification.startsWith("quarantined"),
 ).length;
 console.log(
-  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy/preview modules cannot become official evidence.`,
+  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy/preview modules cannot become official evidence; Community journal surfaces are persistence-free.`,
 );
