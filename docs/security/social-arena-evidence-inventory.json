@@ -3,6 +3,7 @@
   "issue": 168,
   "followUpIssue": 221,
   "operationalFollowUpIssue": 223,
+  "instructorFollowUpIssue": 250,
   "baseCommit": "abf235f19326d113153e899ec6c90d9af29b8492",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
@@ -11,7 +12,8 @@
     "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
     "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields",
     "officialChallenges": "only journal-reflection-week v1 is official; current-cycle evaluation and post-cycle finalization share one exact Arena trade/reflection evidence authority; ended active enrollments become immutable completed or not_completed records; XP, badge, financial reward, leaderboard, Mentor and instructor outcomes remain disabled",
-    "operationalFinalization": "hourly persistent systemd scheduling is represented by hardened deployable assets; each run and alert is privacy-minimized and append-only in PostgreSQL when available, with an atomic local spool for database/provider outage; repository merge alone is not proof of host installation"
+    "operationalFinalization": "hourly persistent systemd scheduling is represented by hardened deployable assets; each run and alert is privacy-minimized and append-only in PostgreSQL when available, with an atomic local spool for database/provider outage; repository merge alone is not proof of host installation",
+    "instructorAccess": "launch-disabled static boundary; private self behavioral insights are not instructor disclosures; activation requires verified instructor role plus explicit scoped student grant, tenant/program isolation, expiry/revocation and transaction-coupled access evidence"
   },
   "canonicalAuthorities": [
     {
@@ -147,9 +149,14 @@
       "allowedAuthority": "hydrated server progress and behavioral snapshot only"
     },
     {
+      "path": "src/app/academy/community/instructor/page.tsx",
+      "classification": "launch-disabled-static-boundary",
+      "allowedAuthority": "static noindex disclosure only; no behavioral, profile, Arena, journal, challenge, reputation or cross-user evidence reads"
+    },
+    {
       "path": "src/components/academy/community/InstructorDashboard.tsx",
-      "classification": "migrate-now",
-      "allowedAuthority": "self-view of server behavioral snapshot; instructor sharing remains disabled until a separate role/grant authority"
+      "classification": "quarantined-dormant-self-preview",
+      "allowedAuthority": "zero active source importers; historical self-view implementation only until existing guard dependency is migrated and the file can be deleted"
     },
     {
       "path": "src/components/academy/community/ChallengeCenter.tsx",
@@ -214,6 +221,7 @@
     "src/lib/ops/operational-alert-spool.ts",
     "src/lib/community-challenges.ts",
     "src/app/api/community/profile/route.ts",
+    "src/app/academy/community/instructor/page.tsx",
     "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/community/ChallengeCenter.tsx",
     "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
