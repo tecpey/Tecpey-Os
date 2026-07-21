@@ -175,12 +175,12 @@ export async function runScheduledCommunityChallengeFinalization(
     reasonCodes: uniqueSorted(reasonCodes),
   });
   let alert = buildAlert(run);
-  let databaseEvidencePersisted = await persistRunAndAlert(run, alert);
+  const databaseEvidencePersisted = await persistRunAndAlert(run, alert);
 
   if (!databaseEvidencePersisted && run.resultStatus !== "authority_unavailable") {
     run = validateOperationalJobRunEvidence({
       ...run,
-      resultStatus: "authority_unavailable",
+      resultStatus: "partial_failure",
       reasonCodes: uniqueSorted([
         ...run.reasonCodes,
         "operational_evidence_unavailable",
