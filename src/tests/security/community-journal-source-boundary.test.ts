@@ -36,7 +36,14 @@ describe("Community journal source boundary", () => {
     assert.match(route, /scopes: \["community:journal:read"\]/);
     assert.match(route, /listCommunityJournalFeed\(\{/);
     assert.match(route, /response\.headers\.set\("Vary", "Cookie"\)/);
-    assert.doesNotMatch(route, /tenantId:\s*PLATFORM\.DEFAULT_TENANT_ID[\s\S]*listCommunityJournalFeed/);
+
+    const journalStart = route.indexOf('if (view === "journal-feed")');
+    const journalEnd = route.indexOf('if (searchParams.has("cursor")', journalStart);
+    assert.notEqual(journalStart, -1);
+    assert.notEqual(journalEnd, -1);
+    const journalBlock = route.slice(journalStart, journalEnd);
+    assert.doesNotMatch(journalBlock, /PLATFORM\.DEFAULT_TENANT_ID/);
+    assert.match(journalBlock, /resolveTenantPrincipalContext\(\{/);
   });
 
   it("keeps consent controls available when only the feed load fails", async () => {
