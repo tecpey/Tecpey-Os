@@ -1,6 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
-import path from "node:path";
 import type { Stats } from "node:fs";
+import path from "node:path";
 import {
   finalizeCommunityChallengeHostEvidence,
   type CommunityChallengeHostEvidence,
@@ -15,10 +15,12 @@ const USER_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
 const MAX_COMMAND_OUTPUT_BYTES = 32 * 1024;
 const MAX_HEALTH_BODY_BYTES = 128 * 1024;
 
-const FINALIZER_SERVICE = "tecpey-community-challenge-finalizer.service";
-const FINALIZER_TIMER = "tecpey-community-challenge-finalizer.timer";
-const ALERT_SERVICE = "tecpey-ops-alert-delivery.service";
-const ALERT_TIMER = "tecpey-ops-alert-delivery.timer";
+const UNITS = {
+  finalizerService: "tecpey-community-challenge-finalizer.service",
+  finalizerTimer: "tecpey-community-challenge-finalizer.timer",
+  alertService: "tecpey-ops-alert-delivery.service",
+  alertTimer: "tecpey-ops-alert-delivery.timer",
+} as const;
 
 export type CommunityChallengeHostDatabaseEvidence = {
   migration0050Applied: boolean;
@@ -45,7 +47,11 @@ export type CommunityChallengeHostCollectorOptions = {
 export type CommunityChallengeHostCollectorDependencies = {
   lstat(filePath: string): Promise<Stats>;
   readFile(filePath: string): Promise<string>;
-  readdir(directory: string): Promise<Array<{ name: string; isFile(): boolean; isSymbolicLink(): boolean }>>;
+  readdir(directory: string): Promise<Array<{
+    name: string;
+    isFile(): boolean;
+    isSymbolicLink(): boolean;
+  }>>;
   runCommand(command: string, args: string[], timeoutMs: number): Promise<string>;
   fetchHealth(url: string, timeoutMs: number): Promise<{ status: number; body: string }>;
   readDatabaseEvidence(): Promise<CommunityChallengeHostDatabaseEvidence>;
@@ -63,7 +69,7 @@ function boundedOutput(value: string, code: string): string {
   return value.replace(/[\r\n]+$/g, "");
 }
 
-function strictAbsolutePath(value: string, code: string): string {
+function absolute(value: string, code: string): string {
   if (
     typeof value !== "string" ||
     value.length < 2 ||
@@ -78,7 +84,7 @@ function strictAbsolutePath(value: string, code: string): string {
   return normalized;
 }
 
-function strictUser(value: string, code: string): string {
+function user(value: string, code: string): string {
   if (!USER_RE.test(value)) throw new Error(code);
   return value;
 }
@@ -86,48 +92,45 @@ function strictUser(value: string, code: string): string {
 async function classifyPath(
   deps: CommunityChallengeHostCollectorDependencies,
   filePath: string,
-  expectedKind: "file" | "directory",
+  kind: "file" | "directory",
+  privateRequired: boolean,
   code: string,
-): Promise<{ mode: string; private: true }> {
+): Promise<{ mode: string; private: boolean }> {
   const stat = await deps.lstat(filePath);
   if (stat.isSymbolicLink()) throw new Error(`${code}_symlink`);
-  if (expectedKind === "file" ? !stat.isFile() : !stat.isDirectory()) {
+  if (kind === "file" ? !stat.isFile() : !stat.isDirectory()) {
     throw new Error(`${code}_kind`);
   }
   const modeNumber = stat.mode & 0o777;
   const mode = `0${modeNumber.toString(8).padStart(3, "0")}`;
-  const otherPermissions = modeNumber & 0o007;
-  const groupWriteOrExecute = modeNumber & 0o030;
-  if (otherPermissions !== 0 || groupWriteOrExecute !== 0) {
-    throw new Error(`${code}_permissions`);
-  }
-  return { mode, private: true };
+  const isPrivate = (modeNumber & 0o007) === 0 && (modeNumber & 0o030) === 0;
+  if (privateRequired && !isPrivate) throw new Error(`${code}_permissions`);
+  return { mode, private: isPrivate };
 }
 
-function parseSystemctlShow(raw: string): Record<string, string> {
-  const output: Record<string, string> = {};
+function parseShow(raw: string): Record<string, string> {
+  const parsed: Record<string, string> = {};
   for (const line of raw.split(/\r?\n/)) {
     if (!line) continue;
-    const separator = line.indexOf("=");
-    if (separator <= 0) throw new Error("host_evidence_systemctl_output_invalid");
-    const key = line.slice(0, separator);
-    const value = line.slice(separator + 1);
-    if (!/^[A-Za-z][A-Za-z0-9]+$/.test(key) || key in output) {
+    const index = line.indexOf("=");
+    if (index <= 0) throw new Error("host_evidence_systemctl_output_invalid");
+    const key = line.slice(0, index);
+    if (!/^[A-Za-z][A-Za-z0-9]+$/.test(key) || key in parsed) {
       throw new Error("host_evidence_systemctl_output_invalid");
     }
-    output[key] = value;
+    parsed[key] = line.slice(index + 1);
   }
-  return output;
+  return parsed;
 }
 
-function systemdTimestamp(value: string | undefined, code: string): string | null {
+function systemdTime(value: string | undefined): string | null {
   if (!value || value === "n/a" || value === "0") return null;
   const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) throw new Error(code);
+  if (!Number.isFinite(parsed)) throw new Error("host_evidence_systemd_timer_time_invalid");
   return new Date(parsed).toISOString();
 }
 
-function renderServiceTemplate(
+function renderService(
   template: string,
   options: CommunityChallengeHostCollectorOptions,
 ): string {
@@ -141,10 +144,14 @@ function renderServiceTemplate(
   };
   let rendered = template;
   for (const [token, replacement] of Object.entries(replacements)) {
-    if (/\r|\n|\0/.test(replacement)) throw new Error("host_evidence_systemd_replacement_invalid");
+    if (/[\r\n\u0000]/.test(replacement)) {
+      throw new Error("host_evidence_systemd_replacement_invalid");
+    }
     rendered = rendered.replaceAll(token, replacement);
   }
-  if (/@@[A-Z_]+@@/.test(rendered)) throw new Error("host_evidence_systemd_placeholder_unresolved");
+  if (/@@[A-Z_]+@@/.test(rendered)) {
+    throw new Error("host_evidence_systemd_placeholder_unresolved");
+  }
   return rendered;
 }
 
@@ -161,25 +168,19 @@ async function collectUnit(
     throw new Error("host_evidence_systemd_unit_file_invalid");
   }
   const installedContent = await deps.readFile(installedPath);
-  const show = parseSystemctlShow(
-    boundedOutput(
-      await deps.runCommand(
-        "systemctl",
-        [
-          "show",
-          unit,
-          "--property=LoadState",
-          "--property=ActiveState",
-          "--property=SubState",
-          "--property=UnitFileState",
-          "--property=NextElapseUSecRealtime",
-          "--property=LastTriggerUSec",
-        ],
-        10_000,
-      ),
-      "host_evidence_systemctl_output_too_large",
-    ),
-  );
+  const show = parseShow(boundedOutput(
+    await deps.runCommand("systemctl", [
+      "show",
+      unit,
+      "--property=LoadState",
+      "--property=ActiveState",
+      "--property=SubState",
+      "--property=UnitFileState",
+      "--property=NextElapseUSecRealtime",
+      "--property=LastTriggerUSec",
+    ], 10_000),
+    "host_evidence_systemctl_output_too_large",
+  ));
   if (show.LoadState !== "loaded") throw new Error("host_evidence_systemd_unit_not_loaded");
   const expectedSha256 = sha256(expectedContent);
   const installedSha256 = sha256(installedContent);
@@ -191,12 +192,8 @@ async function collectUnit(
     activeState: show.ActiveState || "unknown",
     subState: show.SubState || "unknown",
     unitFileState: show.UnitFileState || "unknown",
-    nextElapseAt: kind === "timer"
-      ? systemdTimestamp(show.NextElapseUSecRealtime, "host_evidence_systemd_timer_time_invalid")
-      : null,
-    lastTriggerAt: kind === "timer"
-      ? systemdTimestamp(show.LastTriggerUSec, "host_evidence_systemd_timer_time_invalid")
-      : null,
+    nextElapseAt: kind === "timer" ? systemdTime(show.NextElapseUSecRealtime) : null,
+    lastTriggerAt: kind === "timer" ? systemdTime(show.LastTriggerUSec) : null,
     expectedSha256,
     installedSha256,
     matchesExpected: expectedSha256 === installedSha256,
@@ -247,7 +244,7 @@ function parseHealth(status: number, rawBody: string): CommunityChallengeHostEvi
   };
 }
 
-function validateHealthUrl(value: string): string {
+function healthUrl(value: string): string {
   if (typeof value !== "string" || value.length < 10 || value.length > 2_048) {
     throw new Error("host_evidence_health_url_invalid");
   }
@@ -273,20 +270,20 @@ async function gitSha(
   directory: string,
   code: string,
 ): Promise<string> {
-  const output = boundedOutput(
+  const value = boundedOutput(
     await deps.runCommand("git", ["-C", directory, "rev-parse", "HEAD"], 10_000),
     `${code}_output_too_large`,
   ).trim().toLowerCase();
-  if (!GIT_SHA_RE.test(output)) throw new Error(code);
-  return output;
+  if (!GIT_SHA_RE.test(value)) throw new Error(code);
+  return value;
 }
 
-async function assertCleanWorktree(
+async function requireClean(
   deps: CommunityChallengeHostCollectorDependencies,
   directory: string,
   code: string,
 ): Promise<void> {
-  const output = boundedOutput(
+  const value = boundedOutput(
     await deps.runCommand(
       "git",
       ["-C", directory, "status", "--porcelain", "--untracked-files=no"],
@@ -294,99 +291,85 @@ async function assertCleanWorktree(
     ),
     `${code}_output_too_large`,
   );
-  if (output.trim() !== "") throw new Error(code);
+  if (value.trim() !== "") throw new Error(code);
 }
 
-async function countSpoolDirectory(
+async function spoolCount(
   deps: CommunityChallengeHostCollectorDependencies,
   directory: string,
 ): Promise<number> {
   const entries = await deps.readdir(directory);
-  let count = 0;
   for (const entry of entries) {
     if (entry.isSymbolicLink() || !entry.isFile() || !/^[0-9a-f]{64}\.json$/.test(entry.name)) {
       throw new Error("host_evidence_spool_entry_invalid");
     }
-    count += 1;
   }
-  return count;
+  return entries.length;
 }
 
 export async function collectCommunityChallengeHostEvidence(
-  rawOptions: CommunityChallengeHostCollectorOptions,
+  raw: CommunityChallengeHostCollectorOptions,
   deps: CommunityChallengeHostCollectorDependencies,
 ): Promise<CommunityChallengeHostEvidence> {
-  if (
-    rawOptions.environment !== "staging" &&
-    rawOptions.environment !== "production"
-  ) {
+  if (raw.environment !== "staging" && raw.environment !== "production") {
     throw new Error("host_evidence_environment_invalid");
   }
-  if (rawOptions.environment === "production" && rawOptions.productionAcknowledged !== true) {
+  if (raw.environment === "production" && raw.productionAcknowledged !== true) {
     throw new Error("host_evidence_production_ack_required");
   }
-  const expectedReleaseSha = rawOptions.expectedReleaseSha.trim().toLowerCase();
+  const expectedReleaseSha = raw.expectedReleaseSha.trim().toLowerCase();
   if (!GIT_SHA_RE.test(expectedReleaseSha)) throw new Error("host_evidence_release_sha_invalid");
-  const sourceDirectory = strictAbsolutePath(rawOptions.sourceDirectory, "host_evidence_source_directory_invalid");
-  const applicationDirectory = strictAbsolutePath(
-    rawOptions.applicationDirectory,
-    "host_evidence_application_directory_invalid",
-  );
-  const environmentFile = strictAbsolutePath(rawOptions.environmentFile, "host_evidence_environment_file_invalid");
-  const stateDirectory = strictAbsolutePath(rawOptions.stateDirectory, "host_evidence_state_directory_invalid");
-  const systemdDirectory = strictAbsolutePath(rawOptions.systemdDirectory, "host_evidence_systemd_directory_invalid");
-  const npmBinary = strictAbsolutePath(rawOptions.npmBinary, "host_evidence_npm_binary_invalid");
-  const expectedUser = strictUser(rawOptions.expectedUser, "host_evidence_user_invalid");
-  const expectedGroup = strictUser(rawOptions.expectedGroup, "host_evidence_group_invalid");
-  if (expectedUser === "root") throw new Error("host_evidence_root_user_forbidden");
-  if (rawOptions.hostFingerprintKey.length < 32 || rawOptions.hostFingerprintKey.length > 4_096) {
+  const options: CommunityChallengeHostCollectorOptions = {
+    ...raw,
+    expectedReleaseSha,
+    sourceDirectory: absolute(raw.sourceDirectory, "host_evidence_source_directory_invalid"),
+    applicationDirectory: absolute(raw.applicationDirectory, "host_evidence_application_directory_invalid"),
+    environmentFile: absolute(raw.environmentFile, "host_evidence_environment_file_invalid"),
+    stateDirectory: absolute(raw.stateDirectory, "host_evidence_state_directory_invalid"),
+    systemdDirectory: absolute(raw.systemdDirectory, "host_evidence_systemd_directory_invalid"),
+    npmBinary: absolute(raw.npmBinary, "host_evidence_npm_binary_invalid"),
+    expectedUser: user(raw.expectedUser, "host_evidence_user_invalid"),
+    expectedGroup: user(raw.expectedGroup, "host_evidence_group_invalid"),
+    healthUrl: healthUrl(raw.healthUrl),
+  };
+  if (options.expectedUser === "root") throw new Error("host_evidence_root_user_forbidden");
+  if (raw.hostFingerprintKey.length < 32 || raw.hostFingerprintKey.length > 4_096) {
     throw new Error("host_evidence_host_key_invalid");
   }
-  const options: CommunityChallengeHostCollectorOptions = {
-    ...rawOptions,
-    expectedReleaseSha,
-    sourceDirectory,
-    applicationDirectory,
-    environmentFile,
-    stateDirectory,
-    systemdDirectory,
-    npmBinary,
-    expectedUser,
-    expectedGroup,
-    healthUrl: validateHealthUrl(rawOptions.healthUrl),
-  };
 
-  const collectionStarted = deps.now();
-  if (!Number.isFinite(collectionStarted.getTime())) throw new Error("host_evidence_clock_invalid");
+  const started = deps.now();
+  if (!Number.isFinite(started.getTime())) throw new Error("host_evidence_clock_invalid");
 
-  await classifyPath(deps, sourceDirectory, "directory", "host_evidence_source_directory");
-  await classifyPath(deps, applicationDirectory, "directory", "host_evidence_application_directory");
+  await classifyPath(deps, options.sourceDirectory, "directory", false, "host_evidence_source_directory");
+  await classifyPath(deps, options.applicationDirectory, "directory", false, "host_evidence_application_directory");
   const environmentClassification = await classifyPath(
     deps,
-    environmentFile,
+    options.environmentFile,
     "file",
+    true,
     "host_evidence_environment_file",
   );
   const stateClassification = await classifyPath(
     deps,
-    stateDirectory,
+    options.stateDirectory,
     "directory",
+    true,
     "host_evidence_state_directory",
   );
-  await classifyPath(deps, systemdDirectory, "directory", "host_evidence_systemd_directory");
-  const npmStat = await deps.lstat(npmBinary);
+  await classifyPath(deps, options.systemdDirectory, "directory", false, "host_evidence_systemd_directory");
+  const npmStat = await deps.lstat(options.npmBinary);
   if (npmStat.isSymbolicLink() || !npmStat.isFile() || (npmStat.mode & 0o111) === 0) {
     throw new Error("host_evidence_npm_binary_invalid");
   }
 
-  const observedSourceSha = await gitSha(deps, sourceDirectory, "host_evidence_source_sha_invalid");
+  const observedSourceSha = await gitSha(deps, options.sourceDirectory, "host_evidence_source_sha_invalid");
   const observedApplicationSha = await gitSha(
     deps,
-    applicationDirectory,
+    options.applicationDirectory,
     "host_evidence_application_sha_invalid",
   );
-  await assertCleanWorktree(deps, sourceDirectory, "host_evidence_source_worktree_dirty");
-  await assertCleanWorktree(deps, applicationDirectory, "host_evidence_application_worktree_dirty");
+  await requireClean(deps, options.sourceDirectory, "host_evidence_source_worktree_dirty");
+  await requireClean(deps, options.applicationDirectory, "host_evidence_application_worktree_dirty");
 
   const currentUser = boundedOutput(
     await deps.runCommand("id", ["-un"], 5_000),
@@ -396,52 +379,51 @@ export async function collectCommunityChallengeHostEvidence(
     await deps.runCommand("id", ["-gn"], 5_000),
     "host_evidence_identity_output_too_large",
   ).trim();
-  if (currentUser !== expectedUser || currentGroup !== expectedGroup) {
+  if (currentUser !== options.expectedUser || currentGroup !== options.expectedGroup) {
     throw new Error("host_evidence_runtime_identity_mismatch");
   }
 
-  const templateRoot = path.join(sourceDirectory, "deploy", "systemd");
-  const finalizerServiceTemplate = renderServiceTemplate(
-    await deps.readFile(path.join(templateRoot, `${FINALIZER_SERVICE}.in`)),
-    options,
-  );
-  const alertServiceTemplate = renderServiceTemplate(
-    await deps.readFile(path.join(templateRoot, `${ALERT_SERVICE}.in`)),
-    options,
-  );
-  const finalizerTimerTemplate = await deps.readFile(path.join(templateRoot, FINALIZER_TIMER));
-  const alertTimerTemplate = await deps.readFile(path.join(templateRoot, ALERT_TIMER));
+  const templateRoot = path.join(options.sourceDirectory, "deploy", "systemd");
+  const expected = {
+    finalizerService: renderService(
+      await deps.readFile(path.join(templateRoot, `${UNITS.finalizerService}.in`)),
+      options,
+    ),
+    finalizerTimer: await deps.readFile(path.join(templateRoot, UNITS.finalizerTimer)),
+    alertService: renderService(
+      await deps.readFile(path.join(templateRoot, `${UNITS.alertService}.in`)),
+      options,
+    ),
+    alertTimer: await deps.readFile(path.join(templateRoot, UNITS.alertTimer)),
+  };
 
-  const [
-    finalizerService,
-    finalizerTimer,
-    alertDeliveryService,
-    alertDeliveryTimer,
-  ] = await Promise.all([
-    collectUnit(deps, options, FINALIZER_SERVICE, "service", finalizerServiceTemplate),
-    collectUnit(deps, options, FINALIZER_TIMER, "timer", finalizerTimerTemplate),
-    collectUnit(deps, options, ALERT_SERVICE, "service", alertServiceTemplate),
-    collectUnit(deps, options, ALERT_TIMER, "timer", alertTimerTemplate),
-  ]);
+  const [finalizerService, finalizerTimer, alertDeliveryService, alertDeliveryTimer] =
+    await Promise.all([
+      collectUnit(deps, options, UNITS.finalizerService, "service", expected.finalizerService),
+      collectUnit(deps, options, UNITS.finalizerTimer, "timer", expected.finalizerTimer),
+      collectUnit(deps, options, UNITS.alertService, "service", expected.alertService),
+      collectUnit(deps, options, UNITS.alertTimer, "timer", expected.alertTimer),
+    ]);
 
   const healthResponse = await deps.fetchHealth(options.healthUrl, 5_000);
   const health = parseHealth(healthResponse.status, healthResponse.body);
   const database = await deps.readDatabaseEvidence();
   if (!database.migration0050Applied) throw new Error("host_evidence_migration_0050_missing");
 
-  const spoolRoot = path.join(stateDirectory, "alerts");
+  const alertProbe = raw.runAlertProbe ? await deps.runAlertProbe() : null;
+  const spoolRoot = path.join(options.stateDirectory, "alerts");
   const spool = {
-    pending: await countSpoolDirectory(deps, path.join(spoolRoot, "pending")),
-    delivered: await countSpoolDirectory(deps, path.join(spoolRoot, "delivered")),
-    quarantine: await countSpoolDirectory(deps, path.join(spoolRoot, "quarantine")),
+    pending: await spoolCount(deps, path.join(spoolRoot, "pending")),
+    delivered: await spoolCount(deps, path.join(spoolRoot, "delivered")),
+    quarantine: await spoolCount(deps, path.join(spoolRoot, "quarantine")),
   };
-  const alertProbe = rawOptions.runAlertProbe ? await deps.runAlertProbe() : null;
+
   const collected = deps.now();
-  if (!Number.isFinite(collected.getTime()) || collected.getTime() < collectionStarted.getTime()) {
+  if (!Number.isFinite(collected.getTime()) || collected.getTime() < started.getTime()) {
     throw new Error("host_evidence_clock_invalid");
   }
-  const rawHostname = deps.hostname();
-  if (!rawHostname || rawHostname.length > 255 || /[\u0000-\u001f\u007f]/.test(rawHostname)) {
+  const host = deps.hostname();
+  if (!host || host.length > 255 || /[\u0000-\u001f\u007f]/.test(host)) {
     throw new Error("host_evidence_hostname_invalid");
   }
 
@@ -449,20 +431,18 @@ export async function collectCommunityChallengeHostEvidence(
     schemaVersion: 1,
     collectorVersion: "community-challenge-staging-host-evidence-v1",
     environment: options.environment,
-    collectionStartedAt: collectionStarted.toISOString(),
+    collectionStartedAt: started.toISOString(),
     collectedAt: collected.toISOString(),
     expectedReleaseSha,
     observedSourceSha,
     observedApplicationSha,
     applicationWorkingTreeClean: true,
-    hostFingerprint: createHmac("sha256", rawOptions.hostFingerprintKey)
-      .update(rawHostname)
-      .digest("hex"),
+    hostFingerprint: createHmac("sha256", raw.hostFingerprintKey).update(host).digest("hex"),
     runtime: {
       currentUser,
       currentGroup,
-      expectedUser,
-      expectedGroup,
+      expectedUser: options.expectedUser,
+      expectedGroup: options.expectedGroup,
       identityMatches: true,
       environmentFile: {
         kind: "regular_file",
@@ -484,10 +464,7 @@ export async function collectCommunityChallengeHostEvidence(
       alertDeliveryTimer,
     },
     health,
-    database: {
-      migration0050Applied: true,
-      latestRun: database.latestRun,
-    },
+    database: { migration0050Applied: true, latestRun: database.latestRun },
     spool,
     alertProbe,
   });
