@@ -351,9 +351,9 @@ describe("Community reputation evidence PostgreSQL authority", () => {
     assert.equal(row.finalization_source, "worker");
     assert.equal(row.finalization_run_id, runId);
 
-    assert.equal(communityReputationCoverageBasisPoints(1, 3), 3333);
-    assert.equal(communityReputationCoverageBasisPoints(2, 3), 6667);
-    assert.equal(communityReputationCoverageBasisPoints(4, 5), 8000);
+    assert.equal(communityReputationCoverageBasisPoints(3, 1), 3333);
+    assert.equal(communityReputationCoverageBasisPoints(3, 2), 6667);
+    assert.equal(communityReputationCoverageBasisPoints(5, 4), 8000);
   });
 
   it("rejects active sources, conflicting inserts and any ledger mutation", {
@@ -378,11 +378,12 @@ describe("Community reputation evidence PostgreSQL authority", () => {
       );
     });
 
-    const terminalId = await seedActiveEnrollment(identity, await previousCycle(5));
+    const terminalCycle = await previousCycle(5);
+    const terminalId = await seedActiveEnrollment(identity, terminalCycle);
     await finalizeEnrollment({
       identity,
       enrollmentId: terminalId,
-      cycle: await previousCycle(5),
+      cycle: terminalCycle,
       outcome: "completed",
       eligible: 5,
       reflected: 4,
