@@ -75,6 +75,11 @@ jobs:
       - name: Apply canonical migrations
         run: npm run db:migrate
 
+      - name: Withdrawal read authority guard
+        run: |
+          set -o pipefail
+          node scripts/check-withdrawal-read-authority.mjs 2>&1 | tee /tmp/tecpey-withdrawal-read-authority.log
+
       - name: Sensitive mutation audit authority guard
         run: |
           set -o pipefail
@@ -96,6 +101,7 @@ jobs:
         with:
           name: sensitive-mutation-audit-diagnostics-${{ github.sha }}
           path: |
+            /tmp/tecpey-withdrawal-read-authority.log
             /tmp/tecpey-sensitive-audit-guard.log
             /tmp/tecpey-sensitive-audit-tests.log
             /tmp/tecpey-sensitive-audit-typescript.log
