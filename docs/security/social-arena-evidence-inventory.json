@@ -9,7 +9,8 @@
     "legacyMigrationRule": "legacy browser records may be displayed only on explicitly quarantined historical surfaces and may never be promoted to durable truth",
     "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
     "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields",
-    "officialChallenges": "journal-reflection-week is the only official challenge: current-cycle consent, at least three canonical closed trades and at least 80 percent canonical reflection coverage; reward ledger, progress projection, student event and mandatory audit commit exactly once; all other challenge definitions remain preview-only"
+    "officialChallenges": "journal-reflection-week is the only official challenge: current-cycle consent, at least three canonical closed trades and at least 80 percent canonical reflection coverage; reward ledger, progress projection, student event and mandatory audit commit exactly once; all other challenge definitions remain preview-only",
+    "communityHub": "navigation and authority disclosure only; no browser profile, score, participation, completion, reward or fabricated community statistics"
   },
   "canonicalAuthorities": [
     {
@@ -70,7 +71,7 @@
       "module": "@/lib/community-leaderboard",
       "source": "src/lib/community-leaderboard.ts",
       "classification": "preview-only",
-      "reason": "browser-computed score and simulated peers"
+      "reason": "browser-computed score and simulated peers; no result from this module is presented by the Community Hub as official"
     },
     {
       "module": "@/lib/trading-dna",
@@ -109,12 +110,12 @@
     {
       "path": "src/components/academy/community/LeaderboardView.tsx",
       "classification": "preview-only",
-      "allowedAuthority": "simulated/demo presentation only"
+      "allowedAuthority": "simulated/demo presentation only; not promoted by the Hub or eligible for rewards, reputation or Mentor evidence"
     },
     {
       "path": "src/components/academy/community/CommunityHub.tsx",
-      "classification": "preview-only",
-      "allowedAuthority": "navigation and ephemeral profile setup only; no browser persistence or consent authority"
+      "classification": "navigation-only",
+      "allowedAuthority": "pure challenge-cycle disclosure and links to governed surfaces; no browser profile setup, local join, score calculation, completion, reward or fabricated statistics"
     },
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
@@ -154,6 +155,7 @@
     "src/lib/community-challenge-client.ts",
     "src/lib/community-challenges.ts",
     "src/app/api/community/profile/route.ts",
+    "src/components/academy/community/CommunityHub.tsx",
     "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/v2/MentorV2.tsx",
     "src/components/academy/v2/LearningInsightsDashboard.tsx",
