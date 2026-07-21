@@ -14,6 +14,7 @@ const files = {
   implementationGate: "docs/FINAL_IMPLEMENTATION_GATE.md",
   securityBlockers: "docs/SECURITY_BLOCKERS.md",
   hardeningPlan: "docs/PRODUCTION_HARDENING_MASTER_PLAN.md",
+  technicalDebt: "docs/TECHNICAL_DEBT_REGISTRY.md",
   apiKeysAuthority: "src/lib/security/api-keys.ts",
   apiKeysRoute: "src/app/api/api-keys/route.ts",
   apiKeyByIdRoute: "src/app/api/api-keys/[id]/route.ts",
@@ -87,7 +88,9 @@ for (const deletedPath of deletedPaths) {
 const productionRoots = ["src/app", "src/lib", "src/components", "src/workers"];
 const productionPaths = [];
 for (const root of productionRoots) {
-  if (await pathExists(root)) productionPaths.push(...(await listSourceFiles(root)));
+  if (await pathExists(root)) {
+    productionPaths.push(...(await listSourceFiles(root)));
+  }
 }
 
 for (const path of productionPaths) {
@@ -138,7 +141,11 @@ for (const path of productionPaths) {
     );
   }
 
-  if (/\b(?:DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\s+(?:IF\s+EXISTS\s+)?audit_events\b/i.test(source)) {
+  if (
+    /\b(?:DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\s+(?:IF\s+EXISTS\s+)?audit_events\b/i.test(
+      source,
+    )
+  ) {
     failures.push(
       `${sourcePath}: historical audit_events data cannot be removed by source cleanup`,
     );
@@ -170,6 +177,8 @@ for (const invariant of [
   "SB-003 is closed for soft launch by **surface elimination**",
   "Future activation requirements",
   "No existing credential automatically becomes valid",
+  "Technical-debt governance",
+  "A documentation-only status change cannot activate the capability",
 ]) {
   requireText(
     "signedPolicy",
@@ -259,10 +268,28 @@ rejectText(
 );
 
 for (const invariant of [
+  "TD-H02 — Signed API Replay Without Durable Nonce Authority",
+  "Launch-disabled by surface elimination",
+  "No signed API authentication route exists",
+  "TD-M08 — Historical `audit_events` Governance",
+  "Source-level best-effort writer removed",
+]) {
+  requireText(
+    "technicalDebt",
+    invariant,
+    `technical-debt current state is missing: ${invariant}`,
+  );
+}
+rejectText(
+  "technicalDebt",
+  "src/lib/security/api-key-auth.ts",
+  "technical-debt registry must not cite the deleted adapter as current authority",
+);
+
+for (const invariant of [
   "writeSensitiveMutationAuditTx(client",
   'action: "api_key.create"',
-  'action: "api_key.enable"',
-  'action: "api_key.disable"',
+  'action: active ? "api_key.enable" : "api_key.disable"',
   'action: "api_key.rotate"',
   'action: "api_key.delete"',
   "assertAuditActor",
@@ -316,7 +343,11 @@ requireText(
   "audit_events",
   "historical audit_events schema must remain in canonical migration history",
 );
-if (/\b(?:DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\s+(?:IF\s+EXISTS\s+)?audit_events\b/i.test(content.historicalMigration)) {
+if (
+  /\b(?:DROP\s+TABLE|TRUNCATE|DELETE\s+FROM)\s+(?:IF\s+EXISTS\s+)?audit_events\b/i.test(
+    content.historicalMigration,
+  )
+) {
   failures.push(
     `${files.historicalMigration}: canonical migration history must preserve audit_events`,
   );
@@ -329,5 +360,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Legacy audit and signed API launch guard passed: dormant source adapters remain deleted, production writeAudit callers are zero, signed API authentication is launch-disabled, API-key credential lifecycle remains transactionally evidenced, and historical audit_events data remains preserved.",
+  "Legacy audit and signed API launch guard passed: dormant source adapters remain deleted, production writeAudit callers are zero, signed API authentication is launch-disabled, API-key credential lifecycle remains transactionally evidenced, technical-debt status is governed, and historical audit_events data remains preserved.",
 );
