@@ -11,7 +11,8 @@ const files = {
   adminCollection: "src/app/api/admin/withdrawals/route.ts",
   adminDetail: "src/app/api/admin/withdrawals/[id]/route.ts",
   postgresTest:
-    "src/tests/security/withdrawal-admission-read-authority-postgres.test.ts",
+    "src/tests/security/withdrawal-admission-read-authority-postgres.integration.ts",
+  package: "package.json",
 };
 
 const content = Object.fromEntries(
@@ -56,11 +57,15 @@ for (const invariant of [
   "export type WithdrawalRecord",
   "export type WithdrawalReadResult",
   "export type WithdrawalListResult",
+  "type TimestampValue = Date | string",
   "WITHDRAWAL_PROJECTION_COLUMNS",
   "amount::text AS amount",
   "amount_usd::text AS amount_usd",
-  "compliance_checked_at::text AS compliance_checked_at",
-  "created_at::text AS created_at",
+  "compliance_checked_at,",
+  "created_at,",
+  "function timestampToIso(",
+  "date.toISOString()",
+  'throw new Error("withdrawal_projection_timestamp_invalid")',
   "export async function readWithdrawal(",
   "AND user_id = $2",
   "export async function listUserWithdrawalsStrict(",
@@ -72,11 +77,18 @@ for (const invariant of [
   "Math.min(Math.max(value, 1), maximum)",
   'reason: "withdrawal_storage_unavailable"',
 ]) {
-  requireText("authority", invariant, `read authority invariant is missing: ${invariant}`);
+  requireText(
+    "authority",
+    invariant,
+    `read authority invariant is missing: ${invariant}`,
+  );
 }
 
 for (const forbidden of [
   "SELECT *",
+  "compliance_checked_at::text",
+  "created_at::text",
+  "updated_at::text",
   "INSERT INTO",
   "UPDATE withdrawals",
   "DELETE FROM",
@@ -93,7 +105,7 @@ for (const forbidden of [
   rejectText(
     "authority",
     forbidden,
-    `read authority contains forbidden mutation/browser behavior: ${forbidden}`,
+    `read authority contains forbidden mutation/browser/shape behavior: ${forbidden}`,
   );
 }
 
@@ -106,7 +118,11 @@ for (const [target, invariant] of [
   ["adminCollection", 'from "@/lib/security/withdrawal-read-authority"'],
   ["adminDetail", 'from "@/lib/security/withdrawal-read-authority"'],
 ]) {
-  requireText(target, invariant, "active withdrawal consumer must use the dedicated read authority");
+  requireText(
+    target,
+    invariant,
+    "active withdrawal consumer must use the dedicated read authority",
+  );
 }
 
 rejectText(
@@ -163,6 +179,7 @@ for (const evidence of [
   "bounds user pagination and returns only the requested principal",
   "filters the Admin review queue and preserves deterministic oldest-first order",
   "assert.deepEqual(denied, { ok: true, withdrawal: null })",
+  'assert.equal(owned.withdrawal.createdAt, "2000-01-01T00:00:00.000Z")',
   "assert.equal(returnedIds.includes(ids.newest), false)",
 ]) {
   requireText(
@@ -172,14 +189,34 @@ for (const evidence of [
   );
 }
 
+for (const invariant of [
+  '"test:withdrawal-read-authority"',
+  "--conditions=react-server",
+  "withdrawal-admission-read-authority-postgres.integration.ts",
+  "npm run test:withdrawal-read-authority",
+]) {
+  requireText(
+    "package",
+    invariant,
+    `focused server-only test command is missing: ${invariant}`,
+  );
+}
+rejectText(
+  "package",
+  "withdrawal-admission-read-authority-postgres.test.ts",
+  "server-only PostgreSQL test must not enter the generic .test.ts suite",
+);
+
 const sourcePaths = await listSourceFiles("src");
 for (const path of sourcePaths) {
   const normalizedPath = relative(".", path).split(sep).join("/");
   if (normalizedPath === "src/lib/security/withdrawal-service.ts") continue;
   const source = await readFile(path, "utf8");
   if (
-    /(?:import|export)[\s\S]*?["'][^"']*withdrawal-service["']/.test(source) ||
-    /require\s*\([^)]*withdrawal-service/.test(source)
+    /from\s+["'][^"']*withdrawal-service["']/.test(source) ||
+    /import\s*\([^)]*withdrawal-service/.test(source) ||
+    /require\s*\([^)]*withdrawal-service/.test(source) ||
+    /export\s+[\s\S]*?from\s+["'][^"']*withdrawal-service["']/.test(source)
   ) {
     failures.push(
       `${normalizedPath}: active dependency on mixed legacy withdrawal-service is forbidden`,
@@ -194,5 +231,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Withdrawal read authority passed: explicit projections, owner isolation, bounded pagination, deterministic ordering, strict outage semantics and zero active imports from the mixed legacy withdrawal service are enforced.",
+  "Withdrawal read authority passed: explicit projections, ISO timestamp normalization, owner isolation, bounded pagination, deterministic ordering, strict outage semantics, focused server-only PostgreSQL evidence and zero active imports from the mixed legacy withdrawal service are enforced.",
 );
