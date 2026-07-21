@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { getCanonicalSession } from "@/lib/auth-session";
 import {
+  loadOfficialJournalChallengeState,
+  processOfficialJournalChallengeCommand,
+} from "@/lib/community-journal-challenge-authority";
+import {
   listCommunityJournalFeed,
   parseCommunityJournalCursor,
 } from "@/lib/community-journal-authority";
@@ -26,6 +30,7 @@ import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-c
 export const dynamic = "force-dynamic";
 
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/;
+const CHALLENGE_IDEMPOTENCY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,119}$/;
 const PATCH_FIELDS = new Set([
   "expectedRevision",
   "profileVisibility",
@@ -35,6 +40,7 @@ const PATCH_FIELDS = new Set([
   "challengeParticipation",
   "studyGroupDiscovery",
 ]);
+const CHALLENGE_COMMAND_FIELDS = new Set(["action", "cycleKey"]);
 
 function noStore<T>(response: NextResponse<T>): NextResponse<T> {
   response.headers.set("Cache-Control", "private, no-store");
@@ -84,6 +90,26 @@ function parseConsentPatch(value: unknown):
   };
 }
 
+function parseChallengeCommand(value: unknown):
+  | { ok: true; action: "join" | "evaluate"; cycleKey: string }
+  | { ok: false } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ok: false };
+  }
+  const body = value as Record<string, unknown>;
+  if (Object.keys(body).some((key) => !CHALLENGE_COMMAND_FIELDS.has(key))) {
+    return { ok: false };
+  }
+  if (
+    (body.action !== "join" && body.action !== "evaluate") ||
+    typeof body.cycleKey !== "string" ||
+    !/^[0-9]{4}-W[0-9]{2}$/.test(body.cycleKey)
+  ) {
+    return { ok: false };
+  }
+  return { ok: true, action: body.action, cycleKey: body.cycleKey };
+}
+
 export async function GET(req: NextRequest) {
   return withObservability(
     req,
@@ -116,7 +142,11 @@ export async function GET(req: NextRequest) {
         return noStore(apiOk({ authenticated: false, profile: loaded.profile }));
       }
 
-      if (view !== "profile" && view !== "journal-feed") {
+      if (
+        view !== "profile" &&
+        view !== "journal-feed" &&
+        view !== "journal-reflection-challenge"
+      ) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
 
@@ -163,6 +193,36 @@ export async function GET(req: NextRequest) {
         return noStore(apiOk(feed.page));
       }
 
+      if (view === "journal-reflection-challenge") {
+        if (searchParams.has("cursor") || searchParams.has("limit")) {
+          return noStore(apiError("invalid_community_profile_view", 400));
+        }
+        const limited = await rateLimit(req, {
+          namespace: "community-journal-challenge-read",
+          identity: session.studentId,
+          limit: 60,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const challengeContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:challenge:read"],
+          requestId: resolveSensitiveAuditCorrelation(
+            req.headers.get("x-tecpey-request-id"),
+          ),
+        });
+        if (!challengeContext.available) {
+          return noStore(apiError("community_challenge_unavailable", 503));
+        }
+        const loaded = await loadOfficialJournalChallengeState(challengeContext);
+        if (!loaded.available) {
+          return noStore(apiError("community_challenge_unavailable", 503));
+        }
+        return noStore(apiOk({ state: loaded.state }));
+      }
+
       if (searchParams.has("cursor") || searchParams.has("limit")) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
@@ -205,6 +265,70 @@ export async function PATCH(req: NextRequest) {
       if (!session.studentId) {
         return noStore(apiError("academy_profile_required", 401));
       }
+
+      const view = new URL(req.url).searchParams.get("view")?.trim() ?? "profile";
+      if (view !== "profile" && view !== "journal-reflection-challenge") {
+        return noStore(apiError("invalid_community_profile_view", 400));
+      }
+
+      const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? "";
+      const idempotencyPattern = view === "journal-reflection-challenge"
+        ? CHALLENGE_IDEMPOTENCY_PATTERN
+        : IDEMPOTENCY_PATTERN;
+      if (!idempotencyPattern.test(idempotencyKey)) {
+        return noStore(apiError("idempotency_key_required", 400));
+      }
+
+      const bounded = await readBoundedJsonRequest(req, { maxBytes: 2_048 });
+      if (!bounded.ok) return noStore(apiError(bounded.error, bounded.status));
+
+      if (view === "journal-reflection-challenge") {
+        const limited = await rateLimit(req, {
+          namespace: "community-journal-challenge-write",
+          identity: session.studentId,
+          limit: 20,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const parsed = parseChallengeCommand(bounded.value);
+        if (!parsed.ok) {
+          return noStore(apiError("invalid_community_challenge_command", 400));
+        }
+        const challengeContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:challenge:write"],
+          requestId: idempotencyKey,
+        });
+        if (!challengeContext.available) {
+          return noStore(apiError("community_challenge_unavailable", 503));
+        }
+        const result = await processOfficialJournalChallengeCommand(
+          challengeContext,
+          {
+            action: parsed.action,
+            cycleKey: parsed.cycleKey,
+            idempotencyKey,
+          },
+        );
+        if (!result.ok) {
+          if (result.reason === "challenge_consent_required") {
+            return noStore(apiError(result.reason, 409));
+          }
+          if (
+            result.reason === "challenge_cycle_conflict" ||
+            result.reason === "challenge_not_joined" ||
+            result.reason === "idempotency_conflict" ||
+            result.reason === "command_in_progress"
+          ) {
+            return noStore(apiError(result.reason, 409));
+          }
+          return noStore(apiError("community_challenge_unavailable", 503));
+        }
+        return noStore(apiOk({ state: result.state, replayed: result.replayed }));
+      }
+
       const limited = await rateLimit(req, {
         namespace: "community-profile-write",
         identity: session.studentId,
@@ -213,12 +337,6 @@ export async function PATCH(req: NextRequest) {
       });
       if (!limited.ok) return noStore(apiError("rate_limited", 429));
 
-      const idempotencyKey = req.headers.get("idempotency-key")?.trim() ?? "";
-      if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
-        return noStore(apiError("idempotency_key_required", 400));
-      }
-      const bounded = await readBoundedJsonRequest(req, { maxBytes: 2_048 });
-      if (!bounded.ok) return noStore(apiError(bounded.error, bounded.status));
       const parsed = parseConsentPatch(bounded.value);
       if (!parsed.ok) return noStore(apiError("invalid_community_profile_consent", 400));
 
