@@ -175,25 +175,30 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (announce = false) => {
-    setLoading(true);
-    setError(null);
-    const result = await loadCommunityReputationScoringConsentClient();
-    if (result.available) {
-      setConsent(result.consent);
-      if (announce) setMessage(copy.refreshed);
-    } else {
-      setConsent(null);
-      setError(
-        result.reason === "unauthenticated"
-          ? copy.unauthenticated
-          : result.reason === "invalid_response"
-            ? copy.invalid
-            : copy.unavailable,
-      );
-    }
-    setLoading(false);
-  }, [copy]);
+  const load = useCallback(
+    async (announce = false) => {
+      setLoading(true);
+      setError(null);
+      if (announce) setMessage(null);
+
+      const result = await loadCommunityReputationScoringConsentClient();
+      if (result.available) {
+        setConsent(result.consent);
+        if (announce) setMessage(copy.refreshed);
+      } else {
+        setConsent(null);
+        setError(
+          result.reason === "unauthenticated"
+            ? copy.unauthenticated
+            : result.reason === "invalid_response"
+              ? copy.invalid
+              : copy.unavailable,
+        );
+      }
+      setLoading(false);
+    },
+    [copy],
+  );
 
   useEffect(() => {
     void load(false);
@@ -202,6 +207,7 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
   const save = useCallback(
     async (enabled: boolean) => {
       if (!consent || saving) return;
+
       setSaving(true);
       setMessage(null);
       setError(null);
@@ -209,19 +215,22 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
         expectedRevision: consent.revision,
         enabled,
       });
+
       if (result.ok) {
         setConsent(result.consent);
         setAcknowledged(false);
         setMessage(enabled ? copy.saved : copy.revokedNote);
         onConsentChanged?.(result.consent);
+      } else if (result.reason === "revision_conflict") {
+        await load(false);
+        setError(null);
+        setMessage(copy.conflict);
       } else {
         setError(mutationMessage(result, copy));
-        if (result.reason === "revision_conflict") {
-          await load(false);
-        }
       }
       setSaving(false);
-    }, [consent, copy, load, onConsentChanged, saving],
+    },
+    [consent, copy, load, onConsentChanged, saving],
   );
 
   if (loading) {
@@ -247,9 +256,14 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
         dir={language === "fa" ? "rtl" : "ltr"}
       >
         <div className="flex items-start gap-3">
-          <ShieldOff className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
+          <ShieldOff
+            className="mt-0.5 h-5 w-5 shrink-0 text-amber-300"
+            aria-hidden="true"
+          />
           <div className="flex-1">
-            <p className="font-black text-amber-100">{copy.unavailable}</p>
+            <p className="font-black text-amber-100">
+              {error ?? copy.unavailable}
+            </p>
             <button
               type="button"
               onClick={() => void load(true)}
@@ -273,6 +287,13 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
         timeStyle: "short",
       }).format(new Date(consent.consentedAt))
     : null;
+
+  const explanations = [
+    [copy.computesTitle, copy.computes],
+    [copy.excludesTitle, copy.excludes],
+    [copy.privacyTitle, copy.privacy],
+    [copy.evidenceTitle, copy.evidence],
+  ] as const;
 
   return (
     <section
@@ -313,12 +334,7 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {[
-          [copy.computesTitle, copy.computes],
-          [copy.excludesTitle, copy.excludes],
-          [copy.privacyTitle, copy.privacy],
-          [copy.evidenceTitle, copy.evidence],
-        ].map(([title, description]) => (
+        {explanations.map(([title, description]) => (
           <div
             key={title}
             className="rounded-2xl border border-white/5 bg-slate-950/35 p-4"
@@ -334,9 +350,14 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
       {consent.enabled ? (
         <div className="mt-5 rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.04] p-4">
           <div className="flex items-start gap-3">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+            <Check
+              className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300"
+              aria-hidden="true"
+            />
             <div className="flex-1">
-              <p className="text-xs font-black text-emerald-100">{copy.activeNote}</p>
+              <p className="text-xs font-black text-emerald-100">
+                {copy.activeNote}
+              </p>
               {changedAt && (
                 <p className="mt-1 text-[10px] font-bold text-emerald-100/55">
                   {copy.lastChanged}: {changedAt}
@@ -382,10 +403,14 @@ export function ReputationScoringConsentControl({ onConsentChanged }: Props) {
               disabled={!acknowledged || saving}
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-cyan-200/25 bg-cyan-200/10 px-4 py-2 text-xs font-black text-cyan-50 transition hover:bg-cyan-200/15 focus:outline-none focus:ring-2 focus:ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {saving && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
               {saving ? copy.enabling : copy.enable}
             </button>
-            <p className="text-[10px] font-bold text-slate-500">{copy.keepOff}</p>
+            <p className="text-[10px] font-bold text-slate-500">
+              {copy.keepOff}
+            </p>
           </div>
         </fieldset>
       )}
