@@ -29,6 +29,11 @@ require_absolute_path() {
   [[ "$value" != *$'\n'* && "$value" != *$'\r'* && "$value" != *$'\t'* && "$value" != *' '* ]] || fail "$code"
 }
 
+read_env_value() {
+  local name="$1"
+  sed -n -E "s/^[[:space:]]*${name}=([^[:space:]]+)[[:space:]]*$/\\1/p" "$ENV_FILE" | tail -n 1
+}
+
 require_safe_token "$RUN_USER" "runtime_user_invalid"
 require_safe_token "$RUN_GROUP" "runtime_group_invalid"
 [[ "$RUN_USER" != "root" ]] || fail "runtime_user_root_forbidden"
@@ -62,10 +67,15 @@ ENV_OTHER_DIGIT="${ENV_LAST3:2:1}"
 (( ENV_OTHER_DIGIT == 0 )) || fail "environment_file_world_access_forbidden"
 (( (ENV_GROUP_DIGIT & 3) == 0 )) || fail "environment_file_group_write_execute_forbidden"
 
-grep -Eq '^[[:space:]]*DATABASE_URL=[^[:space:]]+' "$ENV_FILE" || fail "database_url_missing"
-grep -Eq '^[[:space:]]*TECPEY_OPS_ALERT_WEBHOOK_URL=https://[^[:space:]]+' "$ENV_FILE" || fail "ops_alert_https_webhook_missing"
-if grep -Eq 'CHANGE_ME|example\.invalid|localhost' "$ENV_FILE"; then
-  fail "environment_placeholder_forbidden"
+DATABASE_URL_VALUE="$(read_env_value DATABASE_URL)"
+ALERT_WEBHOOK_VALUE="$(read_env_value TECPEY_OPS_ALERT_WEBHOOK_URL)"
+[[ -n "$DATABASE_URL_VALUE" ]] || fail "database_url_missing"
+[[ "$ALERT_WEBHOOK_VALUE" == https://* ]] || fail "ops_alert_https_webhook_missing"
+if [[ "$DATABASE_URL_VALUE" == *CHANGE_ME* || "$DATABASE_URL_VALUE" == *example.invalid* ]]; then
+  fail "database_url_placeholder_forbidden"
+fi
+if [[ "$ALERT_WEBHOOK_VALUE" == *CHANGE_ME* || "$ALERT_WEBHOOK_VALUE" == *example.invalid* || "$ALERT_WEBHOOK_VALUE" == *localhost* ]]; then
+  fail "ops_alert_webhook_placeholder_forbidden"
 fi
 
 TMP_DIR="$(mktemp -d)"
