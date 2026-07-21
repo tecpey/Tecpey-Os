@@ -9,9 +9,14 @@ const requiredFiles = {
   client: "src/lib/community-reputation-evidence-client.ts",
   panel: "src/components/academy/community/ReputationEvidencePanel.tsx",
   hub: "src/components/academy/community/CommunityHub.tsx",
+  leaderboardView: "src/components/academy/community/LeaderboardView.tsx",
   legacy: "src/lib/community-leaderboard.ts",
   package: "package.json",
   documentation: "docs/academy/COMMUNITY_REPUTATION_EVIDENCE_AUTHORITY.md",
+  apiReadRoute: "docs/security/generated/api-security-manifest-reviewed-deltas.d/0230-community-reputation-read-route.json",
+  apiDeltaAuthority: "scripts/api-security-manifest-reviewed-deltas.mjs",
+  apiManifestCheck: "scripts/check-api-security-manifest.mjs",
+  apiDeltaTests: "scripts/api-security-manifest-reviewed-deltas.test.mjs",
 };
 
 async function filesUnder(root) {
@@ -83,7 +88,7 @@ for (const forbidden of [
 }
 
 for (const invariant of [
-  '0051_community_reputation_evidence.sql',
+  "0051_community_reputation_evidence.sql",
   "CREATE TABLE IF NOT EXISTS academy_community_reputation_evidence",
   "tecpey_community_reputation_coverage_bps",
   "tecpey_community_reputation_source_digest",
@@ -93,12 +98,16 @@ for (const invariant of [
   "BEFORE UPDATE ON academy_community_reputation_evidence",
   "BEFORE DELETE ON academy_community_reputation_evidence",
   "tecpey_validate_community_reputation_evidence_insert",
+  "community reputation principal binding inactive",
   "tecpey_materialize_community_reputation_evidence",
+  "AFTER INSERT ON academy_community_challenge_enrollments",
   "AFTER UPDATE ON academy_community_challenge_enrollments",
   "OLD.status IS DISTINCT FROM NEW.status",
   "community reputation materialization conflict",
   "community reputation evidence backfill mismatch",
   "ON CONFLICT (source_enrollment_id) DO NOTHING",
+  "JOIN platform_principal_bindings AS binding",
+  "binding.status = 'active'",
 ]) {
   requireText("migration", invariant, `database invariant is missing: ${invariant}`);
 }
@@ -132,10 +141,11 @@ for (const invariant of [
 }
 for (const forbidden of [
   "export async function POST",
+  "export async function PUT",
   "export async function PATCH",
   "export async function DELETE",
   "publicIdentifier",
-  "searchParams.get(\"id\")",
+  'searchParams.get("id")',
   "localStorage",
   "sessionStorage",
 ]) {
@@ -206,6 +216,29 @@ for (const forbidden of [
 }
 
 for (const invariant of [
+  'import { ReputationEvidencePanel } from "./ReputationEvidencePanel"',
+  "<ReputationEvidencePanel />",
+  "Evidence قبل از Ranking",
+  "بدون امتیاز",
+  "شرایط لازم پیش از فعال‌شدن Leaderboard",
+  "هیچ وزن، امتیاز یا جایگاه کاربر محاسبه نمی‌شود",
+]) {
+  requireText("leaderboardView", invariant, `Leaderboard evidence-only boundary is missing: ${invariant}`);
+}
+for (const forbidden of [
+  "loadCommunityProfile",
+  "computeMyLeaderboardScores",
+  "getLeaderboard",
+  "LeaderboardEntry",
+  "ScoreBar",
+  "isDemo",
+  "anonymousId",
+  "Math.random",
+]) {
+  rejectText("leaderboardView", forbidden, `Leaderboard page contains legacy rank authority: ${forbidden}`);
+}
+
+for (const invariant of [
   "contains no score calculation",
   "Official Community reputation facts come only from the PostgreSQL-backed",
   "Ranking policy remains disabled",
@@ -249,8 +282,70 @@ for (const invariant of [
   "principal",
   "Mentor",
   "Instructor",
+  "AFTER INSERT",
+  "AFTER UPDATE",
 ]) {
   requireText("documentation", invariant, `authority documentation is missing: ${invariant}`);
+}
+
+const readRouteRegistry = JSON.parse(source.apiReadRoute);
+const reviewedReadRoute = readRouteRegistry.readOnlyRoutes?.[0];
+if (
+  readRouteRegistry.schemaVersion !== 1 ||
+  readRouteRegistry.baselineBlobSha !== "88ef6f5e31c0c93b3240406959bdae57ef5472e5" ||
+  !Array.isArray(readRouteRegistry.entries) ||
+  readRouteRegistry.entries.length !== 0 ||
+  !Array.isArray(readRouteRegistry.readOnlyRoutes) ||
+  readRouteRegistry.readOnlyRoutes.length !== 1 ||
+  reviewedReadRoute?.route !== "/api/community/reputation-evidence" ||
+  reviewedReadRoute?.sourcePath !== "src/app/api/community/reputation-evidence/route.ts" ||
+  reviewedReadRoute?.sourceHash !== "96661a1dcea2f2c54c134571" ||
+  reviewedReadRoute?.issue !== "#230" ||
+  reviewedReadRoute?.owner !== "community-platform" ||
+  reviewedReadRoute?.controls?.classification !== "authenticated" ||
+  reviewedReadRoute?.controls?.strictRevocation !== true ||
+  reviewedReadRoute?.controls?.rateLimit !== true ||
+  reviewedReadRoute?.controls?.verifiedPrincipal !== true ||
+  reviewedReadRoute?.controls?.tenantFromVerifiedContext !== true ||
+  reviewedReadRoute?.controls?.noStore !== true ||
+  reviewedReadRoute?.controls?.queryParameters !== "none"
+) {
+  failures.push(`${requiredFiles.apiReadRoute}: private GET route ledger is incomplete or weakened`);
+}
+
+for (const invariant of [
+  "readOnlyRoutes",
+  "READ_ONLY_ROUTE_FIELDS",
+  "READ_ONLY_CONTROL_FIELDS",
+  "api_security_read_only_route_",
+  "effective.totals.routeFiles += reviewedReadOnlyRoutes.length",
+  "strictRevocation !== true",
+  'queryParameters !== "none"',
+]) {
+  requireText("apiDeltaAuthority", invariant, `API read-only ledger authority is missing: ${invariant}`);
+}
+
+for (const invariant of [
+  "verifyReviewedReadOnlyRoutes",
+  "createHash(\"sha256\")",
+  "Reviewed read-only route hash mismatch",
+  "unexpectedly exports",
+  "strict canonical session evidence",
+  "lacks rate limiting",
+  "lacks verified tenant/principal context",
+  "lacks private no-store cookie variance",
+  "does not reject all query parameters",
+]) {
+  requireText("apiManifestCheck", invariant, `API manifest read-only verification is missing: ${invariant}`);
+}
+
+for (const invariant of [
+  "applies one exact additive read-only route",
+  "rejects duplicate reviewed read-only routes",
+  "rejects weakened or unknown read-only route controls",
+  "routeFiles authority is absent",
+]) {
+  requireText("apiDeltaTests", invariant, `API read-only ledger test is missing: ${invariant}`);
 }
 
 const bannedPatterns = [
@@ -274,5 +369,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Community reputation evidence authority passed: finalized challenge evidence is PostgreSQL-materialized, append-only, tenant/principal-bound, digest-verified and evidence-only; browser scoring, demo peers, rank, rewards and Mentor/Instructor decisions remain disabled.",
+  "Community reputation evidence authority passed: finalized challenge evidence is PostgreSQL-materialized on terminal insert/update, append-only, tenant/principal-bound, digest-verified and evidence-only; the private GET route is hash-reviewed; browser scoring, demo peers, rank, rewards and Mentor/Instructor decisions remain disabled.",
 );
