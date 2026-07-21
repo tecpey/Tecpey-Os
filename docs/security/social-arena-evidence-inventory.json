@@ -21,15 +21,11 @@
     },
     {
       "path": "src/app/api/community/profile/route.ts",
-      "purpose": "strict-session, bounded, revisioned and idempotent HTTP consent contract"
+      "purpose": "strict-session profile reads, revisioned consent mutation and tenant-context-bound shared-journal read view"
     },
     {
       "path": "src/lib/community-journal-authority.ts",
       "purpose": "server-only same-tenant privacy projection from canonical Trading Arena reflections gated by evidenced account consent"
-    },
-    {
-      "path": "src/app/api/community/journals/route.ts",
-      "purpose": "strict-session, tenant-context-bound, private/no-store deterministic feed contract"
     },
     {
       "path": "src/lib/community-journal-client.ts",
@@ -145,7 +141,7 @@
     "src/lib/community-profile-authority.ts",
     "src/lib/community-journal-authority.ts",
     "src/lib/community-journal-client.ts",
-    "src/app/api/community/journals/route.ts",
+    "src/app/api/community/profile/route.ts",
     "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/v2/MentorV2.tsx",
     "src/components/academy/v2/LearningInsightsDashboard.tsx",
