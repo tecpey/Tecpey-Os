@@ -230,7 +230,6 @@ async function selectValidatedWindow(
   client: PoolClient,
   context: AvailableTenantPrincipalContext,
 ): Promise<JournalDisciplineScoreCycleInput[]> {
-  await requireActiveBinding(client, context);
   const selected = await client.query<CommunityReputationEvidenceRow>(
     `SELECT ${EVIDENCE_SELECT}
        FROM academy_community_reputation_evidence AS evidence
@@ -271,6 +270,7 @@ export async function loadJournalDisciplineScore(
       await client.query("SET LOCAL statement_timeout = '5000ms'");
       await client.query("SET LOCAL lock_timeout = '1000ms'");
 
+      await requireActiveBinding(client, context);
       const consentEnabled =
         await isCommunityReputationScoringConsentEnabledTx(client, context);
       if (!consentEnabled) {
