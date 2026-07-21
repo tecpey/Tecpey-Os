@@ -39,41 +39,45 @@ function parseStringUnion(typeName) {
 
 function exactKeys(value, expected) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const keys = Object.keys(value).sort();
+  const actual = Object.keys(value).sort();
+  const required = [...expected].sort();
   return (
-    keys.length === expected.length &&
-    expected.every((key, index) => key === keys[index])
+    actual.length === required.length &&
+    required.every((key, index) => key === actual[index])
   );
 }
 
-function duplicateValues(values) {
+function duplicates(values) {
   const seen = new Set();
-  const duplicates = new Set();
+  const duplicateSet = new Set();
   for (const value of values) {
-    if (seen.has(value)) duplicates.add(value);
+    if (seen.has(value)) duplicateSet.add(value);
     seen.add(value);
   }
-  return [...duplicates].sort();
+  return [...duplicateSet].sort();
 }
 
-function compareSets(label, authorityValues, inventoryValues) {
+function compareExactSets(label, authorityValues, inventoryValues) {
   const authoritySet = new Set(authorityValues);
   const inventorySet = new Set(inventoryValues);
-  const missing = [...authoritySet].filter((value) => !inventorySet.has(value));
-  const extra = [...inventorySet].filter((value) => !authoritySet.has(value));
+  const missing = authorityValues.filter((value) => !inventorySet.has(value));
+  const unknown = inventoryValues.filter((value) => !authoritySet.has(value));
   if (missing.length > 0) {
     failures.push(
       `${files.inventory}: missing ${label} values: ${missing.sort().join(", ")}`,
     );
   }
-  if (extra.length > 0) {
+  if (unknown.length > 0) {
     failures.push(
-      `${files.inventory}: unknown ${label} values: ${extra.sort().join(", ")}`,
+      `${files.inventory}: unknown ${label} values: ${unknown.sort().join(", ")}`,
     );
+  }
+  if (authoritySet.size !== inventorySet.size) {
+    failures.push(`${files.inventory}: ${label} union/registry cardinality differs`);
   }
 }
 
-async function pathExists(path) {
+async function exists(path) {
   try {
     await stat(path);
     return true;
@@ -117,21 +121,16 @@ if (
 }
 
 const actionUnion = parseStringUnion("SensitiveMutationAuditAction");
-const resourceUnion = parseStringUnion("SensitiveMutationResource");
+const resourceUnion = parseStringUnion("SensitiveMutationAuditResource");
 const actionEntries = Array.isArray(inventory.actions) ? inventory.actions : [];
 const resourceEntries = Array.isArray(inventory.resources)
   ? inventory.resources
   : [];
-
 const sensitivities = new Set(["internal", "confidential", "restricted"]);
+
 for (const entry of actionEntries) {
   if (
-    !exactKeys(entry, ["action", "domainOwner", "evidenceClass", "sensitivity"])
-  ) {
-    failures.push(`${files.inventory}: malformed action inventory entry`);
-    continue;
-  }
-  if (
+    !exactKeys(entry, ["action", "domainOwner", "evidenceClass", "sensitivity"]) ||
     typeof entry.action !== "string" ||
     typeof entry.domainOwner !== "string" ||
     entry.domainOwner.length < 3 ||
@@ -140,19 +139,14 @@ for (const entry of actionEntries) {
     !sensitivities.has(entry.sensitivity)
   ) {
     failures.push(
-      `${files.inventory}: incomplete action classification ${String(entry.action)}`,
+      `${files.inventory}: malformed action classification ${String(entry?.action)}`,
     );
   }
 }
 
 for (const entry of resourceEntries) {
   if (
-    !exactKeys(entry, ["dataCategory", "domainOwner", "resource", "sensitivity"])
-  ) {
-    failures.push(`${files.inventory}: malformed resource inventory entry`);
-    continue;
-  }
-  if (
+    !exactKeys(entry, ["resource", "domainOwner", "dataCategory", "sensitivity"]) ||
     typeof entry.resource !== "string" ||
     typeof entry.domainOwner !== "string" ||
     entry.domainOwner.length < 3 ||
@@ -161,36 +155,27 @@ for (const entry of resourceEntries) {
     !sensitivities.has(entry.sensitivity)
   ) {
     failures.push(
-      `${files.inventory}: incomplete resource classification ${String(entry.resource)}`,
+      `${files.inventory}: malformed resource classification ${String(entry?.resource)}`,
     );
   }
 }
 
 const inventoryActions = actionEntries.map((entry) => entry.action);
 const inventoryResources = resourceEntries.map((entry) => entry.resource);
-for (const duplicate of duplicateValues(inventoryActions)) {
-  failures.push(`${files.inventory}: duplicate action ${duplicate}`);
+for (const value of duplicates(inventoryActions)) {
+  failures.push(`${files.inventory}: duplicate action ${value}`);
 }
-for (const duplicate of duplicateValues(inventoryResources)) {
-  failures.push(`${files.inventory}: duplicate resource ${duplicate}`);
+for (const value of duplicates(inventoryResources)) {
+  failures.push(`${files.inventory}: duplicate resource ${value}`);
 }
-compareSets("action", actionUnion, inventoryActions);
-compareSets("resource", resourceUnion, inventoryResources);
+compareExactSets("action", actionUnion, inventoryActions);
+compareExactSets("resource", resourceUnion, inventoryResources);
 
-const productionRoots = [
-  "src/app",
-  "src/lib",
-  "src/components",
-  "src/workers",
-  "scripts",
-];
+const roots = ["src", "scripts"];
 const sourcePaths = [];
-for (const root of productionRoots) {
-  if (await pathExists(root)) sourcePaths.push(...(await listSourceFiles(root)));
+for (const root of roots) {
+  if (await exists(root)) sourcePaths.push(...(await listSourceFiles(root)));
 }
-
-const activeActions = new Set();
-const activeResources = new Set();
 const governedPrefixes = new Set(
   inventoryActions.map((action) => action.split(".")[0]),
 );
@@ -201,22 +186,12 @@ for (const path of sourcePaths) {
     sourcePath === files.authority ||
     sourcePath === "scripts/check-sensitive-audit-domain-inventory.mjs" ||
     sourcePath.includes("/tests/") ||
-    sourcePath.includes("/stubs/")
+    sourcePath.includes("/stubs/") ||
+    sourcePath.includes("/fixtures/")
   ) {
     continue;
   }
-
   const source = await readFile(path, "utf8");
-  for (const action of inventoryActions) {
-    if (source.includes(`"${action}"`) || source.includes(`'${action}'`)) {
-      activeActions.add(action);
-    }
-  }
-  for (const resource of inventoryResources) {
-    if (source.includes(`"${resource}"`) || source.includes(`'${resource}'`)) {
-      activeResources.add(resource);
-    }
-  }
 
   for (const match of source.matchAll(/\baction\s*:\s*["']([a-z0-9_.]+)["']/gi)) {
     const action = match[1];
@@ -233,9 +208,7 @@ for (const path of sourcePaths) {
     sourcePath.startsWith("src/app/") &&
     /\b(?:sensitive_mutation_audit_events|audit_events)\b/.test(source)
   ) {
-    failures.push(
-      `${sourcePath}: public/application route must not expose raw audit tables`,
-    );
+    failures.push(`${sourcePath}: application route cannot access raw audit tables`);
   }
 
   if (
@@ -243,9 +216,7 @@ for (const path of sourcePaths) {
       source,
     )
   ) {
-    failures.push(
-      `${sourcePath}: governed audit tables cannot be removed by ordinary source`,
-    );
+    failures.push(`${sourcePath}: governed audit tables cannot be removed`);
   }
 }
 
@@ -270,7 +241,7 @@ for (const invariant of [
 
 if (/\b\d+\s*(?:day|days|month|months|year|years)\b/i.test(policySource)) {
   failures.push(
-    `${files.policy}: jurisdictional retention duration requires an explicit guard/policy-version migration`,
+    `${files.policy}: retention duration requires explicit legal approval and policy migration`,
   );
 }
 
@@ -280,29 +251,16 @@ for (const invariant of [
   "audit_events retained; non-authoritative for sensitive mutation proof",
 ]) {
   if (!classificationSource.includes(invariant)) {
-    failures.push(`${files.classification}: missing historical boundary ${invariant}`);
+    failures.push(`${files.classification}: missing classification invariant ${invariant}`);
   }
 }
 
 if (failures.length > 0) {
-  console.error("Sensitive mutation audit domain inventory failed:");
+  console.error("Sensitive audit domain inventory failed:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-const reservedActions = inventoryActions.filter(
-  (action) => !activeActions.has(action),
-);
-const reservedResources = inventoryResources.filter(
-  (resource) => !activeResources.has(resource),
-);
-
 console.log(
-  `Sensitive mutation audit inventory passed: ${inventoryActions.length} actions (${activeActions.size} active, ${reservedActions.length} reserved) and ${inventoryResources.length} resources (${activeResources.size} active, ${reservedResources.length} reserved) are exactly classified; retention/access authority remains conservative and governed.`,
+  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, with governed source/table/retention boundaries.`,
 );
-if (reservedActions.length > 0) {
-  console.log(`Reserved actions: ${reservedActions.sort().join(", ")}`);
-}
-if (reservedResources.length > 0) {
-  console.log(`Reserved resources: ${reservedResources.sort().join(", ")}`);
-}
