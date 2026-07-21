@@ -66,9 +66,22 @@ for (const path of await listSourceFiles("src")) {
     }
   }
 
-  if (/x-tecpey-(?:apikey|timestamp|signature)/i.test(source)) {
+  // The retired request-auth protocol uniquely required X-TecPey-ApiKey.
+  // Timestamp/signature pairs alone are still valid for independently governed
+  // outbound webhooks such as the CRM delivery contract.
+  if (/x-tecpey-apikey/i.test(source)) {
     failures.push(
-      `${sourcePath}: launch-disabled signed API authentication headers are forbidden`,
+      `${sourcePath}: launch-disabled signed API-key request header is forbidden`,
+    );
+  }
+  if (
+    /x-tecpey-(?:timestamp|signature)/i.test(source) &&
+    /(?:signed.?api|api.?key.?auth|validateSignedApiKeyRequest|hasApiKeyHeaders)/i.test(
+      source,
+    )
+  ) {
+    failures.push(
+      `${sourcePath}: signed API request timestamp/signature protocol is forbidden`,
     );
   }
 }
@@ -80,5 +93,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Retired security surface passed: all production src directories reject legacy audit writers, deleted Withdrawal entrypoints, signed API adapters, CommonJS/dynamic imports and signed-auth headers.",
+  "Retired security surface passed: all production src directories reject legacy audit writers, deleted Withdrawal entrypoints, signed API adapters, CommonJS/dynamic imports and signed API-key auth headers while preserving separately governed outbound webhook signatures.",
 );
