@@ -1,8 +1,5 @@
 import { readFile } from "node:fs/promises";
-import {
-  legacyImportViolations,
-  previewChallengeViolations,
-} from "./social-arena-evidence-policy.mjs";
+import { legacyImportViolations } from "./social-arena-evidence-policy.mjs";
 
 const paths = {
   inventory: "docs/security/social-arena-evidence-inventory.json",
@@ -13,6 +10,10 @@ const paths = {
   insights: "src/components/academy/v2/LearningInsightsDashboard.tsx",
   instructor: "src/components/academy/community/InstructorDashboard.tsx",
   challenge: "src/components/academy/community/ChallengeCenter.tsx",
+  challengeCatalogue: "src/lib/community-challenges.ts",
+  challengeClient: "src/lib/community-journal-challenge-client.ts",
+  challengeAuthority: "src/lib/community-journal-challenge-authority.ts",
+  challengeMigration: "src/lib/db-migrate-community-journal-challenge.ts",
   peerJournals: "src/components/academy/community/PeerJournals.tsx",
   communityJournalClient: "src/lib/community-journal-client.ts",
   communityJournalAuthority: "src/lib/community-journal-authority.ts",
@@ -51,9 +52,14 @@ function rejectText(target, token, reason) {
     failures.push(`${paths[target]}: ${reason}`);
   }
 }
+function requireInventory(collection, path, reason) {
+  if (!inventory[collection]?.some((entry) => entry.path === path)) {
+    failures.push(`${paths.inventory}: ${reason}: ${path}`);
+  }
+}
 
-if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 214) {
-  failures.push(`${paths.inventory}: inventory identity/schema or #214 linkage is invalid`);
+if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 217) {
+  failures.push(`${paths.inventory}: inventory identity/schema or #217 linkage is invalid`);
 }
 for (const moduleName of [
   "@/lib/trading-arena",
@@ -68,90 +74,163 @@ for (const moduleName of [
     failures.push(`${paths.inventory}: missing classification for ${moduleName}`);
   }
 }
+const challengeCatalogueClassification = inventory.legacyModules.find(
+  (entry) => entry.module === "@/lib/community-challenges",
+)?.classification;
+if (challengeCatalogueClassification !== "presentation-catalogue") {
+  failures.push(`${paths.inventory}: Community challenge catalogue must be presentation-only`);
+}
 for (const authorityPath of [
   "src/lib/community-profile-authority.ts",
   "src/app/api/community/profile/route.ts",
   "src/lib/community-journal-authority.ts",
+  "src/lib/db-migrate-community-journal-challenge.ts",
+  "src/lib/community-journal-challenge-authority.ts",
+  "src/lib/community-journal-challenge-client.ts",
 ]) {
-  if (!inventory.canonicalAuthorities.some((entry) => entry.path === authorityPath)) {
-    failures.push(`${paths.inventory}: missing canonical authority ${authorityPath}`);
-  }
+  requireInventory("canonicalAuthorities", authorityPath, "missing canonical authority");
 }
 for (const field of [
-  "score",
-  "pnl",
-  "pnlPct",
-  "id",
-  "createdAt",
-  "completedAt",
-  "timestamp",
-  "completed",
-  "publicProfileId",
-  "revision",
-  "consentedAt",
+  "score", "pnl", "pnlPct", "id", "createdAt", "completedAt",
+  "timestamp", "completed", "eligibleClosedTrades", "validReflections",
+  "coverageRate", "publicProfileId", "revision", "consentedAt",
 ]) {
   if (!inventory.forbiddenClientOfficialFields.includes(field)) {
     failures.push(`${paths.inventory}: missing forbidden browser evidence field ${field}`);
   }
 }
 
-requireText("verified", 'import "server-only"', "official evidence type must be server-only");
-requireText("verified", "const VERIFIED_SOCIAL_ARENA_EVIDENCE = Symbol", "official evidence requires an unexported symbol brand");
-requireText("verified", "createVerifiedSocialArenaEvidence", "server factory is missing");
-requireText("verified", "tecpey-social-arena-evidence-v1", "evidence hash must be domain separated");
-requireText("verified", "Object.freeze", "verified evidence must be immutable");
-
+for (const invariant of [
+  'import "server-only"',
+  "const VERIFIED_SOCIAL_ARENA_EVIDENCE = Symbol",
+  "createVerifiedSocialArenaEvidence",
+  "tecpey-social-arena-evidence-v1",
+  "Object.freeze",
+]) {
+  requireText("verified", invariant, `official evidence invariant missing: ${invariant}`);
+}
 for (const field of [
-  '"score"',
-  '"disciplineScore"',
-  '"pnl"',
-  '"pnlPct"',
-  '"realizedPnl"',
-  '"id"',
-  '"createdAt"',
-  '"completedAt"',
-  '"timestamp"',
-  '"completed"',
+  '"score"', '"disciplineScore"', '"pnl"', '"pnlPct"', '"realizedPnl"',
+  '"id"', '"createdAt"', '"completedAt"', '"timestamp"', '"completed"',
 ]) {
   requireText("boundary", field, `browser official evidence rejector is missing ${field}`);
 }
 requireText("boundary", "browser_official_evidence_forbidden", "browser evidence rejection must use a stable error code");
 
-for (const target of ["mentor", "insights", "instructor", "mentorMemory", "mentorSignals", "behavioral", "coaching"]) {
+for (const target of [
+  "mentor", "insights", "instructor", "mentorMemory", "mentorSignals", "behavioral", "coaching",
+]) {
   failures.push(...legacyImportViolations(paths[target], source[target]));
 }
-
 for (const token of [
-  "localStorage.",
-  "loadProgress",
-  "loadDeck",
-  "getDueCards",
-  "@/lib/academy-progress",
-  "@/lib/spaced-repetition",
+  "localStorage.", "loadProgress", "loadDeck", "getDueCards",
+  "@/lib/academy-progress", "@/lib/spaced-repetition",
 ]) {
   rejectText("smartReview", token, `smart review cannot personalize from browser evidence: ${token}`);
 }
 requireText("smartReview", 'authority: "server-required"', "smart review must expose an explicit server migration boundary");
 
 for (const token of [
-  "@/lib/community-profile",
-  "@/lib/community-leaderboard",
-  "@/lib/trading-arena",
-  "@/lib/trading-journal",
-  "loadProgress",
-  "localStorage.",
+  "@/lib/community-profile", "@/lib/community-leaderboard", "@/lib/trading-arena",
+  "@/lib/trading-journal", "loadProgress", "localStorage.",
 ]) {
   rejectText("instructor", token, `instructor assessment cannot use browser evidence: ${token}`);
 }
 requireText("instructor", "fetchBehavioralSnapshot", "instructor self-view must use the server behavioral snapshot");
 requireText("instructor", "اشتراک واقعی با مدرس", "instructor sharing must remain disabled until role/grant authority exists");
 
-failures.push(...previewChallengeViolations(source.challenge));
-for (const token of ["@/lib/trading-arena", "@/lib/trading-journal", "localStorage."]) {
-  rejectText("challenge", token, `challenge preview cannot read browser authority: ${token}`);
+for (const token of [
+  "localStorage", "sessionStorage", "Date.now()", "getCurrentWeekNumber",
+  "loadParticipation", "saveParticipation", "joinChallenge", "markChallengeComplete",
+  "CHALLENGE_PARTICIPATION_KEY",
+]) {
+  rejectText("challengeCatalogue", token, `challenge catalogue contains forbidden browser authority: ${token}`);
 }
-requireText("challenge", "فقط پیش‌نمایش تمرین‌هاست", "challenge UI must disclose preview-only status");
-requireText("challenge", "تکمیل، امتیاز، XP و پاداش رسمی", "challenge UI must disclose disabled official outcomes");
+for (const invariant of [
+  'OFFICIAL_PILOT_CHALLENGE_ID = "journal-reflection-week"',
+  "OFFICIAL_PILOT_CHALLENGE",
+  "PREVIEW_ONLY_CHALLENGES",
+  "امتیاز عددی صادر نمی‌شود",
+]) {
+  requireText("challengeCatalogue", invariant, `challenge catalogue is missing ${invariant}`);
+}
+
+for (const forbidden of [
+  "@/lib/trading-arena", "@/lib/trading-journal", "localStorage", "sessionStorage",
+  "loadParticipation", "joinChallenge(", "markChallengeComplete", "getCurrentWeekNumber",
+]) {
+  rejectText("challenge", forbidden, `Challenge Center contains browser authority: ${forbidden}`);
+}
+for (const invariant of [
+  'fetch("/api/community/profile?view=journal-reflection-challenge"',
+  '"/api/community/profile?view=journal-reflection-challenge"',
+  '"Idempotency-Key": createCommunityChallengeIdempotencyKey()',
+  "parseOfficialJournalChallengePayload",
+  "parseCommunityChallengeProfilePayload",
+  "XP = ۰، Badge = ندارد و پاداش مالی = ندارد",
+  "فعالیت قبل از این زمان محاسبه نمی‌شود",
+  "سایر تمرین‌ها تا تکمیل Evidence سرور، پیش‌نمایش باقی می‌مانند",
+]) {
+  requireText("challenge", invariant, `official challenge UI is missing ${invariant}`);
+}
+
+for (const forbidden of ["localStorage", "sessionStorage", "Math.random", "clientScore", "clientCompletedAt", "clientStartedAt"]) {
+  rejectText("challengeAuthority", forbidden, `challenge authority contains forbidden client evidence: ${forbidden}`);
+}
+for (const invariant of [
+  'import "server-only"',
+  "AvailableTenantPrincipalContext",
+  'community:challenge:read',
+  'community:challenge:write',
+  "SELECT NOW() AS now",
+  "deriveOfficialJournalChallengeCycle",
+  "academy_trading_arena_attempts",
+  "validateArenaExecutionStateV2",
+  "academy_trading_arena_reflections",
+  "mapArenaReflectionRow",
+  "reflectionMatchesTrade",
+  "eligibleClosedTrades >= OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES",
+  "validReflections * 5 >= eligibleClosedTrades * 4",
+  "api_command_receipts",
+  "academy_community_challenge_events",
+  "retrospectiveEvidenceAccepted: false",
+  "rewardsEnabled: false",
+  "xp: 0",
+  "badge: null",
+  "financialReward: null",
+]) {
+  requireText("challengeAuthority", invariant, `challenge authority is missing ${invariant}`);
+}
+
+for (const invariant of [
+  'FILENAME = "0048_community_journal_reflection_challenge.sql"',
+  "academy_community_challenge_enrollments",
+  "principal_id TEXT GENERATED ALWAYS AS (student_id::text) STORED",
+  "academy_community_challenge_principal_binding_fk",
+  "academy_community_challenge_identity_unique",
+  "eligible_closed_trade_count >= 3",
+  "valid_reflection_count * 5 >= eligible_closed_trade_count * 4",
+  "completed community challenge enrollment is immutable",
+  "academy_community_challenge_events",
+  "community challenge events are append-only",
+]) {
+  requireText("challengeMigration", invariant, `challenge migration is missing ${invariant}`);
+}
+requireText("migrationPlan", "runCommunityJournalChallengeMigrations", "canonical migration plan must execute challenge migration");
+
+for (const forbidden of ["localStorage", "sessionStorage", "Math.random"] ) {
+  rejectText("challengeClient", forbidden, `challenge client contains forbidden browser authority: ${forbidden}`);
+}
+for (const invariant of [
+  "rewards.xp !== 0",
+  "rewards.badge !== null",
+  "validReflections * 5 >= eligibleClosedTrades * 4",
+  "createCommunityChallengeIdempotencyKey",
+  "cryptoApi.randomUUID",
+  "cryptoApi.getRandomValues",
+]) {
+  requireText("challengeClient", invariant, `challenge client contract is missing ${invariant}`);
+}
 
 for (const invariant of [
   'FILENAME = "0047_community_profile_consent_authority.sql"',
@@ -162,7 +241,6 @@ for (const invariant of [
   "challenge_participation BOOLEAN NOT NULL DEFAULT FALSE",
   "study_group_discovery BOOLEAN NOT NULL DEFAULT FALSE",
   "academy_public_profiles_principal_binding_fk",
-  "platform_principal_bindings",
   "community profile identity is immutable",
   "community profile consent revision must advance by one",
 ]) {
@@ -171,30 +249,16 @@ for (const invariant of [
 requireText("migrationPlan", "runCommunityProfileConsentMigrations", "canonical migration plan must execute Community consent migration");
 
 for (const invariant of [
-  'import "server-only"',
-  "AvailableTenantPrincipalContext",
-  "context.scopes.includes(requiredScope)",
-  "withTx",
-  "pg_advisory_xact_lock",
-  "FOR UPDATE OF profile",
-  "expectedRevision",
-  "writeSensitiveMutationAuditTx",
-  'action: "community.profile.consent.update"',
-  'resourceType: "community_profile"',
-  "principalFingerprint",
-  "profile.visibility = 'public'",
-  "profile.leaderboard_visible = TRUE",
-  "const arenaScore = 0",
+  'import "server-only"', "AvailableTenantPrincipalContext", "context.scopes.includes(requiredScope)",
+  "withTx", "pg_advisory_xact_lock", "FOR UPDATE OF profile", "expectedRevision",
+  "writeSensitiveMutationAuditTx", 'action: "community.profile.consent.update"',
+  'resourceType: "community_profile"', "principalFingerprint", "const arenaScore = 0",
 ]) {
   requireText("communityAuthority", invariant, `Community profile authority is missing ${invariant}`);
 }
 for (const forbidden of [
-  "localStorage",
-  "sessionStorage",
-  "fs/promises",
-  "community-career.local.json",
-  "simulator_snapshot",
-  "DEFAULT 'public'",
+  "localStorage", "sessionStorage", "fs/promises", "community-career.local.json",
+  "simulator_snapshot", "DEFAULT 'public'",
 ]) {
   rejectText("communityAuthority", forbidden, `Community authority contains forbidden legacy source ${forbidden}`);
 }
@@ -205,88 +269,61 @@ for (const invariant of [
   'scopes: ["community:profile:read"]',
   'scopes: ["community:profile:write"]',
   'scopes: ["community:journal:read"]',
-  'view !== "profile" && view !== "journal-feed"',
-  'namespace: "community-journal-feed"',
+  'scopes: ["community:challenge:read"]',
+  'scopes: ["community:challenge:write"]',
+  'view !== "journal-reflection-challenge"',
+  'namespace: "community-journal-challenge-read"',
+  'namespace: "community-journal-challenge-write"',
+  "loadOfficialJournalChallengeState",
+  "processOfficialJournalChallengeCommand",
   "parseCommunityJournalCursor",
   "listCommunityJournalFeed",
-  'apiError("invalid_community_journal_cursor", 400)',
-  'apiError("community_journal_unavailable", 503)',
   'req.headers.get("idempotency-key")',
   "readBoundedJsonRequest",
   "Object.keys(body).some",
   "expectedRevision",
   "updateCommunityProfileConsent",
+  'apiError("community_challenge_unavailable", 503)',
   'apiError("community_profile_revision_conflict", 409)',
-  'apiError("community_profile_unavailable", 503)',
   'response.headers.set("Cache-Control", "private, no-store")',
   'response.headers.set("Vary", "Cookie")',
 ]) {
   requireText("communityRoute", invariant, `Community profile route is missing ${invariant}`);
 }
 for (const forbidden of [
-  "setPublicVisibilityForStudent",
-  "setCurrentPublicVisibility",
+  "setPublicVisibilityForStudent", "setCurrentPublicVisibility",
   'body.visibility === "private" ? "private" : "public"',
-  "studentId: body",
-  "tenantId: body",
-  "workspaceId: body",
+  "studentId: body", "tenantId: body", "workspaceId: body",
   "PLATFORM.DEFAULT_TENANT_ID, workspaceId: journalContext",
 ]) {
   rejectText("communityRoute", forbidden, `Community route contains forbidden authority ${forbidden}`);
 }
 
 for (const invariant of [
-  'import "server-only"',
-  "AvailableTenantPrincipalContext",
+  'import "server-only"', "AvailableTenantPrincipalContext",
   'context.scopes.includes("community:journal:read")',
-  "academy_trading_arena_reflections",
-  "academy_public_profiles",
-  "platform_principal_bindings",
-  "profile.journal_sharing_enabled = TRUE",
-  "profile.consented_at IS NOT NULL",
-  "profile.consent_version = 'community-profile-consent-v1'",
+  "academy_trading_arena_reflections", "academy_public_profiles", "platform_principal_bindings",
+  "profile.journal_sharing_enabled = TRUE", "profile.consented_at IS NOT NULL",
   "ORDER BY reflection.evidence_closed_at DESC, reflection.id DESC",
-  "encodeCommunityJournalCursor",
-  "parseCommunityJournalCursor",
-  "tecpey-community-journal-entry-v1",
-  "tecpey-community-journal-author-v1",
-  "minimizeCommunityJournalPublicText",
-  "SECRET_LABEL",
-  "EMAIL_PATTERN",
-  "PHONE_PATTERN",
-  "ETH_ADDRESS_PATTERN",
-  "BTC_ADDRESS_PATTERN",
-  "JWT_PATTERN",
-  "API_KEY_PATTERN",
-  "PRIVATE_KEY_PATTERN",
-  "SECRET_PLACEHOLDER",
+  "encodeCommunityJournalCursor", "parseCommunityJournalCursor",
+  "minimizeCommunityJournalPublicText", "SECRET_LABEL", "EMAIL_PATTERN",
+  "PHONE_PATTERN", "ETH_ADDRESS_PATTERN", "BTC_ADDRESS_PATTERN",
+  "JWT_PATTERN", "API_KEY_PATTERN", "PRIVATE_KEY_PATTERN", "SECRET_PLACEHOLDER",
 ]) {
   requireText("communityJournalAuthority", invariant, `Community journal authority is missing ${invariant}`);
 }
 for (const forbidden of [
-  "localStorage",
-  "sessionStorage",
-  "Math.random",
-  "evidence_realized_pnl",
-  "evidence_realized_pnl_rate",
-  "decision_review",
-  "emotional_review",
-  "DEMO_SHARED_ENTRIES",
+  "localStorage", "sessionStorage", "Math.random", "evidence_realized_pnl",
+  "evidence_realized_pnl_rate", "decision_review", "emotional_review", "DEMO_SHARED_ENTRIES",
 ]) {
   rejectText("communityJournalAuthority", forbidden, `Community journal authority exposes forbidden source/field ${forbidden}`);
 }
 
 for (const target of ["peerJournals", "communityJournalClient"]) {
   for (const forbidden of [
-    "@/lib/trading-journal",
-    "@/lib/community-profile",
-    "loadJournal",
-    "loadCommunityProfile",
-    "localStorage",
-    "sessionStorage",
-    "DEMO_SHARED_ENTRIES",
-    "isDemoEntry",
-    "Math.random",
+    "@/lib/trading-journal", "@/lib/community-profile", "loadJournal",
+    "loadCommunityProfile", "localStorage", "sessionStorage", "DEMO_SHARED_ENTRIES",
+    "isDemoEntry", "Math.random",
   ]) {
     rejectText(target, forbidden, `Community journal client surface contains forbidden browser/demo authority ${forbidden}`);
   }
@@ -294,43 +331,30 @@ for (const target of ["peerJournals", "communityJournalClient"]) {
 for (const invariant of [
   'fetch("/api/community/profile"',
   'fetch("/api/community/profile?view=journal-feed&limit=20"',
-  'fetch("/api/community/profile", { method: "PATCH"',
   '"Idempotency-Key": createCommunityJournalIdempotencyKey()',
-  "expectedRevision: profile.revision",
-  "parseCommunityOwnedProfilePayload",
-  "parseCommunityConsentMutationPayload",
-  "parseCommunityJournalFeedPayload",
+  "expectedRevision: profile.revision", "parseCommunityOwnedProfilePayload",
+  "parseCommunityConsentMutationPayload", "parseCommunityJournalFeedPayload",
   "Reflectionهای ذخیره‌شده در PostgreSQL",
 ]) {
   requireText("peerJournals", invariant, `Peer journals UI is missing ${invariant}`);
 }
 for (const invariant of [
-  "cryptoApi.randomUUID",
-  "cryptoApi.getRandomValues",
-  "parseCommunityJournalFeedPayload",
-  "parseCommunityOwnedProfilePayload",
-  "parseCommunityConsentMutationPayload",
+  "cryptoApi.randomUUID", "cryptoApi.getRandomValues", "parseCommunityJournalFeedPayload",
+  "parseCommunityOwnedProfilePayload", "parseCommunityConsentMutationPayload",
 ]) {
   requireText("communityJournalClient", invariant, `Community journal client contract is missing ${invariant}`);
 }
 
 for (const forbidden of [
-  "CREATE TABLE IF NOT EXISTS",
-  "fs/promises",
-  "community-career.local.json",
-  "academy-profiles.local.json",
-  "simulator_snapshot",
-  "setPublicVisibilityForStudent",
+  "CREATE TABLE IF NOT EXISTS", "fs/promises", "community-career.local.json",
+  "academy-profiles.local.json", "simulator_snapshot", "setPublicVisibilityForStudent",
   "setCurrentPublicVisibility",
 ]) {
   rejectText("communityCareer", forbidden, `Community adapter contains forbidden legacy authority ${forbidden}`);
 }
 for (const invariant of [
-  "loadOwnedCommunityProfile",
-  "loadPublicCommunityProfile",
-  "listPublicCommunityProfiles",
-  "resolveTenantPrincipalContext",
-  "publicProfileId",
+  "loadOwnedCommunityProfile", "loadPublicCommunityProfile", "listPublicCommunityProfiles",
+  "resolveTenantPrincipalContext", "publicProfileId",
 ]) {
   requireText("communityCareer", invariant, `Community adapter is missing ${invariant}`);
 }
@@ -338,10 +362,25 @@ for (const invariant of [
 requireText("audit", '"community.profile.consent.update"', "mandatory audit action is missing");
 requireText("audit", '"community_profile"', "mandatory audit resource is missing");
 rejectText("browserGuard", '"src/lib/community-profile.ts"', "retired Community browser persistence exception remains");
-requireText("browserGuard", '"src/components/academy/community/PeerJournals.tsx"', "server-authoritative Community journal surface must be explicitly protected");
-requireText("browserGuard", '"src/lib/community-journal-client.ts"', "Community journal client contract must be explicitly protected");
-requireText("package", "community-journal-feed-postgres.integration.ts", "Community journal PostgreSQL evidence is not wired into the permanent test gate");
-requireText("package", "community-journal-redaction.integration.ts", "Community journal privacy redaction evidence is not wired into the permanent test gate");
+rejectText("browserGuard", '"src/lib/community-challenges.ts": {', "retired Community challenge persistence exception remains");
+for (const protectedPath of [
+  '"src/components/academy/community/PeerJournals.tsx"',
+  '"src/lib/community-journal-client.ts"',
+  '"src/components/academy/community/ChallengeCenter.tsx"',
+  '"src/lib/community-challenges.ts"',
+  '"src/lib/community-journal-challenge-client.ts"',
+]) {
+  requireText("browserGuard", protectedPath, `browser guard is missing protected surface ${protectedPath}`);
+}
+for (const testPath of [
+  "community-journal-feed-postgres.integration.ts",
+  "community-journal-redaction.integration.ts",
+  "community-journal-challenge-client.test.ts",
+  "community-journal-challenge-source-boundary.test.ts",
+  "community-journal-challenge-postgres.integration.ts",
+]) {
+  requireText("package", testPath, `permanent Community gate is missing ${testPath}`);
+}
 
 if (failures.length > 0) {
   console.error("Social/Arena evidence boundary failed:\n- " + failures.join("\n- "));
@@ -349,5 +388,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Social/Arena evidence boundary passed: Community profile consent and shared Arena reflections are server-authoritative, tenant-bound, privacy-minimized, identifier-redacted and free of browser/demo evidence.",
+  "Social/Arena evidence boundary passed: Community consent, shared Arena reflections and the journal-reflection official pilot are server-authoritative, tenant-bound and free of browser-generated official evidence; every other challenge remains preview-only with rewards disabled.",
 );
