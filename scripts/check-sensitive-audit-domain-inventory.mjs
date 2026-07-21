@@ -177,6 +177,9 @@ for (const root of roots) {
   if (await exists(root)) sourcePaths.push(...(await listSourceFiles(root)));
 }
 
+const forbiddenWriterAssertion =
+  /(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,2000}?\bas\s+(?:any|unknown|SensitiveMutationAuditAction|SensitiveMutationAuditResource|WithdrawalExternalEffectAction|WithdrawalExternalEffectResource)\b/;
+
 for (const path of sourcePaths) {
   const sourcePath = normalized(path);
   if (
@@ -192,14 +195,11 @@ for (const path of sourcePaths) {
 
   // Literal labels inside request-hash payloads are not persisted audit events.
   // Persisted actions/resources are governed by typed writer signatures and the
-  // TypeScript gate. Reject type erasure instead of guessing object boundaries.
-  if (
-    /(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,2000}?\bas\s+(?:any|unknown)\b/.test(
-      source,
-    )
-  ) {
+  // TypeScript gate. Explicit assertion to any governed writer type is forbidden
+  // because it can force an unregistered literal through the compiler.
+  if (forbiddenWriterAssertion.test(source)) {
     failures.push(
-      `${sourcePath}: sensitive audit writer must not erase typed action/resource authority`,
+      `${sourcePath}: sensitive audit writer must not erase or assert governed action/resource authority`,
     );
   }
 
@@ -261,5 +261,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, no writer type erasure, and governed source/table/retention boundaries.`,
+  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, no writer type erasure/assertion bypass, and governed source/table/retention boundaries.`,
 );
