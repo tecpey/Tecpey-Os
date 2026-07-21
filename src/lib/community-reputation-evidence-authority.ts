@@ -2,8 +2,6 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
-import { withTx } from "@/lib/db";
-import { logger } from "@/lib/logger";
 import {
   deriveOfficialJournalChallengeCycle,
   OFFICIAL_JOURNAL_CHALLENGE_ID,
@@ -13,6 +11,8 @@ import {
   validateOfficialJournalChallengeEnrollmentRow,
   type OfficialJournalChallengeEnrollmentRow,
 } from "@/lib/community-journal-challenge-authority";
+import { withTx } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import type { AvailableTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const COMMUNITY_REPUTATION_EVIDENCE_VERSION =
@@ -26,6 +26,28 @@ const MAX_RECORD_COUNT = 1_000_000;
 const MAX_AGGREGATE_COUNT = 1_000_000_000;
 
 export type CommunityReputationEvidenceOutcome = "completed" | "not_completed";
+
+export type CommunityReputationDigestInput = {
+  tenantId: string;
+  workspaceId: string;
+  principalType: "student";
+  principalId: string;
+  studentId: string;
+  sourceEnrollmentId: string;
+  challengeId: typeof OFFICIAL_JOURNAL_CHALLENGE_ID;
+  challengeVersion: typeof OFFICIAL_JOURNAL_CHALLENGE_VERSION;
+  cycleKey: string;
+  cycleStartsAt: string;
+  cycleEndsAt: string;
+  outcome: CommunityReputationEvidenceOutcome;
+  finalizedAt: string;
+  eligibleClosedTrades: number;
+  validReflections: number;
+  coverageBasisPoints: number;
+  completionCriteriaMet: boolean;
+  finalizationSource: "interactive" | "worker";
+  finalizationRunId: string | null;
+};
 
 export type CommunityReputationEvidenceRow = {
   id: string;
@@ -59,11 +81,7 @@ export type CommunityReputationCycleEvidence = {
   sourceType: typeof COMMUNITY_REPUTATION_SOURCE_TYPE;
   challengeId: typeof OFFICIAL_JOURNAL_CHALLENGE_ID;
   challengeVersion: typeof OFFICIAL_JOURNAL_CHALLENGE_VERSION;
-  cycle: {
-    key: string;
-    startsAt: string;
-    endsAt: string;
-  };
+  cycle: { key: string; startsAt: string; endsAt: string };
   outcome: CommunityReputationEvidenceOutcome;
   finalizedAt: string;
   eligibleClosedTrades: number;
@@ -96,6 +114,11 @@ export type CommunityReputationEvidenceSummary = {
 export type CommunityReputationEvidenceLoadResult =
   | { available: true; summary: CommunityReputationEvidenceSummary }
   | { available: false; summary: null };
+
+type ProjectedTerminalEvidence = CommunityReputationDigestInput & {
+  cycle: { key: string; startsAt: string; endsAt: string };
+  sourceDigest: string;
+};
 
 const EVIDENCE_SELECT = `
   evidence.id::text,
@@ -157,27 +180,9 @@ export function communityReputationCoverageBasisPoints(
   );
 }
 
-export function communityReputationSourceDigest(input: {
-  tenantId: string;
-  workspaceId: string;
-  principalType: "student";
-  principalId: string;
-  studentId: string;
-  sourceEnrollmentId: string;
-  challengeId: typeof OFFICIAL_JOURNAL_CHALLENGE_ID;
-  challengeVersion: typeof OFFICIAL_JOURNAL_CHALLENGE_VERSION;
-  cycleKey: string;
-  cycleStartsAt: string;
-  cycleEndsAt: string;
-  outcome: CommunityReputationEvidenceOutcome;
-  finalizedAt: string;
-  eligibleClosedTrades: number;
-  validReflections: number;
-  coverageBasisPoints: number;
-  completionCriteriaMet: boolean;
-  finalizationSource: "interactive" | "worker";
-  finalizationRunId: string | null;
-}): string {
+export function communityReputationSourceDigest(
+  input: CommunityReputationDigestInput,
+): string {
   return createHash("sha256")
     .update([
       COMMUNITY_REPUTATION_EVIDENCE_VERSION,
@@ -205,7 +210,9 @@ export function communityReputationSourceDigest(input: {
     .digest("hex");
 }
 
-function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow) {
+function projectTerminalEnrollment(
+  row: OfficialJournalChallengeEnrollmentRow,
+): ProjectedTerminalEvidence {
   if (
     !row.tenant_id ||
     !row.workspace_id ||
@@ -219,6 +226,7 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
   ) {
     throw new Error("community_reputation_source_identity_invalid");
   }
+
   const cycleStart = new Date(row.cycle_starts_at);
   if (!Number.isFinite(cycleStart.getTime())) {
     throw new Error("community_reputation_source_cycle_invalid");
@@ -228,6 +236,7 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
   if (!validated.finalizedAt || !row.finalization_source) {
     throw new Error("community_reputation_source_not_finalized");
   }
+
   const eligibleClosedTrades = safeInteger(
     row.eligible_closed_trade_count,
     MAX_RECORD_COUNT,
@@ -243,21 +252,20 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
     validReflections,
   );
   const completionCriteriaMet = validated.progress.eligibleToComplete;
+  const finalizationRunId = row.finalization_run_id ?? null;
   if (
     (row.status === "completed") !== completionCriteriaMet ||
-    (row.finalization_source === "interactive" && row.finalization_run_id !== null) ||
-    (row.finalization_source === "worker" && !row.finalization_run_id)
+    (row.finalization_source === "interactive" && finalizationRunId !== null) ||
+    (row.finalization_source === "worker" && !finalizationRunId) ||
+    (finalizationRunId !== null && !UUID_RE.test(finalizationRunId))
   ) {
     throw new Error("community_reputation_source_finalization_invalid");
   }
-  const finalizationRunId = row.finalization_run_id ?? null;
-  if (finalizationRunId && !UUID_RE.test(finalizationRunId)) {
-    throw new Error("community_reputation_source_run_invalid");
-  }
-  const source = {
+
+  const digestInput: CommunityReputationDigestInput = {
     tenantId: row.tenant_id,
     workspaceId: row.workspace_id,
-    principalType: "student" as const,
+    principalType: "student",
     principalId: row.principal_id,
     studentId: row.student_id,
     sourceEnrollmentId: row.id,
@@ -275,16 +283,17 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
     finalizationSource: row.finalization_source,
     finalizationRunId,
   };
+
   return {
-    ...source,
+    ...digestInput,
     cycle,
-    sourceDigest: communityReputationSourceDigest(source),
-  } as const;
+    sourceDigest: communityReputationSourceDigest(digestInput),
+  };
 }
 
 function validateEvidenceRow(
   row: CommunityReputationEvidenceRow,
-  expected?: ReturnType<typeof terminalEnrollmentProjection>,
+  expected?: ProjectedTerminalEvidence,
 ): CommunityReputationCycleEvidence {
   if (
     !UUID_RE.test(row.id) ||
@@ -299,11 +308,13 @@ function validateEvidenceRow(
     row.challenge_version !== OFFICIAL_JOURNAL_CHALLENGE_VERSION ||
     !/^[0-9]{4}-W[0-9]{2}$/.test(row.cycle_key) ||
     (row.outcome !== "completed" && row.outcome !== "not_completed") ||
-    (row.finalization_source !== "interactive" && row.finalization_source !== "worker") ||
+    (row.finalization_source !== "interactive" &&
+      row.finalization_source !== "worker") ||
     !SHA256_RE.test(row.source_digest)
   ) {
     throw new Error("community_reputation_evidence_row_invalid");
   }
+
   const cycleStartsAt = officialJournalChallengeIso(row.cycle_starts_at);
   const cycleEndsAt = officialJournalChallengeIso(row.cycle_ends_at);
   const finalizedAt = officialJournalChallengeIso(row.finalized_at);
@@ -315,6 +326,7 @@ function validateEvidenceRow(
   ) {
     throw new Error("community_reputation_evidence_time_invalid");
   }
+
   const eligibleClosedTrades = safeInteger(
     row.eligible_closed_trade_count,
     MAX_RECORD_COUNT,
@@ -330,26 +342,31 @@ function validateEvidenceRow(
     10_000,
     "community_reputation_evidence_coverage_invalid",
   );
-  const expectedCompletion =
+  const completionCriteriaMet =
     eligibleClosedTrades >= 3 &&
     validReflections * 5 >= eligibleClosedTrades * 4;
   if (
-    coverageBasisPoints !== communityReputationCoverageBasisPoints(
-      eligibleClosedTrades,
-      validReflections,
-    ) ||
-    row.completion_criteria_met !== expectedCompletion ||
-    (row.outcome === "completed") !== row.completion_criteria_met ||
-    (row.finalization_source === "interactive" && row.finalization_run_id !== null) ||
-    (row.finalization_source === "worker" && !row.finalization_run_id) ||
-    (row.finalization_run_id !== null && !UUID_RE.test(row.finalization_run_id))
+    coverageBasisPoints !==
+      communityReputationCoverageBasisPoints(
+        eligibleClosedTrades,
+        validReflections,
+      ) ||
+    row.completion_criteria_met !== completionCriteriaMet ||
+    (row.outcome === "completed") !== completionCriteriaMet ||
+    (row.finalization_source === "interactive" &&
+      row.finalization_run_id !== null) ||
+    (row.finalization_source === "worker" &&
+      !row.finalization_run_id) ||
+    (row.finalization_run_id !== null &&
+      !UUID_RE.test(row.finalization_run_id))
   ) {
     throw new Error("community_reputation_evidence_authority_invalid");
   }
-  const digestInput = {
+
+  const digestInput: CommunityReputationDigestInput = {
     tenantId: row.tenant_id,
     workspaceId: row.workspace_id,
-    principalType: "student" as const,
+    principalType: "student",
     principalId: row.principal_id,
     studentId: row.student_id,
     sourceEnrollmentId: row.source_enrollment_id,
@@ -370,6 +387,7 @@ function validateEvidenceRow(
   if (communityReputationSourceDigest(digestInput) !== row.source_digest) {
     throw new Error("community_reputation_evidence_digest_invalid");
   }
+
   if (expected) {
     const actual = {
       tenantId: row.tenant_id,
@@ -409,10 +427,14 @@ function validateEvidenceRow(
       finalizationRunId: expected.finalizationRunId,
       sourceDigest: expected.sourceDigest,
     };
-    if (officialJournalChallengeHash(actual) !== officialJournalChallengeHash(wanted)) {
+    if (
+      officialJournalChallengeHash(actual) !==
+      officialJournalChallengeHash(wanted)
+    ) {
       throw new Error("community_reputation_evidence_conflict");
     }
   }
+
   return {
     evidenceVersion: COMMUNITY_REPUTATION_EVIDENCE_VERSION,
     sourceType: COMMUNITY_REPUTATION_SOURCE_TYPE,
@@ -438,7 +460,7 @@ export async function materializeCommunityReputationEvidenceTx(
   client: PoolClient,
   enrollment: OfficialJournalChallengeEnrollmentRow,
 ): Promise<CommunityReputationCycleEvidence> {
-  const expected = terminalEnrollmentProjection(enrollment);
+  const expected = projectTerminalEnrollment(enrollment);
   await client.query(
     `INSERT INTO academy_community_reputation_evidence
        (id, tenant_id, workspace_id, principal_type, principal_id, student_id,
@@ -589,8 +611,11 @@ export async function loadCommunityReputationEvidenceSummary(
           COMMUNITY_REPUTATION_SOURCE_TYPE,
         ],
       );
+
       const aggregateRow = aggregate.rows[0];
-      if (!aggregateRow) throw new Error("community_reputation_aggregate_missing");
+      if (!aggregateRow) {
+        throw new Error("community_reputation_aggregate_missing");
+      }
       const finalizedCycles = safeInteger(
         aggregateRow.finalized_cycles,
         MAX_AGGREGATE_COUNT,
@@ -624,6 +649,7 @@ export async function loadCommunityReputationEvidenceSummary(
         throw new Error("community_reputation_aggregate_inconsistent");
       }
       if (finalizedCycles === 0) return emptySummary();
+
       const firstFinalizedAt = aggregateRow.first_finalized_at
         ? officialJournalChallengeIso(aggregateRow.first_finalized_at)
         : null;
@@ -642,6 +668,7 @@ export async function loadCommunityReputationEvidenceSummary(
       ) {
         throw new Error("community_reputation_timeline_invalid");
       }
+
       return {
         evidenceVersion: COMMUNITY_REPUTATION_EVIDENCE_VERSION,
         policyStatus: "evidence_only",
@@ -664,6 +691,7 @@ export async function loadCommunityReputationEvidenceSummary(
         instructorDecisionEligible: false,
       } satisfies CommunityReputationEvidenceSummary;
     });
+
     if (!transaction.enabled) return { available: false, summary: null };
     return { available: true, summary: transaction.value };
   } catch (error) {
