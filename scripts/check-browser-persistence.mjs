@@ -40,10 +40,6 @@ const persistencePolicy = new Map(
       expected: 1,
       classification: "repairable-offline-projection",
     },
-    "src/lib/community-challenges.ts": {
-      expected: 2,
-      classification: "quarantined-preview-only",
-    },
     "src/lib/trading-arena.ts": {
       expected: 3,
       classification: "quarantined-legacy-authority",
@@ -58,6 +54,9 @@ const persistencePolicy = new Map(
 const serverAuthoritativeSurfaces = new Set([
   "src/components/academy/community/PeerJournals.tsx",
   "src/lib/community-journal-client.ts",
+  "src/components/academy/community/ChallengeCenter.tsx",
+  "src/lib/community-challenges.ts",
+  "src/lib/community-challenge-client.ts",
 ]);
 
 async function walk(directory) {
@@ -87,7 +86,7 @@ for (const file of serverAuthoritativeSurfaces) {
   if (!discoveredFiles.has(file)) {
     errors.push(`${file}: protected server-authoritative surface is missing`);
   } else if ((actualMatches.get(file) ?? 0) > 0) {
-    errors.push(`${file}: browser persistence is forbidden on the Community journal authority surface`);
+    errors.push(`${file}: browser persistence is forbidden on this Community authority surface`);
   }
 }
 
@@ -123,5 +122,5 @@ const quarantined = [...persistencePolicy.values()].filter((entry) =>
   entry.classification.startsWith("quarantined"),
 ).length;
 console.log(
-  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy/preview modules cannot become official evidence; Community journal surfaces are persistence-free.`,
+  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy modules cannot become official evidence; Community journal and challenge surfaces are persistence-free.`,
 );
