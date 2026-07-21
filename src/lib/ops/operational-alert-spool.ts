@@ -140,6 +140,8 @@ function directories(stateDirectory: string) {
   };
 }
 
+type ManagedDirectories = ReturnType<typeof directories>;
+
 async function assertManagedDirectory(directory: string): Promise<void> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const stat = await lstat(directory);
@@ -151,7 +153,7 @@ async function assertManagedDirectory(directory: string): Promise<void> {
 
 export async function ensureOperationalSpoolDirectories(
   stateDirectory: string,
-): Promise<ReturnType<typeof directories>> {
+): Promise<ManagedDirectories> {
   const managed = directories(stateDirectory);
   await assertManagedDirectory(managed.root);
   await assertManagedDirectory(path.dirname(managed.pending));
@@ -257,13 +259,38 @@ export async function writeOperationalLastRun(
   });
 }
 
+async function findExistingAlertFile(
+  managed: ManagedDirectories,
+  fileName: string,
+): Promise<string | null> {
+  for (const directory of [managed.pending, managed.delivered, managed.quarantine]) {
+    const candidate = path.join(directory, fileName);
+    if (await lstat(candidate).catch(() => null)) return candidate;
+  }
+  return null;
+}
+
 export async function enqueueOperationalAlert(
   stateDirectory: string,
   raw: OperationalAlertEvidence,
 ): Promise<{ replayed: boolean; filePath: string }> {
   const managed = await ensureOperationalSpoolDirectories(stateDirectory);
   const alert = validateOperationalAlertEvidence(raw);
-  const filePath = path.join(managed.pending, spoolFileName(alert.alertId));
+  const fileName = spoolFileName(alert.alertId);
+  const existingPath = await findExistingAlertFile(managed, fileName);
+  if (existingPath) {
+    let parsed: OperationalAlertSpoolItem;
+    try {
+      parsed = validateSpoolItem(await safeReadJson(existingPath));
+    } catch {
+      throw new Error("operational_spool_archive_corrupt");
+    }
+    if (hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)) {
+      throw new Error("operational_spool_identity_conflict");
+    }
+    return { replayed: true, filePath: existingPath };
+  }
+  const filePath = path.join(managed.pending, fileName);
   const item: OperationalAlertSpoolItem = {
     schemaVersion: 1,
     alert,
@@ -273,14 +300,6 @@ export async function enqueueOperationalAlert(
       lastErrorCode: null,
     },
   };
-  const existing = await lstat(filePath).catch(() => null);
-  if (existing) {
-    const parsed = validateSpoolItem(await safeReadJson(filePath));
-    if (hashOperationalEvidence(parsed.alert) !== hashOperationalEvidence(alert)) {
-      throw new Error("operational_spool_identity_conflict");
-    }
-    return { replayed: true, filePath };
-  }
   await atomicWriteJson(filePath, item);
   return { replayed: false, filePath };
 }
@@ -293,11 +312,7 @@ async function moveFile(source: string, destinationDirectory: string): Promise<v
   const destination = path.join(destinationDirectory, path.basename(source));
   const existing = await lstat(destination).catch(() => null);
   if (existing) {
-    if (existing.isSymbolicLink() || !existing.isFile()) {
-      throw new Error("operational_spool_destination_unsafe");
-    }
-    await rm(source, { force: true });
-    return;
+    throw new Error("operational_spool_destination_conflict");
   }
   await rename(source, destination);
   await chmod(destination, 0o600);
@@ -358,7 +373,6 @@ export async function deliverOperationalAlerts(
   const fetchImpl = config.fetchImpl ?? fetch;
   const entries = (await readdir(managed.pending, { withFileTypes: true }))
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
-    .filter((entry) => SAFE_FILE_RE.test(entry.name))
     .sort((left, right) => left.name.localeCompare(right.name))
     .slice(0, limit);
   const summary: OperationalAlertDeliverySummary = {
@@ -371,6 +385,11 @@ export async function deliverOperationalAlerts(
 
   for (const entry of entries) {
     const filePath = path.join(managed.pending, entry.name);
+    if (!SAFE_FILE_RE.test(entry.name)) {
+      await moveFile(filePath, managed.quarantine);
+      summary.quarantined += 1;
+      continue;
+    }
     let item: OperationalAlertSpoolItem;
     try {
       item = validateSpoolItem(await safeReadJson(filePath));
