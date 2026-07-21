@@ -1,12 +1,28 @@
 {
   "schemaVersion": 1,
   "issue": 168,
+  "followUpIssue": 212,
   "baseCommit": "8acf086c3db273efe095251941b929e63d2679e7",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
     "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
-    "legacyMigrationRule": "legacy browser records may be displayed as unverified preview but may not be promoted to durable truth"
+    "legacyMigrationRule": "legacy browser records may be displayed as unverified preview but may not be promoted to durable truth",
+    "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context"
   },
+  "canonicalAuthorities": [
+    {
+      "path": "src/lib/db-migrate-community-profile-consent.ts",
+      "purpose": "tenant/principal-bound default-private schema and database invariants"
+    },
+    {
+      "path": "src/lib/community-profile-authority.ts",
+      "purpose": "PostgreSQL-only self/public reads and transaction-coupled consent mutation over canonical Academy cartax identity/progress fields"
+    },
+    {
+      "path": "src/app/api/community/profile/route.ts",
+      "purpose": "strict-session, bounded, revisioned and idempotent HTTP contract"
+    }
+  ],
   "legacyModules": [
     {
       "module": "@/lib/trading-arena",
@@ -23,8 +39,8 @@
     {
       "module": "@/lib/community-profile",
       "source": "src/lib/community-profile.ts",
-      "classification": "preview-ui-preference",
-      "reason": "browser-owned profile/privacy preferences cannot authorize real data sharing"
+      "classification": "ephemeral-preview-compatibility",
+      "reason": "legacy component types are retained temporarily without localStorage, durable consent, canonical hydration or official evidence authority"
     },
     {
       "module": "@/lib/community-challenges",
@@ -65,7 +81,7 @@
     {
       "path": "src/components/academy/community/InstructorDashboard.tsx",
       "classification": "migrate-now",
-      "allowedAuthority": "self-view of server behavioral snapshot; instructor sharing disabled until server consent authority"
+      "allowedAuthority": "self-view of server behavioral snapshot; instructor sharing remains disabled until a separate role/grant authority"
     },
     {
       "path": "src/components/academy/community/ChallengeCenter.tsx",
@@ -80,7 +96,7 @@
     {
       "path": "src/components/academy/community/CommunityHub.tsx",
       "classification": "preview-only",
-      "allowedAuthority": "navigation and explicitly simulated content only"
+      "allowedAuthority": "navigation and ephemeral profile setup only; no browser persistence or consent authority"
     },
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
@@ -101,6 +117,11 @@
       "path": "src/lib/trading-scenarios.ts",
       "classification": "type-only-migration-debt",
       "allowedAuthority": "static scenario definitions only"
+    },
+    {
+      "path": "src/lib/community-career.ts",
+      "classification": "canonical-adapter",
+      "allowedAuthority": "PostgreSQL Community profile authority only; no runtime DDL, filesystem fallback or simulator_snapshot"
     }
   ],
   "protectedAuthoritySurfaces": [
@@ -108,6 +129,7 @@
     "src/lib/mentor-signals.ts",
     "src/lib/behavioral-engine.ts",
     "src/lib/coaching-engine.ts",
+    "src/lib/community-profile-authority.ts",
     "src/components/academy/v2/MentorV2.tsx",
     "src/components/academy/v2/LearningInsightsDashboard.tsx",
     "src/components/academy/community/InstructorDashboard.tsx",
@@ -126,6 +148,9 @@
     "completedAt",
     "timestamp",
     "completed",
-    "completionStatus"
+    "completionStatus",
+    "publicProfileId",
+    "revision",
+    "consentedAt"
   ]
 }

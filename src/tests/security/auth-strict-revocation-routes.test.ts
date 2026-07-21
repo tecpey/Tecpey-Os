@@ -59,18 +59,32 @@ describe("high-risk mutation strict revocation boundaries", () => {
     }
   });
 
-  it("binds community visibility to the strict session principal", async () => {
+  it("binds Community consent to strict canonical tenant and principal authority", async () => {
     const route = await readFile("src/app/api/community/profile/route.ts", "utf8");
-    const authority = await readFile("src/lib/community-career.ts", "utf8");
-    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
-    assert.match(
-      route,
-      /setPublicVisibilityForStudent\(\s*session\.studentId,\s*visibility,?\s*\)/,
+    const authority = await readFile(
+      "src/lib/community-profile-authority.ts",
+      "utf8",
     );
+    const adapter = await readFile("src/lib/community-career.ts", "utf8");
+
+    assert.match(route, /getCanonicalSession\(req, \{ strictRevocation: true \}\)/);
+    assert.match(route, /resolveTenantPrincipalContext\(\{/);
+    assert.match(route, /scopes: \["community:profile:write"\]/);
+    assert.match(route, /updateCommunityProfileConsent\(\{/);
+    assert.match(route, /req\.headers\.get\("idempotency-key"\)/);
+    assert.doesNotMatch(route, /setPublicVisibilityForStudent/);
     assert.doesNotMatch(route, /setCurrentPublicVisibility/);
-    assert.match(authority, /setPublicVisibilityForStudent/);
-    assert.match(authority, /INSERT INTO academy_public_profiles/);
-    assert.match(authority, /VALUES\(\$1::uuid, \$2, now\(\)\)/);
-    assert.match(authority, /ON CONFLICT\(student_id\) DO UPDATE/);
+
+    assert.match(authority, /AvailableTenantPrincipalContext/);
+    assert.match(authority, /withTx\(async \(client\) =>/);
+    assert.match(authority, /writeSensitiveMutationAuditTx\(client/);
+    assert.match(authority, /action: "community\.profile\.consent\.update"/);
+    assert.match(authority, /expectedRevision/);
+
+    assert.match(adapter, /loadOwnedCommunityProfile/);
+    assert.match(adapter, /loadPublicCommunityProfile/);
+    assert.doesNotMatch(adapter, /CREATE TABLE IF NOT EXISTS/);
+    assert.doesNotMatch(adapter, /community-career\.local\.json/);
+    assert.doesNotMatch(adapter, /simulator_snapshot/);
   });
 });

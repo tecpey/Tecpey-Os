@@ -1,110 +1,103 @@
 /**
- * Community Profile — Phase 18: Privacy-first client-side community preferences.
- * Complements the server-side PublicLearnerProfile (community-career.ts).
- * Everything defaults to private. Student must explicitly opt in to each feature.
+ * Legacy Community UI compatibility model.
+ *
+ * This module is deliberately ephemeral and preview-only. It performs no
+ * browser persistence, never hydrates canonical consent, and cannot authorize
+ * public profile, leaderboard, journal, instructor, challenge or group access.
+ * Canonical profile/privacy authority lives in community-profile-authority.ts.
  */
 
-export const COMMUNITY_PROFILE_KEY = "tecpey-community-profile";
+export const COMMUNITY_PROFILE_AUTHORITY = "preview-only" as const;
 
 export interface CommunityPrivacySettings {
-  leaderboardVisible: boolean;       // default: false — show in leaderboards
-  journalSharingEnabled: boolean;    // default: false — share sanitized journal
-  mentorReviewConsent: boolean;      // default: false — allow instructor view
-  challengeParticipation: boolean;   // default: true — participate in weekly challenges
-  studyGroupInterest: boolean;       // default: false — show group suggestions
+  leaderboardVisible: boolean;
+  journalSharingEnabled: boolean;
+  mentorReviewConsent: boolean;
+  challengeParticipation: boolean;
+  studyGroupInterest: boolean;
 }
 
 export interface CommunityProfile {
-  displayName: string;         // public pseudonym (student-chosen)
-  anonymousId: string;         // non-reversible system ID shown on leaderboards
-  avatarInitials: string;      // first 2 chars of displayName
+  displayName: string;
+  anonymousId: string;
+  avatarInitials: string;
   privacy: CommunityPrivacySettings;
-  groupInterests: string[];    // study group IDs the student expressed interest in
+  groupInterests: string[];
   createdAt: number;
   updatedAt: number;
+  authority: typeof COMMUNITY_PROFILE_AUTHORITY;
 }
 
-const DEFAULT_PRIVACY: CommunityPrivacySettings = {
+const DEFAULT_PRIVACY: Readonly<CommunityPrivacySettings> = Object.freeze({
   leaderboardVisible: false,
   journalSharingEnabled: false,
   mentorReviewConsent: false,
-  challengeParticipation: true,
+  challengeParticipation: false,
   studyGroupInterest: false,
-};
+});
 
-function generateAnonymousId(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let id = "T-";
-  for (let i = 0; i < 6; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return id;
+function previewAnonymousId(): string {
+  const random = globalThis.crypto?.randomUUID?.() ?? "unavailable";
+  return `PREVIEW-${random.slice(0, 8).toUpperCase()}`;
 }
 
+/** Browser records are intentionally discarded and never loaded as authority. */
 export function loadCommunityProfile(): CommunityProfile | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(COMMUNITY_PROFILE_KEY);
-    if (raw) return JSON.parse(raw) as CommunityProfile;
-  } catch { /* ignore */ }
   return null;
 }
 
-export function saveCommunityProfile(profile: CommunityProfile): void {
-  if (typeof window === "undefined") return;
-  try {
-    profile.updatedAt = Date.now();
-    localStorage.setItem(COMMUNITY_PROFILE_KEY, JSON.stringify(profile));
-  } catch { /* quota */ }
-}
-
+/** Creates an in-memory preview object only; nothing is persisted. */
 export function createCommunityProfile(displayName: string): CommunityProfile {
-  const initials = displayName.trim().slice(0, 2).toUpperCase() || "؟";
-  const profile: CommunityProfile = {
-    displayName: displayName.trim(),
-    anonymousId: generateAnonymousId(),
-    avatarInitials: initials,
+  const safeName = sanitizeDisplayName(displayName);
+  const now = Date.now();
+  return {
+    displayName: safeName,
+    anonymousId: previewAnonymousId(),
+    avatarInitials: safeName.slice(0, 2).toUpperCase() || "؟",
     privacy: { ...DEFAULT_PRIVACY },
     groupInterests: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
+    authority: COMMUNITY_PROFILE_AUTHORITY,
   };
-  saveCommunityProfile(profile);
-  return profile;
 }
 
+/** Pure preview transform. It cannot update canonical server consent. */
 export function updatePrivacy(
   profile: CommunityProfile,
   updates: Partial<CommunityPrivacySettings>,
 ): CommunityProfile {
-  const updated: CommunityProfile = {
+  return {
     ...profile,
     privacy: { ...profile.privacy, ...updates },
+    updatedAt: Date.now(),
   };
-  saveCommunityProfile(updated);
-  return updated;
 }
 
-export function addGroupInterest(profile: CommunityProfile, groupId: string): CommunityProfile {
-  if (profile.groupInterests.includes(groupId)) return profile;
-  const updated: CommunityProfile = {
+export function addGroupInterest(
+  profile: CommunityProfile,
+  groupId: string,
+): CommunityProfile {
+  const safeId = groupId.trim().slice(0, 80);
+  if (!safeId || profile.groupInterests.includes(safeId)) return profile;
+  return {
     ...profile,
-    groupInterests: [...profile.groupInterests, groupId],
+    groupInterests: [...profile.groupInterests, safeId],
+    updatedAt: Date.now(),
   };
-  saveCommunityProfile(updated);
-  return updated;
 }
 
-export function removeGroupInterest(profile: CommunityProfile, groupId: string): CommunityProfile {
-  const updated: CommunityProfile = {
+export function removeGroupInterest(
+  profile: CommunityProfile,
+  groupId: string,
+): CommunityProfile {
+  return {
     ...profile,
     groupInterests: profile.groupInterests.filter((id) => id !== groupId),
+    updatedAt: Date.now(),
   };
-  saveCommunityProfile(updated);
-  return updated;
 }
 
-/** Sanitize a display name for public use — strip PII patterns. */
 export function sanitizeDisplayName(name: string): string {
   return name.replace(/\b\d{4,}\b/g, "****").trim().slice(0, 30);
 }

@@ -7,7 +7,7 @@ const PERSISTENCE_PATTERN = /(?:localStorage|sessionStorage|indexedDB|IndexedDB|
 
 /**
  * Every remaining persistence use is explicitly classified. Counts remain a
- * drift detector, but the policy now distinguishes disposable caches from
+ * drift detector, but the policy distinguishes disposable caches from
  * quarantined browser-authority debt. New files or increased usage fail CI.
  */
 const persistencePolicy = new Map(
@@ -43,10 +43,6 @@ const persistencePolicy = new Map(
     "src/lib/community-challenges.ts": {
       expected: 2,
       classification: "quarantined-preview-only",
-    },
-    "src/lib/community-profile.ts": {
-      expected: 2,
-      classification: "quarantined-preview-preference",
     },
     "src/lib/trading-arena.ts": {
       expected: 3,
