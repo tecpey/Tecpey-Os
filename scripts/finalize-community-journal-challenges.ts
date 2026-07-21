@@ -1,6 +1,9 @@
 import { finalizeEndedOfficialJournalChallenges } from "../src/lib/community-journal-challenge-finalization";
 
-const requestedLimit = Number(process.env.COMMUNITY_CHALLENGE_FINALIZATION_BATCH ?? 100);
+const configuredLimit = Number(process.env.COMMUNITY_CHALLENGE_FINALIZATION_BATCH ?? 100);
+const requestedLimit = Number.isFinite(configuredLimit)
+  ? Math.max(1, Math.min(250, Math.trunc(configuredLimit)))
+  : 100;
 const result = await finalizeEndedOfficialJournalChallenges(requestedLimit);
 
 if (!result.available) {
