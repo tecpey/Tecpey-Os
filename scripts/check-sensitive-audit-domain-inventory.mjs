@@ -110,31 +110,6 @@ function normalized(path) {
   return relative(".", path).split(sep).join("/");
 }
 
-function literalActionsPassedToSensitiveWriters(source) {
-  const actions = [];
-  const writerPattern =
-    /\b(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\(/g;
-
-  for (const writer of source.matchAll(writerPattern)) {
-    const start = writer.index ?? 0;
-    const requestHash = source.indexOf("requestHash:", start);
-    if (requestHash < 0 || requestHash - start > 2500) continue;
-
-    // Every governed writer contract places its top-level action before the
-    // top-level requestHash. Restricting the slice here prevents nested
-    // hashSensitiveAuditRequest({ action: ... }) labels from being mistaken for
-    // persisted audit actions. Dynamic action expressions remain type-checked by
-    // SensitiveMutationAuditAction at compile time.
-    const writerHeader = source.slice(start, requestHash);
-    const literal = writerHeader.match(
-      /\baction\s*:\s*["']([a-z0-9_.]+)["']/i,
-    );
-    if (literal) actions.push(literal[1]);
-  }
-
-  return actions;
-}
-
 if (
   inventory.schemaVersion !== 1 ||
   inventory.policyVersion !== "sensitive-mutation-audit-domain-inventory-v1" ||
@@ -202,6 +177,9 @@ for (const root of roots) {
   if (await exists(root)) sourcePaths.push(...(await listSourceFiles(root)));
 }
 
+const forbiddenWriterAssertion =
+  /(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,2000}?\bas\s+(?:any|unknown|SensitiveMutationAuditAction|SensitiveMutationAuditResource|WithdrawalExternalEffectAction|WithdrawalExternalEffectResource)\b/;
+
 for (const path of sourcePaths) {
   const sourcePath = normalized(path);
   if (
@@ -215,19 +193,13 @@ for (const path of sourcePaths) {
   }
   const source = await readFile(path, "utf8");
 
-  for (const action of literalActionsPassedToSensitiveWriters(source)) {
-    if (!inventoryActions.includes(action)) {
-      failures.push(`${sourcePath}: unknown sensitive audit writer action ${action}`);
-    }
-  }
-
-  if (
-    /(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,2000}?\bas\s+(?:any|unknown)\b/.test(
-      source,
-    )
-  ) {
+  // Literal labels inside request-hash payloads are not persisted audit events.
+  // Persisted actions/resources are governed by typed writer signatures and the
+  // TypeScript gate. Explicit assertion to any governed writer type is forbidden
+  // because it can force an unregistered literal through the compiler.
+  if (forbiddenWriterAssertion.test(source)) {
     failures.push(
-      `${sourcePath}: sensitive audit writer must not erase typed action/resource authority`,
+      `${sourcePath}: sensitive audit writer must not erase or assert governed action/resource authority`,
     );
   }
 
@@ -251,7 +223,7 @@ for (const invariant of [
   "audit-data-retention-access-v1",
   "final duration pending Legal/Compliance approval",
   "no automatic deletion",
-  "no public or end-user audit API",
+  "There is no public or end-user audit API",
   "ticketed purpose",
   "encrypted transport and encrypted storage",
   "legal-hold override",
@@ -289,5 +261,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, top-level writer action checks, no type erasure, and governed source/table/retention boundaries.`,
+  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, no writer type erasure/assertion bypass, and governed source/table/retention boundaries.`,
 );
