@@ -54,11 +54,23 @@ for (const path of [
 }
 
 const community = await readFile("src/app/api/community/profile/route.ts", "utf8");
-if (!community.includes("setPublicVisibilityForStudent")) {
-  failures.push("community visibility mutation must use the session-bound server setter");
+for (const invariant of [
+  "resolveTenantPrincipalContext",
+  'scopes: ["community:profile:write"]',
+  "updateCommunityProfileConsent",
+  'req.headers.get("idempotency-key")',
+]) {
+  if (!community.includes(invariant)) {
+    failures.push(`community profile mutation is missing ${invariant}`);
+  }
 }
-if (community.includes("setCurrentPublicVisibility")) {
-  failures.push("community mutation may not resolve identity inside a non-strict helper");
+for (const forbidden of [
+  "setPublicVisibilityForStudent",
+  "setCurrentPublicVisibility",
+]) {
+  if (community.includes(forbidden)) {
+    failures.push(`community mutation may not use legacy identity or visibility setter ${forbidden}`);
+  }
 }
 
 const detector = await readFile("scripts/api-security-runtime-evidence.mjs", "utf8");
@@ -74,4 +86,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log("Strict revocation authority check passed for all 16 governed mutations.");
+console.log("Strict revocation authority check passed for all governed mutations.");
