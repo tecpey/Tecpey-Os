@@ -1,0 +1,133 @@
+name: Staging Community Challenge Scheduler Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character main-branch commit deployed to staging
+        required: true
+        type: string
+      run_alert_probe:
+        description: Enqueue and deliver one synthetic staging verification alert
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-community-challenge-scheduler-evidence
+  cancel-in-progress: false
+
+jobs:
+  collect-and-verify:
+    name: Collect and verify staging host evidence
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact selected release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify selected commit belongs to main
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+
+      - name: Setup governed Node runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm major version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(npm --version | cut -d. -f1)" = "10"
+
+      - name: Install exact dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify staging runner identity
+        shell: bash
+        env:
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+
+      - name: Collect host activation evidence
+        shell: bash
+        env:
+          TECPEY_EVIDENCE_ENVIRONMENT: staging
+          TECPEY_EVIDENCE_EXPECTED_SHA: ${{ inputs.release_sha }}
+          TECPEY_EVIDENCE_SOURCE_DIR: ${{ github.workspace }}
+          TECPEY_EVIDENCE_APP_DIR: ${{ vars.TECPEY_STAGING_APP_DIR }}
+          TECPEY_EVIDENCE_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_EVIDENCE_STATE_DIR: ${{ vars.TECPEY_STAGING_OPS_STATE_DIR }}
+          TECPEY_EVIDENCE_SYSTEMD_DIR: ${{ vars.TECPEY_STAGING_SYSTEMD_DIR }}
+          TECPEY_EVIDENCE_NPM_BIN: ${{ vars.TECPEY_STAGING_NPM_BIN }}
+          TECPEY_EVIDENCE_RUN_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          TECPEY_EVIDENCE_RUN_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+          TECPEY_EVIDENCE_HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
+          TECPEY_EVIDENCE_RUN_ALERT_PROBE: ${{ inputs.run_alert_probe && '1' || '0' }}
+          TECPEY_EVIDENCE_OUTPUT: ${{ runner.temp }}/tecpey-staging-scheduler-evidence.json
+        run: npm run ops:staging:evidence:collect
+
+      - name: Verify evidence offline
+        shell: bash
+        env:
+          TECPEY_EVIDENCE_FILE: ${{ runner.temp }}/tecpey-staging-scheduler-evidence.json
+          TECPEY_EVIDENCE_EXPECTED_ENVIRONMENT: staging
+          TECPEY_EVIDENCE_EXPECTED_SHA: ${{ inputs.release_sha }}
+          TECPEY_EVIDENCE_REQUIRE_ALERT_PROBE: ${{ inputs.run_alert_probe && '1' || '0' }}
+          TECPEY_EVIDENCE_MAX_AGE_MS: '900000'
+          TECPEY_EVIDENCE_MAX_RUN_AGE_MS: '7200000'
+        run: |
+          set -o pipefail
+          npm run ops:staging:evidence:verify | tee "$RUNNER_TEMP/tecpey-staging-evidence-verification.json"
+
+      - name: Publish redacted evidence summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          ALERT_PROBE: ${{ inputs.run_alert_probe }}
+        run: |
+          {
+            echo "## Staging scheduler activation evidence"
+            echo ""
+            echo "- Release: \`$RELEASE_SHA\`"
+            echo "- Protected environment: \`staging\`"
+            echo "- Alert probe requested: \`$ALERT_PROBE\`"
+            echo "- Collector: passed"
+            echo "- Offline verifier: passed"
+            echo "- Artifact: \`tecpey-staging-scheduler-evidence-$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tecpey-staging-scheduler-evidence-${{ inputs.release_sha }}
+          path: |
+            ${{ runner.temp }}/tecpey-staging-scheduler-evidence.json
+            ${{ runner.temp }}/tecpey-staging-scheduler-evidence.json.sha256
+            ${{ runner.temp }}/tecpey-staging-evidence-verification.json
+          if-no-files-found: error
+          retention-days: 7
