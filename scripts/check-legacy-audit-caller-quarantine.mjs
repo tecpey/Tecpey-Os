@@ -1,10 +1,10 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
+const deletedWithdrawalService = "src/lib/security/withdrawal-service.ts";
 const files = {
   audit: "src/lib/security/audit-log.ts",
   apiKeyAuth: "src/lib/security/api-key-auth.ts",
-  withdrawalService: "src/lib/security/withdrawal-service.ts",
   classification: "docs/security/LEGACY_AUDIT_CALLER_CLASSIFICATION.md",
 };
 
@@ -64,9 +64,7 @@ function callObjectBlock(source, marker) {
 }
 
 function containsStoredKey(block, names) {
-  return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`).test(
-    block,
-  );
+  return new RegExp(`\\b(?:${names.join("|")})\\s*(?=:|[,}])`).test(block);
 }
 
 async function listSourceFiles(root) {
@@ -85,24 +83,22 @@ function normalizePath(path) {
   return relative(".", path).split(sep).join("/");
 }
 
-function importBindings(statement) {
-  const clause = statement
-    .replace(/^\s*import\s+/, "")
-    .replace(/\s+from\s+["'][^"']+["']\s*;?\s*$/, "")
-    .replace(/^type\s+/, "")
-    .trim();
-  const match = clause.match(/^\{([\s\S]*)\}$/);
-  if (!match) return null;
-  return match[1]
-    .split(",")
-    .map((entry) =>
-      entry
-        .trim()
-        .replace(/^type\s+/, "")
-        .split(/\s+as\s+/)[0]
-        .trim(),
-    )
-    .filter(Boolean);
+async function pathExists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+if (await pathExists(deletedWithdrawalService)) {
+  failures.push(
+    `${deletedWithdrawalService}: deleted dormant Withdrawal service must remain absent`,
+  );
 }
 
 const sourcePaths = await listSourceFiles("src");
@@ -195,7 +191,6 @@ if (
 const classifiedWriteAuditPaths = new Set([
   "src/lib/security/audit-log.ts",
   "src/lib/security/api-key-auth.ts",
-  "src/lib/security/withdrawal-service.ts",
 ]);
 for (const [path, source] of sourceByPath.entries()) {
   const hasLegacyCall = /\bwriteAudit\s*\(/.test(source);
@@ -208,73 +203,28 @@ for (const [path, source] of sourceByPath.entries()) {
       `${path}: new legacy audit import/call is forbidden outside the classified compatibility set`,
     );
   }
+
   if (
     path !== "src/lib/security/api-key-auth.ts" &&
     /(?:import|export)[\s\S]*?["'][^"']*api-key-auth["']/.test(source)
   ) {
     failures.push(`${path}: dormant signed API-key adapter must not be imported`);
   }
-}
-
-const allowedWithdrawalReadBindings = new Set([
-  "fetchWithdrawal",
-  "listPendingReviewWithdrawals",
-  "WithdrawalRecord",
-  "WithdrawalState",
-]);
-for (const [path, source] of sourceByPath.entries()) {
-  if (path === "src/lib/security/withdrawal-service.ts") continue;
-
-  const targetReferences =
-    source.match(/from\s+["'][^"']*withdrawal-service["']/g) ?? [];
-  const statements =
-    source.match(
-      /import\s+(?:type\s+)?\{[^;]*?\}\s+from\s+["'][^"']*withdrawal-service["']\s*;?/g,
-    ) ?? [];
-
-  if (targetReferences.length !== statements.length) {
-    failures.push(
-      `${path}: withdrawal-service compatibility access must use named ES imports only`,
-    );
-  }
-
-  for (const statement of statements) {
-    const bindings = importBindings(statement);
-    if (!bindings) {
-      failures.push(
-        `${path}: withdrawal-service compatibility import must be a named read-only import`,
-      );
-      continue;
-    }
-    for (const binding of bindings) {
-      if (!allowedWithdrawalReadBindings.has(binding)) {
-        failures.push(
-          `${path}: forbidden withdrawal-service binding ${binding}; only read projections and record types are allowed`,
-        );
-      }
-    }
-  }
 
   if (
-    /export\s+[\s\S]*?from\s+["'][^"']*withdrawal-service["']/.test(
-      source,
-    )
+    /from\s+["'][^"']*withdrawal-service["']/.test(source) ||
+    /import\s*\([^)]*withdrawal-service/.test(source) ||
+    /require\s*\([^)]*withdrawal-service/.test(source) ||
+    /export\s+[\s\S]*?from\s+["'][^"']*withdrawal-service["']/.test(source)
   ) {
-    failures.push(
-      `${path}: re-exporting the mixed legacy withdrawal module is forbidden`,
-    );
-  }
-  if (/require\s*\([^)]*withdrawal-service/.test(source)) {
-    failures.push(`${path}: CommonJS loading of withdrawal-service is forbidden`);
+    failures.push(`${path}: deleted Withdrawal legacy service must not be referenced`);
   }
 }
 
 for (const [symbol, owner] of [
   ["validateSignedApiKeyRequest", "src/lib/security/api-key-auth.ts"],
   ["hasApiKeyHeaders", "src/lib/security/api-key-auth.ts"],
-  ["createWithdrawalRequest", "src/lib/security/withdrawal-service.ts"],
-  ["adminActOnWithdrawal", "src/lib/security/withdrawal-service.ts"],
-  ["cancelWithdrawal", "src/lib/security/withdrawal-service.ts"],
+  ["getAuditLog", "src/lib/security/audit-log.ts"],
 ]) {
   const symbolPattern = new RegExp(`\\b${symbol}\\b`);
   const externalReferences = [...sourceByPath.entries()]
@@ -298,22 +248,14 @@ if (apiKeyLegacyCalls !== 1) {
   );
 }
 
-const withdrawalLegacyCalls =
-  content.withdrawalService.match(/\bwriteAudit\s*\(/g)?.length ?? 0;
-if (withdrawalLegacyCalls !== 4) {
-  failures.push(
-    `${files.withdrawalService}: expected exactly four classified obsolete writeAudit calls, found ${withdrawalLegacyCalls}`,
-  );
-}
-
 for (const invariant of [
   "Every remaining production-source `writeAudit()` site",
-  "Non-authoritative security telemetry in a dormant adapter",
-  "Obsolete/duplicate legacy withdrawal telemetry",
+  "Signed API-key rejection telemetry is the only production caller",
+  "Withdrawal legacy service removed",
+  "No production-source `writeAudit()` site remains in Withdrawal",
   "Deprecated best-effort writer",
   "api_key_auth_rejected",
-  "read-only compatibility surface",
-  "mutation exports have no external caller",
+  "Historical read-only compatibility helper",
   "#161 remains open",
 ]) {
   requireText(
@@ -330,5 +272,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Legacy audit caller quarantine passed: all best-effort writeAudit sites are classified, signed API-key rejection telemetry is privacy-safe, legacy mutation exports remain unreferenced, and only bounded withdrawal read projections may use the mixed compatibility module.",
+  "Legacy audit caller quarantine passed: the dormant Withdrawal legacy service and its audit calls remain deleted, signed API-key rejection telemetry is the only production caller, and historical reads remain non-authoritative.",
 );
