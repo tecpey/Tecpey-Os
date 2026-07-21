@@ -177,6 +177,29 @@ describe("Community reputation scoring consent client", () => {
     });
   });
 
+  it("rejects an invalid expected revision before any network mutation", async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return jsonResponse({ ok: true });
+    }) as typeof fetch;
+
+    const negative = await updateCommunityReputationScoringConsentClient({
+      expectedRevision: -1,
+      enabled: true,
+      idempotencyKey: "community-reputation-consent-invalid-negative",
+    });
+    const fractional = await updateCommunityReputationScoringConsentClient({
+      expectedRevision: 1.5,
+      enabled: false,
+      idempotencyKey: "community-reputation-consent-invalid-fractional",
+    });
+
+    assert.deepEqual(negative, { ok: false, reason: "invalid_response" });
+    assert.deepEqual(fractional, { ok: false, reason: "invalid_response" });
+    assert.equal(fetchCalls, 0);
+  });
+
   it("maps stale revisions and reload-safe failures without optimistic success", async () => {
     globalThis.fetch = (async () =>
       jsonResponse(
