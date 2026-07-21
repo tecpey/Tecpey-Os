@@ -24,7 +24,8 @@ function number(value: number): string {
 }
 
 export function JournalDisciplineScorePanel() {
-  const [result, setResult] = useState<JournalDisciplineScoreClientResult | null>(null);
+  const [result, setResult] =
+    useState<JournalDisciplineScoreClientResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -42,13 +43,37 @@ export function JournalDisciplineScorePanel() {
       <section
         className="rounded-[24px] border border-violet-300/15 bg-slate-900/60 p-5"
         aria-busy="true"
-        aria-label="در حال بارگذاری امتیاز خصوصی انضباط ژورنال"
+        aria-label="در حال بررسی دسترسی امتیاز خصوصی انضباط ژورنال"
       >
         <div className="flex items-center gap-3">
           <BookCheck className="h-5 w-5 animate-pulse text-violet-300" />
           <p className="text-sm font-black text-slate-300">
-            در حال محاسبه Policy خصوصی از Evidence سرور…
+            در حال بررسی Consent و Evidence سرور…
           </p>
+        </div>
+      </section>
+    );
+  }
+
+  if (result?.consentRequired) {
+    return (
+      <section className="rounded-[24px] border border-cyan-300/20 bg-cyan-300/5 p-5">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-black text-cyan-50">
+                محاسبه امتیاز خصوصی به رضایت صریح شما نیاز دارد
+              </p>
+              <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-black text-cyan-100">
+                Default Off
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-bold leading-6 text-cyan-100/70">
+              تک‌پی بدون فعال‌سازی آگاهانه شما هیچ Score شخصی محاسبه نمی‌کند. این
+              رضایت از نمایش عمومی پروفایل و Leaderboard کاملاً مستقل است.
+            </p>
+          </div>
         </div>
       </section>
     );
@@ -69,7 +94,8 @@ export function JournalDisciplineScorePanel() {
               </span>
             </div>
             <p className="mt-2 text-xs font-bold leading-6 text-amber-100/70">
-              تا بازیابی Authority، هیچ Score تخمینی یا Browser fallback نمایش داده نمی‌شود.
+              تا بازیابی Authority، هیچ Score تخمینی یا Browser fallback نمایش
+              داده نمی‌شود.
             </p>
             <button
               type="button"
@@ -86,7 +112,8 @@ export function JournalDisciplineScorePanel() {
   }
 
   const score = result.score;
-  const available = score.status === "available" && score.scoreBasisPoints !== null;
+  const available =
+    score.status === "available" && score.scoreBasisPoints !== null;
 
   return (
     <section className="rounded-[24px] border border-violet-300/20 bg-violet-300/[0.04] p-5">
@@ -97,13 +124,16 @@ export function JournalDisciplineScorePanel() {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-black text-white">امتیاز خصوصی انضباط ژورنال</p>
+              <p className="font-black text-white">
+                امتیاز خصوصی انضباط ژورنال
+              </p>
               <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-2 py-0.5 text-[10px] font-black text-violet-200">
                 Policy v1
               </span>
             </div>
             <p className="mt-1 text-xs font-bold leading-6 text-slate-400">
-              فقط کیفیت و ثبات ثبت Reflection در Challenge رسمی؛ نه مهارت معامله یا سودآوری.
+              فقط کیفیت و ثبات ثبت Reflection در Challenge رسمی؛ نه مهارت معامله
+              یا سودآوری.
             </p>
           </div>
         </div>
@@ -116,7 +146,9 @@ export function JournalDisciplineScorePanel() {
         <>
           <div className="mt-5 flex items-end justify-between gap-4 rounded-2xl border border-white/5 bg-slate-950/40 p-4">
             <div>
-              <p className="text-[11px] font-bold text-slate-500">Journal Discipline Score</p>
+              <p className="text-[11px] font-bold text-slate-500">
+                Journal Discipline Score
+              </p>
               <p className="mt-1 text-3xl font-black text-violet-100">
                 {percent(score.scoreBasisPoints!)}
               </p>
@@ -128,26 +160,34 @@ export function JournalDisciplineScorePanel() {
               <p className="text-base font-black text-white">
                 {number(score.evaluatedCycles)}
               </p>
-              <p className="mt-1 text-[10px] font-bold text-slate-500">چرخه ارزیابی‌شده</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-500">
+                چرخه ارزیابی‌شده
+              </p>
             </div>
             <div className="rounded-2xl border border-white/5 bg-slate-950/40 p-3 text-center">
               <p className="text-base font-black text-emerald-200">
                 {percent(score.completionConsistencyBasisPoints)}
               </p>
-              <p className="mt-1 text-[10px] font-bold text-slate-500">ثبات تکمیل · ۶۰٪</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-500">
+                ثبات تکمیل · ۶۰٪
+              </p>
             </div>
             <div className="rounded-2xl border border-white/5 bg-slate-950/40 p-3 text-center">
               <p className="text-base font-black text-cyan-200">
                 {percent(score.meanCoverageBasisPoints)}
               </p>
-              <p className="mt-1 text-[10px] font-bold text-slate-500">میانگین پوشش · ۴۰٪</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-500">
+                میانگین پوشش · ۴۰٪
+              </p>
             </div>
           </div>
         </>
       ) : (
         <div className="mt-5 rounded-2xl border border-white/5 bg-slate-950/40 p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-black text-slate-300">Evidence هنوز کافی نیست</p>
+            <p className="text-xs font-black text-slate-300">
+              Evidence هنوز کافی نیست
+            </p>
             <span className="text-xs font-black text-violet-200">
               {number(score.evaluatedCycles)} از {number(score.minimumCycles)} چرخه
             </span>
@@ -164,14 +204,16 @@ export function JournalDisciplineScorePanel() {
             />
           </div>
           <p className="mt-3 text-[11px] font-bold leading-5 text-slate-500">
-            برای جلوگیری از قضاوت زودهنگام، پیش از چهار چرخه نهایی‌شده هیچ Score نمایش داده نمی‌شود.
+            برای جلوگیری از قضاوت زودهنگام، پیش از چهار چرخه نهایی‌شده هیچ Score
+            نمایش داده نمی‌شود.
           </p>
         </div>
       )}
 
       <div className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-3">
         <p className="text-[11px] font-bold leading-5 text-cyan-100/65">
-          این Score خصوصی است و هیچ Rank، Percentile، Reward، XP، Badge، بورسیه یا تصمیم Mentor/Instructor ایجاد نمی‌کند.
+          این Score خصوصی است و هیچ Rank، Percentile، Reward، XP، Badge، بورسیه
+          یا تصمیم Mentor/Instructor ایجاد نمی‌کند.
         </p>
       </div>
     </section>
