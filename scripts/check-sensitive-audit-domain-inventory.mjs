@@ -110,6 +110,14 @@ function normalized(path) {
   return relative(".", path).split(sep).join("/");
 }
 
+function literalActionsPassedToSensitiveWriters(source) {
+  const actions = [];
+  const writerCall =
+    /\b(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,1200}?\baction\s*:\s*["']([a-z0-9_.]+)["']/gi;
+  for (const match of source.matchAll(writerCall)) actions.push(match[1]);
+  return actions;
+}
+
 if (
   inventory.schemaVersion !== 1 ||
   inventory.policyVersion !== "sensitive-mutation-audit-domain-inventory-v1" ||
@@ -176,9 +184,6 @@ const sourcePaths = [];
 for (const root of roots) {
   if (await exists(root)) sourcePaths.push(...(await listSourceFiles(root)));
 }
-const governedPrefixes = new Set(
-  inventoryActions.map((action) => action.split(".")[0]),
-);
 
 for (const path of sourcePaths) {
   const sourcePath = normalized(path);
@@ -193,14 +198,9 @@ for (const path of sourcePaths) {
   }
   const source = await readFile(path, "utf8");
 
-  for (const match of source.matchAll(/\baction\s*:\s*["']([a-z0-9_.]+)["']/gi)) {
-    const action = match[1];
-    if (
-      action.includes(".") &&
-      governedPrefixes.has(action.split(".")[0]) &&
-      !inventoryActions.includes(action)
-    ) {
-      failures.push(`${sourcePath}: unknown governed audit action ${action}`);
+  for (const action of literalActionsPassedToSensitiveWriters(source)) {
+    if (!inventoryActions.includes(action)) {
+      failures.push(`${sourcePath}: unknown sensitive audit writer action ${action}`);
     }
   }
 
@@ -262,5 +262,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, with governed source/table/retention boundaries.`,
+  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, with governed writer/table/retention boundaries.`,
 );
