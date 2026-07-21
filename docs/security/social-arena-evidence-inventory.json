@@ -15,6 +15,10 @@
       "purpose": "tenant/principal-bound default-private schema and database invariants"
     },
     {
+      "path": "src/lib/db-migrate-academy-public-student-id.ts",
+      "purpose": "server-issued unique and immutable public learner identity in the canonical migration plan"
+    },
+    {
       "path": "src/lib/community-profile-authority.ts",
       "purpose": "PostgreSQL-only self/public reads and transaction-coupled consent mutation"
     },
@@ -38,9 +42,9 @@
     },
     {
       "module": "@/lib/community-profile",
-      "source": null,
-      "classification": "removed-browser-authority",
-      "reason": "legacy localStorage profile and consent module removed under #212; no browser record may seed canonical consent"
+      "source": "src/lib/community-profile.ts",
+      "classification": "ephemeral-preview-compatibility",
+      "reason": "legacy component types are retained temporarily without localStorage, durable consent, canonical hydration or official evidence authority"
     },
     {
       "module": "@/lib/community-challenges",
@@ -96,7 +100,7 @@
     {
       "path": "src/components/academy/community/CommunityHub.tsx",
       "classification": "preview-only",
-      "allowedAuthority": "navigation and explicitly simulated content only"
+      "allowedAuthority": "navigation and ephemeral profile setup only; no browser persistence or consent authority"
     },
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
