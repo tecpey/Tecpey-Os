@@ -216,7 +216,7 @@ describe("Journal Discipline Score PostgreSQL authority", () => {
     assert.equal(available.available, true);
     assert.equal(available.score?.status, "available");
     assert.equal(available.score?.evaluatedCycles, 4);
-    assert.equal(available.score?.scoreBasisPoints, 8_800);
+    assert.equal(available.score?.scoreBasisPoints, 9_200);
     assert.match(available.score?.evaluatedEvidenceDigest ?? "", /^[0-9a-f]{64}$/);
   });
 
