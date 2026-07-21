@@ -25,8 +25,10 @@ describe("Official journal challenge source boundary", () => {
     ]) {
       assert.equal(source.includes(forbidden), false, forbidden);
     }
+    assert.match(source, /presentation-only definitions/);
     assert.match(source, /OFFICIAL_PILOT_CHALLENGE_ID = "journal-reflection-week"/);
-    assert.match(source, /Completion، امتیاز، XP، Badge و Reward/);
+    assert.match(source, /امتیاز عددی صادر نمی‌شود/);
+    assert.match(source, /PREVIEW_ONLY_CHALLENGES/);
   });
 
   it("derives official completion only from canonical server evidence", async () => {
@@ -48,6 +50,8 @@ describe("Official journal challenge source boundary", () => {
       "academy_community_challenge_events",
       "retrospectiveEvidenceAccepted: false",
       "rewardsEnabled: false",
+      "validateEnrollmentRow",
+      "lockIdentity = JSON.stringify",
     ]) {
       assert.equal(source.includes(required), true, required);
     }
@@ -60,6 +64,7 @@ describe("Official journal challenge source boundary", () => {
       "clientStartedAt",
       "xpBonus:",
       "badgeId:",
+      "\\0${cycle.key}",
     ]) {
       assert.equal(source.includes(forbidden), false, forbidden);
     }
@@ -100,10 +105,12 @@ describe("Official journal challenge source boundary", () => {
     ]) {
       assert.equal(source.includes(required), true, required);
     }
-    const challengeBranch = source.slice(
-      source.indexOf('if (view === "journal-reflection-challenge")'),
-      source.indexOf('const limited = await rateLimit(req, {\n        namespace: "community-profile-write"'),
-    );
+    const getStart = source.indexOf('if (view === "journal-reflection-challenge")');
+    const getEnd = source.indexOf('if (searchParams.has("cursor")', getStart);
+    const patchStart = source.indexOf('if (view === "journal-reflection-challenge")', getEnd);
+    const patchEnd = source.indexOf('const limited = await rateLimit(req, {\n        namespace: "community-profile-write"', patchStart);
+    for (const index of [getStart, getEnd, patchStart, patchEnd]) assert.notEqual(index, -1);
+    const challengeBranches = `${source.slice(getStart, getEnd)}\n${source.slice(patchStart, patchEnd)}`;
     for (const forbidden of [
       "PLATFORM.DEFAULT_TENANT_ID",
       "score",
@@ -112,7 +119,7 @@ describe("Official journal challenge source boundary", () => {
       "eligibleClosedTrades",
       "validReflections",
     ]) {
-      assert.equal(challengeBranch.includes(forbidden), false, forbidden);
+      assert.equal(challengeBranches.includes(forbidden), false, forbidden);
     }
   });
 
