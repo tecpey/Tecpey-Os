@@ -190,10 +190,32 @@ function validateEvidenceRow(
   };
 }
 
+async function requireActiveBinding(
+  client: PoolClient,
+  context: AvailableTenantPrincipalContext,
+): Promise<void> {
+  const selected = await client.query<{ active: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+         FROM platform_principal_bindings AS binding
+        WHERE binding.tenant_id = $1
+          AND binding.workspace_id = $2
+          AND binding.principal_type = 'student'
+          AND binding.principal_id = $3
+          AND binding.status = 'active'
+     ) AS active`,
+    [context.tenantId, context.workspaceId, context.principalId],
+  );
+  if (selected.rows[0]?.active !== true) {
+    throw new Error("journal_discipline_binding_inactive");
+  }
+}
+
 async function selectValidatedWindow(
   client: PoolClient,
   context: AvailableTenantPrincipalContext,
 ): Promise<JournalDisciplineScoreCycleInput[]> {
+  await requireActiveBinding(client, context);
   const selected = await client.query<CommunityReputationEvidenceRow>(
     `SELECT ${EVIDENCE_SELECT}
        FROM academy_community_reputation_evidence AS evidence
