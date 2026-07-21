@@ -310,9 +310,9 @@ for (const command of [
   requireText("package", command, `package command missing ${command}`);
 }
 for (const testFile of [
-  "community-challenge-scheduler.test.ts",
-  "operational-alert-spool.test.ts",
-  "operational-job-evidence-postgres.test.ts",
+  "community-challenge-scheduler.integration.ts",
+  "operational-alert-spool.integration.ts",
+  "operational-job-evidence-postgres.integration.ts",
   "community-challenge-scheduler-installer.test.ts",
 ]) {
   requireText("package", testFile, `permanent scheduler test missing ${testFile}`);
