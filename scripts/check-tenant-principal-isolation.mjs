@@ -78,13 +78,13 @@ requireText(
 for (const invariant of [
   'FILENAME = "0046_tenant_principal_isolation_foundation.sql"',
   "CREATE TABLE IF NOT EXISTS platform_principal_bindings",
-  "platform_principal_binding_workspace_fk",
+  "platform_principal_bindings_workspace_fk",
   "platform principal binding identity is immutable",
-  "academy_student_default_principal_binding",
-  "academy_account_default_principal_binding",
+  "academy_students_default_principal_binding",
+  "academy_auth_accounts_default_principal_binding",
   "offline_sync_commands_principal_binding_fk",
   "learning_events_principal_binding_fk",
-  "workspace-primary must belong to tenant tecpey",
+  "main workspace must belong to tenant tecpey",
 ]) {
   requireText("migration", invariant, `migration is missing ${invariant}`);
 }
