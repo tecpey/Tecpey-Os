@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 const paths = {
+  inventory: "docs/security/social-arena-evidence-inventory.json",
   migration: "src/lib/db-migrate-operational-job-evidence.ts",
   migrationPlan: "src/lib/db-migration-plan.ts",
   evidence: "src/lib/ops/operational-job-evidence.ts",
@@ -27,6 +28,7 @@ const source = Object.fromEntries(
 const normalized = Object.fromEntries(
   Object.entries(source).map(([key, value]) => [key, value.replace(/\s+/g, " ")]),
 );
+const inventory = JSON.parse(source.inventory);
 const failures = [];
 
 function requireText(target, token, reason) {
@@ -38,6 +40,47 @@ function requireText(target, token, reason) {
 function rejectText(target, token, reason) {
   if (normalized[target].includes(token.replace(/\s+/g, " "))) {
     failures.push(`${paths[target]}: ${reason}`);
+  }
+}
+
+function requireInventory(collection, authorityPath, reason) {
+  if (!inventory[collection]?.some((entry) => entry.path === authorityPath)) {
+    failures.push(`${paths.inventory}: ${reason}: ${authorityPath}`);
+  }
+}
+
+if (
+  inventory.schemaVersion !== 1 ||
+  inventory.issue !== 168 ||
+  inventory.followUpIssue !== 221 ||
+  inventory.operationalFollowUpIssue !== 223
+) {
+  failures.push(`${paths.inventory}: Product and operational follow-up linkage is invalid`);
+}
+if (
+  typeof inventory.policy?.operationalFinalization !== "string" ||
+  !inventory.policy.operationalFinalization.includes("repository merge alone is not proof")
+) {
+  failures.push(`${paths.inventory}: operational activation boundary is missing`);
+}
+for (const authorityPath of [
+  "src/lib/db-migrate-operational-job-evidence.ts",
+  "src/lib/ops/operational-job-evidence.ts",
+  "src/lib/ops/community-challenge-finalization-job.ts",
+  "src/lib/ops/operational-alert-spool.ts",
+  "scripts/run-community-challenge-finalization-scheduled.ts",
+  "scripts/deliver-operational-alerts.ts",
+  "scripts/install-community-challenge-scheduler.sh",
+]) {
+  requireInventory("canonicalAuthorities", authorityPath, "missing operational authority");
+}
+for (const protectedPath of [
+  "src/lib/ops/operational-job-evidence.ts",
+  "src/lib/ops/community-challenge-finalization-job.ts",
+  "src/lib/ops/operational-alert-spool.ts",
+]) {
+  if (!inventory.protectedAuthoritySurfaces?.includes(protectedPath)) {
+    failures.push(`${paths.inventory}: missing protected operational surface ${protectedPath}`);
   }
 }
 
@@ -101,6 +144,9 @@ for (const invariant of [
   "response.status === 429",
   "response.status >= 500",
   "retryDelayMs",
+  "findExistingAlertFile",
+  "managed.pending, managed.delivered, managed.quarantine",
+  "operational_spool_destination_conflict",
   "managed.quarantine",
   "managed.delivered",
 ]) {
@@ -122,6 +168,7 @@ for (const invariant of [
   "maxBatches",
   "drainLimitReached",
   "database_authority_unavailable",
+  "database_authority_unavailable_after_progress",
   "operational_evidence_unavailable",
   "persistOperationalJobRunTx",
   "writeOperationalLastRun",
@@ -181,6 +228,7 @@ for (const invariant of [
   "set -Eeuo pipefail",
   '[[ "$RUN_USER" != "root" ]]',
   "environment_file_world_access_forbidden",
+  "environment_file_unsafe",
   "state_directory_symlink_forbidden",
   "systemd-analyze verify",
   "TECPEY_DRY_RUN",
@@ -203,7 +251,9 @@ for (const forbidden of [
 for (const target of ["finalizerService", "alertService"]) {
   for (const invariant of [
     "Type=oneshot",
+    "EnvironmentFile=@@ENV_FILE@@",
     "Environment=NODE_ENV=production",
+    "Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@",
     "ExecStartPre=@@NPM_BIN@@ run ops:scheduler:env-check",
     "NoNewPrivileges=true",
     "PrivateTmp=true",
@@ -222,6 +272,11 @@ for (const target of ["finalizerService", "alertService"]) {
     requireText(target, invariant, `${paths[target]} is missing ${invariant}`);
   }
   rejectText(target, "User=root", `${paths[target]} must not run as root`);
+  const environmentFileIndex = source[target].indexOf("EnvironmentFile=@@ENV_FILE@@");
+  const fixedStateIndex = source[target].indexOf("Environment=TECPEY_OPS_STATE_DIR=@@STATE_DIR@@");
+  if (environmentFileIndex < 0 || fixedStateIndex < 0 || environmentFileIndex > fixedStateIndex) {
+    failures.push(`${paths[target]}: fixed state directory must override EnvironmentFile`);
+  }
 }
 requireText(
   "finalizerService",
@@ -286,5 +341,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Community challenge scheduler authority passed: hourly persistent finalization, immutable PostgreSQL evidence, outage-safe atomic alert spool, HTTPS delivery, hardened systemd units and guarded installation remain enforced.",
+  "Community challenge scheduler authority passed: hourly persistent finalization, immutable PostgreSQL evidence, outage-safe atomic alert spool, lifecycle-wide deduplication, HTTPS delivery, hardened systemd units and guarded installation remain enforced.",
 );
