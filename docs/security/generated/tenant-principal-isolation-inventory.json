@@ -125,10 +125,10 @@
       "principalKey": "actor_type + actor_id",
       "requiredInvariants": [
         "CREATE TABLE IF NOT EXISTS sensitive_mutation_audit_events",
-        "sensitive mutation audit rows are append-only",
+        "sensitive mutation audit evidence is append-only",
         "tenant_id TEXT NOT NULL"
       ],
-      "reviewDigest": "656a65cef1277e190604775b1f738b293cf44ac6753ef3353bb9c4b6fc0120c8",
+      "reviewDigest": "df5719075bc453f8d923ae08a8671ac8bb7452d23a97d590b6f4628b34bdc472",
       "sourcePath": "src/lib/db-migrate-sensitive-mutation-audit.ts",
       "status": "reviewed",
       "surfaceType": "relational_table",
