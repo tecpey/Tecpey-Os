@@ -10,7 +10,7 @@ Baseline: `62949ff5f290e56aaef0329523e67fc8434aff76`
 
 The active TecPey security and financial authorities use transaction-coupled evidence or durable outbox/state-machine records. The older `audit_events` writer is best-effort and cannot prove a mutation committed.
 
-This inventory classifies every remaining production-source `writeAudit()` site and prevents new callers. It does not migrate or delete historical `audit_events` rows.
+Every remaining production-source `writeAudit()` site is classified below. This inventory prevents new callers and does not migrate or delete historical `audit_events` rows.
 
 ## Channel definitions
 
