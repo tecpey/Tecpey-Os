@@ -47,6 +47,7 @@ const persistencePolicy = new Map(
 );
 
 const serverAuthoritativeSurfaces = new Set([
+  "src/app/api/community/profile/route.ts",
   "src/components/academy/community/PeerJournals.tsx",
   "src/lib/community-journal-client.ts",
   "src/components/academy/community/ChallengeCenter.tsx",
@@ -55,7 +56,6 @@ const serverAuthoritativeSurfaces = new Set([
   "src/lib/community-journal-challenge-authority.ts",
   "src/lib/community-journal-challenge-finalization.ts",
   "src/lib/community-journal-challenge-history-client.ts",
-  "src/app/api/community/challenge-history/route.ts",
   "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
 ]);
 
