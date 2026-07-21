@@ -36,6 +36,11 @@ const requireText = (target, text, reason) => {
     failures.push(`${files[target]}: ${reason}`);
   }
 };
+const requireSourcePattern = (target, pattern, reason) => {
+  if (!pattern.test(content[target])) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
+};
 const rejectText = (target, text, reason) => {
   if (normalizedContent[target].includes(normalizeSource(text))) {
     failures.push(`${files[target]}: ${reason}`);
@@ -207,14 +212,22 @@ for (const invariant of [
 }
 for (const invariant of [
   "verifyOfflineSyncScope",
-  "scope.scope.tenantId !== context.tenantId",
-  "scope.scope.studentId !== context.principalId",
   "principal_scope_mismatch",
   "LEGACY_QUARANTINE_KEY",
   "scopeRefreshInFlight",
 ]) {
   requireText("scopeTests", invariant, `scope adversarial suite is missing ${invariant}`);
 }
+requireSourcePattern(
+  "scopeTests",
+  /scope\\?\.scope\\?\.tenantId\s*!==\s*context\\?\.tenantId/,
+  "scope adversarial suite is missing the tenant-context mismatch invariant",
+);
+requireSourcePattern(
+  "scopeTests",
+  /scope\\?\.scope\\?\.studentId\s*!==\s*context\\?\.principalId/,
+  "scope adversarial suite is missing the principal-context mismatch invariant",
+);
 requireText(
   "telemetryTests",
   "scripts/check-offline-sync-authority.mjs",
