@@ -136,6 +136,21 @@ Protected CI fails when:
 - official current-state documents claim signed API authentication is production-ready;
 - active API-key lifecycle loses transaction-coupled mandatory evidence.
 
+## Technical-debt governance
+
+`docs/TECHNICAL_DEBT_REGISTRY.md` records the former replay risk as **launch-disabled by surface elimination**, not as an active production adapter.
+
+TD-H02 may return to an open/active state only when all of the following are true:
+
+1. a new P0 signed-auth issue is approved;
+2. the current deletion/zero-surface guard is intentionally migrated in the same reviewed change;
+3. the complete future-activation requirements above have implementation and negative evidence;
+4. official Feature, Gate, Blocker, Hardening and Debt documents are updated together;
+5. exact-head protected workflows pass;
+6. Security and CTO approval is recorded.
+
+A documentation-only status change cannot activate the capability, and a code-only route cannot bypass governance.
+
 ## Non-goals
 
 - no public API or SDK authentication implementation;
