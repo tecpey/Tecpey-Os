@@ -178,6 +178,7 @@ for (const invariant of [
   "offline_sync_commands_principal_binding_fk",
   "learning_events_principal_binding_fk",
   "platform_principal_bindings",
+  "workspace-primary must belong to tenant tecpey",
 ]) {
   requireText("isolationMigration", invariant, `isolation migration is missing ${invariant}`);
 }
@@ -190,7 +191,7 @@ for (const evidence of [
   "isolates the same client event identity across tenant and principal contexts",
   "rejects a cross-tenant command row at the composite foreign key",
   "learning-event application fails",
-  "PostgreSQL is unavailable",
+  "rejects invalid authority context before PostgreSQL mutation",
 ]) {
   requireText("tests", evidence, `missing adversarial evidence: ${evidence}`);
 }
