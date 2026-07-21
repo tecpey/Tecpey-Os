@@ -60,7 +60,7 @@ export function LeaderboardView() {
               </span>
             </div>
             <p className="mt-1 text-xs font-bold leading-6 text-slate-500">
-              این دسته‌ها Taxonomy آینده محصول هستند. Score خصوصی انضباط ژورنال به هیچ جایگاه عمومی تبدیل نمی‌شود.
+              در این دسته‌های عمومی هیچ وزن، امتیاز یا جایگاه کاربر محاسبه نمی‌شود؛ Score خصوصی انضباط ژورنال به هیچ جایگاه عمومی تبدیل نمی‌شود.
             </p>
           </div>
         </div>
@@ -74,7 +74,7 @@ export function LeaderboardView() {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-black text-slate-300">{CATEGORY_LABEL[category]}</p>
                 <span className="rounded-full border border-slate-500/20 px-2 py-0.5 text-[9px] font-black text-slate-600">
-                  بدون رتبه
+                  بدون امتیاز / بدون رتبه
                 </span>
               </div>
               <p className="mt-2 text-[11px] font-bold leading-5 text-slate-600">
