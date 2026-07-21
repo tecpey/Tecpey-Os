@@ -46,6 +46,8 @@ export type WithdrawalListResult =
   | { ok: true; withdrawals: WithdrawalRecord[] }
   | { ok: false; reason: "withdrawal_storage_unavailable" };
 
+type TimestampValue = Date | string;
+
 type WithdrawalRow = {
   id: string;
   user_id: string;
@@ -61,13 +63,13 @@ type WithdrawalRow = {
   aml_risk: string | null;
   sanctions_hit: boolean;
   compliance_result: Record<string, unknown> | null;
-  compliance_checked_at: string | null;
+  compliance_checked_at: TimestampValue | null;
   reviewed_by: string | null;
-  reviewed_at: string | null;
+  reviewed_at: TimestampValue | null;
   review_notes: string | null;
-  created_at: string;
-  updated_at: string;
-  completed_at: string | null;
+  created_at: TimestampValue;
+  updated_at: TimestampValue;
+  completed_at: TimestampValue | null;
 };
 
 const WITHDRAWAL_PROJECTION_COLUMNS = `
@@ -85,14 +87,26 @@ const WITHDRAWAL_PROJECTION_COLUMNS = `
   aml_risk,
   sanctions_hit,
   compliance_result,
-  compliance_checked_at::text AS compliance_checked_at,
+  compliance_checked_at,
   reviewed_by,
-  reviewed_at::text AS reviewed_at,
+  reviewed_at,
   review_notes,
-  created_at::text AS created_at,
-  updated_at::text AS updated_at,
-  completed_at::text AS completed_at
+  created_at,
+  updated_at,
+  completed_at
 `;
+
+function timestampToIso(value: TimestampValue): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error("withdrawal_projection_timestamp_invalid");
+  }
+  return date.toISOString();
+}
+
+function nullableTimestampToIso(value: TimestampValue | null): string | null {
+  return value === null ? null : timestampToIso(value);
+}
 
 function toWithdrawalRecord(row: WithdrawalRow): WithdrawalRecord {
   return {
@@ -110,13 +124,13 @@ function toWithdrawalRecord(row: WithdrawalRow): WithdrawalRecord {
     amlRisk: row.aml_risk,
     sanctionsHit: row.sanctions_hit,
     complianceResult: row.compliance_result ?? {},
-    complianceCheckedAt: row.compliance_checked_at,
+    complianceCheckedAt: nullableTimestampToIso(row.compliance_checked_at),
     reviewedBy: row.reviewed_by,
-    reviewedAt: row.reviewed_at,
+    reviewedAt: nullableTimestampToIso(row.reviewed_at),
     reviewNotes: row.review_notes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    completedAt: row.completed_at,
+    createdAt: timestampToIso(row.created_at),
+    updatedAt: timestampToIso(row.updated_at),
+    completedAt: nullableTimestampToIso(row.completed_at),
   };
 }
 
