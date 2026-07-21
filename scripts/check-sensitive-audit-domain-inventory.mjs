@@ -112,9 +112,26 @@ function normalized(path) {
 
 function literalActionsPassedToSensitiveWriters(source) {
   const actions = [];
-  const writerCall =
-    /\b(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,1200}?\baction\s*:\s*["']([a-z0-9_.]+)["']/gi;
-  for (const match of source.matchAll(writerCall)) actions.push(match[1]);
+  const writerPattern =
+    /\b(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\(/g;
+
+  for (const writer of source.matchAll(writerPattern)) {
+    const start = writer.index ?? 0;
+    const requestHash = source.indexOf("requestHash:", start);
+    if (requestHash < 0 || requestHash - start > 2500) continue;
+
+    // Every governed writer contract places its top-level action before the
+    // top-level requestHash. Restricting the slice here prevents nested
+    // hashSensitiveAuditRequest({ action: ... }) labels from being mistaken for
+    // persisted audit actions. Dynamic action expressions remain type-checked by
+    // SensitiveMutationAuditAction at compile time.
+    const writerHeader = source.slice(start, requestHash);
+    const literal = writerHeader.match(
+      /\baction\s*:\s*["']([a-z0-9_.]+)["']/i,
+    );
+    if (literal) actions.push(literal[1]);
+  }
+
   return actions;
 }
 
@@ -205,6 +222,16 @@ for (const path of sourcePaths) {
   }
 
   if (
+    /(?:writeSensitiveMutationAuditTx|writeWithdrawalExternalEffectEvidenceTx)\s*\([\s\S]{0,2000}?\bas\s+(?:any|unknown)\b/.test(
+      source,
+    )
+  ) {
+    failures.push(
+      `${sourcePath}: sensitive audit writer must not erase typed action/resource authority`,
+    );
+  }
+
+  if (
     sourcePath.startsWith("src/app/") &&
     /\b(?:sensitive_mutation_audit_events|audit_events)\b/.test(source)
   ) {
@@ -262,5 +289,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, with governed writer/table/retention boundaries.`,
+  `Sensitive audit domain inventory passed: exact typed coverage for ${actionUnion.length} actions and ${resourceUnion.length} resources, top-level writer action checks, no type erasure, and governed source/table/retention boundaries.`,
 );
