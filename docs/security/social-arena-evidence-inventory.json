@@ -8,7 +8,7 @@
     "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
     "legacyMigrationRule": "legacy browser records may be displayed only on explicitly quarantined historical surfaces and may never be promoted to durable truth",
     "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
-    "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; no demo, localStorage, exact PnL or internal identity fields"
+    "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields"
   },
   "canonicalAuthorities": [
     {
@@ -25,7 +25,7 @@
     },
     {
       "path": "src/lib/community-journal-authority.ts",
-      "purpose": "server-only same-tenant privacy projection from canonical Trading Arena reflections gated by evidenced account consent"
+      "purpose": "server-only same-tenant pseudonymous and safety-filtered projection from canonical Trading Arena reflections gated by evidenced account consent"
     },
     {
       "path": "src/lib/community-journal-client.ts",
@@ -110,7 +110,7 @@
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
       "classification": "canonical-server-feed",
-      "allowedAuthority": "same-tenant privacy-minimized canonical Arena reflection projection plus revisioned Community consent"
+      "allowedAuthority": "same-tenant pseudonymous, identifier-redacted and safety-filtered canonical Arena reflection projection plus revisioned Community consent; consent controls remain available if Feed loading alone fails"
     },
     {
       "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
