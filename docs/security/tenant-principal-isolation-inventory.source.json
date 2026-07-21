@@ -136,7 +136,7 @@
       "requiredInvariants": [
         "CREATE TABLE IF NOT EXISTS sensitive_mutation_audit_events",
         "tenant_id TEXT NOT NULL",
-        "sensitive mutation audit rows are append-only"
+        "sensitive mutation audit evidence is append-only"
       ]
     },
     {
