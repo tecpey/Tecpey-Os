@@ -101,7 +101,7 @@ A partial unique index allows only one finalization event per enrollment. Event 
 
 ## Latest result read model
 
-`GET /api/community/challenge-history` is authenticated, strict-revocation, tenant/principal-bound, rate-limited, private and no-store. It returns only the latest ended terminal result for the authenticated student.
+`GET /api/community/profile?view=journal-reflection-history` is authenticated, strict-revocation, tenant/principal-bound, rate-limited, private and no-store. It returns only the latest ended terminal result for the authenticated student through the already governed Community route.
 
 The browser parser recomputes coverage and threshold coherence. Invalid payloads, nonzero rewards or contradictory status fail closed. No browser history or demo fallback exists.
 
