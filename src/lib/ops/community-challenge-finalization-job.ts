@@ -24,6 +24,19 @@ export const COMMUNITY_CHALLENGE_FINALIZATION_JOB =
 export const COMMUNITY_CHALLENGE_FINALIZATION_UNIT =
   "tecpey-community-challenge-finalizer.service";
 
+type PersistEvidence = (
+  run: OperationalJobRunEvidence,
+  alert: OperationalAlertEvidence | null,
+) => Promise<boolean>;
+type WriteLastRun = (
+  stateDirectory: string,
+  run: OperationalJobRunEvidence,
+) => Promise<void>;
+type EnqueueAlert = (
+  stateDirectory: string,
+  alert: OperationalAlertEvidence,
+) => Promise<{ replayed: boolean; filePath: string }>;
+
 export type ScheduledCommunityChallengeFinalizationOptions = {
   stateDirectory: string;
   batchSize?: number;
@@ -32,6 +45,9 @@ export type ScheduledCommunityChallengeFinalizationOptions = {
   hostName?: string;
   clock?: () => Date;
   finalizer?: typeof finalizeEndedOfficialJournalChallenges;
+  persistEvidence?: PersistEvidence;
+  writeLastRun?: WriteLastRun;
+  enqueueAlert?: EnqueueAlert;
 };
 
 export type ScheduledCommunityChallengeFinalizationResult = {
@@ -113,6 +129,9 @@ export async function runScheduledCommunityChallengeFinalization(
   const runId = options.runId ?? randomUUID();
   const clock = options.clock ?? (() => new Date());
   const finalizer = options.finalizer ?? finalizeEndedOfficialJournalChallenges;
+  const persistEvidence = options.persistEvidence ?? persistRunAndAlert;
+  const writeLastRun = options.writeLastRun ?? writeOperationalLastRun;
+  const enqueueAlert = options.enqueueAlert ?? enqueueOperationalAlert;
   const startedAt = nowIso(clock);
   let completedAt = startedAt;
   let batchesProcessed = 0;
@@ -175,7 +194,7 @@ export async function runScheduledCommunityChallengeFinalization(
     reasonCodes: uniqueSorted(reasonCodes),
   });
   let alert = buildAlert(run);
-  const databaseEvidencePersisted = await persistRunAndAlert(run, alert);
+  const databaseEvidencePersisted = await persistEvidence(run, alert);
 
   if (!databaseEvidencePersisted && run.resultStatus !== "authority_unavailable") {
     run = validateOperationalJobRunEvidence({
@@ -189,8 +208,8 @@ export async function runScheduledCommunityChallengeFinalization(
     alert = buildAlert(run);
   }
 
-  await writeOperationalLastRun(options.stateDirectory, run);
-  if (alert) await enqueueOperationalAlert(options.stateDirectory, alert);
+  await writeLastRun(options.stateDirectory, run);
+  if (alert) await enqueueAlert(options.stateDirectory, alert);
 
   const exitCode: 0 | 1 | 2 = run.resultStatus === "succeeded"
     ? 0
