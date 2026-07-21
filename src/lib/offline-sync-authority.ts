@@ -3,9 +3,14 @@ import type { PoolClient } from "pg";
 import { withTx } from "./db";
 import { logger } from "./logger";
 import type { OfflineSyncItem, OfflineSyncResult } from "./offline-sync";
+import type { AvailableTenantPrincipalContext } from "./security/tenant-principal-context";
 
 const STALE_PROCESSING_MS = 5 * 60 * 1_000;
 const RETENTION_DAYS = 90;
+
+export type OfflineSyncAuthorityContext = AvailableTenantPrincipalContext & {
+  principalType: "student";
+};
 
 function canonicalJson(value: unknown): string {
   if (value === null) return "null";
@@ -58,8 +63,6 @@ function offlineCommandLockKey(args: {
   studentId: string;
   clientEventId: string;
 }): string {
-  // PostgreSQL text values cannot contain NUL. Hash the canonical identity in
-  // Node and pass only printable hex to the advisory-lock function.
   return createHash("sha256")
     .update(principalCommandIdentity(args))
     .digest("hex");
@@ -91,18 +94,34 @@ function committedResult(
   };
 }
 
+function assertOfflineContext(
+  context: AvailableTenantPrincipalContext,
+): asserts context is OfflineSyncAuthorityContext {
+  if (context.principalType !== "student") {
+    throw new Error("offline_context_principal_type_invalid");
+  }
+  if (!context.scopes.includes("offline-sync:write")) {
+    throw new Error("offline_context_scope_missing");
+  }
+}
+
 async function insertLearningEventExactlyOnce(
   client: PoolClient,
-  args: { eventId: string; studentId: string; item: OfflineSyncItem },
+  args: {
+    eventId: string;
+    context: OfflineSyncAuthorityContext;
+    item: OfflineSyncItem;
+  },
 ): Promise<void> {
   await client.query(
     `INSERT INTO learning_events
-      (event_id, student_id, event_type, source, locale, payload)
-     VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
+      (event_id, student_id, event_type, source, locale, payload,
+       tenant_id, workspace_id, principal_type, principal_id)
+     VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
      ON CONFLICT (event_id) DO NOTHING`,
     [
       args.eventId,
-      args.studentId,
+      args.context.principalId,
       args.item.eventType,
       args.item.source,
       args.item.locale,
@@ -111,25 +130,41 @@ async function insertLearningEventExactlyOnce(
         offlineClientEventId: args.item.id,
         clientCreatedAt: args.item.clientCreatedAt,
       }),
+      args.context.tenantId,
+      args.context.workspaceId,
+      args.context.principalType,
+      args.context.principalId,
     ],
   );
 }
 
-export async function processOfflineSyncCommand(args: {
-  tenantId: string;
-  studentId: string;
+export async function processOfflineSyncCommand(input: {
+  context: AvailableTenantPrincipalContext;
   item: OfflineSyncItem;
 }): Promise<OfflineSyncResult> {
-  const commandHash = offlineCommandHash(args.item);
+  try {
+    assertOfflineContext(input.context);
+  } catch (error) {
+    logger.error("[offline-sync] invalid authority context", {
+      requestId: input.context.requestId,
+      error: String(error),
+    });
+    return { id: input.item.id, status: "rejected", reason: "principal_context_invalid" };
+  }
+
+  const context = input.context;
+  const tenantId = context.tenantId;
+  const studentId = context.principalId;
+  const commandHash = offlineCommandHash(input.item);
   const eventId = offlineLearningEventId({
-    tenantId: args.tenantId,
-    studentId: args.studentId,
-    clientEventId: args.item.id,
+    tenantId,
+    studentId,
+    clientEventId: input.item.id,
   });
   const lockKey = offlineCommandLockKey({
-    tenantId: args.tenantId,
-    studentId: args.studentId,
-    clientEventId: args.item.id,
+    tenantId,
+    studentId,
+    clientEventId: input.item.id,
   });
 
   try {
@@ -141,24 +176,28 @@ export async function processOfflineSyncCommand(args: {
 
       const claimed = await client.query<{ id: string }>(
         `INSERT INTO offline_sync_commands
-          (tenant_id, student_id, client_event_id, command_hash, event_type,
-           source, locale, client_created_at, payload, status,
-           domain_event_id, processing_started_at, retain_until)
+          (tenant_id, workspace_id, principal_type, student_id,
+           client_event_id, command_hash, event_type, source, locale,
+           client_created_at, payload, status, domain_event_id,
+           processing_started_at, retain_until)
          VALUES
-          ($1, $2::uuid, $3, $4, $5, $6, $7, $8::timestamptz, $9::jsonb,
-           'processing', $10, NOW(), NOW() + ($11::text || ' days')::interval)
+          ($1, $2, $3, $4::uuid, $5, $6, $7, $8, $9, $10::timestamptz,
+           $11::jsonb, 'processing', $12, NOW(),
+           NOW() + ($13::text || ' days')::interval)
          ON CONFLICT (tenant_id, student_id, client_event_id) DO NOTHING
          RETURNING id`,
         [
-          args.tenantId,
-          args.studentId,
-          args.item.id,
+          tenantId,
+          context.workspaceId,
+          context.principalType,
+          studentId,
+          input.item.id,
           commandHash,
-          args.item.eventType,
-          args.item.source,
-          args.item.locale,
-          args.item.clientCreatedAt,
-          JSON.stringify(args.item.payload),
+          input.item.eventType,
+          input.item.source,
+          input.item.locale,
+          input.item.clientCreatedAt,
+          JSON.stringify(input.item.payload),
           eventId,
           String(RETENTION_DAYS),
         ],
@@ -173,21 +212,21 @@ export async function processOfflineSyncCommand(args: {
               AND student_id = $2::uuid
               AND client_event_id = $3
             FOR UPDATE`,
-          [args.tenantId, args.studentId, args.item.id],
+          [tenantId, studentId, input.item.id],
         );
         const row = existing.rows[0];
         if (!row) throw new Error("offline_command_conflict_without_row");
 
         if (row.command_hash !== commandHash) {
           return {
-            id: args.item.id,
+            id: input.item.id,
             status: "rejected" as const,
             reason: "idempotency_conflict",
           };
         }
 
         if (row.status === "committed" && row.domain_event_id && row.committed_at) {
-          return committedResult(args.item, row.domain_event_id, row.committed_at, true);
+          return committedResult(input.item, row.domain_event_id, row.committed_at, true);
         }
 
         const processingStartedAt = row.processing_started_at
@@ -198,7 +237,7 @@ export async function processOfflineSyncCommand(args: {
           processingStartedAt > Date.now() - STALE_PROCESSING_MS
         ) {
           return {
-            id: args.item.id,
+            id: input.item.id,
             status: "retryable" as const,
             reason: "command_in_progress",
           };
@@ -215,14 +254,14 @@ export async function processOfflineSyncCommand(args: {
             WHERE tenant_id = $1
               AND student_id = $2::uuid
               AND client_event_id = $3`,
-          [args.tenantId, args.studentId, args.item.id, eventId],
+          [tenantId, studentId, input.item.id, eventId],
         );
       }
 
       await insertLearningEventExactlyOnce(client, {
         eventId,
-        studentId: args.studentId,
-        item: args.item,
+        context,
+        item: input.item,
       });
 
       const committed = await client.query<{ committed_at: Date }>(
@@ -241,24 +280,25 @@ export async function processOfflineSyncCommand(args: {
             AND student_id = $2::uuid
             AND client_event_id = $3
           RETURNING committed_at`,
-        [args.tenantId, args.studentId, args.item.id, eventId],
+        [tenantId, studentId, input.item.id, eventId],
       );
       if (!committed.rows[0]) throw new Error("offline_command_commit_missing");
-      return committedResult(args.item, eventId, committed.rows[0].committed_at, false);
+      return committedResult(input.item, eventId, committed.rows[0].committed_at, false);
     });
 
     if (!transaction.enabled) {
-      return { id: args.item.id, status: "retryable", reason: "storage_unavailable" };
+      return { id: input.item.id, status: "retryable", reason: "storage_unavailable" };
     }
     return transaction.value;
   } catch (error) {
     logger.error("[offline-sync] command transaction failed", {
-      tenantId: args.tenantId,
-      studentId: args.studentId,
-      clientEventId: args.item.id,
+      tenantFingerprint: createHash("sha256").update(tenantId).digest("hex"),
+      principalFingerprint: createHash("sha256").update(studentId).digest("hex"),
+      clientEventId: input.item.id,
+      requestId: context.requestId,
       error: String(error),
     });
-    return { id: args.item.id, status: "retryable", reason: "storage_unavailable" };
+    return { id: input.item.id, status: "retryable", reason: "storage_unavailable" };
   }
 }
 
