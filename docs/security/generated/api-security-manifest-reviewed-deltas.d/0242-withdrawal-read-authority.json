@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/admin/withdrawals/[id]",
+      "method": "POST",
+      "previousSourceHash": "49741c1b86bf8a448242e8fc",
+      "issue": "#242",
+      "owner": "security-platform",
+      "reason": "The combined Admin detail/action route now reads detail state through the dedicated fail-closed withdrawal read authority. The POST mutation keeps the same Admin step-up authorization, bounded body, idempotency, canonical transaction authority, notification and no-store controls.",
+      "replacement": {
+        "route": "/api/admin/withdrawals/[id]",
+        "method": "POST",
+        "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
+        "sourceHash": "0e0655d04fba38f2e53d0af0",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin",
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "admin-withdrawals-action",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "admin",
+        "testReferences": [
+          "src/tests/security/admin-control-plane.test.ts",
+          "src/tests/security/admin-passkey-backend.test.ts",
+          "src/tests/security/withdrawal-admission-admin-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/admin/withdrawals/[id]/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/auth/withdraw",
+      "method": "POST",
+      "previousSourceHash": "78967438d75ee83712e1215f",
+      "issue": "#242",
+      "owner": "security-platform",
+      "reason": "The combined user collection/create route moved withdrawal history reads to the dedicated server-only projection authority. POST admission retains canonical command, strict session, CSRF, rate limit, one-time authorization, server price, idempotency, transaction, audit, redaction and fail-closed controls.",
+      "replacement": {
+        "route": "/api/auth/withdraw",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/withdraw/route.ts",
+        "sourceHash": "26a6aa6aaf91520595f92f57",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential",
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "withdraw-create",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [
+          "src/tests/security/withdrawal-admission-prebroadcast-evidence-postgres.test.ts",
+          "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
+          "src/tests/security/withdrawal-admission.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/withdraw/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/auth/withdraw/[id]",
+      "method": "DELETE",
+      "previousSourceHash": "e039c66c6f27c0442792e678",
+      "issue": "#242",
+      "owner": "security-platform",
+      "reason": "The combined owned-detail/cancellation route now uses strict owner-scoped read projection semantics for GET. DELETE keeps the same strict session, CSRF, rate limit, idempotency key, canonical request hash, transactional cancellation receipt, exact release evidence and no-store controls.",
+      "replacement": {
+        "route": "/api/auth/withdraw/[id]",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/auth/withdraw/[id]/route.ts",
+        "sourceHash": "66e18c8c202be0be16f69196",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential",
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "withdraw-cancel",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "auth",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/withdraw/[id]/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
