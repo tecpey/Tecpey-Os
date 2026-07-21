@@ -79,7 +79,7 @@ describe("Operational alert spool", () => {
     assert.equal(JSON.stringify(content).includes("DATABASE_URL"), false);
   });
 
-  it("delivers a pending alert once with an idempotency header", async () => {
+  it("delivers once and deduplicates the same alert after archival", async () => {
     const root = await tempRoot();
     const queued = alert("partial_failure");
     await enqueueOperationalAlert(root, queued);
@@ -108,11 +108,17 @@ describe("Operational alert spool", () => {
     const dirs = await ensureOperationalSpoolDirectories(root);
     assert.equal((await readdir(dirs.pending)).length, 0);
     assert.equal((await readdir(dirs.delivered)).length, 1);
+
+    const archivedReplay = await enqueueOperationalAlert(root, queued);
+    assert.equal(archivedReplay.replayed, true);
+    assert.equal(path.dirname(archivedReplay.filePath), dirs.delivered);
     const rerun = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
       now: new Date("2026-07-21T08:02:00.000Z"),
-      fetchImpl: async () => new Response(null, { status: 204 }),
+      fetchImpl: async () => {
+        throw new Error("must_not_redeliver");
+      },
     });
     assert.equal(rerun.selected, 0);
   });
@@ -144,7 +150,7 @@ describe("Operational alert spool", () => {
     assert.equal(early.skippedUntilLater, 1);
   });
 
-  it("quarantines terminal HTTP responses, symlinks and oversized files", async () => {
+  it("quarantines terminal HTTP responses, invalid names, symlinks and oversized files", async () => {
     const root = await tempRoot();
     await enqueueOperationalAlert(root, alert("partial_failure"));
     const terminal = await deliverOperationalAlerts({
@@ -164,13 +170,14 @@ describe("Operational alert spool", () => {
       "x".repeat(70 * 1024),
       { mode: 0o600 },
     );
+    await writeFile(path.join(dirs.pending, "invalid-name.json"), "{}", { mode: 0o600 });
     const unsafe = await deliverOperationalAlerts({
       stateDirectory: root,
       webhookUrl: "http://127.0.0.1/ops-alert",
       now: new Date("2026-07-21T08:02:00.000Z"),
       fetchImpl: async () => new Response(null, { status: 204 }),
     });
-    assert.equal(unsafe.quarantined, 2);
+    assert.equal(unsafe.quarantined, 3);
     assert.equal((await readdir(dirs.pending)).length, 0);
   });
 });
