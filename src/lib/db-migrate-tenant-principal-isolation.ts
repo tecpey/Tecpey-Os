@@ -65,6 +65,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS platform_principal_bindings_active_tenant_idx
   ON platform_principal_bindings (tenant_id, principal_type, principal_id)
   WHERE status = 'active';
 
+CREATE OR REPLACE FUNCTION tecpey_reject_principal_binding_identity_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
+     OR NEW.workspace_id IS DISTINCT FROM OLD.workspace_id
+     OR NEW.principal_type IS DISTINCT FROM OLD.principal_type
+     OR NEW.principal_id IS DISTINCT FROM OLD.principal_id THEN
+    RAISE EXCEPTION 'platform principal binding identity is immutable'
+      USING ERRCODE = '55000';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS platform_principal_bindings_identity_immutable
+  ON platform_principal_bindings;
+CREATE TRIGGER platform_principal_bindings_identity_immutable
+BEFORE UPDATE ON platform_principal_bindings
+FOR EACH ROW EXECUTE FUNCTION tecpey_reject_principal_binding_identity_change();
+
 INSERT INTO platform_principal_bindings
   (tenant_id, workspace_id, principal_type, principal_id, source)
 SELECT
