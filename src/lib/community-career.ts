@@ -63,14 +63,27 @@ export async function getCurrentPublicProfile(
   if (!tenantContext.available) return null;
   const loaded = await loadOwnedCommunityProfile(tenantContext);
   if (!loaded.available || !loaded.profile) return null;
-  const {
-    revision: _revision,
-    consentVersion: _consentVersion,
-    consentedAt: _consentedAt,
-    consent: _consent,
-    ...profile
-  } = loaded.profile;
-  return profile;
+  return {
+    publicProfileId: loaded.profile.publicProfileId,
+    publicStudentId: loaded.profile.publicStudentId,
+    displayName: loaded.profile.displayName,
+    username: loaded.profile.username,
+    avatar: loaded.profile.avatar,
+    level: loaded.profile.level,
+    currentTerm: loaded.profile.currentTerm,
+    xp: loaded.profile.xp,
+    streak: loaded.profile.streak,
+    achievementsCount: loaded.profile.achievementsCount,
+    certificatesCount: loaded.profile.certificatesCount,
+    mentorScore: loaded.profile.mentorScore,
+    arenaScore: loaded.profile.arenaScore,
+    careerScore: loaded.profile.careerScore,
+    tradingStyle: loaded.profile.tradingStyle,
+    visibility: loaded.profile.visibility,
+    strengths: loaded.profile.strengths,
+    growthAreas: loaded.profile.growthAreas,
+    updatedAt: loaded.profile.updatedAt,
+  };
 }
 
 export async function getPublicProfile(
@@ -155,4 +168,64 @@ export async function getCareerSnapshot(
           ? "ready_for_challenge"
           : "learning",
   };
+}
+
+export async function getProfessionalChallenges(
+  req: NextRequest,
+): Promise<ProfessionalChallenge[]> {
+  const career = await getCareerSnapshot(req);
+  const score = career
+    ? scoreClamp(
+        (career.discipline +
+          career.riskControl +
+          career.psychology +
+          career.consistency) /
+          4,
+      )
+    : 0;
+
+  return [
+    {
+      id: "risk-foundation-20",
+      title: "چالش ۲۰ تصمیم مسئولانه",
+      description:
+        "کاتالوگ تمرینی برای تصمیم‌های ثبت‌شده و مدیریت ریسک؛ تکمیل و پاداش رسمی تا مهاجرت authority چالش غیرفعال است.",
+      status: score >= 45 ? "available" : "locked",
+      requirements: [
+        "پروفایل آکادمی فعال",
+        "تمرین در مسیر سرورمحور",
+        "ریسک هر تصمیم کمتر از ۲٪",
+      ],
+      reward: "پیش‌نمایش Badge مدیریت ریسک مسئولانه",
+      progress: 0,
+    },
+    {
+      id: "psychology-control-10",
+      title: "چالش کنترل احساسات",
+      description:
+        "کاتالوگ تمرینی سناریوهای بعد از ضرر یا نوسان؛ هیچ نتیجه مرورگر evidence رسمی نیست.",
+      status: score >= 65 ? "available" : "locked",
+      requirements: [
+        "مرور درس روانشناسی معامله",
+        "ثبت reflection معتبر",
+        "عدم تکرار تصمیم هیجانی",
+      ],
+      reward: "پیش‌نمایش Badge روانشناسی معامله",
+      progress: 0,
+    },
+    {
+      id: "professional-review",
+      title: "درخواست بررسی مسیر حرفه‌ای",
+      description:
+        "این مسیر تا ایجاد consent و grant مستقل مدرس فقط پیش‌نمایش است و درخواست واقعی ایجاد نمی‌کند.",
+      status: "locked",
+      requirements: [
+        "چند ترم تکمیل‌شده",
+        "evidence معتبر سرور",
+        "فعال‌شدن authority بررسی مدرس",
+      ],
+      reward: "پیش‌نمایش دعوت به ارزیابی پیشرفته",
+      progress: 0,
+    },
+  ];
 }
