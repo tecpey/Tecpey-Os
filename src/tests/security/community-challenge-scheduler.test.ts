@@ -13,7 +13,10 @@ function harness(
   results: OfficialJournalChallengeFinalizationResult[],
   overrides: Partial<ScheduledCommunityChallengeFinalizationOptions> = {},
 ) {
-  const finalizerCalls: Array<{ limit: number; runId: string | undefined }> = [];
+  const finalizerCalls: Array<{
+    limit: number | undefined;
+    runId: string | undefined;
+  }> = [];
   const written: unknown[] = [];
   const alerts: unknown[] = [];
   let index = 0;
