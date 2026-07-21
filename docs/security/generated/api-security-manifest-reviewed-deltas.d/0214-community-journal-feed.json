@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/community/profile",
+      "method": "PATCH",
+      "previousSourceHash": "64b680530f7a533a01fcf526",
+      "issue": "#214",
+      "owner": "community-platform",
+      "reason": "The existing Community profile route now also serves a strict-session, tenant-context-bound, privacy-minimized read-only journal-feed view while the governed PATCH consent operation and all of its controls remain unchanged.",
+      "replacement": {
+        "route": "/api/community/profile",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/community/profile/route.ts",
+        "sourceHash": "e58b581c073234d5d2178dd5",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "community-profile-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "community",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/community/profile/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
