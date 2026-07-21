@@ -15,12 +15,8 @@
       "purpose": "tenant/principal-bound default-private schema and database invariants"
     },
     {
-      "path": "src/lib/db-migrate-academy-public-student-id.ts",
-      "purpose": "server-issued unique and immutable public learner identity in the canonical migration plan"
-    },
-    {
       "path": "src/lib/community-profile-authority.ts",
-      "purpose": "PostgreSQL-only self/public reads and transaction-coupled consent mutation"
+      "purpose": "PostgreSQL-only self/public reads and transaction-coupled consent mutation over canonical Academy cartax identity/progress fields"
     },
     {
       "path": "src/app/api/community/profile/route.ts",
