@@ -1,5 +1,8 @@
 import { withDb } from "@/lib/db";
-import { fetchWithdrawal, type WithdrawalRecord } from "./withdrawal-service";
+import {
+  readWithdrawal,
+  type WithdrawalRecord,
+} from "./withdrawal-read-authority";
 
 export type WithdrawalReplayResolution =
   | { status: "none" }
@@ -38,8 +41,9 @@ export async function resolveWithdrawalReplay(input: {
     return { status: "conflict" };
   }
 
-  const withdrawal = await fetchWithdrawal(result.value.id, input.userId);
-  return withdrawal
-    ? { status: "replay", withdrawal }
+  const read = await readWithdrawal(result.value.id, input.userId);
+  if (!read.ok) return { status: "unavailable" };
+  return read.withdrawal
+    ? { status: "replay", withdrawal: read.withdrawal }
     : { status: "unavailable" };
 }
