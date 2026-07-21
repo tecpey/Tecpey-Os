@@ -26,13 +26,18 @@ export type RiskLevel =
 
 export type EffectiveRiskLevel = RiskLevel | "none";
 
-export type RiskEvidenceAction =
+export type RiskEvidenceAction = Extract<
+  SensitiveMutationAuditAction,
   | "risk.event.record"
   | "risk.enforcement.apply"
   | "risk.enforcement.clear"
-  | "risk.enforcement.expire";
+  | "risk.enforcement.expire"
+>;
 
-export type RiskEvidenceResource = "risk_event" | "risk_enforcement";
+export type RiskEvidenceResource = Extract<
+  SensitiveMutationAuditResource,
+  "risk_event" | "risk_enforcement"
+>;
 
 function fingerprint(domain: string, value: string): string {
   return createHash("sha256")
@@ -83,11 +88,8 @@ export async function writeRiskEvidenceTx(
     tenantId: input.tenantId,
     actorType: input.actorId === "risk-admin" ? "admin" : "service",
     actorId: input.actorId,
-    // Domain-local unions remain explicit until the central audit union is
-    // extended in the same PR. The runtime authority validates token shape and
-    // the permanent source guard requires these exact values.
-    action: input.action as SensitiveMutationAuditAction,
-    resourceType: input.resourceType as SensitiveMutationAuditResource,
+    action: input.action,
+    resourceType: input.resourceType,
     resourceId: fingerprintRiskResource(
       input.resourceType,
       input.resourceIdentity,
