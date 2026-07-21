@@ -1,16 +1,18 @@
 # Withdrawal Read Authority v1
 
-Issue: #242  
-Predecessor: #240 / Draft PR #241
+Issues: #242, #244  
+Predecessors: #240 / Draft PR #241, #242 / stacked Draft PR #243
 
 ## Purpose
 
-Withdrawal reads are now isolated from the mixed legacy withdrawal service. The authority is read-only, server-only and explicit about the difference between:
+Withdrawal reads are isolated in a dedicated server-only authority. The authority is explicit about the difference between:
 
 - a successful read that found no record;
 - a storage outage that prevents an authoritative answer.
 
 This prevents database failure from being presented as a false `404` or a fabricated empty queue.
+
+The superseded mixed `withdrawal-service.ts` module was deleted after all active consumers migrated and exact-head CI proved the active mutation and external-effect authorities were independent from it.
 
 ## Authority
 
@@ -90,7 +92,7 @@ Ordering is deterministic:
 - user history: newest first, then ID descending;
 - Admin review queue: oldest first, then ID ascending.
 
-## Migrated consumers
+## Active consumers
 
 Seven active consumers use the dedicated authority:
 
@@ -102,7 +104,31 @@ Seven active consumers use the dedicated authority:
 6. idempotent withdrawal cancellation authority;
 7. committed withdrawal replay authority.
 
-No active source imports `withdrawal-service.ts` after this migration.
+No active source depends on the deleted `withdrawal-service.ts` path.
+
+## Legacy service removal
+
+Issue #244 removes the dormant module after the migration proved it had no active consumer. The deletion removes:
+
+- superseded create, Admin-action and cancellation mutations;
+- obsolete mixed read helpers;
+- old risk/compliance orchestration helpers;
+- four non-authoritative Withdrawal `writeAudit()` calls.
+
+This does not remove historical database rows and does not change any active Withdrawal route or state-machine authority.
+
+The following active authorities remain unchanged:
+
+- canonical request and idempotency authority;
+- one-time TOTP authorization;
+- server-owned price evidence;
+- risk and compliance decisions;
+- exact wallet reservation and release;
+- Admin transition receipts;
+- admission outbox;
+- pre-broadcast evidence;
+- external-effect evidence and recovery;
+- settlement and custody launch gates.
 
 ## Evidence
 
@@ -125,20 +151,26 @@ It is intentionally excluded from the generic `*.test.ts` suite. The focused `te
 - all seven consumers bind to the new authority;
 - routes distinguish outage from absence;
 - focused server-only PostgreSQL evidence remains wired;
-- no active import, export, dynamic import or CommonJS load of the mixed legacy module remains.
+- the deleted legacy service file remains absent;
+- no source import, export, dynamic import or CommonJS reference can recreate its dependency.
 
-The guard runs through both the Withdrawal authority suite and the Sensitive Mutation Audit workflow.
+`check-legacy-audit-caller-quarantine.mjs` independently proves:
 
-## Deletion readiness
+- no Withdrawal-domain `writeAudit()` caller remains;
+- the deleted module cannot be recreated;
+- signed API-key rejection telemetry is the only production caller of the deprecated writer.
 
-After this extraction, `withdrawal-service.ts` has no active external consumer. Its remaining mutation and helper surface is dormant and may be deleted in a separately reviewed commit after exact repository and CI evidence confirms no generated, script, migration or test dependency remains.
+Both guards run through protected Withdrawal and Sensitive Mutation Audit workflows.
 
-The legacy `audit-log.ts` writer must not be removed until the dormant signed API-key adapter and any historical query dependency are separately resolved.
+## Residual legacy audit boundary
+
+The legacy `audit-log.ts` writer must not be removed until the dormant signed API-key adapter and historical read compatibility are separately resolved. It remains explicitly non-authoritative and cannot prove a sensitive mutation committed.
 
 ## Non-goals
 
 - no withdrawal policy or state-machine change;
-- no change to reservation, compliance, Admin action, cancellation receipt, pre-broadcast or external-effect authorities;
+- no change to reservation, compliance, Admin action, cancellation receipt, pre-broadcast, external-effect or settlement authorities;
 - no activation of real withdrawals;
 - no migration or deletion of historical rows;
+- no deletion of the signed API-key adapter or `audit-log.ts` in this slice;
 - no claim that parent #161 is complete.
