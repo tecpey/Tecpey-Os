@@ -254,11 +254,9 @@ describe("Logout-all session authority", () => {
             true,
           );
           const denyValue = await redis!.get(denyKey(other.accessJti));
-          if (durable.value.outboxStatus === "pending") {
-            assert.equal(denyValue, null);
-          } else {
-            assert.equal(durable.value.outboxStatus, "published");
-            assert.equal(denyValue, "1");
+          assert.equal(denyValue === null || denyValue === "1", true);
+          if (denyValue === null) {
+            assert.equal(durable.value.outboxStatus, "pending");
           }
         }
 

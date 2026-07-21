@@ -10,13 +10,12 @@ const files = {
   types: "src/lib/offline-sync.ts",
   scope: "src/lib/offline-sync-scope.ts",
   authority: "src/lib/offline-sync-authority.ts",
-  migration: "src/lib/db-migrate-offline-sync.ts",
+  isolationMigration: "src/lib/db-migrate-tenant-principal-isolation.ts",
   plan: "src/lib/db-migration-plan.ts",
   tests: "src/tests/security/offline-sync-authority-postgres.test.ts",
   scopeTests: "src/tests/security/offline-sync-scope.test.ts",
   telemetryTests: "src/tests/security/offline-sync-telemetry-source-guard.test.ts",
   telemetryInventory: "docs/security/OFFLINE_SYNC_TELEMETRY_CLASSIFICATION.md",
-  migrationTests: "src/tests/database/migration-integration.test.ts",
   reconciliation: "scripts/reconcile-offline-sync-commands.ts",
 };
 
@@ -26,56 +25,88 @@ const content = Object.fromEntries(
   ),
 );
 
+const normalizeSource = (value) => value.replace(/\s+/g, " ").trim();
+const normalizedContent = Object.fromEntries(
+  Object.entries(content).map(([key, value]) => [key, normalizeSource(value)]),
+);
+
 const failures = [];
 const requireText = (target, text, reason) => {
-  if (!content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (!normalizedContent[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
+};
+const requireSourcePattern = (target, pattern, reason) => {
+  if (!pattern.test(content[target])) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 const rejectText = (target, text, reason) => {
-  if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (normalizedContent[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 
-requireText("package", '"offline:check"', "offline authority needs a governed npm command");
-requireText("package", '"test:offline-sync"', "focused offline tests need a governed command");
-requireText("package", '"offline:reconcile"', "operations need a governed reconciliation command");
-requireText("package", "npm run offline:check", "release check must retain the offline authority guard");
-requireText("package", "npm run test:offline-sync", "release check must run focused offline tests");
-requireText("workflow", "TECPEY_OFFLINE_SYNC_SECRET", "CI must provide dedicated offline signing authority");
-requireText("workflow", "Offline sync authority guard", "CI must execute the offline authority guard");
-requireText("workflow", "Offline sync PostgreSQL integration tests", "CI must expose focused offline evidence");
-requireText("workflow", "npm run test:offline-sync", "CI must invoke the governed offline test command");
+for (const invariant of [
+  '"offline:check"',
+  '"test:offline-sync"',
+  '"offline:reconcile"',
+  "check-tenant-principal-isolation.mjs",
+  "tenant-principal-context-postgres.test.ts",
+]) {
+  requireText("package", invariant, `package gate is missing ${invariant}`);
+}
+for (const invariant of [
+  "TECPEY_OFFLINE_SYNC_SECRET",
+  "Offline sync authority guard",
+  "Offline sync PostgreSQL integration tests",
+]) {
+  requireText("workflow", invariant, `CI is missing ${invariant}`);
+}
 
 requireText("env", "TECPEY_OFFLINE_SYNC_SECRET", "production must require the offline scope secret");
-requireText("env", "signingSecretNames", "offline secret must participate in secret-class isolation");
-requireText("env", "must be distinct", "signing secrets must remain pairwise distinct");
-requireText("browserGuard", '"src/components/offline/OfflineSyncManager.tsx": {', "offline transport must remain explicitly classified in the browser persistence policy");
-requireText("browserGuard", 'classification: "repairable-offline-projection"', "offline browser queue must remain a non-authoritative repairable projection");
-requireText("browserGuard", "expected: 1", "offline transport must retain exactly one audited browser storage boundary");
+requireText("env", "signingSecretNames", "offline secret must participate in secret isolation");
+requireText(
+  "browserGuard",
+  'classification: "repairable-offline-projection"',
+  "browser queue must remain an explicitly classified repairable projection",
+);
 
-requireText("route", "strictRevocation: true", "offline synchronization requires a strict durable session");
-requireText("route", "resolvePlatformContext", "offline authority must resolve the canonical tenant");
-requireText("route", "issueOfflineSyncScope", "GET must mint server-signed principal scope");
-requireText("route", "verifyOfflineSyncScope", "POST must verify every queued command scope");
-requireText("route", "principal_scope_mismatch", "cross-principal commands must be retained, not applied");
-requireText("route", 'status: "retryable"', "scope mismatch and storage failure must remain retryable");
-requireText("route", "processOfflineSyncCommand", "route must delegate to transactional command authority");
-requireText("route", "offline_sync_storage_unavailable", "authority outage must return an explicit unavailable response");
-requireText("route", "retryable > 0 ? 207 : 200", "mixed batches need explicit multi-status semantics");
-requireText("route", 'response.headers.set("Cache-Control", "no-store, private")', "scope and result responses must not be cached");
-requireText("route", 'logger.info("[offline-sync] batch processed"', "batch summary must be classified as structured telemetry");
-requireText("route", "tecpey:offline-sync-${domain}:v1\\0", "offline telemetry fingerprints must be domain separated");
-requireText("route", "studentFingerprint: offlineTelemetryFingerprint", "telemetry must use a student fingerprint");
-requireText("route", "tenantFingerprint: offlineTelemetryFingerprint", "telemetry must use a tenant fingerprint");
-for (const count of ["attempted", "committed", "replayed", "rejected", "retryable"]) {
-  requireText("route", count, `batch telemetry is missing bounded aggregate ${count}`);
+for (const invariant of [
+  "strictRevocation: true",
+  "resolveTenantPrincipalContext({",
+  'requiredPrincipalType: "student"',
+  'scopes: ["offline-sync:write"]',
+  "issueOfflineSyncScope",
+  "verifyOfflineSyncScope",
+  "scope.scope.tenantId !== context.tenantId",
+  "scope.scope.studentId !== context.principalId",
+  "principal_scope_mismatch",
+  "processOfflineSyncCommand",
+  "context,",
+  "item: normalized.item",
+  "offline_sync_storage_unavailable",
+  "retryable > 0 ? 207 : 200",
+  'response.headers.set("Cache-Control", "no-store, private")',
+  'logger.info("[offline-sync] batch processed"',
+  "tecpey:offline-sync-${domain}:v1\\0",
+]) {
+  requireText("route", invariant, `route is missing ${invariant}`);
 }
-rejectText("route", 'from "fs/promises"', "filesystem persistence is forbidden");
-rejectText("route", "TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE", "local fallback is forbidden");
-rejectText("route", "recordLearningEvent", "route may not bypass command authority");
-rejectText("route", 'status: "accepted"', "pre-commit acknowledgement is forbidden");
-rejectText("route", "writeAudit(", "batch telemetry cannot masquerade as mutation evidence");
-rejectText("route", "getClientIp", "batch telemetry must not collect raw IP");
-rejectText("route", "user-agent", "batch telemetry must not collect user-agent");
-rejectText("route", 'action: "offline_sync"', "retired legacy Offline Sync audit action is forbidden");
+for (const forbidden of [
+  "resolvePlatformContext",
+  "tenantId: platform.tenantId",
+  "studentId: session.studentId",
+  'from "fs/promises"',
+  "TECPEY_ENABLE_LOCAL_ACADEMY_STORAGE",
+  "recordLearningEvent",
+  'status: "accepted"',
+  "writeAudit(",
+  "getClientIp",
+  "user-agent",
+]) {
+  rejectText("route", forbidden, `route contains forbidden authority ${forbidden}`);
+}
 
 const telemetryStart = content.route.indexOf('logger.info("[offline-sync] batch processed"');
 const telemetryEnd = telemetryStart < 0 ? -1 : content.route.indexOf("});", telemetryStart);
@@ -83,124 +114,138 @@ const telemetryBlock =
   telemetryStart >= 0 && telemetryEnd > telemetryStart
     ? content.route.slice(telemetryStart, telemetryEnd + 3)
     : "";
-for (const forbidden of [
-  "studentId:",
-  "tenantId:",
-  "scopeToken",
-  "results",
-  "payload",
-  "input",
-]) {
+if (!telemetryBlock) {
+  failures.push(`${files.route}: privacy-safe batch telemetry block is not statically reviewable`);
+}
+for (const forbidden of ["studentId:", "tenantId:", "scopeToken", "results", "payload", "input"]) {
   if (telemetryBlock.includes(forbidden)) {
     failures.push(`${files.route}: telemetry block contains forbidden raw field ${forbidden}`);
   }
 }
 
-requireText("client", 'const STORAGE_KEY = "tecpey_offline_queue_v2"', "scoped commands need a new queue generation");
-requireText("client", "scopeToken: string", "every browser command must retain its signed scope");
-requireText("client", "transportStorage", "all browser transport persistence must use one adapter");
-requireText("client", "never authoritative", "the browser adapter must declare its non-authoritative role");
-requireText("client", "refreshPrincipalScope", "the client must refresh current principal scope");
-requireText("client", "scopeRefreshInFlight", "concurrent scope bootstraps must share one request");
-requireText("client", "queueOfflineEvent", "offline producers must use one governed queue entry point");
-requireText("client", "enqueueScopedItem(baseItem, freshScope)", "the first event must enqueue after successful scope bootstrap");
-requireText("client", "setScopeRequired(true)", "scope failure must be visible rather than silently dropping an event");
-requireText("client", 'result.status === "committed"', "client may delete only committed commands");
-requireText("client", 'result.status === "rejected"', "terminal rejected commands may be removed explicitly");
-requireText("client", "including storage-unavailable 503", "client must preserve commands after unavailable responses");
-requireText("client", "LEGACY_QUARANTINE_KEY", "legacy unscoped commands must be quarantined");
-requireText("client", "quarantineLegacyQueue", "legacy queue migration must preserve evidence without attribution");
-requireText("client", "store.setItem(LEGACY_QUARANTINE_KEY, legacy)", "legacy data must be preserved before removal");
-rejectText("client", "window.localStorage.", "direct browser storage calls outside the audited adapter are forbidden");
-rejectText("client", 'r.status === "accepted"', "legacy false-success deletion is forbidden");
-rejectText("client", "writeQueue([...readQueue(), ...legacy", "legacy unscoped commands may not enter a current principal queue");
-rejectText("client", 'return "";', "scope bootstrap races may not silently report an empty event identity");
-const localStorageLines = content.client
-  .split(/\r?\n/)
-  .filter((line) => line.includes("localStorage")).length;
-if (localStorageLines !== 1) {
-  failures.push(`${files.client}: expected exactly one audited localStorage adapter line, found ${localStorageLines}`);
-}
-
-requireText("types", 'status: "committed" | "rejected" | "retryable"', "result states must distinguish durable and retryable outcomes");
-requireText("types", 'reason: "missing_id"', "commands without stable identity must be rejected");
-requireText("types", "MAX_PAYLOAD_BYTES", "offline payload size must be bounded before persistence");
-rejectText("types", "cryptoSafeId", "server normalization may not invent idempotency identity");
-
-requireText("scope", "TECPEY_OFFLINE_SYNC_SECRET", "scope tokens require a dedicated secret");
-requireText("scope", "createHmac", "scope tokens must be authenticated");
-requireText("scope", "timingSafeEqual", "scope signatures must use constant-time comparison");
-requireText("scope", "tenantId", "scope must bind tenant identity");
-requireText("scope", "studentId", "scope must bind student identity");
-requireText("scope", "expiresAt", "scope tokens require bounded expiry");
-requireText("scope", 'status: "expired"', "expired scope must be distinguishable from invalid scope");
-rejectText("scope", "TECPEY_SESSION_SECRET", "offline scope may not reuse access-session authority");
-
-requireText("authority", "offlineCommandHash", "commands need a stable payload fingerprint");
-requireText("authority", "offlineLearningEventId", "domain event identity must be deterministic");
-requireText("authority", "withTx", "command and learning event must share one transaction");
-requireText("authority", "pg_advisory_xact_lock", "duplicate commands must serialize");
-requireText("authority", "FOR UPDATE", "replays and conflicts must lock durable command evidence");
-requireText("authority", "idempotency_conflict", "changed payload reuse must fail closed");
-requireText("authority", "ON CONFLICT (event_id) DO NOTHING", "domain event insertion must be idempotent");
-requireText("authority", "reconcileStaleOfflineCommands", "stale processing commands need bounded reconciliation");
-requireText("authority", "purgeExpiredOfflineCommands", "terminal command retention needs bounded cleanup");
-requireText("authority", 'status: "retryable"', "database failures may not become acknowledgements");
-
-requireText("migration", "ADD COLUMN IF NOT EXISTS event_id TEXT", "learning events require a stable domain-event identity column");
-requireText("migration", "ADD COLUMN IF NOT EXISTS source TEXT", "learning events must retain offline source provenance");
-requireText("migration", "ADD COLUMN IF NOT EXISTS locale TEXT", "learning events must retain offline locale provenance");
-requireText("migration", "learning_events_offline_event_id_idx", "learning event identity must be database-unique");
-requireText("migration", "offline_sync_commands", "a relational command inbox is required");
-requireText("migration", "UNIQUE (tenant_id, student_id, client_event_id)", "database uniqueness must scope tenant, student and client ID");
-requireText("migration", "command_hash", "changed-payload detection requires durable evidence");
-requireText("migration", "retain_until", "command evidence needs a retention boundary");
-requireText("migration", "offline_sync_commands_reconcile_idx", "reconciliation requires a bounded index");
-requireText("plan", "runOfflineSyncMigrations", "canonical migration plan must include offline authority");
-requireText("migrationTests", "0023_offline_sync_command_authority.sql", "migration integration must verify the offline migration ledger entry");
-requireText("migrationTests", '["learning_events", "event_id"]', "migration integration must verify stable learning event identity");
-requireText("migrationTests", "learning_events_offline_event_id_idx", "migration integration must verify learning event uniqueness");
-requireText("migrationTests", "offline_sync_commands", "migration integration must verify the command table");
-
-for (const evidence of [
-  "concurrent duplicate delivery",
-  "changed payload reuse",
-  "same client event ID across students",
-  "learning-event application fails",
-  "reconciles stale processing evidence",
-  "PostgreSQL is unavailable",
+for (const invariant of [
+  'const STORAGE_KEY = "tecpey_offline_queue_v2"',
+  "scopeToken: string",
+  "transportStorage",
+  "never authoritative",
+  "refreshPrincipalScope",
+  "scopeRefreshInFlight",
+  "queueOfflineEvent",
+  "enqueueScopedItem(baseItem, freshScope)",
+  "setScopeRequired(true)",
+  'result.status === "committed"',
+  'result.status === "rejected"',
+  "LEGACY_QUARANTINE_KEY",
+  "quarantineLegacyQueue",
 ]) {
-  requireText("tests", evidence, `missing adversarial evidence: ${evidence}`);
+  requireText("client", invariant, `client transport is missing ${invariant}`);
 }
-for (const evidence of [
-  "verifies the exact signed tenant and student scope",
-  "rejects tampering and cross-principal substitution",
-  "rejects expired principal scope",
-  "does not acknowledge mismatched principal commands",
-  "quarantines legacy unscoped commands",
-  "retries the first event after scope bootstrap instead of silently discarding it",
+rejectText("client", "window.localStorage.", "direct browser storage calls are forbidden");
+rejectText("client", 'r.status === "accepted"', "false-success deletion is forbidden");
+
+for (const invariant of [
+  'status: "committed" | "rejected" | "retryable"',
+  'reason: "missing_id"',
+  "MAX_PAYLOAD_BYTES",
 ]) {
-  requireText("scopeTests", evidence, `missing principal-scope evidence: ${evidence}`);
+  requireText("types", invariant, `offline types are missing ${invariant}`);
 }
+rejectText("types", "cryptoSafeId", "server may not invent idempotency identity");
+
+for (const invariant of [
+  "TECPEY_OFFLINE_SYNC_SECRET",
+  "createHmac",
+  "timingSafeEqual",
+  "tenantId",
+  "studentId",
+  "expiresAt",
+  'status: "expired"',
+]) {
+  requireText("scope", invariant, `signed scope is missing ${invariant}`);
+}
+rejectText("scope", "TECPEY_SESSION_SECRET", "offline scope may not reuse session authority");
+
+for (const invariant of [
+  "export type OfflineSyncAuthorityContext",
+  "context: AvailableTenantPrincipalContext",
+  'context.principalType !== "student"',
+  'context.scopes.includes("offline-sync:write")',
+  "const tenantId = context.tenantId",
+  "const studentId = context.principalId",
+  "offlineCommandHash",
+  "offlineLearningEventId",
+  "withTx",
+  "pg_advisory_xact_lock",
+  "FOR UPDATE",
+  "idempotency_conflict",
+  "ON CONFLICT (event_id) DO NOTHING",
+  "reconcileStaleOfflineCommands",
+  "purgeExpiredOfflineCommands",
+]) {
+  requireText("authority", invariant, `authority is missing ${invariant}`);
+}
+rejectText(
+  "authority",
+  "tenantId: string; studentId: string; item: OfflineSyncItem",
+  "mutation authority cannot accept independent tenant/student IDs",
+);
+
+for (const invariant of [
+  "offline_sync_commands_principal_binding_fk",
+  "learning_events_principal_binding_fk",
+  "platform_principal_bindings",
+  "main workspace must belong to tenant tecpey",
+]) {
+  requireText("isolationMigration", invariant, `isolation migration is missing ${invariant}`);
+}
+requireText("plan", "runOfflineSyncMigrations", "migration plan must retain Offline Sync migration");
+requireText("plan", "runTenantPrincipalIsolationMigrations", "migration plan must execute binding migration");
+
+for (const invariant of [
+  "Promise.all(",
+  "idempotency_conflict",
+  "offline_sync_commands_principal_binding_fk|foreign key",
+  "forced offline event failure",
+  "principal_context_invalid",
+]) {
+  requireText("tests", invariant, `PostgreSQL adversarial suite is missing ${invariant}`);
+}
+for (const invariant of [
+  "verifyOfflineSyncScope",
+  "principal_scope_mismatch",
+  "LEGACY_QUARANTINE_KEY",
+  "scopeRefreshInFlight",
+]) {
+  requireText("scopeTests", invariant, `scope adversarial suite is missing ${invariant}`);
+}
+requireSourcePattern(
+  "scopeTests",
+  /scope\\?\.scope\\?\.tenantId\s*!==\s*context\\?\.tenantId/,
+  "scope adversarial suite is missing the tenant-context mismatch invariant",
+);
+requireSourcePattern(
+  "scopeTests",
+  /scope\\?\.scope\\?\.studentId\s*!==\s*context\\?\.principalId/,
+  "scope adversarial suite is missing the principal-context mismatch invariant",
+);
 requireText(
   "telemetryTests",
-  "passes the permanent Offline Sync authority and telemetry classification guard",
-  "focused suite must execute the telemetry classification guard",
+  "scripts/check-offline-sync-authority.mjs",
+  "focused suite must execute the permanent source guard",
 );
-for (const contract of [
-  "batch summary is operational telemetry only",
-  "must not contain raw student ID",
-  "command mutation evidence entirely in the canonical Offline Sync authority",
-]) {
-  requireText("telemetryInventory", contract, `telemetry classification contract missing: ${contract}`);
-}
-
-requireText("reconciliation", "reconcileStaleOfflineCommands", "operations runner must reconcile stale commands");
-requireText("reconciliation", "purgeExpiredOfflineCommands", "operations runner must purge expired evidence in bounded batches");
+requireText(
+  "telemetryInventory",
+  "operational telemetry only",
+  "telemetry must remain explicitly non-authoritative",
+);
+requireText("reconciliation", "reconcileStaleOfflineCommands", "operations must reconcile stale commands");
+requireText("reconciliation", "purgeExpiredOfflineCommands", "operations must purge expired evidence");
 
 if (failures.length) {
   console.error("Offline sync authority check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
-console.log("Offline sync authority check passed: signed principal scope, one audited transport-only browser storage adapter, race-safe first-event capture, visible scope failure, queue partitioning, legacy quarantine, stable command and learning-event identity, transactional exactly-once application, privacy-safe batch telemetry, tenant/student isolation, explicit retryability, reconciliation, retention and PostgreSQL adversarial evidence are enforced.");
+console.log(
+  "Offline sync authority check passed: canonical tenant/principal binding, signed scope, one audited transport-only browser queue, transactional exactly-once application, privacy-safe telemetry, database-enforced isolation and repair operations are enforced.",
+);

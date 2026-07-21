@@ -61,8 +61,8 @@ describe("Offline principal scope authority", () => {
       assert.deepEqual(verifyOfflineSyncScope(substituted), { status: "invalid" });
 
       const route = await readFile("src/app/api/offline-sync/route.ts", "utf8");
-      assert.match(route, /scope\.scope\.tenantId !== platform\.tenantId/);
-      assert.match(route, /scope\.scope\.studentId !== session\.studentId/);
+      assert.match(route, /scope\.scope\.tenantId !== context\.tenantId/);
+      assert.match(route, /scope\.scope\.studentId !== context\.principalId/);
       assert.match(route, /reason: "principal_scope_mismatch"/);
     });
   });

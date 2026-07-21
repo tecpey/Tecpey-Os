@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "ownerIssue": "#155",
+  "requiredSurfaceTypes": [
+    "admin_identity",
+    "api_route",
+    "browser_storage",
+    "object_storage",
+    "queue_namespace",
+    "redis_namespace",
+    "relational_table",
+    "service_identity"
+  ],
+  "entries": [
+    {
+      "id": "admin-session-identity",
+      "surfaceType": "admin_identity",
+      "sourcePath": "src/lib/auth-session.ts",
+      "authority": "canonical_session",
+      "tenantKey": "platform context membership",
+      "principalKey": "userId/admin role",
+      "workspaceKey": "membership workspace",
+      "status": "reviewed",
+      "ownerIssue": "#108",
+      "requiredInvariants": [
+        "strictRevocation",
+        "isAdmin"
+      ]
+    },
+    {
+      "id": "offline-sync-route",
+      "surfaceType": "api_route",
+      "sourcePath": "src/app/api/offline-sync/route.ts",
+      "authority": "TenantPrincipalContext + signed scope",
+      "tenantKey": "context.tenantId",
+      "principalKey": "context.principalId",
+      "workspaceKey": "context.workspaceId",
+      "status": "enforced",
+      "ownerIssue": "#155",
+      "requiredInvariants": [
+        "resolveTenantPrincipalContext",
+        "requiredPrincipalType: \"student\"",
+        "scopes: [\"offline-sync:write\"]",
+        "context.tenantId",
+        "context.principalId"
+      ]
+    },
+    {
+      "id": "offline-sync-browser-transport",
+      "surfaceType": "browser_storage",
+      "sourcePath": "src/components/offline/OfflineSyncManager.tsx",
+      "authority": "transport_only",
+      "tenantKey": "signed scope only",
+      "principalKey": "signed scope only",
+      "workspaceKey": null,
+      "status": "reviewed_exception",
+      "ownerIssue": "#160",
+      "requiredInvariants": [
+        "const STORAGE_KEY = \"tecpey_offline_queue_v2\"",
+        "transportStorage",
+        "never authoritative"
+      ]
+    },
+    {
+      "id": "offline-sync-command-binding",
+      "surfaceType": "relational_table",
+      "sourcePath": "src/lib/db-migrate-tenant-principal-isolation.ts",
+      "authority": "composite_foreign_key",
+      "tenantKey": "tenant_id",
+      "principalKey": "principal_type + principal_id",
+      "workspaceKey": "platform_principal_bindings.workspace_id",
+      "status": "enforced",
+      "ownerIssue": "#155",
+      "requiredInvariants": [
+        "CREATE TABLE IF NOT EXISTS platform_principal_bindings",
+        "offline_sync_commands_principal_binding_fk",
+        "learning_events_principal_binding_fk",
+        "main workspace must belong to tenant tecpey"
+      ]
+    },
+    {
+      "id": "offline-sync-signed-scope",
+      "surfaceType": "redis_namespace",
+      "sourcePath": "src/lib/offline-sync-scope.ts",
+      "authority": "signed_short_lived_scope",
+      "tenantKey": "tenantId",
+      "principalKey": "studentId",
+      "workspaceKey": null,
+      "status": "reviewed",
+      "ownerIssue": "#160",
+      "requiredInvariants": [
+        "TECPEY_OFFLINE_SYNC_SECRET",
+        "timingSafeEqual",
+        "tenantId",
+        "studentId"
+      ]
+    },
+    {
+      "id": "object-storage-status",
+      "surfaceType": "object_storage",
+      "sourcePath": null,
+      "authority": "not_implemented",
+      "tenantKey": null,
+      "principalKey": null,
+      "workspaceKey": null,
+      "status": "not_present",
+      "ownerIssue": "#109",
+      "requiredInvariants": []
+    },
+    {
+      "id": "platform-core-relations",
+      "surfaceType": "relational_table",
+      "sourcePath": "src/lib/db-migrate.ts",
+      "authority": "platform_schema",
+      "tenantKey": "platform_tenants.id",
+      "principalKey": "platform_memberships.user_id",
+      "workspaceKey": "platform_workspaces.id",
+      "status": "reviewed",
+      "ownerIssue": "#109",
+      "requiredInvariants": [
+        "CREATE TABLE IF NOT EXISTS platform_tenants",
+        "CREATE TABLE IF NOT EXISTS platform_workspaces",
+        "CREATE TABLE IF NOT EXISTS platform_memberships"
+      ]
+    },
+    {
+      "id": "sensitive-audit-table",
+      "surfaceType": "relational_table",
+      "sourcePath": "src/lib/db-migrate-sensitive-mutation-audit.ts",
+      "authority": "append_only_tenant_evidence",
+      "tenantKey": "tenant_id",
+      "principalKey": "actor_type + actor_id",
+      "workspaceKey": null,
+      "status": "reviewed",
+      "ownerIssue": "#161",
+      "requiredInvariants": [
+        "CREATE TABLE IF NOT EXISTS sensitive_mutation_audit_events",
+        "tenant_id TEXT NOT NULL",
+        "sensitive mutation audit evidence is append-only"
+      ]
+    },
+    {
+      "id": "tenant-principal-context",
+      "surfaceType": "api_route",
+      "sourcePath": "src/lib/security/tenant-principal-context.ts",
+      "authority": "postgresql_binding_resolution",
+      "tenantKey": "binding.tenant_id",
+      "principalKey": "binding.principal_type + binding.principal_id",
+      "workspaceKey": "binding.workspace_id",
+      "status": "enforced",
+      "ownerIssue": "#155",
+      "requiredInvariants": [
+        "export type TenantPrincipalContext",
+        "resolveBoundTenantPrincipal",
+        "binding_storage_unavailable",
+        "authEvidence"
+      ]
+    },
+    {
+      "id": "withdrawal-executor-service",
+      "surfaceType": "service_identity",
+      "sourcePath": "src/lib/wallet/withdrawal-executor.ts",
+      "authority": "worker_identity + PostgreSQL claims",
+      "tenantKey": "current single-tenant custody boundary",
+      "principalKey": "withdrawal-executor worker identity",
+      "workspaceKey": null,
+      "status": "reviewed_exception",
+      "ownerIssue": "#109",
+      "requiredInvariants": [
+        "function workerIdentity()",
+        "withdrawal-executor:",
+        "claimWithdrawalExecution"
+      ]
+    },
+    {
+      "id": "withdrawal-queue-namespaces",
+      "surfaceType": "queue_namespace",
+      "sourcePath": "src/lib/wallet/queue/names.ts",
+      "authority": "shared governed queue names",
+      "tenantKey": "not yet encoded in queue name",
+      "principalKey": "withdrawal ID resolved in PostgreSQL",
+      "workspaceKey": null,
+      "status": "reviewed_exception",
+      "ownerIssue": "#109",
+      "requiredInvariants": [
+        "WITHDRAWAL_QUEUE_NAMES",
+        "confirmation",
+        "recovery",
+        "deadLetter"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "exceptions": [
+    {
+      "id": "academy-students-global-registry",
+      "sourcePath": "src/lib/db-migrate.ts",
+      "owner": "platform-security",
+      "issue": "#109",
+      "expiresOn": "2026-12-31",
+      "reason": "academy_students remains a global principal registry during the staged multi-tenant migration.",
+      "compensatingControl": "platform_principal_bindings proves tenant/workspace membership and Offline Sync composite foreign keys reject unbound writes."
+    },
+    {
+      "id": "legacy-membership-user-id-shape",
+      "sourcePath": "src/lib/db-migrate.ts",
+      "owner": "platform-security",
+      "issue": "#109",
+      "expiresOn": "2026-12-31",
+      "reason": "platform_memberships.user_id is a legacy text identity without an explicit principal type.",
+      "compensatingControl": "TenantPrincipalContext resolves typed student/account bindings before sensitive mutations."
+    },
+    {
+      "id": "single-tenant-service-queue-names",
+      "sourcePath": "src/lib/wallet/queue/names.ts",
+      "owner": "wallet-platform",
+      "issue": "#109",
+      "expiresOn": "2026-11-30",
+      "reason": "Withdrawal queue names are global while custody remains single-tenant and disabled for production launch.",
+      "compensatingControl": "Queue payloads contain identity triggers only; PostgreSQL claims and withdrawal records own the authoritative state."
+    },
+    {
+      "id": "browser-offline-transport",
+      "sourcePath": "src/components/offline/OfflineSyncManager.tsx",
+      "owner": "academy-platform",
+      "issue": "#160",
+      "expiresOn": "2026-10-31",
+      "reason": "Offline browser storage remains as a transport queue during server migration.",
+      "compensatingControl": "Signed principal scope, canonical TenantPrincipalContext and PostgreSQL idempotency/FK authority prevent browser data from becoming source of truth."
+    }
+  ]
+}
