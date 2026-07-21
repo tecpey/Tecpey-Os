@@ -5,11 +5,6 @@ const ROOT = path.resolve("src");
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 const PERSISTENCE_PATTERN = /(?:localStorage|sessionStorage|indexedDB|IndexedDB|caches\.(?:open|match|put|delete)|CacheStorage)/;
 
-/**
- * Every remaining persistence use is explicitly classified. Counts remain a
- * drift detector, but the policy distinguishes disposable caches from
- * quarantined browser-authority debt. New files or increased usage fail CI.
- */
 const persistencePolicy = new Map(
   Object.entries({
     "src/app/api/ai-mentor-v2/route.ts": {
@@ -57,6 +52,11 @@ const serverAuthoritativeSurfaces = new Set([
   "src/components/academy/community/ChallengeCenter.tsx",
   "src/lib/community-challenges.ts",
   "src/lib/community-journal-challenge-client.ts",
+  "src/lib/community-journal-challenge-authority.ts",
+  "src/lib/community-journal-challenge-finalization.ts",
+  "src/lib/community-journal-challenge-history-client.ts",
+  "src/app/api/community/challenge-history/route.ts",
+  "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
 ]);
 
 async function walk(directory) {
@@ -98,22 +98,16 @@ for (const file of [...files].sort()) {
     errors.push(`${file}: ${actual} unclassified browser-persistence line(s)`);
     continue;
   }
-  if (!policy.classification) {
-    errors.push(`${file}: missing authority classification`);
-  }
+  if (!policy.classification) errors.push(`${file}: missing authority classification`);
   if (actual !== policy.expected) {
-    errors.push(
-      `${file}: ${policy.classification}; expected ${policy.expected} matching line(s), found ${actual}`,
-    );
+    errors.push(`${file}: ${policy.classification}; expected ${policy.expected} matching line(s), found ${actual}`);
   }
 }
 
 if (errors.length > 0) {
   console.error("Browser persistence authority policy changed.\n");
   console.error(errors.join("\n"));
-  console.error(
-    "\nRemoval is encouraged. New persistence or promotion of quarantined state requires a separate reviewed server-authority migration.",
-  );
+  console.error("\nRemoval is encouraged. New persistence or promotion of quarantined state requires a separate reviewed server-authority migration.");
   process.exit(1);
 }
 
@@ -122,5 +116,5 @@ const quarantined = [...persistencePolicy.values()].filter((entry) =>
   entry.classification.startsWith("quarantined"),
 ).length;
 console.log(
-  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy modules cannot become official evidence; Community journal and official challenge surfaces are persistence-free.`,
+  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy modules cannot become official evidence; Community journal, current challenge and finalized history surfaces are persistence-free.`,
 );
