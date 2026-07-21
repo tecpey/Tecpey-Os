@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 
 const FILENAME = "0051_community_reputation_evidence.sql";
-const BACKFILL_VERSION = "community-reputation-evidence-backfill-v2";
+const BACKFILL_VERSION = "community-reputation-evidence-backfill-v3";
 
 export const COMMUNITY_REPUTATION_EVIDENCE_SQL = `
 CREATE OR REPLACE FUNCTION tecpey_community_reputation_coverage_bps(
@@ -177,6 +177,7 @@ CREATE OR REPLACE FUNCTION tecpey_validate_community_reputation_evidence_insert(
 RETURNS TRIGGER AS $$
 DECLARE
   source academy_community_challenge_enrollments%ROWTYPE;
+  binding_active BOOLEAN;
   expected_coverage INTEGER;
   expected_completion BOOLEAN;
   expected_digest TEXT;
@@ -189,6 +190,21 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'community reputation source enrollment missing'
+      USING ERRCODE = '55000';
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+      FROM platform_principal_bindings AS binding
+     WHERE binding.tenant_id = source.tenant_id
+       AND binding.workspace_id = source.workspace_id
+       AND binding.principal_type = source.principal_type
+       AND binding.principal_id = source.principal_id
+       AND binding.status = 'active'
+  ) INTO binding_active;
+
+  IF NOT binding_active THEN
+    RAISE EXCEPTION 'community reputation principal binding inactive'
       USING ERRCODE = '55000';
   END IF;
 
@@ -382,6 +398,14 @@ BEGIN
      OR materialized.principal_type IS DISTINCT FROM NEW.principal_type
      OR materialized.principal_id IS DISTINCT FROM NEW.principal_id
      OR materialized.student_id IS DISTINCT FROM NEW.student_id
+     OR materialized.evidence_version IS DISTINCT FROM 'community-reputation-evidence-v1'
+     OR materialized.source_type IS DISTINCT FROM 'official_journal_challenge_finalization'
+     OR materialized.source_enrollment_id IS DISTINCT FROM NEW.id
+     OR materialized.challenge_id IS DISTINCT FROM NEW.challenge_id
+     OR materialized.challenge_version IS DISTINCT FROM NEW.challenge_version
+     OR materialized.cycle_key IS DISTINCT FROM NEW.cycle_key
+     OR materialized.cycle_starts_at IS DISTINCT FROM NEW.cycle_starts_at
+     OR materialized.cycle_ends_at IS DISTINCT FROM NEW.cycle_ends_at
      OR materialized.outcome IS DISTINCT FROM NEW.status
      OR materialized.finalized_at IS DISTINCT FROM NEW.finalized_at
      OR materialized.eligible_closed_trade_count IS DISTINCT FROM NEW.eligible_closed_trade_count
@@ -398,6 +422,14 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS academy_community_challenge_reputation_materialization_insert
+  ON academy_community_challenge_enrollments;
+CREATE TRIGGER academy_community_challenge_reputation_materialization_insert
+AFTER INSERT ON academy_community_challenge_enrollments
+FOR EACH ROW
+WHEN (NEW.status IN ('completed', 'not_completed'))
+EXECUTE FUNCTION tecpey_materialize_community_reputation_evidence();
 
 DROP TRIGGER IF EXISTS academy_community_challenge_reputation_materialization
   ON academy_community_challenge_enrollments;
@@ -474,6 +506,12 @@ SELECT
     enrollment.finalization_run_id
   )
 FROM academy_community_challenge_enrollments AS enrollment
+JOIN platform_principal_bindings AS binding
+  ON binding.tenant_id = enrollment.tenant_id
+ AND binding.workspace_id = enrollment.workspace_id
+ AND binding.principal_type = enrollment.principal_type
+ AND binding.principal_id = enrollment.principal_id
+ AND binding.status = 'active'
 WHERE enrollment.challenge_id = 'journal-reflection-week'
   AND enrollment.challenge_version = 'journal-reflection-v1'
   AND enrollment.status IN ('completed', 'not_completed')
@@ -484,6 +522,12 @@ BEGIN
   IF EXISTS (
     SELECT 1
       FROM academy_community_challenge_enrollments AS enrollment
+      JOIN platform_principal_bindings AS binding
+        ON binding.tenant_id = enrollment.tenant_id
+       AND binding.workspace_id = enrollment.workspace_id
+       AND binding.principal_type = enrollment.principal_type
+       AND binding.principal_id = enrollment.principal_id
+       AND binding.status = 'active'
       LEFT JOIN academy_community_reputation_evidence AS evidence
         ON evidence.source_enrollment_id = enrollment.id
      WHERE enrollment.challenge_id = 'journal-reflection-week'
@@ -497,12 +541,54 @@ BEGIN
          OR evidence.principal_type IS DISTINCT FROM enrollment.principal_type
          OR evidence.principal_id IS DISTINCT FROM enrollment.principal_id
          OR evidence.student_id IS DISTINCT FROM enrollment.student_id
+         OR evidence.evidence_version IS DISTINCT FROM 'community-reputation-evidence-v1'
+         OR evidence.source_type IS DISTINCT FROM 'official_journal_challenge_finalization'
+         OR evidence.challenge_id IS DISTINCT FROM enrollment.challenge_id
+         OR evidence.challenge_version IS DISTINCT FROM enrollment.challenge_version
+         OR evidence.cycle_key IS DISTINCT FROM enrollment.cycle_key
+         OR evidence.cycle_starts_at IS DISTINCT FROM enrollment.cycle_starts_at
+         OR evidence.cycle_ends_at IS DISTINCT FROM enrollment.cycle_ends_at
          OR evidence.outcome IS DISTINCT FROM enrollment.status
          OR evidence.finalized_at IS DISTINCT FROM enrollment.finalized_at
          OR evidence.eligible_closed_trade_count IS DISTINCT FROM enrollment.eligible_closed_trade_count
          OR evidence.valid_reflection_count IS DISTINCT FROM enrollment.valid_reflection_count
+         OR evidence.coverage_basis_points IS DISTINCT FROM tecpey_community_reputation_coverage_bps(
+           enrollment.eligible_closed_trade_count,
+           enrollment.valid_reflection_count
+         )
+         OR evidence.completion_criteria_met IS DISTINCT FROM (
+           enrollment.eligible_closed_trade_count >= 3
+           AND enrollment.valid_reflection_count * 5 >= enrollment.eligible_closed_trade_count * 4
+         )
          OR evidence.finalization_source IS DISTINCT FROM enrollment.finalization_source
          OR evidence.finalization_run_id IS DISTINCT FROM enrollment.finalization_run_id
+         OR evidence.source_digest IS DISTINCT FROM tecpey_community_reputation_source_digest(
+           enrollment.tenant_id,
+           enrollment.workspace_id,
+           enrollment.principal_type,
+           enrollment.principal_id,
+           enrollment.student_id,
+           enrollment.id,
+           enrollment.challenge_id,
+           enrollment.challenge_version,
+           enrollment.cycle_key,
+           enrollment.cycle_starts_at,
+           enrollment.cycle_ends_at,
+           enrollment.status,
+           enrollment.finalized_at,
+           enrollment.eligible_closed_trade_count,
+           enrollment.valid_reflection_count,
+           tecpey_community_reputation_coverage_bps(
+             enrollment.eligible_closed_trade_count,
+             enrollment.valid_reflection_count
+           ),
+           (
+             enrollment.eligible_closed_trade_count >= 3
+             AND enrollment.valid_reflection_count * 5 >= enrollment.eligible_closed_trade_count * 4
+           ),
+           enrollment.finalization_source,
+           enrollment.finalization_run_id
+         )
        )
   ) THEN
     RAISE EXCEPTION 'community reputation evidence backfill mismatch'
