@@ -36,6 +36,22 @@ The private scoring decision is stored in a separate one-to-one authority so tha
 - each authority has independent revision and evidence history;
 - future public ranking can prove both boundaries explicitly.
 
+## Version identity
+
+Consent version:
+
+```text
+community-reputation-scoring-consent-v1
+```
+
+Authority version:
+
+```text
+community-reputation-scoring-consent-authority-v1
+```
+
+Changing default state, purpose, allowed consumers, identity binding, revision semantics or downstream use requires a separately reviewed version transition. Historical decisions must never be silently reinterpreted under a new purpose.
+
 ## PostgreSQL authority
 
 Table:
