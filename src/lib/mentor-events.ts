@@ -23,7 +23,8 @@ export type MentorUpdateReason =
   | "reflection_updated"
   | "lesson_progress_updated"
   | "authoritative_lesson_assessment"
-  | "authoritative_term_assessment";
+  | "authoritative_term_assessment"
+  | "community_challenge_completed";
 
 // ── Safe runner ───────────────────────────────────────────────────────────────
 
