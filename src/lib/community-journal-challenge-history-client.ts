@@ -44,7 +44,7 @@ function parseResult(value: unknown): OfficialJournalChallengeFinalizedResultCli
     !validDate(cycle.startsAt) || !validDate(cycle.endsAt) ||
     new Date(cycle.endsAt).getTime() <= new Date(cycle.startsAt).getTime() ||
     !validDate(raw.finalizedAt) ||
-    new Date(raw.finalizedAt).getTime() < new Date(cycle.endsAt).getTime() ||
+    new Date(raw.finalizedAt).getTime() < new Date(cycle.startsAt).getTime() ||
     !Number.isSafeInteger(progress.eligibleClosedTrades) || Number(progress.eligibleClosedTrades) < 0 ||
     !Number.isSafeInteger(progress.validReflections) || Number(progress.validReflections) < 0 ||
     Number(progress.validReflections) > Number(progress.eligibleClosedTrades) ||
