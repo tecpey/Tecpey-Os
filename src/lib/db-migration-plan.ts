@@ -30,6 +30,7 @@ import { runCommunityJournalChallengeMigrations } from "./db-migrate-community-j
 import { runCommunityJournalChallengeFinalizationMigrations } from "./db-migrate-community-journal-challenge-finalization";
 import { runOperationalJobEvidenceMigrations } from "./db-migrate-operational-job-evidence";
 import { runCommunityReputationEvidenceMigrations } from "./db-migrate-community-reputation-evidence";
+import { runCommunityReputationScoringConsentMigrations } from "./db-migrate-community-reputation-scoring-consent";
 import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
 import { runSensitiveMutationAuditMigrations } from "./db-migrate-sensitive-mutation-audit";
 import { runSessionAuthorityMigrations } from "./db-migrate-session-authority";
@@ -72,6 +73,7 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runCommunityJournalChallengeFinalizationMigrations(client);
   await runOperationalJobEvidenceMigrations(client);
   await runCommunityReputationEvidenceMigrations(client);
+  await runCommunityReputationScoringConsentMigrations(client);
   await runSessionAuthorityMigrations(client);
   await runSessionLegacyFallbackMigrations(client);
   await runAiMentorTrustMigrations(client);
