@@ -52,6 +52,7 @@ const persistencePolicy = new Map(
 );
 
 const serverAuthoritativeSurfaces = new Set([
+  "src/components/academy/community/CommunityHub.tsx",
   "src/components/academy/community/PeerJournals.tsx",
   "src/lib/community-journal-client.ts",
   "src/components/academy/community/ChallengeCenter.tsx",
@@ -122,5 +123,5 @@ const quarantined = [...persistencePolicy.values()].filter((entry) =>
   entry.classification.startsWith("quarantined"),
 ).length;
 console.log(
-  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy modules cannot become official evidence; Community journal and challenge surfaces are persistence-free.`,
+  `Browser persistence guard passed: ${total} classified matching line(s) remain across ${actualMatches.size} production files; ${quarantined} quarantined legacy modules cannot become official evidence; Community Hub, journal and challenge surfaces are persistence-free.`,
 );
