@@ -27,6 +27,7 @@ import { runRiskEnforcementAuthorityMigrations } from "./db-migrate-risk-enforce
 import { runTenantPrincipalIsolationMigrations } from "./db-migrate-tenant-principal-isolation";
 import { runCommunityProfileConsentMigrations } from "./db-migrate-community-profile-consent";
 import { runCommunityJournalChallengeMigrations } from "./db-migrate-community-journal-challenge";
+import { runCommunityJournalChallengeFinalizationMigrations } from "./db-migrate-community-journal-challenge-finalization";
 import { runApiCommandIdempotencyMigrations } from "./db-migrate-api-command-idempotency";
 import { runSensitiveMutationAuditMigrations } from "./db-migrate-sensitive-mutation-audit";
 import { runSessionAuthorityMigrations } from "./db-migrate-session-authority";
@@ -35,10 +36,6 @@ import { runAiMentorTrustMigrations } from "./db-migrate-ai-mentor-trust";
 
 export const DATABASE_MIGRATION_LOCK_NAME = "tecpey_schema_migrations";
 
-/**
- * The executable migration authority. Keep every caller on this function so
- * startup, CI and deployment tooling cannot silently drift in ordering.
- */
 export async function applyDatabaseMigrations(client: PoolClient): Promise<void> {
   await runMigrations(client);
   await runCompatibilityMigrations(client);
@@ -70,16 +67,12 @@ export async function applyDatabaseMigrations(client: PoolClient): Promise<void>
   await runTenantPrincipalIsolationMigrations(client);
   await runCommunityProfileConsentMigrations(client);
   await runCommunityJournalChallengeMigrations(client);
+  await runCommunityJournalChallengeFinalizationMigrations(client);
   await runSessionAuthorityMigrations(client);
   await runSessionLegacyFallbackMigrations(client);
   await runAiMentorTrustMigrations(client);
 }
 
-/**
- * Serialize migration runners across application and deployment processes.
- * The lock is session-scoped and remains held across each migration's own
- * transaction until the complete canonical plan succeeds or fails.
- */
 export async function applyDatabaseMigrationsWithLock(client: PoolClient): Promise<void> {
   await client.query("SELECT pg_advisory_lock(hashtext($1))", [DATABASE_MIGRATION_LOCK_NAME]);
   try {

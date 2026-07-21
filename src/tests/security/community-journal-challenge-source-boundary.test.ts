@@ -44,13 +44,14 @@ describe("Official journal challenge source boundary", () => {
       "academy_trading_arena_reflections",
       "mapArenaReflectionRow",
       "reflectionMatchesTrade",
+      "calculateOfficialJournalChallengeEvidence",
       "eligibleClosedTrades >= OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES",
       "validReflections * 5 >= eligibleClosedTrades * 4",
       "api_command_receipts",
       "academy_community_challenge_events",
       "retrospectiveEvidenceAccepted: false",
       "rewardsEnabled: false",
-      "validateEnrollmentRow",
+      "validateOfficialJournalChallengeEnrollmentRow",
       "lockIdentity = JSON.stringify",
     ]) {
       assert.equal(source.includes(required), true, required);

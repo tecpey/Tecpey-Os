@@ -5,6 +5,7 @@ import {
   loadOfficialJournalChallengeState,
   processOfficialJournalChallengeCommand,
 } from "@/lib/community-journal-challenge-authority";
+import { loadLatestFinalizedOfficialJournalChallenge } from "@/lib/community-journal-challenge-finalization";
 import {
   listCommunityJournalFeed,
   parseCommunityJournalCursor,
@@ -145,7 +146,8 @@ export async function GET(req: NextRequest) {
       if (
         view !== "profile" &&
         view !== "journal-feed" &&
-        view !== "journal-reflection-challenge"
+        view !== "journal-reflection-challenge" &&
+        view !== "journal-reflection-history"
       ) {
         return noStore(apiError("invalid_community_profile_view", 400));
       }
@@ -221,6 +223,36 @@ export async function GET(req: NextRequest) {
           return noStore(apiError("community_challenge_unavailable", 503));
         }
         return noStore(apiOk({ state: loaded.state }));
+      }
+
+      if (view === "journal-reflection-history") {
+        if (searchParams.has("cursor") || searchParams.has("limit")) {
+          return noStore(apiError("invalid_community_profile_view", 400));
+        }
+        const limited = await rateLimit(req, {
+          namespace: "community-journal-challenge-history-read",
+          identity: session.studentId,
+          limit: 60,
+          windowMs: 60_000,
+        });
+        if (!limited.ok) return noStore(apiError("rate_limited", 429));
+
+        const challengeContext = await resolveTenantPrincipalContext({
+          session,
+          requiredPrincipalType: "student",
+          scopes: ["community:challenge:read"],
+          requestId: resolveSensitiveAuditCorrelation(
+            req.headers.get("x-tecpey-request-id"),
+          ),
+        });
+        if (!challengeContext.available) {
+          return noStore(apiError("community_challenge_history_unavailable", 503));
+        }
+        const loaded = await loadLatestFinalizedOfficialJournalChallenge(challengeContext);
+        if (!loaded.available) {
+          return noStore(apiError("community_challenge_history_unavailable", 503));
+        }
+        return noStore(apiOk({ latestFinalized: loaded.result }));
       }
 
       if (searchParams.has("cursor") || searchParams.has("limit")) {

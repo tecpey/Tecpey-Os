@@ -1,11 +1,11 @@
 # TecPey Official Journal Reflection Challenge Authority
 
-Issue: #217  
+Issues: #217, #221  
 Parent: #160
 
 ## Bounded pilot
 
-Only `journal-reflection-week` version `journal-reflection-v1` is an official challenge in this slice. Every scenario-based, risk-rate, lesson, streak, XP, badge, reward, leaderboard, scholarship and instructor outcome remains unsupported and fail closed.
+Only `journal-reflection-week` version `journal-reflection-v1` is official. Scenario, risk-rate, lesson, streak, XP, badge, reward, leaderboard, scholarship, Mentor scoring and instructor outcomes remain unsupported and fail closed.
 
 ## Server-owned cycle
 
@@ -16,91 +16,128 @@ The active cycle is derived from PostgreSQL time and the UTC ISO week:
 - has a key such as `2026-W30`;
 - cannot be supplied or shifted by the browser clock.
 
-Commands must reference the current server cycle key. A stale or future cycle fails explicitly. This pilot must be evaluated before the current UTC cycle closes; post-cycle grace evaluation is intentionally out of scope until a separate finalization worker is designed.
+Interactive commands must reference the current server cycle. After rollover, ended `active` enrollments are handled only by the post-cycle finalizer.
 
 ## Enrollment
 
-Enrollment is created only after:
+Enrollment requires a strict Academy session, verified tenant/workspace/student principal binding, account-owned challenge consent, CSRF, rate limiting, bounded JSON and idempotency. `started_at` is PostgreSQL-issued; earlier activity never counts.
 
-1. a strict canonical Academy session;
-2. a verified tenant/workspace/student principal binding;
-3. account-owned `challenge_participation` consent;
-4. CSRF, rate-limit, bounded-body and idempotency checks.
+## One evidence authority
 
-`started_at` is issued by PostgreSQL. Trades and reflections before that timestamp never count retroactively.
+Interactive evaluation and post-cycle finalization both call `calculateOfficialJournalChallengeEvidence`. No worker-specific scoring implementation exists.
 
-## Evidence calculation
-
-The authority accepts no client score, count, timestamp, PnL or completion claim.
-
-For the enrolled student it:
+The authority:
 
 1. loads owned Trading Arena attempts;
-2. validates every execution snapshot with the canonical Arena execution-state validator;
-3. selects closed trades whose `closedAt` is at or after enrollment and before the evaluation/cycle boundary;
-4. loads reflections in the same evidence window;
-5. validates each reflection row;
-6. requires the reflection's attempt/trade identity and immutable asset, PnL, PnL rate, closure reason, close time and mentor flags to match the canonical closed trade exactly.
+2. validates every execution snapshot;
+3. selects closed trades at or after enrollment and before the exclusive evidence boundary;
+4. loads reflections created inside the same boundary;
+5. validates each reflection;
+6. requires attempt/trade identity, asset, PnL, PnL rate, closure reason, close time and mentor flags to match the canonical closed trade exactly.
 
-Any corrupted or orphaned reflection makes the authority unavailable; it is never ignored as a partial success.
+Corrupt, duplicate or orphaned evidence fails closed.
 
 ## Completion rule
 
-Completion requires both:
-
-- at least 3 eligible closed trades; and
-- reflection coverage of at least 80 percent.
-
-The decision uses integer arithmetic:
+Completion requires at least 3 eligible closed trades and at least 80 percent exact reflection coverage:
 
 `validReflectionCount * 5 >= eligibleClosedTradeCount * 4`
 
-Examples:
-
 - 3/3 completes;
-- 3/2 does not complete;
-- 4/3 does not complete;
+- 3/2 does not;
+- 4/3 does not;
 - 4/4 completes;
 - 5/4 completes.
 
-The database repeats this invariant as a check constraint. A completed enrollment is immutable.
+## Terminal states
+
+An enrollment has one of three states:
+
+- `active`: no finalization fields;
+- `completed`: threshold satisfied, `completed_at` and `finalized_at` present;
+- `not_completed`: threshold not satisfied, `completed_at` absent and worker-issued `finalized_at` present.
+
+`completed` and `not_completed` are terminal and immutable. PostgreSQL constraints repeat the threshold and provenance rules.
+
+Interactive completion uses `finalization_source = interactive`. Post-cycle results use `finalization_source = worker` plus a UUID `finalization_run_id`.
+
+## Post-cycle finalizer
+
+The scheduler-ready command is:
+
+`npm run community:challenge:finalize`
+
+Optional batch size:
+
+`COMMUNITY_CHALLENGE_FINALIZATION_BATCH=100`
+
+The worker:
+
+- uses PostgreSQL `NOW()`;
+- selects only ended active enrollments;
+- uses a bounded batch with `FOR UPDATE SKIP LOCKED`;
+- calculates evidence from immutable `started_at` through exclusive `cycle_ends_at`;
+- processes each row under an independent savepoint;
+- commits one terminal result and one append-only finalization event atomically;
+- reports only enrollment fingerprints and controlled reason codes;
+- skips terminal rows on rerun.
+
+Exit behavior:
+
+- `0`: authority available and no per-row failures;
+- `1`: PostgreSQL/finalizer authority unavailable;
+- `2`: batch committed healthy rows but one or more isolated enrollments failed closed.
+
+An external scheduler should run the command repeatedly after UTC rollover. The worker is idempotent and safe for concurrent runners.
+
+## Finalization events
+
+Worker results emit exactly one of:
+
+- `finalized_completed`;
+- `finalized_not_completed`.
+
+A partial unique index allows only one finalization event per enrollment. Event evidence includes the cycle, evidence window, finalization run, counts, coverage, threshold, result and explicit `rewardsEnabled: false`.
+
+## Latest result read model
+
+`GET /api/community/profile?view=journal-reflection-history` is authenticated, strict-revocation, tenant/principal-bound, rate-limited, private and no-store. It returns only the latest ended terminal result for the authenticated student through the already governed Community route.
+
+The browser parser recomputes coverage and threshold coherence. Invalid payloads, nonzero rewards or contradictory status fail closed. No browser history or demo fallback exists.
 
 ## Command evidence
 
-Join and evaluate commands use the shared `api_command_receipts` authority, scoped by tenant, student principal, operation and idempotency key. Exact retries replay the committed response. A reused key with a different request hash conflicts.
-
-Domain evidence is also written to append-only `academy_community_challenge_events` records for joined, evaluated and completed transitions.
+Join and interactive evaluate commands use `api_command_receipts`. Exact retries replay; changed requests using the same key conflict. Domain events remain append-only.
 
 ## Privacy and tenant isolation
 
-Enrollment identity includes tenant, workspace, principal type and student principal, with a foreign key to the canonical principal binding. Reads and commands use the verified context rather than tenant or student identifiers from the request body.
-
-The API is private, no-store and varies by cookie.
+Enrollment identity includes tenant, workspace, principal type and student principal, with a foreign key to canonical bindings. Finalizer errors expose only SHA-256-derived fingerprints. APIs never accept tenant or student identifiers from client bodies.
 
 ## Rewards
 
-This pilot emits:
+Every current and finalized result emits:
 
 - XP: `0`;
 - badge: `null`;
 - financial reward: `null`;
 - reward status: `disabled`.
 
-Official completion must not enter Mentor scoring, reputation, leaderboard, scholarship, instructor review or financial reward systems until those authorities are separately implemented and approved.
+Completion must not enter Mentor, reputation, leaderboard, scholarship, instructor or financial systems until separate authorities are approved.
 
 ## Failure behavior
 
 - missing Academy identity: `401`;
-- malformed command or cycle key: `400`;
-- missing consent, stale cycle, not joined, in-progress or idempotency conflict: explicit `409`;
-- missing tenant authority, PostgreSQL outage or evidence corruption: `503`;
-- no localStorage, demo, filesystem or browser-computed fallback.
+- malformed interactive command: `400`;
+- consent/cycle/idempotency conflict: `409`;
+- missing PostgreSQL/context/evidence authority: `503`;
+- finalizer isolates corrupt rows and returns exit code `2`;
+- no localStorage, filesystem, demo or browser-computed fallback.
 
-## Known bounded follow-ups
+## Remaining bounded follow-ups
 
-- normalized/indexed closed-trade evidence for large long-lived Arena histories;
-- post-cycle finalization/grace worker;
-- retention and account-deletion policy for append-only challenge evidence;
+- normalized/indexed closed-trade evidence for large histories;
+- finalization scheduling and operational alerting in deployment infrastructure;
+- retention/account-deletion policy for append-only evidence;
 - official scenario challenge authorities;
 - audited XP, badge and reward issuance;
 - canonical reputation/leaderboard projection;

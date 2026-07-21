@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "issue": 168,
-  "followUpIssue": 217,
-  "baseCommit": "d378b60cc4a1d64bd6b6cef674dc2e6051ad1367",
+  "followUpIssue": 221,
+  "baseCommit": "8b2312c08839b8600e7bff739f8ba868eaf073d8",
   "policy": {
     "officialEvidenceOwner": "PostgreSQL-backed server authorities only",
     "browserEvidence": "preview-only and never eligible for Mentor, rewards, reputation, scholarships, instructor assessment or official challenge completion",
     "legacyMigrationRule": "legacy browser records may be displayed only on explicitly quarantined historical surfaces and may never be promoted to durable truth",
     "communityConsent": "default-private, revisioned and transactionally evidenced under canonical tenant/workspace/principal context",
     "sharedJournals": "same-tenant privacy-minimized projection of canonical Arena reflections only; pseudonymous aliases use internal tenant/principal seeds; free text is bounded, identifier-redacted and fail-closed for secrets, explicit signals, guaranteed returns and recruitment; no demo, localStorage, exact PnL or internal identity fields",
-    "officialChallenges": "only journal-reflection-week v1 is official in the current pilot; server UTC cycle, server join time, at least three canonical closed trades and at least eighty percent exact reflection coverage; XP, badge, financial reward, leaderboard and instructor outcomes remain disabled"
+    "officialChallenges": "only journal-reflection-week v1 is official; current-cycle evaluation and post-cycle finalization share one exact Arena trade/reflection evidence authority; ended active enrollments become immutable completed or not_completed records; XP, badge, financial reward, leaderboard, Mentor and instructor outcomes remain disabled"
   },
   "canonicalAuthorities": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "src/app/api/community/profile/route.ts",
-      "purpose": "strict-session profile reads, revisioned consent mutation, tenant-context-bound shared-journal read view and official journal-challenge commands"
+      "purpose": "strict-session profile reads, revisioned consent mutation, tenant-context-bound shared-journal/current-challenge/latest-finalized views and official current-cycle challenge commands"
     },
     {
       "path": "src/lib/community-journal-authority.ts",
@@ -34,15 +34,31 @@
     },
     {
       "path": "src/lib/db-migrate-community-journal-challenge.ts",
-      "purpose": "tenant/principal-bound official challenge enrollments, immutable completion and append-only evidence events"
+      "purpose": "tenant/principal-bound official challenge enrollment and append-only evidence foundation"
+    },
+    {
+      "path": "src/lib/db-migrate-community-journal-challenge-finalization.ts",
+      "purpose": "terminal completed/not_completed invariants, finalization provenance, due-work index and one finalization event per enrollment"
     },
     {
       "path": "src/lib/community-journal-challenge-authority.ts",
-      "purpose": "server UTC cycle, enrollment, exact Arena trade/reflection evidence evaluation and idempotent official completion"
+      "purpose": "single canonical Arena trade/reflection evidence calculator used by interactive evaluation and finalization"
+    },
+    {
+      "path": "src/lib/community-journal-challenge-finalization.ts",
+      "purpose": "bounded SKIP LOCKED post-cycle worker, per-row savepoint isolation and latest finalized tenant/principal projection"
     },
     {
       "path": "src/lib/community-journal-challenge-client.ts",
-      "purpose": "fail-closed runtime contract rejecting forged progress, completion and reward fields"
+      "purpose": "fail-closed current-cycle runtime contract rejecting forged progress, completion and reward fields"
+    },
+    {
+      "path": "src/lib/community-journal-challenge-history-client.ts",
+      "purpose": "fail-closed finalized-result contract that recomputes thresholds and rejects nonzero rewards"
+    },
+    {
+      "path": "scripts/finalize-community-journal-challenges.ts",
+      "purpose": "scheduler-ready runner with explicit unavailable and partial-failure exit codes"
     }
   ],
   "legacyModules": [
@@ -107,8 +123,13 @@
     },
     {
       "path": "src/components/academy/community/ChallengeCenter.tsx",
-      "classification": "official-pilot-plus-preview",
-      "allowedAuthority": "journal-reflection-week server completion only; all other challenges remain preview-only; no XP, badge, financial reward, leaderboard or instructor outcome"
+      "classification": "official-current-cycle-pilot-plus-preview",
+      "allowedAuthority": "journal-reflection-week current server state only; all other challenges remain preview-only; no XP, badge, financial reward, leaderboard or instructor outcome"
+    },
+    {
+      "path": "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
+      "classification": "canonical-finalized-result",
+      "allowedAuthority": "latest ended immutable completed/not_completed result only; read-only and no browser fallback"
     },
     {
       "path": "src/components/academy/community/LeaderboardView.tsx",
@@ -123,7 +144,7 @@
     {
       "path": "src/components/academy/community/PeerJournals.tsx",
       "classification": "canonical-server-feed",
-      "allowedAuthority": "same-tenant pseudonymous, identifier-redacted and safety-filtered canonical Arena reflection projection plus revisioned Community consent; consent controls remain available if Feed loading alone fails"
+      "allowedAuthority": "same-tenant pseudonymous, identifier-redacted and safety-filtered canonical Arena reflection projection plus revisioned Community consent"
     },
     {
       "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
@@ -155,11 +176,14 @@
     "src/lib/community-journal-authority.ts",
     "src/lib/community-journal-client.ts",
     "src/lib/community-journal-challenge-authority.ts",
+    "src/lib/community-journal-challenge-finalization.ts",
     "src/lib/community-journal-challenge-client.ts",
+    "src/lib/community-journal-challenge-history-client.ts",
     "src/lib/community-challenges.ts",
     "src/app/api/community/profile/route.ts",
     "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/community/ChallengeCenter.tsx",
+    "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
     "src/components/academy/v2/MentorV2.tsx",
     "src/components/academy/v2/LearningInsightsDashboard.tsx",
     "src/components/academy/community/InstructorDashboard.tsx"
