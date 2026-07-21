@@ -16,7 +16,7 @@ import {
   issueOfflineSyncScope,
   verifyOfflineSyncScope,
 } from "@/lib/offline-sync-scope";
-import { resolvePlatformContext } from "@/lib/tenant-service";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { logger } from "@/lib/logger";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
@@ -39,6 +39,14 @@ function offlineTelemetryFingerprint(
     .digest("hex");
 }
 
+function contextError(reason: string) {
+  if (reason === "principal_missing") return apiError("academy_profile_required", 401);
+  if (reason === "binding_storage_unavailable") {
+    return apiError("tenant_principal_authority_unavailable", 503);
+  }
+  return apiError("tenant_principal_binding_required", 403);
+}
+
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/offline-sync GET" }, async () => {
     const url = new URL(req.url);
@@ -47,10 +55,16 @@ export async function GET(req: NextRequest) {
 
     let scope: { token: string; expiresAt: string } | null = null;
     if (session.studentId) {
-      const platform = await resolvePlatformContext(session);
+      const context = await resolveTenantPrincipalContext({
+        session,
+        requiredPrincipalType: "student",
+        scopes: ["offline-sync:write"],
+        requestId: req.headers.get("x-tecpey-request-id") ?? crypto.randomUUID(),
+      });
+      if (!context.available) return contextError(context.reason);
       scope = issueOfflineSyncScope({
-        tenantId: platform.tenantId,
-        studentId: session.studentId,
+        tenantId: context.tenantId,
+        studentId: context.principalId,
       });
       if (!scope) return apiError("offline_scope_authority_unavailable", 503);
     }
@@ -70,12 +84,17 @@ export async function POST(req: NextRequest) {
     if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
-    if (!session.studentId) return apiError("academy_profile_required", 401);
-    const platform = await resolvePlatformContext(session);
+    const context = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["offline-sync:write"],
+      requestId: req.headers.get("x-tecpey-request-id") ?? crypto.randomUUID(),
+    });
+    if (!context.available) return contextError(context.reason);
 
     const limit = await rateLimit(req, {
       namespace: "offline-sync",
-      identity: `${platform.tenantId}:${session.studentId}`,
+      identity: `${context.tenantId}:${context.principalId}`,
       limit: 30,
       windowMs: 60_000,
     });
@@ -124,11 +143,9 @@ export async function POST(req: NextRequest) {
           continue;
         }
         if (
-          scope.scope.tenantId !== platform.tenantId ||
-          scope.scope.studentId !== session.studentId
+          scope.scope.tenantId !== context.tenantId ||
+          scope.scope.studentId !== context.principalId
         ) {
-          // Keep another principal's command in the browser queue until that
-          // principal signs in again; never apply it to the current account.
           results.push({
             id,
             status: "retryable",
@@ -149,8 +166,7 @@ export async function POST(req: NextRequest) {
 
         results.push(
           await idempotencyProcessOfflineSyncCommand({
-            tenantId: platform.tenantId,
-            studentId: session.studentId,
+            context,
             item: normalized.item,
           }),
         );
@@ -166,11 +182,11 @@ export async function POST(req: NextRequest) {
       logger.info("[offline-sync] batch processed", {
         studentFingerprint: offlineTelemetryFingerprint(
           "student",
-          session.studentId,
+          context.principalId,
         ),
         tenantFingerprint: offlineTelemetryFingerprint(
           "tenant",
-          platform.tenantId,
+          context.tenantId,
         ),
         attempted: items.length,
         committed,
