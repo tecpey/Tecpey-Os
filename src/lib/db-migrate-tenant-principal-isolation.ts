@@ -15,7 +15,7 @@ INSERT INTO platform_workspaces
   (id, tenant_id, slug, display_name, products, settings)
 VALUES
   (
-    'workspace-primary', 'tecpey', 'primary', 'TecPey Primary',
+    'main', 'tecpey', 'main', 'Main',
     ARRAY['exchange','academy','social','mentor','knowledge'], '{}'::jsonb
   )
 ON CONFLICT (id) DO NOTHING;
@@ -25,10 +25,10 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
       FROM platform_workspaces
-     WHERE id = 'workspace-primary'
+     WHERE id = 'main'
        AND tenant_id = 'tecpey'
   ) THEN
-    RAISE EXCEPTION 'workspace-primary must belong to tenant tecpey';
+    RAISE EXCEPTION 'main workspace must belong to tenant tecpey';
   END IF;
 END;
 $$;
@@ -69,7 +69,7 @@ INSERT INTO platform_principal_bindings
   (tenant_id, workspace_id, principal_type, principal_id, source)
 SELECT
   'tecpey',
-  'workspace-primary',
+  'main',
   'student',
   student.id::text,
   'academy_students_backfill'
@@ -81,7 +81,7 @@ INSERT INTO platform_principal_bindings
   (tenant_id, workspace_id, principal_type, principal_id, source)
 SELECT
   'tecpey',
-  'workspace-primary',
+  'main',
   'account',
   account.id::text,
   'academy_auth_accounts_backfill'
@@ -95,7 +95,7 @@ BEGIN
   INSERT INTO platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id, source)
   VALUES
-    ('tecpey', 'workspace-primary', 'student', NEW.id::text, 'academy_students_trigger')
+    ('tecpey', 'main', 'student', NEW.id::text, 'academy_students_trigger')
   ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id)
   DO UPDATE SET status = 'active', updated_at = NOW();
   RETURN NEW;
@@ -114,7 +114,7 @@ BEGIN
   INSERT INTO platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id, source)
   VALUES
-    ('tecpey', 'workspace-primary', 'account', NEW.id::text, 'academy_auth_accounts_trigger')
+    ('tecpey', 'main', 'account', NEW.id::text, 'academy_auth_accounts_trigger')
   ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id)
   DO UPDATE SET status = 'active', updated_at = NOW();
   RETURN NEW;
@@ -134,7 +134,7 @@ ALTER TABLE offline_sync_commands
     GENERATED ALWAYS AS (student_id::text) STORED;
 
 UPDATE offline_sync_commands
-   SET workspace_id = COALESCE(workspace_id, 'workspace-primary'),
+   SET workspace_id = COALESCE(workspace_id, 'main'),
        principal_type = COALESCE(principal_type, 'student');
 
 ALTER TABLE offline_sync_commands
@@ -167,7 +167,7 @@ ALTER TABLE learning_events
 
 UPDATE learning_events
    SET tenant_id = COALESCE(tenant_id, 'tecpey'),
-       workspace_id = COALESCE(workspace_id, 'workspace-primary'),
+       workspace_id = COALESCE(workspace_id, 'main'),
        principal_type = COALESCE(principal_type, 'student'),
        principal_id = COALESCE(principal_id, student_id::text);
 
