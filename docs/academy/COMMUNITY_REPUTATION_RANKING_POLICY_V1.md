@@ -10,12 +10,13 @@ Operational staging dependency: #229
 
 **Proposed policy. Runtime disabled.**
 
-This document defines the narrowest Community ranking policy that can be supported by the current immutable evidence authority without overstating trading skill or creating hidden user scoring.
+This document defines the narrowest Community ranking policy that can be supported by the current immutable evidence authority without overstating trading skill, silently profiling users or exposing private behavior.
 
 Until a separate implementation PR satisfies every gate in this document:
 
 - `score` remains `null` in active APIs;
 - `rank` remains `null` in active APIs;
+- no private score is computed without explicit scoring consent;
 - no public leaderboard is authorized;
 - no reward, XP, Badge, scholarship, funded account, Mentor decision or Instructor decision is authorized.
 
@@ -36,7 +37,8 @@ Accordingly:
 - the legacy label `journal-quality` is not an official v1 claim;
 - `overall` is unavailable in v1;
 - `discipline`, `risk-management`, `learning-consistency` and `scenario-mastery` are unavailable until independent official authorities exist;
-- public ranking, when eligible, is a same-tenant opt-in ranking of journal consistency only.
+- private scoring and public visibility require separate explicit consent;
+- public ranking, when eligible, is a same-tenant ranking of journal consistency only.
 
 ## Purpose
 
@@ -59,6 +61,29 @@ The policy must never be represented as:
 - an employability score;
 - a scholarship or funded-account decision;
 - a Mentor or Instructor decision.
+
+## Consent separation
+
+Ranking v1 requires two independent revisioned server-authoritative consent fields:
+
+```text
+reputation_scoring_enabled
+leaderboard_visible
+```
+
+Rules:
+
+- both default to `false`;
+- `reputation_scoring_enabled=true` permits private shadow/self scoring only;
+- `leaderboard_visible=true` permits inclusion in a public same-tenant cohort only when private scoring consent is also active;
+- enabling public visibility must not implicitly enable private scoring;
+- disabling private scoring automatically makes public visibility ineffective, but must not silently rewrite the stored public preference;
+- disabling public visibility removes the user from future public snapshots but may preserve private scoring when scoring consent remains active;
+- consent is derived only from the revisioned PostgreSQL Community consent authority;
+- browser storage, UI defaults and request-supplied identity are never consent authority;
+- consent changes do not delete immutable evidence.
+
+The existing `leaderboard_visible` field cannot be reused as consent for private profiling. The implementation must add or formally govern the separate scoring-consent field before any private score is computed.
 
 ## Authoritative evidence
 
@@ -109,21 +134,21 @@ For a snapshot at PostgreSQL time `T`:
 
 The window is based on PostgreSQL time and canonical cycle boundaries, never browser time.
 
-## Eligibility
+## Private scoring eligibility
 
-A principal is `rankable` only when all conditions are true:
+A principal is `privately_scorable` only when all conditions are true:
 
-- the active Community consent revision has `leaderboard_visible = true`;
+- the active Community consent revision has `reputation_scoring_enabled = true`;
 - the principal binding is active at snapshot creation;
 - at least 4 finalized cycles exist in the policy window;
 - retained cycles contain at least 12 total eligible closed trades;
 - every retained evidence row passes digest and invariant verification;
 - no unresolved governed correction or integrity conflict affects a retained row.
 
-Otherwise the principal is `unranked` with exactly one primary reason code:
+Otherwise the private state is `unscored` with exactly one primary reason code:
 
 ```text
-not_opted_in
+scoring_not_enabled
 insufficient_finalized_cycles
 insufficient_eligible_trades
 inactive_principal_binding
@@ -132,7 +157,24 @@ evidence_correction_pending
 policy_unavailable
 ```
 
-There is no fallback score, default score, synthetic peer or inferred rank.
+There is no fallback score, default score, synthetic peer or inferred score.
+
+## Public ranking eligibility
+
+A principal is `publicly_rankable` only when:
+
+- every private scoring eligibility condition is true; and
+- the same active consent revision has `leaderboard_visible = true`.
+
+When private scoring is available but public visibility is disabled:
+
+```text
+private_state = scored
+public_state = not_publicly_opted_in
+rank = null
+```
+
+Public opt-out must not hide the user’s own private explanation when scoring consent remains enabled.
 
 ## Cycle-level values
 
@@ -169,28 +211,31 @@ The final score is clamped only as an invariant assertion to `0..10000`; an out-
 - `mean_coverage_bps` measures how consistently eligible closed trades receive valid canonical Reflections.
 - `completion_rate_bps` measures whether the user repeatedly satisfies the official minimum cycle contract.
 - equal cycle weighting avoids rewarding raw trade volume;
-- the formula uses no profit, return, balance, order size, trading frequency bonus or semantic analysis of free-form text;
+- the formula uses no profit, return, balance, order size, trading-frequency bonus or semantic analysis of free-form text;
 - the 80/20 weighting keeps the score primarily tied to Reflection coverage while retaining a bounded consistency signal.
 
 This formula does not claim to measure the quality or correctness of the Reflection content.
 
 ## Worked examples
 
-### Example A — eligible and consistent
+### Example A — privately scored and publicly eligible
 
 Four cycles:
 
 ```text
 coverage = [10000, 9000, 8000, 10000]
 outcome = [completed, completed, completed, completed]
+reputation_scoring_enabled = true
+leaderboard_visible = true
 ```
 
 ```text
 mean_coverage_bps = 9250
 completion_rate_bps = 10000
-score = round_half_up((9250 * 8000 + 10000 * 2000) / 10000)
 score = 9400
 ```
+
+The score may enter a public cohort only when the minimum public cohort gate is also satisfied.
 
 ### Example B — eligible with mixed completion
 
@@ -212,24 +257,50 @@ score = 7700
 Three finalized cycles and 18 eligible trades:
 
 ```text
-state = unranked
+private_state = unscored
 reason = insufficient_finalized_cycles
 score = null
 rank = null
 ```
 
-### Example D — opted out
+### Example D — private score, public opt-out
 
-Eight finalized cycles and otherwise valid evidence, but `leaderboard_visible = false`:
+Eight valid cycles with:
 
 ```text
-state = unranked
-reason = not_opted_in
+reputation_scoring_enabled = true
+leaderboard_visible = false
+```
+
+Result:
+
+```text
+private_state = scored
+public_state = not_publicly_opted_in
+score = private value
+rank = null
+```
+
+### Example E — no scoring consent
+
+Eight valid cycles with:
+
+```text
+reputation_scoring_enabled = false
+leaderboard_visible = true
+```
+
+Result:
+
+```text
+private_state = unscored
+reason = scoring_not_enabled
+public_state = ineligible_without_scoring_consent
 score = null
 rank = null
 ```
 
-The private evidence panel may continue to show evidence facts permitted by Evidence v1, but no ranking projection is created.
+No profile is silently scored because public visibility was previously enabled.
 
 ## Private bands
 
@@ -250,15 +321,16 @@ Public ranking is permitted only inside one exact tenant and workspace.
 
 A public cohort contains only principals who:
 
-- are `rankable` under the same policy version and snapshot;
+- are `publicly_rankable` under the same policy version and snapshot;
 - have active principal bindings;
-- have active revisioned `leaderboard_visible = true` consent at snapshot creation.
+- have active `reputation_scoring_enabled = true` consent;
+- have active `leaderboard_visible = true` consent.
 
 Cross-tenant or cross-workspace discovery is forbidden.
 
 ## Minimum cohort and suppression
 
-A public leaderboard requires at least 25 rankable opted-in principals in the exact tenant/workspace snapshot.
+A public leaderboard requires at least 25 publicly rankable principals in the exact tenant/workspace snapshot.
 
 When the cohort contains fewer than 25 principals:
 
@@ -329,7 +401,8 @@ A snapshot records at minimum:
 - tenant/workspace identity;
 - PostgreSQL creation time;
 - evidence boundary;
-- consent revision boundary;
+- scoring-consent revision boundary;
+- public-visibility consent revision boundary;
 - cohort state and permitted cohort-size bucket;
 - canonical digest of ordered projection rows.
 
@@ -351,8 +424,9 @@ The authenticated principal may receive only:
 ```text
 policyVersion
 category
-state
-reason
+privateState
+privateReason
+publicState
 windowStartDate
 windowEndDate
 finalizedCycles
@@ -363,14 +437,16 @@ completionRateBps
 scoreBps
 band
 snapshotDate
-publicOptIn
+scoringConsentEnabled
+publicVisibilityEnabled
 publicCohortState
 rank
 ```
 
 Rules:
 
-- `scoreBps`, `band` and `rank` are non-null only when policy and eligibility permit them;
+- `scoreBps` and `band` are non-null only when private scoring consent and evidence eligibility permit them;
+- `rank` is non-null only when public visibility, cohort and snapshot rules permit it;
 - `rank` is null when the public cohort is suppressed, even if the private score is available;
 - dates are bounded policy dates, not raw evidence timestamps;
 - no other principal’s private breakdown is exposed.
@@ -406,6 +482,7 @@ Public responses must not expose:
 - trades, orders, balances, PnL or returns;
 - eligible-trade counts or Reflection counts;
 - raw Reflection text;
+- consent revision identifiers;
 - anti-gaming flags, appeal state or correction state;
 - Mentor, Instructor, reward or scholarship data.
 
@@ -442,7 +519,7 @@ Ranking v1 intentionally excludes features likely to create unfair advantage or 
 - social popularity, followers, reactions or referrals;
 - paid subscription tier.
 
-The rollout review must compare eligibility, score distribution, opt-out rate, suppressed-cohort rate and appeal rate across product-relevant cohorts without collecting unnecessary sensitive personal attributes.
+The rollout review must compare consent, eligibility, score distribution, opt-out rate, suppressed-cohort rate and appeal rate across product-relevant cohorts without collecting unnecessary sensitive personal attributes.
 
 A material unexplained disparity blocks public rollout.
 
@@ -451,8 +528,10 @@ A material unexplained disparity blocks public rollout.
 The private self view must explain:
 
 - the exact policy version;
+- whether scoring consent and public visibility consent are active;
 - the evidence window;
-- why the user is ranked or unranked;
+- why the user is scored or unscored;
+- why the user is publicly ranked, opted out or cohort-suppressed;
 - finalized and completed cycle counts;
 - total eligible-trade count used only for eligibility;
 - mean Reflection coverage;
@@ -461,14 +540,15 @@ The private self view must explain:
 - why profit, balance and trade volume do not affect the result;
 - why unavailable categories are not treated as zero.
 
-No explanation may disclose another principal’s evidence or anti-gaming state.
+No explanation may disclose another principal’s evidence, consent or anti-gaming state.
 
 ## Appeal and correction
 
 A user may challenge:
 
 - missing official cycle evidence;
-- incorrect active-consent state;
+- incorrect scoring-consent state;
+- incorrect public-visibility consent state;
 - incorrect principal binding;
 - a verified source integrity error;
 - application of the wrong policy version or evidence window.
@@ -480,21 +560,22 @@ A valid correction requires a separately governed append-only supersession/corre
 Pending correction state produces:
 
 ```text
-state = unranked
+private_state = unscored
 reason = evidence_correction_pending
 ```
 
 The public API exposes no appeal details.
 
-## Consent behavior
+## Consent lifecycle
 
-- default is private;
-- opt-in and opt-out use the revisioned server-authoritative Community consent authority;
-- browser storage is not consent authority;
-- opt-out removes the principal from the next valid public snapshot;
-- current public cache invalidation must be bounded and documented;
+- both consent fields are default-private and revisioned;
+- private scoring starts only after explicit scoring consent is committed;
+- public inclusion starts only after explicit public visibility consent is committed and scoring consent is active;
+- opt-out affects the next valid snapshot and bounded public caches;
 - historical immutable snapshots remain audit evidence but are not publicly queryable by identity;
-- consent changes do not delete immutable evidence.
+- consent revocation prevents future score materialization when scoring consent is off;
+- consent revocation does not delete immutable source evidence;
+- no server worker may infer consent from prior participation or challenge completion.
 
 ## Rollout stages
 
@@ -503,18 +584,20 @@ The public API exposes no appeal details.
 - Evidence v1 active;
 - ranking runtime disabled;
 - all score/rank outputs remain null;
+- no scoring consent field is assumed;
 - no public leaderboard.
 
-### Stage 1 — shadow computation
+### Stage 1 — consent-safe shadow validation
 
 Minimum duration: 4 complete UTC ISO weeks.
 
 Requirements:
 
-- compute snapshots without exposing scores or ranks to users;
+- validate formula determinism against synthetic/non-user fixtures and explicitly consented test principals only;
+- do not silently score production users who have not granted scoring consent;
 - verify deterministic replay and exact digest stability;
 - verify no cross-tenant or cross-principal leakage;
-- measure eligibility, suppression and integrity-failure rates;
+- measure eligibility, suppression and integrity-failure rates only for permitted test/consented scope;
 - run anti-gaming and fairness review;
 - preserve existing UI as evidence-only.
 
@@ -524,9 +607,10 @@ Minimum duration: 14 days after accepted Stage 1 evidence.
 
 Requirements:
 
+- obtain explicit `reputation_scoring_enabled` consent;
 - expose only the user’s own breakdown;
 - keep public ranking disabled;
-- collect explanation comprehension, opt-out and appeal signals;
+- collect explanation comprehension, scoring opt-out and appeal signals;
 - no downstream decision use.
 
 ### Stage 3 — public same-tenant pilot
@@ -534,8 +618,9 @@ Requirements:
 Requirements:
 
 - all Stage 1 and Stage 2 acceptance evidence approved;
-- at least one tenant/workspace has 25 rankable opted-in principals;
+- at least one tenant/workspace has 25 publicly rankable opted-in principals;
 - privacy and re-identification review accepted;
+- scoring and public-visibility consent flows tested independently;
 - stable cursor and snapshot tests pass;
 - rollback has been exercised in staging;
 - public output contains only the allowlisted fields.
@@ -549,9 +634,10 @@ Monitor at minimum:
 - snapshot generation success/failure;
 - exact replay and divergent replay conflicts;
 - evidence-integrity failures;
+- scoring-consent and public-visibility consent transitions;
 - cohort suppression rate;
-- ranked/unranked reason distribution;
-- consent churn;
+- scored/unscored reason distribution;
+- publicly ranked/not-ranked reason distribution;
 - appeal and correction rate;
 - score distribution and boundary concentration;
 - pagination/cursor rejection rate;
@@ -560,10 +646,11 @@ Monitor at minimum:
 
 Rollback must:
 
-- disable score and rank display;
+- disable private score and public rank display;
+- stop new ranking snapshot materialization;
 - return the UI to Evidence v1 only;
 - stop public snapshot reads;
-- preserve immutable evidence, policy versions and historical snapshots;
+- preserve immutable evidence, consent history, policy versions and historical snapshots;
 - create no replacement fallback score or demo peers.
 
 ## Explicitly unsupported outcomes
@@ -588,19 +675,20 @@ Each future downstream use requires a separate versioned policy, issue, implemen
 
 Runtime work under #226 may begin only after this document is approved and the implementation plan proves:
 
-1. a PostgreSQL-owned immutable snapshot schema;
-2. exact policy-version and evidence-boundary identity;
-3. integer/Decimal-safe formula parity in SQL and TypeScript;
-4. active-consent snapshot binding;
-5. same-tenant cohort isolation;
-6. minimum cohort suppression;
-7. pseudonym HMAC secret/version governance;
-8. dense rank and stable tie ordering;
-9. opaque signed cursor pagination;
-10. strict private/public parsers with unknown-field rejection;
-11. shadow mode and rollback controls;
-12. permanent guards against PnL, browser state, demo peers and downstream decisions;
-13. PostgreSQL, tenant-isolation, concurrency, replay, privacy, parser, build and runtime evidence on one unchanged head.
+1. an additive revisioned `reputation_scoring_enabled` consent authority separate from `leaderboard_visible`;
+2. a PostgreSQL-owned immutable snapshot schema;
+3. exact policy-version and evidence-boundary identity;
+4. integer/Decimal-safe formula parity in SQL and TypeScript;
+5. active scoring-consent and public-visibility consent snapshot binding;
+6. same-tenant cohort isolation;
+7. minimum cohort suppression;
+8. pseudonym HMAC secret/version governance;
+9. dense rank and stable tie ordering;
+10. opaque signed cursor pagination;
+11. strict private/public parsers with unknown-field rejection;
+12. consent-safe shadow mode and rollback controls;
+13. permanent guards against PnL, browser state, demo peers and downstream decisions;
+14. PostgreSQL, tenant-isolation, concurrency, replay, privacy, consent, parser, build and runtime evidence on one unchanged head.
 
 ## Approval record
 
