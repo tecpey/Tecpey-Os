@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -100,11 +100,20 @@ describe("Community challenge scheduler installer", () => {
     assert.match(result.stderr, /ops_alert_https_webhook_missing/);
   });
 
-  it("rejects world-readable and symlinked environment files", async () => {
+  it("rejects world-readable environment files", async () => {
     const setup = await fixture();
     await chmod(setup.envFile, 0o644);
     const exposed = runInstall(setup);
     assert.notEqual(exposed.status, 0);
     assert.match(exposed.stderr, /environment_file_world_access_forbidden/);
+  });
+
+  it("rejects symlinked environment files", async () => {
+    const setup = await fixture();
+    const link = path.join(setup.root, "runtime-link.env");
+    await symlink(setup.envFile, link);
+    const linked = runInstall(setup, { TECPEY_ENV_FILE: link });
+    assert.notEqual(linked.status, 0);
+    assert.match(linked.stderr, /environment_file_unsafe/);
   });
 });
