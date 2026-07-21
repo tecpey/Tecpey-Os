@@ -27,12 +27,21 @@ const content = Object.fromEntries(
   ),
 );
 
+const normalizeSource = (value) => value.replace(/\s+/g, " ").trim();
+const normalizedContent = Object.fromEntries(
+  Object.entries(content).map(([key, value]) => [key, normalizeSource(value)]),
+);
+
 const failures = [];
 const requireText = (target, text, reason) => {
-  if (!content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (!normalizedContent[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 const rejectText = (target, text, reason) => {
-  if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
+  if (normalizedContent[target].includes(normalizeSource(text))) {
+    failures.push(`${files[target]}: ${reason}`);
+  }
 };
 
 for (const invariant of [
@@ -171,7 +180,7 @@ for (const invariant of [
 }
 rejectText(
   "authority",
-  "tenantId: string;\n  studentId: string;\n  item: OfflineSyncItem",
+  "tenantId: string; studentId: string; item: OfflineSyncItem",
   "mutation authority cannot accept independent tenant/student IDs",
 );
 
