@@ -32,8 +32,11 @@ const API_KEY_PATTERN = /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{16,}|(?:ghp|github_pat)
 const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b/gi;
 const PRIVATE_KEY_PATTERN = /\b(?:0x)?[a-fA-F0-9]{64}\b/g;
 const WIF_PATTERN = /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g;
+const SOCIAL_LINK_PATTERN = /(?:https?:\/\/|www\.|t\.me\/)[^\s]+|(?<![\w@])@[A-Za-z0-9_]{4,32}\b/gi;
 const SECRET_LABEL = /(?:seed\s*phrase|mnemonic|recovery\s*phrase|private\s*key|secret\s*key|password|passphrase|api[\s_-]*key|access[\s_-]*token|bearer|authorization|otp|2fa|one[\s_-]*time\s*code|session[\s_-]*token|عبارت\s*بازیابی|کلمات\s*بازیابی|کلید\s*خصوصی|رمز\s*عبور|پسورد|کد\s*(?:دو\s*مرحله|تأیید|یکبار\s*مصرف))/i;
+const PUBLIC_SIGNAL_PATTERN = /(?:guaranteed\s+profit|buy\s+now|sell\s+now|join\s+(?:my|our)\s+(?:channel|group)|dm\s+me|contact\s+me|سیگنال\s*(?:خرید|فروش)?|سود\s*تضمین(?:ی|شده)|تضمین\s*سود|الان\s*(?:بخر|بفروش|لانگ|شورت)|حتما(?:ً)?\s*(?:بخر|بفروش)|عضو\s*(?:کانال|گروه)\s*(?:من|ما)\s*شو)/i;
 const SECRET_PLACEHOLDER = "[متن حساس از نمایش عمومی حذف شد]";
+const SAFETY_PLACEHOLDER = "[متن به‌دلیل سیاست ایمنی جامعه نمایش داده نشد]";
 
 export type CommunityJournalCursor = {
   closedAt: string;
@@ -67,7 +70,7 @@ export type CommunityJournalCursorParseResult =
 
 type CommunityJournalRow = {
   reflection_id: string;
-  public_profile_id: string;
+  author_seed: string;
   learned_lesson: string;
   mistake_tags: unknown;
   next_action_commitment: string | null;
@@ -131,6 +134,7 @@ export function minimizeCommunityJournalPublicText(
   let normalized = normalizePublicText(value, Math.max(max, 4_000));
   if (!normalized) return "";
   if (SECRET_LABEL.test(normalized)) return SECRET_PLACEHOLDER;
+  if (PUBLIC_SIGNAL_PATTERN.test(normalized)) return SAFETY_PLACEHOLDER;
   for (const [pattern, replacement] of [
     [EMAIL_PATTERN, "[ایمیل حذف شد]"],
     [PHONE_PATTERN, "[شماره تماس حذف شد]"],
@@ -142,6 +146,7 @@ export function minimizeCommunityJournalPublicText(
     [BEARER_PATTERN, "[توکن حذف شد]"],
     [PRIVATE_KEY_PATTERN, "[کلید خصوصی حذف شد]"],
     [WIF_PATTERN, "[کلید خصوصی حذف شد]"],
+    [SOCIAL_LINK_PATTERN, "[لینک یا شناسه ارتباطی حذف شد]"],
   ] as Array<[RegExp, string]>) {
     pattern.lastIndex = 0;
     normalized = normalized.replace(pattern, replacement);
@@ -151,7 +156,7 @@ export function minimizeCommunityJournalPublicText(
 }
 
 function mapRow(row: CommunityJournalRow): CommunityJournalEntry {
-  if (!UUID_RE.test(row.reflection_id) || !UUID_RE.test(row.public_profile_id)) {
+  if (!UUID_RE.test(row.reflection_id) || !row.author_seed) {
     throw new Error("community_journal_identity_invalid");
   }
   if (row.evidence_asset !== "BTC" && row.evidence_asset !== "ETH") {
@@ -167,7 +172,7 @@ function mapRow(row: CommunityJournalRow): CommunityJournalEntry {
 
   return {
     entryId: `CJ-${stablePublicId("tecpey-community-journal-entry-v1", row.reflection_id, 24)}`,
-    authorAlias: `یادگیرنده ${stablePublicId("tecpey-community-journal-author-v1", row.public_profile_id, 8)}`,
+    authorAlias: `یادگیرنده ${stablePublicId("tecpey-community-journal-author-v1", row.author_seed, 8)}`,
     asset: row.evidence_asset,
     learnedLesson,
     mistakeTags,
@@ -223,7 +228,7 @@ async function selectFeed(
 ): Promise<CommunityJournalFeedPage> {
   const selected = await client.query<CommunityJournalRow>(
     `SELECT reflection.id::text AS reflection_id,
-            profile.public_profile_id::text,
+            profile.tenant_id || ':' || profile.principal_type || ':' || profile.principal_id AS author_seed,
             reflection.learned_lesson,
             reflection.mistake_tags,
             reflection.next_action_commitment,
