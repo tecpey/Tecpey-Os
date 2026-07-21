@@ -150,7 +150,11 @@ export async function runScheduledCommunityChallengeFinalization(
     );
     if (!result.available) {
       authorityUnavailable = true;
-      reasonCodes.push("database_authority_unavailable");
+      reasonCodes.push(
+        batchesProcessed === 0
+          ? "database_authority_unavailable"
+          : "database_authority_unavailable_after_progress",
+      );
       break;
     }
     batchesProcessed += 1;
@@ -171,8 +175,13 @@ export async function runScheduledCommunityChallengeFinalization(
   completedAt = nowIso(clock);
 
   let resultStatus: OperationalJobRunEvidence["resultStatus"] = "succeeded";
-  if (authorityUnavailable) resultStatus = "authority_unavailable";
-  else if (failureFingerprints.length > 0 || drainLimitReached) {
+  if (authorityUnavailable && batchesProcessed === 0) {
+    resultStatus = "authority_unavailable";
+  } else if (
+    authorityUnavailable ||
+    failureFingerprints.length > 0 ||
+    drainLimitReached
+  ) {
     resultStatus = "partial_failure";
   }
 
