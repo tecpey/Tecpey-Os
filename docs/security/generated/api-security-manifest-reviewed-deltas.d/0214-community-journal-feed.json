@@ -8,7 +8,7 @@
       "previousSourceHash": "64b680530f7a533a01fcf526",
       "issue": "#214",
       "owner": "community-platform",
-      "reason": "The existing Community profile Route Handler now also exposes a strict-session, tenant-context-bound read-only journal-feed view. The PATCH consent mutation retains its prior CSRF, strict revocation, rate limiting, bounded input, revision, idempotency, verified-principal, no-store, redaction, fail-closed and mandatory-audit controls; its source hash and test evidence changed because the shared Route Handler and focused source-boundary coverage changed.",
+      "reason": "The existing Community profile Route Handler now also exposes a strict-session, tenant-context-bound read-only journal-feed view. The PATCH consent mutation retains its prior CSRF, strict revocation, rate limiting, bounded input, revision, idempotency, verified-principal, no-store, redaction, fail-closed and mandatory-audit controls; its source hash changed while the generated mutation operation continues to use the canonical strict-revocation test reference. Focused journal source-boundary evidence remains wired into the permanent Community test gate outside the mutation manifest reference list.",
       "replacement": {
         "route": "/api/community/profile",
         "method": "PATCH",
@@ -48,8 +48,7 @@
         },
         "domainOwner": "community",
         "testReferences": [
-          "src/tests/security/auth-strict-revocation-routes.test.ts",
-          "src/tests/security/community-journal-source-boundary.test.ts"
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
         ],
         "requirements": {
           "csrf": true,
