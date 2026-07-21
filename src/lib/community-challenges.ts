@@ -1,10 +1,10 @@
 /**
- * Community Challenges — Phase 18: Weekly educational challenges.
- * Challenges rotate weekly. No gambling, no profit races.
- * All challenges focus on behavioral discipline and process quality.
+ * Community challenge catalogue.
+ *
+ * This module is intentionally pure: it defines educational challenges and a
+ * deterministic UTC cycle only. Participation, completion, score, XP and
+ * badges are server-authoritative and must never be persisted by the browser.
  */
-
-export const CHALLENGE_PARTICIPATION_KEY = "tecpey-challenge-participation";
 
 export type ChallengeDifficulty = "beginner" | "intermediate" | "advanced";
 export type ChallengeFocus = "discipline" | "patience" | "risk" | "reflection" | "consistency" | "knowledge";
@@ -26,17 +26,20 @@ export interface Challenge {
 export type ChallengeCompletionCriteria =
   | { type: "scenario-pass"; scenarioId: string }
   | { type: "stop-loss-rate"; minRate: number }
-  | { type: "journal-rate"; minRate: number }
+  | { type: "journal-rate"; minRate: number; minTrades: number }
   | { type: "streak"; minDays: number }
   | { type: "lesson-complete"; count: number };
 
-export interface ChallengeParticipation {
-  challengeId: string;
+export type ChallengeCycle = {
+  year: number;
   weekNumber: number;
-  startedAt: number;
-  completedAt: number | null;
-  score: number;
-}
+  weekKey: string;
+  startsAt: string;
+  endsAt: string;
+  challenge: Challenge;
+};
+
+const CHALLENGE_CYCLE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const WEEKLY_CHALLENGES: Challenge[] = [
   {
@@ -93,18 +96,18 @@ export const WEEKLY_CHALLENGES: Challenge[] = [
   {
     id: "journal-reflection-week",
     title: "چالش بازتاب ژورنال",
-    objective: "تمام معاملات این هفته را با بازتاب کامل ثبت کنید.",
+    objective: "حداقل ۳ معامله این هفته را ببندید و برای دست‌کم ۸۰٪ آن‌ها بازتاب معتبر ثبت کنید.",
     rules: [
-      "هر معامله باید برنامه پیش از معامله داشته باشد.",
-      "بعد از هر بسته شدن موقعیت، بازتاب بنویسید.",
-      "حداقل یک درس کلیدی در هر بازتاب ثبت شود.",
+      "حداقل ۳ معامله باید در Trading Arena معتبر بسته شده باشد.",
+      "پس از بسته‌شدن هر موقعیت، Reflection سرورمحور ثبت کنید.",
+      "دست‌کم ۸۰٪ معاملات بسته‌شده هفته باید Reflection معتبر داشته باشند.",
     ],
-    scoringMethod: "نرخ تکمیل ژورنال × ۱۰۰. حداقل ۸۰٪ برای قبولی.",
-    responsibleTradingNote: "بهترین معامله‌گران ژورنال می‌نویسند. این عادت را از همین ابتدا شکل دهید.",
+    scoringMethod: "تعداد Reflectionهای معتبر ÷ معاملات بسته‌شده معتبر × ۱۰۰؛ حداقل ۳ معامله و امتیاز ۸۰ برای قبولی.",
+    responsibleTradingNote: "هدف چالش، ساخت عادت بازتاب و یادگیری است؛ سود یا زیان خام در امتیاز و پاداش نقشی ندارد.",
     reward: { badge: "journal-master", xpBonus: 200, label: "استاد ژورنال" },
     difficulty: "beginner",
     focus: "reflection",
-    completionCriteria: { type: "journal-rate", minRate: 0.8 },
+    completionCriteria: { type: "journal-rate", minRate: 0.8, minTrades: 3 },
     estimatedMinutes: 15,
   },
   {
@@ -126,52 +129,37 @@ export const WEEKLY_CHALLENGES: Challenge[] = [
   },
 ];
 
-export function getCurrentWeekNumber(): number {
-  const now = new Date();
-  const yearStart = new Date(now.getFullYear(), 0, 1);
-  return Math.floor((now.getTime() - yearStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+export function getChallengeCycle(now = new Date()): ChallengeCycle {
+  const timestamp = now.getTime();
+  if (!Number.isFinite(timestamp)) throw new Error("challenge_cycle_time_invalid");
+  const year = now.getUTCFullYear();
+  const yearStart = Date.UTC(year, 0, 1);
+  const weekNumber = Math.max(0, Math.floor((timestamp - yearStart) / CHALLENGE_CYCLE_MS));
+  const startsAtMs = yearStart + weekNumber * CHALLENGE_CYCLE_MS;
+  const endsAtMs = startsAtMs + CHALLENGE_CYCLE_MS;
+  const challenge = WEEKLY_CHALLENGES[weekNumber % WEEKLY_CHALLENGES.length];
+  if (!challenge) throw new Error("challenge_catalogue_empty");
+  return {
+    year,
+    weekNumber,
+    weekKey: `${year}-cycle-${String(weekNumber).padStart(2, "0")}`,
+    startsAt: new Date(startsAtMs).toISOString(),
+    endsAt: new Date(endsAtMs).toISOString(),
+    challenge,
+  };
 }
 
-export function getCurrentChallenge(): Challenge {
-  const week = getCurrentWeekNumber();
-  return WEEKLY_CHALLENGES[week % WEEKLY_CHALLENGES.length]!;
+export function getCurrentWeekNumber(now = new Date()): number {
+  return getChallengeCycle(now).weekNumber;
 }
 
-export function getNextChallenge(): Challenge {
-  const week = getCurrentWeekNumber();
-  return WEEKLY_CHALLENGES[(week + 1) % WEEKLY_CHALLENGES.length]!;
+export function getCurrentChallenge(now = new Date()): Challenge {
+  return getChallengeCycle(now).challenge;
 }
 
-export function loadParticipation(): ChallengeParticipation[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(CHALLENGE_PARTICIPATION_KEY);
-    if (raw) return JSON.parse(raw) as ChallengeParticipation[];
-  } catch { /* ignore */ }
-  return [];
-}
-
-function saveParticipation(entries: ChallengeParticipation[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(CHALLENGE_PARTICIPATION_KEY, JSON.stringify(entries)); } catch { /* quota */ }
-}
-
-export function joinChallenge(challengeId: string): void {
-  const entries = loadParticipation();
-  const week = getCurrentWeekNumber();
-  if (entries.find((e) => e.challengeId === challengeId && e.weekNumber === week)) return;
-  entries.push({ challengeId, weekNumber: week, startedAt: Date.now(), completedAt: null, score: 0 });
-  saveParticipation(entries);
-}
-
-export function markChallengeComplete(challengeId: string, score: number): void {
-  const entries = loadParticipation();
-  const week = getCurrentWeekNumber();
-  const idx = entries.findIndex((e) => e.challengeId === challengeId && e.weekNumber === week);
-  if (idx >= 0) {
-    entries[idx] = { ...entries[idx]!, completedAt: Date.now(), score };
-  }
-  saveParticipation(entries);
+export function getNextChallenge(now = new Date()): Challenge {
+  const cycle = getChallengeCycle(now);
+  return WEEKLY_CHALLENGES[(cycle.weekNumber + 1) % WEEKLY_CHALLENGES.length]!;
 }
 
 export const DIFFICULTY_LABEL: Record<ChallengeDifficulty, string> = {
