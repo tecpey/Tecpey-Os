@@ -6,71 +6,60 @@ Operational staging execution: #229
 
 ## Status
 
-This document defines the first server-authoritative reputation foundation for TecPey Community.
-
 The implemented policy is **Evidence-only**.
 
-It provides:
+It creates a server-authoritative, immutable record of facts produced by finalized official Community challenges. It is the prerequisite for any future reputation policy, but it is not itself a reputation decision.
 
-- immutable evidence facts from finalized official Community challenges;
-- deterministic provenance and integrity verification;
-- tenant/workspace/principal isolation;
-- a private authenticated summary for the evidence owner;
-- a stable input boundary for future, separately approved ranking policies.
+The permanent boundaries are explicit:
 
-It does **not** provide:
+- **No score** — no numeric reputation or skill score exists.
+- **No rank** — no public or private leaderboard position exists.
+- **No reward** — no XP, Badge, scholarship, funded account or financial benefit is authorized.
+- No Mentor decision — Mentor AI cannot use this ledger as a decision output.
+- No Instructor decision — no Instructor access, grant or review authority is created.
 
-- a reputation score;
-- a public or private rank;
-- a leaderboard position;
-- XP or Badge issuance;
-- scholarship or funded-account eligibility;
-- financial reward eligibility;
-- Mentor AI decisions;
-- Instructor access, grants or decisions.
+Evidence records must never be presented as financial advice, trading certification, employability scoring or proof of future profitability.
 
-No score, rank or reward may be inferred merely from the existence of evidence records.
+## Why evidence comes before ranking
 
-## Why Evidence precedes ranking
-
-The legacy Community leaderboard computed browser-side scores from local Academy progress, Arena state and Journal completion, then mixed the user with deterministic demo peers. That model could not be authoritative because:
+The legacy Community leaderboard calculated scores in the browser from local Academy progress, Arena state and Journal completion, then mixed the user with deterministic demo peers. That could not be authoritative because:
 
 - browser state is mutable and device-specific;
-- the scoring formula was not a versioned server policy;
+- the formula was not a versioned server policy;
 - demo peers were not real participants;
-- operational evidence and policy decisions were mixed together;
-- no immutable provenance existed for later review or appeal;
-- no tenant-safe server read model existed.
+- evidence and policy decisions were mixed together;
+- provenance could not be audited or appealed;
+- tenant and principal isolation were not enforced by the ranking calculation.
 
-The legacy score and demo-peer generators are removed from active source. The remaining `community-leaderboard.ts` module contains presentation vocabulary and safety copy only.
+Active browser score generation and demo peers are removed. `community-leaderboard.ts` now contains presentation taxonomy and safety copy only.
 
 ## Authoritative source
 
-Evidence v1 accepts one source type:
+Evidence v1 accepts only:
 
 ```text
 official_journal_challenge_finalization
 ```
 
-The source must be a terminal row in:
+The source is a terminal row in PostgreSQL table:
 
 ```text
 academy_community_challenge_enrollments
 ```
 
-The row must satisfy all existing official challenge invariants:
+The source must satisfy all official challenge invariants:
 
 - `challenge_id = journal-reflection-week`;
 - `challenge_version = journal-reflection-v1`;
-- `status` is `completed` or `not_completed`;
-- UTC ISO-week cycle identity and window are valid;
+- outcome is `completed` or `not_completed`;
+- UTC ISO-week identity and cycle window are valid;
 - finalization timestamp and provenance are present;
-- `completed` exactly matches the minimum-three-trades and eighty-percent-reflection rule;
+- `completed` exactly matches at least three eligible closed trades and at least eighty-percent valid Reflection coverage;
 - `interactive` finalization has no worker run id;
 - `worker` finalization has a valid run id;
-- tenant/workspace/student principal binding is active.
+- the exact tenant/workspace/student principal binding is active.
 
-No request body or browser value can create reputation evidence.
+No browser payload, request body, display name, local profile, raw PnL, manually entered score or selected user id can create evidence.
 
 ## Ledger
 
@@ -80,98 +69,88 @@ The append-only ledger is:
 academy_community_reputation_evidence
 ```
 
-Each terminal enrollment has exactly one evidence row. The evidence row id and source enrollment id are the same UUID.
-
 Evidence version:
 
 ```text
 community-reputation-evidence-v1
 ```
 
+Each eligible terminal enrollment has exactly one evidence row. The evidence row id and source enrollment id are the same UUID.
+
 Stored fields are limited to:
 
-- tenant, workspace, principal type and principal identity;
-- student identity;
+- tenant, workspace, principal type, principal id and student id;
 - evidence version and source type;
-- source enrollment identity;
-- challenge id and challenge version;
-- UTC ISO cycle key, start and end;
-- terminal outcome;
-- finalization timestamp;
-- eligible closed-trade count;
-- valid-reflection count;
+- source enrollment id;
+- challenge id/version and UTC ISO cycle;
+- terminal outcome and finalization timestamp;
+- eligible closed-trade count and valid-reflection count;
 - deterministic coverage basis points;
 - completion-criteria boolean;
 - finalization source and optional worker run id;
 - canonical SHA-256 source digest;
 - database recording timestamp.
 
-The ledger contains no:
+The ledger stores no raw trade, order, PnL, Reflection text, display name, contact data, browser identifier, score, rank, reward decision, Mentor output or Instructor output.
 
-- raw PnL;
-- order or trade details;
-- reflection text;
-- display name;
-- email, phone or contact data;
-- browser identifier;
-- score or rank;
-- reward decision;
-- Mentor or Instructor decision.
+## PostgreSQL-owned atomic materialization
 
-## Atomic materialization
+PostgreSQL owns materialization through two triggers:
 
-PostgreSQL owns materialization.
+1. an `AFTER INSERT` trigger catches any enrollment inserted directly in terminal state;
+2. an `AFTER UPDATE` trigger catches transition from active to `completed` or `not_completed`.
 
-An `AFTER UPDATE` trigger on the challenge enrollment table runs when an enrollment changes from active to `completed` or `not_completed`.
-
-Within the same database statement and transaction, the trigger:
+Within the same statement and transaction, the materializer:
 
 1. verifies the active tenant/workspace/principal binding;
 2. derives deterministic coverage basis points;
 3. derives the completion criterion;
 4. derives the canonical SHA-256 digest;
-5. inserts the immutable evidence row;
+5. inserts the evidence row;
 6. reads the resulting row back;
-7. verifies exact equality with the terminal enrollment;
-8. raises an exception on any missing or conflicting field.
+7. compares every authority field with the terminal enrollment;
+8. raises an exception for missing or conflicting evidence.
 
-Therefore a new code path cannot successfully finalize an official challenge while silently omitting its reputation evidence.
+A terminal enrollment therefore cannot be successfully inserted or finalized without matching evidence.
 
-Interactive completion and worker finalization use the same database authority. The application helper remains available for exact idempotent verification and controlled repairs, but it is not the primary enforcement mechanism.
+Interactive completion, worker finalization and future terminal code paths all pass through the same database authority. The TypeScript materialization helper exists for exact idempotent verification and controlled repair, not as the primary enforcement mechanism.
+
+## Insert validation and append-only behavior
+
+A `BEFORE INSERT` trigger independently verifies:
+
+- active tenant/workspace/principal binding;
+- source is terminal;
+- row id equals source enrollment id;
+- every identity and cycle field matches the source;
+- outcome, counts, coverage and completion criterion match;
+- finalization source/run identity matches;
+- digest is canonical.
+
+PostgreSQL rejects every `UPDATE` and `DELETE` against the evidence ledger.
+
+Correction is not mutation. A future correction model must be a separately governed, explicitly versioned supersession event. Existing evidence is never silently rewritten.
 
 ## Backfill
 
-Migration `0051_community_reputation_evidence.sql` backfills existing terminal pilot enrollments.
+Migration `0051_community_reputation_evidence.sql` backfills existing official terminal enrollments whose principal binding is active.
 
 The backfill:
 
 - selects only the official challenge id/version;
 - accepts only terminal rows;
-- derives all copied facts and the digest from the source row;
-- uses the same insert validation trigger;
-- is exact-idempotent on source enrollment identity;
-- finishes with a fail-closed consistency check.
+- uses the same insert validator;
+- deterministically derives coverage and digest;
+- is exact-idempotent on source enrollment id;
+- performs a final fail-closed comparison of identity, version, source type, cycle, outcome, counts, coverage, completion, provenance and digest.
 
-A conflicting historical row prevents migration completion. The migration must not overwrite or normalize a conflicting evidence record silently.
+A conflicting historical row prevents migration completion. It is never overwritten to make the migration pass.
 
-## Integrity rules
+## Canonical digest
 
-### Append-only
+PostgreSQL and TypeScript compute the same SHA-256 digest over a newline-separated canonical sequence containing:
 
-PostgreSQL rejects `UPDATE` and `DELETE` on every evidence row.
-
-Correction is not mutation. A future correction model must use an explicitly versioned supersession event and migration, designed in a separate governed slice.
-
-### Source equality
-
-A `BEFORE INSERT` trigger verifies every copied identity, cycle, status, timestamp, count, criterion and finalization field against the referenced enrollment.
-
-### Canonical digest
-
-The SHA-256 digest covers a newline-separated canonical sequence containing:
-
-- evidence version;
-- source type;
+- evidence version and source type;
 - tenant/workspace/principal/student identities;
 - source enrollment id;
 - challenge and cycle identity;
@@ -180,11 +159,11 @@ The SHA-256 digest covers a newline-separated canonical sequence containing:
 - completion criterion;
 - finalization source and worker run id.
 
-UTC timestamps use exact ISO-8601 millisecond precision. TypeScript recomputes the same digest whenever an evidence row is read.
+UTC timestamps use exact ISO-8601 millisecond precision. TypeScript recomputes the digest whenever a ledger row is read. Corrupt stored evidence does not become a valid summary.
 
-### Deterministic coverage
+## Deterministic coverage
 
-Coverage uses integer basis points rather than floating-point score arithmetic:
+Coverage is integer basis-point evidence, not a score:
 
 ```text
 round_half_up(valid_reflections * 10000 / eligible_trades)
@@ -198,11 +177,11 @@ Examples:
 - 3 / 4 = 7500;
 - 4 / 5 = 8000.
 
-This value is evidence, not a reputation score.
+Floating-point ranking arithmetic is not used.
 
 ## Private read model
 
-Authenticated students read their own evidence summary from:
+The evidence owner reads:
 
 ```text
 GET /api/community/reputation-evidence
@@ -213,24 +192,22 @@ The route:
 - accepts no query parameters;
 - requires a strict-revocation canonical session;
 - requires an Academy student profile;
-- resolves the server-owned tenant/workspace/student context;
+- resolves tenant/workspace/student identity on the server;
 - requires scope `community:reputation:read`;
 - joins evidence to an active principal binding;
 - applies a bounded rate limit;
 - returns `Cache-Control: private, no-store` and `Vary: Cookie`;
 - fails closed when storage or authority is unavailable.
 
-The API never accepts a student, tenant, workspace or enrollment id from the client.
+The client cannot select tenant, workspace, principal, student or enrollment identity.
 
 ## Summary contract
 
-The summary reports only:
+The private summary reports only:
 
-- evidence version;
-- policy status `evidence_only`;
-- finalized-cycle count;
-- completed and not-completed cycle counts;
-- total eligible trades and valid reflections;
+- evidence version and policy status `evidence_only`;
+- finalized, completed and not-completed cycle counts;
+- total eligible trades and valid Reflections;
 - deterministic aggregate coverage basis points;
 - first and latest finalization timestamps;
 - latest immutable cycle evidence.
@@ -245,20 +222,21 @@ mentorDecisionEligible = false
 instructorDecisionEligible = false
 ```
 
-The strict client parser recomputes aggregate coverage, validates counts and chronology, rejects unknown fields and rejects any response that attempts to activate those decision fields.
+The strict client parser rejects unknown fields and recomputes counts, coverage, completion and chronology. Any payload attempting to activate score, rank, reward, Mentor or Instructor authority is rejected.
 
 ## UI boundary
 
-Community Hub displays server evidence through `ReputationEvidencePanel`.
+Community Hub and the existing Leaderboard route display `ReputationEvidencePanel`.
 
-The panel may show:
+They may show:
 
 - finalized-cycle count;
 - completed-cycle count;
-- aggregate reflection coverage;
-- latest cycle outcome and counts.
+- aggregate Reflection coverage;
+- latest cycle outcome and counts;
+- categories that a future ranking policy might govern, clearly marked locked.
 
-The panel must show a fail-closed state when authority is unavailable. It must not calculate a fallback score or synthesize peers.
+They must not show simulated peers, fallback scores, numeric ranks, reward eligibility or inferred Mentor/Instructor decisions. Authority-unavailable state is fail-closed.
 
 The local Community display-name preview remains non-authoritative and is not joined to the evidence ledger.
 
@@ -272,62 +250,63 @@ All reads require exact:
 - principal id;
 - active principal binding.
 
-A student cannot select another principal through request input. Revoked bindings expose no evidence through the read model.
+A principal cannot select another principal through request input. Revoked bindings expose no evidence through the private read model.
 
-Public profiles, Leaderboard visibility consent and Instructor-review consent do not grant access to this private ledger. Public aggregation requires a later privacy and k-anonymity policy.
+Public-profile consent, Leaderboard visibility consent and Instructor-review consent do not grant access to this ledger. Public aggregation requires a later privacy policy with minimum cohort size and anti-reidentification rules.
 
-## No score, rank or reward
+## Prohibited direct uses
 
-Evidence v1 must never be used directly as:
+Evidence v1 must not directly determine:
 
-- an employability score;
+- employability;
 - financial advice;
-- a trading-skill certification;
-- a scholarship decision;
-- a funded-account decision;
-- a financial-risk limit;
-- an Instructor grant;
-- a Mentor recommendation.
+- trading-skill certification;
+- scholarship selection;
+- funded-account access;
+- financial-risk limits;
+- Mentor recommendations;
+- Instructor grants;
+- public ranking.
 
-A future reputation policy requires a separate versioned specification covering at minimum:
+A future ranking policy requires a separate versioned specification covering at minimum:
 
 - declared purpose and prohibited uses;
-- transparent feature definitions;
+- transparent features and weights;
 - minimum sample size and sparse-data behavior;
-- weighting and normalization;
 - time decay and policy-version transitions;
 - anti-gaming controls;
 - bias and disparate-impact review;
-- explainability and appeal;
+- explainability, appeal and correction handling;
 - privacy threshold for public ranking;
-- tie handling and pagination stability;
+- stable tie handling and pagination;
 - monitoring, rollback and audit evidence.
 
 ## Failure behavior
 
 - Database unavailable: no successful empty authoritative response.
-- Binding revoked: no evidence returned.
-- Source active or corrupt: materialization rejected.
-- Copied identity or counts differ: insertion rejected.
-- Digest differs: insertion or read rejected.
-- Existing conflicting duplicate: finalization or migration rejected.
+- Binding inactive or revoked: no evidence is exposed or materialized.
+- Source active or corrupt: materialization is rejected.
+- Direct terminal insert without exact evidence: the insert is rolled back.
+- Copied identity, cycle, count or provenance differs: insertion is rejected.
+- Digest differs: insertion or read is rejected.
+- Existing duplicate conflicts: finalization or migration is rejected.
 - Ledger update/delete attempted: rejected.
-- Client payload activates score/rank/reward/Mentor/Instructor: rejected.
+- Client payload activates Score/Rank/Reward/Mentor/Instructor: rejected.
 
 ## Testing and permanent guard
 
 The authority gate verifies:
 
-- automatic materialization for interactive and worker finalization;
+- automatic materialization for terminal insert, interactive update and worker update;
 - exact one-row idempotency;
-- source-digest parity between PostgreSQL and TypeScript;
+- digest parity between PostgreSQL and TypeScript;
 - append-only update/delete protection;
-- conflict and active-source rejection;
+- conflict, inactive-binding and active-source rejection;
 - deterministic basis-point boundaries;
 - tenant isolation and revoked-binding hiding;
 - strict client aggregate and decision-field validation;
-- removal of active browser leaderboard scoring and demo peers;
-- route privacy, session, rate-limit and no-store boundaries;
-- migration registration and backfill invariants.
+- removal of active browser scoring, rank generation and demo peers;
+- route session, identity, rate-limit and no-store boundaries;
+- migration registration, backfill and full consistency invariants.
 
-The parent #160 remains open. Ranking policy, public Leaderboard, Reward/XP, Mentor consumption and Instructor grants are separate future authorities.
+The parent #160 remains open. Ranking policy, public Leaderboard, Reward/XP, Mentor consumption and real Instructor grants are separate future authorities. Issue #229 remains open until real staging-host activation evidence exists.
