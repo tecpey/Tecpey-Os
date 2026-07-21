@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/community/profile",
+      "method": "PATCH",
+      "previousSourceHash": "6964555f7b7da999762ee8c4",
+      "issue": "#221",
+      "owner": "community-platform",
+      "reason": "The governed Community Route Handler now adds a read-only latest-finalized challenge history view while preserving the existing PATCH mutation contract. PATCH retains strict revocation, CSRF, bounded input, idempotency, verified tenant/principal context, audit, redaction, private no-store responses and fail-closed behavior. Post-cycle finalization itself runs server-side through PostgreSQL and emits no XP, badge or financial reward.",
+      "replacement": {
+        "route": "/api/community/profile",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/community/profile/route.ts",
+        "sourceHash": "dfb4652cea33d0a372bfd9f2",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "community-journal-challenge-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "community",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/community-journal-challenge-client.test.ts",
+          "src/tests/security/community-journal-challenge-finalization-source-boundary.test.ts",
+          "src/tests/security/community-journal-challenge-history-client.test.ts",
+          "src/tests/security/community-journal-challenge-source-boundary.test.ts",
+          "src/tests/security/community-journal-source-boundary.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/community/profile/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
