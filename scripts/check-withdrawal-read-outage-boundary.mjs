@@ -26,7 +26,6 @@ for (const invariant of [
   "const result = await withDb(operation)",
   'return { ok: false, reason: "withdrawal_storage_unavailable" }',
   "} catch {",
-  "connection failures, query failures, projection drift",
   "return row ? toWithdrawalRecord(row) : null",
   "return selected.rows.map(toWithdrawalRecord)",
   'throw new Error("withdrawal_projection_amount_usd_invalid")',
@@ -34,14 +33,23 @@ for (const invariant of [
   requireText("authority", invariant, `outage boundary is missing ${invariant}`);
 }
 
-const catchIndex = source.authority.indexOf("} catch {");
+const helperIndex = source.authority.indexOf("async function withWithdrawalStorage<T>");
+const tryIndex = source.authority.indexOf("try {", helperIndex);
+const withDbIndex = source.authority.indexOf("const result = await withDb(operation)", tryIndex);
+const catchIndex = source.authority.indexOf("} catch {", withDbIndex);
 const unavailableIndex = source.authority.indexOf(
   'return { ok: false, reason: "withdrawal_storage_unavailable" }',
   catchIndex,
 );
-if (catchIndex < 0 || unavailableIndex < catchIndex) {
+if (
+  helperIndex < 0 ||
+  tryIndex < helperIndex ||
+  withDbIndex < tryIndex ||
+  catchIndex < withDbIndex ||
+  unavailableIndex < catchIndex
+) {
   failures.push(
-    `${files.authority}: thrown connection/query/projection failures must map to withdrawal_storage_unavailable`,
+    `${files.authority}: connection/query/projection exceptions must be caught inside the storage helper and mapped to withdrawal_storage_unavailable`,
   );
 }
 
