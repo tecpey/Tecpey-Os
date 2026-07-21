@@ -150,7 +150,7 @@ export function PeerJournals() {
           credentials: "include",
           cache: "no-store",
         }),
-        fetch("/api/community/journals?limit=20", {
+        fetch("/api/community/profile?view=journal-feed&limit=20", {
           credentials: "include",
           cache: "no-store",
         }),
@@ -187,7 +187,7 @@ export function PeerJournals() {
     setError(null);
     try {
       const response = await fetch(
-        `/api/community/journals?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        `/api/community/profile?view=journal-feed&limit=20&cursor=${encodeURIComponent(nextCursor)}`,
         { credentials: "include", cache: "no-store" },
       );
       const payload = await json(response);
@@ -237,7 +237,7 @@ export function PeerJournals() {
       if (!updated) throw new Error("invalid_response");
       setProfile(updated);
 
-      const feedResponse = await fetch("/api/community/journals?limit=20", {
+      const feedResponse = await fetch("/api/community/profile?view=journal-feed&limit=20", {
         credentials: "include",
         cache: "no-store",
       });
