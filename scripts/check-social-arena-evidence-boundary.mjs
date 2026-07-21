@@ -10,10 +10,16 @@ const paths = {
   insights: "src/components/academy/v2/LearningInsightsDashboard.tsx",
   instructor: "src/components/academy/community/InstructorDashboard.tsx",
   challenge: "src/components/academy/community/ChallengeCenter.tsx",
+  challengeHistoryCard: "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
   challengeCatalogue: "src/lib/community-challenges.ts",
   challengeClient: "src/lib/community-journal-challenge-client.ts",
+  challengeHistoryClient: "src/lib/community-journal-challenge-history-client.ts",
   challengeAuthority: "src/lib/community-journal-challenge-authority.ts",
+  challengeFinalizer: "src/lib/community-journal-challenge-finalization.ts",
   challengeMigration: "src/lib/db-migrate-community-journal-challenge.ts",
+  challengeFinalizationMigration: "src/lib/db-migrate-community-journal-challenge-finalization.ts",
+  challengeHistoryRoute: "src/app/api/community/challenge-history/route.ts",
+  challengeFinalizationRunner: "scripts/finalize-community-journal-challenges.ts",
   peerJournals: "src/components/academy/community/PeerJournals.tsx",
   communityJournalClient: "src/lib/community-journal-client.ts",
   communityJournalAuthority: "src/lib/community-journal-authority.ts",
@@ -58,8 +64,8 @@ function requireInventory(collection, path, reason) {
   }
 }
 
-if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 217) {
-  failures.push(`${paths.inventory}: inventory identity/schema or #217 linkage is invalid`);
+if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 221) {
+  failures.push(`${paths.inventory}: inventory identity/schema or #221 linkage is invalid`);
 }
 for (const moduleName of [
   "@/lib/trading-arena",
@@ -85,8 +91,13 @@ for (const authorityPath of [
   "src/app/api/community/profile/route.ts",
   "src/lib/community-journal-authority.ts",
   "src/lib/db-migrate-community-journal-challenge.ts",
+  "src/lib/db-migrate-community-journal-challenge-finalization.ts",
   "src/lib/community-journal-challenge-authority.ts",
+  "src/lib/community-journal-challenge-finalization.ts",
   "src/lib/community-journal-challenge-client.ts",
+  "src/lib/community-journal-challenge-history-client.ts",
+  "src/app/api/community/challenge-history/route.ts",
+  "scripts/finalize-community-journal-challenges.ts",
 ]) {
   requireInventory("canonicalAuthorities", authorityPath, "missing canonical authority");
 }
@@ -174,7 +185,10 @@ for (const invariant of [
   requireText("challenge", invariant, `official challenge UI is missing ${invariant}`);
 }
 
-for (const forbidden of ["localStorage", "sessionStorage", "Math.random", "clientScore", "clientCompletedAt", "clientStartedAt"]) {
+for (const forbidden of [
+  "localStorage", "sessionStorage", "Math.random", "clientScore",
+  "clientCompletedAt", "clientStartedAt",
+]) {
   rejectText("challengeAuthority", forbidden, `challenge authority contains forbidden client evidence: ${forbidden}`);
 }
 for (const invariant of [
@@ -184,6 +198,8 @@ for (const invariant of [
   'community:challenge:write',
   "SELECT NOW() AS now",
   "deriveOfficialJournalChallengeCycle",
+  "calculateOfficialJournalChallengeEvidence",
+  "validateOfficialJournalChallengeEnrollmentRow",
   "academy_trading_arena_attempts",
   "validateArenaExecutionStateV2",
   "academy_trading_arena_reflections",
@@ -195,6 +211,7 @@ for (const invariant of [
   "academy_community_challenge_events",
   "retrospectiveEvidenceAccepted: false",
   "rewardsEnabled: false",
+  "finalization_source = CASE WHEN $4 = 'completed' THEN 'interactive' ELSE NULL END",
   "xp: 0",
   "badge: null",
   "financialReward: null",
@@ -218,6 +235,53 @@ for (const invariant of [
 }
 requireText("migrationPlan", "runCommunityJournalChallengeMigrations", "canonical migration plan must execute challenge migration");
 
+for (const invariant of [
+  'FILENAME = "0049_community_journal_challenge_finalization.sql"',
+  "status IN ('active', 'completed', 'not_completed')",
+  "finalized_at TIMESTAMPTZ",
+  "finalization_source TEXT",
+  "finalization_run_id UUID",
+  "finalized community challenge enrollment is immutable",
+  "valid_reflection_count * 5 < eligible_closed_trade_count * 4",
+  "academy_community_challenge_one_finalization_event_idx",
+  "academy_community_challenge_due_finalization_idx",
+  "finalized_completed",
+  "finalized_not_completed",
+]) {
+  requireText("challengeFinalizationMigration", invariant, `challenge finalization migration is missing ${invariant}`);
+}
+requireText(
+  "migrationPlan",
+  "runCommunityJournalChallengeFinalizationMigrations",
+  "canonical migration plan must execute challenge finalization migration",
+);
+
+for (const forbidden of [
+  "localStorage", "sessionStorage", "Math.random", "Date.now()",
+  "validateArenaExecutionStateV2", "mapArenaReflectionRow",
+  "academy_trading_arena_reflections", "execution_state",
+]) {
+  rejectText("challengeFinalizer", forbidden, `challenge finalizer contains duplicate/browser authority: ${forbidden}`);
+}
+for (const invariant of [
+  'import "server-only"',
+  "calculateOfficialJournalChallengeEvidence",
+  "validateOfficialJournalChallengeEnrollmentRow",
+  "FOR UPDATE OF enrollment SKIP LOCKED",
+  "SAVEPOINT community_challenge_finalize_row",
+  "ROLLBACK TO SAVEPOINT community_challenge_finalize_row",
+  "cycle_ends_at <= $3::timestamptz",
+  "finalization_source = 'worker'",
+  "finalization_run_id = $4::uuid",
+  "finalized_completed",
+  "finalized_not_completed",
+  "rewardsEnabled: false",
+  "enrollmentFingerprint",
+  "loadLatestFinalizedOfficialJournalChallenge",
+]) {
+  requireText("challengeFinalizer", invariant, `challenge finalizer is missing ${invariant}`);
+}
+
 for (const forbidden of ["localStorage", "sessionStorage", "Math.random"] ) {
   rejectText("challengeClient", forbidden, `challenge client contains forbidden browser authority: ${forbidden}`);
 }
@@ -231,6 +295,53 @@ for (const invariant of [
 ]) {
   requireText("challengeClient", invariant, `challenge client contract is missing ${invariant}`);
 }
+
+for (const forbidden of ["localStorage", "sessionStorage", "Math.random", "Date.now()"] ) {
+  rejectText("challengeHistoryClient", forbidden, `challenge history client contains forbidden browser authority: ${forbidden}`);
+  rejectText("challengeHistoryCard", forbidden, `challenge history card contains forbidden browser authority: ${forbidden}`);
+}
+for (const invariant of [
+  "rewards.xp !== 0",
+  'raw.status === "not_completed" && expectedEligible',
+  "validReflections * 5 >= eligibleClosedTrades * 4",
+]) {
+  requireText("challengeHistoryClient", invariant, `challenge history client contract is missing ${invariant}`);
+}
+for (const invariant of [
+  'fetch("/api/community/challenge-history"',
+  "parseOfficialJournalChallengeHistoryPayload",
+  "هیچ نتیجه محلی یا نمایشی جایگزین نمی‌شود",
+  "XP = ۰، Badge = ندارد و پاداش مالی = ندارد",
+]) {
+  requireText("challengeHistoryCard", invariant, `finalized challenge UI is missing ${invariant}`);
+}
+
+for (const invariant of [
+  'getCanonicalSession(req, { strictRevocation: true })',
+  'scopes: ["community:challenge:read"]',
+  "resolveTenantPrincipalContext",
+  "loadLatestFinalizedOfficialJournalChallenge",
+  'namespace: "community-journal-challenge-history-read"',
+  'response.headers.set("Cache-Control", "private, no-store")',
+  'response.headers.set("Vary", "Cookie")',
+]) {
+  requireText("challengeHistoryRoute", invariant, `challenge history route is missing ${invariant}`);
+}
+for (const forbidden of [
+  "PLATFORM.DEFAULT_TENANT_ID", "studentId: body", "tenantId: body",
+]) {
+  rejectText("challengeHistoryRoute", forbidden, `challenge history route contains forbidden authority ${forbidden}`);
+}
+
+for (const invariant of [
+  "finalizeEndedOfficialJournalChallenges",
+  "COMMUNITY_CHALLENGE_FINALIZATION_BATCH",
+  "process.exit(1)",
+  "process.exitCode = 2",
+]) {
+  requireText("challengeFinalizationRunner", invariant, `challenge finalization runner is missing ${invariant}`);
+}
+requireText("package", '"community:challenge:finalize"', "package must expose scheduler-ready finalization command");
 
 for (const invariant of [
   'FILENAME = "0047_community_profile_consent_authority.sql"',
@@ -369,6 +480,11 @@ for (const protectedPath of [
   '"src/components/academy/community/ChallengeCenter.tsx"',
   '"src/lib/community-challenges.ts"',
   '"src/lib/community-journal-challenge-client.ts"',
+  '"src/lib/community-journal-challenge-authority.ts"',
+  '"src/lib/community-journal-challenge-finalization.ts"',
+  '"src/lib/community-journal-challenge-history-client.ts"',
+  '"src/app/api/community/challenge-history/route.ts"',
+  '"src/components/academy/community/FinalizedChallengeHistoryCard.tsx"',
 ]) {
   requireText("browserGuard", protectedPath, `browser guard is missing protected surface ${protectedPath}`);
 }
@@ -376,8 +492,11 @@ for (const testPath of [
   "community-journal-feed-postgres.integration.ts",
   "community-journal-redaction.integration.ts",
   "community-journal-challenge-client.test.ts",
+  "community-journal-challenge-history-client.test.ts",
   "community-journal-challenge-source-boundary.test.ts",
+  "community-journal-challenge-finalization-source-boundary.test.ts",
   "community-journal-challenge-postgres.integration.ts",
+  "community-journal-challenge-finalization-postgres.integration.ts",
 ]) {
   requireText("package", testPath, `permanent Community gate is missing ${testPath}`);
 }
@@ -388,5 +507,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Social/Arena evidence boundary passed: Community consent, shared Arena reflections and the journal-reflection official pilot are server-authoritative, tenant-bound and free of browser-generated official evidence; every other challenge remains preview-only with rewards disabled.",
+  "Social/Arena evidence boundary passed: Community consent, shared Arena reflections, current-cycle challenge evaluation and post-cycle immutable finalization are PostgreSQL-authoritative, tenant-bound and free of browser-generated official evidence; every other challenge and all rewards remain disabled.",
 );
