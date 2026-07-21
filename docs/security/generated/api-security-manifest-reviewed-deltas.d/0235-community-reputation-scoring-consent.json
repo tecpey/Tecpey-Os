@@ -60,6 +60,7 @@
           "src/tests/security/community-journal-discipline-score-policy.test.ts",
           "src/tests/security/community-journal-source-boundary.test.ts",
           "src/tests/security/community-reputation-evidence-client.test.ts",
+          "src/tests/security/community-reputation-scoring-consent-client.test.ts",
           "src/tests/security/community-reputation-scoring-consent.test.ts"
         ],
         "requirements": {

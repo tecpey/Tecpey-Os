@@ -4,31 +4,60 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 describe("Community reputation scoring consent source boundary", () => {
-  it("keeps scoring opt-in separate and gates Journal Discipline computation", async () => {
+  it("keeps scoring opt-in separate, explicit, accessible, and server-authoritative", async () => {
     const root = process.cwd();
-    const [profileRoute, scoreRoute, consentAuthority, scoreAuthority, migration, plan, career, packageJson] =
-      await Promise.all([
-        readFile(path.join(root, "src/app/api/community/profile/route.ts"), "utf8"),
-        readFile(
-          path.join(root, "src/app/api/community/journal-discipline-score/route.ts"),
-          "utf8",
+    const [
+      profileRoute,
+      scoreRoute,
+      consentAuthority,
+      consentClient,
+      consentControl,
+      scoreAuthority,
+      scorePanel,
+      migration,
+      plan,
+      career,
+      packageJson,
+    ] = await Promise.all([
+      readFile(path.join(root, "src/app/api/community/profile/route.ts"), "utf8"),
+      readFile(
+        path.join(root, "src/app/api/community/journal-discipline-score/route.ts"),
+        "utf8",
+      ),
+      readFile(
+        path.join(root, "src/lib/community-reputation-scoring-consent-authority.ts"),
+        "utf8",
+      ),
+      readFile(
+        path.join(root, "src/lib/community-reputation-scoring-consent-client.ts"),
+        "utf8",
+      ),
+      readFile(
+        path.join(
+          root,
+          "src/components/academy/community/ReputationScoringConsentControl.tsx",
         ),
-        readFile(
-          path.join(root, "src/lib/community-reputation-scoring-consent-authority.ts"),
-          "utf8",
+        "utf8",
+      ),
+      readFile(
+        path.join(root, "src/lib/community-journal-discipline-score-authority.ts"),
+        "utf8",
+      ),
+      readFile(
+        path.join(
+          root,
+          "src/components/academy/community/JournalDisciplineScorePanel.tsx",
         ),
-        readFile(
-          path.join(root, "src/lib/community-journal-discipline-score-authority.ts"),
-          "utf8",
-        ),
-        readFile(
-          path.join(root, "src/lib/db-migrate-community-reputation-scoring-consent.ts"),
-          "utf8",
-        ),
-        readFile(path.join(root, "src/lib/db-migration-plan.ts"), "utf8"),
-        readFile(path.join(root, "src/lib/community-career.ts"), "utf8"),
-        readFile(path.join(root, "package.json"), "utf8"),
-      ]);
+        "utf8",
+      ),
+      readFile(
+        path.join(root, "src/lib/db-migrate-community-reputation-scoring-consent.ts"),
+        "utf8",
+      ),
+      readFile(path.join(root, "src/lib/db-migration-plan.ts"), "utf8"),
+      readFile(path.join(root, "src/lib/community-career.ts"), "utf8"),
+      readFile(path.join(root, "package.json"), "utf8"),
+    ]);
 
     assert.match(profileRoute, /view === "reputation-scoring-consent"/);
     assert.match(profileRoute, /parseReputationScoringConsentPatch/);
@@ -40,9 +69,40 @@ describe("Community reputation scoring consent source boundary", () => {
     assert.match(consentAuthority, /writeSensitiveMutationAuditTx/);
     assert.doesNotMatch(consentAuthority, /\bscoreBps\b|\brank\b|rewardEligibility/);
 
+    assert.match(consentClient, /exactKeys/);
+    assert.match(consentClient, /community-reputation-scoring-consent-v1/);
+    assert.match(consentClient, /credentials: "same-origin"/);
+    assert.match(consentClient, /cache: "no-store"/);
+    assert.match(consentClient, /"Idempotency-Key"/);
+    assert.match(consentClient, /cryptoApi\.randomUUID/);
+    assert.match(consentClient, /cryptoApi\.getRandomValues/);
+    assert.match(consentClient, /revision_conflict/);
+    assert.doesNotMatch(consentClient, /localStorage|sessionStorage|Math\.random/);
+
+    assert.match(consentControl, /useLocale/);
+    assert.match(consentControl, /COPY: Record<"fa" \| "en"/);
+    assert.match(consentControl, /type="checkbox"/);
+    assert.match(consentControl, /disabled={!acknowledged \|\| saving}/);
+    assert.match(consentControl, /save\(false\)/);
+    assert.match(consentControl, /role="status"/);
+    assert.match(consentControl, /aria-live="polite"/);
+    assert.match(consentControl, /Default off/);
+    assert.match(consentControl, /پیش‌فرض خاموش/);
+    assert.doesNotMatch(
+      consentControl,
+      /localStorage|sessionStorage|document\.cookie|Math\.random/,
+    );
+
     assert.match(scoreAuthority, /isCommunityReputationScoringConsentEnabledTx/);
     assert.match(scoreAuthority, /consentRequired: true/);
     assert.match(scoreRoute, /journal_discipline_score_consent_required/);
+    assert.match(scorePanel, /ReputationScoringConsentControl/);
+    assert.match(scorePanel, /onConsentChanged/);
+    assert.match(scorePanel, /useLocale/);
+    assert.match(scorePanel, /const loadSequenceRef = useRef\(0\)/);
+    assert.match(scorePanel, /const sequence = loadSequenceRef\.current \+ 1/);
+    assert.match(scorePanel, /if \(sequence !== loadSequenceRef\.current\) return/);
+    assert.match(scorePanel, /loadSequenceRef\.current \+= 1/);
 
     assert.match(migration, /enabled BOOLEAN NOT NULL DEFAULT FALSE/);
     assert.match(migration, /community-reputation-scoring-consent-v1/);

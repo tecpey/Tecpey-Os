@@ -6,7 +6,12 @@ const files = {
   consentAuthority: "src/lib/community-reputation-scoring-consent-authority.ts",
   route: "src/app/api/community/journal-discipline-score/route.ts",
   client: "src/lib/community-journal-discipline-score-client.ts",
+  consentClient: "src/lib/community-reputation-scoring-consent-client.ts",
   panel: "src/components/academy/community/JournalDisciplineScorePanel.tsx",
+  consentControl:
+    "src/components/academy/community/ReputationScoringConsentControl.tsx",
+  consentClientTest:
+    "src/tests/security/community-reputation-scoring-consent-client.test.ts",
   leaderboard: "src/components/academy/community/LeaderboardView.tsx",
   documentation: "docs/academy/COMMUNITY_JOURNAL_DISCIPLINE_SCORE_POLICY.md",
   consentDocumentation:
@@ -18,11 +23,17 @@ const files = {
 
 const source = Object.fromEntries(
   await Promise.all(
-    Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")]),
+    Object.entries(files).map(async ([key, file]) => [
+      key,
+      await readFile(file, "utf8"),
+    ]),
   ),
 );
 const normalized = Object.fromEntries(
-  Object.entries(source).map(([key, value]) => [key, value.replace(/\s+/g, " ")]),
+  Object.entries(source).map(([key, value]) => [
+    key,
+    value.replace(/\s+/g, " "),
+  ]),
 );
 const failures = [];
 
@@ -204,7 +215,7 @@ for (const invariant of [
   'credentials: "same-origin"',
   'cache: "no-store"',
 ]) {
-  requireText("client", invariant, `client invariant is missing: ${invariant}`);
+  requireText("client", invariant, `score client invariant is missing: ${invariant}`);
 }
 for (const forbidden of [
   "localStorage",
@@ -216,22 +227,61 @@ for (const forbidden of [
   "trading-arena",
   "trading-journal",
 ]) {
-  rejectText("client", forbidden, `client contains browser or legacy score input: ${forbidden}`);
+  rejectText("client", forbidden, `score client contains browser or legacy score input: ${forbidden}`);
+}
+
+for (const invariant of [
+  "exactKeys",
+  '"community-reputation-scoring-consent-v1"',
+  'fetch( "/api/community/profile?view=reputation-scoring-consent"',
+  'method: "GET"',
+  'method: "PATCH"',
+  'credentials: "same-origin"',
+  'cache: "no-store"',
+  '"Idempotency-Key"',
+  "expectedRevision: input.expectedRevision",
+  "reputationScoringEnabled: input.enabled",
+  "cryptoApi.randomUUID",
+  "cryptoApi.getRandomValues",
+  'reason: "revision_conflict"',
+  "Number.isSafeInteger(input.expectedRevision)",
+]) {
+  requireText(
+    "consentClient",
+    invariant,
+    `consent client invariant is missing: ${invariant}`,
+  );
+}
+for (const forbidden of [
+  "localStorage",
+  "sessionStorage",
+  "Math.random",
+  "document.cookie",
+  "leaderboardVisible",
+  "scoreBasisPoints",
+]) {
+  rejectText(
+    "consentClient",
+    forbidden,
+    `consent client contains forbidden local/public/score authority: ${forbidden}`,
+  );
 }
 
 for (const invariant of [
   "loadJournalDisciplineScoreClient",
   "result?.consentRequired",
-  "محاسبه امتیاز خصوصی به رضایت صریح شما نیاز دارد",
-  "Default Off",
+  "ReputationScoringConsentControl",
+  "onConsentChanged",
   "امتیاز خصوصی انضباط ژورنال",
   "Policy v1",
-  "Private Only",
+  "Private only",
+  "فقط خصوصی",
   "Fail Closed",
   "score.minimumCycles",
   "score.completionConsistencyBasisPoints",
   "score.meanCoverageBasisPoints",
   "هیچ Rank، Percentile، Reward، XP، Badge",
+  "useLocale",
 ]) {
   requireText("panel", invariant, `private score panel invariant is missing: ${invariant}`);
 }
@@ -242,8 +292,64 @@ for (const forbidden of [
   "getLeaderboard",
   "isDemo",
   "anonymousId",
+  "save(true)",
 ]) {
-  rejectText("panel", forbidden, `private score panel contains legacy/public authority: ${forbidden}`);
+  rejectText("panel", forbidden, `private score panel contains legacy/public/implicit consent authority: ${forbidden}`);
+}
+
+for (const invariant of [
+  "loadCommunityReputationScoringConsentClient",
+  "updateCommunityReputationScoringConsentClient",
+  "COPY: Record<\"fa\" | \"en\"",
+  "useLocale",
+  'type="checkbox"',
+  "disabled={!acknowledged || saving}",
+  "save(true)",
+  "save(false)",
+  "Default off",
+  "پیش‌فرض خاموش",
+  "I understand this consent is only for computing my private Journal Discipline Score.",
+  "متوجه شدم که این رضایت فقط برای محاسبه خصوصی Journal Discipline Score است.",
+  'role="status"',
+  'aria-live="polite"',
+  "result.reason === \"revision_conflict\"",
+  "await load(false)",
+  "setMessage(copy.conflict)",
+]) {
+  requireText(
+    "consentControl",
+    invariant,
+    `explicit consent control invariant is missing: ${invariant}`,
+  );
+}
+for (const forbidden of [
+  "localStorage",
+  "sessionStorage",
+  "Math.random",
+  "document.cookie",
+  "leaderboardVisible",
+  "reward",
+  "autoEnable",
+]) {
+  rejectText(
+    "consentControl",
+    forbidden,
+    `explicit consent control contains forbidden local/public/coercive authority: ${forbidden}`,
+  );
+}
+
+for (const invariant of [
+  "rejects an invalid expected revision before any network mutation",
+  "assert.equal(fetchCalls, 0)",
+  "community_reputation_scoring_consent_revision_conflict",
+  "same-origin no-store semantics",
+  "secure idempotency key",
+]) {
+  requireText(
+    "consentClientTest",
+    invariant,
+    `consent client regression test is missing: ${invariant}`,
+  );
 }
 
 for (const invariant of [
@@ -345,10 +451,13 @@ for (const command of [
 }
 
 if (failures.length > 0) {
-  console.error("Community Journal Discipline Score authority failed:\n- " + failures.join("\n- "));
+  console.error(
+    "Community Journal Discipline Score authority failed:\n- " +
+      failures.join("\n- "),
+  );
   process.exit(1);
 }
 
 console.log(
-  "Community Journal Discipline Score v1 authority passed: explicit default-off scoring consent, immutable evidence-only inputs, read-only private projection, minimum sample, equal-cycle weighting, integer arithmetic and disabled public/downstream decisions remain enforced.",
+  "Community Journal Discipline Score v1 authority passed: explicit default-off scoring consent, strict bilingual opt-in and revocation UX, immutable evidence-only inputs, read-only private projection, minimum sample, equal-cycle weighting, integer arithmetic and disabled public/downstream decisions remain enforced.",
 );
