@@ -23,7 +23,7 @@ const DIGIT_MAP: Record<string, string> = {
   "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
 };
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
-const PHONE_PATTERN = /(?<!\d)(?:\+?\d[\d ()-]{7,14}\d)(?!\d)/g;
+const PHONE_PATTERN = /(?<!\d)(?:(?:\+98|0098|0)?9\d{9}|\+\d(?:[\d ()-]{6,13}\d))(?!\d)/g;
 const ETH_ADDRESS_PATTERN = /\b0x[a-fA-F0-9]{40}\b/g;
 const BTC_ADDRESS_PATTERN = /\b(?:bc1[ac-hj-np-z02-9]{25,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b/g;
 const TRON_ADDRESS_PATTERN = /\bT[1-9A-HJ-NP-Za-km-z]{33}\b/g;
