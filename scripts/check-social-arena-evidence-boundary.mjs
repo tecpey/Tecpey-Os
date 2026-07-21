@@ -18,7 +18,6 @@ const paths = {
   challengeFinalizer: "src/lib/community-journal-challenge-finalization.ts",
   challengeMigration: "src/lib/db-migrate-community-journal-challenge.ts",
   challengeFinalizationMigration: "src/lib/db-migrate-community-journal-challenge-finalization.ts",
-  challengeHistoryRoute: "src/app/api/community/challenge-history/route.ts",
   challengeFinalizationRunner: "scripts/finalize-community-journal-challenges.ts",
   peerJournals: "src/components/academy/community/PeerJournals.tsx",
   communityJournalClient: "src/lib/community-journal-client.ts",
@@ -96,7 +95,6 @@ for (const authorityPath of [
   "src/lib/community-journal-challenge-finalization.ts",
   "src/lib/community-journal-challenge-client.ts",
   "src/lib/community-journal-challenge-history-client.ts",
-  "src/app/api/community/challenge-history/route.ts",
   "scripts/finalize-community-journal-challenges.ts",
 ]) {
   requireInventory("canonicalAuthorities", authorityPath, "missing canonical authority");
@@ -308,7 +306,7 @@ for (const invariant of [
   requireText("challengeHistoryClient", invariant, `challenge history client contract is missing ${invariant}`);
 }
 for (const invariant of [
-  'fetch("/api/community/challenge-history"',
+  '"/api/community/profile?view=journal-reflection-history"',
   "parseOfficialJournalChallengeHistoryPayload",
   "هیچ نتیجه محلی یا نمایشی جایگزین نمی‌شود",
   "XP = ۰، Badge = ندارد و پاداش مالی = ندارد",
@@ -317,6 +315,8 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  'view !== "journal-reflection-history"',
+  'if (view === "journal-reflection-history")',
   'getCanonicalSession(req, { strictRevocation: true })',
   'scopes: ["community:challenge:read"]',
   "resolveTenantPrincipalContext",
@@ -325,17 +325,13 @@ for (const invariant of [
   'response.headers.set("Cache-Control", "private, no-store")',
   'response.headers.set("Vary", "Cookie")',
 ]) {
-  requireText("challengeHistoryRoute", invariant, `challenge history route is missing ${invariant}`);
-}
-for (const forbidden of [
-  "PLATFORM.DEFAULT_TENANT_ID", "studentId: body", "tenantId: body",
-]) {
-  rejectText("challengeHistoryRoute", forbidden, `challenge history route contains forbidden authority ${forbidden}`);
+  requireText("communityRoute", invariant, `consolidated challenge history view is missing ${invariant}`);
 }
 
 for (const invariant of [
   "finalizeEndedOfficialJournalChallenges",
   "COMMUNITY_CHALLENGE_FINALIZATION_BATCH",
+  "Number.isFinite(configuredLimit)",
   "process.exit(1)",
   "process.exitCode = 2",
 ]) {
@@ -475,6 +471,7 @@ requireText("audit", '"community_profile"', "mandatory audit resource is missing
 rejectText("browserGuard", '"src/lib/community-profile.ts"', "retired Community browser persistence exception remains");
 rejectText("browserGuard", '"src/lib/community-challenges.ts": {', "retired Community challenge persistence exception remains");
 for (const protectedPath of [
+  '"src/app/api/community/profile/route.ts"',
   '"src/components/academy/community/PeerJournals.tsx"',
   '"src/lib/community-journal-client.ts"',
   '"src/components/academy/community/ChallengeCenter.tsx"',
@@ -483,7 +480,6 @@ for (const protectedPath of [
   '"src/lib/community-journal-challenge-authority.ts"',
   '"src/lib/community-journal-challenge-finalization.ts"',
   '"src/lib/community-journal-challenge-history-client.ts"',
-  '"src/app/api/community/challenge-history/route.ts"',
   '"src/components/academy/community/FinalizedChallengeHistoryCard.tsx"',
 ]) {
   requireText("browserGuard", protectedPath, `browser guard is missing protected surface ${protectedPath}`);
