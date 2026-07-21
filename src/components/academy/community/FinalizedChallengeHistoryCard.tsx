@@ -24,10 +24,13 @@ export function FinalizedChallengeHistoryCard() {
     let active = true;
     void (async () => {
       try {
-        const response = await fetch("/api/community/challenge-history", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const response = await fetch(
+          "/api/community/profile?view=journal-reflection-history",
+          {
+            credentials: "include",
+            cache: "no-store",
+          },
+        );
         const payload: unknown = await response.json().catch(() => null);
         if (!active) return;
         const parsed = parseOfficialJournalChallengeHistoryPayload(payload);
