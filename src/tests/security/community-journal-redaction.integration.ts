@@ -65,6 +65,16 @@ describe("Community journal public text minimization", () => {
     }
   });
 
+  it("redacts phone numbers without mistaking ordinary dates for contact data", () => {
+    const output = minimizeCommunityJournalPublicText(
+      "در تاریخ 2026-07-21 برنامه را مرور کردم و شماره 09121234567 را حذف کردم",
+      1_200,
+    );
+    assert.match(output, /2026-07-21/);
+    assert.equal(output.includes("09121234567"), false);
+    assert.match(output, /شماره تماس حذف شد/);
+  });
+
   it("normalizes and bounds ordinary educational text", () => {
     const output = minimizeCommunityJournalPublicText(`  ${"درس مفید ".repeat(400)}  `, 80);
     assert.equal(output.length <= 80, true);
