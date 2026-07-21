@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
+import {
+  REQUEST_ROUTE_CONTEXT_HEADER,
+} from "@/lib/request-route-context";
 import { TRACE_REQUEST_HEADER, TRACE_RESPONSE_HEADER, generateRequestId } from "@/lib/trace";
 
 const PUBLIC_ACADEMY_PATHS = new Set([
@@ -89,6 +92,9 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set(TRACE_REQUEST_HEADER, requestId);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
+  // Always overwrite the client-provided value. Server components may trust only
+  // the route context established by this proxy invocation.
+  requestHeaders.set(REQUEST_ROUTE_CONTEXT_HEADER, pathname);
 
   const isAcademy =
     pathname.startsWith("/academy/") || pathname.startsWith("/en/academy/");
