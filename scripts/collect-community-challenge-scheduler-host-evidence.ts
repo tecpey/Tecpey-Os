@@ -9,14 +9,15 @@ import {
   rename,
   rm,
 } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { hostname } from "node:os";
 import path from "node:path";
-import type { Dirent } from "node:fs";
 import {
   collectCommunityChallengeHostEvidence,
   type CommunityChallengeHostCollectorDependencies,
 } from "../src/lib/ops/community-challenge-host-collector";
 import { readCommunityChallengeHostDatabaseEvidence } from "../src/lib/ops/community-challenge-host-evidence-db";
+import { verifyCommunityChallengeHostEvidence } from "../src/lib/ops/community-challenge-host-evidence";
 import {
   deliverOperationalAlerts,
   enqueueOperationalAlert,
@@ -45,7 +46,7 @@ function flag(name: string, fallback = false): boolean {
 }
 
 function absolutePath(name: string, fallback?: string): string {
-  const value = (process.env[name]?.trim() || fallback || "");
+  const value = process.env[name]?.trim() || fallback || "";
   if (
     !path.isAbsolute(value) ||
     path.normalize(value) === path.parse(path.normalize(value)).root ||
@@ -260,6 +261,7 @@ async function main(): Promise<void> {
   if (environment !== "staging" && environment !== "production") {
     throw new Error("tecpey_evidence_environment_invalid");
   }
+  const expectedReleaseSha = required("TECPEY_EVIDENCE_EXPECTED_SHA");
   const environmentFile = absolutePath("TECPEY_EVIDENCE_ENV_FILE");
   const runtime = await parseRuntimeEnvironment(environmentFile);
   const databaseUrl = requiredRuntimeValue(runtime, "DATABASE_URL");
@@ -295,7 +297,7 @@ async function main(): Promise<void> {
   const evidence = await collectCommunityChallengeHostEvidence({
     environment,
     productionAcknowledged,
-    expectedReleaseSha: required("TECPEY_EVIDENCE_EXPECTED_SHA"),
+    expectedReleaseSha,
     sourceDirectory: absolutePath("TECPEY_EVIDENCE_SOURCE_DIR"),
     applicationDirectory: absolutePath("TECPEY_EVIDENCE_APP_DIR"),
     environmentFile,
@@ -308,6 +310,15 @@ async function main(): Promise<void> {
     hostFingerprintKey,
     runAlertProbe,
   }, dependencies);
+
+  verifyCommunityChallengeHostEvidence(evidence, {
+    expectedEnvironment: environment,
+    expectedReleaseSha,
+    now: new Date(),
+    maxEvidenceAgeMs: 15 * 60_000,
+    maxRunAgeMs: 2 * 60 * 60_000,
+    requireAlertProbe: runAlertProbe,
+  });
 
   const content = `${JSON.stringify(evidence, null, 2)}\n`;
   const fileDigest = createHash("sha256").update(content).digest("hex");
