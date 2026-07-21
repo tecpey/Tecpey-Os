@@ -99,6 +99,10 @@ describe("Community reputation scoring consent source boundary", () => {
     assert.match(scorePanel, /ReputationScoringConsentControl/);
     assert.match(scorePanel, /onConsentChanged/);
     assert.match(scorePanel, /useLocale/);
+    assert.match(scorePanel, /const loadSequenceRef = useRef\(0\)/);
+    assert.match(scorePanel, /const sequence = loadSequenceRef\.current \+ 1/);
+    assert.match(scorePanel, /if \(sequence !== loadSequenceRef\.current\) return/);
+    assert.match(scorePanel, /loadSequenceRef\.current \+= 1/);
 
     assert.match(migration, /enabled BOOLEAN NOT NULL DEFAULT FALSE/);
     assert.match(migration, /community-reputation-scoring-consent-v1/);
