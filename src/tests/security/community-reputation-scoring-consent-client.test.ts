@@ -12,6 +12,11 @@ import {
 const originalFetch = globalThis.fetch;
 const originalCrypto = globalThis.crypto;
 
+type CapturedRequest = {
+  input: RequestInfo | URL;
+  init?: RequestInit;
+};
+
 function consent(overrides: Record<string, unknown> = {}) {
   return {
     enabled: false,
@@ -28,6 +33,13 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function onlyRequest(requests: CapturedRequest[]): CapturedRequest {
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.ok(request);
+  return request;
 }
 
 afterEach(() => {
@@ -126,25 +138,30 @@ describe("Community reputation scoring consent client", () => {
   });
 
   it("loads consent with same-origin no-store semantics", async () => {
-    let request: { input: RequestInfo | URL; init?: RequestInit } | null = null;
+    const requests: CapturedRequest[] = [];
     globalThis.fetch = (async (input, init) => {
-      request = { input, init };
+      requests.push({ input, init });
       return jsonResponse({ ok: true, consent: consent() });
     }) as typeof fetch;
 
     const loaded = await loadCommunityReputationScoringConsentClient();
     assert.equal(loaded.available, true);
     assert.equal(loaded.consent?.enabled, false);
-    assert.equal(request?.input, "/api/community/profile?view=reputation-scoring-consent");
-    assert.equal(request?.init?.method, "GET");
-    assert.equal(request?.init?.credentials, "same-origin");
-    assert.equal(request?.init?.cache, "no-store");
+
+    const request = onlyRequest(requests);
+    assert.equal(
+      request.input,
+      "/api/community/profile?view=reputation-scoring-consent",
+    );
+    assert.equal(request.init?.method, "GET");
+    assert.equal(request.init?.credentials, "same-origin");
+    assert.equal(request.init?.cache, "no-store");
   });
 
   it("sends an exact revisioned PATCH with a secure idempotency key", async () => {
-    let request: { input: RequestInfo | URL; init?: RequestInit } | null = null;
+    const requests: CapturedRequest[] = [];
     globalThis.fetch = (async (input, init) => {
-      request = { input, init };
+      requests.push({ input, init });
       return jsonResponse({
         ok: true,
         changed: true,
@@ -163,15 +180,20 @@ describe("Community reputation scoring consent client", () => {
       idempotencyKey: "community-reputation-consent-fixed-test-key",
     });
     assert.equal(updated.ok, true);
-    assert.equal(request?.input, "/api/community/profile?view=reputation-scoring-consent");
-    assert.equal(request?.init?.method, "PATCH");
-    assert.equal(request?.init?.credentials, "same-origin");
-    assert.equal(request?.init?.cache, "no-store");
+
+    const request = onlyRequest(requests);
     assert.equal(
-      (request?.init?.headers as Record<string, string>)["Idempotency-Key"],
+      request.input,
+      "/api/community/profile?view=reputation-scoring-consent",
+    );
+    assert.equal(request.init?.method, "PATCH");
+    assert.equal(request.init?.credentials, "same-origin");
+    assert.equal(request.init?.cache, "no-store");
+    assert.equal(
+      (request.init?.headers as Record<string, string>)["Idempotency-Key"],
       "community-reputation-consent-fixed-test-key",
     );
-    assert.deepEqual(JSON.parse(String(request?.init?.body)), {
+    assert.deepEqual(JSON.parse(String(request.init?.body)), {
       expectedRevision: 0,
       reputationScoringEnabled: true,
     });
