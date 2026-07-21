@@ -185,13 +185,23 @@ describe("Operational job evidence PostgreSQL authority", () => {
         throw error;
       }
     });
-    for (const statement of [
-      "UPDATE platform_operational_job_runs SET host_name = 'changed' WHERE run_id = $1::uuid",
-      "DELETE FROM platform_operational_alerts WHERE alert_id = $2",
-      "UPDATE platform_operational_alert_delivery_attempts SET http_status = 200 WHERE alert_id = $2",
-    ]) {
+    const mutations: Array<{ statement: string; params: unknown[] }> = [
+      {
+        statement: "UPDATE platform_operational_job_runs SET host_name = 'changed' WHERE run_id = $1::uuid",
+        params: [evidence.runId],
+      },
+      {
+        statement: "DELETE FROM platform_operational_alerts WHERE alert_id = $1",
+        params: [alertEvidence.alertId],
+      },
+      {
+        statement: "UPDATE platform_operational_alert_delivery_attempts SET http_status = 200 WHERE alert_id = $1",
+        params: [alertEvidence.alertId],
+      },
+    ];
+    for (const mutation of mutations) {
       await assert.rejects(
-        withClient((client) => client.query(statement, [evidence.runId, alertEvidence.alertId])),
+        withClient((client) => client.query(mutation.statement, mutation.params)),
         /operational evidence is append-only/,
       );
     }
