@@ -48,7 +48,6 @@ export type CommunityJournalCursorParseResult =
 type CommunityJournalRow = {
   reflection_id: string;
   public_profile_id: string;
-  principal_id: string;
   learned_lesson: string;
   mistake_tags: unknown;
   next_action_commitment: string | null;
@@ -168,7 +167,6 @@ async function selectFeed(
   const selected = await client.query<CommunityJournalRow>(
     `SELECT reflection.id::text AS reflection_id,
             profile.public_profile_id::text,
-            profile.principal_id,
             reflection.learned_lesson,
             reflection.mistake_tags,
             reflection.next_action_commitment,
