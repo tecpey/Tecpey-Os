@@ -113,8 +113,10 @@ for (const invariant of [
   "host_evidence_health_https_required",
   "MAX_HEALTH_BODY_BYTES",
   "migration0050Applied",
-  "staging-alert-verification",
-  "spool.pending",
+  "raw.runAlertProbe ? await deps.runAlertProbe() : null",
+  "const spool = {",
+  "pending: await spoolCount",
+  "quarantine: await spoolCount",
 ]) {
   requireText("collector", invariant, `host collector is missing ${invariant}`);
 }
@@ -162,8 +164,9 @@ for (const invariant of [
   "staging_verification_probe",
   'open(temporary, "wx", 0o600)',
   "await handle.sync()",
-  "timing",
-  "contentDigest",
+  "verifyCommunityChallengeHostEvidence",
+  'createHash("sha256")',
+  "JSON.stringify(evidence",
   "path.basename(outputFile)",
 ]) {
   requireText("collectCli", invariant, `collector executable is missing ${invariant}`);
