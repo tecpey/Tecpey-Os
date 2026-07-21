@@ -5,6 +5,9 @@ const files = {
   page: "src/app/academy/community/instructor/page.tsx",
   dormantDashboard:
     "src/components/academy/community/InstructorDashboard.tsx",
+  routeContext: "src/lib/request-route-context.ts",
+  proxy: "src/proxy.ts",
+  profile: "src/services/profile.ts",
   inventory: "docs/security/social-arena-evidence-inventory.json",
   policy: "docs/academy/COMMUNITY_INSTRUCTOR_ACCESS_BOUNDARY.md",
 };
@@ -116,6 +119,67 @@ requireText(
   "dormant dashboard must continue to state that Instructor sharing is disabled",
 );
 
+for (const invariant of [
+  'REQUEST_ROUTE_CONTEXT_HEADER = "x-tecpey-request-path"',
+  '"/academy/community/instructor"',
+  "export function isProfileFreeRoute",
+  "PROFILE_FREE_ROUTES.has(normalized)",
+]) {
+  requireText(
+    "routeContext",
+    invariant,
+    `trusted profile-free route context is missing: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  'from "@/lib/request-route-context"',
+  "requestHeaders.set(REQUEST_ROUTE_CONTEXT_HEADER, pathname)",
+  "const requestHeaders = new Headers(request.headers)",
+]) {
+  requireText(
+    "proxy",
+    invariant,
+    `proxy must overwrite trusted pathname context: ${invariant}`,
+  );
+}
+rejectText(
+  "proxy",
+  "requestHeaders.append(REQUEST_ROUTE_CONTEXT_HEADER",
+  "proxy must overwrite rather than append an untrusted client route header",
+);
+
+for (const invariant of [
+  'import { headers } from "next/headers"',
+  "REQUEST_ROUTE_CONTEXT_HEADER",
+  "isProfileFreeRoute",
+  "const requestHeaders = await headers()",
+  "const requestPath = requestHeaders.get(REQUEST_ROUTE_CONTEXT_HEADER)",
+  "if (isProfileFreeRoute(requestPath)) return null",
+]) {
+  requireText(
+    "profile",
+    invariant,
+    `shared profile service is missing profile-free boundary: ${invariant}`,
+  );
+}
+const skipIndex = content.profile.indexOf(
+  "if (isProfileFreeRoute(requestPath)) return null",
+);
+const sessionIndex = content.profile.indexOf("const session = await getSession()");
+const apiIndex = content.profile.indexOf('apiFetch("/dashboard/profile"');
+if (
+  skipIndex < 0 ||
+  sessionIndex < 0 ||
+  apiIndex < 0 ||
+  skipIndex >= sessionIndex ||
+  skipIndex >= apiIndex
+) {
+  failures.push(
+    `${files.profile}: profile-free route must return before session and dashboard profile reads`,
+  );
+}
+
 if (inventory.instructorFollowUpIssue !== 250) {
   failures.push(
     `${files.inventory}: Instructor follow-up issue must remain bound to #250`,
@@ -166,6 +230,9 @@ for (const invariant of [
   "transaction-coupled grant, revoke and access evidence",
   "no hidden scoring, reward, scholarship, Mentor or disciplinary outcome",
   "noindex, nofollow",
+  "excluded from the shared root-chrome profile lookup",
+  "before session or `/dashboard/profile` access",
+  "proxy always replaces it",
 ]) {
   requireText(
     "policy",
@@ -202,5 +269,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Instructor surface authority passed: the public route is static, noindex and evidence-free; the historical self-view dashboard has zero active source importers; real Instructor access remains launch-disabled pending verified role and scoped student grant authority.",
+  "Instructor surface authority passed: the route is static, noindex, direct-evidence-free and excluded from shared session/profile reads; the historical self-view dashboard has zero active source importers; real Instructor access remains launch-disabled pending verified role and scoped student grant authority.",
 );
