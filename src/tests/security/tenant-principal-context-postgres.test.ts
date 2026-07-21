@@ -28,14 +28,15 @@ async function seedBinding(input: {
   cleanupTenants.add(input.tenantId);
   await withClient(async (client) => {
     await client.query(
-      `INSERT INTO platform_tenants (id, slug, display_name, status, settings)
-       VALUES ($1, $1, $1, 'active', '{}'::jsonb)`,
+      `INSERT INTO platform_tenants
+         (id, slug, display_name, plan, products)
+       VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
       [input.tenantId],
     );
     await client.query(
       `INSERT INTO platform_workspaces
-         (id, tenant_id, slug, display_name, is_default, products, settings)
-       VALUES ($1, $2, $1, $1, TRUE, '{}'::jsonb, '{}'::jsonb)`,
+         (id, tenant_id, slug, display_name, products, settings)
+       VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
       [input.workspaceId, input.tenantId],
     );
     await client.query(
