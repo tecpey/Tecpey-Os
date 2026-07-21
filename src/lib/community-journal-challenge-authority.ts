@@ -51,6 +51,13 @@ export type OfficialJournalChallengeProgress = {
   eligibleToComplete: boolean;
 };
 
+export type OfficialJournalChallengeEvidence = {
+  eligibleClosedTrades: number;
+  validReflections: number;
+  coverageRate: number;
+  eligibleToComplete: boolean;
+};
+
 export type OfficialJournalChallengeState = {
   challengeId: typeof OFFICIAL_JOURNAL_CHALLENGE_ID;
   challengeVersion: typeof OFFICIAL_JOURNAL_CHALLENGE_VERSION;
@@ -82,11 +89,7 @@ export type OfficialJournalChallengeCommand = {
 };
 
 export type OfficialJournalChallengeCommandResult =
-  | {
-      ok: true;
-      replayed: boolean;
-      state: OfficialJournalChallengeState;
-    }
+  | { ok: true; replayed: boolean; state: OfficialJournalChallengeState }
   | {
       ok: false;
       reason:
@@ -98,18 +101,26 @@ export type OfficialJournalChallengeCommandResult =
         | "challenge_authority_unavailable";
     };
 
-type EnrollmentRow = {
+export type OfficialJournalChallengeEnrollmentRow = {
   id: string;
+  tenant_id?: string;
+  workspace_id?: string;
+  principal_type?: string;
+  principal_id?: string;
+  student_id?: string;
   challenge_id: string;
   challenge_version: string;
   cycle_key: string;
   cycle_starts_at: Date | string;
   cycle_ends_at: Date | string;
-  status: "active" | "completed";
+  status: "active" | "completed" | "not_completed";
   revision: string | number;
   started_at: Date | string;
   evaluated_at: Date | string | null;
   completed_at: Date | string | null;
+  finalized_at: Date | string | null;
+  finalization_source: "interactive" | "worker" | null;
+  finalization_run_id: string | null;
   eligible_closed_trade_count: number;
   valid_reflection_count: number;
   coverage_rate: string | number;
@@ -128,13 +139,6 @@ type ReceiptRow = {
   response_body: unknown;
 };
 
-type EvidenceProgress = {
-  eligibleClosedTrades: number;
-  validReflections: number;
-  coverageRate: number;
-  eligibleToComplete: boolean;
-};
-
 function canonicalJson(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
@@ -149,7 +153,11 @@ function canonicalJson(value: unknown): string {
   return "null";
 }
 
-function iso(value: Date | string): string {
+export function officialJournalChallengeHash(value: unknown): string {
+  return createHash("sha256").update(canonicalJson(value)).digest("hex");
+}
+
+export function officialJournalChallengeIso(value: Date | string): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) {
     throw new Error("community_challenge_timestamp_invalid");
@@ -158,7 +166,7 @@ function iso(value: Date | string): string {
 }
 
 function nullableIso(value: Date | string | null): string | null {
-  return value === null ? null : iso(value);
+  return value === null ? null : officialJournalChallengeIso(value);
 }
 
 function safeInteger(value: string | number, code: string): number {
@@ -196,10 +204,10 @@ export function deriveOfficialJournalChallengeCycle(
   };
 }
 
-function progressFromCounts(
+export function officialJournalChallengeProgressFromCounts(
   eligibleClosedTrades: number,
   validReflections: number,
-): EvidenceProgress {
+): OfficialJournalChallengeEvidence {
   if (
     !Number.isSafeInteger(eligibleClosedTrades) || eligibleClosedTrades < 0 ||
     !Number.isSafeInteger(validReflections) || validReflections < 0 ||
@@ -222,7 +230,7 @@ function progressFromCounts(
 
 function emptyProgress(): OfficialJournalChallengeProgress {
   return {
-    ...progressFromCounts(0, 0),
+    ...officialJournalChallengeProgressFromCounts(0, 0),
     minimumTrades: OFFICIAL_JOURNAL_CHALLENGE_MIN_TRADES,
     requiredRate: OFFICIAL_JOURNAL_CHALLENGE_REQUIRED_RATE,
   };
@@ -243,9 +251,7 @@ function assertContext(
 
 function isEmptyExecutionState(value: unknown): boolean {
   return Boolean(
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
+    value && typeof value === "object" && !Array.isArray(value) &&
     Object.keys(value as Record<string, unknown>).length === 0,
   );
 }
@@ -273,65 +279,70 @@ function reflectionMatchesTrade(
     sameStringArray(reflection.evidence.mentorFlags, trade.mentorFlags);
 }
 
-function validateEnrollmentRow(
-  row: EnrollmentRow,
+export function validateOfficialJournalChallengeEnrollmentRow(
+  row: OfficialJournalChallengeEnrollmentRow,
   cycle: OfficialJournalChallengeCycle,
 ): {
   revision: number;
   startedAt: string;
   evaluatedAt: string | null;
   completedAt: string | null;
-  progress: EvidenceProgress;
+  finalizedAt: string | null;
+  progress: OfficialJournalChallengeEvidence;
 } {
   if (!UUID_RE.test(row.id)) throw new Error("community_challenge_enrollment_identity_invalid");
   if (
     row.challenge_id !== OFFICIAL_JOURNAL_CHALLENGE_ID ||
     row.challenge_version !== OFFICIAL_JOURNAL_CHALLENGE_VERSION ||
     row.cycle_key !== cycle.key ||
-    iso(row.cycle_starts_at) !== cycle.startsAt ||
-    iso(row.cycle_ends_at) !== cycle.endsAt ||
-    (row.status !== "active" && row.status !== "completed")
+    officialJournalChallengeIso(row.cycle_starts_at) !== cycle.startsAt ||
+    officialJournalChallengeIso(row.cycle_ends_at) !== cycle.endsAt ||
+    !["active", "completed", "not_completed"].includes(row.status)
   ) {
     throw new Error("community_challenge_enrollment_authority_invalid");
   }
   const revision = safeInteger(row.revision, "community_challenge_revision_invalid");
   if (revision < 1) throw new Error("community_challenge_revision_invalid");
-  const startedAt = iso(row.started_at);
+  const startedAt = officialJournalChallengeIso(row.started_at);
   if (startedAt < cycle.startsAt || startedAt >= cycle.endsAt) {
     throw new Error("community_challenge_started_at_invalid");
   }
-  const eligible = safeInteger(
-    row.eligible_closed_trade_count,
-    "community_challenge_eligible_count_invalid",
+  const progress = officialJournalChallengeProgressFromCounts(
+    safeInteger(row.eligible_closed_trade_count, "community_challenge_eligible_count_invalid"),
+    safeInteger(row.valid_reflection_count, "community_challenge_reflection_count_invalid"),
   );
-  const valid = safeInteger(
-    row.valid_reflection_count,
-    "community_challenge_reflection_count_invalid",
-  );
-  const progress = progressFromCounts(eligible, valid);
   const databaseCoverage = Number(row.coverage_rate);
-  if (
-    !Number.isFinite(databaseCoverage) ||
-    Math.abs(databaseCoverage - progress.coverageRate) > 0.000001
-  ) {
+  if (!Number.isFinite(databaseCoverage) || Math.abs(databaseCoverage - progress.coverageRate) > 0.000001) {
     throw new Error("community_challenge_coverage_invalid");
   }
   const evaluatedAt = nullableIso(row.evaluated_at);
   const completedAt = nullableIso(row.completed_at);
-  if (row.status === "completed") {
-    if (!completedAt || !progress.eligibleToComplete) {
+  const finalizedAt = nullableIso(row.finalized_at);
+  if (row.status === "active") {
+    if (completedAt || finalizedAt || row.finalization_source || row.finalization_run_id) {
+      throw new Error("community_challenge_active_finalization_invalid");
+    }
+  } else {
+    if (!evaluatedAt || !finalizedAt || !row.finalization_source) {
+      throw new Error("community_challenge_terminal_finalization_invalid");
+    }
+    if (
+      (row.finalization_source === "interactive" && row.finalization_run_id !== null) ||
+      (row.finalization_source === "worker" && !row.finalization_run_id)
+    ) {
+      throw new Error("community_challenge_finalization_provenance_invalid");
+    }
+    if (row.status === "completed" && (!completedAt || !progress.eligibleToComplete)) {
       throw new Error("community_challenge_completion_invalid");
     }
-  } else if (completedAt !== null) {
-    throw new Error("community_challenge_active_completion_invalid");
+    if (row.status === "not_completed" && (completedAt || progress.eligibleToComplete)) {
+      throw new Error("community_challenge_not_completed_invalid");
+    }
   }
-  return { revision, startedAt, evaluatedAt, completedAt, progress };
+  return { revision, startedAt, evaluatedAt, completedAt, finalizedAt, progress };
 }
 
-async function loadConsent(
-  client: PoolClient,
-  context: AvailableTenantPrincipalContext,
-): Promise<boolean> {
+async function loadConsent(client: PoolClient, context: AvailableTenantPrincipalContext): Promise<boolean> {
   const result = await client.query<{ challenge_participation: boolean }>(
     `SELECT profile.challenge_participation
        FROM academy_public_profiles profile
@@ -353,18 +364,23 @@ async function loadConsent(
   return result.rows[0]?.challenge_participation === true;
 }
 
+const ENROLLMENT_SELECT = `
+  id::text, challenge_id, challenge_version, cycle_key,
+  cycle_starts_at, cycle_ends_at, status, revision::text,
+  started_at, evaluated_at, completed_at, finalized_at,
+  finalization_source, finalization_run_id::text,
+  eligible_closed_trade_count, valid_reflection_count,
+  coverage_rate::text
+`;
+
 async function loadEnrollment(
   client: PoolClient,
   context: AvailableTenantPrincipalContext,
   cycleKey: string,
   lock: boolean,
-): Promise<EnrollmentRow | null> {
-  const result = await client.query<EnrollmentRow>(
-    `SELECT id::text, challenge_id, challenge_version, cycle_key,
-            cycle_starts_at, cycle_ends_at, status, revision::text,
-            started_at, evaluated_at, completed_at,
-            eligible_closed_trade_count, valid_reflection_count,
-            coverage_rate::text
+): Promise<OfficialJournalChallengeEnrollmentRow | null> {
+  const result = await client.query<OfficialJournalChallengeEnrollmentRow>(
+    `SELECT ${ENROLLMENT_SELECT}
        FROM academy_community_challenge_enrollments
       WHERE tenant_id = $1
         AND workspace_id = $2
@@ -375,30 +391,24 @@ async function loadEnrollment(
         AND cycle_key = $6
       LIMIT 1
       ${lock ? "FOR UPDATE" : ""}`,
-    [
-      context.tenantId,
-      context.workspaceId,
-      context.principalId,
-      OFFICIAL_JOURNAL_CHALLENGE_ID,
-      OFFICIAL_JOURNAL_CHALLENGE_VERSION,
-      cycleKey,
-    ],
+    [context.tenantId, context.workspaceId, context.principalId,
+      OFFICIAL_JOURNAL_CHALLENGE_ID, OFFICIAL_JOURNAL_CHALLENGE_VERSION, cycleKey],
   );
   return result.rows[0] ?? null;
 }
 
-async function calculateEvidenceProgress(
+export async function calculateOfficialJournalChallengeEvidence(
   client: PoolClient,
   studentId: string,
   startsAt: string,
   endsAt: string,
-): Promise<EvidenceProgress> {
+): Promise<OfficialJournalChallengeEvidence> {
   const startMs = new Date(startsAt).getTime();
   const endMs = new Date(endsAt).getTime();
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
     throw new Error("community_challenge_evidence_window_invalid");
   }
-  if (endMs === startMs) return progressFromCounts(0, 0);
+  if (endMs === startMs) return officialJournalChallengeProgressFromCounts(0, 0);
 
   const attempts = await client.query<AttemptRow>(
     `SELECT id::text, starting_balance::text, execution_state
@@ -407,20 +417,15 @@ async function calculateEvidenceProgress(
       ORDER BY created_at ASC, id ASC`,
     [studentId],
   );
-
   const eligibleTrades = new Map<string, ArenaClosedTradeV2>();
   for (const attempt of attempts.rows) {
     const state = loadAttemptState(attempt);
     for (const trade of state.closedTrades) {
       const closedAt = new Date(trade.closedAt).getTime();
-      if (!Number.isFinite(closedAt)) {
-        throw new Error("community_challenge_trade_timestamp_invalid");
-      }
+      if (!Number.isFinite(closedAt)) throw new Error("community_challenge_trade_timestamp_invalid");
       if (closedAt >= startMs && closedAt < endMs) {
         const key = `${attempt.id}:${trade.id}`;
-        if (eligibleTrades.has(key)) {
-          throw new Error("community_challenge_trade_identity_duplicate");
-        }
+        if (eligibleTrades.has(key)) throw new Error("community_challenge_trade_identity_duplicate");
         eligibleTrades.set(key, trade);
       }
     }
@@ -437,7 +442,6 @@ async function calculateEvidenceProgress(
       ORDER BY evidence_closed_at ASC, id ASC`,
     [studentId, startsAt, endsAt],
   );
-
   const validReflectionKeys = new Set<string>();
   for (const row of reflections.rows) {
     const reflection = mapArenaReflectionRow(row);
@@ -446,19 +450,17 @@ async function calculateEvidenceProgress(
     if (!trade || !reflectionMatchesTrade(reflection, trade)) {
       throw new Error("community_challenge_reflection_evidence_corrupt");
     }
-    if (validReflectionKeys.has(key)) {
-      throw new Error("community_challenge_reflection_identity_duplicate");
-    }
+    if (validReflectionKeys.has(key)) throw new Error("community_challenge_reflection_identity_duplicate");
     validReflectionKeys.add(key);
   }
-  return progressFromCounts(eligibleTrades.size, validReflectionKeys.size);
+  return officialJournalChallengeProgressFromCounts(eligibleTrades.size, validReflectionKeys.size);
 }
 
 function stateFrom(
   cycle: OfficialJournalChallengeCycle,
   consentEnabled: boolean,
-  enrollment: EnrollmentRow | null,
-  liveProgress: EvidenceProgress | null,
+  enrollment: OfficialJournalChallengeEnrollmentRow | null,
+  liveProgress: OfficialJournalChallengeEvidence | null,
 ): OfficialJournalChallengeState {
   if (!enrollment) {
     return {
@@ -476,7 +478,10 @@ function stateFrom(
       rewards: { xp: 0, badge: null, financialReward: null, status: "disabled" },
     };
   }
-  const validated = validateEnrollmentRow(enrollment, cycle);
+  if (enrollment.status === "not_completed") {
+    throw new Error("community_challenge_current_cycle_terminal_invalid");
+  }
+  const validated = validateOfficialJournalChallengeEnrollmentRow(enrollment, cycle);
   const progress = liveProgress ?? validated.progress;
   return {
     challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
@@ -499,14 +504,12 @@ function stateFrom(
 }
 
 function commandHash(command: OfficialJournalChallengeCommand): string {
-  return createHash("sha256")
-    .update(canonicalJson({
-      action: command.action,
-      cycleKey: command.cycleKey,
-      challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
-      challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
-    }))
-    .digest("hex");
+  return officialJournalChallengeHash({
+    action: command.action,
+    cycleKey: command.cycleKey,
+    challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
+    challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
+  });
 }
 
 function operation(action: OfficialJournalChallengeCommand["action"]): string {
@@ -526,10 +529,9 @@ function parseStoredCommandResult(value: unknown): OfficialJournalChallengeState
     !raw.rewards || typeof raw.rewards !== "object" || Array.isArray(raw.rewards)
   ) return null;
   const rewards = raw.rewards as Record<string, unknown>;
-  if (
-    rewards.xp !== 0 || rewards.badge !== null ||
-    rewards.financialReward !== null || rewards.status !== "disabled"
-  ) return null;
+  if (rewards.xp !== 0 || rewards.badge !== null || rewards.financialReward !== null || rewards.status !== "disabled") {
+    return null;
+  }
   return state as OfficialJournalChallengeState;
 }
 
@@ -552,8 +554,7 @@ async function claimCommandReceipt(
         AND principal_id = $2
         AND operation = $3
         AND idempotency_key = $4
-      LIMIT 1
-      FOR UPDATE`,
+      LIMIT 1 FOR UPDATE`,
     [context.tenantId, context.principalId, operation(command.action), command.idempotencyKey],
   );
   const row = existing.rows[0];
@@ -561,9 +562,7 @@ async function claimCommandReceipt(
     if (row.request_hash !== requestHash) return { kind: "conflict" };
     if (row.status === "processing") return { kind: "processing" };
     const state = parseStoredCommandResult(row.response_body);
-    if (!state || row.http_status !== 200) {
-      throw new Error("community_challenge_receipt_corrupt");
-    }
+    if (!state || row.http_status !== 200) throw new Error("community_challenge_receipt_corrupt");
     return { kind: "replay", state };
   }
   await client.query(
@@ -584,28 +583,14 @@ async function completeCommandReceipt(
 ): Promise<void> {
   const updated = await client.query(
     `UPDATE api_command_receipts
-        SET status = 'completed',
-            http_status = 200,
-            response_body = $5::jsonb,
-            completed_at = NOW(),
-            retain_until = NOW() + INTERVAL '90 days'
-      WHERE tenant_id = $1
-        AND principal_type = 'student'
-        AND principal_id = $2
-        AND operation = $3
-        AND idempotency_key = $4
-        AND status = 'processing'`,
-    [
-      context.tenantId,
-      context.principalId,
-      operation(command.action),
-      command.idempotencyKey,
-      JSON.stringify({ state }),
-    ],
+        SET status = 'completed', http_status = 200, response_body = $5::jsonb,
+            completed_at = NOW(), retain_until = NOW() + INTERVAL '90 days'
+      WHERE tenant_id = $1 AND principal_type = 'student' AND principal_id = $2
+        AND operation = $3 AND idempotency_key = $4 AND status = 'processing'`,
+    [context.tenantId, context.principalId, operation(command.action),
+      command.idempotencyKey, JSON.stringify({ state })],
   );
-  if (updated.rowCount !== 1) {
-    throw new Error("community_challenge_receipt_completion_missing");
-  }
+  if (updated.rowCount !== 1) throw new Error("community_challenge_receipt_completion_missing");
 }
 
 async function writeEvent(
@@ -622,10 +607,8 @@ async function writeEvent(
     `INSERT INTO academy_community_challenge_events
        (id, enrollment_id, event_type, idempotency_key, request_hash, evidence)
      VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb)`,
-    [
-      randomUUID(), input.enrollmentId, input.type, input.command.idempotencyKey,
-      input.requestHash, JSON.stringify(input.evidence),
-    ],
+    [randomUUID(), input.enrollmentId, input.type, input.command.idempotencyKey,
+      input.requestHash, JSON.stringify(input.evidence)],
   );
 }
 
@@ -645,18 +628,11 @@ async function currentStateInTransaction(
   const consentEnabled = await loadConsent(client, context);
   const enrollment = await loadEnrollment(client, context, cycle.key, false);
   if (!enrollment) return stateFrom(cycle, consentEnabled, null, null);
-  if (enrollment.status === "completed") {
-    return stateFrom(cycle, consentEnabled, enrollment, null);
-  }
-  const validated = validateEnrollmentRow(enrollment, cycle);
-  const evidenceEnd = new Date(
-    Math.min(now.getTime(), new Date(cycle.endsAt).getTime()),
-  ).toISOString();
-  const progress = await calculateEvidenceProgress(
-    client,
-    context.principalId,
-    validated.startedAt,
-    evidenceEnd,
+  if (enrollment.status === "completed") return stateFrom(cycle, consentEnabled, enrollment, null);
+  const validated = validateOfficialJournalChallengeEnrollmentRow(enrollment, cycle);
+  const evidenceEnd = new Date(Math.min(now.getTime(), new Date(cycle.endsAt).getTime())).toISOString();
+  const progress = await calculateOfficialJournalChallengeEvidence(
+    client, context.principalId, validated.startedAt, evidenceEnd,
   );
   return stateFrom(cycle, consentEnabled, enrollment, progress);
 }
@@ -676,8 +652,7 @@ export async function loadOfficialJournalChallengeState(
     logger.error("[community-challenge] state load failed", {
       requestId: context.requestId,
       principalFingerprint: createHash("sha256")
-        .update(`${context.tenantId}\0${context.principalId}`)
-        .digest("hex"),
+        .update(`${context.tenantId}\0${context.principalId}`).digest("hex"),
       error: String(error),
     });
     return { available: false, state: null };
@@ -696,38 +671,21 @@ export async function processOfficialJournalChallengeCommand(
     const transaction = await withTx(async (client) => {
       const now = await databaseNow(client);
       const cycle = deriveOfficialJournalChallengeCycle(now);
-      if (command.cycleKey !== cycle.key) {
-        return { ok: false, reason: "challenge_cycle_conflict" } as const;
-      }
+      if (command.cycleKey !== cycle.key) return { ok: false, reason: "challenge_cycle_conflict" } as const;
       const consentEnabled = await loadConsent(client, context);
-      if (!consentEnabled) {
-        return { ok: false, reason: "challenge_consent_required" } as const;
-      }
+      if (!consentEnabled) return { ok: false, reason: "challenge_consent_required" } as const;
 
       const lockIdentity = JSON.stringify([
-        OPERATION_PREFIX,
-        context.tenantId,
-        context.workspaceId,
-        context.principalId,
-        cycle.key,
-        command.action,
+        OPERATION_PREFIX, context.tenantId, context.workspaceId,
+        context.principalId, cycle.key, command.action,
       ]);
-      await client.query(
-        "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
-        [lockIdentity],
-      );
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))", [lockIdentity]);
 
       const requestHash = commandHash(command);
       const receipt = await claimCommandReceipt(client, context, command, requestHash);
-      if (receipt.kind === "conflict") {
-        return { ok: false, reason: "idempotency_conflict" } as const;
-      }
-      if (receipt.kind === "processing") {
-        return { ok: false, reason: "command_in_progress" } as const;
-      }
-      if (receipt.kind === "replay") {
-        return { ok: true, replayed: true, state: receipt.state } as const;
-      }
+      if (receipt.kind === "conflict") return { ok: false, reason: "idempotency_conflict" } as const;
+      if (receipt.kind === "processing") return { ok: false, reason: "command_in_progress" } as const;
+      if (receipt.kind === "replay") return { ok: true, replayed: true, state: receipt.state } as const;
 
       let enrollment = await loadEnrollment(client, context, cycle.key, true);
       if (command.action === "join") {
@@ -738,24 +696,20 @@ export async function processOfficialJournalChallengeCommand(
                (id, tenant_id, workspace_id, principal_type, student_id,
                 challenge_id, challenge_version, cycle_key,
                 cycle_starts_at, cycle_ends_at, started_at)
-             VALUES
-               ($1::uuid, $2, $3, 'student', $4::uuid,
-                $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz)
+             VALUES ($1::uuid, $2, $3, 'student', $4::uuid,
+                     $5, $6, $7, $8::timestamptz, $9::timestamptz, $10::timestamptz)
              ON CONFLICT
                (tenant_id, workspace_id, principal_type, principal_id,
                 challenge_id, challenge_version, cycle_key)
-             DO NOTHING
-             RETURNING id::text`,
-            [
-              randomUUID(), context.tenantId, context.workspaceId, context.principalId,
+             DO NOTHING RETURNING id::text`,
+            [randomUUID(), context.tenantId, context.workspaceId, context.principalId,
               OFFICIAL_JOURNAL_CHALLENGE_ID, OFFICIAL_JOURNAL_CHALLENGE_VERSION,
-              cycle.key, cycle.startsAt, cycle.endsAt, now.toISOString(),
-            ],
+              cycle.key, cycle.startsAt, cycle.endsAt, now.toISOString()],
           );
           created = Boolean(inserted.rows[0]);
           enrollment = await loadEnrollment(client, context, cycle.key, true);
           if (!enrollment) throw new Error("community_challenge_enrollment_insert_missing");
-          validateEnrollmentRow(enrollment, cycle);
+          validateOfficialJournalChallengeEnrollmentRow(enrollment, cycle);
           if (created) {
             await writeEvent(client, {
               enrollmentId: enrollment.id,
@@ -766,7 +720,7 @@ export async function processOfficialJournalChallengeCommand(
                 challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
                 challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
                 cycleKey: cycle.key,
-                startedAt: iso(enrollment.started_at),
+                startedAt: officialJournalChallengeIso(enrollment.started_at),
                 retrospectiveEvidenceAccepted: false,
                 rewardsEnabled: false,
               },
@@ -778,52 +732,40 @@ export async function processOfficialJournalChallengeCommand(
         return { ok: true, replayed: false, state } as const;
       }
 
-      if (!enrollment) {
-        throw new Error("community_challenge_evaluate_without_enrollment");
-      }
+      if (!enrollment) throw new Error("community_challenge_evaluate_without_enrollment");
       if (enrollment.status === "completed") {
         const state = stateFrom(cycle, consentEnabled, enrollment, null);
         await completeCommandReceipt(client, context, command, state);
         return { ok: true, replayed: false, state } as const;
       }
+      if (enrollment.status !== "active") throw new Error("community_challenge_current_cycle_terminal_invalid");
 
-      const validated = validateEnrollmentRow(enrollment, cycle);
-      const evidenceEnd = new Date(
-        Math.min(now.getTime(), new Date(cycle.endsAt).getTime()),
-      ).toISOString();
-      const progress = await calculateEvidenceProgress(
-        client,
-        context.principalId,
-        validated.startedAt,
-        evidenceEnd,
+      const validated = validateOfficialJournalChallengeEnrollmentRow(enrollment, cycle);
+      const evidenceEnd = new Date(Math.min(now.getTime(), new Date(cycle.endsAt).getTime())).toISOString();
+      const progress = await calculateOfficialJournalChallengeEvidence(
+        client, context.principalId, validated.startedAt, evidenceEnd,
       );
       const completed = progress.eligibleToComplete;
-      const updated = await client.query<EnrollmentRow>(
+      const updated = await client.query<OfficialJournalChallengeEnrollmentRow>(
         `UPDATE academy_community_challenge_enrollments
             SET status = $4,
                 revision = revision + 1,
                 evaluated_at = $5::timestamptz,
                 completed_at = CASE WHEN $4 = 'completed' THEN $5::timestamptz ELSE NULL END,
+                finalized_at = CASE WHEN $4 = 'completed' THEN $5::timestamptz ELSE NULL END,
+                finalization_source = CASE WHEN $4 = 'completed' THEN 'interactive' ELSE NULL END,
+                finalization_run_id = NULL,
                 eligible_closed_trade_count = $6,
                 valid_reflection_count = $7
-          WHERE id = $1::uuid
-            AND tenant_id = $2
-            AND principal_id = $3
-            AND status = 'active'
-          RETURNING id::text, challenge_id, challenge_version, cycle_key,
-                    cycle_starts_at, cycle_ends_at, status, revision::text,
-                    started_at, evaluated_at, completed_at,
-                    eligible_closed_trade_count, valid_reflection_count,
-                    coverage_rate::text`,
-        [
-          enrollment.id, context.tenantId, context.principalId,
+          WHERE id = $1::uuid AND tenant_id = $2 AND principal_id = $3 AND status = 'active'
+          RETURNING ${ENROLLMENT_SELECT}`,
+        [enrollment.id, context.tenantId, context.principalId,
           completed ? "completed" : "active", now.toISOString(),
-          progress.eligibleClosedTrades, progress.validReflections,
-        ],
+          progress.eligibleClosedTrades, progress.validReflections],
       );
       enrollment = updated.rows[0] ?? null;
       if (!enrollment) throw new Error("community_challenge_evaluation_update_missing");
-      validateEnrollmentRow(enrollment, cycle);
+      validateOfficialJournalChallengeEnrollmentRow(enrollment, cycle);
 
       await writeEvent(client, {
         enrollmentId: enrollment.id,
@@ -850,9 +792,7 @@ export async function processOfficialJournalChallengeCommand(
       await completeCommandReceipt(client, context, command, state);
       return { ok: true, replayed: false, state } as const;
     });
-    if (!transaction.enabled) {
-      return { ok: false, reason: "challenge_authority_unavailable" };
-    }
+    if (!transaction.enabled) return { ok: false, reason: "challenge_authority_unavailable" };
     return transaction.value;
   } catch (error) {
     if (String(error).includes("community_challenge_evaluate_without_enrollment")) {
@@ -862,8 +802,7 @@ export async function processOfficialJournalChallengeCommand(
       requestId: context.requestId,
       action: command.action,
       principalFingerprint: createHash("sha256")
-        .update(`${context.tenantId}\0${context.principalId}`)
-        .digest("hex"),
+        .update(`${context.tenantId}\0${context.principalId}`).digest("hex"),
       error: String(error),
     });
     return { ok: false, reason: "challenge_authority_unavailable" };
