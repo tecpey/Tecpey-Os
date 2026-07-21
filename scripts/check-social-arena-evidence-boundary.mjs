@@ -243,6 +243,16 @@ for (const invariant of [
   "parseCommunityJournalCursor",
   "tecpey-community-journal-entry-v1",
   "tecpey-community-journal-author-v1",
+  "minimizeCommunityJournalPublicText",
+  "SECRET_LABEL",
+  "EMAIL_PATTERN",
+  "PHONE_PATTERN",
+  "ETH_ADDRESS_PATTERN",
+  "BTC_ADDRESS_PATTERN",
+  "JWT_PATTERN",
+  "API_KEY_PATTERN",
+  "PRIVATE_KEY_PATTERN",
+  "SECRET_PLACEHOLDER",
 ]) {
   requireText("communityJournalAuthority", invariant, `Community journal authority is missing ${invariant}`);
 }
@@ -340,6 +350,7 @@ rejectText("browserGuard", '"src/lib/community-profile.ts"', "retired Community 
 requireText("browserGuard", '"src/components/academy/community/PeerJournals.tsx"', "server-authoritative Community journal surface must be explicitly protected");
 requireText("browserGuard", '"src/lib/community-journal-client.ts"', "Community journal client contract must be explicitly protected");
 requireText("package", "community-journal-feed-postgres.integration.ts", "Community journal PostgreSQL evidence is not wired into the permanent test gate");
+requireText("package", "community-journal-redaction.integration.ts", "Community journal privacy redaction evidence is not wired into the permanent test gate");
 
 if (failures.length > 0) {
   console.error("Social/Arena evidence boundary failed:\n- " + failures.join("\n- "));
@@ -347,5 +358,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Social/Arena evidence boundary passed: Community profile consent and shared Arena reflections are server-authoritative, tenant-bound, privacy-minimized and free of browser/demo evidence.",
+  "Social/Arena evidence boundary passed: Community profile consent and shared Arena reflections are server-authoritative, tenant-bound, privacy-minimized, identifier-redacted and free of browser/demo evidence.",
 );
