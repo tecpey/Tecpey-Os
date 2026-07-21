@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS academy_community_challenge_enrollments (
   tenant_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
   principal_type TEXT NOT NULL DEFAULT 'student',
-  principal_id TEXT GENERATED ALWAYS AS (student_id::text) STORED,
   student_id UUID NOT NULL,
+  principal_id TEXT GENERATED ALWAYS AS (student_id::text) STORED,
   challenge_id TEXT NOT NULL,
   challenge_version TEXT NOT NULL,
   cycle_key TEXT NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS academy_community_challenge_enrollments (
   CONSTRAINT academy_community_challenge_principal_type_check
     CHECK (principal_type = 'student'),
   CONSTRAINT academy_community_challenge_status_check
-    CHECK (status IN ('active', 'completed', 'expired')),
+    CHECK (status IN ('active', 'completed')),
   CONSTRAINT academy_community_challenge_id_check
     CHECK (challenge_id = 'journal-reflection-week'),
   CONSTRAINT academy_community_challenge_version_check
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS academy_community_challenge_enrollments (
         AND eligible_closed_trade_count >= 3
         AND valid_reflection_count * 5 >= eligible_closed_trade_count * 4)
       OR
-      (status <> 'completed' AND completed_at IS NULL)
+      (status = 'active' AND completed_at IS NULL)
     ),
   CONSTRAINT academy_community_challenge_student_fk
     FOREIGN KEY (student_id)
@@ -135,7 +135,7 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  IF OLD.status = 'completed' AND NEW IS DISTINCT FROM OLD THEN
+  IF OLD.status = 'completed' THEN
     RAISE EXCEPTION 'completed community challenge enrollment is immutable'
       USING ERRCODE = '55000';
   END IF;
