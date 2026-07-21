@@ -1,6 +1,7 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
+const deletedLegacyService = "src/lib/security/withdrawal-service.ts";
 const files = {
   package: "package.json",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
@@ -10,7 +11,6 @@ const files = {
   cancel: "src/lib/security/withdrawal-cancel-authority.ts",
   admin: "src/lib/security/withdrawal-admin-authority.ts",
   adminRoute: "src/app/api/admin/withdrawals/[id]/route.ts",
-  legacy: "src/lib/security/withdrawal-service.ts",
   migration: "src/lib/db-migrate-withdrawal-prebroadcast-evidence.ts",
   hardening: "src/lib/db-migrate-withdrawal-admin-evidence-hardening.ts",
   transition: "src/lib/db-migrate-withdrawal-prebroadcast-transition-gate.ts",
@@ -34,6 +34,24 @@ const requireText = (target, text, reason) => {
 const rejectText = (target, text, reason) => {
   if (content[target].includes(text)) failures.push(`${files[target]}: ${reason}`);
 };
+
+async function pathExists(filename) {
+  try {
+    await stat(filename);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+if (await pathExists(deletedLegacyService)) {
+  failures.push(
+    `${deletedLegacyService}: deleted legacy mutation surface must remain absent`,
+  );
+}
 
 for (const action of [
   "withdrawal.authorization.issue",
@@ -253,7 +271,6 @@ const productionFiles = [
   ...(await listFiles("scripts")),
 ].filter((filename) => /\.(?:ts|tsx|mjs)$/.test(filename));
 const legacyDefinitions = new Set([
-  files.legacy,
   files.admission,
   "scripts/check-withdrawal-prebroadcast-evidence.mjs",
 ]);
@@ -270,6 +287,16 @@ for (const filename of productionFiles) {
       );
     }
   }
+  if (
+    /from\s+["'][^"']*withdrawal-service["']/.test(source) ||
+    /import\s*\([^)]*withdrawal-service/.test(source) ||
+    /require\s*\([^)]*withdrawal-service/.test(source) ||
+    /export\s+[\s\S]*?from\s+["'][^"']*withdrawal-service["']/.test(source)
+  ) {
+    failures.push(
+      `${filename}: deleted legacy Withdrawal service path must not be referenced`,
+    );
+  }
 }
 
 for (const contract of [
@@ -281,6 +308,11 @@ for (const contract of [
 ]) {
   requireText("inventory", contract, `inventory is missing ${contract}`);
 }
+requireText(
+  "inventory",
+  "Legacy Withdrawal service deleted",
+  "inventory must record deletion of the superseded service",
+);
 requireText(
   "package",
   "node scripts/check-withdrawal-prebroadcast-evidence.mjs",
@@ -295,5 +327,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Withdrawal pre-broadcast evidence check passed: authorization, admission, cancellation and Admin transitions are typed, secret-free, receipt-bound, transaction-coupled, direct-state-gated and isolated from legacy production mutation paths.",
+  "Withdrawal pre-broadcast evidence check passed: authorization, admission, cancellation and Admin transitions remain typed, secret-free, receipt-bound and transaction-coupled, while the superseded legacy Withdrawal service remains deleted.",
 );
