@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 const authorityPath = "src/lib/community-journal-challenge-authority.ts";
 const finalizerPath = "src/lib/community-journal-challenge-finalization.ts";
 const migrationPath = "src/lib/db-migrate-community-journal-challenge-finalization.ts";
-const routePath = "src/app/api/community/challenge-history/route.ts";
+const routePath = "src/app/api/community/profile/route.ts";
 const clientPath = "src/lib/community-journal-challenge-history-client.ts";
 const componentPath = "src/components/academy/community/FinalizedChallengeHistoryCard.tsx";
 const runnerPath = "scripts/finalize-community-journal-challenges.ts";
@@ -72,9 +72,11 @@ describe("Post-cycle journal challenge finalization boundary", () => {
     }
   });
 
-  it("keeps history private, tenant-bound and no-store", async () => {
+  it("keeps history on the private tenant-bound no-store Community route", async () => {
     const source = await readFile(routePath, "utf8");
     for (const required of [
+      'view !== "journal-reflection-history"',
+      'if (view === "journal-reflection-history")',
       'getCanonicalSession(req, { strictRevocation: true })',
       'scopes: ["community:challenge:read"]',
       "resolveTenantPrincipalContext",
@@ -85,8 +87,13 @@ describe("Post-cycle journal challenge finalization boundary", () => {
     ]) {
       assert.equal(source.includes(required), true, required);
     }
+    const historyStart = source.indexOf('if (view === "journal-reflection-history")');
+    const historyEnd = source.indexOf('if (searchParams.has("cursor")', historyStart);
+    assert.notEqual(historyStart, -1);
+    assert.notEqual(historyEnd, -1);
+    const historyBranch = source.slice(historyStart, historyEnd);
     for (const forbidden of ["PLATFORM.DEFAULT_TENANT_ID", "studentId: body", "tenantId: body"]) {
-      assert.equal(source.includes(forbidden), false, forbidden);
+      assert.equal(historyBranch.includes(forbidden), false, forbidden);
     }
   });
 
@@ -102,7 +109,7 @@ describe("Post-cycle journal challenge finalization boundary", () => {
     }
     assert.match(client, /rewards\.xp !== 0/);
     assert.match(client, /raw\.status === "not_completed" && expectedEligible/);
-    assert.match(component, /\/api\/community\/challenge-history/);
+    assert.match(component, /\/api\/community\/profile\?view=journal-reflection-history/);
     assert.match(component, /هیچ نتیجه محلی یا نمایشی جایگزین نمی‌شود/);
     assert.match(component, /XP = ۰، Badge = ندارد و پاداش مالی = ندارد/);
   });
@@ -110,6 +117,7 @@ describe("Post-cycle journal challenge finalization boundary", () => {
   it("provides a scheduler-ready fail-closed runner", async () => {
     const source = await readFile(runnerPath, "utf8");
     assert.match(source, /finalizeEndedOfficialJournalChallenges/);
+    assert.match(source, /Number\.isFinite\(configuredLimit\)/);
     assert.match(source, /process\.exit\(1\)/);
     assert.match(source, /process\.exitCode = 2/);
   });
