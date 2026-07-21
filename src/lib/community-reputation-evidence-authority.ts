@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -22,7 +22,8 @@ export const COMMUNITY_REPUTATION_SOURCE_TYPE =
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;
-const MAX_COUNT = 1_000_000;
+const MAX_RECORD_COUNT = 1_000_000;
+const MAX_AGGREGATE_COUNT = 1_000_000_000;
 
 export type CommunityReputationEvidenceOutcome = "completed" | "not_completed";
 
@@ -123,9 +124,13 @@ const EVIDENCE_SELECT = `
   evidence.recorded_at
 `;
 
-function safeInteger(value: number | string, code: string): number {
+function safeInteger(
+  value: number | string,
+  maximum: number,
+  code: string,
+): number {
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > MAX_COUNT) {
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > maximum) {
     throw new Error(code);
   }
   return parsed;
@@ -139,14 +144,65 @@ export function communityReputationCoverageBasisPoints(
     !Number.isSafeInteger(eligibleClosedTrades) ||
     !Number.isSafeInteger(validReflections) ||
     eligibleClosedTrades < 0 ||
-    eligibleClosedTrades > MAX_COUNT ||
+    eligibleClosedTrades > MAX_AGGREGATE_COUNT ||
     validReflections < 0 ||
     validReflections > eligibleClosedTrades
   ) {
     throw new Error("community_reputation_counts_invalid");
   }
   if (eligibleClosedTrades === 0) return 0;
-  return Math.floor((validReflections * 10_000 + Math.floor(eligibleClosedTrades / 2)) / eligibleClosedTrades);
+  return Math.floor(
+    (validReflections * 10_000 + Math.floor(eligibleClosedTrades / 2)) /
+      eligibleClosedTrades,
+  );
+}
+
+export function communityReputationSourceDigest(input: {
+  tenantId: string;
+  workspaceId: string;
+  principalType: "student";
+  principalId: string;
+  studentId: string;
+  sourceEnrollmentId: string;
+  challengeId: typeof OFFICIAL_JOURNAL_CHALLENGE_ID;
+  challengeVersion: typeof OFFICIAL_JOURNAL_CHALLENGE_VERSION;
+  cycleKey: string;
+  cycleStartsAt: string;
+  cycleEndsAt: string;
+  outcome: CommunityReputationEvidenceOutcome;
+  finalizedAt: string;
+  eligibleClosedTrades: number;
+  validReflections: number;
+  coverageBasisPoints: number;
+  completionCriteriaMet: boolean;
+  finalizationSource: "interactive" | "worker";
+  finalizationRunId: string | null;
+}): string {
+  return createHash("sha256")
+    .update([
+      COMMUNITY_REPUTATION_EVIDENCE_VERSION,
+      COMMUNITY_REPUTATION_SOURCE_TYPE,
+      input.tenantId,
+      input.workspaceId,
+      input.principalType,
+      input.principalId,
+      input.studentId,
+      input.sourceEnrollmentId,
+      input.challengeId,
+      input.challengeVersion,
+      input.cycleKey,
+      input.cycleStartsAt,
+      input.cycleEndsAt,
+      input.outcome,
+      input.finalizedAt,
+      String(input.eligibleClosedTrades),
+      String(input.validReflections),
+      String(input.coverageBasisPoints),
+      input.completionCriteriaMet ? "true" : "false",
+      input.finalizationSource,
+      input.finalizationRunId ?? "",
+    ].join("\n"))
+    .digest("hex");
 }
 
 function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow) {
@@ -174,10 +230,12 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
   }
   const eligibleClosedTrades = safeInteger(
     row.eligible_closed_trade_count,
+    MAX_RECORD_COUNT,
     "community_reputation_source_counts_invalid",
   );
   const validReflections = safeInteger(
     row.valid_reflection_count,
+    MAX_RECORD_COUNT,
     "community_reputation_source_counts_invalid",
   );
   const coverageBasisPoints = communityReputationCoverageBasisPoints(
@@ -196,12 +254,10 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
   if (finalizationRunId && !UUID_RE.test(finalizationRunId)) {
     throw new Error("community_reputation_source_run_invalid");
   }
-  const digestInput = {
-    evidenceVersion: COMMUNITY_REPUTATION_EVIDENCE_VERSION,
-    sourceType: COMMUNITY_REPUTATION_SOURCE_TYPE,
+  const source = {
     tenantId: row.tenant_id,
     workspaceId: row.workspace_id,
-    principalType: "student",
+    principalType: "student" as const,
     principalId: row.principal_id,
     studentId: row.student_id,
     sourceEnrollmentId: row.id,
@@ -220,21 +276,9 @@ function terminalEnrollmentProjection(row: OfficialJournalChallengeEnrollmentRow
     finalizationRunId,
   };
   return {
-    tenantId: row.tenant_id,
-    workspaceId: row.workspace_id,
-    principalId: row.principal_id,
-    studentId: row.student_id,
-    sourceEnrollmentId: row.id,
+    ...source,
     cycle,
-    outcome: row.status,
-    finalizedAt: validated.finalizedAt,
-    eligibleClosedTrades,
-    validReflections,
-    coverageBasisPoints,
-    completionCriteriaMet,
-    finalizationSource: row.finalization_source,
-    finalizationRunId,
-    sourceDigest: officialJournalChallengeHash(digestInput),
+    sourceDigest: communityReputationSourceDigest(source),
   } as const;
 }
 
@@ -244,6 +288,7 @@ function validateEvidenceRow(
 ): CommunityReputationCycleEvidence {
   if (
     !UUID_RE.test(row.id) ||
+    row.id !== row.source_enrollment_id ||
     row.principal_type !== "student" ||
     row.principal_id !== row.student_id ||
     !UUID_RE.test(row.student_id) ||
@@ -272,30 +317,58 @@ function validateEvidenceRow(
   }
   const eligibleClosedTrades = safeInteger(
     row.eligible_closed_trade_count,
+    MAX_RECORD_COUNT,
     "community_reputation_evidence_counts_invalid",
   );
   const validReflections = safeInteger(
     row.valid_reflection_count,
+    MAX_RECORD_COUNT,
     "community_reputation_evidence_counts_invalid",
   );
   const coverageBasisPoints = safeInteger(
     row.coverage_basis_points,
+    10_000,
     "community_reputation_evidence_coverage_invalid",
   );
+  const expectedCompletion =
+    eligibleClosedTrades >= 3 &&
+    validReflections * 5 >= eligibleClosedTrades * 4;
   if (
-    coverageBasisPoints > 10_000 ||
     coverageBasisPoints !== communityReputationCoverageBasisPoints(
       eligibleClosedTrades,
       validReflections,
     ) ||
-    row.completion_criteria_met !==
-      (eligibleClosedTrades >= 3 && validReflections * 5 >= eligibleClosedTrades * 4) ||
+    row.completion_criteria_met !== expectedCompletion ||
     (row.outcome === "completed") !== row.completion_criteria_met ||
     (row.finalization_source === "interactive" && row.finalization_run_id !== null) ||
     (row.finalization_source === "worker" && !row.finalization_run_id) ||
     (row.finalization_run_id !== null && !UUID_RE.test(row.finalization_run_id))
   ) {
     throw new Error("community_reputation_evidence_authority_invalid");
+  }
+  const digestInput = {
+    tenantId: row.tenant_id,
+    workspaceId: row.workspace_id,
+    principalType: "student" as const,
+    principalId: row.principal_id,
+    studentId: row.student_id,
+    sourceEnrollmentId: row.source_enrollment_id,
+    challengeId: OFFICIAL_JOURNAL_CHALLENGE_ID,
+    challengeVersion: OFFICIAL_JOURNAL_CHALLENGE_VERSION,
+    cycleKey: row.cycle_key,
+    cycleStartsAt,
+    cycleEndsAt,
+    outcome: row.outcome,
+    finalizedAt,
+    eligibleClosedTrades,
+    validReflections,
+    coverageBasisPoints,
+    completionCriteriaMet: row.completion_criteria_met,
+    finalizationSource: row.finalization_source,
+    finalizationRunId: row.finalization_run_id,
+  };
+  if (communityReputationSourceDigest(digestInput) !== row.source_digest) {
+    throw new Error("community_reputation_evidence_digest_invalid");
   }
   if (expected) {
     const actual = {
@@ -376,20 +449,19 @@ export async function materializeCommunityReputationEvidenceTx(
         finalization_run_id, source_digest)
      VALUES
        ($1::uuid, $2, $3, 'student', $4, $5::uuid,
-        $6, $7, $8::uuid,
-        $9, $10, $11, $12::timestamptz, $13::timestamptz,
-        $14, $15::timestamptz, $16, $17,
-        $18, $19, $20, $21::uuid, $22)
+        $6, $7, $1::uuid,
+        $8, $9, $10, $11::timestamptz, $12::timestamptz,
+        $13, $14::timestamptz, $15, $16,
+        $17, $18, $19, $20::uuid, $21)
      ON CONFLICT (source_enrollment_id) DO NOTHING`,
     [
-      randomUUID(),
+      expected.sourceEnrollmentId,
       expected.tenantId,
       expected.workspaceId,
       expected.principalId,
       expected.studentId,
       COMMUNITY_REPUTATION_EVIDENCE_VERSION,
       COMMUNITY_REPUTATION_SOURCE_TYPE,
-      expected.sourceEnrollmentId,
       OFFICIAL_JOURNAL_CHALLENGE_ID,
       OFFICIAL_JOURNAL_CHALLENGE_VERSION,
       expected.cycle.key,
@@ -521,22 +593,27 @@ export async function loadCommunityReputationEvidenceSummary(
       if (!aggregateRow) throw new Error("community_reputation_aggregate_missing");
       const finalizedCycles = safeInteger(
         aggregateRow.finalized_cycles,
+        MAX_AGGREGATE_COUNT,
         "community_reputation_aggregate_invalid",
       );
       const completedCycles = safeInteger(
         aggregateRow.completed_cycles,
+        MAX_AGGREGATE_COUNT,
         "community_reputation_aggregate_invalid",
       );
       const notCompletedCycles = safeInteger(
         aggregateRow.not_completed_cycles,
+        MAX_AGGREGATE_COUNT,
         "community_reputation_aggregate_invalid",
       );
       const eligibleClosedTrades = safeInteger(
         aggregateRow.eligible_closed_trades,
+        MAX_AGGREGATE_COUNT,
         "community_reputation_aggregate_invalid",
       );
       const validReflections = safeInteger(
         aggregateRow.valid_reflections,
+        MAX_AGGREGATE_COUNT,
         "community_reputation_aggregate_invalid",
       );
       if (
