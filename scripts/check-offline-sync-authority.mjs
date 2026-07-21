@@ -178,7 +178,7 @@ for (const invariant of [
   "offline_sync_commands_principal_binding_fk",
   "learning_events_principal_binding_fk",
   "platform_principal_bindings",
-  "workspace-primary must belong to tenant tecpey",
+  "main workspace must belong to tenant tecpey",
 ]) {
   requireText("isolationMigration", invariant, `isolation migration is missing ${invariant}`);
 }
