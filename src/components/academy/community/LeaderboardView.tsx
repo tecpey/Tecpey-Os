@@ -7,6 +7,7 @@ import {
   COMMUNITY_SAFETY_RULES,
   type LeaderboardCategory,
 } from "@/lib/community-leaderboard";
+import { JournalDisciplineScorePanel } from "./JournalDisciplineScorePanel";
 import { ReputationEvidencePanel } from "./ReputationEvidencePanel";
 
 const CATEGORIES: LeaderboardCategory[] = [
@@ -25,7 +26,7 @@ export function LeaderboardView() {
         <div>
           <h1 className="text-2xl font-black">اعتبار مبتنی بر شواهد</h1>
           <p className="mt-1 text-sm font-bold text-slate-400">
-            Ledger رسمی فعال است؛ رتبه‌بندی عمومی هنوز سیاست مصوب ندارد.
+            Evidence و Score خصوصی فعال‌اند؛ رتبه‌بندی عمومی هنوز سیاست مصوب ندارد.
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/10">
@@ -39,13 +40,14 @@ export function LeaderboardView() {
           <div>
             <p className="mb-1 text-xs font-black text-cyan-100">Evidence قبل از Ranking</p>
             <p className="text-xs font-bold leading-6 text-cyan-100/70">
-              Finalizationهای رسمی Challenge به‌صورت Append-only در PostgreSQL ثبت می‌شوند. این شواهد هنوز به Score، Rank، Reward، بورسیه یا تصمیم Mentor تبدیل نمی‌شوند.
+              Finalizationهای رسمی Challenge به‌صورت Append-only ثبت می‌شوند. تنها Policy فعال، Score خصوصی انضباط ژورنال است؛ Rank، Reward، بورسیه و تصمیم Mentor همچنان غیرفعال‌اند.
             </p>
           </div>
         </div>
       </section>
 
       <ReputationEvidencePanel />
+      <JournalDisciplineScorePanel />
 
       <section className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5">
         <div className="mb-4 flex items-start gap-3">
@@ -58,7 +60,7 @@ export function LeaderboardView() {
               </span>
             </div>
             <p className="mt-1 text-xs font-bold leading-6 text-slate-500">
-              نام این دسته‌ها صرفاً Taxonomy محصول است. هیچ وزن، امتیاز یا جایگاه کاربر محاسبه نمی‌شود.
+              این دسته‌ها Taxonomy آینده محصول هستند. Score خصوصی انضباط ژورنال به هیچ جایگاه عمومی تبدیل نمی‌شود.
             </p>
           </div>
         </div>
@@ -72,7 +74,7 @@ export function LeaderboardView() {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-black text-slate-300">{CATEGORY_LABEL[category]}</p>
                 <span className="rounded-full border border-slate-500/20 px-2 py-0.5 text-[9px] font-black text-slate-600">
-                  بدون امتیاز
+                  بدون رتبه
                 </span>
               </div>
               <p className="mt-2 text-[11px] font-bold leading-5 text-slate-600">
@@ -89,7 +91,7 @@ export function LeaderboardView() {
           <div>
             <p className="font-black text-violet-100">شرایط لازم پیش از فعال‌شدن Leaderboard</p>
             <p className="mt-2 text-xs font-bold leading-6 text-violet-100/65">
-              نسخه‌بندی فرمول، حداقل Sample، Time decay، Anti-gaming، بررسی Bias، Explainability، Appeal، Privacy threshold، Tie policy و Rollback باید در Slice مستقل تصویب و تست شوند.
+              Cohort eligibility، حداقل جمعیت، Privacy threshold، Tie policy، Anti-gaming، Bias review، Appeal، نسخه‌بندی و Rollback باید در Slice مستقل تصویب و تست شوند.
             </p>
           </div>
         </div>
