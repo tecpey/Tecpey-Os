@@ -9,10 +9,10 @@ import {
 } from "./api-command-idempotency";
 import { trackAuthEvent } from "./auth-metrics";
 import {
-  fetchWithdrawal,
+  readWithdrawal,
   type WithdrawalRecord,
   type WithdrawalState,
-} from "./withdrawal-service";
+} from "./withdrawal-read-authority";
 
 export type IdempotentWithdrawalCancelResult =
   | { ok: true; withdrawal: WithdrawalRecord; replayed: boolean }
@@ -173,11 +173,11 @@ export async function cancelWithdrawalIdempotently(input: {
       return { ok: false, reason: "withdrawal_storage_unavailable", code: 503 };
     }
 
-    const withdrawal = await fetchWithdrawal(
+    const read = await readWithdrawal(
       transaction.value.withdrawalId,
       input.userId,
     );
-    if (!withdrawal) {
+    if (!read.ok || !read.withdrawal) {
       return { ok: false, reason: "withdrawal_storage_unavailable", code: 503 };
     }
 
@@ -187,7 +187,7 @@ export async function cancelWithdrawalIdempotently(input: {
 
     return {
       ok: true,
-      withdrawal,
+      withdrawal: read.withdrawal,
       replayed: transaction.value.replayed,
     };
   } catch (error) {
