@@ -15,6 +15,8 @@ The route:
 
 is an unavailable informational boundary. It does not authenticate an Instructor, list students, load a student profile or disclose behavioral, Arena, journal, challenge, reputation or Academy evidence.
 
+The route is also excluded from the shared root-chrome profile lookup. A trusted pathname header is overwritten by the server proxy, and `getProfileInfo()` returns before session or `/dashboard/profile` access for this exact route. A client-supplied header cannot opt another route out of profile loading because the proxy always replaces it.
+
 The existing private endpoint:
 
 ```text
@@ -77,6 +79,7 @@ Until the future authority is approved, the Instructor page must:
 - use `noindex, nofollow` metadata;
 - avoid all Instructor-dashboard claims;
 - perform no behavioral/profile/Arena/journal/challenge/reputation API request;
+- be excluded from shared root-chrome session/profile retrieval before those reads begin;
 - import no client state or browser persistence module;
 - provide only safe navigation back to Community and Academy;
 - state that private self insights are not disclosed to an Instructor.
@@ -89,6 +92,9 @@ Protected CI fails when:
 - the active route imports or calls the behavioral snapshot client/API;
 - the route becomes a client component;
 - browser persistence or user evidence modules are introduced;
+- the trusted request-route header is not overwritten by the proxy;
+- `getProfileInfo()` does not return before `getSession()` and `apiFetch()` for the exact Instructor route;
+- another route can self-declare itself profile-free through an untrusted client header;
 - the dormant dashboard gains an active source importer;
 - metadata loses the noindex/nofollow boundary;
 - copy implies that an Instructor role or student grant already exists;
