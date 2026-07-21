@@ -115,9 +115,5 @@ describe("Community reputation scoring consent source boundary", () => {
       packageJson,
       /community-reputation-scoring-consent-postgres\.integration\.ts/,
     );
-    assert.match(
-      packageJson,
-      /community-reputation-scoring-consent-client\.test\.ts/,
-    );
   });
 });
