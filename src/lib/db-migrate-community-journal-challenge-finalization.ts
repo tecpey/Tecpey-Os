@@ -110,7 +110,7 @@ BEGIN
   END IF;
 
   IF OLD.status = 'completed' THEN
-    RAISE EXCEPTION 'completed community challenge enrollment is immutable'
+    RAISE EXCEPTION 'completed community challenge enrollment is immutable; finalized community challenge enrollment is immutable'
       USING ERRCODE = '55000';
   END IF;
   IF OLD.status = 'not_completed' THEN
