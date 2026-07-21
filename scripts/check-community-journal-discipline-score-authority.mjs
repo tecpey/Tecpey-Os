@@ -3,12 +3,16 @@ import { readFile } from "node:fs/promises";
 const files = {
   policy: "src/lib/community-journal-discipline-score-policy.ts",
   authority: "src/lib/community-journal-discipline-score-authority.ts",
+  consentAuthority: "src/lib/community-reputation-scoring-consent-authority.ts",
   route: "src/app/api/community/journal-discipline-score/route.ts",
   client: "src/lib/community-journal-discipline-score-client.ts",
   panel: "src/components/academy/community/JournalDisciplineScorePanel.tsx",
   leaderboard: "src/components/academy/community/LeaderboardView.tsx",
   documentation: "docs/academy/COMMUNITY_JOURNAL_DISCIPLINE_SCORE_POLICY.md",
-  apiRoute: "docs/security/generated/api-security-manifest-reviewed-deltas.d/0233-community-journal-discipline-score-read-route.json",
+  consentDocumentation:
+    "docs/academy/COMMUNITY_REPUTATION_SCORING_CONSENT_AUTHORITY.md",
+  apiRoute:
+    "docs/security/generated/api-security-manifest-reviewed-deltas.d/0233-community-journal-discipline-score-read-route.json",
   package: "package.json",
 };
 
@@ -86,16 +90,19 @@ for (const invariant of [
   "COMMUNITY_REPUTATION_SOURCE_TYPE",
   "OFFICIAL_JOURNAL_CHALLENGE_ID",
   "OFFICIAL_JOURNAL_CHALLENGE_VERSION",
+  "isCommunityReputationScoringConsentEnabledTx",
   "row.tenant_id !== context.tenantId",
   "row.workspace_id !== context.workspaceId",
   "row.principal_id !== context.principalId",
   "row.student_id !== context.principalId",
   "journal_discipline_evidence_digest_invalid",
   "requireActiveBinding",
+  "await requireActiveBinding(client, context)",
   "binding.status = 'active'",
   "SET TRANSACTION READ ONLY",
   "SET LOCAL statement_timeout = '5000ms'",
   "SET LOCAL lock_timeout = '1000ms'",
+  "consentRequired: true as const",
   "ORDER BY evidence.cycle_ends_at DESC",
   "evidence.source_enrollment_id DESC",
   "JOURNAL_DISCIPLINE_SCORE_LOOKBACK_CYCLES",
@@ -120,6 +127,36 @@ for (const forbidden of [
 }
 
 for (const invariant of [
+  'import "server-only"',
+  '"community-reputation-scoring-consent-v1"',
+  '"community-reputation-scoring-consent-authority-v1"',
+  "isCommunityReputationScoringConsentEnabledTx",
+  "row.enabled === true",
+  "row.consented_at !== null",
+  "writeSensitiveMutationAuditTx",
+  'action: "community.profile.consent.update"',
+]) {
+  requireText(
+    "consentAuthority",
+    invariant,
+    `scoring consent authority invariant is missing: ${invariant}`,
+  );
+}
+for (const forbidden of [
+  "scoreBasisPoints",
+  "rank:",
+  "rewardEligibility",
+  "leaderboard_visible",
+  "community_journal_discipline_score",
+]) {
+  rejectText(
+    "consentAuthority",
+    forbidden,
+    `scoring consent authority contains forbidden score/public coupling: ${forbidden}`,
+  );
+}
+
+for (const invariant of [
   'route: "/api/community/journal-discipline-score GET"',
   "getCanonicalSession(req, { strictRevocation: true })",
   "academy_profile_required",
@@ -128,6 +165,8 @@ for (const invariant of [
   "private, no-store",
   'response.headers.set("Vary", "Cookie")',
   "journal_discipline_score_unavailable",
+  "journal_discipline_score_consent_required",
+  "loaded.consentRequired",
   "[...url.searchParams.keys()].length > 0",
 ]) {
   requireText("route", invariant, `private GET route invariant is missing: ${invariant}`);
@@ -160,6 +199,8 @@ for (const invariant of [
   "raw.instructorDecisionEligible !== false",
   "raw.scholarshipEligibility !== false",
   'fetch("/api/community/journal-discipline-score"',
+  "response.status === 409",
+  "consentRequired: true",
   'credentials: "same-origin"',
   'cache: "no-store"',
 ]) {
@@ -180,6 +221,9 @@ for (const forbidden of [
 
 for (const invariant of [
   "loadJournalDisciplineScoreClient",
+  "result?.consentRequired",
+  "محاسبه امتیاز خصوصی به رضایت صریح شما نیاز دارد",
+  "Default Off",
   "امتیاز خصوصی انضباط ژورنال",
   "Policy v1",
   "Private Only",
@@ -227,6 +271,9 @@ for (const forbidden of [
 for (const invariant of [
   "Journal Discipline Score Policy v1",
   "not a global reputation score",
+  "Explicit scoring consent",
+  "default off",
+  "journal_discipline_score_consent_required",
   "latest 12 finalized official cycles",
   "Every selected cycle has equal influence",
   "at least 4 finalized cycles",
@@ -242,6 +289,24 @@ for (const invariant of [
   requireText("documentation", invariant, `policy documentation is missing: ${invariant}`);
 }
 
+for (const invariant of [
+  "Community Reputation Scoring Consent Authority",
+  "default off",
+  "academy_community_reputation_scoring_consents",
+  "community-reputation-scoring-consent-v1",
+  "community-reputation-scoring-consent-authority-v1",
+  "Journal Discipline Score gate",
+  "409 journal_discipline_score_consent_required",
+  "scoring off + public visible -> no private score, no public rank",
+  "preview-only",
+]) {
+  requireText(
+    "consentDocumentation",
+    invariant,
+    `consent documentation is missing: ${invariant}`,
+  );
+}
+
 const apiRoute = JSON.parse(source.apiRoute);
 const reviewed = apiRoute.readOnlyRoutes?.[0];
 if (
@@ -253,8 +318,8 @@ if (
   apiRoute.readOnlyRoutes.length !== 1 ||
   reviewed?.route !== "/api/community/journal-discipline-score" ||
   reviewed?.sourcePath !== "src/app/api/community/journal-discipline-score/route.ts" ||
-  reviewed?.sourceHash !== "09ac68448fe1a757383b6e8c" ||
-  reviewed?.issue !== "#233" ||
+  reviewed?.sourceHash !== "ae6e95ddc27005296ea870e2" ||
+  reviewed?.issue !== "#235" ||
   reviewed?.owner !== "community-platform" ||
   reviewed?.controls?.classification !== "authenticated" ||
   reviewed?.controls?.strictRevocation !== true ||
@@ -273,6 +338,8 @@ for (const command of [
   "community-journal-discipline-score-policy.test.ts",
   "community-journal-discipline-score-client.test.ts",
   "community-journal-discipline-score-postgres.integration.ts",
+  "community-reputation-scoring-consent.test.ts",
+  "community-reputation-scoring-consent-postgres.integration.ts",
 ]) {
   requireText("package", command, `package gate is missing: ${command}`);
 }
@@ -283,5 +350,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Community Journal Discipline Score v1 authority passed: immutable evidence-only inputs, read-only private projection, minimum sample, equal-cycle weighting, integer arithmetic and disabled public/downstream decisions remain enforced.",
+  "Community Journal Discipline Score v1 authority passed: explicit default-off scoring consent, immutable evidence-only inputs, read-only private projection, minimum sample, equal-cycle weighting, integer arithmetic and disabled public/downstream decisions remain enforced.",
 );
