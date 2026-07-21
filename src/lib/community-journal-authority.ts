@@ -4,7 +4,6 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { cleanText } from "@/lib/student-cartax";
 import {
   normalizeArenaReflectionMistakeTags,
   type ArenaReflectionMistakeTag,
@@ -14,6 +13,27 @@ import type { AvailableTenantPrincipalContext } from "@/lib/security/tenant-prin
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 20;
+const ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/g;
+const CONTROL = /[\u0000-\u001F\u007F]/g;
+const PERSIAN_ARABIC_DIGITS = /[۰-۹٠-٩]/g;
+const DIGIT_MAP: Record<string, string> = {
+  "۰": "0", "۱": "1", "۲": "2", "۳": "3", "۴": "4",
+  "۵": "5", "۶": "6", "۷": "7", "۸": "8", "۹": "9",
+  "٠": "0", "١": "1", "٢": "2", "٣": "3", "٤": "4",
+  "٥": "5", "٦": "6", "٧": "7", "٨": "8", "٩": "9",
+};
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const PHONE_PATTERN = /(?<!\d)(?:\+?\d[\d ()-]{7,14}\d)(?!\d)/g;
+const ETH_ADDRESS_PATTERN = /\b0x[a-fA-F0-9]{40}\b/g;
+const BTC_ADDRESS_PATTERN = /\b(?:bc1[ac-hj-np-z02-9]{25,90}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b/g;
+const TRON_ADDRESS_PATTERN = /\bT[1-9A-HJ-NP-Za-km-z]{33}\b/g;
+const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
+const API_KEY_PATTERN = /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{16,}|(?:ghp|github_pat)_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})\b/g;
+const BEARER_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b/gi;
+const PRIVATE_KEY_PATTERN = /\b(?:0x)?[a-fA-F0-9]{64}\b/g;
+const WIF_PATTERN = /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g;
+const SECRET_LABEL = /(?:seed\s*phrase|mnemonic|recovery\s*phrase|private\s*key|secret\s*key|password|passphrase|api[\s_-]*key|access[\s_-]*token|bearer|authorization|otp|2fa|one[\s_-]*time\s*code|session[\s_-]*token|عبارت\s*بازیابی|کلمات\s*بازیابی|کلید\s*خصوصی|رمز\s*عبور|پسورد|کد\s*(?:دو\s*مرحله|تأیید|یکبار\s*مصرف))/i;
+const SECRET_PLACEHOLDER = "[متن حساس از نمایش عمومی حذف شد]";
 
 export type CommunityJournalCursor = {
   closedAt: string;
@@ -93,6 +113,43 @@ function boundedLimit(value: number | undefined): number {
   return value;
 }
 
+function normalizePublicText(value: string, max: number): string {
+  return value
+    .normalize("NFKC")
+    .replace(ZERO_WIDTH, "")
+    .replace(CONTROL, " ")
+    .replace(PERSIAN_ARABIC_DIGITS, (digit) => DIGIT_MAP[digit] ?? digit)
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+export function minimizeCommunityJournalPublicText(
+  value: string,
+  max: number,
+): string {
+  let normalized = normalizePublicText(value, Math.max(max, 4_000));
+  if (!normalized) return "";
+  if (SECRET_LABEL.test(normalized)) return SECRET_PLACEHOLDER;
+  for (const [pattern, replacement] of [
+    [EMAIL_PATTERN, "[ایمیل حذف شد]"],
+    [PHONE_PATTERN, "[شماره تماس حذف شد]"],
+    [ETH_ADDRESS_PATTERN, "[آدرس کیف‌پول حذف شد]"],
+    [BTC_ADDRESS_PATTERN, "[آدرس کیف‌پول حذف شد]"],
+    [TRON_ADDRESS_PATTERN, "[آدرس کیف‌پول حذف شد]"],
+    [JWT_PATTERN, "[توکن حذف شد]"],
+    [API_KEY_PATTERN, "[کلید حذف شد]"],
+    [BEARER_PATTERN, "[توکن حذف شد]"],
+    [PRIVATE_KEY_PATTERN, "[کلید خصوصی حذف شد]"],
+    [WIF_PATTERN, "[کلید خصوصی حذف شد]"],
+  ] as Array<[RegExp, string]>) {
+    pattern.lastIndex = 0;
+    normalized = normalized.replace(pattern, replacement);
+    pattern.lastIndex = 0;
+  }
+  return normalized.replace(/\s+/g, " ").trim().slice(0, max);
+}
+
 function mapRow(row: CommunityJournalRow): CommunityJournalEntry {
   if (!UUID_RE.test(row.reflection_id) || !UUID_RE.test(row.public_profile_id)) {
     throw new Error("community_journal_identity_invalid");
@@ -100,12 +157,12 @@ function mapRow(row: CommunityJournalRow): CommunityJournalEntry {
   if (row.evidence_asset !== "BTC" && row.evidence_asset !== "ETH") {
     throw new Error("community_journal_asset_invalid");
   }
-  const learnedLesson = cleanText(row.learned_lesson, 1_200);
+  const learnedLesson = minimizeCommunityJournalPublicText(row.learned_lesson, 1_200);
   if (!learnedLesson) throw new Error("community_journal_lesson_invalid");
   const mistakeTags = normalizeArenaReflectionMistakeTags(row.mistake_tags);
   if (!mistakeTags) throw new Error("community_journal_tags_invalid");
   const nextActionCommitment = row.next_action_commitment
-    ? cleanText(row.next_action_commitment, 800) || null
+    ? minimizeCommunityJournalPublicText(row.next_action_commitment, 800) || null
     : null;
 
   return {
