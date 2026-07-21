@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 
 export const WITHDRAWAL_READ_AUTHORITY_VERSION =
@@ -44,6 +45,10 @@ export type WithdrawalReadResult =
 
 export type WithdrawalListResult =
   | { ok: true; withdrawals: WithdrawalRecord[] }
+  | { ok: false; reason: "withdrawal_storage_unavailable" };
+
+type WithdrawalStorageResult<T> =
+  | { ok: true; value: T }
   | { ok: false; reason: "withdrawal_storage_unavailable" };
 
 type TimestampValue = Date | string;
@@ -109,12 +114,17 @@ function nullableTimestampToIso(value: TimestampValue | null): string | null {
 }
 
 function toWithdrawalRecord(row: WithdrawalRow): WithdrawalRecord {
+  const amountUsd = Number.parseFloat(row.amount_usd);
+  if (!Number.isFinite(amountUsd)) {
+    throw new Error("withdrawal_projection_amount_usd_invalid");
+  }
+
   return {
     id: row.id,
     userId: row.user_id,
     asset: row.asset,
     amount: row.amount,
-    amountUsd: Number.parseFloat(row.amount_usd),
+    amountUsd,
     destinationAddress: row.destination_address,
     network: row.network,
     state: row.state as WithdrawalState,
@@ -144,11 +154,28 @@ function boundedOffset(value: number): number {
   return Math.max(value, 0);
 }
 
+async function withWithdrawalStorage<T>(
+  operation: (client: PoolClient) => Promise<T>,
+): Promise<WithdrawalStorageResult<T>> {
+  try {
+    const result = await withDb(operation);
+    if (!result.enabled) {
+      return { ok: false, reason: "withdrawal_storage_unavailable" };
+    }
+    return { ok: true, value: result.value };
+  } catch {
+    // Connection failures, query failures, projection drift and invalid persisted
+    // projection values are all storage-authority outages to callers. Routes must
+    // return their governed 503 response rather than leaking an unhandled 500.
+    return { ok: false, reason: "withdrawal_storage_unavailable" };
+  }
+}
+
 export async function readWithdrawal(
   withdrawalId: string,
   ownerUserId?: string,
 ): Promise<WithdrawalReadResult> {
-  const result = await withDb(async (client) => {
+  const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       ownerUserId
         ? `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
@@ -162,16 +189,12 @@ export async function readWithdrawal(
             LIMIT 1`,
       ownerUserId ? [withdrawalId, ownerUserId] : [withdrawalId],
     );
-    return selected.rows[0] ?? null;
+    const row = selected.rows[0];
+    return row ? toWithdrawalRecord(row) : null;
   });
 
-  if (!result.enabled) {
-    return { ok: false, reason: "withdrawal_storage_unavailable" };
-  }
-  return {
-    ok: true,
-    withdrawal: result.value ? toWithdrawalRecord(result.value) : null,
-  };
+  if (!result.ok) return result;
+  return { ok: true, withdrawal: result.value };
 }
 
 export async function listUserWithdrawalsStrict(
@@ -179,7 +202,7 @@ export async function listUserWithdrawalsStrict(
   limit: number,
   offset: number,
 ): Promise<WithdrawalListResult> {
-  const result = await withDb(async (client) => {
+  const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
          FROM withdrawals
@@ -188,23 +211,18 @@ export async function listUserWithdrawalsStrict(
         LIMIT $2 OFFSET $3`,
       [userId, boundedLimit(limit, 20, 100), boundedOffset(offset)],
     );
-    return selected.rows;
+    return selected.rows.map(toWithdrawalRecord);
   });
 
-  if (!result.enabled) {
-    return { ok: false, reason: "withdrawal_storage_unavailable" };
-  }
-  return {
-    ok: true,
-    withdrawals: result.value.map(toWithdrawalRecord),
-  };
+  if (!result.ok) return result;
+  return { ok: true, withdrawals: result.value };
 }
 
 export async function listPendingReviewWithdrawalsStrict(
   limit: number,
   offset: number,
 ): Promise<WithdrawalListResult> {
-  const result = await withDb(async (client) => {
+  const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
          FROM withdrawals
@@ -213,14 +231,9 @@ export async function listPendingReviewWithdrawalsStrict(
         LIMIT $1 OFFSET $2`,
       [boundedLimit(limit, 50, 200), boundedOffset(offset)],
     );
-    return selected.rows;
+    return selected.rows.map(toWithdrawalRecord);
   });
 
-  if (!result.enabled) {
-    return { ok: false, reason: "withdrawal_storage_unavailable" };
-  }
-  return {
-    ok: true,
-    withdrawals: result.value.map(toWithdrawalRecord),
-  };
+  if (!result.ok) return result;
+  return { ok: true, withdrawals: result.value };
 }
