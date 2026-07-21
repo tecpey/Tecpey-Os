@@ -16,7 +16,6 @@ const paths = {
   peerJournals: "src/components/academy/community/PeerJournals.tsx",
   communityJournalClient: "src/lib/community-journal-client.ts",
   communityJournalAuthority: "src/lib/community-journal-authority.ts",
-  communityJournalRoute: "src/app/api/community/journals/route.ts",
   mentorMemory: "src/lib/mentor-memory.ts",
   mentorSignals: "src/lib/mentor-signals.ts",
   behavioral: "src/lib/behavioral-engine.ts",
@@ -73,7 +72,6 @@ for (const authorityPath of [
   "src/lib/community-profile-authority.ts",
   "src/app/api/community/profile/route.ts",
   "src/lib/community-journal-authority.ts",
-  "src/app/api/community/journals/route.ts",
 ]) {
   if (!inventory.canonicalAuthorities.some((entry) => entry.path === authorityPath)) {
     failures.push(`${paths.inventory}: missing canonical authority ${authorityPath}`);
@@ -206,6 +204,13 @@ for (const invariant of [
   "resolveTenantPrincipalContext",
   'scopes: ["community:profile:read"]',
   'scopes: ["community:profile:write"]',
+  'scopes: ["community:journal:read"]',
+  'view !== "profile" && view !== "journal-feed"',
+  'namespace: "community-journal-feed"',
+  "parseCommunityJournalCursor",
+  "listCommunityJournalFeed",
+  'apiError("invalid_community_journal_cursor", 400)',
+  'apiError("community_journal_unavailable", 503)',
   'req.headers.get("idempotency-key")',
   "readBoundedJsonRequest",
   "Object.keys(body).some",
@@ -214,6 +219,7 @@ for (const invariant of [
   'apiError("community_profile_revision_conflict", 409)',
   'apiError("community_profile_unavailable", 503)',
   'response.headers.set("Cache-Control", "private, no-store")',
+  'response.headers.set("Vary", "Cookie")',
 ]) {
   requireText("communityRoute", invariant, `Community profile route is missing ${invariant}`);
 }
@@ -224,6 +230,7 @@ for (const forbidden of [
   "studentId: body",
   "tenantId: body",
   "workspaceId: body",
+  "PLATFORM.DEFAULT_TENANT_ID, workspaceId: journalContext",
 ]) {
   rejectText("communityRoute", forbidden, `Community route contains forbidden authority ${forbidden}`);
 }
@@ -269,22 +276,6 @@ for (const forbidden of [
   rejectText("communityJournalAuthority", forbidden, `Community journal authority exposes forbidden source/field ${forbidden}`);
 }
 
-for (const invariant of [
-  "getCanonicalSession(request, { strictRevocation: true })",
-  "resolveTenantPrincipalContext",
-  'scopes: ["community:journal:read"]',
-  "parseCommunityJournalCursor",
-  "listCommunityJournalFeed",
-  'apiError("invalid_community_journal_cursor", 400',
-  'apiError("community_journal_unavailable", 503',
-  'const NO_STORE = { "Cache-Control": "private, no-store" }',
-]) {
-  requireText("communityJournalRoute", invariant, `Community journal route is missing ${invariant}`);
-}
-for (const forbidden of ["request.json()", "localStorage", "sessionStorage", "PLATFORM.DEFAULT_TENANT_ID"]) {
-  rejectText("communityJournalRoute", forbidden, `Community journal route contains forbidden authority ${forbidden}`);
-}
-
 for (const target of ["peerJournals", "communityJournalClient"]) {
   for (const forbidden of [
     "@/lib/trading-journal",
@@ -302,7 +293,7 @@ for (const target of ["peerJournals", "communityJournalClient"]) {
 }
 for (const invariant of [
   'fetch("/api/community/profile"',
-  'fetch("/api/community/journals?limit=20"',
+  'fetch("/api/community/profile?view=journal-feed&limit=20"',
   'fetch("/api/community/profile", { method: "PATCH"',
   '"Idempotency-Key": createCommunityJournalIdempotencyKey()',
   "expectedRevision: profile.revision",
