@@ -22,7 +22,7 @@
     },
     {
       "path": "src/app/api/community/profile/route.ts",
-      "purpose": "strict-session profile reads, revisioned consent mutation, tenant-context-bound shared-journal read view and official current-cycle challenge commands"
+      "purpose": "strict-session profile reads, revisioned consent mutation, tenant-context-bound shared-journal/current-challenge/latest-finalized views and official current-cycle challenge commands"
     },
     {
       "path": "src/lib/community-journal-authority.ts",
@@ -55,10 +55,6 @@
     {
       "path": "src/lib/community-journal-challenge-history-client.ts",
       "purpose": "fail-closed finalized-result contract that recomputes thresholds and rejects nonzero rewards"
-    },
-    {
-      "path": "src/app/api/community/challenge-history/route.ts",
-      "purpose": "strict-session private no-store latest ended result for the verified tenant/student principal"
     },
     {
       "path": "scripts/finalize-community-journal-challenges.ts",
@@ -185,7 +181,6 @@
     "src/lib/community-journal-challenge-history-client.ts",
     "src/lib/community-challenges.ts",
     "src/app/api/community/profile/route.ts",
-    "src/app/api/community/challenge-history/route.ts",
     "src/components/academy/community/PeerJournals.tsx",
     "src/components/academy/community/ChallengeCenter.tsx",
     "src/components/academy/community/FinalizedChallengeHistoryCard.tsx",
