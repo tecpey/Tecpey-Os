@@ -4,6 +4,25 @@ import type { PoolClient } from "pg";
 const FILENAME = "0046_tenant_principal_isolation_foundation.sql";
 
 const SQL = `
+INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+VALUES (
+  'tecpey', 'tecpey', 'TecPey', 'enterprise',
+  ARRAY['exchange','academy','social','mentor','knowledge']
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO platform_workspaces
+  (id, tenant_id, slug, display_name, products, settings)
+VALUES
+  (
+    'workspace-primary', 'tecpey', 'primary', 'TecPey Primary',
+    ARRAY['exchange','academy','social','mentor','knowledge'], '{}'::jsonb
+  )
+ON CONFLICT (id) DO NOTHING;
+
+CREATE UNIQUE INDEX IF NOT EXISTS platform_workspaces_id_tenant_unique
+  ON platform_workspaces (id, tenant_id);
+
 CREATE TABLE IF NOT EXISTS platform_principal_bindings (
   tenant_id TEXT NOT NULL,
   workspace_id TEXT NOT NULL,
@@ -23,16 +42,6 @@ CREATE TABLE IF NOT EXISTS platform_principal_bindings (
     REFERENCES platform_workspaces(id, tenant_id)
     ON DELETE CASCADE
 );
-
-INSERT INTO platform_tenants (id, slug, display_name, status, settings)
-VALUES ('tecpey', 'tecpey', 'TecPey', 'active', '{}'::jsonb)
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO platform_workspaces
-  (id, tenant_id, slug, display_name, is_default, products, settings)
-VALUES
-  ('workspace-primary', 'tecpey', 'primary', 'TecPey Primary', TRUE, '{}'::jsonb, '{}'::jsonb)
-ON CONFLICT (id) DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS platform_principal_bindings_lookup_idx
   ON platform_principal_bindings
