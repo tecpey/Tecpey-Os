@@ -13,6 +13,10 @@ const paths = {
   insights: "src/components/academy/v2/LearningInsightsDashboard.tsx",
   instructor: "src/components/academy/community/InstructorDashboard.tsx",
   challenge: "src/components/academy/community/ChallengeCenter.tsx",
+  peerJournals: "src/components/academy/community/PeerJournals.tsx",
+  communityJournalClient: "src/lib/community-journal-client.ts",
+  communityJournalAuthority: "src/lib/community-journal-authority.ts",
+  communityJournalRoute: "src/app/api/community/journals/route.ts",
   mentorMemory: "src/lib/mentor-memory.ts",
   mentorSignals: "src/lib/mentor-signals.ts",
   behavioral: "src/lib/behavioral-engine.ts",
@@ -24,6 +28,7 @@ const paths = {
   communityCareer: "src/lib/community-career.ts",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   browserGuard: "scripts/check-browser-persistence.mjs",
+  package: "package.json",
 };
 
 const source = Object.fromEntries(
@@ -48,8 +53,8 @@ function rejectText(target, token, reason) {
   }
 }
 
-if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 212) {
-  failures.push(`${paths.inventory}: inventory identity/schema or #212 linkage is invalid`);
+if (inventory.schemaVersion !== 1 || inventory.issue !== 168 || inventory.followUpIssue !== 214) {
+  failures.push(`${paths.inventory}: inventory identity/schema or #214 linkage is invalid`);
 }
 for (const moduleName of [
   "@/lib/trading-arena",
@@ -62,6 +67,16 @@ for (const moduleName of [
 ]) {
   if (!inventory.legacyModules.some((entry) => entry.module === moduleName)) {
     failures.push(`${paths.inventory}: missing classification for ${moduleName}`);
+  }
+}
+for (const authorityPath of [
+  "src/lib/community-profile-authority.ts",
+  "src/app/api/community/profile/route.ts",
+  "src/lib/community-journal-authority.ts",
+  "src/app/api/community/journals/route.ts",
+]) {
+  if (!inventory.canonicalAuthorities.some((entry) => entry.path === authorityPath)) {
+    failures.push(`${paths.inventory}: missing canonical authority ${authorityPath}`);
   }
 }
 for (const field of [
@@ -213,6 +228,91 @@ for (const forbidden of [
   rejectText("communityRoute", forbidden, `Community route contains forbidden authority ${forbidden}`);
 }
 
+for (const invariant of [
+  'import "server-only"',
+  "AvailableTenantPrincipalContext",
+  'context.scopes.includes("community:journal:read")',
+  "academy_trading_arena_reflections",
+  "academy_public_profiles",
+  "platform_principal_bindings",
+  "profile.journal_sharing_enabled = TRUE",
+  "profile.consented_at IS NOT NULL",
+  "profile.consent_version = 'community-profile-consent-v1'",
+  "ORDER BY reflection.evidence_closed_at DESC, reflection.id DESC",
+  "encodeCommunityJournalCursor",
+  "parseCommunityJournalCursor",
+  "tecpey-community-journal-entry-v1",
+  "tecpey-community-journal-author-v1",
+]) {
+  requireText("communityJournalAuthority", invariant, `Community journal authority is missing ${invariant}`);
+}
+for (const forbidden of [
+  "localStorage",
+  "sessionStorage",
+  "Math.random",
+  "evidence_realized_pnl",
+  "evidence_realized_pnl_rate",
+  "decision_review",
+  "emotional_review",
+  "DEMO_SHARED_ENTRIES",
+]) {
+  rejectText("communityJournalAuthority", forbidden, `Community journal authority exposes forbidden source/field ${forbidden}`);
+}
+
+for (const invariant of [
+  "getCanonicalSession(request, { strictRevocation: true })",
+  "resolveTenantPrincipalContext",
+  'scopes: ["community:journal:read"]',
+  "parseCommunityJournalCursor",
+  "listCommunityJournalFeed",
+  'apiError("invalid_community_journal_cursor", 400',
+  'apiError("community_journal_unavailable", 503',
+  'const NO_STORE = { "Cache-Control": "private, no-store" }',
+]) {
+  requireText("communityJournalRoute", invariant, `Community journal route is missing ${invariant}`);
+}
+for (const forbidden of ["request.json()", "localStorage", "sessionStorage", "PLATFORM.DEFAULT_TENANT_ID"]) {
+  rejectText("communityJournalRoute", forbidden, `Community journal route contains forbidden authority ${forbidden}`);
+}
+
+for (const target of ["peerJournals", "communityJournalClient"]) {
+  for (const forbidden of [
+    "@/lib/trading-journal",
+    "@/lib/community-profile",
+    "loadJournal",
+    "loadCommunityProfile",
+    "localStorage",
+    "sessionStorage",
+    "DEMO_SHARED_ENTRIES",
+    "isDemoEntry",
+    "Math.random",
+  ]) {
+    rejectText(target, forbidden, `Community journal client surface contains forbidden browser/demo authority ${forbidden}`);
+  }
+}
+for (const invariant of [
+  'fetch("/api/community/profile"',
+  'fetch("/api/community/journals?limit=20"',
+  'fetch("/api/community/profile", { method: "PATCH"',
+  '"Idempotency-Key": createCommunityJournalIdempotencyKey()',
+  "expectedRevision: profile.revision",
+  "parseCommunityOwnedProfilePayload",
+  "parseCommunityConsentMutationPayload",
+  "parseCommunityJournalFeedPayload",
+  "Reflectionهای ذخیره‌شده در PostgreSQL",
+]) {
+  requireText("peerJournals", invariant, `Peer journals UI is missing ${invariant}`);
+}
+for (const invariant of [
+  "cryptoApi.randomUUID",
+  "cryptoApi.getRandomValues",
+  "parseCommunityJournalFeedPayload",
+  "parseCommunityOwnedProfilePayload",
+  "parseCommunityConsentMutationPayload",
+]) {
+  requireText("communityJournalClient", invariant, `Community journal client contract is missing ${invariant}`);
+}
+
 for (const forbidden of [
   "CREATE TABLE IF NOT EXISTS",
   "fs/promises",
@@ -237,6 +337,9 @@ for (const invariant of [
 requireText("audit", '"community.profile.consent.update"', "mandatory audit action is missing");
 requireText("audit", '"community_profile"', "mandatory audit resource is missing");
 rejectText("browserGuard", '"src/lib/community-profile.ts"', "retired Community browser persistence exception remains");
+requireText("browserGuard", '"src/components/academy/community/PeerJournals.tsx"', "server-authoritative Community journal surface must be explicitly protected");
+requireText("browserGuard", '"src/lib/community-journal-client.ts"', "Community journal client contract must be explicitly protected");
+requireText("package", "community-journal-feed-postgres.integration.ts", "Community journal PostgreSQL evidence is not wired into the permanent test gate");
 
 if (failures.length > 0) {
   console.error("Social/Arena evidence boundary failed:\n- " + failures.join("\n- "));
@@ -244,5 +347,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Social/Arena evidence boundary passed: browser-owned outcomes stay quarantined and Community profile consent is default-private, tenant/principal-bound, revisioned and transactionally evidenced.",
+  "Social/Arena evidence boundary passed: Community profile consent and shared Arena reflections are server-authoritative, tenant-bound, privacy-minimized and free of browser/demo evidence.",
 );
