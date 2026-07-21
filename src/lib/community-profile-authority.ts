@@ -327,11 +327,11 @@ const PROFILE_SELECT = `
          profile.consent_version,
          profile.consented_at,
          profile.updated_at,
-         student.public_student_id,
+         cartax.public_student_id,
          student.display_name,
          student.username,
          student.avatar,
-         student.streak_days,
+         cartax.streak_days,
          cartax.total_xp,
          cartax.completed_terms,
          cartax.overall_progress,
@@ -399,7 +399,7 @@ export async function loadPublicCommunityProfile(input: {
             AND (
               profile.public_profile_id::text = $3
               OR lower(student.username) = lower($3)
-              OR lower(COALESCE(student.public_student_id, '')) = lower($3)
+              OR lower(COALESCE(cartax.public_student_id, '')) = lower($3)
             )
           LIMIT 1`,
         [input.tenantId, input.workspaceId, identifier],
