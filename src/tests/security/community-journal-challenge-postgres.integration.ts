@@ -462,7 +462,7 @@ describe("Community journal-reflection challenge PostgreSQL authority", () => {
         command: command.rows[0].count,
       };
     });
-    assert.deepEqual(counts.value, { reward: 1, event: 1, audit: 1, command: 1 });
+    assert.deepEqual(counts, { reward: 1, event: 1, audit: 1, command: 1 });
   });
 
   it("serializes concurrent claim identities into one committed reward", {
@@ -510,6 +510,6 @@ describe("Community journal-reflection challenge PostgreSQL authority", () => {
         [student.studentId, `challenge:journal-reflection:${cycle.weekKey}`],
       ),
     );
-    assert.equal(rewardCount.value.rows[0].count, 1);
+    assert.equal(rewardCount.rows[0].count, 1);
   });
 });
