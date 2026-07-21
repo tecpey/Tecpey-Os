@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/community/journal-discipline-score",
+      "sourcePath": "src/app/api/community/journal-discipline-score/route.ts",
+      "sourceHash": "09ac68448fe1a757383b6e8c",
+      "issue": "#233",
+      "owner": "community-platform",
+      "reason": "Adds one private journal-discipline-only GET projection over validated immutable reputation evidence. The route accepts no query parameters or client identity, requires strict session revocation, bounded rate limiting, verified tenant/principal context, an active binding through the server authority and explicit private no-store caching. It exports no mutating method and creates no public ranking, reward, Mentor or Instructor decision.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ]
+}
