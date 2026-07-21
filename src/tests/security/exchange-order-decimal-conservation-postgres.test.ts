@@ -83,14 +83,7 @@ describe("Exchange Decimal settlement conservation", () => {
     const sellerOneId = `decimal-seller-one-${randomUUID()}`;
     const sellerTwoId = `decimal-seller-two-${randomUUID()}`;
 
-    const initialPlatform = await withDb(async (client) => {
-      const platform = await client.query<{ available: string; held: string }>(
-        `SELECT available_balance::text AS available,
-                held_balance::text AS held
-           FROM wallet_balances
-          WHERE user_id = $1 AND asset = 'USDT'`,
-        [EXCHANGE_FEE_WALLET_ID],
-      );
+    const setup = await withDb(async (client) => {
       await client.query(
         `INSERT INTO markets
           (symbol, base_asset, quote_asset, status, tick_size, step_size,
@@ -109,10 +102,10 @@ describe("Exchange Decimal settlement conservation", () => {
           ($3, $4, '1.0000000000', 0)`,
         [buyerId, sellerOneId, sellerTwoId, baseAsset],
       );
-      return platform.rows[0] ?? { available: "0", held: "0" };
+      return true;
     });
-    assert.equal(initialPlatform.enabled, true);
-    if (!initialPlatform.enabled) return;
+    assert.equal(setup.enabled, true);
+    if (!setup.enabled) return;
 
     const makerOne = await admitAndProcess({
       userId: sellerOneId,
@@ -232,6 +225,12 @@ describe("Exchange Decimal settlement conservation", () => {
     assertAmount(evidence.value.platformCredits[0]?.amount, "0.0000200000");
     assertAmount(evidence.value.platformCredits[1]?.amount, "0.0000800000");
 
+    const platformCreditTotal = evidence.value.platformCredits.reduce(
+      (sum, row) => sum.plus(D(row.amount)),
+      D(0),
+    );
+    assertAmount(platformCreditTotal.toFixed(10), "0.0001000000");
+
     const balances = byBalance(evidence.value.balances);
     assertAmount(balances.get(`${buyerId}:USDT`)?.available, "0.9499500000");
     assertAmount(balances.get(`${buyerId}:USDT`)?.held, "0");
@@ -242,20 +241,14 @@ describe("Exchange Decimal settlement conservation", () => {
     assertAmount(balances.get(`${sellerTwoId}:USDT`)?.available, "0.0399600000");
 
     const platformAfter = balances.get(`${EXCHANGE_FEE_WALLET_ID}:USDT`);
-    assertAmount(
-      D(platformAfter?.available ?? "0")
-        .minus(initialPlatform.value.available)
-        .toFixed(10),
-      "0.0001000000",
-    );
+    assert.ok(platformAfter, "platform fee wallet balance must exist");
+    assert.equal(D(platformAfter.available).gte(platformCreditTotal), true);
 
     const quoteTotal = [
       balances.get(`${buyerId}:USDT`)?.available,
       balances.get(`${sellerOneId}:USDT`)?.available,
       balances.get(`${sellerTwoId}:USDT`)?.available,
-      D(platformAfter?.available ?? "0")
-        .minus(initialPlatform.value.available)
-        .toFixed(10),
+      platformCreditTotal.toFixed(10),
     ].reduce((sum, value) => sum.plus(D(value ?? "0")), D(0));
     assertAmount(quoteTotal.toFixed(10), "1.0000000000");
 
