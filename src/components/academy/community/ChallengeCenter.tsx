@@ -30,7 +30,6 @@ import {
 import {
   DIFFICULTY_LABEL,
   FOCUS_LABEL,
-  JOURNAL_REFLECTION_CHALLENGE_ID as _UNUSED,
   WEEKLY_CHALLENGES,
   getChallengeCycle,
   getNextChallenge,
@@ -530,11 +529,7 @@ export function ChallengeCenter() {
         <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-500">
           هفته آینده — Preview
         </p>
-        {nextChallenge.id === JOURNAL_CHALLENGE_ID ? (
-          <ChallengePreviewCard challenge={nextChallenge} />
-        ) : (
-          <ChallengePreviewCard challenge={nextChallenge} />
-        )}
+        <ChallengePreviewCard challenge={nextChallenge} />
       </section>
 
       <section>
