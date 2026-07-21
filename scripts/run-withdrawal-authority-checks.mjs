@@ -3,6 +3,8 @@ import { spawnSync } from "node:child_process";
 
 const diagnosticsPath = "/tmp/tecpey-withdrawal-admission-tests.log";
 const checks = [
+  "scripts/check-withdrawal-read-authority.mjs",
+  "scripts/check-withdrawal-read-outage-boundary.mjs",
   "scripts/check-withdrawal-admission-authority.mjs",
   "scripts/check-withdrawal-prebroadcast-evidence.mjs",
   "scripts/check-withdrawal-runtime-authority.mjs",

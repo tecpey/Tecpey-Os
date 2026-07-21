@@ -8,7 +8,7 @@ import {
   hashApiCommand,
   parseApiIdempotencyKey,
 } from "@/lib/security/api-command-idempotency";
-import { fetchWithdrawal } from "@/lib/security/withdrawal-service";
+import { readWithdrawal } from "@/lib/security/withdrawal-read-authority";
 import {
   adminActOnAuthoritativeWithdrawal,
   type AuthoritativeAdminWithdrawalAction,
@@ -64,10 +64,11 @@ export async function GET(
     const authorization = await authorizeAdminRequest(req, "withdrawals.read");
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const withdrawal = await fetchWithdrawal(id);
-    if (!withdrawal) return apiError("withdrawal_not_found", 404);
+    const read = await readWithdrawal(id);
+    if (!read.ok) return apiError(read.reason, 503);
+    if (!read.withdrawal) return apiError("withdrawal_not_found", 404);
 
-    return apiOk({ withdrawal }, 200, {
+    return apiOk({ withdrawal: read.withdrawal }, 200, {
       "Cache-Control": "no-store, max-age=0",
     });
   });

@@ -12,7 +12,7 @@ import {
   parseApiIdempotencyKey,
 } from "@/lib/security/api-command-idempotency";
 import { cancelWithdrawalIdempotently } from "@/lib/security/withdrawal-cancel-authority";
-import { fetchWithdrawal } from "@/lib/security/withdrawal-service";
+import { readWithdrawal } from "@/lib/security/withdrawal-read-authority";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +33,11 @@ export async function GET(
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
 
-    const withdrawal = await fetchWithdrawal(id, userId);
-    if (!withdrawal) return apiError("withdrawal_not_found", 404);
+    const read = await readWithdrawal(id, userId);
+    if (!read.ok) return apiError(read.reason, 503);
+    if (!read.withdrawal) return apiError("withdrawal_not_found", 404);
 
-    return apiOk({ withdrawal });
+    return apiOk({ withdrawal: read.withdrawal });
   });
 }
 

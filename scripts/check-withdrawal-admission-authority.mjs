@@ -82,7 +82,7 @@ rejectText("genericTwoFactor", "issueWithdrawalAuthorization", "generic 2FA may 
 requireText("detailRoute", "cancelWithdrawalIdempotently", "cancellation must share one transaction with its durable command receipt");
 requireText("detailRoute", "parseApiIdempotencyKey", "cancellation requires a validated Idempotency-Key");
 requireText("detailRoute", "hashApiCommand", "cancellation must bind an immutable request hash");
-requireText("detailRoute", "fetchWithdrawal(id, userId)", "detail reads must be owner-bound");
+requireText("detailRoute", "readWithdrawal(id, userId)", "detail reads must be owner-bound through the strict read authority");
 requireText("detailRoute", "strictRevocation: true", "detail and cancellation require strict sessions");
 rejectText("detailRoute", "cancelAuthoritativeWithdrawal", "routes may not use the superseded non-receipt cancellation authority");
 
@@ -119,7 +119,7 @@ requireText("replay", "resolveWithdrawalReplay", "committed replay needs an expl
 requireText("replay", "user_id = $1", "replay lookup must be owner-bound");
 requireText("replay", "idempotency_key = $2", "replay lookup must bind the idempotency key");
 requireText("replay", "request_hash", "replay must compare the immutable request hash");
-requireText("replay", "fetchWithdrawal", "replay must return persisted withdrawal evidence");
+requireText("replay", "readWithdrawal", "replay must return persisted withdrawal evidence through the strict read authority");
 rejectText("replay", "getComplianceProviders", "committed replay may not depend on compliance providers");
 rejectText("replay", "getAuthoritativeUsdValuation", "committed replay may not depend on current pricing");
 rejectText("replay", "tecpeyRedisClient", "committed replay may not depend on Redis risk state");

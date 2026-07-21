@@ -1,9 +1,10 @@
 # Final Implementation Gate — Phase 39.5 Governance Lock
 
 **Date:** 2026-07-05  
+**Current-state security correction:** 2026-07-21 — Issue #246  
 **Phase:** 39.5 — Strategic Freeze & TecPey DNA Synchronization (Final Governance Lock)  
 **Status:** Official — This is the only document authorized to grant or block implementation.  
-**Purpose:** Define every gate that must pass before implementation can begin, continue, and eventually launch. No code changes, no refactoring, no feature implementation may proceed until this document's Gate 1 passes.
+**Purpose:** Define every gate that must pass before implementation can begin, continue, and eventually launch. No code changes, no refactoring, no feature implementation may proceed unless the active gate authorizes them.
 
 **Rule:** This gate overrides all other decision frameworks. If it is not in this document, it is not required. If it is in this document, it is mandatory.
 
@@ -35,7 +36,7 @@ Each gate has:
 9. `TRUST_SURFACES.md` exists. ✅
 10. `DISCOVERABILITY_STRATEGY.md` exists. ✅
 11. `FINAL_IMPLEMENTATION_GATE.md` exists (this document). ✅
-12. All governance documents are locked (no further modifications). ✅
+12. All governance documents are locked except approved factual/security corrections tied to a reviewed issue. ✅
 
 ---
 
@@ -73,22 +74,29 @@ Each gate has:
 **Required Evidence:**
 - SB-001 (CSRF gaps): All state-changing routes enforce CSRF. Negative test passes.
 - SB-002 (Raw admin token): Admin uses httpOnly signed cookie. Raw token and sessionStorage paths removed.
-- SB-003 (API key replay): Production rejects API key requests when replay store unavailable. Negative test passes.
+- SB-003: **Signed API authentication surface disabled** for soft launch.
+  - No signed API authentication route exists.
+  - Dormant signed-auth adapter absent.
+  - Former signed-auth headers are not read by active routes.
+  - Future activation requires a new P0 security review.
+  - API-key credential lifecycle remains transactionally evidenced and does not imply request authentication.
 - SB-004 (Mock KYC): Production never returns mock KYC sessions.
 - SB-005 (HSM/MPC gating): Factory never selects incomplete providers. Explicit gate env vars required.
 - SB-006 (Price feed auth): Token required and validated in production.
 - TD-H06 (Stop-limit rejection): Stop-limit orders explicitly rejected with clear error.
 - SB-008 (Local auth block): Production blocks localStorage auth fallback.
-- Negative test evidence for each P0.
+- Negative test or source-guard evidence for each P0.
 
 **Required Documents:**
-- Updated `SECURITY_BLOCKERS.md` with all P0 items closed and QA evidence.
-- Test results for each negative test.
+- Updated `SECURITY_BLOCKERS.md` with all P0 items closed or closure-candidate with exact QA evidence.
+- `docs/security/SIGNED_API_AUTH_LAUNCH_POLICY.md`.
+- Test and guard results for each negative condition.
 
 **Blocking Conditions:**
-- Any P0 security blocker open.
-- Any negative test failing.
+- Any P0 security blocker open without an approved launch-disabled boundary.
+- Any negative test or required source guard failing.
 - CSRF coverage not verified on all state-changing routes.
+- Any active signed API authentication surface without a separately approved P0 design and evidence set.
 
 **Approval Owners:**
 - Chief Security Officer (each P0)
@@ -135,8 +143,8 @@ Each gate has:
 **Required Evidence:**
 - Test runner exists: `npm test` works.
 - CI (`.github/workflows/ci.yml`) includes test execution. Test failure → build failure.
-- All 47 wallet tests execute. >= 80% pass rate (or documented skips with owner + reason).
-- Security negative tests exist and pass for all P0 blockers.
+- All governed wallet tests execute. Required pass threshold is met or skips are documented with owner + reason.
+- Security negative tests/source guards exist and pass for all P0 blockers.
 - Trading validation tests: stop-limit rejection, order type correctness.
 - At least one integration test for the critical withdrawal or order flow.
 
@@ -148,8 +156,8 @@ Each gate has:
 **Blocking Conditions:**
 - No test runner.
 - CI does not execute tests.
-- Wallet tests < 80% pass rate without documented owner + reason.
-- Security negative tests missing for any P0.
+- Wallet tests below approved threshold without documented owner + reason.
+- Security negative evidence missing for any P0.
 
 **Approval Owners:**
 - Chief QA Officer (or designated QA Lead)
@@ -204,7 +212,7 @@ From LAUNCH_READINESS_REPORT.md + PRODUCTION_HARDENING_MASTER_PLAN.md:
 
 | # | Criterion | Source | Blocking? |
 |---|-----------|--------|-----------|
-| 1 | All P0 security blockers closed (SB-001 to SB-006) | SECURITY_BLOCKERS.md | YES |
+| 1 | All P0 security blockers closed or explicitly launch-disabled with approved guard evidence | SECURITY_BLOCKERS.md | YES |
 | 2 | Test runner exists, CI runs tests | TD-C06, CI | YES |
 | 3 | Wallet P1 bugs fixed (BTC public key, multi-input, ETH nonce) or explicitly disabled | TD-H08, TD-H09 | YES |
 | 4 | Stop-limit orders rejected (not silently accepted) | TD-H06 | YES |
@@ -212,19 +220,20 @@ From LAUNCH_READINESS_REPORT.md + PRODUCTION_HARDENING_MASTER_PLAN.md:
 | 6 | Production env validation passes (no placeholders, secrets strong) | validate-env.mjs | YES |
 | 7 | HSM/MPC gated (cannot be selected without explicit env flags) | SB-005, keystore.ts | YES |
 | 8 | KYC mock blocked in production | SB-004, sumsub.ts | YES |
-| 9 | API key replay protection enforced | SB-003, api-key-auth.ts | YES |
-| 10 | Admin auth uses httpOnly signed cookie only | SB-002, SB-011 | YES |
-| 11 | CSRF on all state-changing routes | SB-001 | YES |
-| 12 | Internal price-feed endpoint authenticated | SB-006 | YES |
-| 13 | Graceful shutdown wired and verified | server.ts | YES |
-| 14 | Backup strategy implemented and tested | This plan | YES |
-| 15 | Rollback procedure documented and tested | This plan | YES |
-| 16 | Critical alerts wired and tested | alerts.ts | YES |
-| 17 | Health endpoint checks DB + Redis | api/health | YES |
-| 18 | Production deployment tested end-to-end on staging | DEPLOY docs | YES |
-| 19 | User-facing localStorage data loss warning in Academy + Arena | B-01 / R-01 | YES |
-| 20 | Certificate verification test: signed, non-revoked, correct | R-06 | YES |
-| 21 | Financial reconciliation run (ledger vs balances vs on-chain) with results documented | B-02 / R-07 | YES |
+| 9 | Signed API authentication surface disabled; no route or dormant adapter exists; future activation governed | SB-003, `SIGNED_API_AUTH_LAUNCH_POLICY.md`, #246 guard | YES |
+| 10 | API-key credential lifecycle remains transactionally evidenced | `api-keys.ts`, API-key PostgreSQL audit tests | YES |
+| 11 | Admin auth uses httpOnly signed cookie only | SB-002, SB-011 | YES |
+| 12 | CSRF on all state-changing routes | SB-001 | YES |
+| 13 | Internal price-feed endpoint authenticated | SB-006 | YES |
+| 14 | Graceful shutdown wired and verified | server.ts | YES |
+| 15 | Backup strategy implemented and tested | This plan | YES |
+| 16 | Rollback procedure documented and tested | This plan | YES |
+| 17 | Critical alerts wired and tested | alerts.ts | YES |
+| 18 | Health endpoint checks DB + Redis | api/health | YES |
+| 19 | Production deployment tested end-to-end on staging | DEPLOY docs | YES |
+| 20 | User-facing localStorage data loss warning in Academy + Arena | B-01 / R-01 | YES |
+| 21 | Certificate verification test: signed, non-revoked, correct | R-06 | YES |
+| 22 | Financial reconciliation run (ledger vs balances vs on-chain) with results documented | B-02 / R-07 | YES |
 
 **Approval Owners:**
 - CTO (technical readiness)
@@ -252,7 +261,7 @@ From LAUNCH_READINESS_REPORT.md + PRODUCTION_HARDENING_MASTER_PLAN.md:
 | 4 | Contact forms functional (not mailto only) | SB-013, TD-M04 | YES |
 | 5 | Operations runbook exists (incident response, on-call, escalation) | This plan | YES |
 | 6 | Support team trained on wallet/trading support workflows | This plan | YES |
-| 7 | Compliance sign-off (KYC/AML process reviewed, mock blocked, sanctions covered) | Comliance | YES |
+| 7 | Compliance sign-off (KYC/AML process reviewed, mock blocked, sanctions covered) | Compliance | YES |
 | 8 | Legal sign-off (terms, risk disclosure, jurisdiction) | Legal | YES |
 | 9 | Marketing launch checklist complete | Marketing | YES |
 | 10 | Structured data / SEO / GEO / AEO baseline verified on key pages | DISCOVERABILITY_STRATEGY.md | YES |
@@ -296,7 +305,7 @@ From LAUNCH_READINESS_REPORT.md + PRODUCTION_HARDENING_MASTER_PLAN.md:
 
 ## How to Use This Gate
 
-1. **Start at Gate 0.** All governance documents must exist and be locked (✅ current state).
+1. **Start at Gate 0.** All governance documents must exist and be locked except approved factual/security corrections.
 2. **Proceed through Gates 1–7 sequentially.** Each gate must pass before the next begins.
 3. **If a gate fails, remediation is required before retry.** No partial passes.
 4. **Approval is documented per gate.** Sign-off must be in writing with evidence attached.
@@ -328,9 +337,9 @@ From LAUNCH_READINESS_REPORT.md + PRODUCTION_HARDENING_MASTER_PLAN.md:
 
 | Gate | Status |
 |------|--------|
-| Gate 0 (Governance Lock) | 🟢 COMPLETE — All 12 criteria met |
-| Gate 1 (Governance Sign-off) | 🔴 BLOCKED — 10 blocking issues pending sign-off |
-| Gate 2 (Security Hardening) | 🔴 BLOCKED — Gate 1 must pass first |
+| Gate 0 (Governance Lock) | 🟢 COMPLETE — All governance artifacts exist; approved corrections tracked by issue |
+| Gate 1 (Governance Sign-off) | 🔴 BLOCKED — Blocking items pending sign-off |
+| Gate 2 (Security Hardening) | 🔴 BLOCKED — Gate 1 must pass first; individual P0 closure evidence may be prepared |
 | Gate 3 (Architecture & Data Integrity) | 🔴 BLOCKED — Gate 1 must pass first |
 | Gate 4 (QA & Testing Baseline) | 🔴 BLOCKED — Gate 1 must pass first |
 | Gate 5 (Operations & Deployment) | 🔴 BLOCKED — Gate 1 must pass first |

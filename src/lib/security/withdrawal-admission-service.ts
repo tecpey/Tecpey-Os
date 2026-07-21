@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import type { PoolClient } from "pg";
-import { withDb, withTx } from "@/lib/db";
+import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { D } from "@/lib/trading/decimal";
 import { trackAuthEvent } from "./auth-metrics";
@@ -22,10 +22,10 @@ import {
   type WithdrawalPriceEvidence,
 } from "./withdrawal-admission-authority";
 import {
-  fetchWithdrawal,
+  readWithdrawal,
   type WithdrawalRecord,
   type WithdrawalState,
-} from "./withdrawal-service";
+} from "./withdrawal-read-authority";
 
 const DEFAULT_DAILY_LIMIT_USD = "10000";
 
@@ -450,11 +450,11 @@ export async function createAuthoritativeWithdrawal(
     return { ok: false, reason: "withdrawal_admission_failed", code: 503 };
   }
 
-  const withdrawal = await fetchWithdrawal(
+  const read = await readWithdrawal(
     transactionResult.withdrawalId,
     command.userId,
   );
-  if (!withdrawal) {
+  if (!read.ok || !read.withdrawal) {
     return {
       ok: false,
       reason: "withdrawal_evidence_unavailable",
@@ -462,6 +462,7 @@ export async function createAuthoritativeWithdrawal(
       withdrawalId: transactionResult.withdrawalId,
     };
   }
+  const withdrawal = read.withdrawal;
 
   if (!transactionResult.replayed) {
     trackAuthEvent("withdrawal_requested");
@@ -505,39 +506,6 @@ export async function createAuthoritativeWithdrawal(
     withdrawal,
     replayed: transactionResult.replayed,
     httpStatus: withdrawal.state === "approved" ? 201 : 202,
-  };
-}
-
-export async function listUserWithdrawalsStrict(
-  userId: string,
-  limit: number,
-  offset: number,
-): Promise<
-  | { ok: true; withdrawals: WithdrawalRecord[] }
-  | { ok: false; reason: "withdrawal_storage_unavailable" }
-> {
-  const result = await withDb(async (client) => {
-    const rows = await client.query<{ id: string }>(
-      `SELECT id
-         FROM withdrawals
-        WHERE user_id = $1
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3`,
-      [userId, Math.min(limit, 100), Math.max(offset, 0)],
-    );
-    return rows.rows.map((row) => row.id);
-  });
-  if (!result.enabled) return { ok: false, reason: "withdrawal_storage_unavailable" };
-
-  const records = await Promise.all(
-    result.value.map((id) => fetchWithdrawal(id, userId)),
-  );
-  if (records.some((record) => record === null)) {
-    return { ok: false, reason: "withdrawal_storage_unavailable" };
-  }
-  return {
-    ok: true,
-    withdrawals: records.filter((record): record is WithdrawalRecord => record !== null),
   };
 }
 

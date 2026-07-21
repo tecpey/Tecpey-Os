@@ -1,8 +1,9 @@
 # Feature Registry — TecPey Platform Feature Inventory
 
-**Date:** 2026-07-05
-**Phase:** 39.5 — Strategic Freeze & TecPey DNA Synchronization
-**Status:** Official
+**Date:** 2026-07-05  
+**Current-state correction:** 2026-07-21 — Issues #242, #244, #246  
+**Phase:** 39.5 — Strategic Freeze & TecPey DNA Synchronization  
+**Status:** Official  
 **Purpose:** Complete inventory of all TecPey features with readiness status, location, and dependencies.
 
 ---
@@ -11,11 +12,12 @@
 
 | Status | Meaning |
 |--------|---------|
-| ✅ **Production** | Complete, tested, and production-ready |
+| ✅ **Production** | Complete, tested, and production-ready within the declared scope |
 | ⚠️ **Functional** | Works but has known gaps or technical debt |
 | 🧪 **Experimental** | Implemented but not validated for production |
 | 🔧 **In Progress** | Under active development |
 | 🚧 **Scaffold** | Route/component exists but content is shallow |
+| 🛑 **Launch Disabled** | Deliberately unavailable; activation requires a new governed implementation |
 | ❌ **Not Started** | Not implemented |
 
 ---
@@ -26,11 +28,11 @@
 |---------|--------|----------|-------|
 | Next.js 16 App Router | ✅ Production | `src/app/` | Fully operational |
 | Custom Server (WebSocket) | ✅ Production | `server.ts` | WS, Redis pub/sub, workers |
-| PostgreSQL Database | ✅ Production | `src/lib/db.ts` | Schema-on-connect pattern |
+| PostgreSQL Database | ✅ Production | `src/lib/db.ts` | Canonical advisory-locked migration plan |
 | Redis Integration | ✅ Production | `src/lib/redis-pubsub.ts` | BullMQ, pub/sub, rate limiting |
 | TypeScript Strict Mode | ✅ Production | `tsconfig.json` | 0 errors maintained |
 | ESLint 0 Warnings | ✅ Production | `eslint.config.mjs` | Enforced in CI |
-| CI Pipeline | ✅ Production | `.github/workflows/ci.yml` | Lint, typecheck, build |
+| CI Pipeline | ✅ Production | `.github/workflows/ci.yml` | Migrations, guards, tests, typecheck, lint, build, runtime smoke |
 
 ---
 
@@ -38,16 +40,17 @@
 
 | Feature | Status | Location | Notes |
 |---------|--------|----------|-------|
-| JWT Sessions (jose) | ✅ Production | `src/lib/auth-session.ts` | httpOnly cookies |
-| CSRF Protection | ⚠️ Functional | `src/lib/csrf.ts` | Inconsistent on some routes — P0 |
-| 2FA (TOTP) | ✅ Production | `src/lib/security/totp.ts` | QR enrollment, backup codes |
-| WebAuthn/Passkeys | ✅ Production | `src/lib/security/webauthn.ts` | Native FIDO2 |
-| Session Revocation | ✅ Production | `src/app/api/auth/sessions/` | — |
-| API Keys | ⚠️ Functional | `src/lib/security/api-key-auth.ts` | Replay disabled without Redis — P0 |
-| Rate Limiting | ⚠️ Functional | `src/lib/rate-limit.ts` | Per-instance fallback — P1 |
-| Admin Auth | ⚠️ Functional | `src/lib/admin-auth.ts` | Raw token in cookie — P0 |
+| JWT Sessions (jose) | ✅ Production | `src/lib/auth-session.ts` | httpOnly cookies; strict revocation on governed routes |
+| CSRF Protection | ⚠️ Functional | `src/lib/csrf.ts` | Remaining route inventory governed separately |
+| 2FA (TOTP) | ✅ Production | `src/lib/security/totp.ts` | QR enrollment, backup codes, transactional evidence |
+| WebAuthn/Passkeys | ✅ Production | `src/lib/security/webauthn.ts` | Native FIDO2; transactional credential evidence |
+| Session Revocation | ✅ Production | `src/app/api/auth/sessions/` | Server-side authority |
+| API Key Credential Lifecycle | ✅ Production | `src/lib/security/api-keys.ts` | Create/list/enable/disable/rotate/delete; transactionally evidenced |
+| Signed API Request Authentication | 🛑 Launch Disabled | `docs/security/SIGNED_API_AUTH_LAUNCH_POLICY.md` | No active route; dormant adapter removed; future activation requires new P0 review |
+| Rate Limiting | ⚠️ Functional | `src/lib/rate-limit.ts` | Redis authority with bounded fallback inventory |
+| Admin Auth | ⚠️ Functional | `src/lib/admin-control-plane.ts` | Governed Admin session/step-up; remaining inventory tracked separately |
 | Security Metrics | ✅ Production | `src/lib/security/auth-metrics.ts` | Admin dashboard |
-| Security Notifications | ✅ Production | `src/lib/security/security-notifications.ts` | 11 notification types |
+| Security Notifications | ✅ Production | `src/lib/security/security-notifications.ts` | Governed notification producers |
 
 ---
 
@@ -57,10 +60,10 @@
 |---------|--------|----------|-------|
 | 7-Term Curriculum Routes | ✅ Production | `src/app/academy/` | Complete route structure |
 | Quiz Engine | ✅ Production | Academy components | Per-term knowledge checks |
-| Spaced Repetition (SM-2) | ⚠️ Functional | `src/lib/spaced-repetition.ts` | localStorage-based |
-| Flashcards | ⚠️ Functional | `src/app/academy/flashcards/` | localStorage-based |
+| Spaced Repetition (SM-2) | ⚠️ Functional | `src/lib/spaced-repetition.ts` | Browser persistence remains technical debt |
+| Flashcards | ⚠️ Functional | `src/app/academy/flashcards/` | Browser persistence remains technical debt |
 | Certificates with QR | ✅ Production | `src/lib/academy-certificates.ts` | Verified at `/verify/[id]` |
-| AI Mentor | ✅ Production | `src/app/api/ai-mentor/` | OpenAI integration |
+| AI Mentor | ✅ Production | `src/app/api/ai-mentor/` | Governed provider/trust boundary |
 
 **See [[AI_PLATFORM.md]] — Permanent AI Constitution.** Complete AI architecture defined including:
 - TecPey AI (Core Brain), Mentor AI, Trading AI, Admin AI, Executive AI
@@ -69,10 +72,10 @@
 
 | Mentor Profile/Insights | ✅ Production | Mentor API | Server-side profiles |
 | Mentor Memory Engine | ✅ Production | `src/lib/mentor-memory.ts` | TTL-based memories |
-| Trading Arena | ⚠️ Functional | `src/app/academy/trading-arena/` | localStorage+server |
-| Trading DNA | ⚠️ Functional | `src/lib/trading-dna.ts` | localStorage |
+| Trading Arena | ⚠️ Functional | `src/app/academy/trading-arena/` | Persistence migration remains incomplete |
+| Trading DNA | ⚠️ Functional | `src/lib/trading-dna.ts` | Browser authority remains technical debt |
 | Mastery Gating | ✅ Production | Academy | 80% threshold |
-| Streak System | ⚠️ Functional | Multiple locations | localStorage |
+| Streak System | ⚠️ Functional | Multiple locations | Browser authority remains technical debt |
 | Daily Challenge | 🚧 Scaffold | `src/app/academy/daily-challenge/` | Route exists |
 | Portfolio Lab | 🚧 Scaffold | `src/app/academy/portfolio-lab/` | Route exists |
 | Psychology Lab | 🚧 Scaffold | `src/app/academy/psychology-lab/` | Route exists |
@@ -92,10 +95,10 @@
 |---------|--------|----------|-------|
 | Order Placement | ✅ Production | `src/app/api/orders/` | Limit + market |
 | Order Cancellation | ✅ Production | `src/app/api/orders/[id]/` | — |
-| Balance Holds | ✅ Production | `src/lib/trading/` | Risk checks |
+| Balance Holds | ✅ Production | `src/lib/trading/` | Transaction-coupled risk/evidence controls |
 | Order Book | ⚠️ Functional | `src/lib/trading/order-book.ts` | In-memory + Redis |
 | Matching Engine | ✅ Production | `src/lib/trading/matching-engine.ts` | Factory pattern |
-| Stop-Limit Orders | ❌ Not Started | `src/lib/trading/validation.ts` | Accepted but not implemented — P0 |
+| Stop-Limit Orders | ❌ Not Started | `src/lib/trading/validation.ts` | Explicitly rejected until implemented |
 | Spot Engine Helpers | ✅ Production | `src/helper/spot/` | — |
 | Market Data API | ✅ Production | `src/app/api/markets/` | Real-time prices |
 | WebSocket Feed | ✅ Production | `src/lib/ws/` | Custom WS server |
@@ -107,20 +110,20 @@
 
 | Feature | Status | Location | Notes |
 |---------|--------|----------|-------|
-| Hot Wallet KeyStore | ✅ Production | `src/lib/wallet/signing/keystore.ts` | Env-var keys |
+| Hot Wallet KeyStore | ✅ Production | `src/lib/wallet/signing/keystore.ts` | Real execution remains custody-gated |
 | Bitcoin Provider (P2WPKH) | ⚠️ Functional | `src/lib/wallet/providers/bitcoin.ts` | Only signs input 0 |
-| Ethereum Provider | ⚠️ Functional | `src/lib/wallet/providers/ethereum.ts` | Nonce race condition |
+| Ethereum Provider | ⚠️ Functional | `src/lib/wallet/providers/ethereum.ts` | Nonce race condition tracked |
 | Solana Provider | ⚠️ Functional | `src/lib/wallet/providers/solana.ts` | SOL only, no SPL |
 | Tron Provider | ❌ Not Started | `src/lib/wallet/providers/` | Currently broken |
 | Fee Engine | ✅ Production | `src/lib/wallet/fee/engine.ts` | Dynamic per chain |
 | Confirmation Engine | ✅ Production | `src/lib/wallet/confirmation/engine.ts` | Chain-specific |
-| BullMQ Queues | ✅ Production | `src/lib/wallet/queue/` | 5 queues |
-| Withdrawal Worker | ✅ Production | `src/workers/withdrawal-worker.ts` | Lifecycle managed |
+| BullMQ Queues | ✅ Production | `src/lib/wallet/queue/` | Governed queues |
+| Withdrawal Worker | ✅ Production | `src/workers/withdrawal-worker.ts` | Lifecycle managed; external effects gated |
 | Observatory | ✅ Production | `src/lib/wallet/observability.ts` | Redis metrics |
-| HSM KeyStore | ❌ Not Started | `src/lib/wallet/signing/keystore.ts` | Stub — throws |
-| MPC KeyStore | ❌ Not Started | `src/lib/wallet/signing/keystore.ts` | Stub — throws |
+| HSM KeyStore | ❌ Not Started | `src/lib/wallet/signing/keystore.ts` | Stub — gated |
+| MPC KeyStore | ❌ Not Started | `src/lib/wallet/signing/keystore.ts` | Stub — gated |
 | Multisig | ❌ Not Started | Untracked | Scaffolding only |
-| Wallet Policy Engine | ❌ Not Started | Untracked | Missing cache.ts |
+| Wallet Policy Engine | ❌ Not Started | Untracked | Missing production authority |
 
 ---
 
@@ -128,13 +131,16 @@
 
 | Feature | Status | Location | Notes |
 |---------|--------|----------|-------|
-| Withdrawal Security Gates | ✅ Production | `src/lib/security/withdrawal-service.ts` | State machine |
-| KYC (Sumsub) | ⚠️ Functional | `src/lib/compliance/sumsub.ts` | Mock fallback — P0 |
-| AML (Chainalysis) | ⚠️ Functional | `src/lib/compliance/chainalysis.ts` | Graceful degrade |
+| Withdrawal Read Authority | ✅ Production | `src/lib/security/withdrawal-read-authority.ts` | Owner isolation, explicit projection, strict outage semantics |
+| Withdrawal Admission & Transition Gates | ✅ Production | `src/lib/security/withdrawal-admission-service.ts`, `withdrawal-admin-authority.ts`, `withdrawal-cancel-authority.ts` | Transactional reservation, receipts and evidence |
+| Withdrawal External-Effect Evidence | ✅ Production | Withdrawal executor/evidence authorities | Persist-before-effect, reconciliation and settlement guards |
+| KYC (Sumsub) | ⚠️ Functional | `src/lib/compliance/sumsub.ts` | Production mock blocking governed separately |
+| AML (Chainalysis) | ⚠️ Functional | `src/lib/compliance/chainalysis.ts` | Failure semantics tracked separately |
 | Sanctions (OFAC) | ✅ Production | `src/lib/compliance/ofac.ts` | Always registered |
-| Audit Logging | ✅ Production | Security lib | Withdrawal actions |
+| Mandatory Sensitive Audit | ✅ Production | `src/lib/security/sensitive-mutation-audit.ts` | Transaction-coupled append-only evidence |
+| Historical Audit Data | ✅ Production | PostgreSQL `audit_events` | Historical audit_events retained; not sensitive-mutation authority |
 | Device Fingerprinting | ✅ Production | `src/lib/security/webauthn.ts` | SHA-256 |
-| Price Feed Alerting | ❌ Not Started | `src/app/api/internal/price-feed-status/` | Endpoint public — P0 |
+| Price Feed Alerting | ❌ Not Started | `src/app/api/internal/price-feed-status/` | Endpoint/auth status governed separately |
 
 ---
 
@@ -162,7 +168,7 @@
 | Feature | Status | Location | Notes |
 |---------|--------|----------|-------|
 | Command Center | ✅ Production | `src/app/api/command-center/` | Admin panel |
-| Withdrawal Admin Queue | ✅ Production | `src/app/api/admin/withdrawals/` | Review/approve/reject |
+| Withdrawal Admin Queue | ✅ Production | `src/app/api/admin/withdrawals/` | Review/approve/reject with step-up authority |
 | Custody Admin | 🚧 Scaffold | `src/app/api/admin/custody/` | Partial routes |
 | Health Endpoint | ✅ Production | `src/app/api/health/` | — |
 | Database Health | ✅ Production | `src/app/api/health/database/` | — |
@@ -208,7 +214,7 @@
 | PM2 Ecosystem | ✅ Production | `ecosystem.config.cjs` | Uses server.ts |
 | Systemd Service | ✅ Production | `deploy/systemd/tecpey-web.service` | Uses npm start |
 | Nginx Config | ✅ Production | `deploy/nginx/tecpey.conf` | SSL, CSP, HSTS |
-| GitHub Actions CI | ✅ Production | `.github/workflows/ci.yml` | Lint, typecheck, build |
+| GitHub Actions CI | ✅ Production | `.github/workflows/ci.yml` | Full protected workflow set |
 | Issue Templates | ✅ Production | `.github/ISSUE_TEMPLATE/` | Bug + feature |
 | PR Template | ✅ Production | `.github/PULL_REQUEST_TEMPLATE.md` | — |
 
@@ -216,15 +222,18 @@
 
 ## Feature Count Summary
 
+Counts are directional because several former mixed rows are now split into explicit authorities.
+
 | Status | Count | Notes |
 |--------|-------|-------|
-| ✅ Production | 45+ | Fully operational features |
-| ⚠️ Functional | 15 | Works but has known gaps |
+| ✅ Production | 45+ | Operational within declared authority boundaries |
+| ⚠️ Functional | 12+ | Works but retains tracked gaps |
 | 🧪 Experimental | 0 | — |
-| 🔧 In Progress | 0 | Phase 39 frozen |
+| 🔧 In Progress | 0 | Phase 39 frozen except approved hardening slices |
 | 🚧 Scaffold | 7 | Routes exist, shallow content |
-| ❌ Not Started | 6 | Tron, HSM, MPC, multisig, stop-limit, price-feed alerting |
+| 🛑 Launch Disabled | 1 | Signed API Request Authentication |
+| ❌ Not Started | 6+ | Tron, HSM, MPC, multisig, stop-limit, price-feed alerting and related gaps |
 
 ---
 
-*Feature registry for Phase 39.5. Reflects current implementation state.*
+*Feature registry for Phase 39.5, corrected to reflect current source authority after Issues #242, #244 and #246.*
