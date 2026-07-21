@@ -1,4 +1,7 @@
-import { execFile } from "node:child_process";
+import {
+  execFile,
+  type ExecFileException,
+} from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   chmod,
@@ -96,12 +99,13 @@ function runCommand(command: string, args: string[], timeoutMs: number): Promise
         encoding: "utf8",
         windowsHide: true,
         env: {
+          NODE_ENV: process.env.NODE_ENV ?? "production",
           PATH: process.env.PATH,
           LANG: "C",
           LC_ALL: "C",
         },
       },
-      (error, stdout) => {
+      (error: ExecFileException | null, stdout: string) => {
         if (error) {
           reject(new Error("host_evidence_command_failed"));
           return;
