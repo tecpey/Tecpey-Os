@@ -1,20 +1,26 @@
 # Legacy Audit Caller Classification
 
-Issues: #240, #244  
+Issues: #240, #244, #246  
 Parent: #161  
 Original baseline: `62949ff5f290e56aaef0329523e67fc8434aff76`
 
 ## Status
 
-**Withdrawal legacy service removed; remaining legacy channel still quarantined.**
+**Source-level legacy audit channel removed. Historical data retained.**
 
-The active TecPey security and financial mutation authorities use transaction-coupled evidence or durable outbox/state-machine records. The older `audit_events` writer is best-effort and cannot prove a mutation committed.
+TecPey sensitive mutation authority is no longer allowed to use the former best-effort `writeAudit()` source channel.
 
-Every remaining production-source `writeAudit()` site is classified below. This inventory prevents new callers and does not migrate or delete historical `audit_events` rows.
+The following dormant source modules were deleted:
 
-## Channel definitions
+```text
+src/lib/security/withdrawal-service.ts
+src/lib/security/api-key-auth.ts
+src/lib/security/audit-log.ts
+```
 
-### Mandatory mutation evidence
+No production-source `writeAudit()` implementation, import or caller remains.
+
+## Mandatory mutation evidence
 
 Security, credential, privacy, financial, custody and privileged mutations must use one of:
 
@@ -24,121 +30,110 @@ Security, credential, privacy, financial, custody and privileged mutations must 
 
 A mutation must not return ordinary success while mandatory evidence durability is unknown.
 
-### Non-authoritative telemetry
+## Historical `audit_events` preservation
 
-Telemetry may support diagnostics but:
+Deletion of the source writer does not delete or migrate the historical database table or rows named `audit_events`.
 
-- may be dropped;
-- may not satisfy a release gate;
-- may not prove a mutation occurred;
-- may not authorize a state transition;
-- must not contain credentials, secrets, raw bodies, cookies or unbounded PII.
+Historical rows:
+
+- remain subject to retention, legal and privacy policy;
+- are not mandatory mutation evidence;
+- cannot prove a sensitive mutation committed;
+- must not be updated or deleted merely because the old source API was removed;
+- require a separate governed data-retention decision for archival or deletion.
+
+The canonical migration plan and historical schema remain untouched by #246.
 
 ## Withdrawal legacy service removed
 
-`src/lib/security/withdrawal-service.ts` was deleted after the dedicated `withdrawal-read-authority-v1` migration proved that all active reads and mutations were independent from it.
+`src/lib/security/withdrawal-service.ts` was deleted by #244 after all active reads migrated to `withdrawal-read-authority-v1` and active mutation authorities were proven independent.
 
-The deletion removes:
+Removal eliminated four obsolete Withdrawal `writeAudit()` calls and superseded create/Admin/cancellation paths.
 
-- the superseded `createWithdrawalRequest()` mutation path;
-- the superseded `adminActOnWithdrawal()` mutation path;
-- the superseded `cancelWithdrawal()` mutation path;
-- obsolete mixed read helpers;
-- four best-effort Withdrawal `writeAudit()` calls.
+## Dormant signed API authentication removed
 
-No production-source `writeAudit()` site remains in Withdrawal.
+`src/lib/security/api-key-auth.ts` had no active route, service import or external source caller. It was deleted by #246.
 
-Active Withdrawal behavior remains owned by:
+Signed HMAC API-key request authentication is launch-disabled and not implemented for soft launch. It must not be inferred from the active API-key credential lifecycle.
 
-- canonical command and request hashes;
-- server-owned price evidence;
-- one-time TOTP authorization;
-- transaction-coupled admission and reservation;
-- durable admission outbox;
-- strict read projections;
-- canonical Admin action receipts;
-- idempotent cancellation with exact ledger release;
-- pre-broadcast evidence;
-- external-effect evidence and recovery;
-- settlement and custody launch gates.
-
-## Exact remaining caller inventory
-
-| File / site | Classification | Runtime mutation authority | Required containment |
-|---|---|---:|---|
-| `src/lib/security/api-key-auth.ts` — centralized rejected-request telemetry | Non-authoritative security telemetry in a dormant adapter | No | One-way credential fingerprint; bounded rejection class; no raw key prefix, signature, body or exact submitted timestamp |
-| `src/lib/security/audit-log.ts` — `writeAudit()` implementation | Deprecated best-effort writer | No | Explicit non-authoritative annotation; no new imports or callers |
-| `src/lib/security/audit-log.ts` — `getAuditLog()` | Historical read-only compatibility helper | No | Must remain unreferenced by active source and must not be used as release evidence or mandatory mutation proof |
-
-Signed API-key rejection telemetry is the only production caller of `writeAudit()`.
-
-No remaining site is classified as mandatory evidence.
-
-## Signed API-key adapter
-
-`src/lib/security/api-key-auth.ts` currently has no repository caller outside its own definitions. It is not activated by the presence of headers alone.
-
-Rejected-request telemetry uses:
+Future activation requires the new P0 process defined in:
 
 ```text
-api_key_auth_rejected
-legacy-signed-api-key-rejection-v1
+docs/security/SIGNED_API_AUTH_LAUNCH_POLICY.md
 ```
 
-Actor and resource identity are a SHA-256 fingerprint with a domain separator. The telemetry must not store:
+## Deprecated audit writer removed
 
-- raw API key or prefix;
-- submitted signature;
-- request body or body hash tied to the credential;
-- authorization/cookie headers;
-- exact submitted timestamp;
-- user ID inferred from an unverified credential.
+`src/lib/security/audit-log.ts` was deleted after:
 
-Activation requires a separate reviewed route, nonce, authorization, tenant/principal and mandatory audit design. Deletion requires separate proof that signed request authentication will not be activated through this adapter.
+- Withdrawal legacy callers were removed;
+- the dormant signed API-key adapter was removed;
+- `getAuditLog()` was proven to have no active source caller;
+- active mandatory evidence was proven to use governed transaction/outbox authorities.
 
-## Legacy audit module
+The deletion removes only source APIs. It does not erase historical database evidence.
 
-`src/lib/security/audit-log.ts` remains only for the dormant signed API-key rejection telemetry channel and historical read compatibility. Its writer deliberately does not propagate storage failure. Therefore:
+## Active API-key credential authority
+
+Account-owned API-key create/list/enable/disable/rotate/delete remains active through:
 
 ```text
-LEGACY_AUDIT_TELEMETRY_AUTHORITY = non-authoritative
+src/lib/security/api-keys.ts
+src/app/api/api-keys/route.ts
+src/app/api/api-keys/[id]/route.ts
 ```
 
-The writer cannot be removed until:
+Credential mutations remain server-owned and transactionally coupled to `sensitive_mutation_audit_events`.
 
-1. the signed API-key adapter is deleted or migrated to an approved telemetry/evidence design;
-2. historical read compatibility is proven unnecessary or replaced;
-3. no source caller remains;
-4. historical `audit_events` rows are preserved according to retention policy.
+No active route accepts API-key headers as principal authentication.
 
-## Permanent source guard
+## Permanent source guards
 
 The Sensitive Mutation Audit guard fails when:
 
-- `src/lib/security/withdrawal-service.ts` is recreated;
-- any source references, imports, dynamically imports, requires or re-exports the deleted Withdrawal module path;
-- any new source file imports `audit-log.ts`;
-- any new source file calls `writeAudit()`;
-- any source file imports or activates `api-key-auth.ts`;
-- `getAuditLog()` gains an active source caller;
-- signed API-key telemetry uses `api_key_created` or raw key prefixes;
-- exact submitted timestamps, signatures or request bodies appear in rejection telemetry;
-- the classification document or non-authoritative annotations disappear.
+- any deleted legacy source path is recreated;
+- production source imports, exports, dynamically imports or requires a deleted path;
+- production source contains `writeAudit(`;
+- production source references `validateSignedApiKeyRequest`, `hasApiKeyHeaders` or `getAuditLog`;
+- an active route reads the former signed-auth headers;
+- official current-state documents claim signed API authentication is production-ready;
+- active API-key credential lifecycle loses transaction-coupled mandatory evidence;
+- code attempts to drop or delete historical `audit_events` data as part of this source cleanup.
 
-## Active authority boundaries
+## Current legacy footprint
 
-This classification and deletion do not change active behavior:
+Production source legacy audit callers:
 
-- API-key create/enable/disable/rotate/delete remains transactionally evidenced through `sensitive_mutation_audit_events`;
-- Withdrawal admission, reads, cancellation, Admin transitions, pre-broadcast, external effects and settlement remain on their existing fail-closed authorities;
-- no signed API-key route is activated;
-- no legacy Withdrawal path exists.
+```text
+0
+```
+
+Production signed API authentication routes:
+
+```text
+0
+```
+
+Deleted source modules:
+
+```text
+withdrawal-service.ts
+api-key-auth.ts
+audit-log.ts
+```
+
+Historical database table/rows:
+
+```text
+audit_events retained; non-authoritative for sensitive mutation proof
+```
 
 ## Residual work under #161
 
-After this slice:
+After #246:
 
-- the Withdrawal legacy service and its four best-effort audit calls are removed;
-- signed API-key rejection telemetry is privacy-safe, truthful and the only production caller of the deprecated writer;
-- the historical audit query helper remains unreferenced and non-authoritative;
-- #161 remains open until the signed API-key adapter/audit writer disposition and all other domain inventories satisfy its full definition of done.
+- source-level best-effort audit authority is removed;
+- dormant signed API authentication is removed and launch-disabled;
+- active API-key credential lifecycle remains transactionally evidenced;
+- historical `audit_events` retention remains a separate data-governance concern;
+- #161 remains open until all remaining domain-specific audit inventory and governance requirements satisfy its complete definition of done.
