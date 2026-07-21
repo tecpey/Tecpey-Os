@@ -21,23 +21,27 @@ The Community journal feed is a privacy-minimized projection of canonical Tradin
 The feed may expose only:
 
 - a domain-separated public entry identifier;
-- a domain-separated anonymous author alias;
+- a domain-separated pseudonymous author alias derived from the internal tenant/principal binding, not from the public profile identifier;
 - the Arena asset;
-- the learner's bounded and identifier-redacted lesson learned;
+- the learner's bounded, identifier-redacted and safety-filtered lesson learned;
 - controlled mistake tags;
-- the bounded and identifier-redacted next-action commitment;
+- the bounded, identifier-redacted and safety-filtered next-action commitment;
 - server-owned closed and updated timestamps;
 - whether the entry belongs to the current viewer.
 
 The feed must not expose:
 
 - internal student, principal, attempt, trade or reflection identifiers;
+- the public profile identifier as the author-alias seed;
 - exact balance, position size, realized PnL or PnL rate;
 - decision-review or emotional-review text;
 - email, phone, wallet address, bearer/session token, API key or private-key material from free text;
+- external links, social/contact handles, explicit signals, guaranteed-return claims or channel recruitment;
 - consent revision or evidence metadata;
 - browser-generated IDs, timestamps, scores or journal records;
 - demo or fabricated community entries.
+
+The deterministic filter is deliberately conservative. A secret label suppresses the complete public field; explicit signal, guaranteed-return or recruitment language also suppresses the complete field. Common direct identifiers and contact links are replaced with visible redaction markers. Users are still instructed not to enter personal or confidential information because automated filtering cannot guarantee removal of every possible identifier.
 
 ## Consent semantics
 
@@ -48,7 +52,7 @@ The feed must not expose:
 - the current consent version is `community-profile-consent-v1`;
 - the flag is currently enabled.
 
-Disabling consent removes the learner's entries from subsequent feed reads without deleting the private Arena reflections.
+Disabling consent removes the learner's entries from subsequent feed reads without deleting the private Arena reflections. The client loads consent and Feed as separate authorities: if only the Feed projection is unavailable, the account-owned consent control remains visible so the learner can still disable sharing.
 
 ## Pagination
 
@@ -65,6 +69,7 @@ The route bounds page size to 1–50 and rejects malformed cursors. Under a stab
 - Invalid view, page limit or cursor returns `400`.
 - Missing tenant/principal authority or PostgreSQL unavailability returns `503`.
 - The UI never falls back to localStorage, demo entries, filesystem data or client-generated journal state.
+- A Feed failure never silently turns sharing off or hides the account-owned consent switch.
 
 ## API governance
 
