@@ -12,10 +12,8 @@ import {
   canonicalizeWithdrawalCommand,
   inspectWithdrawalAuthorization,
 } from "@/lib/security/withdrawal-admission-authority";
-import {
-  createAuthoritativeWithdrawal,
-  listUserWithdrawalsStrict,
-} from "@/lib/security/withdrawal-admission-service";
+import { createAuthoritativeWithdrawal } from "@/lib/security/withdrawal-admission-service";
+import { listUserWithdrawalsStrict } from "@/lib/security/withdrawal-read-authority";
 import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
