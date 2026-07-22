@@ -1,21 +1,37 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function mockPublicState(page: Page) {
+type ProfileMode = "absent" | "ready" | "unavailable";
+
+async function mockPublicState(page: Page, profileMode: ProfileMode = "absent") {
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/academy-auth") {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ authenticated: false }),
+        body: JSON.stringify({ authenticated: profileMode === "ready" }),
       });
       return;
     }
     if (path === "/api/academy-student-profile") {
+      if (profileMode === "unavailable") {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, error: "academy_profile_service_unavailable" }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ authenticated: false, profile: null }),
+        body: JSON.stringify({
+          authenticated: profileMode === "ready",
+          profile:
+            profileMode === "ready"
+              ? { display_name: "Browser QA learner" }
+              : null,
+        }),
       });
       return;
     }
@@ -88,23 +104,32 @@ async function openKnowledgeCenter(
 ) {
   const mobile = (page.viewportSize()?.width ?? 1440) < 1024;
   if (mobile) {
-    await page
-      .getByRole("button", { name: /باز کردن منو|Open menu/ })
-      .click();
+    const menuButton = page.getByRole("button", {
+      name: /باز کردن منو|Open menu/,
+    });
+    await menuButton.focus();
+    await page.keyboard.press("Enter");
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true");
+
     const knowledge = page.getByRole("button", { name: label, exact: true });
+    await knowledge.focus();
+    await page.keyboard.press("Enter");
     const mobileMenuId = await knowledge.getAttribute("aria-controls");
     expect(mobileMenuId).toBeTruthy();
-    await knowledge.click();
     const mobileMenu = page.locator(`#${mobileMenuId!}`);
     await expect(mobileMenu).toBeVisible();
     await expect(
       mobileMenu.getByRole("link", { name: arenaLabel, exact: true }),
     ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(mobileMenu).toBeHidden();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "false");
     return;
   }
 
   const knowledge = page.getByRole("button", { name: label, exact: true });
-  await knowledge.click();
+  await knowledge.focus();
+  await page.keyboard.press("ArrowDown");
   const menu = page.getByRole("menu", { name: label });
   await expect(menu).toBeVisible();
   await expect(
@@ -113,6 +138,20 @@ async function openKnowledgeCenter(
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
   await expect(knowledge).toBeFocused();
+}
+
+async function expectProtectedArenaRedirects(page: Page) {
+  const fa = await page.request.get("/academy/trading-arena", {
+    maxRedirects: 0,
+  });
+  expect(fa.status()).toBe(307);
+  expect(fa.headers().location).toContain("/academy/login");
+
+  const en = await page.request.get("/en/academy/trading-arena", {
+    maxRedirects: 0,
+  });
+  expect(en.status()).toBe(307);
+  expect(en.headers().location).toContain("/en/academy/login");
 }
 
 test.beforeEach(async ({ page }) => {
@@ -130,6 +169,8 @@ test("Persian public journey is truthful, navigable and unobscured", async ({
   });
   await page.goto("/", { waitUntil: "load" });
 
+  await expect(page).toHaveTitle(/آموزش رمزارز/);
+  await expect(page).not.toHaveTitle(/صرافی رمزارز امن/);
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(
     page.getByRole("heading", {
@@ -154,27 +195,32 @@ test("Persian public journey is truthful, navigable and unobscured", async ({
 
   await openKnowledgeCenter(page, "مرکز دانش", "تریدینگ آرنا");
 
-  const mentor = page.getByRole("button", {
-    name: "از مربی آموزشی تک‌پی بپرس",
+  const publicMentor = page.getByRole("button", {
+    name: "آشنایی با منتور هوشمند آموزشی تک‌پی",
   });
-  await expect(mentor).toBeVisible();
-  await mentor.click();
+  await expect(publicMentor).toHaveCount(1);
   await expect(
-    page.getByRole("heading", {
-      name: "منتور بعد از ساخت پروفایل آکادمی فعال می‌شود",
-    }),
+    page.getByRole("button", { name: "از مربی آموزشی تک‌پی بپرس" }),
+  ).toHaveCount(0);
+  await publicMentor.click();
+  await expect(
+    page.getByRole("heading", { name: "منتور هوشمند آموزشی تک‌پی" }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "ساخت پروفایل آکادمی" }),
-  ).toHaveAttribute("href", "/academy/onboarding");
+  ).toHaveAttribute("href", "/academy/signup");
+  await page.getByRole("button", { name: "بستن" }).click();
 
-  const footer = page.locator("footer");
-  await expect(footer).toBeVisible();
+  const footerLegal = page.getByText(/نشانی رسمی: tecpey\.ir/);
+  await expect(page.locator("footer")).toBeVisible();
+  await expectReachable(exchange);
   await expectReachable(academy);
+  await expectReachable(footerLegal);
   await expectNoHorizontalOverflow(page);
+  await expectProtectedArenaRedirects(page);
 });
 
-test("English public journey preserves LTR navigation and locked mentor truth", async ({
+test("English public journey preserves LTR navigation and single locked mentor truth", async ({
   page,
 }) => {
   await page.goto("/en", { waitUntil: "load" });
@@ -182,24 +228,46 @@ test("English public journey preserves LTR navigation and locked mentor truth", 
   await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
   await expect(page.getByText(/24\/7|۲۴\/۷|۲۴ ساعته/)).toHaveCount(0);
   await expect(page.getByText("Online", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Market access activation")).toBeVisible();
   await expectCanonicalAuthLinks(page);
   await openKnowledgeCenter(page, "Knowledge Center", "Trading Arena");
 
-  const mentor = page.getByRole("button", {
-    name: "Ask TecPey learning mentor",
+  const publicMentor = page.getByRole("button", {
+    name: "Discover TecPey AI learning mentor",
   });
-  await expect(mentor).toBeVisible();
-  await mentor.click();
+  await expect(publicMentor).toHaveCount(1);
   await expect(
-    page.getByRole("heading", {
-      name: "Mentor activates after academy profile",
-    }),
+    page.getByRole("button", { name: "Ask TecPey learning mentor" }),
+  ).toHaveCount(0);
+  await publicMentor.click();
+  await expect(
+    page.getByRole("heading", { name: "TecPey AI Learning Mentor" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Create academy profile" }),
-  ).toHaveAttribute("href", "/en/academy/onboarding");
+    page.getByRole("link", { name: "Create Academy profile" }),
+  ).toHaveAttribute("href", "/en/academy/signup");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  const footerLegal = page.getByText(/Official site: tecpey\.ir/);
   await expect(page.locator("footer")).toBeVisible();
+  await expectReachable(footerLegal);
   await expectNoHorizontalOverflow(page);
+});
+
+test("Profile service outage fails closed without a misleading mentor launcher", async ({
+  page,
+}) => {
+  await page.unroute("**/api/**");
+  await mockPublicState(page, "unavailable");
+  await page.goto("/", { waitUntil: "load" });
+  await expect(
+    page.getByRole("button", {
+      name: "آشنایی با منتور هوشمند آموزشی تک‌پی",
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "از مربی آموزشی تک‌پی بپرس" }),
+  ).toHaveCount(0);
 });
 
 test("Theme choice changes the rendered authority and survives reload", async ({
@@ -210,9 +278,8 @@ test("Theme choice changes the rendered authority and survives reload", async ({
   await page.evaluate(() => window.localStorage.setItem("theme", "light"));
   await page.reload({ waitUntil: "load" });
 
-  const toggle = page
-    .getByRole("button", { name: /تغییر به حالت/ })
-    .first();
+  const toggle = page.locator('button[aria-label*="تغییر به حالت"]:visible');
+  await expect(toggle).toHaveCount(1);
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   await toggle.click();
@@ -223,9 +290,8 @@ test("Theme choice changes the rendered authority and survives reload", async ({
     .toBe("dark");
 
   await page.reload({ waitUntil: "load" });
-  const persisted = page
-    .getByRole("button", { name: /تغییر به حالت/ })
-    .first();
+  const persisted = page.locator('button[aria-label*="تغییر به حالت"]:visible');
+  await expect(persisted).toHaveCount(1);
   await expect(persisted).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect
