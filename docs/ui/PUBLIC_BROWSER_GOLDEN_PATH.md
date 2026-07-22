@@ -6,7 +6,7 @@
 
 ## Proven journey
 
-The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. Four behavioral scenarios run across four governed browser/viewport projects, producing sixteen exact-head checks. It covers:
+The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. Five behavioral scenarios run across four governed browser/viewport projects, producing twenty exact-head checks. It covers:
 
 - persisted Light/Dark choice through the rendered `html` authority;
 - desktop and mobile Knowledge Center keyboard behavior, focus return and localized Arena discovery;
@@ -24,7 +24,7 @@ Exactly one Mentor launcher may be visible for a resolved account state:
 - a profile-ready learner receives the personalized Global Mentor launcher;
 - an unavailable, malformed or non-successful profile response displays neither launcher.
 
-The public profile response is parsed strictly and fails closed. A service outage must never be interpreted as an absent profile. Personalized Mentor data is available only after canonical Academy profile readiness. Browser tests prove the absent-profile and dependency-unavailable boundaries without production user data.
+The public profile response is parsed strictly and fails closed. A service outage must never be interpreted as an absent profile. Personalized Mentor data is available only after canonical Academy profile readiness. Browser tests independently prove absent-profile, profile-ready and dependency-unavailable boundaries without production user data.
 
 ## Authority and privacy
 
