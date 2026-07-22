@@ -1,0 +1,183 @@
+name: Public Browser Golden Path
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-browser-golden-path.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "next.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/hooks/**"
+      - "src/i18n/**"
+      - "src/services/**"
+      - "src/utils/**"
+      - "tests/e2e/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-browser-golden-path.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "next.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/hooks/**"
+      - "src/i18n/**"
+      - "src/services/**"
+      - "src/utils/**"
+      - "tests/e2e/**"
+  workflow_dispatch:
+
+concurrency:
+  group: public-browser-golden-path-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  public-browser-golden-path:
+    name: Chromium and Firefox public Golden Path
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U e2e -d e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      TECPEY_EVIDENCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      NEXT_PUBLIC_GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_API_BACKEND_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_API_SOCKET_URL: ws://127.0.0.1:3100/ws
+      TECPEY_SESSION_SECRET: e2e-session-secret-distinct-32-characters
+      TECPEY_REFRESH_SECRET: e2e-refresh-secret-distinct-32-characters
+      TECPEY_ACADEMY_AUTH_SECRET: e2e-academy-auth-secret-distinct-32-chars
+      CERTIFICATE_SIGNING_SECRET: e2e-certificate-signing-secret-32-chars
+      TECPEY_WITHDRAWAL_PRICE_SECRET: e2e-withdrawal-price-secret-distinct-32
+      TECPEY_OFFLINE_SYNC_SECRET: e2e-offline-sync-secret-distinct-32-chars
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: e2e-crm-contact-hash-secret-distinct-32
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: "1"
+      DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:5432/e2e
+      REDIS_URL: redis://127.0.0.1:6379
+      UPSTASH_REDIS_REST_URL: https://e2e-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: e2e-placeholder-redis-rest-token
+      TECPEY_REAL_WITHDRAWALS_ENABLED: "0"
+      TECPEY_CUSTODY_KILL_SWITCH: "1"
+      TECPEY_E2E_RUNTIME_MODE: production
+      TECPEY_E2E_PORT: "3100"
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact checkout
+        run: |
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [ "$ACTUAL_SHA" != "$TECPEY_EVIDENCE_SHA" ]; then
+            echo "ERROR: expected $TECPEY_EVIDENCE_SHA, checked out $ACTUAL_SHA"
+            exit 1
+          fi
+          test -z "$(git status --short)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+
+      - name: Install application dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Install browser QA dependencies
+        run: npm ci --prefix tests/e2e --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Validate production environment contract
+        env:
+          NODE_ENV: production
+        run: npm run env:check
+
+      - name: Apply canonical migrations
+        run: npm run db:migrate
+
+      - name: Build exact production application
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Install governed browser binaries
+        run: npm --prefix tests/e2e run install:browsers
+
+      - name: Run public Browser Golden Path
+        env:
+          CI: "true"
+        run: npm run test:e2e:public
+
+      - name: Verify checkout remained unchanged
+        if: ${{ always() }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$TECPEY_EVIDENCE_SHA"
+          test -z "$(git status --short)"
+
+      - name: Upload browser failure evidence
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-failure-${{ env.TECPEY_EVIDENCE_SHA }}
+          path: |
+            tests/e2e/server-output-*.log
+            tests/e2e/playwright-output-*.log
+            tests/e2e/test-results
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload bounded HTML report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-report-${{ env.TECPEY_EVIDENCE_SHA }}
+          path: tests/e2e/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

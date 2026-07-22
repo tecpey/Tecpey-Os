@@ -1,0 +1,20 @@
+{
+  "name": "@tecpey/public-browser-qa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Governed public Browser Golden Path for TecPey Soft Launch evidence",
+  "scripts": {
+    "test": "node run-public-e2e.mjs",
+    "test:direct": "playwright test --config=playwright.config.mjs",
+    "install:browsers": "playwright install --with-deps chromium firefox"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "axe-core": "4.12.1"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0 <11.0.0"
+  }
+}

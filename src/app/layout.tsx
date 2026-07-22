@@ -1,6 +1,8 @@
 import "./globals.css";
 import "./tecpey-brand-tokens.css";
 import { NextIntlClientProvider } from "next-intl";
+import { headers } from "next/headers";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import Providers from "./providers";
 import Navbar from "@/components/navbar/Navbar";
@@ -12,6 +14,7 @@ import HtmlLangDir from "@/components/seo/HtmlLangDir";
 import { GlobalAiMentorWidget } from "@/components/academy/GlobalAiMentorWidget";
 import { PublicMentorEntry } from "@/components/academy/PublicMentorEntry";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
+import { REQUEST_ROUTE_CONTEXT_HEADER } from "@/lib/request-route-context";
 
 const globalSeoSchemas = [
   {
@@ -19,7 +22,7 @@ const globalSeoSchemas = [
     "@type": "Organization",
     "@id": "https://tecpey.ir/#organization",
     name: "TecPey",
-    alternateName: ["تک‌پی", "TecPey Crypto Exchange"],
+    alternateName: ["تک‌پی", "TecPey OS"],
     url: "https://tecpey.ir",
     logo: "https://tecpey.ir/images/tecpey-logo.png",
     email: "info@tecpey.ir",
@@ -27,7 +30,7 @@ const globalSeoSchemas = [
     sameAs: [
       "https://t.me/tecpeyco",
       "https://instagram.com/tecpeyco",
-      "https://discord.gg/tecpeyex"
+      "https://discord.gg/tecpeyex",
     ],
     contactPoint: [
       {
@@ -36,7 +39,7 @@ const globalSeoSchemas = [
         email: "support@tecpey.ir",
         contactType: "customer support",
         areaServed: "IR",
-        availableLanguage: ["fa", "en"]
+        availableLanguage: ["fa", "en"],
       },
       {
         "@type": "ContactPoint",
@@ -44,52 +47,72 @@ const globalSeoSchemas = [
         email: "info@tecpey.ir",
         contactType: "general inquiries",
         areaServed: "IR",
-        availableLanguage: ["fa", "en"]
-      }
+        availableLanguage: ["fa", "en"],
+      },
     ],
     hasOfferCatalog: {
       "@type": "OfferCatalog",
-      name: "خدمات تک‌پی",
+      name: "آموزش و تمرین مالی تک‌پی",
       itemListElement: [
-        { "@type": "Service", "@id": "https://tecpey.ir/#exchange", name: "TecPey Exchange", alternateName: "صرافی تک‌پی", url: "https://tecpey.ir", serviceType: "Cryptocurrency Exchange", areaServed: "IR" },
-        { "@type": "Service", "@id": "https://tecpey.ir/#academy", name: "TecPey Academy", alternateName: "آکادمی تک‌پی", url: "https://tecpey.ir/academy", serviceType: "Cryptocurrency Education" },
-        { "@type": "Service", "@id": "https://tecpey.ir/#ai-mentor", name: "TecPey AI Mentor", alternateName: "مربی هوشمند تک‌پی", url: "https://tecpey.ir/academy", serviceType: "AI-powered Learning Mentor" },
-        { "@type": "Service", "@id": "https://tecpey.ir/#trading-arena", name: "TecPey Trading Arena", alternateName: "آرنای معاملاتی تک‌پی", url: "https://tecpey.ir/academy", serviceType: "Virtual Trading Practice" },
-        { "@type": "Service", "@id": "https://tecpey.ir/#security-center", name: "TecPey Security Center", alternateName: "مرکز امنیت تک‌پی", url: "https://tecpey.ir/security", serviceType: "Crypto Security Education" }
-      ]
-    }
+        {
+          "@type": "Service",
+          "@id": "https://tecpey.ir/#academy",
+          name: "TecPey Academy",
+          alternateName: "آکادمی تک‌پی",
+          url: "https://tecpey.ir/academy",
+          serviceType: "Cryptocurrency and financial education",
+        },
+        {
+          "@type": "Service",
+          "@id": "https://tecpey.ir/#trading-arena",
+          name: "TecPey Trading Arena",
+          alternateName: "تریدینگ آرنای تک‌پی",
+          url: "https://tecpey.ir/academy/trading-arena",
+          serviceType: "Virtual trading practice",
+        },
+        {
+          "@type": "Service",
+          "@id": "https://tecpey.ir/#ai-mentor",
+          name: "TecPey AI Learning Mentor",
+          alternateName: "منتور هوشمند آموزشی تک‌پی",
+          url: "https://tecpey.ir/academy",
+          serviceType: "AI-assisted learning guidance",
+        },
+        {
+          "@type": "Service",
+          "@id": "https://tecpey.ir/#exchange-core",
+          name: "TecPey Exchange Core — launch gated",
+          alternateName: "هسته صرافی تک‌پی — غیرفعال تا تکمیل گیت‌های راه‌اندازی",
+          url: "https://tecpey.ir",
+          serviceType: "Launch-gated digital asset infrastructure",
+        },
+      ],
+    },
   },
   {
     "@context": "https://schema.org",
-    "@type": "FinancialService",
-    "@id": "https://tecpey.ir/#financial-service",
+    "@type": "EducationalOrganization",
+    "@id": "https://tecpey.ir/#education-platform",
     name: "TecPey",
     url: "https://tecpey.ir",
     logo: "https://tecpey.ir/images/tecpey-logo.png",
     email: "info@tecpey.ir",
     telephone: "+981132338026",
-    description: "TecPey is a Persian crypto exchange experience for live crypto prices, cryptocurrency education, security guidance and a clearer start in the Iran crypto market.",
+    description:
+      "TecPey combines structured financial education, virtual trading practice and governed AI learning guidance. Real-money exchange and custody capabilities remain launch-gated until their operational, compliance and security requirements are complete.",
     areaServed: {
       "@type": "Country",
-      name: "Iran"
+      name: "Iran",
     },
     address: {
       "@type": "PostalAddress",
       addressLocality: "Babol",
       addressRegion: "Mazandaran",
-      addressCountry: "IR"
+      addressCountry: "IR",
     },
-    serviceType: [
-      "Cryptocurrency exchange",
-      "Persian crypto exchange",
-      "Crypto market board",
-      "Cryptocurrency education",
-      "Crypto glossary",
-      "Crypto comparison platform"
-    ],
     provider: {
-      "@id": "https://tecpey.ir/#organization"
-    }
+      "@id": "https://tecpey.ir/#organization",
+    },
   },
   {
     "@context": "https://schema.org",
@@ -99,13 +122,13 @@ const globalSeoSchemas = [
     url: "https://tecpey.ir",
     inLanguage: ["fa-IR", "en-US"],
     publisher: {
-      "@id": "https://tecpey.ir/#organization"
+      "@id": "https://tecpey.ir/#organization",
     },
     potentialAction: {
       "@type": "SearchAction",
       target: "https://tecpey.ir/markets?search={search_term_string}",
-      "query-input": "required name=search_term_string"
-    }
+      "query-input": "required name=search_term_string",
+    },
   },
   buildFAQSchema(TECPEY_FAQS),
 ];
@@ -116,19 +139,19 @@ export async function generateMetadata() {
   return {
     metadataBase: new URL("https://tecpey.ir"),
     title: {
-      default: "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
+      default: "تک‌پی | آموزش مالی، تمرین معاملاتی و ورود آگاهانه",
       template: "%s | TecPey",
     },
     description:
-      "تک‌پی صرافی رمزارز فارسی برای مشاهده قیمت لحظه‌ای، خرید و فروش تتر و بیت‌کوین، آموزش، امنیت حساب و شروع سریع معامله است.",
+      "تک‌پی مسیر آموزش مالی، تمرین بدون ریسک در تریدینگ آرنا، منتور هوشمند آموزشی و آمادگی آگاهانه برای بازار دارایی‌های دیجیتال است.",
     keywords: [
-      "صرافی ارز دیجیتال",
-      "خرید بیت کوین",
-      "خرید تتر",
-      "قیمت رمزارز",
       "آموزش رمزارز",
-      "صرافی رمزارز ایران",
+      "آموزش مالی",
+      "تریدینگ آرنا",
+      "تمرین معامله مجازی",
+      "مدیریت ریسک",
       "امنیت رمزارز",
+      "منتور هوشمند آموزشی",
       "تک‌پی",
     ],
     applicationName: "TecPey",
@@ -161,17 +184,25 @@ export async function generateMetadata() {
       type: "website",
       siteName: "TecPey",
       url: "https://tecpey.ir",
-      title: "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
+      title: "تک‌پی | آموزش مالی و تمرین معاملاتی بدون ریسک",
       description:
-        "مشاهده قیمت لحظه‌ای رمزارزها، شروع سریع معامله، آموزش، امنیت حساب و پشتیبانی رسمی تک‌پی.",
+        "آکادمی، تریدینگ آرنای مجازی و منتور هوشمند آموزشی در یک مسیر شفاف و مدیریت‌شده.",
       locale: "fa_IR",
       alternateLocale: ["en_US"],
-      images: [{ url: "https://tecpey.ir/images/tecpey-logo.png", width: 512, height: 512, alt: "TecPey" }],
+      images: [
+        {
+          url: "https://tecpey.ir/images/tecpey-logo.png",
+          width: 512,
+          height: 512,
+          alt: "TecPey",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
-      title: "تک‌پی | صرافی رمزارز امن و حرفه‌ای",
-      description: "بازار رمزارز را با قیمت لحظه‌ای، امنیت، آموزش و مسیر شروع روشن دنبال کنید.",
+      title: "تک‌پی | آموزش مالی و تمرین معاملاتی بدون ریسک",
+      description:
+        "آموزش، مدیریت ریسک، تمرین مجازی و راهنمایی هوشمند برای ورود آگاهانه به بازار.",
       images: ["https://tecpey.ir/images/tecpey-logo.png"],
     },
   };
@@ -182,19 +213,28 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const locale = "fa";
-  const messages = (await import(`../i18n/messages/fa.json`)).default;
+  // Nonce-based CSP requires request-time rendering so Next.js can copy the
+  // request nonce onto framework, hydration and inline runtime scripts.
+  await connection();
+
+  const requestHeaders = await headers();
+  const requestPath = requestHeaders.get(REQUEST_ROUTE_CONTEXT_HEADER) ?? "/";
+  const isEnglish = requestPath === "/en" || requestPath.startsWith("/en/");
+  const locale = isEnglish ? "en" : "fa";
+  const messages = (await import(`../i18n/messages/${locale}.json`)).default;
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const user = await getProfileInfo();
   const metaData = await getMetaData();
 
   return (
     <html
-      lang="fa-IR"
-      dir="rtl"
+      lang={isEnglish ? "en-US" : "fa-IR"}
+      dir={isEnglish ? "ltr" : "rtl"}
       suppressHydrationWarning
     >
       <body>
         <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalSeoSchemas) }}
         />
