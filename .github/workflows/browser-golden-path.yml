@@ -93,7 +93,9 @@ jobs:
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
       - name: Verify browser authority contract
-        run: npm run browser:check
+        run: |
+          set -o pipefail
+          npm run browser:check 2>&1 | tee /tmp/tecpey-browser-authority.log
 
       - name: Apply canonical migrations
         run: |
@@ -146,6 +148,7 @@ jobs:
         with:
           name: browser-golden-path-failure-${{ github.sha }}
           path: |
+            /tmp/tecpey-browser-authority.log
             /tmp/tecpey-browser-migrations.log
             /tmp/tecpey-browser-build.log
             /tmp/tecpey-browser-server.log
