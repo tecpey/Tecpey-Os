@@ -128,10 +128,10 @@ function DeviceFrame() {
               <Image src="/images/tecpey-logo.png" alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
               <div>
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">بازار تک‌پی</p>
-                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">قیمت لحظه‌ای و مسیر شروع معامله</p>
+                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">نمای آموزشی قیمت و مسیر یادگیری</p>
               </div>
             </div>
-            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 sm:block">Online</div>
+            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 sm:block">نمایش آموزشی بازار</div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -139,7 +139,7 @@ function DeviceFrame() {
               ["شروع سریع", "۳ قدم"],
               ["مسیر کاربر", "شفاف"],
               ["بازارها", "زنده"],
-              ["پشتیبانی", "۲۴/۷"],
+              ["پشتیبانی", "ساعات اعلام‌شده"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-3 text-center">
                 <p className="text-lg font-black text-[color:var(--tp-text)]">{value}</p>
@@ -189,7 +189,7 @@ function Hero() {
             تک‌پی، نقطه امن ورود به بازار رمزارز
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-8 text-[color:var(--tp-muted)] sm:text-lg lg:mx-0">
-            از اولین آشنایی با بیت‌کوین تا اولین معامله واقعی، آموزش، تحلیل، ابزار و بازار زنده را در یک مسیر شفاف تجربه کنید؛ بدون عجله، بدون سیگنال‌فروشی و با تمرکز روی امنیت و مدیریت ریسک.
+            از اولین آشنایی با بیت‌کوین تا تمرین معامله در محیط آموزشی، آموزش، تحلیل، ابزار و نمای بازار را در یک مسیر شفاف تجربه کنید؛ دسترسی به هر خدمت مالی فقط پس از فعال‌سازی و تأیید عملیاتی همان خدمت ارائه می‌شود.
           </p>
           <div className="mt-5 inline-flex rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-700 shadow-sm dark:text-cyan-200">
             آموزش رایگان برای همه؛ مسیر رسمی آکادمی یک برنامه جداگانه آنلاین یا حضوری است
