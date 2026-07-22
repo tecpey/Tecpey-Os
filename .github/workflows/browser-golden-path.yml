@@ -97,10 +97,14 @@ jobs:
         run: npm run browser:check
 
       - name: Apply canonical migrations
-        run: npm run db:migrate
+        run: |
+          set -o pipefail
+          npm run db:migrate 2>&1 | tee /tmp/tecpey-browser-migrations.log
 
       - name: Build production browser target
-        run: npm run build
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/tecpey-browser-build.log
 
       - name: Install governed browsers
         run: npx playwright install --with-deps chromium firefox
@@ -139,6 +143,8 @@ jobs:
         with:
           name: browser-golden-path-failure-${{ github.sha }}
           path: |
+            /tmp/tecpey-browser-migrations.log
+            /tmp/tecpey-browser-build.log
             /tmp/tecpey-browser-server.log
             /tmp/tecpey-browser-root.html
             playwright-report
