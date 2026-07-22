@@ -55,7 +55,8 @@ test("Profile-ready learner receives only the personalized Mentor launcher", asy
   });
   await expect(personalizedMentor).toHaveCount(1);
   await personalizedMentor.click();
-  await expect(page.getByText("Browser QA learner", { exact: true })).toBeVisible();
+  await expect(page.getByText("پرونده یادگیری", { exact: true })).toBeVisible();
+  await expect(page.getByText("ساخت پروفایل آکادمی", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "آشنایی با منتور هوشمند آموزشی تک‌پی" }),
   ).toHaveCount(0);
