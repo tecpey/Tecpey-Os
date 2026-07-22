@@ -68,6 +68,9 @@ jobs:
       REDIS_URL: redis://localhost:6379
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: browser-placeholder-redis-rest-token
+      TECPEY_REAL_WITHDRAWALS_ENABLED: '0'
+      TECPEY_CUSTODY_SIMULATION_ENABLED: '0'
+      TECPEY_CUSTODY_KILL_SWITCH: '1'
 
     steps:
       - name: Checkout
