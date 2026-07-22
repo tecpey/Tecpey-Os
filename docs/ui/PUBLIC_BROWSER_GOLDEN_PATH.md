@@ -6,16 +6,36 @@
 
 ## Proven journey
 
-The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. It covers Theme persistence, Knowledge Center keyboard behavior, public Mentor discovery with a truthful locked state, Academy and Arena entry links, Footer visibility without IntersectionObserver, horizontal overflow and fixed-control obstruction.
+The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. It covers:
+
+- persisted Light/Dark choice through the rendered `html` authority;
+- desktop and mobile Knowledge Center keyboard behavior, focus return and localized Arena discovery;
+- canonical Exchange login/signup destinations without malformed or doubled origins;
+- Academy and protected Arena route behavior in Persian and English;
+- Footer visibility when `IntersectionObserver` is unavailable;
+- horizontal overflow and fixed-control reachability;
+- truthful public claims and education-first metadata.
+
+## Mentor authority and degraded behavior
+
+Exactly one Mentor launcher may be visible for a resolved account state:
+
+- a user with no Academy profile receives the public educational onboarding launcher;
+- a profile-ready learner receives the personalized Global Mentor launcher;
+- an unavailable, malformed or non-successful profile response displays neither launcher.
+
+The public profile response is parsed strictly and fails closed. A service outage must never be interpreted as an absent profile. Personalized Mentor data is available only after canonical Academy profile readiness. Browser tests prove the absent-profile and dependency-unavailable boundaries without production user data.
 
 ## Authority and privacy
 
-Browser tests use isolated mocked public API responses. They contain no production credentials, user records or staging access and do not authorize financial capability. The Mentor remains personalized only after a canonical Academy profile exists. Public ranking, rewards, Instructor access and real custody remain disabled.
+Browser tests use isolated public API responses, a temporary PostgreSQL database and Redis service. They contain no production credentials, user records or staging access and do not authorize financial capability. Public ranking, rewards, Instructor access and real custody remain disabled.
+
+The Browser workflow executes clean migrations, a production build and the governed custom server with custody explicitly disabled. This proves browser behavior on the production runtime path; it is not staging or production-host evidence.
 
 ## Truthful product boundary
 
-The landing page must not claim unconditional 24/7 support, an ungoverned online state or production-certified real-money availability. Financial services are presented only as available after their own operational activation and release evidence.
+The public surface and structured metadata must not claim unconditional 24/7 support, an ungoverned online state, an active production-certified exchange or real-money availability. Financial services are presented only as available after their own operational, compliance and release evidence is approved.
 
 ## Evidence rule
 
-`npm run browser:check` protects the source contract. `npm run test:browser` executes the browser behavior. A green build or static text scan alone is not browser acceptance. Failure traces, screenshots and video are retained only for a short diagnostic window.
+`npm run browser:check` protects the source contract. `npm run test:browser` executes browser behavior. A green build or static text scan alone is not browser acceptance. Failure traces, screenshots, server logs and video are retained only for a short diagnostic window.
