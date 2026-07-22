@@ -30,6 +30,7 @@ export const metadata: Metadata = {
     languages: {
       "fa-IR": "https://tecpey.ir",
       "en-US": "https://tecpey.ir/en",
+      "x-default": "https://tecpey.ir",
     },
   },
   openGraph: {
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
     url: "https://tecpey.ir",
     siteName: "TecPey",
     locale: "fa_IR",
+    alternateLocale: ["en_US"],
     type: "website",
     images: [
       {
@@ -63,20 +65,8 @@ const breadcrumbSchema = {
     {
       "@type": "ListItem",
       position: 1,
-      name: "خانه",
+      name: "خانه تک‌پی",
       item: "https://tecpey.ir",
-    },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: "آکادمی رمزارز",
-      item: "https://tecpey.ir/academy",
-    },
-    {
-      "@type": "ListItem",
-      position: 3,
-      name: "تریدینگ آرنا",
-      item: "https://tecpey.ir/academy/trading-arena",
     },
   ],
 };
@@ -88,10 +78,8 @@ const websiteSchema = {
   alternateName: "تک‌پی",
   url: "https://tecpey.ir",
   inLanguage: ["fa-IR", "en-US"],
-  potentialAction: {
-    "@type": "SearchAction",
-    target: "https://tecpey.ir/academy?search={search_term_string}",
-    "query-input": "required name=search_term_string",
+  publisher: {
+    "@id": "https://tecpey.ir/#organization",
   },
 };
 
@@ -120,7 +108,7 @@ const faqSchema = {
       name: "آیا خدمات مالی واقعی در تک‌پی فعال است؟",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "هر خدمت مالی واقعی فقط پس از تکمیل الزامات فنی، امنیتی، عملیاتی و قانونی همان خدمت فعال می‌شود. صفحات عمومی نباید فعال‌بودن خدمت تأییدنشده را القا کنند.",
+        text: "هر خدمت مالی واقعی فقط پس از تکمیل الزامات فنی، امنیتی، عملیاتی و قانونی همان خدمت فعال می‌شود. مسیر عمومی فعلی بر آموزش و تمرین با سرمایه مجازی تمرکز دارد.",
       },
     },
     {
@@ -141,16 +129,10 @@ const articleSchema = {
   description: homeDescription,
   inLanguage: "fa-IR",
   author: {
-    "@type": "Organization",
-    name: "TecPey",
+    "@id": "https://tecpey.ir/#organization",
   },
   publisher: {
-    "@type": "Organization",
-    name: "TecPey",
-    logo: {
-      "@type": "ImageObject",
-      url: "https://tecpey.ir/images/tecpey-logo.png",
-    },
+    "@id": "https://tecpey.ir/#organization",
   },
   about: [
     "آموزش رمزارز",
