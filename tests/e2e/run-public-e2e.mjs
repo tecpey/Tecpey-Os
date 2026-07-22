@@ -7,36 +7,28 @@ const e2eRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(e2eRoot, "../..");
 const playwrightCli = resolve(e2eRoot, "node_modules/@playwright/test/cli.js");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const runtimeMode = process.env.TECPEY_E2E_RUNTIME_MODE === "development"
-  ? "development"
-  : "production";
+const runtimeMode =
+  process.env.TECPEY_E2E_RUNTIME_MODE === "development"
+    ? "development"
+    : "production";
 const port = process.env.TECPEY_E2E_PORT ?? "3100";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
-const projects = [
-  "chromium-fa-mobile",
-  "chromium-en-desktop",
-  "firefox-fa-desktop",
-  "firefox-en-mobile",
-];
+const outputLimit = 240_000;
 
-function boundedAppend(current, chunk, limit) {
-  return `${current}${String(chunk)}`.slice(-limit);
+function boundedAppend(current, chunk) {
+  return `${current}${String(chunk)}`.slice(-outputLimit);
 }
 
-function diagnosticsPath(kind, project) {
-  return resolve(e2eRoot, `${kind}-output-${project}.log`);
-}
-
-function persistProjectDiagnostics(project, serverOutput, playwrightOutput) {
+function persistDiagnostics(serverOutput, playwrightOutput) {
   writeFileSync(
-    diagnosticsPath("server", project),
+    resolve(e2eRoot, "server-output.log"),
     serverOutput || "TecPey server emitted no captured stdout/stderr.\n",
     "utf8",
   );
   writeFileSync(
-    diagnosticsPath("playwright", project),
+    resolve(e2eRoot, "playwright-output.log"),
     playwrightOutput || "Playwright emitted no captured stdout/stderr.\n",
     "utf8",
   );
@@ -97,8 +89,14 @@ function spawnServer(onOutput) {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  child.stdout?.on("data", onOutput);
-  child.stderr?.on("data", onOutput);
+  child.stdout?.on("data", (chunk) => {
+    onOutput(chunk);
+    process.stdout.write(chunk);
+  });
+  child.stderr?.on("data", (chunk) => {
+    onOutput(chunk);
+    process.stderr.write(chunk);
+  });
   return child;
 }
 
@@ -154,24 +152,19 @@ async function stopServer(server) {
     } catch {
       server.kill("SIGKILL");
     }
+    await new Promise((resolvePromise) => server.once("exit", resolvePromise));
   }
 }
 
-async function runPlaywrightProject(project, onOutput) {
+async function runPlaywright(onOutput) {
   const child = spawn(
     process.execPath,
-    [
-      playwrightCli,
-      "test",
-      "--config=playwright.config.mjs",
-      `--project=${project}`,
-    ],
+    [playwrightCli, "test", "--config=playwright.config.mjs"],
     {
       cwd: e2eRoot,
       env: {
         ...process.env,
         TECPEY_E2E_BASE_URL: baseURL,
-        TECPEY_E2E_PROJECT: project,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -200,40 +193,34 @@ async function runPlaywrightProject(project, onOutput) {
   });
 }
 
-let failed = false;
+let serverOutput = "";
+let playwrightOutput = "";
+let server;
 
-for (const project of projects) {
-  let serverOutput = "";
-  let playwrightOutput = "";
-  let server;
+const appendServerOutput = (chunk) => {
+  serverOutput = boundedAppend(serverOutput, chunk);
+};
+const appendPlaywrightOutput = (chunk) => {
+  playwrightOutput = boundedAppend(playwrightOutput, chunk);
+};
 
-  const appendServerOutput = (chunk) => {
-    serverOutput = boundedAppend(serverOutput, chunk, 80_000);
-  };
-  const appendPlaywrightOutput = (chunk) => {
-    playwrightOutput = boundedAppend(playwrightOutput, chunk, 160_000);
-  };
+try {
+  console.log(
+    `Browser QA: starting one isolated ${runtimeMode} server on ${baseURL}.`,
+  );
+  server = spawnServer(appendServerOutput);
+  await waitForServer(server, () => serverOutput);
+  console.log("Browser QA: server ready; running the complete governed matrix.");
 
-  try {
-    console.log(
-      `Browser QA: starting isolated ${runtimeMode} server for ${project} on ${baseURL}.`,
-    );
-    server = spawnServer(appendServerOutput);
-    await waitForServer(server, () => serverOutput);
-    console.log(`Browser QA: server ready; starting ${project}.`);
-
-    const exitCode = await runPlaywrightProject(project, appendPlaywrightOutput);
-    if (exitCode !== 0) failed = true;
-  } catch (error) {
-    const diagnostic = error instanceof Error ? error.stack || error.message : String(error);
-    appendPlaywrightOutput(`Browser QA infrastructure error: ${diagnostic}\n`);
-    console.error(diagnostic);
-    failed = true;
-  } finally {
-    persistProjectDiagnostics(project, serverOutput, playwrightOutput);
-    await stopServer(server);
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
-  }
+  const exitCode = await runPlaywright(appendPlaywrightOutput);
+  if (exitCode !== 0) process.exitCode = 1;
+} catch (error) {
+  const diagnostic =
+    error instanceof Error ? error.stack || error.message : String(error);
+  appendPlaywrightOutput(`Browser QA infrastructure error: ${diagnostic}\n`);
+  console.error(diagnostic);
+  process.exitCode = 1;
+} finally {
+  persistDiagnostics(serverOutput, playwrightOutput);
+  await stopServer(server);
 }
-
-if (failed) process.exitCode = 1;
