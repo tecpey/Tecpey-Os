@@ -181,10 +181,10 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
                 </div>
                 <div>
                   <p className="text-sm font-black text-slate-950 dark:text-white">{isFa ? "TecPey AI Mentor" : "TecPey AI Mentor"}</p>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{isFa ? "آموزش ۲۴ ساعته، بدون سیگنال‌فروشی" : "24/7 learning, no signal selling"}</p>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{isFa ? "یادگیری هنگام نیاز، بدون سیگنال‌فروشی" : "On-demand learning, no signal selling"}</p>
                 </div>
               </div>
-              <span className="rounded-full border border-emerald-300/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-300">Online</span>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-300">{isFa ? "نمای آموزشی" : "Learning preview"}</span>
             </div>
             <div className="mt-5 space-y-3">
               <div className="max-w-[88%] rounded-3xl rounded-br-md bg-slate-100 p-4 text-sm font-bold leading-7 text-slate-700 dark:bg-white/10 dark:text-slate-200">

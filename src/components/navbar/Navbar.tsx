@@ -100,14 +100,8 @@ export default function Navbar({
   const appUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
   const officialLogo = "/images/tecpey-logo.png";
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
-  const authLink = (
-    path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
-  ) => {
-    if (appUrl) return `${appUrl}${path}`;
-    return path === "https://my.tecpey.ir/signup"
-      ? "https://my.tecpey.ir/signup"
-      : "https://my.tecpey.ir/signin";
-  };
+  const authLink = (path: "/signin" | "/signup") =>
+    appUrl ? `${appUrl}${path}` : `https://my.tecpey.ir${path}`;
   const pathname = usePathname();
   const normalizedPath =
     pathname === "/" ? "" : pathname.replace(/^\/en(?=\/|$)/, "");
@@ -148,10 +142,10 @@ export default function Navbar({
     : "/academy/signup";
   const resolvedLoginHref = isAcademyArea
     ? academyLoginHref
-    : authLink("https://my.tecpey.ir/signin");
+    : authLink("/signin");
   const resolvedSignupHref = isAcademyArea
     ? academySignupHref
-    : authLink("https://my.tecpey.ir/signup");
+    : authLink("/signup");
   const menuAriaLabel = isEnglish ? "Open menu" : "باز کردن منو";
   const knowledgeMenuId = "tecpey-knowledge-center-menu";
   const mobileKnowledgeMenuId = "tecpey-mobile-knowledge-center-menu";
