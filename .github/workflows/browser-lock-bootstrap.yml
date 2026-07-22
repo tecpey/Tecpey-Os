@@ -25,12 +25,14 @@ jobs:
       - name: Apply staged patch
         run: python3 scripts/apply-browser-golden-path-patch.py
 
-      - name: Commit final patch and remove temporary machinery
+      - name: Commit non-workflow source patch
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
+          rm -f .github/workflows/browser-golden-path.yml
+          git checkout HEAD -- .github/workflows/browser-lock-bootstrap.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "test(ui): add public browser golden path"
+          git commit -m "test(ui): add public browser golden path source"
           git push origin "HEAD:${HEAD_REF}"
