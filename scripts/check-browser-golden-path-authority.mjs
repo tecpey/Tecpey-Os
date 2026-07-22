@@ -29,6 +29,7 @@ for (const path of [
   "playwright.config.ts",
   "src/tests/browser/public-golden-path.spec.ts",
   "src/tests/browser/mentor-profile-ready.spec.ts",
+  "src/app/page.tsx",
   ".github/workflows/browser-golden-path.yml",
   "docs/ui/PUBLIC_BROWSER_GOLDEN_PATH.md",
 ]) {
@@ -97,6 +98,7 @@ for (const token of [
   "tecpey.irhttps://",
   "۲۴ ساعته",
   "Market access activation",
+  "toHaveTitle",
   "toHaveCount(0)",
 ]) {
   requireText(spec, token, `browser Golden Path coverage missing ${token}`);
@@ -172,6 +174,34 @@ for (const forbidden of [
   }
 }
 
+const homePage = read("src/app/page.tsx");
+for (const token of [
+  "تک‌پی | آموزش رمزارز، تریدینگ آرنا و منتور هوشمند",
+  "تمرین معاملاتی با سرمایه مجازی",
+  "خدمات مالی تنها پس از فعال‌سازی و تأیید عملیاتی",
+  'requestHeaders.get("x-nonce")',
+  "nonce={nonce}",
+  '"@type": "FAQPage"',
+  "آیا خدمات مالی واقعی در تک‌پی فعال است؟",
+  "راهنمای ورود مسئولانه به بازار رمزارز",
+]) {
+  requireText(homePage, token, `home metadata/JSON-LD boundary missing: ${token}`);
+}
+for (const forbidden of [
+  '"صرافی ارز دیجیتال"',
+  '"خرید بیت کوین"',
+  '"خرید تتر"',
+  '"معامله رمزارز"',
+  '"صرافی رمزارز ایرانی"',
+  "بهترین صرافی ارز دیجیتال",
+  "راهنمای شروع معامله رمزارز در تک‌پی",
+  "با مسیر ثبت‌نام واضح وارد معامله شوند",
+]) {
+  if (homePage.includes(forbidden)) {
+    failures.push(`unsupported home metadata claim remains: ${forbidden}`);
+  }
+}
+
 const themeProvider = read("src/components/theme-provider.tsx");
 requireText(
   themeProvider,
@@ -203,7 +233,11 @@ for (const required of [
   "Market access activation",
   "Live financial services remain gated",
 ]) {
-  requireText(englishLanding, required, `truthful English landing disclosure missing: ${required}`);
+  requireText(
+    englishLanding,
+    required,
+    `truthful English landing disclosure missing: ${required}`,
+  );
 }
 for (const forbidden of [
   "Online market board",
@@ -271,5 +305,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Browser Golden Path authority passed: production custom-server with isolated PostgreSQL/Redis, pinned Playwright, four browser/viewport projects, permanent all-PR/main workflow, canonical auth links, truthful metadata/copy, one fail-closed public Mentor entry, profile-ready personalized Mentor, and no temporary patch assets.",
+  "Browser Golden Path authority passed: production custom-server with isolated PostgreSQL/Redis, pinned Playwright, four browser/viewport projects, permanent all-PR/main workflow, canonical auth links, truthful page/layout metadata and nonce-bound JSON-LD, one fail-closed public Mentor entry, profile-ready personalized Mentor, and no temporary patch assets.",
 );
