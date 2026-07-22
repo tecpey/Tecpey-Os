@@ -40,10 +40,19 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      "PORT=3100 NODE_ENV=development NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3100 NEXT_PUBLIC_API_URL=https://my.tecpey.ir NEXT_PUBLIC_API_BACKEND_URL=https://ci-placeholder.tecpey.ir NEXT_PUBLIC_API_SOCKET_URL=wss://ci-placeholder.tecpey.ir/spot npm run dev",
+    command: "npm run build && npm run start",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
+    env: {
+      PORT: "3100",
+      NODE_ENV: "production",
+      NEXT_PUBLIC_SITE_URL: baseURL,
+      NEXT_PUBLIC_API_URL: "https://my.tecpey.ir",
+      NEXT_PUBLIC_API_BACKEND_URL: "https://ci-placeholder.tecpey.ir",
+      NEXT_PUBLIC_API_SOCKET_URL: "wss://ci-placeholder.tecpey.ir/spot",
+      NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
+      REDIS_URL: "",
+    },
   },
 });
