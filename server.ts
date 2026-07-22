@@ -20,10 +20,15 @@ import {
 } from "./src/lib/wallet/custody-launch-policy";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
+const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
 const dev = process.env.NODE_ENV !== "production";
 
 const httpServer = createServer();
-const app = next({ dev, httpServer });
+// Next.js 16 custom-server/proxy bootstrap needs the same explicit network
+// identity that the real HTTP server will bind. Keeping hostname, port and
+// httpServer aligned prevents development internals from resolving a different
+// dist/runtime context than the server that ultimately handles the request.
+const app = next({ dev, hostname, port, httpServer });
 const handle = app.getRequestHandler();
 const pubsub = getRedisPubSub();
 
@@ -136,7 +141,7 @@ async function listen(): Promise<void> {
     };
 
     httpServer.once("error", onError);
-    httpServer.listen(port, () => {
+    httpServer.listen(port, hostname, () => {
       httpServer.off("error", onError);
       resolve();
     });
@@ -220,9 +225,10 @@ async function main(): Promise<void> {
   });
 
   await listen();
+  const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
   console.log(
-    `> TecPey server ready on http://localhost:${port} ` +
-    `(${dev ? "development" : "production"}) — WS at ws://localhost:${port}/ws`,
+    `> TecPey server ready on http://${displayHost}:${port} ` +
+    `(${dev ? "development" : "production"}) — WS at ws://${displayHost}:${port}/ws`,
   );
 }
 
