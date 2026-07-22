@@ -1,11 +1,6 @@
 import { defineConfig } from "@playwright/test";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const e2eRoot = dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = resolve(e2eRoot, "../..");
-const port = process.env.TECPEY_E2E_PORT ?? "3100";
-const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://127.0.0.1:${port}`;
+const baseURL = process.env.TECPEY_E2E_BASE_URL ?? "http://127.0.0.1:3100";
 const isCi = Boolean(process.env.CI);
 
 const sharedUse = {
@@ -75,31 +70,4 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    cwd: repositoryRoot,
-    url: baseURL,
-    timeout: 120_000,
-    reuseExistingServer: !isCi,
-    stdout: "pipe",
-    stderr: "pipe",
-    gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
-    env: {
-      ...process.env,
-      NODE_ENV: "development",
-      PORT: port,
-      NEXT_PUBLIC_SITE_URL: baseURL,
-      REDIS_URL: "",
-      NEXT_PUBLIC_API_URL: "",
-      NEXT_PUBLIC_API_BACKEND_URL: "",
-      NEXT_PUBLIC_API_SOCKET_URL: "",
-      NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
-      TECPEY_SESSION_SECRET: "e2e-session-secret-32-characters-minimum",
-      TECPEY_REFRESH_SECRET: "e2e-refresh-secret-32-characters-minimum",
-      TECPEY_ACADEMY_AUTH_SECRET: "e2e-academy-auth-secret-32-characters",
-      CERTIFICATE_SIGNING_SECRET: "e2e-certificate-secret-32-characters",
-      TECPEY_WITHDRAWAL_PRICE_SECRET: "e2e-withdrawal-price-secret-32-characters",
-      TECPEY_OFFLINE_SYNC_SECRET: "e2e-offline-sync-secret-32-characters",
-    },
-  },
 });
