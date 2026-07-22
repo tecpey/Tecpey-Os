@@ -1,0 +1,100 @@
+name: Public Browser Golden Path
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-browser-golden-path.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "next.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/hooks/**"
+      - "src/i18n/**"
+      - "src/services/**"
+      - "src/utils/**"
+      - "tests/e2e/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-browser-golden-path.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "next.config.ts"
+      - "src/app/**"
+      - "src/components/**"
+      - "src/hooks/**"
+      - "src/i18n/**"
+      - "src/services/**"
+      - "src/utils/**"
+      - "tests/e2e/**"
+  workflow_dispatch:
+
+concurrency:
+  group: public-browser-golden-path-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  public-browser-golden-path:
+    name: Chromium and Firefox public Golden Path
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact workflow head
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+
+      - name: Install application dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Install browser QA dependencies
+        run: npm ci --prefix tests/e2e --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Install governed browser binaries
+        run: npm --prefix tests/e2e run install:browsers
+
+      - name: Run public Browser Golden Path
+        env:
+          CI: "true"
+        run: npm run test:e2e:public
+
+      - name: Upload browser failure evidence
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-failure-${{ github.sha }}
+          path: tests/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload bounded HTML report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-browser-report-${{ github.sha }}
+          path: tests/e2e/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
