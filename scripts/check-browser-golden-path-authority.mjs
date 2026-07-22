@@ -33,11 +33,15 @@ for (const path of [
 ]) {
   if (!existsSync(path)) failures.push(`required browser QA file missing: ${path}`);
 }
-if (
-  existsSync(".github/workflows/browser-lock-bootstrap.yml") ||
-  existsSync("scripts/apply-browser-golden-path-patch.py")
-) {
-  failures.push("temporary browser patch assets must not enter main");
+for (const path of [
+  ".github/workflows/browser-lock-bootstrap.yml",
+  ".github/workflows/browser-runtime-fix.yml",
+  ".github/workflows/browser-functional-fix.yml",
+  "scripts/apply-browser-golden-path-patch.py",
+  "scripts/apply-browser-runtime-fixes.py",
+  "scripts/apply-browser-functional-fixes.py",
+]) {
+  if (existsSync(path)) failures.push(`temporary browser patch asset must not enter main: ${path}`);
 }
 
 const config = read("playwright.config.ts");
@@ -46,7 +50,8 @@ for (const token of [
   "firefox-desktop",
   "chromium-mobile",
   "firefox-mobile",
-  "npm run dev",
+  "npm run build && npm run start",
+  'NODE_ENV: "production"',
   "retain-on-failure",
   "only-on-failure",
 ]) {
@@ -66,6 +71,9 @@ for (const token of [
   "Ask TecPey learning mentor",
   "scrollWidth",
   'localStorage.getItem("theme")',
+  "expectCanonicalAuthLinks",
+  "tecpey.irhttps://",
+  "24\\/7|۲۴\\/۷|۲۴ ساعته",
 ]) {
   requireText(spec, token, `browser Golden Path coverage missing ${token}`);
 }
@@ -82,7 +90,6 @@ for (const token of [
   requireText(workflow, token, `browser workflow missing ${token}`);
 }
 
-
 const rootLayout = read("src/app/layout.tsx");
 for (const token of [
   "REQUEST_ROUTE_CONTEXT_HEADER",
@@ -94,7 +101,11 @@ for (const token of [
   requireText(rootLayout, token, `server locale/CSP nonce boundary missing: ${token}`);
 }
 const themeProvider = read("src/components/theme-provider.tsx");
-requireText(themeProvider, "{...props}", "ThemeProvider must forward the CSP nonce to next-themes");
+requireText(
+  themeProvider,
+  "{...props}",
+  "ThemeProvider must forward the CSP nonce to next-themes",
+);
 
 const landing = read("src/app/home/enterprise/TecpeyEnterpriseLanding.tsx");
 for (const forbidden of ["۲۴/۷", ">Online</div>", "اولین معامله واقعی"]) {
@@ -108,6 +119,37 @@ for (const required of [
   "فقط پس از فعال‌سازی و تأیید عملیاتی",
 ]) {
   requireText(landing, required, `truthful landing disclosure missing: ${required}`);
+}
+
+const publicMentorSpotlight = read("src/components/home/TecpeyHomeAI.tsx");
+for (const forbidden of ["24/7 learning", "آموزش ۲۴ ساعته", ">Online</span>"]) {
+  if (publicMentorSpotlight.includes(forbidden)) {
+    failures.push(`unsupported public Mentor claim remains: ${forbidden}`);
+  }
+}
+for (const required of [
+  "On-demand learning",
+  "یادگیری هنگام نیاز",
+  "Learning preview",
+  "نمای آموزشی",
+]) {
+  requireText(
+    publicMentorSpotlight,
+    required,
+    `truthful public Mentor disclosure missing: ${required}`,
+  );
+}
+
+const navbar = read("src/components/navbar/Navbar.tsx");
+for (const required of [
+  'path: "/signin" | "/signup"',
+  'authLink("/signin")',
+  'authLink("/signup")',
+]) {
+  requireText(navbar, required, `canonical auth link boundary missing: ${required}`);
+}
+if (navbar.includes('authLink("https://my.tecpey.ir/')) {
+  failures.push("Navbar still passes an absolute URL into the app-origin auth link builder");
 }
 
 const mentor = read("src/components/academy/GlobalAiMentorWidget.tsx");
@@ -128,5 +170,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Browser Golden Path authority passed: pinned Playwright, four browser/viewport projects, truthful public claims, public locked Mentor, and permanent CI evidence.",
+  "Browser Golden Path authority passed: production custom-server execution, pinned Playwright, four browser/viewport projects, canonical auth links, truthful public claims, public locked Mentor, and permanent CI evidence.",
 );
