@@ -37,11 +37,16 @@ for (const path of [
   ".github/workflows/browser-lock-bootstrap.yml",
   ".github/workflows/browser-runtime-fix.yml",
   ".github/workflows/browser-functional-fix.yml",
+  ".github/workflows/browser-nav-copy-fix.yml",
+  ".github/workflows/browser-golden-path-fix-bootstrap.yml",
   "scripts/apply-browser-golden-path-patch.py",
   "scripts/apply-browser-runtime-fixes.py",
   "scripts/apply-browser-functional-fixes.py",
+  "scripts/apply-browser-golden-path-fixes.py",
 ]) {
-  if (existsSync(path)) failures.push(`temporary browser patch asset must not enter main: ${path}`);
+  if (existsSync(path)) {
+    failures.push(`temporary browser patch asset must not enter main: ${path}`);
+  }
 }
 
 const config = read("playwright.config.ts");
@@ -52,10 +57,18 @@ for (const token of [
   "firefox-mobile",
   "npm run build && npm run start",
   'NODE_ENV: "production"',
+  'REDIS_URL: "redis://127.0.0.1:6379"',
+  'TECPEY_REAL_WITHDRAWALS_ENABLED: "0"',
+  'TECPEY_CUSTODY_KILL_SWITCH: "1"',
   "retain-on-failure",
   "only-on-failure",
 ]) {
   requireText(config, token, `Playwright configuration missing ${token}`);
+}
+if (config.includes("npm run dev")) {
+  failures.push(
+    "browser acceptance must use the governed production custom-server path, not the development server",
+  );
 }
 
 const spec = read("src/tests/browser/public-golden-path.spec.ts");
@@ -80,6 +93,10 @@ for (const token of [
 
 const workflow = read(".github/workflows/browser-golden-path.yml");
 for (const token of [
+  "push:",
+  "pull_request:",
+  "image: redis:7-alpine",
+  'redis-cli ping',
   "npm ci",
   "npm run browser:check",
   "playwright install --with-deps chromium firefox",
@@ -88,6 +105,11 @@ for (const token of [
   "retention-days: 3",
 ]) {
   requireText(workflow, token, `browser workflow missing ${token}`);
+}
+if (/^\s+paths:\s*$/m.test(workflow)) {
+  failures.push(
+    "Browser Golden Path must be a permanent all-PR/main gate, not a path-filtered optional workflow",
+  );
 }
 
 const rootLayout = read("src/app/layout.tsx");
@@ -148,8 +170,8 @@ for (const required of [
 ]) {
   requireText(navbar, required, `canonical auth link boundary missing: ${required}`);
 }
-if (navbar.includes('authLink("https://my.tecpey.ir/')) {
-  failures.push("Navbar still passes an absolute URL into the app-origin auth link builder");
+if (/authLink\(\s*["']https?:\/\//.test(navbar)) {
+  failures.push("Navbar authLink must receive a relative /signin or /signup path");
 }
 
 const mentor = read("src/components/academy/GlobalAiMentorWidget.tsx");
@@ -170,5 +192,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Browser Golden Path authority passed: production custom-server execution, pinned Playwright, four browser/viewport projects, canonical auth links, truthful public claims, public locked Mentor, and permanent CI evidence.",
+  "Browser Golden Path authority passed: production custom-server plus isolated Redis, pinned Playwright, four browser/viewport projects, permanent all-PR/main workflow, canonical auth links, truthful public claims, public locked Mentor, and no temporary patch assets.",
 );
