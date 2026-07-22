@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const e2eRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(e2eRoot, "../..");
 const playwrightCli = resolve(e2eRoot, "node_modules/@playwright/test/cli.js");
+const serverLogPath = resolve(e2eRoot, "server-output.log");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const port = process.env.TECPEY_E2E_PORT ?? "3100";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://127.0.0.1:${port}`;
@@ -14,6 +16,14 @@ let server;
 
 function appendServerOutput(chunk) {
   serverOutput = `${serverOutput}${String(chunk)}`.slice(-80_000);
+}
+
+function persistServerOutput() {
+  writeFileSync(
+    serverLogPath,
+    serverOutput || "TecPey server emitted no captured stdout/stderr.\n",
+    "utf8",
+  );
 }
 
 function stopServer() {
@@ -133,6 +143,7 @@ try {
   if (serverOutput) console.error(`\nTecPey server output:\n${serverOutput}`);
   process.exitCode = 1;
 } finally {
+  persistServerOutput();
   stopServer();
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
 }
