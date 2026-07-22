@@ -37,6 +37,21 @@ requireText(
   "custom server must reject unsupported Redis URL protocols",
 );
 requireText(
+  server,
+  'process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0"',
+  "custom server must define one explicit governed bind hostname",
+);
+requireText(
+  server,
+  "next({ dev, hostname, port, httpServer })",
+  "Next custom-server bootstrap must receive the same hostname, port and HTTP server identity",
+);
+requireText(
+  server,
+  "httpServer.listen(port, hostname",
+  "HTTP listen identity must match the hostname and port passed to Next",
+);
+requireText(
   runtimeSmoke,
   'mode === "development" ? "" : (process.env.REDIS_URL ?? "")',
   "runtime smoke must prove development without Redis and production with governed Redis",
@@ -51,5 +66,5 @@ if (failures.length) {
 await import("./check-redis-safety-authority.mjs");
 
 console.log(
-  "Runtime bootstrap authority check passed: dev UI is Redis-optional and production fails closed.",
+  "Runtime bootstrap authority check passed: explicit Next/HTTP network identity, Redis-optional development and fail-closed production.",
 );
