@@ -18,7 +18,7 @@ jobs:
   browser:
     name: Public FA/EN browser acceptance
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     services:
       redis:
@@ -30,6 +30,44 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      PORT: '3100'
+      NODE_ENV: production
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      NEXT_PUBLIC_EXTRA_CONNECT_SRC: ''
+      TECPEY_SESSION_SECRET: browser-placeholder-session-secret-32-chars-min
+      TECPEY_REFRESH_SECRET: browser-placeholder-refresh-secret-32-chars-min
+      TECPEY_ACADEMY_AUTH_SECRET: browser-placeholder-academy-auth-secret-32chars
+      CERTIFICATE_SIGNING_SECRET: browser-placeholder-cert-signing-secret-32-min
+      TECPEY_WITHDRAWAL_PRICE_SECRET: browser-placeholder-withdrawal-price-secret-32-min
+      TECPEY_OFFLINE_SYNC_SECRET: browser-placeholder-offline-scope-secret-32-min
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: browser-placeholder-crm-contact-hash-secret-32-min
+      TECPEY_CRM_WEBHOOK_SECRET: browser-placeholder-crm-webhook-secret-32-min
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: '1'
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: browser-placeholder-redis-rest-token
 
     steps:
       - name: Checkout
@@ -55,12 +93,41 @@ jobs:
       - name: Verify browser authority contract
         run: npm run browser:check
 
+      - name: Apply canonical migrations
+        run: npm run db:migrate
+
+      - name: Build production browser target
+        run: npm run build
+
       - name: Install governed browsers
         run: npx playwright install --with-deps chromium firefox
+
+      - name: Start production custom server and prove readiness
+        run: |
+          set -euo pipefail
+          npm run start > /tmp/tecpey-browser-server.log 2>&1 &
+          echo $! > /tmp/tecpey-browser-server.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:3100/ >/tmp/tecpey-browser-root.html; then
+              echo "TecPey browser target is ready after ${attempt} probe(s)."
+              exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/tecpey-browser-server.pid)" 2>/dev/null; then
+              echo "TecPey browser target exited before readiness."
+              cat /tmp/tecpey-browser-server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "TecPey browser target did not become ready within 60 seconds."
+          cat /tmp/tecpey-browser-server.log
+          exit 1
 
       - name: Run public Browser Golden Path
         env:
           CI: 'true'
+          PLAYWRIGHT_EXTERNAL_SERVER: '1'
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
         run: npm run test:browser
 
       - name: Upload browser failure evidence
@@ -69,7 +136,16 @@ jobs:
         with:
           name: browser-golden-path-failure-${{ github.sha }}
           path: |
+            /tmp/tecpey-browser-server.log
+            /tmp/tecpey-browser-root.html
             playwright-report
             test-results
           if-no-files-found: ignore
           retention-days: 3
+
+      - name: Stop production custom server
+        if: always()
+        run: |
+          if [ -f /tmp/tecpey-browser-server.pid ]; then
+            kill "$(cat /tmp/tecpey-browser-server.pid)" 2>/dev/null || true
+          fi
