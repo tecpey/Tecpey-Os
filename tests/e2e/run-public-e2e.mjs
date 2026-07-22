@@ -6,8 +6,6 @@ import { fileURLToPath } from "node:url";
 const e2eRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(e2eRoot, "../..");
 const playwrightCli = resolve(e2eRoot, "node_modules/@playwright/test/cli.js");
-const serverLogPath = resolve(e2eRoot, "server-output.log");
-const playwrightLogPath = resolve(e2eRoot, "playwright-output.log");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const runtimeMode = process.env.TECPEY_E2E_RUNTIME_MODE === "development"
   ? "development"
@@ -16,40 +14,32 @@ const port = process.env.TECPEY_E2E_PORT ?? "3100";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
+const projects = [
+  "chromium-fa-mobile",
+  "chromium-en-desktop",
+  "firefox-fa-desktop",
+  "firefox-en-mobile",
+];
 
-let serverOutput = "";
-let playwrightOutput = "";
-let server;
-
-function appendServerOutput(chunk) {
-  serverOutput = `${serverOutput}${String(chunk)}`.slice(-80_000);
+function boundedAppend(current, chunk, limit) {
+  return `${current}${String(chunk)}`.slice(-limit);
 }
 
-function appendPlaywrightOutput(chunk) {
-  playwrightOutput = `${playwrightOutput}${String(chunk)}`.slice(-160_000);
+function diagnosticsPath(kind, project) {
+  return resolve(e2eRoot, `${kind}-output-${project}.log`);
 }
 
-function persistDiagnostics() {
+function persistProjectDiagnostics(project, serverOutput, playwrightOutput) {
   writeFileSync(
-    serverLogPath,
+    diagnosticsPath("server", project),
     serverOutput || "TecPey server emitted no captured stdout/stderr.\n",
     "utf8",
   );
   writeFileSync(
-    playwrightLogPath,
+    diagnosticsPath("playwright", project),
     playwrightOutput || "Playwright emitted no captured stdout/stderr.\n",
     "utf8",
   );
-}
-
-function stopServer() {
-  if (!server || server.killed) return;
-  try {
-    if (process.platform === "win32") server.kill("SIGTERM");
-    else process.kill(-server.pid, "SIGTERM");
-  } catch {
-    server.kill("SIGTERM");
-  }
 }
 
 async function fetchWithDeadline(url, timeoutMs = 10_000) {
@@ -59,83 +49,15 @@ async function fetchWithDeadline(url, timeoutMs = 10_000) {
     return await fetch(url, {
       redirect: "manual",
       signal: controller.signal,
-      headers: { Accept: "text/html, */*;q=0.8" },
+      headers: { Accept: "application/json, */*;q=0.8" },
     });
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function waitForServer() {
-  const deadline = Date.now() + 120_000;
-  let lastError = new Error("server_not_started");
-
-  while (Date.now() < deadline) {
-    if (server.exitCode !== null) {
-      throw new Error(
-        `TecPey Browser QA server exited with ${server.exitCode}.\n${serverOutput}`,
-      );
-    }
-
-    try {
-      const response = await fetchWithDeadline(`${baseURL}/`);
-      if (response.status === 200) {
-        await response.body?.cancel();
-        return;
-      }
-      lastError = new Error(`root returned HTTP ${response.status}`);
-    } catch (error) {
-      lastError = error;
-    }
-
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
-  }
-
-  throw new Error(
-    `TecPey Browser QA server did not become ready: ${lastError}.\n${serverOutput}`,
-  );
-}
-
-async function runPlaywright() {
-  const child = spawn(
-    process.execPath,
-    [playwrightCli, "test", "--config=playwright.config.mjs"],
-    {
-      cwd: e2eRoot,
-      env: {
-        ...process.env,
-        TECPEY_E2E_BASE_URL: baseURL,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-
-  child.stdout?.on("data", (chunk) => {
-    appendPlaywrightOutput(chunk);
-    process.stdout.write(chunk);
-  });
-  child.stderr?.on("data", (chunk) => {
-    appendPlaywrightOutput(chunk);
-    process.stderr.write(chunk);
-  });
-
-  return await new Promise((resolvePromise, rejectPromise) => {
-    child.once("error", rejectPromise);
-    child.once("exit", (code, signal) => {
-      if (signal) {
-        rejectPromise(new Error(`Playwright terminated by ${signal}`));
-        return;
-      }
-      resolvePromise(code ?? 1);
-    });
-  });
-}
-
-try {
-  console.log(
-    `Browser QA: starting isolated ${runtimeMode} TecPey custom server on ${baseURL}.`,
-  );
-  server = spawn(npmCommand, ["run", serverScript], {
+function spawnServer(onOutput) {
+  const child = spawn(npmCommand, ["run", serverScript], {
     cwd: repositoryRoot,
     env: {
       ...process.env,
@@ -175,22 +97,143 @@ try {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  server.stdout?.on("data", appendServerOutput);
-  server.stderr?.on("data", appendServerOutput);
-
-  await waitForServer();
-  console.log("Browser QA: TecPey server is ready; starting Playwright.");
-  const exitCode = await runPlaywright();
-  if (exitCode !== 0) process.exitCode = exitCode;
-} catch (error) {
-  console.error(error instanceof Error ? error.stack : error);
-  if (serverOutput) console.error(`\nTecPey server output:\n${serverOutput}`);
-  if (playwrightOutput) {
-    console.error(`\nPlaywright output:\n${playwrightOutput}`);
-  }
-  process.exitCode = 1;
-} finally {
-  persistDiagnostics();
-  stopServer();
-  await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+  child.stdout?.on("data", onOutput);
+  child.stderr?.on("data", onOutput);
+  return child;
 }
+
+async function waitForServer(server, getOutput) {
+  const deadline = Date.now() + 120_000;
+  let lastError = new Error("server_not_started");
+
+  while (Date.now() < deadline) {
+    if (server.exitCode !== null) {
+      throw new Error(
+        `TecPey Browser QA server exited with ${server.exitCode}.\n${getOutput()}`,
+      );
+    }
+
+    try {
+      const response = await fetchWithDeadline(`${baseURL}/api/health`);
+      if (response.status === 200) {
+        await response.body?.cancel();
+        return;
+      }
+      lastError = new Error(`health returned HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+  }
+
+  throw new Error(
+    `TecPey Browser QA server did not become ready: ${lastError}.\n${getOutput()}`,
+  );
+}
+
+async function stopServer(server) {
+  if (!server || server.exitCode !== null) return;
+
+  try {
+    if (process.platform === "win32") server.kill("SIGTERM");
+    else process.kill(-server.pid, "SIGTERM");
+  } catch {
+    server.kill("SIGTERM");
+  }
+
+  await Promise.race([
+    new Promise((resolvePromise) => server.once("exit", resolvePromise)),
+    new Promise((resolvePromise) => setTimeout(resolvePromise, 10_000)),
+  ]);
+
+  if (server.exitCode === null) {
+    try {
+      if (process.platform === "win32") server.kill("SIGKILL");
+      else process.kill(-server.pid, "SIGKILL");
+    } catch {
+      server.kill("SIGKILL");
+    }
+  }
+}
+
+async function runPlaywrightProject(project, onOutput) {
+  const child = spawn(
+    process.execPath,
+    [
+      playwrightCli,
+      "test",
+      "--config=playwright.config.mjs",
+      `--project=${project}`,
+    ],
+    {
+      cwd: e2eRoot,
+      env: {
+        ...process.env,
+        TECPEY_E2E_BASE_URL: baseURL,
+        TECPEY_E2E_PROJECT: project,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  child.stdout?.on("data", (chunk) => {
+    onOutput(chunk);
+    process.stdout.write(chunk);
+  });
+  child.stderr?.on("data", (chunk) => {
+    onOutput(chunk);
+    process.stderr.write(chunk);
+  });
+
+  return await new Promise((resolvePromise) => {
+    child.once("error", (error) => {
+      onOutput(`Playwright process error: ${error.stack || error.message}\n`);
+      resolvePromise(1);
+    });
+    child.once("exit", (code, signal) => {
+      onOutput(
+        `Playwright process exit: code=${code ?? "null"} signal=${signal ?? "none"}\n`,
+      );
+      resolvePromise(signal ? 1 : (code ?? 1));
+    });
+  });
+}
+
+let failed = false;
+
+for (const project of projects) {
+  let serverOutput = "";
+  let playwrightOutput = "";
+  let server;
+
+  const appendServerOutput = (chunk) => {
+    serverOutput = boundedAppend(serverOutput, chunk, 80_000);
+  };
+  const appendPlaywrightOutput = (chunk) => {
+    playwrightOutput = boundedAppend(playwrightOutput, chunk, 160_000);
+  };
+
+  try {
+    console.log(
+      `Browser QA: starting isolated ${runtimeMode} server for ${project} on ${baseURL}.`,
+    );
+    server = spawnServer(appendServerOutput);
+    await waitForServer(server, () => serverOutput);
+    console.log(`Browser QA: server ready; starting ${project}.`);
+
+    const exitCode = await runPlaywrightProject(project, appendPlaywrightOutput);
+    if (exitCode !== 0) failed = true;
+  } catch (error) {
+    const diagnostic = error instanceof Error ? error.stack || error.message : String(error);
+    appendPlaywrightOutput(`Browser QA infrastructure error: ${diagnostic}\n`);
+    console.error(diagnostic);
+    failed = true;
+  } finally {
+    persistProjectDiagnostics(project, serverOutput, playwrightOutput);
+    await stopServer(server);
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+  }
+}
+
+if (failed) process.exitCode = 1;
