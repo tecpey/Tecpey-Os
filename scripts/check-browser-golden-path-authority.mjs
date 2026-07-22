@@ -91,9 +91,12 @@ for (const token of [
   "expectProtectedArenaRedirects",
   "scrollWidth",
   'localStorage.getItem("theme")',
+  'button[aria-label*="تغییر به حالت"]:visible',
   "expectCanonicalAuthLinks",
   "tecpey.irhttps://",
-  "24\/7|۲۴\/۷|۲۴ ساعته",
+  "۲۴ ساعته",
+  "Market access activation",
+  "toHaveCount(0)",
 ]) {
   requireText(spec, token, `browser Golden Path coverage missing ${token}`);
 }
@@ -132,6 +135,8 @@ for (const token of [
   "Financial Education and Virtual Trading Practice",
   '"@type": "EducationalOrganization"',
   "آموزش رمزارز، تریدینگ آرنا و منتور هوشمند",
+  "تمرین معامله با سرمایه مجازی",
+  "سواد مالی دیجیتال",
 ]) {
   requireText(rootLayout, token, `server locale/metadata boundary missing: ${token}`);
 }
@@ -140,6 +145,9 @@ for (const forbidden of [
   '"@type": "FinancialService"',
   "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
   "تک‌پی | صرافی رمزارز امن و حرفه‌ای",
+  '"خرید بیت کوین"',
+  '"خرید تتر"',
+  '"صرافی رمزارز ایران"',
 ]) {
   if (rootLayout.includes(forbidden)) {
     failures.push(`unsupported root metadata claim remains: ${forbidden}`);
