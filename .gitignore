@@ -16,6 +16,7 @@
 /tests/e2e/test-results/
 /tests/e2e/playwright-report/
 /tests/e2e/server-output.log
+/tests/e2e/playwright-output.log
 
 # next.js
 /.next/
