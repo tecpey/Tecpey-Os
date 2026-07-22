@@ -1,0 +1,67 @@
+name: Browser Golden Path
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'playwright.config.ts'
+      - 'src/tests/browser/**'
+      - 'scripts/check-browser-golden-path-authority.mjs'
+      - 'src/components/ThemeToggle.tsx'
+      - 'src/components/navbar/Navbar.tsx'
+      - 'src/components/academy/GlobalAiMentorWidget.tsx'
+      - 'src/app/home/enterprise/TecpeyEnterpriseLanding.tsx'
+      - 'src/app/en/**'
+      - 'src/components/footer/**'
+      - 'docs/ui/PUBLIC_BROWSER_GOLDEN_PATH.md'
+      - '.github/workflows/browser-golden-path.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-golden-path-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: Public FA/EN browser acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify browser authority contract
+        run: npm run browser:check
+
+      - name: Install governed browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run public Browser Golden Path
+        env:
+          CI: 'true'
+        run: npm run test:browser
+
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-golden-path-failure-${{ github.sha }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 3
