@@ -7,6 +7,7 @@ const e2eRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(e2eRoot, "../..");
 const playwrightCli = resolve(e2eRoot, "node_modules/@playwright/test/cli.js");
 const serverLogPath = resolve(e2eRoot, "server-output.log");
+const playwrightLogPath = resolve(e2eRoot, "playwright-output.log");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const runtimeMode = process.env.TECPEY_E2E_RUNTIME_MODE === "development"
   ? "development"
@@ -17,16 +18,26 @@ const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
 
 let serverOutput = "";
+let playwrightOutput = "";
 let server;
 
 function appendServerOutput(chunk) {
   serverOutput = `${serverOutput}${String(chunk)}`.slice(-80_000);
 }
 
-function persistServerOutput() {
+function appendPlaywrightOutput(chunk) {
+  playwrightOutput = `${playwrightOutput}${String(chunk)}`.slice(-160_000);
+}
+
+function persistDiagnostics() {
   writeFileSync(
     serverLogPath,
     serverOutput || "TecPey server emitted no captured stdout/stderr.\n",
+    "utf8",
+  );
+  writeFileSync(
+    playwrightLogPath,
+    playwrightOutput || "Playwright emitted no captured stdout/stderr.\n",
     "utf8",
   );
 }
@@ -95,9 +106,18 @@ async function runPlaywright() {
         ...process.env,
         TECPEY_E2E_BASE_URL: baseURL,
       },
-      stdio: "inherit",
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
+
+  child.stdout?.on("data", (chunk) => {
+    appendPlaywrightOutput(chunk);
+    process.stdout.write(chunk);
+  });
+  child.stderr?.on("data", (chunk) => {
+    appendPlaywrightOutput(chunk);
+    process.stderr.write(chunk);
+  });
 
   return await new Promise((resolvePromise, rejectPromise) => {
     child.once("error", rejectPromise);
@@ -165,9 +185,12 @@ try {
 } catch (error) {
   console.error(error instanceof Error ? error.stack : error);
   if (serverOutput) console.error(`\nTecPey server output:\n${serverOutput}`);
+  if (playwrightOutput) {
+    console.error(`\nPlaywright output:\n${playwrightOutput}`);
+  }
   process.exitCode = 1;
 } finally {
-  persistServerOutput();
+  persistDiagnostics();
   stopServer();
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
 }
