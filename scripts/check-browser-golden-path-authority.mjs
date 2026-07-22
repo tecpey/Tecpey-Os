@@ -28,6 +28,7 @@ requireText(
 for (const path of [
   "playwright.config.ts",
   "src/tests/browser/public-golden-path.spec.ts",
+  "src/tests/browser/mentor-profile-ready.spec.ts",
   ".github/workflows/browser-golden-path.yml",
   "docs/ui/PUBLIC_BROWSER_GOLDEN_PATH.md",
 ]) {
@@ -99,6 +100,23 @@ for (const token of [
   "toHaveCount(0)",
 ]) {
   requireText(spec, token, `browser Golden Path coverage missing ${token}`);
+}
+
+const profileReadySpec = read("src/tests/browser/mentor-profile-ready.spec.ts");
+for (const token of [
+  "Profile-ready learner receives only the personalized Mentor launcher",
+  'name: "از مربی آموزشی تک‌پی بپرس"',
+  'name: "آشنایی با منتور هوشمند آموزشی تک‌پی"',
+  'page.getByText("پرونده یادگیری"',
+  'page.getByText("ساخت پروفایل آکادمی"',
+  "toHaveCount(1)",
+  "toHaveCount(0)",
+]) {
+  requireText(
+    profileReadySpec,
+    token,
+    `profile-ready Mentor browser coverage missing ${token}`,
+  );
 }
 
 const workflow = read(".github/workflows/browser-golden-path.yml");
