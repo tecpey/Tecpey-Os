@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? "http://127.0.0.1:3100";
 const isCi = Boolean(process.env.CI);
+const evidenceProject = process.env.TECPEY_E2E_PROJECT ?? "all-projects";
 
 const sharedUse = {
   baseURL,
@@ -15,7 +16,7 @@ const sharedUse = {
 export default defineConfig({
   testDir: "./specs",
   testMatch: "**/*.spec.mjs",
-  outputDir: "./test-results",
+  outputDir: `./test-results/${evidenceProject}`,
   timeout: 45_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
@@ -26,7 +27,13 @@ export default defineConfig({
   reporter: isCi
     ? [
         ["line"],
-        ["html", { outputFolder: "playwright-report", open: "never" }],
+        [
+          "html",
+          {
+            outputFolder: `playwright-report/${evidenceProject}`,
+            open: "never",
+          },
+        ],
       ]
     : [["list"]],
   use: sharedUse,
