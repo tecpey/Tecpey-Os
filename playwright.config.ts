@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100";
+const externalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "1";
 
 export default defineConfig({
   testDir: "./src/tests/browser",
@@ -39,23 +40,25 @@ export default defineConfig({
       use: { ...devices["Desktop Firefox"], viewport: { width: 390, height: 844 } },
     },
   ],
-  webServer: {
-    command: "npm run build && npm run start",
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-    env: {
-      PORT: "3100",
-      NODE_ENV: "production",
-      NEXT_PUBLIC_SITE_URL: baseURL,
-      NEXT_PUBLIC_API_URL: "https://my.tecpey.ir",
-      NEXT_PUBLIC_API_BACKEND_URL: "https://ci-placeholder.tecpey.ir",
-      NEXT_PUBLIC_API_SOCKET_URL: "wss://ci-placeholder.tecpey.ir/spot",
-      NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
-      REDIS_URL: "redis://127.0.0.1:6379",
-      TECPEY_REAL_WITHDRAWALS_ENABLED: "0",
-      TECPEY_CUSTODY_SIMULATION_ENABLED: "0",
-      TECPEY_CUSTODY_KILL_SWITCH: "1",
-    },
-  },
+  webServer: externalServer
+    ? undefined
+    : {
+        command: "npm run build && npm run start",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 180_000,
+        env: {
+          PORT: "3100",
+          NODE_ENV: "production",
+          NEXT_PUBLIC_SITE_URL: baseURL,
+          NEXT_PUBLIC_API_URL: "https://my.tecpey.ir",
+          NEXT_PUBLIC_API_BACKEND_URL: "https://ci-placeholder.tecpey.ir",
+          NEXT_PUBLIC_API_SOCKET_URL: "wss://ci-placeholder.tecpey.ir/spot",
+          NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
+          REDIS_URL: "redis://127.0.0.1:6379",
+          TECPEY_REAL_WITHDRAWALS_ENABLED: "0",
+          TECPEY_CUSTODY_SIMULATION_ENABLED: "0",
+          TECPEY_CUSTODY_KILL_SWITCH: "1",
+        },
+      },
 });
