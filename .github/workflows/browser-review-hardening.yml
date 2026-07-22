@@ -1,8 +1,11 @@
 name: One-shot Browser Review Hardening
 
 on:
-  push:
-    branches: [fix/public-browser-golden-path]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/browser-review-hardening.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,7 +16,7 @@ concurrency:
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -204,8 +207,8 @@ jobs:
       - name: Commit reviewed fixes and remove one-shot workflow
         run: |
           rm -f .github/workflows/browser-review-hardening.yml
-          git config user.name "tecpey"
-          git config user.email "actions@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/app/layout.tsx src/app/en/EnglishLandingClient.tsx src/app/home/enterprise/TecpeyEnterpriseLanding.tsx src/components/academy/GlobalAiMentorWidget.tsx src/components/academy/PublicMentorEntry.tsx .github/workflows/browser-review-hardening.yml
           git commit -m "fix(ui): enforce truthful and single-mentor public boundary"
           git push origin HEAD:fix/public-browser-golden-path
