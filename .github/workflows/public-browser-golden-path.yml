@@ -168,6 +168,7 @@ jobs:
           name: public-browser-failure-${{ env.TECPEY_EVIDENCE_SHA }}
           path: |
             tests/e2e/server-output.log
+            tests/e2e/playwright-output.log
             tests/e2e/test-results
           if-no-files-found: error
           retention-days: 7
