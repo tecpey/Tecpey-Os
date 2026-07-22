@@ -92,9 +92,13 @@ async function openKnowledgeCenter(
       .getByRole("button", { name: /باز کردن منو|Open menu/ })
       .click();
     const knowledge = page.getByRole("button", { name: label, exact: true });
+    const mobileMenuId = await knowledge.getAttribute("aria-controls");
+    expect(mobileMenuId).toBeTruthy();
     await knowledge.click();
+    const mobileMenu = page.locator(`#${mobileMenuId!}`);
+    await expect(mobileMenu).toBeVisible();
     await expect(
-      page.getByRole("link", { name: arenaLabel, exact: true }),
+      mobileMenu.getByRole("link", { name: arenaLabel, exact: true }),
     ).toBeVisible();
     return;
   }
@@ -201,14 +205,16 @@ test("English public journey preserves LTR navigation and locked mentor truth", 
 test("Theme choice changes the rendered authority and survives reload", async ({
   page,
 }) => {
-  await page.addInitScript(() => window.localStorage.setItem("theme", "light"));
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/", { waitUntil: "load" });
+  await page.evaluate(() => window.localStorage.setItem("theme", "light"));
+  await page.reload({ waitUntil: "load" });
 
   const toggle = page
     .getByRole("button", { name: /تغییر به حالت/ })
     .first();
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveClass(/dark/);
@@ -222,4 +228,7 @@ test("Theme choice changes the rendered authority and survives reload", async ({
     .first();
   await expect(persisted).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect
+    .poll(() => page.evaluate(() => window.localStorage.getItem("theme")))
+    .toBe("dark");
 });
