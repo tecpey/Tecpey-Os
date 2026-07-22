@@ -1,0 +1,75 @@
+name: Browser Product Fix Once
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/browser-product-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Apply exact governed replacements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              source = file.read_text()
+              if old not in source:
+                  raise SystemExit(f"expected source block missing: {path}")
+              file.write_text(source.replace(old, new, 1))
+
+          replace_exact(
+              "src/components/home/TecpeyHomeAI.tsx",
+              '{isFa ? "آموزش ۲۴ ساعته، بدون سیگنال‌فروشی" : "24/7 learning, no signal selling"}',
+              '{isFa ? "یادگیری هنگام نیاز، بدون سیگنال‌فروشی" : "On-demand learning, no signal selling"}',
+          )
+          replace_exact(
+              "src/components/home/TecpeyHomeAI.tsx",
+              '>Online</span>',
+              '>{isFa ? "نمای آموزشی" : "Learning preview"}</span>',
+          )
+          replace_exact(
+              "src/components/navbar/Navbar.tsx",
+              '''  const authLink = (
+              path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
+            ) => {
+              if (appUrl) return `${appUrl}${path}`;
+              return path === "https://my.tecpey.ir/signup"
+                ? "https://my.tecpey.ir/signup"
+                : "https://my.tecpey.ir/signin";
+            };''',
+              '''  const authLink = (path: "/signin" | "/signup") =>
+              appUrl ? `${appUrl}${path}` : `https://my.tecpey.ir${path}`;''',
+          )
+          navbar = Path("src/components/navbar/Navbar.tsx")
+          source = navbar.read_text()
+          source = source.replace('authLink("https://my.tecpey.ir/signin")', 'authLink("/signin")')
+          source = source.replace('authLink("https://my.tecpey.ir/signup")', 'authLink("/signup")')
+          navbar.write_text(source)
+
+          Path(".github/workflows/browser-product-fix-once.yml").unlink()
+          PY
+
+      - name: Commit exact product fixes
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(ui): correct public claims and canonical auth links"
+          git push origin "HEAD:${HEAD_REF}"
