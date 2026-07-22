@@ -8,8 +8,13 @@ const repositoryRoot = resolve(e2eRoot, "../..");
 const playwrightCli = resolve(e2eRoot, "node_modules/@playwright/test/cli.js");
 const serverLogPath = resolve(e2eRoot, "server-output.log");
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const runtimeMode = process.env.TECPEY_E2E_RUNTIME_MODE === "development"
+  ? "development"
+  : "production";
 const port = process.env.TECPEY_E2E_PORT ?? "3100";
-const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://127.0.0.1:${port}`;
+const host = "127.0.0.1";
+const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
+const serverScript = runtimeMode === "production" ? "start" : "dev";
 
 let serverOutput = "";
 let server;
@@ -107,25 +112,44 @@ async function runPlaywright() {
 }
 
 try {
-  console.log(`Browser QA: starting isolated TecPey server on ${baseURL}.`);
-  server = spawn(npmCommand, ["run", "dev"], {
+  console.log(
+    `Browser QA: starting isolated ${runtimeMode} TecPey custom server on ${baseURL}.`,
+  );
+  server = spawn(npmCommand, ["run", serverScript], {
     cwd: repositoryRoot,
     env: {
       ...process.env,
-      NODE_ENV: "development",
+      NODE_ENV: runtimeMode,
       PORT: port,
-      NEXT_PUBLIC_SITE_URL: baseURL,
-      REDIS_URL: "",
-      NEXT_PUBLIC_API_URL: "",
-      NEXT_PUBLIC_API_BACKEND_URL: "",
-      NEXT_PUBLIC_API_SOCKET_URL: "",
-      NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
-      TECPEY_SESSION_SECRET: "e2e-session-secret-32-characters-minimum",
-      TECPEY_REFRESH_SECRET: "e2e-refresh-secret-32-characters-minimum",
-      TECPEY_ACADEMY_AUTH_SECRET: "e2e-academy-auth-secret-32-characters",
-      CERTIFICATE_SIGNING_SECRET: "e2e-certificate-secret-32-characters",
-      TECPEY_WITHDRAWAL_PRICE_SECRET: "e2e-withdrawal-price-secret-32-characters",
-      TECPEY_OFFLINE_SYNC_SECRET: "e2e-offline-sync-secret-32-characters",
+      TECPEY_BIND_HOST: host,
+      NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || baseURL,
+      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || baseURL,
+      NEXT_PUBLIC_API_BACKEND_URL:
+        process.env.NEXT_PUBLIC_API_BACKEND_URL || baseURL,
+      NEXT_PUBLIC_API_SOCKET_URL:
+        process.env.NEXT_PUBLIC_API_SOCKET_URL || `ws://${host}:${port}/ws`,
+      TECPEY_SESSION_SECRET:
+        process.env.TECPEY_SESSION_SECRET ||
+        "e2e-session-secret-32-characters-minimum",
+      TECPEY_REFRESH_SECRET:
+        process.env.TECPEY_REFRESH_SECRET ||
+        "e2e-refresh-secret-32-characters-minimum",
+      TECPEY_ACADEMY_AUTH_SECRET:
+        process.env.TECPEY_ACADEMY_AUTH_SECRET ||
+        "e2e-academy-auth-secret-32-characters",
+      CERTIFICATE_SIGNING_SECRET:
+        process.env.CERTIFICATE_SIGNING_SECRET ||
+        "e2e-certificate-secret-32-characters",
+      TECPEY_WITHDRAWAL_PRICE_SECRET:
+        process.env.TECPEY_WITHDRAWAL_PRICE_SECRET ||
+        "e2e-withdrawal-price-secret-32-characters",
+      TECPEY_OFFLINE_SYNC_SECRET:
+        process.env.TECPEY_OFFLINE_SYNC_SECRET ||
+        "e2e-offline-sync-secret-32-characters",
+      REDIS_URL:
+        runtimeMode === "production"
+          ? process.env.REDIS_URL || "redis://127.0.0.1:6379"
+          : process.env.REDIS_URL || "",
     },
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
