@@ -6,7 +6,7 @@
 
 ## Proven journey
 
-The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. It covers:
+The browser suite verifies Persian RTL and English LTR public navigation in Chromium and Firefox at desktop and mobile widths. Four behavioral scenarios run across four governed browser/viewport projects, producing sixteen exact-head checks. It covers:
 
 - persisted Light/Dark choice through the rendered `html` authority;
 - desktop and mobile Knowledge Center keyboard behavior, focus return and localized Arena discovery;
@@ -38,4 +38,4 @@ The public surface and structured metadata must not claim unconditional 24/7 sup
 
 ## Evidence rule
 
-`npm run browser:check` protects the source contract. `npm run test:browser` executes browser behavior. A green build or static text scan alone is not browser acceptance. Failure traces, screenshots, server logs and video are retained only for a short diagnostic window.
+`npm run browser:check` protects the source contract. `npm run test:browser` executes browser behavior. A green build or static text scan alone is not browser acceptance. On failure, the workflow preserves the source-authority output, migration/build logs, custom-server log, rendered root HTML, Playwright traces, screenshots and video for a short diagnostic window. Successful runs publish no user or environment data.
