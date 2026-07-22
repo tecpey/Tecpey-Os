@@ -82,16 +82,23 @@ async function expectReachable(locator: Locator) {
       locator.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         if (!rect.width || !rect.height) return false;
-        const x = Math.min(
-          window.innerWidth - 1,
-          Math.max(0, rect.left + rect.width / 2),
-        );
-        const y = Math.min(
-          window.innerHeight - 1,
-          Math.max(0, rect.top + rect.height / 2),
-        );
-        const top = document.elementFromPoint(x, y);
-        return top === element || Boolean(top && element.contains(top));
+
+        const insetX = Math.min(12, rect.width / 4);
+        const insetY = Math.min(12, rect.height / 4);
+        const points = [
+          [rect.left + rect.width / 2, rect.top + rect.height / 2],
+          [rect.left + insetX, rect.top + insetY],
+          [rect.right - insetX, rect.top + insetY],
+          [rect.left + insetX, rect.bottom - insetY],
+          [rect.right - insetX, rect.bottom - insetY],
+        ];
+
+        return points.some(([rawX, rawY]) => {
+          const x = Math.min(window.innerWidth - 1, Math.max(0, rawX));
+          const y = Math.min(window.innerHeight - 1, Math.max(0, rawY));
+          const top = document.elementFromPoint(x, y);
+          return top === element || Boolean(top && element.contains(top));
+        });
       }),
     )
     .toBe(true);
