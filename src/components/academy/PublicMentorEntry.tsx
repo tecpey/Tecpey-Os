@@ -15,6 +15,20 @@ import {
 
 type ProfileStatus = "checking" | "absent" | "ready" | "unavailable";
 
+function parseProfileStatusPayload(payload: unknown): Exclude<ProfileStatus, "checking"> {
+  if (!payload || typeof payload !== "object") return "unavailable";
+  if (!Object.prototype.hasOwnProperty.call(payload, "profile")) {
+    return "unavailable";
+  }
+  const profile = (payload as { profile?: unknown }).profile;
+  if (profile === null) return "absent";
+  if (!profile || typeof profile !== "object") return "unavailable";
+  const displayName = (profile as { display_name?: unknown }).display_name;
+  return typeof displayName === "string" && displayName.trim()
+    ? "ready"
+    : "unavailable";
+}
+
 export function PublicMentorEntry() {
   const pathname = usePathname() || "/";
   const isEnglish = pathname.startsWith("/en");
@@ -33,9 +47,12 @@ export function PublicMentorEntry() {
           cache: "no-store",
           credentials: "include",
         });
-        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(`academy_profile_status_${response.status}`);
+        }
+        const data: unknown = await response.json();
         if (!active) return;
-        setProfileStatus(data?.profile?.display_name ? "ready" : "absent");
+        setProfileStatus(parseProfileStatusPayload(data));
       } catch {
         if (active) setProfileStatus("unavailable");
       }
