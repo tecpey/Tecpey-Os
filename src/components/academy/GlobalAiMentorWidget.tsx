@@ -531,7 +531,7 @@ export function GlobalAiMentorWidget() {
   const readiness = mentorLearningReadiness(profile, locale);
   const coachActions = mentorQuickActions(locale, pageContext.section, profile);
 
-  if (!academyChecked) return null;
+  if (!academyChecked || !academyProfileReady) return null;
 
   return (
     <>

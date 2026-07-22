@@ -21,7 +21,7 @@ const globalSeoSchemas = [
     "@type": "Organization",
     "@id": "https://tecpey.ir/#organization",
     name: "TecPey",
-    alternateName: ["تک‌پی", "TecPey Crypto Exchange"],
+    alternateName: ["تک‌پی", "TecPey Financial Education Platform"],
     url: "https://tecpey.ir",
     logo: "https://tecpey.ir/images/tecpey-logo.png",
     email: "info@tecpey.ir",
@@ -53,7 +53,7 @@ const globalSeoSchemas = [
       "@type": "OfferCatalog",
       name: "خدمات تک‌پی",
       itemListElement: [
-        { "@type": "Service", "@id": "https://tecpey.ir/#exchange", name: "TecPey Exchange", alternateName: "صرافی تک‌پی", url: "https://tecpey.ir", serviceType: "Cryptocurrency Exchange", areaServed: "IR" },
+        { "@type": "Service", "@id": "https://tecpey.ir/#market-readiness", name: "TecPey Market Readiness", alternateName: "مسیر آمادگی بازار تک‌پی", url: "https://tecpey.ir/academy/trading-arena", serviceType: "Financial Education and Virtual Trading Practice", areaServed: "IR" },
         { "@type": "Service", "@id": "https://tecpey.ir/#academy", name: "TecPey Academy", alternateName: "آکادمی تک‌پی", url: "https://tecpey.ir/academy", serviceType: "Cryptocurrency Education" },
         { "@type": "Service", "@id": "https://tecpey.ir/#ai-mentor", name: "TecPey AI Mentor", alternateName: "مربی هوشمند تک‌پی", url: "https://tecpey.ir/academy", serviceType: "AI-powered Learning Mentor" },
         { "@type": "Service", "@id": "https://tecpey.ir/#trading-arena", name: "TecPey Trading Arena", alternateName: "آرنای معاملاتی تک‌پی", url: "https://tecpey.ir/academy", serviceType: "Virtual Trading Practice" },
@@ -63,14 +63,14 @@ const globalSeoSchemas = [
   },
   {
     "@context": "https://schema.org",
-    "@type": "FinancialService",
-    "@id": "https://tecpey.ir/#financial-service",
+    "@type": "EducationalOrganization",
+    "@id": "https://tecpey.ir/#academy-organization",
     name: "TecPey",
     url: "https://tecpey.ir",
     logo: "https://tecpey.ir/images/tecpey-logo.png",
     email: "info@tecpey.ir",
     telephone: "+981132338026",
-    description: "TecPey is a Persian crypto exchange experience for live crypto prices, cryptocurrency education, security guidance and a clearer start in the Iran crypto market.",
+    description: "TecPey is a Persian financial-education and virtual-trading-practice platform focused on security, risk awareness and a clearer entry into digital-asset markets.",
     areaServed: {
       "@type": "Country",
       name: "Iran"
@@ -118,11 +118,11 @@ export async function generateMetadata() {
   return {
     metadataBase: new URL("https://tecpey.ir"),
     title: {
-      default: "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
+      default: "تک‌پی | آموزش رمزارز، تریدینگ آرنا و منتور هوشمند",
       template: "%s | TecPey",
     },
     description:
-      "تک‌پی صرافی رمزارز فارسی برای مشاهده قیمت لحظه‌ای، خرید و فروش تتر و بیت‌کوین، آموزش، امنیت حساب و شروع سریع معامله است.",
+      "تک‌پی پلتفرم آموزش رمزارز، تمرین معاملاتی با سرمایه مجازی، منتور هوشمند و یادگیری امنیت و مدیریت ریسک است؛ خدمات مالی تنها پس از فعال‌سازی و تأیید عملیاتی ارائه می‌شوند.",
     keywords: [
       "صرافی ارز دیجیتال",
       "خرید بیت کوین",
@@ -163,17 +163,17 @@ export async function generateMetadata() {
       type: "website",
       siteName: "TecPey",
       url: "https://tecpey.ir",
-      title: "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
+      title: "تک‌پی | آموزش رمزارز و تمرین معاملاتی امن",
       description:
-        "مشاهده قیمت لحظه‌ای رمزارزها، شروع سریع معامله، آموزش، امنیت حساب و پشتیبانی رسمی تک‌پی.",
+        "آموزش رمزارز، تمرین در تریدینگ آرنا، منتور هوشمند و مسیر شفاف امنیت و مدیریت ریسک در تک‌پی.",
       locale: "fa_IR",
       alternateLocale: ["en_US"],
       images: [{ url: "https://tecpey.ir/images/tecpey-logo.png", width: 512, height: 512, alt: "TecPey" }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "تک‌پی | صرافی رمزارز امن و حرفه‌ای",
-      description: "بازار رمزارز را با قیمت لحظه‌ای، امنیت، آموزش و مسیر شروع روشن دنبال کنید.",
+      title: "تک‌پی | آموزش رمزارز و تریدینگ آرنا",
+      description: "با آموزش رمزارز، تمرین معاملاتی، منتور هوشمند و مدیریت ریسک برای ورود مسئولانه آماده شوید.",
       images: ["https://tecpey.ir/images/tecpey-logo.png"],
     },
   };

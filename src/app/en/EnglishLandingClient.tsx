@@ -8,7 +8,7 @@ import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
 
 const features = [
-  { icon: TrendingUp, title: "Online market board", text: "Learn first, then review live Bitcoin, Tether, Ethereum and other major crypto markets before making decisions." },
+  { icon: TrendingUp, title: "Market learning board", text: "Learn first, then review available Bitcoin, Tether, Ethereum and other major-market data in an educational context." },
   { icon: ShieldCheck, title: "Security-first onboarding", text: "Account security, identity checks, anti-phishing education and 2FA habits are part of the learning path." },
   { icon: WalletCards, title: "Transparent fees", text: "Fees, withdrawal costs, network risks and risk management are taught before users take action." },
 ];
@@ -39,8 +39,8 @@ function resolveUsdPrice(coin: any, symbol: string) {
 function GlobalUxMetricsEn() {
   const metrics = [
     { value: "7", label: "academy terms", hint: "from basics to trading psychology" },
-    { value: "50+", label: "crypto dossiers", hint: "with market data and risk context" },
-    { value: "20+", label: "trader tools", hint: "analysis, risk, on-chain and macro" },
+    { value: "$100K", label: "virtual Arena capital", hint: "server-owned practice balance" },
+    { value: "3", label: "Arena attempts", hint: "per governed practice cycle" },
     { value: "1 path", label: "safer entry", hint: "learn → analyze → practice → decide" },
   ];
   return (
@@ -64,7 +64,7 @@ function TecpeyEcosystemFlowEn() {
     { icon: ShieldCheck, title: "Secure", desc: "Phishing, 2FA, seed phrase, transfer networks and crisis habits." },
     { icon: LineChart, title: "Analyze", desc: "Technical, fundamental, Market Cap, FDV and market volume." },
     { icon: ClipboardCheck, title: "Tools", desc: "Position size, DCA, sentiment, on-chain and macro tools." },
-    { icon: MousePointerClick, title: "Practice", desc: "Quizzes, XP, real scenarios and readiness checks." },
+    { icon: MousePointerClick, title: "Practice", desc: "Quizzes, guided exercises and readiness checks." },
     { icon: TrendingUp, title: "Decide", desc: "Responsible action instead of hype-driven buying." },
   ];
   return (
@@ -139,7 +139,7 @@ function WhyTecpeyWasCreatedEn() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {[
-            ["Crypto trading platform", "Buy, sell and review live markets with a simple and understandable experience."],
+            ["Market access activation", "Live financial services remain gated until their operational, compliance and release evidence is approved."],
             ["Education before decisions", "Learn basics, security, tools and risks before serious market entry."],
             ["Evaluation and practice", "Short quizzes and real-world scenarios help users evaluate readiness."],
             ["More informed entry", "TecPey does not aim to push more trading; it aims to support safer decisions."],

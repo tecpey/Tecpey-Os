@@ -138,7 +138,7 @@ function DeviceFrame() {
             {[
               ["شروع سریع", "۳ قدم"],
               ["مسیر کاربر", "شفاف"],
-              ["بازارها", "زنده"],
+              ["نمای بازار", "آموزشی"],
               ["پشتیبانی", "ساعات اعلام‌شده"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-3 text-center">
