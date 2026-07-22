@@ -82,6 +82,20 @@ for (const token of [
   requireText(workflow, token, `browser workflow missing ${token}`);
 }
 
+
+const rootLayout = read("src/app/layout.tsx");
+for (const token of [
+  "REQUEST_ROUTE_CONTEXT_HEADER",
+  'requestHeaders.get("x-nonce")',
+  'lang={isEnglishPath ? "en-US" : "fa-IR"}',
+  'dir={isEnglishPath ? "ltr" : "rtl"}',
+  "<ThemeProvider nonce={nonce}>",
+]) {
+  requireText(rootLayout, token, `server locale/CSP nonce boundary missing: ${token}`);
+}
+const themeProvider = read("src/components/theme-provider.tsx");
+requireText(themeProvider, "{...props}", "ThemeProvider must forward the CSP nonce to next-themes");
+
 const landing = read("src/app/home/enterprise/TecpeyEnterpriseLanding.tsx");
 for (const forbidden of ["۲۴/۷", ">Online</div>", "اولین معامله واقعی"]) {
   if (landing.includes(forbidden)) {

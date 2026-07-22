@@ -2,6 +2,7 @@ import "./globals.css";
 import "./tecpey-brand-tokens.css";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import Providers from "./providers";
 import Navbar from "@/components/navbar/Navbar";
 import { getProfileInfo } from "@/services/profile";
@@ -12,6 +13,7 @@ import HtmlLangDir from "@/components/seo/HtmlLangDir";
 import { GlobalAiMentorWidget } from "@/components/academy/GlobalAiMentorWidget";
 import { PublicMentorEntry } from "@/components/academy/PublicMentorEntry";
 import { buildFAQSchema, TECPEY_FAQS } from "@/lib/seo";
+import { REQUEST_ROUTE_CONTEXT_HEADER } from "@/lib/request-route-context";
 
 const globalSeoSchemas = [
   {
@@ -182,24 +184,29 @@ export default async function RootLayout({
 }: {
   children: ReactNode;
 }) {
-  const locale = "fa";
-  const messages = (await import(`../i18n/messages/fa.json`)).default;
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get(REQUEST_ROUTE_CONTEXT_HEADER) ?? "/";
+  const isEnglishPath = pathname === "/en" || pathname.startsWith("/en/");
+  const locale = isEnglishPath ? "en" : "fa";
+  const messages = (await import(`../i18n/messages/${locale}.json`)).default;
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const user = await getProfileInfo();
   const metaData = await getMetaData();
 
   return (
     <html
-      lang="fa-IR"
-      dir="rtl"
+      lang={isEnglishPath ? "en-US" : "fa-IR"}
+      dir={isEnglishPath ? "ltr" : "rtl"}
       suppressHydrationWarning
     >
       <body>
         <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalSeoSchemas) }}
         />
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ThemeProvider>
+          <ThemeProvider nonce={nonce}>
             <Providers>
               <HtmlLangDir />
               <Navbar user={user} metaData={metaData} />

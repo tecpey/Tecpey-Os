@@ -67,7 +67,7 @@ test("Persian public journey is truthful, navigable and unobscured", async ({ pa
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.getByRole("heading", { name: "تک‌پی، نقطه امن ورود به بازار رمزارز" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تک‌پی، نقطه امن ورود به بازار رمزارز", level: 1 })).toBeVisible();
   const exchange = page.getByRole("link", { name: "ورود به صرافی", exact: true });
   const academy = page.getByRole("link", { name: "آکادمی رایگان", exact: true });
   await expect(exchange).toHaveAttribute("href", "https://my.tecpey.ir");
@@ -93,6 +93,7 @@ test("Persian public journey is truthful, navigable and unobscured", async ({ pa
 test("English public journey preserves LTR navigation and locked mentor truth", async ({ page }) => {
   await page.goto("/en", { waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
   await openKnowledgeCenter(page, "Knowledge Center", "Trading Arena");
 
   const mentor = page.getByRole("button", { name: "Ask TecPey learning mentor" });
