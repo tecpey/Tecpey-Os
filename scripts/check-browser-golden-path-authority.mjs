@@ -39,6 +39,8 @@ for (const path of [
   ".github/workflows/browser-functional-fix.yml",
   ".github/workflows/browser-nav-copy-fix.yml",
   ".github/workflows/browser-golden-path-fix-bootstrap.yml",
+  ".github/workflows/browser-review-hardening.yml",
+  ".github/workflows/browser-product-hardening-v2.yml",
   "scripts/apply-browser-golden-path-patch.py",
   "scripts/apply-browser-runtime-fixes.py",
   "scripts/apply-browser-functional-fixes.py",
@@ -75,18 +77,23 @@ const spec = read("src/tests/browser/public-golden-path.spec.ts");
 for (const token of [
   "/api/academy-auth",
   "/api/academy-student-profile",
+  'type ProfileMode = "absent" | "ready" | "unavailable"',
   "IntersectionObserver",
   "مرکز دانش",
   "Knowledge Center",
   "تریدینگ آرنا",
   "Trading Arena",
+  "آشنایی با منتور هوشمند آموزشی تک‌پی",
+  "Discover TecPey AI learning mentor",
   "از مربی آموزشی تک‌پی بپرس",
   "Ask TecPey learning mentor",
+  "Profile service outage fails closed",
+  "expectProtectedArenaRedirects",
   "scrollWidth",
   'localStorage.getItem("theme")',
   "expectCanonicalAuthLinks",
   "tecpey.irhttps://",
-  "24\\/7|۲۴\\/۷|۲۴ ساعته",
+  "24\/7|۲۴\/۷|۲۴ ساعته",
 ]) {
   requireText(spec, token, `browser Golden Path coverage missing ${token}`);
 }
@@ -96,9 +103,11 @@ for (const token of [
   "push:",
   "pull_request:",
   "image: redis:7-alpine",
-  'redis-cli ping',
+  "image: postgres:16-alpine",
   "npm ci",
   "npm run browser:check",
+  "npm run db:migrate",
+  "npm run build",
   "playwright install --with-deps chromium firefox",
   "npm run test:browser",
   "if: failure()",
@@ -119,9 +128,24 @@ for (const token of [
   'lang={isEnglishPath ? "en-US" : "fa-IR"}',
   'dir={isEnglishPath ? "ltr" : "rtl"}',
   "<ThemeProvider nonce={nonce}>",
+  "TecPey Financial Education Platform",
+  "Financial Education and Virtual Trading Practice",
+  '"@type": "EducationalOrganization"',
+  "آموزش رمزارز، تریدینگ آرنا و منتور هوشمند",
 ]) {
-  requireText(rootLayout, token, `server locale/CSP nonce boundary missing: ${token}`);
+  requireText(rootLayout, token, `server locale/metadata boundary missing: ${token}`);
 }
+for (const forbidden of [
+  "TecPey Crypto Exchange",
+  '"@type": "FinancialService"',
+  "تک‌پی | صرافی رمزارز امن، سریع و شفاف",
+  "تک‌پی | صرافی رمزارز امن و حرفه‌ای",
+]) {
+  if (rootLayout.includes(forbidden)) {
+    failures.push(`unsupported root metadata claim remains: ${forbidden}`);
+  }
+}
+
 const themeProvider = read("src/components/theme-provider.tsx");
 requireText(
   themeProvider,
@@ -139,8 +163,30 @@ for (const required of [
   "نمایش آموزشی بازار",
   "ساعات اعلام‌شده",
   "فقط پس از فعال‌سازی و تأیید عملیاتی",
+  '["نمای بازار", "آموزشی"]',
 ]) {
   requireText(landing, required, `truthful landing disclosure missing: ${required}`);
+}
+
+const englishLanding = read("src/app/en/EnglishLandingClient.tsx");
+for (const required of [
+  "Market learning board",
+  "virtual Arena capital",
+  "Arena attempts",
+  "guided exercises",
+  "Market access activation",
+  "Live financial services remain gated",
+]) {
+  requireText(englishLanding, required, `truthful English landing disclosure missing: ${required}`);
+}
+for (const forbidden of [
+  "Online market board",
+  "Crypto trading platform",
+  "Quizzes, XP, real scenarios",
+]) {
+  if (englishLanding.includes(forbidden)) {
+    failures.push(`unsupported English landing claim remains: ${forbidden}`);
+  }
 }
 
 const publicMentorSpotlight = read("src/components/home/TecpeyHomeAI.tsx");
@@ -174,16 +220,23 @@ if (/authLink\(\s*["']https?:\/\//.test(navbar)) {
   failures.push("Navbar authLink must receive a relative /signin or /signup path");
 }
 
-const mentor = read("src/components/academy/GlobalAiMentorWidget.tsx");
-if (mentor.includes("if (!academyChecked || !academyProfileReady) return null;")) {
-  failures.push("public mentor entry is still hidden for users without an Academy profile");
-}
+const globalMentor = read("src/components/academy/GlobalAiMentorWidget.tsx");
+requireText(
+  globalMentor,
+  "if (!academyChecked || !academyProfileReady) return null;",
+  "personalized GlobalAiMentorWidget must remain hidden until canonical Academy profile readiness",
+);
+
+const publicMentor = read("src/components/academy/PublicMentorEntry.tsx");
 for (const token of [
-  "if (!academyChecked) return null;",
-  "منتور بعد از ساخت پروفایل آکادمی فعال می‌شود",
-  "Mentor activates after academy profile",
+  "parseProfileStatusPayload",
+  "if (!response.ok)",
+  "Object.prototype.hasOwnProperty.call",
+  'if (profileStatus !== "absent") return null;',
+  "academy_profile_status_",
+  'return "unavailable"',
 ]) {
-  requireText(mentor, token, `public locked Mentor boundary missing: ${token}`);
+  requireText(publicMentor, token, `public Mentor fail-closed boundary missing: ${token}`);
 }
 
 if (failures.length > 0) {
@@ -192,5 +245,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Browser Golden Path authority passed: production custom-server plus isolated Redis, pinned Playwright, four browser/viewport projects, permanent all-PR/main workflow, canonical auth links, truthful public claims, public locked Mentor, and no temporary patch assets.",
+  "Browser Golden Path authority passed: production custom-server with isolated PostgreSQL/Redis, pinned Playwright, four browser/viewport projects, permanent all-PR/main workflow, canonical auth links, truthful metadata/copy, one fail-closed public Mentor entry, profile-ready personalized Mentor, and no temporary patch assets.",
 );
