@@ -86,8 +86,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: public-browser-failure-${{ github.sha }}
-          path: tests/e2e/test-results
-          if-no-files-found: ignore
+          path: |
+            tests/e2e/server-output.log
+            tests/e2e/test-results
+          if-no-files-found: error
           retention-days: 7
 
       - name: Upload bounded HTML report
