@@ -1,25 +1,10 @@
 name: Browser Golden Path
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - 'playwright.config.ts'
-      - 'src/tests/browser/**'
-      - 'scripts/check-browser-golden-path-authority.mjs'
-      - 'src/app/layout.tsx'
-      - 'src/app/home/enterprise/TecpeyEnterpriseLanding.tsx'
-      - 'src/app/en/**'
-      - 'src/components/ThemeToggle.tsx'
-      - 'src/components/theme-provider.tsx'
-      - 'src/components/seo/HtmlLangDir.tsx'
-      - 'src/components/navbar/Navbar.tsx'
-      - 'src/components/academy/GlobalAiMentorWidget.tsx'
-      - 'src/components/footer/**'
-      - 'docs/ui/PUBLIC_BROWSER_GOLDEN_PATH.md'
-      - '.github/workflows/browser-golden-path.yml'
   workflow_dispatch:
 
 permissions:
@@ -34,6 +19,18 @@ jobs:
     name: Public FA/EN browser acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 25
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +40,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
 
       - name: Install locked dependencies
         run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
