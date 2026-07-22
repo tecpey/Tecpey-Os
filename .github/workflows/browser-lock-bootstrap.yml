@@ -1,0 +1,44 @@
+name: Browser Lock Bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/browser-lock-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock:
+    name: Generate pinned Playwright lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Generate package manifest and lockfile
+        run: npm install --package-lock-only --ignore-scripts --save-dev --save-exact @playwright/test@1.61.1 --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify pinned dependency
+        run: |
+          node -e 'const p=require("./package.json"); if(p.devDependencies?.["@playwright/test"]!=="1.61.1") process.exit(1)'
+          npm ci --ignore-scripts --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Upload generated manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-lock-bootstrap-${{ github.sha }}
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
