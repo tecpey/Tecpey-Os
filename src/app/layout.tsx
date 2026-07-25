@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 import Providers from "./providers";
 import Navbar from "@/components/navbar/Navbar";
 import { getProfileInfo } from "@/services/profile";
-import { getMetaData } from "@/services/metaData.services";
 import Footer from "@/components/footer/Footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import HtmlLangDir from "@/components/seo/HtmlLangDir";
@@ -224,7 +223,6 @@ export default async function RootLayout({
   const messages = (await import(`../i18n/messages/${locale}.json`)).default;
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const user = await getProfileInfo();
-  const metaData = await getMetaData();
 
   return (
     <html
@@ -242,9 +240,9 @@ export default async function RootLayout({
           <ThemeProvider>
             <Providers>
               <HtmlLangDir />
-              <Navbar user={user} metaData={metaData} />
+              <Navbar user={user} />
               {children}
-              <Footer metaData={metaData} />
+              <Footer />
               <PublicMentorEntry />
               <GlobalAiMentorWidget />
             </Providers>

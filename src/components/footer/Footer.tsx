@@ -200,7 +200,7 @@ function ContactPanel({ isEnglish }: { isEnglish: boolean }) {
   );
 }
 
-export default function Footer({ metaData: _metaData }: { metaData?: any }) {
+export default function Footer() {
   const year = new Date().getFullYear();
   const pathname = usePathname();
   const isEnglish = pathname.startsWith("/en");

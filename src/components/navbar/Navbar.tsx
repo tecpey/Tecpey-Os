@@ -84,7 +84,6 @@ export default function Navbar({
   user,
 }: {
   user: User | null;
-  metaData?: any;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
