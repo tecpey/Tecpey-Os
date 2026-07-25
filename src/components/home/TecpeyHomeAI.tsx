@@ -86,8 +86,8 @@ function toneLabel(tone: Tone, locale: Locale) {
 }
 
 function toneClass(tone: Tone) {
-  if (tone === "bullish") return "border-emerald-300/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300";
-  if (tone === "bearish") return "border-rose-300/30 bg-rose-500/10 text-rose-600 dark:text-rose-300";
+  if (tone === "bullish") return "border-emerald-300/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  if (tone === "bearish") return "border-rose-300/30 bg-rose-500/10 text-rose-700 dark:text-rose-300";
   return "border-cyan-300/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-200";
 }
 
@@ -162,7 +162,7 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
             ))}
           </div>
           <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <Link href={isFa ? "/academy/ai-guide" : "/en/academy/ai-guide"} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5">
+            <Link href={isFa ? "/academy/ai-guide" : "/en/academy/ai-guide"} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
               {isFa ? "شروع گفتگو با مربی" : "Ask the AI Mentor"}
               {isFa ? <ArrowLeft className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
             </Link>
@@ -184,7 +184,7 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-300">{isFa ? "آموزش ۲۴ ساعته، بدون سیگنال‌فروشی" : "24/7 learning, no signal selling"}</p>
                 </div>
               </div>
-              <span className="rounded-full border border-emerald-300/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-600 dark:text-emerald-300">Online</span>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300">{isFa ? "آموزشی" : "Learning"}</span>
             </div>
             <div className="mt-5 space-y-3">
               <div className="max-w-[88%] rounded-3xl rounded-br-md bg-slate-100 p-4 text-sm font-bold leading-7 text-slate-700 dark:bg-white/10 dark:text-slate-200">
@@ -204,7 +204,7 @@ export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
                   <CardIcon className="h-8 w-8 text-cyan-500" />
                   <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-white">{String(title)}</h3>
                   <p className="mt-2 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{String(text)}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-700 transition group-hover:bg-cyan-500 group-hover:text-white dark:text-cyan-100">
+                  <span className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-700 transition group-hover:bg-cyan-700 group-hover:text-white dark:text-cyan-100 dark:group-hover:bg-cyan-500">
                     {isFa ? (String(title).includes("شبیه") ? "شروع شبیه‌ساز" : "ادامه") : (String(title).includes("Simulator") ? "Start simulator" : "Continue")}
                     {isFa ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
                   </span>
@@ -279,7 +279,7 @@ function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; inte
           return (
             <div key={String(symbol)} className="rounded-[28px] border border-cyan-300/15 bg-white/75 p-5 shadow-xl shadow-cyan-500/5 dark:bg-slate-950/45">
               <div className="flex items-center justify-between"><span className="text-sm font-black text-slate-500 dark:text-slate-300">{String(symbol)} / USDT</span><TrendingUp className="h-5 w-5 text-cyan-500" /></div>
-              <p className={`mt-4 text-3xl font-black ${numeric >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{Number.isFinite(numeric) ? `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}%` : "—"}</p>
+              <p className={`mt-4 text-3xl font-black ${numeric >= 0 ? "text-emerald-700 dark:text-emerald-500" : "text-rose-700 dark:text-rose-500"}`}>{Number.isFinite(numeric) ? `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}%` : "—"}</p>
               <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">{isFa ? "تغییرات ۲۴ ساعت اخیر" : "24h change"}</p>
             </div>
           );
@@ -367,7 +367,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
               <div className="flex items-center justify-between gap-2">
                 <span className="rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-100">{item.category}</span>
                 <div className="flex items-center gap-2">
-                  {item.isBreaking && <span className="rounded-full border border-rose-300/30 bg-rose-500/10 px-2 py-1 text-[10px] font-black text-rose-500">{isFa ? "فوری" : "BREAKING"}</span>}
+                  {item.isBreaking && <span className="rounded-full border border-rose-300/30 bg-rose-500/10 px-2 py-1 text-[10px] font-black text-rose-700 dark:text-rose-300">{isFa ? "فوری" : "BREAKING"}</span>}
                   <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${toneClass(item.tone)}`}>{toneLabel(item.tone, locale)}</span>
                 </div>
               </div>
@@ -400,7 +400,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
             </p>
           </div>
           {compact && (
-            <Link href={isFa ? "/crypto-news" : "/en/crypto-news"} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white">
+            <Link href={isFa ? "/crypto-news" : "/en/crypto-news"} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
               {isFa ? "مشاهده همه اخبار" : "Open News Center"}
               {isFa ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
             </Link>

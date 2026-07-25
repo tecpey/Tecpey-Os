@@ -773,8 +773,8 @@ html[dir="rtl"] .rtl-flip {
   --tp-surface: #eef6ff;
   --tp-card: rgba(255, 255, 255, 0.82);
   --tp-text: #06111f;
-  --tp-muted: #64748b;
-  --tp-primary: #0897f2;
+  --tp-muted: #475569;
+  --tp-primary: #075eab;
   --tp-primary-2: #08d9d6;
   --tp-border: rgba(15, 23, 42, 0.10);
   color: var(--tp-text);
@@ -1224,4 +1224,3 @@ html:lang(en-US),
 .dark .tp-badge-error {
   color: #fca5a5;
 }
-

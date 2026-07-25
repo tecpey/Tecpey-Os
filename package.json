@@ -26,6 +26,8 @@
     "ui:public:check": "node scripts/check-public-ui-foundation.mjs",
     "ui:runtime:dev": "node scripts/check-ui-runtime.mjs --dev",
     "ui:runtime:prod": "node scripts/check-ui-runtime.mjs --prod",
+    "test:e2e:public": "npm --prefix tests/e2e test",
+    "test:e2e:public:install": "npm --prefix tests/e2e run install:browsers",
     "redis:safety:check": "node scripts/check-redis-safety-authority.mjs",
     "test:redis-safety": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/runtime/redis-pubsub-safety.test.ts",
     "notifications:check": "node scripts/check-notification-persistence-authority.mjs",
