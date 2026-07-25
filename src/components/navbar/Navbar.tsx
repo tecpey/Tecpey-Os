@@ -77,7 +77,7 @@ function isNavActive(pathname: string, href: string) {
 }
 
 function navLinkClass(active: boolean) {
-  return `relative transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "text-primary after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary" : "hover:text-primary"}`;
+  return `relative transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-800 dark:focus-visible:ring-primary ${active ? "text-blue-800 after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-blue-800 dark:text-primary dark:after:bg-primary" : "hover:text-blue-800 dark:hover:text-primary"}`;
 }
 
 export default function Navbar({
@@ -408,29 +408,29 @@ export default function Navbar({
             <>
               <a
                 href={resolvedLoginHref}
-                className="text-sm font-bold transition hover:text-primary"
+                className="text-sm font-bold transition hover:text-blue-800 dark:hover:text-primary"
               >
                 {loginLabel}
               </a>
               <a
                 href={resolvedSignupHref}
-                className="rounded-full bg-primary px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:brightness-110"
+                className="rounded-full bg-blue-800 px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-blue-900 dark:bg-primary dark:hover:brightness-110"
               >
                 {signupLabel}
               </a>
             </>
           )}
           <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 text-xs font-black shadow-sm">
-            <Globe2 className="mx-2 h-4 w-4 text-primary" />
+            <Globe2 className="mx-2 h-4 w-4 text-blue-800 dark:text-primary" />
             <Link
               href={faHref}
-              className={`rounded-full px-3 py-2 transition ${!isEnglish ? "bg-primary text-white" : "text-fg/75 hover:bg-primary/10 hover:text-primary"}`}
+              className={`rounded-full px-3 py-2 transition ${!isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-3 py-2 transition ${isEnglish ? "bg-primary text-white" : "text-fg/75 hover:bg-primary/10 hover:text-primary"}`}
+              className={`rounded-full px-3 py-2 transition ${isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>
@@ -442,16 +442,16 @@ export default function Navbar({
 
         <div className="flex items-center gap-2 sm:gap-3 lg:hidden">
           <div className="flex items-center gap-1 rounded-full border border-slate-200/70 bg-white/65 p-1 text-xs font-black shadow-sm dark:border-white/10 dark:bg-white/5">
-            <Globe2 className="mx-1 h-4 w-4 text-primary sm:mx-2" />
+            <Globe2 className="mx-1 h-4 w-4 text-blue-800 dark:text-primary sm:mx-2" />
             <Link
               href={faHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${!isEnglish ? "bg-primary text-white" : "text-slate-700 hover:bg-primary/10 hover:text-primary dark:text-white/80"}`}
+              className={`rounded-full px-2 py-2 transition sm:px-3 ${!isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${isEnglish ? "bg-primary text-white" : "text-slate-700 hover:bg-primary/10 hover:text-primary dark:text-white/80"}`}
+              className={`rounded-full px-2 py-2 transition sm:px-3 ${isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>

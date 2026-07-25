@@ -131,7 +131,7 @@ function DeviceFrame() {
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">قیمت لحظه‌ای و مسیر شروع معامله</p>
               </div>
             </div>
-            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 sm:block">آموزشی</div>
+            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-500 sm:block">آموزشی</div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -162,7 +162,7 @@ function DeviceFrame() {
                     <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / IRT</p>
                   </div>
                   <p className="hidden text-xs font-bold text-[color:var(--tp-text)] sm:block">{formatFaNumber(price)}</p>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>{Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "—"}</span>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-500" : "bg-rose-500/10 text-rose-700 dark:text-rose-500"}`}>{Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "—"}</span>
                 </div>
               );
             })}
@@ -208,9 +208,9 @@ function Hero() {
             </div>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs font-bold text-[color:var(--tp-muted)] lg:justify-start">
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-2 text-violet-500"><LineChart className="h-4 w-4" />اطلاعات آموزشی بازار</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-amber-500"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
           </div>
@@ -394,7 +394,7 @@ function ConversionJourney() {
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           {levels.map((level, index) => (
             <div key={level.title} className="group relative overflow-hidden rounded-[30px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] dark:border-cyan-300/15 dark:bg-white/[0.055]">
-              <span className="absolute left-4 top-4 text-5xl font-black text-cyan-300/10">۰{index + 1}</span>
+              <span aria-hidden="true" className="absolute left-4 top-4 text-5xl font-black text-cyan-300/10">۰{index + 1}</span>
               <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,.18)]">
                 <level.icon className="h-7 w-7" />
               </div>
@@ -482,16 +482,16 @@ function BrandContentSystem() {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {cards.map((card) => (
-              <div key={card.title} className="group relative min-h-[270px] overflow-hidden rounded-[30px] border border-cyan-300/15 bg-white/[0.06] p-5 shadow-[0_18px_55px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] dark:bg-white/[0.045]">
+              <div key={card.title} className="group relative min-h-[270px] overflow-hidden rounded-[30px] border border-cyan-200 bg-white/80 p-5 shadow-[0_18px_55px_rgba(0,0,0,.18)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] dark:border-cyan-300/15 dark:bg-white/[0.045]">
                 <div className="flex items-center justify-between">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,.18)]">
                     <card.icon className="h-7 w-7" />
                   </div>
                   <Image src="/images/tecpey-logo.png" alt="TecPey" width={38} height={38} className="h-10 w-10 object-contain opacity-80" />
                 </div>
-                <p className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black text-cyan-200">{card.tag}</p>
-                <h3 className="mt-4 text-xl font-black leading-8 text-white">{card.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-white/70">{card.desc}</p>
+                <p className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-200">{card.tag}</p>
+                <h3 className="mt-4 text-xl font-black leading-8 text-slate-950 dark:text-white">{card.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-white/70">{card.desc}</p>
                 <div className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-cyan-400/20 blur-2xl" />
               </div>
             ))}
@@ -524,7 +524,7 @@ function WhyTecpeyWasCreated() {
             ["ارزیابی و تمرین", "آزمون‌های کوتاه و سناریوهای واقعی برای سنجش آمادگی کاربر."],
             ["ورود آگاهانه‌تر", "هدف تک‌پی معامله بیشتر نیست؛ تصمیم آگاهانه‌تر و امن‌تر است."],
           ].map(([title, text]) => (
-            <div key={title} className="rounded-[26px] border border-white/10 bg-slate-950/35 p-5">
+            <div key={title} className="rounded-[26px] border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-slate-950/35">
               <HeartHandshake className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
               <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-slate-950 dark:text-white">{title}</h3>
               <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{text}</p>
@@ -663,7 +663,7 @@ function AcademyGrowthSystem() {
               </div>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">{item.result}</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <TermGateLink href={`/academy/term-${index + 1}#term-quiz`} termNumber={index + 1} className="rounded-2xl bg-cyan-500 px-3 py-2 text-center text-xs font-black text-white shadow-[0_10px_25px_rgba(6,182,212,.22)] transition hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa">آزمون ترم</TermGateLink>
+                <TermGateLink href={`/academy/term-${index + 1}#term-quiz`} termNumber={index + 1} className="rounded-2xl bg-cyan-700 px-3 py-2 text-center text-xs font-black text-white shadow-[0_10px_25px_rgba(6,182,212,.22)] transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa">آزمون ترم</TermGateLink>
                 <TermGateLink href={`/academy/term-${index + 1}`} termNumber={index + 1} className="rounded-2xl border border-cyan-300/35 bg-white/70 px-3 py-2 text-center text-xs font-black text-slate-800 transition hover:border-cyan-400 dark:bg-white/10 dark:text-white" lockedClassName="border-slate-500 bg-slate-600/70 text-white" locale="fa">شروع آموزش</TermGateLink>
               </div>
             </article>
@@ -676,7 +676,7 @@ function AcademyGrowthSystem() {
             ["گواهینامه آکادمی", "گواهینامه مربوط به مسیر رسمی آکادمی آنلاین یا حضوری است و پس از تکمیل دوره و ارزیابی صادر می‌شود."],
             ["آمادگی واقعی پیش از ورود", "کاربران آماده‌تر می‌توانند برای آموزش تکمیلی، تمرین‌های تکمیلی و مسیر رسمی جداگانه بررسی شوند."],
           ].map(([title, text]) => (
-            <div key={title} className="rounded-[28px] border border-white/10 bg-slate-950/35 p-5">
+            <div key={title} className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-slate-950/35">
               <ClipboardCheck className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
               <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-slate-950 dark:text-white">{title}</h3>
               <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{text}</p>
@@ -710,7 +710,7 @@ function TrustGrowthSignals() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {opportunities.map(([title, text]) => (
-              <div key={title} className="rounded-[28px] border border-white/10 bg-slate-950/35 p-5">
+              <div key={title} className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-slate-950/35">
                 <Award className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
                 <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-slate-950 dark:text-white">{title}</h3>
                 <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{text}</p>
@@ -741,7 +741,7 @@ function CorporateAcademySection() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {items.map(([title, text]) => (
-            <div key={title} className="rounded-[26px] border border-white/10 bg-slate-950/35 p-5">
+            <div key={title} className="rounded-[26px] border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-slate-950/35">
               <Building2 className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
               <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-slate-950 dark:text-white">{title}</h3>
               <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{text}</p>
@@ -827,12 +827,12 @@ function LearningExperienceSystem() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {cards.map((item) => (
-              <div key={item.title} className="rounded-[28px] border border-white/10 bg-slate-950/35 p-5">
+              <div key={item.title} className="rounded-[28px] border border-slate-200 bg-white/80 p-5 dark:border-white/10 dark:bg-slate-950/35">
                 <div className="flex h-13 w-13 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300">
                   <item.icon className="h-7 w-7" />
                 </div>
                 <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-white">{item.title}</h3>
-                <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{item.text}</p>
+                <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{item.text}</p>
               </div>
             ))}
           </div>
@@ -996,7 +996,7 @@ export default function TecpeyEnterpriseLanding() {
       <ConversionJourney />
       <AcademyGrowthSystem />
       <AcademyOfficialClarification />
-      <section className="bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/15 bg-cyan-300/10 p-6 text-center"><h2 className="text-2xl font-black text-[color:var(--tp-text)]">مرکز دانش: جعبه ابزار معامله‌گر</h2><p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">برای خروج از سردرگمی، ابزارهای کاربردی تحلیل، مدیریت ریسک، اخبار، آنچین و بررسی پروژه‌ها را به زبان ساده یاد بگیرید.</p><a href="/trading-tools" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white">مشاهده ابزارهای ترید</a></div></section>
+      <section className="bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/15 bg-cyan-300/10 p-6 text-center"><h2 className="text-2xl font-black text-[color:var(--tp-text)]">مرکز دانش: جعبه ابزار معامله‌گر</h2><p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">برای خروج از سردرگمی، ابزارهای کاربردی تحلیل، مدیریت ریسک، اخبار، آنچین و بررسی پروژه‌ها را به زبان ساده یاد بگیرید.</p><a href="/trading-tools" className="mt-5 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">مشاهده ابزارهای ترید</a></div></section>
       <LearningExperienceSystem />
       <TrustGrowthSignals />
       <CorporateAcademySection />

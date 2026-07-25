@@ -45,7 +45,7 @@ export function EnglishHero({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.18),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
       <div className="relative mx-auto max-w-7xl">
         <div className="max-w-4xl text-left">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-600 dark:text-cyan-200">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-700 dark:text-cyan-200">
             <Sparkles className="h-3.5 w-3.5" />
             {eyebrow}
           </div>
@@ -58,7 +58,7 @@ export function EnglishHero({
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={ctaHref}
-              className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
+              className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:focus:ring-cyan-300/60"
             >
               {ctaLabel}
               <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
@@ -84,7 +84,7 @@ export function EnglishCard({ title, text, href }: { title: string; text: string
       <h3 className="mt-5 text-xl font-black leading-8 text-slate-950 dark:text-white">{title}</h3>
       <p className="mt-3 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{text}</p>
       {href && (
-        <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-cyan-500 opacity-0 transition group-hover:opacity-100 dark:text-cyan-300">
+        <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-cyan-700 opacity-0 transition group-hover:opacity-100 dark:text-cyan-300">
           Read more <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
         </div>
       )}
@@ -101,7 +101,7 @@ export function EnglishCard({ title, text, href }: { title: string; text: string
 
 export function EnglishSectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-600 dark:text-cyan-200">
+    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-2 text-xs font-black text-cyan-700 dark:text-cyan-200">
       {children}
     </div>
   );
@@ -132,7 +132,7 @@ export function EnglishCTA({
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href={primaryHref}
-            className="group inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-7 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/25 transition hover:-translate-y-0.5 hover:bg-cyan-400 hover:shadow-2xl"
+            className="group inline-flex items-center gap-2 rounded-2xl bg-cyan-700 px-7 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/25 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400"
           >
             {primaryLabel}
             <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
