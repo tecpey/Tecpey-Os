@@ -237,7 +237,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalSeoSchemas) }}
         />
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ThemeProvider>
+          <ThemeProvider nonce={nonce}>
             <Providers>
               <HtmlLangDir />
               <Navbar user={user} />

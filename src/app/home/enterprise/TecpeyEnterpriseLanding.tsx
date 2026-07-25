@@ -131,15 +131,15 @@ function DeviceFrame() {
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">قیمت لحظه‌ای و مسیر شروع معامله</p>
               </div>
             </div>
-            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 sm:block">Online</div>
+            <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500 sm:block">آموزشی</div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ["شروع سریع", "۳ قدم"],
               ["مسیر کاربر", "شفاف"],
-              ["بازارها", "زنده"],
-              ["پشتیبانی", "۲۴/۷"],
+              ["داده‌های بازار", "مرجع"],
+              ["راهنمایی", "آموزشی"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-3 text-center">
                 <p className="text-lg font-black text-[color:var(--tp-text)]">{value}</p>
@@ -184,12 +184,12 @@ function Hero() {
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(11,217,222,.20),transparent_30%),radial-gradient(circle_at_10%_30%,rgba(30,64,175,.16),transparent_28%)]" />
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[.95fr_1.05fr] lg:px-8 lg:pb-24">
         <div className="text-center lg:text-right">
-          <SectionLabel>آموزش، بازار زنده و ورود امن در یک مسیر شفاف</SectionLabel>
+          <SectionLabel>آموزش، اطلاعات آموزشی بازار و تمرین مجازی در یک مسیر شفاف</SectionLabel>
           <h1 className="mt-6 text-balance text-4xl font-black leading-[1.18] tracking-tight text-[color:var(--tp-text)] sm:text-5xl lg:text-6xl">
             تک‌پی، نقطه امن ورود به بازار رمزارز
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-8 text-[color:var(--tp-muted)] sm:text-lg lg:mx-0">
-            از اولین آشنایی با بیت‌کوین تا اولین معامله واقعی، آموزش، تحلیل، ابزار و بازار زنده را در یک مسیر شفاف تجربه کنید؛ بدون عجله، بدون سیگنال‌فروشی و با تمرکز روی امنیت و مدیریت ریسک.
+            از نخستین آشنایی با بیت‌کوین تا تمرین معامله مجازی، آموزش، تحلیل، ابزار و اطلاعات آموزشی بازار را در یک مسیر شفاف تجربه کنید؛ بدون عجله، بدون سیگنال‌فروشی و با تمرکز بر امنیت و مدیریت ریسک.
           </p>
           <div className="mt-5 inline-flex rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-700 shadow-sm dark:text-cyan-200">
             آموزش رایگان برای همه؛ مسیر رسمی آکادمی یک برنامه جداگانه آنلاین یا حضوری است
@@ -211,7 +211,7 @@ function Hero() {
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-2 text-violet-500"><LineChart className="h-4 w-4" />بازار زنده</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-2 text-violet-500"><LineChart className="h-4 w-4" />اطلاعات آموزشی بازار</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-amber-500"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
           </div>
         </div>
@@ -318,7 +318,7 @@ function WhyTecpeyTrust() {
   const items = [
     { icon: ShieldCheck, title: "ورود امن، نه هیجانی", desc: "تک‌پی قبل از دعوت به معامله، امنیت حساب، ریسک انتقال، کارمزد و مدیریت سرمایه را آموزش می‌دهد." },
     { icon: GraduationCap, title: "آموزش رایگان و مرحله‌ای", desc: "کاربر از صفر شروع می‌کند و با آزمون، XP و مسیر مرحله‌ای می‌فهمد برای قدم بعدی آماده است یا نه." },
-    { icon: LineChart, title: "بازار زنده و قابل بررسی", desc: "قیمت، حجم، Market Cap، FDV و اطلاعات کلیدی رمزارزها در کنار آموزش نمایش داده می‌شود." },
+    { icon: LineChart, title: "نمای آموزشی بازار", desc: "داده‌های مرجع قیمت، حجم، Market Cap، FDV و اطلاعات کلیدی رمزارزها در کنار آموزش نمایش داده می‌شود." },
     { icon: ClipboardList, title: "جعبه ابزار معامله‌گر", desc: "ابزارهای تحلیل، مدیریت ریسک، آنچین، اقتصاد کلان و ماشین‌حساب‌ها در مرکز دانش جمع شده‌اند." },
   ];
   return (
@@ -952,7 +952,7 @@ function FinalCta() {
       <div className="mx-auto max-w-7xl overflow-hidden rounded-[36px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.35),transparent_30%),linear-gradient(135deg,#07111f,#0f172a)] px-6 py-10 text-center shadow-2xl shadow-cyan-500/10 sm:px-10 lg:px-16 lg:py-16">
         <Image src="/images/tecpey-logo.png" alt="TecPey" width={74} height={74} className="mx-auto h-16 w-16 object-contain" />
         <h2 className="mx-auto mt-6 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">تک‌پی، نقطه امن ورود به بازار رمزارز</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-white/70 sm:text-base">آموزش‌های رایگان آکادمی را شروع کنید، بازار زنده را ببینید، در آزمون‌ها امتیاز بگیرید و اگر جزو کاربران آماده‌تر باشید، وارد مسیر حرفه‌ای تک‌پی شوید.</p>
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-white/70 sm:text-base">آموزش‌های رایگان آکادمی را شروع کنید، اطلاعات آموزشی بازار را مرور کنید، در آزمون‌ها امتیاز بگیرید و اگر جزو کاربران آماده‌تر باشید، وارد مسیر حرفه‌ای تک‌پی شوید.</p>
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
           <Link href="https://my.tecpey.ir/signup" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
             شروع معامله

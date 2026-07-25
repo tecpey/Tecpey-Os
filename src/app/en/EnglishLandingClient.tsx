@@ -8,7 +8,7 @@ import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
 
 const features = [
-  { icon: TrendingUp, title: "Online market board", text: "Learn first, then review live Bitcoin, Tether, Ethereum and other major crypto markets before making decisions." },
+  { icon: TrendingUp, title: "Educational market overview", text: "Learn first, then review reference data for Bitcoin, Tether, Ethereum and other major crypto markets before virtual practice." },
   { icon: ShieldCheck, title: "Security-first onboarding", text: "Account security, identity checks, anti-phishing education and 2FA habits are part of the learning path." },
   { icon: WalletCards, title: "Transparent fees", text: "Fees, withdrawal costs, network risks and risk management are taught before users take action." },
 ];
@@ -139,7 +139,7 @@ function WhyTecpeyWasCreatedEn() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {[
-            ["Crypto trading platform", "Buy, sell and review live markets with a simple and understandable experience."],
+            ["Education-first learning platform", "Review educational market information and build decision skills through virtual practice."],
             ["Education before decisions", "Learn basics, security, tools and risks before serious market entry."],
             ["Evaluation and practice", "Short quizzes and real-world scenarios help users evaluate readiness."],
             ["More informed entry", "TecPey does not aim to push more trading; it aims to support safer decisions."],
@@ -457,10 +457,10 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.16),transparent_34%),radial-gradient(circle_at_20%_80%,rgba(30,64,175,.10),transparent_32%)]" />
         <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.05fr_.95fr]">
           <div className="text-left">
-            <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Education, live market and secure entry in one clear path</div>
+            <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Education, market knowledge and virtual practice in one clear path</div>
             <h1 className="mt-6 text-4xl font-black leading-tight text-slate-950 dark:text-white sm:text-6xl">TecPey — Your Safe Entry Point to the Crypto Market</h1>
             <p className="mt-6 max-w-3xl text-lg leading-9 text-slate-600 dark:text-slate-300">
-              TecPey is a crypto trading platform that brings buying, selling and digital asset management together with education, evaluation and a learning path for more informed entry into digital financial markets.
+              TecPey is an education-first financial learning platform that brings structured education, evaluation, reference market information and virtual practice together for more informed participation in digital financial markets.
             </p>
             <div className="mt-5 inline-flex rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-black text-cyan-800 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">
               Free education for everyone; professional opportunities for ready learners
@@ -481,8 +481,8 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
           </div>
 
           <div className="rounded-[34px] border border-cyan-200 bg-white dark:bg-white/[0.055] p-4 shadow-2xl shadow-cyan-500/10 sm:p-6">
-            <h2 className="text-2xl font-black text-slate-950 dark:text-white">TecPey Online Market Board</h2>
-            <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">Live market prices · USD/USDT</p>
+            <h2 className="text-2xl font-black text-slate-950 dark:text-white">TecPey Educational Market Overview</h2>
+            <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">Reference market data for learning and virtual practice · USD/USDT</p>
             <div className="mt-4 space-y-2">
               {rows.map((coin: any, index: number) => {
                 const symbol = String(coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");

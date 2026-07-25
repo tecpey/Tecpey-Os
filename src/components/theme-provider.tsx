@@ -5,6 +5,7 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
 export function ThemeProvider({
   children,
+  ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
   return (
     <NextThemesProvider
@@ -15,6 +16,7 @@ export function ThemeProvider({
       //
       disableTransitionOnChange
       enableColorScheme
+      {...props}
     >
       {children}
     </NextThemesProvider>
