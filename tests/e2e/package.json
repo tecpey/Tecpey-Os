@@ -6,6 +6,7 @@
   "description": "Governed public Browser Golden Path for TecPey Soft Launch evidence",
   "scripts": {
     "test": "node run-public-e2e.mjs",
+    "test:stub": "node --test redis-rest-stub.test.mjs",
     "test:direct": "playwright test --config=playwright.config.mjs",
     "install:browsers": "playwright install --with-deps chromium firefox"
   },

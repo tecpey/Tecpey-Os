@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startRedisRestStub } from "./redis-rest-stub.mjs";
 
 const e2eRoot = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(e2eRoot, "../..");
@@ -12,6 +13,13 @@ const runtimeMode =
     ? "development"
     : "production";
 const port = process.env.TECPEY_E2E_PORT ?? "3100";
+const redisRestPort = Number.parseInt(
+  process.env.TECPEY_E2E_REDIS_REST_PORT ?? "3199",
+  10,
+);
+const redisRestToken =
+  process.env.UPSTASH_REDIS_REST_TOKEN ??
+  "deterministic-browser-qa-redis-rest-token";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
@@ -65,7 +73,7 @@ function killProcessGroup(child, signal) {
   }
 }
 
-function spawnServer(onOutput) {
+function spawnServer(onOutput, redisRestUrl) {
   const child = spawn(npmCommand, ["run", serverScript], {
     cwd: repositoryRoot,
     env: {
@@ -101,6 +109,8 @@ function spawnServer(onOutput) {
         runtimeMode === "production"
           ? process.env.REDIS_URL || "redis://127.0.0.1:6379"
           : process.env.REDIS_URL || "",
+      UPSTASH_REDIS_REST_URL: redisRestUrl,
+      UPSTASH_REDIS_REST_TOKEN: redisRestToken,
     },
     detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
@@ -227,41 +237,108 @@ async function runPlaywrightProject(project, onOutput) {
   });
 }
 
-let failed = false;
+let activeServer;
+let redisRestStub;
+let cleanupPromise;
 
-for (const project of projects) {
-  let serverOutput = "";
-  let playwrightOutput = "";
-  let server;
-
-  const appendServerOutput = (chunk) => {
-    serverOutput = boundedAppend(serverOutput, chunk);
-  };
-  const appendPlaywrightOutput = (chunk) => {
-    playwrightOutput = boundedAppend(playwrightOutput, chunk);
-  };
-
-  try {
-    console.log(
-      `Browser QA: starting isolated ${runtimeMode} server for ${project} on ${baseURL}.`,
-    );
-    server = spawnServer(appendServerOutput);
-    await waitForServer(server, () => serverOutput);
-    console.log(`Browser QA: server ready; running ${project}.`);
-
-    const exitCode = await runPlaywrightProject(project, appendPlaywrightOutput);
-    if (exitCode !== 0) failed = true;
-  } catch (error) {
-    const diagnostic =
-      error instanceof Error ? error.stack || error.message : String(error);
-    appendPlaywrightOutput(`Browser QA infrastructure error: ${diagnostic}\n`);
-    console.error(diagnostic);
-    failed = true;
-  } finally {
-    persistDiagnostics(project, serverOutput, playwrightOutput);
-    await stopServer(server);
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
-  }
+async function stopActiveServer() {
+  const server = activeServer;
+  activeServer = undefined;
+  await stopServer(server);
 }
 
-if (failed) process.exitCode = 1;
+async function cleanup() {
+  if (cleanupPromise) return cleanupPromise;
+  cleanupPromise = (async () => {
+    const results = await Promise.allSettled([
+      stopActiveServer(),
+      redisRestStub?.stop(),
+    ]);
+    redisRestStub = undefined;
+    const failures = results
+      .filter((result) => result.status === "rejected")
+      .map((result) => result.reason);
+    if (failures.length > 0) {
+      throw new AggregateError(failures, "Browser QA cleanup failed");
+    }
+  })();
+  return cleanupPromise;
+}
+
+for (const [signal, exitCode] of [
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+]) {
+  process.once(signal, () => {
+    void cleanup().then(
+      () => process.exit(exitCode),
+      (error) => {
+        console.error(error);
+        process.exit(exitCode);
+      },
+    );
+  });
+}
+
+async function run() {
+  let failed = false;
+  redisRestStub = await startRedisRestStub({
+    port: redisRestPort,
+    token: redisRestToken,
+  });
+  console.log(
+    `Browser QA: authenticated Redis REST stub ready on ${redisRestStub.url}.`,
+  );
+
+  for (const project of projects) {
+    let serverOutput = "";
+    let playwrightOutput = "";
+
+    const appendServerOutput = (chunk) => {
+      serverOutput = boundedAppend(serverOutput, chunk);
+    };
+    const appendPlaywrightOutput = (chunk) => {
+      playwrightOutput = boundedAppend(playwrightOutput, chunk);
+    };
+
+    try {
+      console.log(
+        `Browser QA: starting isolated ${runtimeMode} server for ${project} on ${baseURL}.`,
+      );
+      activeServer = spawnServer(appendServerOutput, redisRestStub.url);
+      await waitForServer(activeServer, () => serverOutput);
+      console.log(`Browser QA: server ready; running ${project}.`);
+
+      const exitCode = await runPlaywrightProject(project, appendPlaywrightOutput);
+      if (exitCode !== 0) failed = true;
+    } catch (error) {
+      const diagnostic =
+        error instanceof Error ? error.stack || error.message : String(error);
+      appendPlaywrightOutput(`Browser QA infrastructure error: ${diagnostic}\n`);
+      console.error(diagnostic);
+      failed = true;
+    } finally {
+      persistDiagnostics(project, serverOutput, playwrightOutput);
+      await stopActiveServer();
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+    }
+  }
+
+  if (failed) process.exitCode = 1;
+}
+
+try {
+  await run();
+} catch (error) {
+  console.error(
+    `Browser QA infrastructure error: ${error instanceof Error ? error.stack || error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+} finally {
+  try {
+    await cleanup();
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
+}

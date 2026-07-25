@@ -89,12 +89,13 @@ jobs:
       TECPEY_TRUSTED_PROXY_HOPS: "1"
       DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:5432/e2e
       REDIS_URL: redis://127.0.0.1:6379
-      UPSTASH_REDIS_REST_URL: https://e2e-placeholder.upstash.io
-      UPSTASH_REDIS_REST_TOKEN: e2e-placeholder-redis-rest-token
+      UPSTASH_REDIS_REST_URL: http://127.0.0.1:3199
+      UPSTASH_REDIS_REST_TOKEN: deterministic-browser-qa-redis-rest-token
       TECPEY_REAL_WITHDRAWALS_ENABLED: "0"
       TECPEY_CUSTODY_KILL_SWITCH: "1"
       TECPEY_E2E_RUNTIME_MODE: production
       TECPEY_E2E_PORT: "3100"
+      TECPEY_E2E_REDIS_REST_PORT: "3199"
 
     steps:
       - name: Checkout exact PR head
@@ -149,6 +150,9 @@ jobs:
 
       - name: Install governed browser binaries
         run: npm --prefix tests/e2e run install:browsers
+
+      - name: Verify authenticated loopback Redis REST stub
+        run: npm --prefix tests/e2e run test:stub
 
       - name: Run public Browser Golden Path
         env:
