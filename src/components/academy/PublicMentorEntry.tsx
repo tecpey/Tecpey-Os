@@ -105,7 +105,7 @@ export function PublicMentorEntry() {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex max-w-[52vw] items-center justify-center gap-2 rounded-2xl border border-cyan-300/45 bg-slate-950/95 px-3 py-2.5 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-950/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:bottom-5 sm:left-5 sm:max-w-none sm:px-4 sm:py-3 sm:text-xs"
+        className="fixed bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] left-3 z-[90] inline-flex max-w-[52vw] items-center justify-center gap-2 rounded-2xl border border-cyan-300/45 bg-slate-950/95 px-3 py-2.5 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200 hover:bg-cyan-950/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 sm:bottom-5 sm:left-5 sm:max-w-none sm:px-4 sm:py-3 sm:text-xs"
         aria-label={
           isEnglish
             ? "Discover TecPey AI learning mentor"

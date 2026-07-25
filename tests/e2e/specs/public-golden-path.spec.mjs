@@ -206,6 +206,8 @@ async function visibleFixedControlSurfaces(page) {
       .filter((element) => {
         const style = getComputedStyle(element);
         if (style.position !== "fixed" && style.position !== "sticky") return false;
+        if (!element.matches('a[href], button, input, select, textarea, [tabindex]') &&
+          !element.querySelector('a[href], button, input, select, textarea, [tabindex]')) return false;
         const rect = element.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return false;
         if (style.display === "none" || style.visibility === "hidden") return false;
