@@ -101,10 +101,7 @@ export default function Navbar({
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
   const authLink = (
     path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
-  ) => {
-    if (appUrl) return `${appUrl}${new URL(path).pathname}`;
-    return path;
-  };
+  ) => path;
   const pathname = usePathname();
   const normalizedPath =
     pathname === "/" ? "" : pathname.replace(/^\/en(?=\/|$)/, "");
