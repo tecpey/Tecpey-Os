@@ -394,7 +394,7 @@ function ConversionJourney() {
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
           {levels.map((level, index) => (
             <div key={level.title} className="group relative overflow-hidden rounded-[30px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] dark:border-cyan-300/15 dark:bg-white/[0.055]">
-              <span aria-hidden="true" className="absolute left-4 top-4 text-5xl font-black text-cyan-300/10">۰{index + 1}</span>
+              <span aria-hidden="true" className="absolute left-4 top-4 text-5xl font-black text-cyan-700 dark:text-cyan-300">۰{index + 1}</span>
               <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,.18)]">
                 <level.icon className="h-7 w-7" />
               </div>
