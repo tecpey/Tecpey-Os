@@ -27,4 +27,38 @@ describe("production database startup authority", () => {
     assert.match(databaseHealth, /schemaStatus !== "current"/);
     assert.match(databaseHealth, /database_not_ready/);
   });
+
+  it("has no repository-owned production start script that bypasses the custom server", async () => {
+    const packageJson = JSON.parse(await readFile("package.json", "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    for (const [name, command] of Object.entries(packageJson.scripts)) {
+      if (/^(?:start|prod:)/.test(name)) {
+        assert.doesNotMatch(command, /\bnext\s+start\b/, `${name} bypasses production readiness`);
+      }
+    }
+    assert.match(packageJson.scripts.start, /server\.ts/);
+
+    const deploymentPaths = await Promise.all([
+      readFile("Dockerfile", "utf8"),
+      readFile("docker-compose.production.yml", "utf8"),
+      readFile("deploy/systemd/tecpey-web.service", "utf8"),
+      readFile("ecosystem.config.cjs", "utf8"),
+    ]);
+    assert.match(deploymentPaths[0], /CMD \["npm", "run", "start"\]/);
+    assert.doesNotMatch(deploymentPaths.join("\n"), /\bnext\s+start\b/);
+  });
+
+  it("governs migration command cleanup and signal interruption without forced test exit", async () => {
+    const command = await readFile("scripts/run-database-migrations.ts", "utf8");
+    const packageJson = await readFile("package.json", "utf8");
+    assert.match(command, /\["SIGINT", "SIGTERM"\]/);
+    assert.match(command, /process\.once\(signal/);
+    assert.match(command, /interruption\.abort\(\)/);
+    assert.match(command, /client\?\.release\(\)/);
+    assert.match(command, /await pool\.end\(\)/);
+    assert.doesNotMatch(packageJson, /test:migrations[^\n]*--test-force-exit/);
+    assert.doesNotMatch(packageJson, /test:readiness[^\n]*--test-force-exit/);
+    assert.doesNotMatch(packageJson, /test:startup[^\n]*--test-force-exit/);
+  });
 });

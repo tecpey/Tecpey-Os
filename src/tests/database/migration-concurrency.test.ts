@@ -1,14 +1,36 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { Pool } from "pg";
 import {
   applyDatabaseMigrationsWithLock,
   DATABASE_MIGRATION_LOCK_KEYS,
 } from "../../lib/db-migration-plan";
 import { checkMigrationReadiness } from "../../lib/db-migration-readiness";
+import {
+  DATABASE_MIGRATION_EXPECTATIONS,
+  DATABASE_MIGRATION_PLAN_HASH,
+} from "../../lib/db-migration-registry";
+import { runAiMentorTrustMigrations } from "../../lib/db-migrate-ai-mentor-trust";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
+
+async function waitForMigrationOperator(pool: Pool): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ active: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM pg_stat_activity
+          WHERE application_name = 'tecpey-database-migration-operator'
+            AND pid <> pg_backend_pid()
+       ) AS active`,
+    );
+    if (result.rows[0]?.active) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("migration_operator_connection_not_observed");
+}
 
 describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () => {
   it("times out observably instead of waiting indefinitely for another runner", async () => {
@@ -19,12 +41,39 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
       await holder.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
       await assert.rejects(
         applyDatabaseMigrationsWithLock(contender, { lockTimeoutMs: 150 }),
-        /migration_lock_timeout:150/,
+        /migration_lock_timeout:150:holder:[0-9a-f-]+:state:(?:current|running|failed)/,
       );
     } finally {
       await holder.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
       holder.release();
       contender.release();
+      await pool.end();
+    }
+  });
+
+  it("reports the lock-owning runner as migration_running to a waiting process", async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const holder = await pool.connect();
+    const observer = await pool.connect();
+    const runnerId = "00000000-0000-4000-8000-000000000166";
+    try {
+      await holder.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      await holder.query(
+        `UPDATE _migration_runtime_state SET
+           status = 'running', runner_id = $1, plan_hash = $2,
+           started_at = NOW(), updated_at = NOW(), finished_at = NULL,
+           ledger_digest = NULL, error_code = NULL, error_detail = NULL
+         WHERE singleton = TRUE`,
+        [runnerId, DATABASE_MIGRATION_PLAN_HASH],
+      );
+      const readiness = await checkMigrationReadiness(observer);
+      assert.equal(readiness.status, "migration_running");
+      assert.equal(readiness.runnerId, runnerId);
+    } finally {
+      await holder.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      await applyDatabaseMigrationsWithLock(holder);
+      holder.release();
+      observer.release();
       await pool.end();
     }
   });
@@ -47,6 +96,188 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
       first.release();
       second.release();
       await pool.end();
+    }
+  });
+
+  it("records durable failure evidence and recovers deterministically", async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    const target = DATABASE_MIGRATION_EXPECTATIONS[0];
+    const original = await client.query<{ checksum: string }>(
+      "SELECT checksum FROM _migrations WHERE filename = $1",
+      [target.identity],
+    );
+    try {
+      await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+        "0".repeat(16),
+        target.identity,
+      ]);
+      await assert.rejects(applyDatabaseMigrationsWithLock(client), /checksum mismatch/i);
+      const failed = await checkMigrationReadiness(client);
+      assert.equal(failed.status, "migration_failed");
+      assert.match(failed.errorCode ?? "", /checksum/i);
+
+      await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+        original.rows[0].checksum,
+        target.identity,
+      ]);
+      await applyDatabaseMigrationsWithLock(client);
+      assert.equal((await checkMigrationReadiness(client)).status, "current");
+    } finally {
+      await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+        original.rows[0].checksum,
+        target.identity,
+      ]);
+      await applyDatabaseMigrationsWithLock(client);
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it("rolls back an interrupted migration transaction and recovers on rerun", async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    const target = DATABASE_MIGRATION_EXPECTATIONS.at(-1)!;
+    await client.query("DELETE FROM _migration_runtime_ledger WHERE identity = $1", [target.identity]);
+    await client.query("DELETE FROM _migrations WHERE filename = $1", [target.identity]);
+    let migrationSqlObserved = false;
+    const interruptedClient = new Proxy(client, {
+      get(current, property) {
+        if (property !== "query") return Reflect.get(current, property, current);
+        return async (sql: string, values?: unknown[]) => {
+          if (sql.includes("CREATE TABLE IF NOT EXISTS mentor_ai_preferences")) {
+            migrationSqlObserved = true;
+            const result = await client.query(sql, values);
+            await client.query("CREATE TABLE migration_interruption_probe (id INTEGER)");
+            return result;
+          }
+          if (migrationSqlObserved && sql.includes("INSERT INTO _migrations")) {
+            throw new Error("migration_test_interrupted");
+          }
+          return client.query(sql, values);
+        };
+      },
+    });
+    try {
+      await assert.rejects(
+        runAiMentorTrustMigrations(interruptedClient),
+        /migration_test_interrupted/,
+      );
+      const probe = await client.query<{ identity: string | null }>(
+        "SELECT to_regclass('public.migration_interruption_probe')::text AS identity",
+      );
+      assert.equal(probe.rows[0].identity, null, "interrupted transaction must roll back all effects");
+      await applyDatabaseMigrationsWithLock(client);
+      assert.equal((await checkMigrationReadiness(client)).status, "current");
+    } finally {
+      await applyDatabaseMigrationsWithLock(client);
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it("classifies stale running state and recovers it under the canonical lock", async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `UPDATE _migration_runtime_state SET status = 'running', updated_at = NOW() - INTERVAL '1 hour',
+           started_at = NOW() - INTERVAL '1 hour', finished_at = NULL, ledger_digest = NULL
+         WHERE singleton = TRUE`,
+      );
+      const stale = await checkMigrationReadiness(client, { runningStaleAfterMs: 1_000 });
+      assert.equal(stale.status, "migration_failed");
+      assert.equal(stale.errorCode, "migration_runner_stale");
+      await applyDatabaseMigrationsWithLock(client);
+      assert.equal((await checkMigrationReadiness(client)).status, "current");
+    } finally {
+      await applyDatabaseMigrationsWithLock(client);
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it("preserves migration and advisory unlock failures together", async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    const target = DATABASE_MIGRATION_EXPECTATIONS[0];
+    const original = await client.query<{ checksum: string }>(
+      "SELECT checksum FROM _migrations WHERE filename = $1",
+      [target.identity],
+    );
+    await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+      "0".repeat(16),
+      target.identity,
+    ]);
+    const unlockFailingClient = new Proxy(client, {
+      get(current, property) {
+        if (property !== "query") return Reflect.get(current, property, current);
+        return async (sql: string, values?: unknown[]) => {
+          if (sql.includes("pg_advisory_unlock")) return { rows: [{ released: false }] };
+          return client.query(sql, values);
+        };
+      },
+    });
+    try {
+      await assert.rejects(async () => {
+        try {
+          await applyDatabaseMigrationsWithLock(unlockFailingClient);
+        } catch (error) {
+          assert.ok(error instanceof AggregateError);
+          const details = error.errors.map((entry) => String(entry)).join("\n");
+          assert.match(details, /checksum mismatch/i);
+          assert.match(details, /migration_lock_release_failed/);
+          throw error;
+        }
+      });
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+        original.rows[0].checksum,
+        target.identity,
+      ]);
+      await applyDatabaseMigrationsWithLock(client);
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it("releases the migration session cleanly after SIGINT and SIGTERM", async () => {
+    for (const [signal, expectedCode] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
+      const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+      const holder = await pool.connect();
+      let child: ReturnType<typeof spawn> | undefined;
+      try {
+        await holder.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+        const spawned = spawn(process.execPath, ["--import", "tsx", "scripts/run-database-migrations.ts"], {
+          cwd: process.cwd(),
+          env: { ...process.env, DATABASE_URL: databaseUrl },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        child = spawned;
+        let output = "";
+        spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
+        spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
+        await waitForMigrationOperator(pool);
+        const exit = new Promise<number | null>((resolve, reject) => {
+          spawned.once("error", reject);
+          spawned.once("exit", resolve);
+        });
+        assert.equal(spawned.kill(signal), true);
+        const code = await exit;
+        assert.equal(code, expectedCode, `${signal} must produce the governed exit code`);
+        assert.match(output, /migration_interrupted/);
+        const active = await pool.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM pg_stat_activity
+            WHERE application_name = 'tecpey-database-migration-operator'`,
+        );
+        assert.equal(active.rows[0]?.count, 0, `${signal} must close the migration session`);
+      } finally {
+        if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        await holder.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+        holder.release();
+        await pool.end();
+      }
     }
   });
 });

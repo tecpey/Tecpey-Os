@@ -2,6 +2,15 @@ import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../src/lib/db-migration-plan";
 import { checkMigrationReadiness } from "../src/lib/db-migration-readiness";
 
+const interruption = new AbortController();
+let terminationSignal: "SIGINT" | "SIGTERM" | null = null;
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    terminationSignal = signal;
+    interruption.abort();
+  });
+}
+
 function requiredDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
   if (!value || value.includes("CHANGE_ME")) {
@@ -27,6 +36,7 @@ async function main(): Promise<void> {
   const pool = new Pool({
     connectionString: requiredDatabaseUrl(),
     max: 1,
+    application_name: "tecpey-database-migration-operator",
     idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 5_000,
   });
@@ -37,7 +47,10 @@ async function main(): Promise<void> {
     const before = await migrationCount(client);
     const configuredTimeout = process.env.TECPEY_MIGRATION_LOCK_TIMEOUT_MS?.trim();
     const lockTimeoutMs = configuredTimeout === undefined ? undefined : Number(configuredTimeout);
-    await applyDatabaseMigrationsWithLock(client, { lockTimeoutMs });
+    await applyDatabaseMigrationsWithLock(client, {
+      lockTimeoutMs,
+      signal: interruption.signal,
+    });
     const after = await migrationCount(client);
     const readiness = await checkMigrationReadiness(client);
     if (readiness.status !== "current") {
@@ -61,5 +74,5 @@ async function main(): Promise<void> {
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`[db:migrate] ${message}`);
-  process.exitCode = 1;
+  process.exitCode = terminationSignal === "SIGINT" ? 130 : terminationSignal === "SIGTERM" ? 143 : 1;
 });

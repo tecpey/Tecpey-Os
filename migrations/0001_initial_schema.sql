@@ -1,17 +1,15 @@
 -- Migration 0001 — Initial schema snapshot
 -- Phase 20 | Date: 2026-06-28
 --
--- This file documents the complete table set that db-schema.ts creates
--- via CREATE TABLE IF NOT EXISTS on first connection (schema-on-connect pattern).
+-- This file is a historical reference snapshot for the initial schema content.
 --
--- PURPOSE: Reference snapshot only. Not executed by a runner yet.
--- Phase 22 will introduce the migration runner that tracks applied migrations
--- in a _migrations table and replaces the schema-on-connect pattern.
+-- PURPOSE: Reference artifact only. Production execution is governed by the
+-- canonical registry and npm run db:migrate; requests never execute this file.
 --
 -- ALL future schema changes MUST be written as numbered migrations (0002, 0003, …)
 -- and MUST NOT modify this file.
 
--- ── student-cartax tables (ensureStudentCartaxTables) ────────────────────────
+-- ── student-cartax tables ────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS academy_students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

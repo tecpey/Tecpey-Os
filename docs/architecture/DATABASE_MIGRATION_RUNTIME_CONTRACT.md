@@ -7,10 +7,11 @@ requests, transactions, health checks, and production server startup are
 verify-only and never execute DDL.
 
 The ordered registry in `src/lib/db-migration-registry.ts` assigns every legacy
-migration filename to one unique, contiguous execution step. CI rejects missing,
-duplicate, reordered, or unregistered identities. Existing migration runners
-continue to verify their immutable SQL checksums before treating a ledger entry
-as applied.
+migration identity to one unique, contiguous execution step with an owner,
+domain, dependency, and full SHA-256 checksum derived from normalized SQL
+content. CI pins the complete plan fingerprint and rejects missing, duplicate,
+reordered, changed, or unregistered identities. Runtime readiness compares the
+release expectations with immutable ledger and execution-sequence evidence.
 
 ## Lock and execution state
 
@@ -49,7 +50,7 @@ After a failed or interrupted migration:
 1. Keep the release out of service; readiness remains non-200.
 2. Inspect the bounded `error_code`, runner ID, timestamps, and migration logs.
 3. Correct infrastructure or ship a forward-fix migration. Never edit an applied
-   migration or its ledger checksum.
+   migration or its ledger checksum. There are no fake down migrations.
 4. Re-run the same exact release's `npm run db:migrate`. Transactional migration
    steps roll back on failure; already-applied steps verify checksums and skip.
 5. Require the state to transition to `current` with the release plan hash and a
@@ -59,3 +60,9 @@ After a failed or interrupted migration:
 An unexplained ledger entry, missing migration, checksum drift, plan mismatch,
 lock timeout, or state-write/lock-release failure is an incident and remains
 fail-closed. Recovery never deletes ledger history or bypasses readiness.
+
+The accountable operator is the **TecPey Database Migration Operator**.
+Irreversible changes require a forward-fix or verified database restore.
+Backup/restore drills, RPO/RTO, and cross-release recovery evidence belong to
+Issue #110. Container and deployment-orchestration hardening belongs to Issue
+#163.
