@@ -1,7 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
+import {
+  applyDatabaseMigrationsWithLock,
+  DATABASE_MIGRATION_LOCK_KEYS,
+} from "../../lib/db-migration-plan";
 import { DATABASE_MIGRATION_EXPECTATIONS } from "../../lib/db-migration-registry";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -195,37 +198,44 @@ describe("PostgreSQL migration authority", () => {
         (entry) => entry.identity === "0001_initial_schema.sql",
       );
       assert.ok(historicalBase?.compatibleHistoricalChecksums[0]);
-      await client.query(
-        "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
-        [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
-      );
-      await applyDatabaseMigrationsWithLock(client);
-      const historicalBaseEvidence = await client.query<{ checksum: string }>(
-        "SELECT checksum FROM _migrations WHERE filename = $1",
-        [historicalBase.identity],
-      );
-      assert.equal(
-        historicalBaseEvidence.rows[0]?.checksum,
-        historicalBase.compatibleHistoricalChecksums[0],
-        "governed historical 16-character checksums must verify without ledger rewrites",
-      );
+      await client.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      try {
+        await client.query(
+          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+          [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
+        );
+        await applyDatabaseMigrationsWithLock(client);
+        const historicalBaseEvidence = await client.query<{ checksum: string }>(
+          "SELECT checksum FROM _migrations WHERE filename = $1",
+          [historicalBase.identity],
+        );
+        assert.equal(
+          historicalBaseEvidence.rows[0]?.checksum,
+          historicalBase.compatibleHistoricalChecksums[0],
+          "governed historical 16-character checksums must verify without ledger rewrites",
+        );
 
-      const historicalTenantChecksum =
-        "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
-      await client.query(
-        "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
-        [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
-      );
-      await applyDatabaseMigrationsWithLock(client);
-      const upgradedEvidence = await client.query<{ checksum: string }>(
-        "SELECT checksum FROM _migrations WHERE filename = $1",
-        ["0046_tenant_principal_isolation_foundation.sql"],
-      );
-      assert.equal(
-        upgradedEvidence.rows[0]?.checksum,
-        historicalTenantChecksum,
-        "governed historical full checksums must verify without rewriting ledger history",
-      );
+        const historicalTenantChecksum =
+          "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
+        await client.query(
+          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+          [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
+        );
+        await applyDatabaseMigrationsWithLock(client);
+        const upgradedEvidence = await client.query<{ checksum: string }>(
+          "SELECT checksum FROM _migrations WHERE filename = $1",
+          ["0046_tenant_principal_isolation_foundation.sql"],
+        );
+        assert.equal(
+          upgradedEvidence.rows[0]?.checksum,
+          historicalTenantChecksum,
+          "governed historical full checksums must verify without rewriting ledger history",
+        );
+      } finally {
+        await client.query("SELECT pg_advisory_unlock($1, $2)", [
+          ...DATABASE_MIGRATION_LOCK_KEYS,
+        ]);
+      }
 
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
