@@ -39,6 +39,10 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         applyDatabaseMigrationsWithLock(second, { lockTimeoutMs: 30_000 }),
       ]);
       assert.equal((await checkMigrationReadiness(first)).status, "current");
+      const state = await first.query<{ status: string }>(
+        "SELECT status FROM _migration_runtime_state WHERE singleton = TRUE",
+      );
+      assert.equal(state.rows[0]?.status, "current");
     } finally {
       first.release();
       second.release();

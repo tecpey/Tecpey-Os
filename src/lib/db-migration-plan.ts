@@ -97,6 +97,28 @@ async function readAndValidateLedger(client: PoolClient): Promise<LedgerRow[]> {
   return result.rows;
 }
 
+async function hasCurrentMigrationEvidence(client: PoolClient): Promise<boolean> {
+  try {
+    const state = await client.query<{
+      status: string;
+      plan_hash: string;
+      ledger_digest: string | null;
+    }>(
+      `SELECT status, plan_hash, ledger_digest
+         FROM _migration_runtime_state WHERE singleton = TRUE LIMIT 1`,
+    );
+    const row = state.rows[0];
+    if (row?.status !== "current" || row.plan_hash !== DATABASE_MIGRATION_PLAN_HASH) return false;
+    return row.ledger_digest === migrationLedgerDigest(await readAndValidateLedger(client));
+  } catch (error) {
+    if ((error as { code?: string }).code === "42P01") return false;
+    if (error instanceof Error && /^migration_ledger_(missing|unregistered):/.test(error.message)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function recordRunning(client: PoolClient, runnerId: string): Promise<void> {
   await client.query(
     `INSERT INTO _migration_runtime_state
@@ -147,15 +169,22 @@ export async function applyDatabaseMigrationsWithLock(
   const waitMs = await acquireMigrationLock(client, timeoutMs);
   logger.info("[db-migrate] bounded migration lock acquired", { runnerId, waitMs, timeoutMs });
 
+  let alreadyCurrent = false;
+  let runningRecorded = false;
   let originalError: unknown;
   try {
-    await recordRunning(client, runnerId);
+    alreadyCurrent = await hasCurrentMigrationEvidence(client);
+    if (!alreadyCurrent) {
+      await recordRunning(client, runnerId);
+      runningRecorded = true;
+    }
     await applyDatabaseMigrations(client);
     const ledger = await readAndValidateLedger(client);
-    await recordCurrent(client, runnerId, migrationLedgerDigest(ledger));
+    if (!alreadyCurrent) await recordCurrent(client, runnerId, migrationLedgerDigest(ledger));
   } catch (error) {
     originalError = error;
     try {
+      if (!runningRecorded) await recordRunning(client, runnerId);
       await recordFailure(client, runnerId, error);
     } catch (stateError) {
       originalError = new AggregateError([error, stateError], "migration_failed_and_state_record_failed");
