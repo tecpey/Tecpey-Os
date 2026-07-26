@@ -29,7 +29,7 @@ type Migration = {
   sql: string;
 };
 
-const MIGRATIONS: Migration[] = [
+export const BASE_DATABASE_MIGRATIONS: readonly Migration[] = [
   {
     filename: "0001_initial_schema.sql",
     sql: `
@@ -945,8 +945,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_ledger_withdrawal_phase
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 function computeChecksum(sql: string): string {
-  const normalized = sql.replace(/\s+/g, " ").trim();
-  return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
+  const normalized = sql.replace(/\r\n?/g, "\n").trim();
+  return createHash("sha256").update(normalized).digest("hex");
 }
 
 async function ensureMigrationsTable(client: PoolClient): Promise<void> {
@@ -970,7 +970,7 @@ export async function runMigrations(client: PoolClient): Promise<void> {
   await ensureMigrationsTable(client);
   const applied = await getAppliedMigrations(client);
 
-  for (const migration of MIGRATIONS) {
+  for (const migration of BASE_DATABASE_MIGRATIONS) {
     const cs = computeChecksum(migration.sql);
 
     if (applied.has(migration.filename)) {

@@ -14,7 +14,7 @@ const files = {
   migration: "src/lib/db-migrate-withdrawal-prebroadcast-evidence.ts",
   hardening: "src/lib/db-migrate-withdrawal-admin-evidence-hardening.ts",
   transition: "src/lib/db-migrate-withdrawal-prebroadcast-transition-gate.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   inventory: "docs/security/WITHDRAWAL_PREBROADCAST_EVIDENCE_INVENTORY.md",
 };
 

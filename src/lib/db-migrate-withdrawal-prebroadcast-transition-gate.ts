@@ -103,9 +103,8 @@ CREATE CONSTRAINT TRIGGER withdrawal_prebroadcast_transition_authority
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 export async function runWithdrawalPrebroadcastTransitionGateMigrations(

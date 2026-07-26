@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 
 const FILENAME = "0046_tenant_principal_isolation_foundation.sql";
 
-const SQL = `
+export const TENANT_PRINCIPAL_ISOLATION_SQL = `
 INSERT INTO platform_tenants (id, slug, display_name, plan, products)
 VALUES (
   'tecpey', 'tecpey', 'TecPey', 'enterprise',
@@ -222,13 +222,21 @@ CREATE INDEX IF NOT EXISTS learning_events_tenant_principal_idx
 export async function runTenantPrincipalIsolationMigrations(
   client: PoolClient,
 ): Promise<void> {
-  const checksum = createHash("sha256").update(SQL).digest("hex");
+  const checksum = createHash("sha256")
+    .update(TENANT_PRINCIPAL_ISOLATION_SQL.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
+  const compatibleHistoricalChecksum = createHash("sha256")
+    .update(TENANT_PRINCIPAL_ISOLATION_SQL)
+    .digest("hex");
   const existing = await client.query<{ checksum: string }>(
     "SELECT checksum FROM _migrations WHERE filename = $1",
     [FILENAME],
   );
   if (existing.rows[0]) {
-    if (existing.rows[0].checksum !== checksum) {
+    if (
+      existing.rows[0].checksum !== checksum &&
+      existing.rows[0].checksum !== compatibleHistoricalChecksum
+    ) {
       throw new Error(`Migration checksum mismatch for ${FILENAME}`);
     }
     return;
@@ -236,7 +244,7 @@ export async function runTenantPrincipalIsolationMigrations(
 
   await client.query("BEGIN");
   try {
-    await client.query(SQL);
+    await client.query(TENANT_PRINCIPAL_ISOLATION_SQL);
     await client.query(
       "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
       [FILENAME, checksum],

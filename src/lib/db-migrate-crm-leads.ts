@@ -143,7 +143,7 @@ CREATE TRIGGER crm_lead_audit_no_delete
   FOR EACH ROW EXECUTE FUNCTION tecpey_block_crm_lead_audit_mutation();
 `;
 
-const LEGACY_ACADEMY_LEADS_LOCK_SQL = `
+export const LEGACY_ACADEMY_LEADS_LOCK_SQL = `
 CREATE OR REPLACE FUNCTION tecpey_block_legacy_academy_leads_write()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -159,9 +159,8 @@ CREATE TRIGGER academy_leads_legacy_read_only
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 async function migrateLegacyAcademyLeads(client: PoolClient): Promise<void> {

@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 
 const FILENAME = "0051_community_reputation_evidence.sql";
-const BACKFILL_VERSION = "community-reputation-evidence-backfill-v3";
+export const COMMUNITY_REPUTATION_BACKFILL_VERSION =
+  "community-reputation-evidence-backfill-v3";
 
 export const COMMUNITY_REPUTATION_EVIDENCE_SQL = `
 CREATE OR REPLACE FUNCTION tecpey_community_reputation_coverage_bps(
@@ -600,9 +601,8 @@ $$;
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(`${sql.replace(/\s+/g, " ").trim()}\n${BACKFILL_VERSION}`)
-    .digest("hex")
-    .slice(0, 16);
+    .update(`${sql.replace(/\r\n?/g, "\n").trim()}\n${COMMUNITY_REPUTATION_BACKFILL_VERSION}`)
+    .digest("hex");
 }
 
 export async function runCommunityReputationEvidenceMigrations(

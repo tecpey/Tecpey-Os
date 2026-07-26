@@ -285,7 +285,22 @@ jobs:
         run: node scripts/check-wallet-authority.mjs
 
       - name: Database migration authority guard
-        run: node scripts/check-database-migration-authority.mjs
+        run: npm run migrations:check
+
+      - name: Database migration readiness and concurrency tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:migrations 2>&1 | tee /tmp/tecpey-migration-tests.log
+
+      - name: Upload database migration diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-migration-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-migration-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Notification persistence authority guard
         run: npm run notifications:check

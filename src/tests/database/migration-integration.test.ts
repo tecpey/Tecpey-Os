@@ -1,10 +1,41 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
+import {
+  applyDatabaseMigrations,
+  applyDatabaseMigrationsWithLock,
+  DATABASE_MIGRATION_LOCK_KEYS,
+} from "../../lib/db-migration-plan";
+import { DATABASE_MIGRATION_EXPECTATIONS } from "../../lib/db-migration-registry";
+import { databaseSchemaFingerprint } from "../../lib/database-schema-contract";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
+
+function databaseConnectionUrl(name: string): string {
+  const url = new URL(databaseUrl!);
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+function governedDatabaseName(role: string, suffix: string): string {
+  const name = `tecpey_166_${role}_${suffix}`;
+  if (!/^[a-z0-9_]+$/.test(name)) throw new Error("invalid_governed_test_database_name");
+  return name;
+}
+
+async function migrateAndFingerprint(name: string): Promise<string> {
+  const pool = new Pool({ connectionString: databaseConnectionUrl(name), max: 1 });
+  const client = await pool.connect();
+  try {
+    await applyDatabaseMigrationsWithLock(client);
+    return await databaseSchemaFingerprint(client);
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
 
 const REQUIRED_MIGRATIONS = [
   "0001_initial_schema.sql",
@@ -152,6 +183,61 @@ const REQUIRED_CONSTRAINTS = [
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
+  it("converges clean, upgraded, and restored databases to one schema fingerprint", {
+    skip: !databaseConfigured,
+    timeout: 120_000,
+  }, async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const clean = governedDatabaseName("clean", suffix);
+    const backup = governedDatabaseName("backup", suffix);
+    const restored = governedDatabaseName("restored", suffix);
+    const upgraded = governedDatabaseName("upgraded", suffix);
+    const adminUrl = new URL(databaseUrl!);
+    adminUrl.pathname = "/postgres";
+    const admin = new Pool({ connectionString: adminUrl.toString(), max: 1 });
+    try {
+      await admin.query(`CREATE DATABASE ${clean}`);
+      const cleanFingerprint = await migrateAndFingerprint(clean);
+
+      await admin.query(`CREATE DATABASE ${backup} TEMPLATE ${clean}`);
+      await admin.query(`CREATE DATABASE ${restored} TEMPLATE ${backup}`);
+      const restoredFingerprint = await migrateAndFingerprint(restored);
+
+      await admin.query(`CREATE DATABASE ${upgraded}`);
+      const upgradedPool = new Pool({ connectionString: databaseConnectionUrl(upgraded), max: 1 });
+      const upgradedClient = await upgradedPool.connect();
+      let upgradedFingerprint: string;
+      try {
+        // Reproduce the governed pre-contract database: application schema and
+        // historical ledger exist, but runtime plan evidence does not.
+        await applyDatabaseMigrations(upgradedClient);
+        for (const expectation of DATABASE_MIGRATION_EXPECTATIONS) {
+          const historicalChecksum = expectation.identity === "0046_tenant_principal_isolation_foundation.sql"
+            ? expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 64)
+            : expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 16);
+          assert.ok(historicalChecksum);
+          await upgradedClient.query(
+            "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+            [historicalChecksum, expectation.identity],
+          );
+        }
+        await applyDatabaseMigrationsWithLock(upgradedClient);
+        upgradedFingerprint = await databaseSchemaFingerprint(upgradedClient);
+      } finally {
+        upgradedClient.release();
+        await upgradedPool.end();
+      }
+
+      assert.equal(upgradedFingerprint, cleanFingerprint, "upgraded schema must converge with clean schema");
+      assert.equal(restoredFingerprint, cleanFingerprint, "restored schema must converge with clean schema");
+    } finally {
+      for (const name of [restored, backup, upgraded, clean]) {
+        await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      }
+      await admin.end();
+    }
+  });
+
   it("builds the critical schema and reruns without ledger drift", {
     skip: !databaseConfigured,
     timeout: 60_000,
@@ -180,10 +266,72 @@ describe("PostgreSQL migration authority", () => {
         secondLedger.rows.length,
         "migration filenames must remain unique",
       );
+      assert.ok(
+        secondLedger.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum)),
+        "clean migration applications must persist full SHA-256 checksums",
+      );
 
       const applied = new Set(secondLedger.rows.map((row) => row.filename));
+      const originalChecksums = new Map(
+        secondLedger.rows.map((row) => [row.filename, row.checksum]),
+      );
       for (const filename of REQUIRED_MIGRATIONS) {
         assert.ok(applied.has(filename), `required migration missing: ${filename}`);
+      }
+
+      const historicalBase = DATABASE_MIGRATION_EXPECTATIONS.find(
+        (entry) => entry.identity === "0001_initial_schema.sql",
+      );
+      assert.ok(historicalBase?.compatibleHistoricalChecksums[0]);
+      await client.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      try {
+        await client.query(
+          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+          [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
+        );
+        await applyDatabaseMigrationsWithLock(client);
+        const historicalBaseEvidence = await client.query<{ checksum: string }>(
+          "SELECT checksum FROM _migrations WHERE filename = $1",
+          [historicalBase.identity],
+        );
+        assert.equal(
+          historicalBaseEvidence.rows[0]?.checksum,
+          historicalBase.compatibleHistoricalChecksums[0],
+          "governed historical 16-character checksums must verify without ledger rewrites",
+        );
+
+        const historicalTenantChecksum =
+          "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
+        await client.query(
+          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+          [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
+        );
+        await applyDatabaseMigrationsWithLock(client);
+        const upgradedEvidence = await client.query<{ checksum: string }>(
+          "SELECT checksum FROM _migrations WHERE filename = $1",
+          ["0046_tenant_principal_isolation_foundation.sql"],
+        );
+        assert.equal(
+          upgradedEvidence.rows[0]?.checksum,
+          historicalTenantChecksum,
+          "governed historical full checksums must verify without rewriting ledger history",
+        );
+      } finally {
+        for (const identity of [
+          historicalBase.identity,
+          "0046_tenant_principal_isolation_foundation.sql",
+        ]) {
+          const originalChecksum = originalChecksums.get(identity);
+          assert.ok(originalChecksum, `original migration checksum missing: ${identity}`);
+          await client.query(
+            "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+            [originalChecksum, identity],
+          );
+        }
+        await applyDatabaseMigrationsWithLock(client);
+        await client.query("SELECT pg_advisory_unlock($1, $2)", [
+          ...DATABASE_MIGRATION_LOCK_KEYS,
+        ]);
       }
 
       const tables = await client.query<{ table_name: string }>(

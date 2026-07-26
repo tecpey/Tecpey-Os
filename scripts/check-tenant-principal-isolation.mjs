@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 const files = {
   context: "src/lib/security/tenant-principal-context.ts",
   migration: "src/lib/db-migrate-tenant-principal-isolation.ts",
-  plan: "src/lib/db-migration-plan.ts",
+  plan: "src/lib/db-migration-registry.ts",
   route: "src/app/api/offline-sync/route.ts",
   authority: "src/lib/offline-sync-authority.ts",
   offlineGuard: "scripts/check-offline-sync-authority.mjs",

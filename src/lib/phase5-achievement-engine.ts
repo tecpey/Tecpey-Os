@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { cleanText } from "@/lib/student-cartax";
-import { createSmartNotification, ensureLearningOsTables, maybeAwardAchievement, recordLearningEvent, type NotificationChannel } from "@/lib/learning-os";
+import { createSmartNotification, maybeAwardAchievement, prepareLearningOsData, recordLearningEvent, type NotificationChannel } from "@/lib/learning-os";
+import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
 
 export type Queryable = {
   query: (query: string, values?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -32,35 +33,16 @@ function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
-export async function ensurePhase5Tables(client: Queryable) {
-  await ensureLearningOsTables(client);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS certificate_share_events (
-      id BIGSERIAL PRIMARY KEY,
-      certificate_id TEXT NOT NULL,
-      student_id UUID,
-      channel TEXT NOT NULL DEFAULT 'web',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS notification_brain_snapshots (
-      student_id UUID PRIMARY KEY,
-      return_probability INTEGER NOT NULL DEFAULT 50,
-      churn_risk INTEGER NOT NULL DEFAULT 50,
-      best_channel TEXT NOT NULL DEFAULT 'in_app',
-      best_time_label TEXT NOT NULL DEFAULT 'evening',
-      next_hook_type TEXT NOT NULL DEFAULT 'learning',
-      next_action_url TEXT NOT NULL DEFAULT '/academy/profile',
-      message_title TEXT NOT NULL,
-      message_body TEXT NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+export async function assertPhase5Schema(client: Queryable) {
+  await prepareLearningOsData(client);
+  await assertRequiredDatabaseTables(client, [
+    "certificate_share_events",
+    "notification_brain_snapshots",
+  ], "phase5_achievements");
 }
 
 export async function getAchievementSnapshot(client: Queryable, studentId: string): Promise<AchievementView[]> {
-  await ensurePhase5Tables(client);
+  await assertPhase5Schema(client);
   const rows = await client.query(
     `SELECT c.code, c.title, c.description, c.icon, c.category, c.xp,
             a.earned_at
@@ -94,7 +76,7 @@ export function fallbackAchievementSnapshot(locale: "fa" | "en" = "fa"): Achieve
 }
 
 export async function buildNotificationBrain(client: Queryable, studentId: string, locale: "fa" | "en" = "fa"): Promise<NotificationBrainSnapshot> {
-  await ensurePhase5Tables(client);
+  await assertPhase5Schema(client);
   const isFa = locale === "fa";
   const stats = await client.query(
     `SELECT

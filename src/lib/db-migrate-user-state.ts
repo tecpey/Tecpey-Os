@@ -387,7 +387,7 @@ CREATE INDEX IF NOT EXISTS academy_trading_arena_reflection_commands_student_idx
   ON academy_trading_arena_reflection_commands(student_id, created_at DESC);
 `;
 
-const MIGRATIONS: Migration[] = [
+export const USER_STATE_DATABASE_MIGRATIONS: readonly Migration[] = [
   { filename: "0013_authoritative_academy_state.sql", sql: AUTHORITATIVE_ACADEMY_STATE_SQL },
   { filename: "0014_academy_learning_memory.sql", sql: ACADEMY_LEARNING_MEMORY_SQL },
   { filename: "0015_academy_reflection_memory.sql", sql: ACADEMY_REFLECTION_MEMORY_SQL },
@@ -400,13 +400,12 @@ const MIGRATIONS: Migration[] = [
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 export async function runUserStateMigrations(client: PoolClient): Promise<void> {
-  for (const migration of MIGRATIONS) {
+  for (const migration of USER_STATE_DATABASE_MIGRATIONS) {
     const cs = checksum(migration.sql);
     const applied = await client.query<{ checksum: string }>(
       `SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1`,

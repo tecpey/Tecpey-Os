@@ -37,17 +37,17 @@
 
 ---
 
-## R-03 — Schema-on-Connect (No Production Migration Runner Wired)
+## R-03 — Schema-on-Connect Risk (Superseded)
 
 | Field | Value |
 |-------|-------|
-| **Description** | Production database schema is created via `CREATE TABLE IF NOT EXISTS` on first connection (`src/lib/db-schema.ts`). The existing migration runner (`src/lib/db-migrate.ts`) is not wired as the production path. Health check deliberately bypasses it. |
-| **Reason Accepted for Launch** | Wiring and testing the migration runner was scoped to Phase 41. Current tables are stable. Any schema change in the launch window will be manual and additive-only. |
+| **Description** | **Archived historical context:** Phase 39.5 accepted schema-on-connect as a temporary risk. That behavior is superseded and is not an active production path. Production schema changes now run only through the governed migration command before startup; runtime and health readiness are verify-only and fail closed without bypassing migration state. |
+| **Reason Accepted for Launch** | Historical reference only. The risk was accepted before the governed migration runtime was implemented. |
 | **Owner** | CTO + Platform Engineering Lead |
-| **Expiration Phase** | Phase 41. Must be resolved before any multi-tenant rollout or complex schema evolution. |
-| **Mitigation** | 1. All Phase 40 schema changes must be additive (no ALTER TABLE DROP, no breaking changes). 2. Manual change protocol with peer review and rollback SQL prepared before execution. 3. Post-change verification script required. |
+| **Expiration Phase** | Resolved by Issue #166. |
+| **Mitigation** | `npm run db:migrate` is the sole canonical production migration action. Production requests never execute schema migrations, and startup and health readiness verify the canonical plan without executing DDL. |
 | **User Communication** | Not user-facing. Internal operations note only. |
-| **Rollback Condition** | If any manual schema change causes data loss, inconsistency, or extended downtime, migration runner must be wired immediately (even if it slips other Phase 41 work). |
+| **Rollback Condition** | Not applicable; the former schema-on-connect contract is archived and must not be restored. |
 
 ---
 

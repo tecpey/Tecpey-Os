@@ -18,7 +18,7 @@ const files = {
   passwords: "src/lib/security/passwords.ts",
   authority: "src/lib/security/session-authority.ts",
   migration: "src/lib/db-migrate-session-authority.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   academyAuth: "src/app/api/academy-auth/route.ts",
   profileRoute: "src/app/api/academy-student-profile/route.ts",
   sessionsRoute: "src/app/api/auth/sessions/route.ts",

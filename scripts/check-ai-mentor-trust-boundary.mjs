@@ -92,7 +92,7 @@ for (const [label, pattern] of [
   if (!pattern.test(migration)) failures.push(`mentor trust migration: missing ${label}`);
 }
 
-const migrationPlan = await source("src/lib/db-migration-plan.ts");
+const migrationPlan = await source("src/lib/db-migration-registry.ts");
 if (!/runAiMentorTrustMigrations/.test(migrationPlan)) {
   failures.push("migration plan: AI Mentor trust migration is not governed");
 }

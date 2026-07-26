@@ -27,7 +27,7 @@ const paths = {
   behavioral: "src/lib/behavioral-engine.ts",
   coaching: "src/lib/coaching-engine.ts",
   communityMigration: "src/lib/db-migrate-community-profile-consent.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   communityAuthority: "src/lib/community-profile-authority.ts",
   communityRoute: "src/app/api/community/profile/route.ts",
   communityCareer: "src/lib/community-career.ts",

@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
 
 export type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
 
@@ -39,25 +40,8 @@ export function certificateHash(input: { certificateId: string; studentId: strin
     .digest("hex");
 }
 
-export async function ensureCertificateTables(client: Queryable) {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_certificates (
-      id TEXT PRIMARY KEY,
-      student_id UUID REFERENCES academy_students(id) ON DELETE CASCADE,
-      public_student_id TEXT NOT NULL,
-      student_name TEXT NOT NULL,
-      course_title TEXT NOT NULL,
-      term_number INTEGER NOT NULL,
-      score INTEGER NOT NULL DEFAULT 0,
-      level_title TEXT NOT NULL DEFAULT 'TecPey Academy Learner',
-      verification_hash TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'verified',
-      issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      revoked_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`CREATE INDEX IF NOT EXISTS idx_academy_certificates_student ON academy_certificates(student_id);`);
+export async function assertCertificateSchema(client: Queryable) {
+  await assertRequiredDatabaseTables(client, ["academy_certificates"], "academy_certificates");
 }
 
 export async function issueCertificate(client: Queryable, input: { studentId: string; termNumber: number }) {

@@ -12,7 +12,7 @@ const files = {
   passwordRoute: "src/app/api/auth/password/change/route.ts",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   migration: "src/lib/db-migrate-sensitive-mutation-audit.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   postgresTests: "src/tests/security/sensitive-mutation-audit-postgres.test.ts",
   apiKeyPostgresTests: "src/tests/security/api-key-transactional-audit-postgres.test.ts",
   passwordPostgresTests: "src/tests/security/password-rotation-audit-postgres.test.ts",

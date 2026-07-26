@@ -9,7 +9,7 @@ const files = {
   schema: "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
   gate: "src/lib/db-migrate-withdrawal-external-effect-gate.ts",
   gatePatch: "src/lib/db-migrate-withdrawal-external-effect-gate-amount-cast.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   executor: "src/lib/wallet/withdrawal-executor.ts",
   queue: "src/lib/wallet/queue/withdrawal-queue.ts",
   confirmation: "src/lib/wallet/confirmation/engine.ts",

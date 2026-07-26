@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 const files = {
   package: "package.json",
   ci: ".github/workflows/ci.yml",
-  plan: "src/lib/db-migration-plan.ts",
+  plan: "src/lib/db-migration-registry.ts",
   runtimeMigration: "src/lib/db-migrate-notification-runtime.ts",
   visibilityMigration: "src/lib/db-migrate-notification-delivery-visibility.ts",
   creation: "src/lib/notifications/creation.ts",

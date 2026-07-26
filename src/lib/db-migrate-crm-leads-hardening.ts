@@ -70,9 +70,8 @@ UPDATE crm_lead_delivery_outbox older
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 export async function runCrmLeadHardeningMigrations(client: PoolClient): Promise<void> {

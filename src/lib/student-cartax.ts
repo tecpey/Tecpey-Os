@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
 
 type Queryable = {
   query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }>;
@@ -40,97 +41,14 @@ export function numeric(value: unknown, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-export async function ensureStudentCartaxTables(client: Queryable) {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_students (
-      id UUID PRIMARY KEY,
-      email TEXT UNIQUE,
-      phone TEXT UNIQUE,
-      google_id TEXT UNIQUE,
-      apple_id TEXT UNIQUE,
-      display_name TEXT,
-      username TEXT UNIQUE,
-      avatar TEXT,
-      learning_goal TEXT,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      public_student_id TEXT UNIQUE,
-      streak_days INTEGER NOT NULL DEFAULT 0,
-      last_active_day DATE,
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS public_student_id TEXT UNIQUE;`);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;`);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS avatar TEXT;`);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS learning_goal TEXT;`);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS streak_days INTEGER NOT NULL DEFAULT 0;`);
-  await client.query(`ALTER TABLE academy_students ADD COLUMN IF NOT EXISTS last_active_day DATE;`);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_student_cartax (
-      student_id UUID PRIMARY KEY REFERENCES academy_students(id) ON DELETE CASCADE,
-      progress JSONB NOT NULL DEFAULT '{}'::jsonb,
-      earned_badges JSONB NOT NULL DEFAULT '[]'::jsonb,
-      mentor_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
-      simulator_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
-      total_xp INTEGER NOT NULL DEFAULT 0,
-      completed_terms INTEGER NOT NULL DEFAULT 0,
-      overall_progress INTEGER NOT NULL DEFAULT 0,
-      identity_score INTEGER NOT NULL DEFAULT 0,
-      retention_score INTEGER NOT NULL DEFAULT 0,
-      community_score INTEGER NOT NULL DEFAULT 0,
-      source TEXT,
-      ip TEXT,
-      user_agent TEXT,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`ALTER TABLE academy_student_cartax ADD COLUMN IF NOT EXISTS identity_score INTEGER NOT NULL DEFAULT 0;`);
-  await client.query(`ALTER TABLE academy_student_cartax ADD COLUMN IF NOT EXISTS retention_score INTEGER NOT NULL DEFAULT 0;`);
-  await client.query(`ALTER TABLE academy_student_cartax ADD COLUMN IF NOT EXISTS community_score INTEGER NOT NULL DEFAULT 0;`);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_student_events (
-      id BIGSERIAL PRIMARY KEY,
-      student_id UUID REFERENCES academy_students(id) ON DELETE CASCADE,
-      event_type TEXT NOT NULL,
-      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_simulator_decisions (
-      id BIGSERIAL PRIMARY KEY,
-      student_id UUID REFERENCES academy_students(id) ON DELETE CASCADE,
-      scenario_id TEXT NOT NULL,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      choice_id TEXT NOT NULL,
-      score INTEGER NOT NULL DEFAULT 0,
-      xp INTEGER NOT NULL DEFAULT 0,
-      feedback TEXT,
-      entry_reason TEXT,
-      emotion_state TEXT,
-      risk_plan TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(student_id, scenario_id)
-    );
-  `);
-  await client.query(`ALTER TABLE academy_simulator_decisions ADD COLUMN IF NOT EXISTS entry_reason TEXT;`);
-  await client.query(`ALTER TABLE academy_simulator_decisions ADD COLUMN IF NOT EXISTS emotion_state TEXT;`);
-  await client.query(`ALTER TABLE academy_simulator_decisions ADD COLUMN IF NOT EXISTS risk_plan TEXT;`);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_term_progress (
-      student_id UUID REFERENCES academy_students(id) ON DELETE CASCADE,
-      term_number INTEGER NOT NULL CHECK (term_number BETWEEN 1 AND 7),
-      locale TEXT NOT NULL DEFAULT 'fa',
-      score INTEGER NOT NULL DEFAULT 0,
-      percent INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'locked',
-      passed_at TIMESTAMPTZ,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (student_id, term_number, locale)
-    );
-  `);
+export async function assertStudentCartaxSchema(client: Queryable) {
+  await assertRequiredDatabaseTables(client, [
+    "academy_students",
+    "academy_student_cartax",
+    "academy_student_events",
+    "academy_simulator_decisions",
+    "academy_term_progress",
+  ], "student_cartax");
 }
 
 export async function upsertStudentCartax(client: Queryable, input: StudentCartaxInput, fallbackStudentId?: string) {
