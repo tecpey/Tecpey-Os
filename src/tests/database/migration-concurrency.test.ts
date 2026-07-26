@@ -407,7 +407,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         const startedAt = Date.now();
         const spawned = spawn(process.execPath, [
           "--import", "tsx", "--input-type=module", "--eval",
-          "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
+          "const db = await import('./src/lib/db.ts'); const check = db.checkDbHealth ?? db.default?.checkDbHealth; console.log(JSON.stringify(await check()));",
         ], {
           cwd: process.cwd(),
           env: { ...process.env, DATABASE_URL: isolatedDatabaseUrl, NODE_ENV: "test" },
