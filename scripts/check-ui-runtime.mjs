@@ -4,7 +4,7 @@ const mode = process.argv.includes("--dev") ? "development" : "production";
 const port = mode === "development" ? 3181 : 3182;
 const baseUrl = `http://127.0.0.1:${port}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const npmArgs = mode === "development" ? ["run", "dev"] : ["run", "start"];
+const npmArgs = mode === "development" ? ["run", "dev:next"] : ["run", "start"];
 
 let output = "";
 const child = spawn(npmCommand, npmArgs, {
