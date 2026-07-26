@@ -6,7 +6,7 @@ const files = {
   confirmation: "src/lib/wallet/confirmation/engine.ts",
   settlement: "src/lib/security/withdrawal-settlement-authority.ts",
   migration: "src/lib/db-migrate-withdrawal-settlement.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   producerTests: "src/tests/security/withdrawal-price-producer.test.ts",
   settlementTests: "src/tests/security/withdrawal-settlement-postgres.test.ts",
 };

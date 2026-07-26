@@ -4,7 +4,7 @@ const files = {
   inventory: "docs/security/RISK_EVENT_ENFORCEMENT_EVIDENCE_INVENTORY.md",
   audit: "src/lib/security/sensitive-mutation-audit.ts",
   migration: "src/lib/db-migrate-risk-enforcement-authority.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   evidence: "src/lib/security/risk-enforcement-evidence.ts",
   authority: "src/lib/security/risk-enforcement-authority.ts",
   detector: "src/lib/security/risk-engine.ts",

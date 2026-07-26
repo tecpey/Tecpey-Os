@@ -6,7 +6,7 @@ const files = {
   guard: "scripts/check-notification-domain-outbox-authority.mjs",
   package: "package.json",
   ci: ".github/workflows/ci.yml",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   migration: "src/lib/db-migrate-notification-domain-outbox.ts",
   hash: "src/lib/notifications/domain-event-hash.ts",
   outbox: "src/lib/notifications/domain-outbox.ts",

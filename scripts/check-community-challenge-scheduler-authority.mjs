@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 const paths = {
   inventory: "docs/security/social-arena-evidence-inventory.json",
   migration: "src/lib/db-migrate-operational-job-evidence.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   evidence: "src/lib/ops/operational-job-evidence.ts",
   spool: "src/lib/ops/operational-alert-spool.ts",
   orchestrator: "src/lib/ops/community-challenge-finalization-job.ts",

@@ -13,7 +13,7 @@ const files = {
   termClient: "src/components/academy/TermQuizClient.tsx",
   migration: "src/lib/db-migrate-user-state.ts",
   hardening: "src/lib/db-migrate-academy-progress-hardening.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   projection: "src/lib/academy-progress-projection.ts",
   progress: "src/lib/academy-progress.ts",
   pathHook: "src/hooks/useAcademyPathProgress.ts",

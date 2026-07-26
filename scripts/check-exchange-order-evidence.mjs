@@ -7,7 +7,7 @@ const migration = read("src/lib/db-migrate-exchange-order-evidence.ts");
 const finalGateMigration = read(
   "src/lib/db-migrate-exchange-order-final-evidence-gate.ts",
 );
-const migrationPlan = read("src/lib/db-migration-plan.ts");
+const migrationPlan = read("src/lib/db-migration-registry.ts");
 const orderRoute = read("src/app/api/orders/route.ts");
 const cancelAuthority = read("src/lib/trading/order-cancel-authority.ts");
 const cancelRoute = read("src/app/api/orders/[id]/route.ts");

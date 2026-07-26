@@ -5,7 +5,7 @@ const files = {
   workflow: ".github/workflows/ci.yml",
   env: "scripts/validate-env.mjs",
   browserGuard: "scripts/check-browser-persistence.mjs",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   migration: "src/lib/db-migrate-crm-leads.ts",
   hardening: "src/lib/db-migrate-crm-leads-hardening.ts",
   pii: "src/lib/crm/lead-pii.ts",

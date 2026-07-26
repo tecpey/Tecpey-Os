@@ -18,6 +18,7 @@ import {
   assertProductionCustodyConfiguration,
   getCustodyLaunchStatus,
 } from "./src/lib/wallet/custody-launch-policy";
+import { assertDatabaseReadyForRuntime } from "./src/lib/db";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
@@ -149,6 +150,9 @@ async function listen(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Production startup is verify-only. Schema changes are an explicit
+  // deployment action (`npm run db:migrate`) and never run in web processes.
+  if (!dev) await assertDatabaseReadyForRuntime();
   await app.prepare();
 
   // ── Compliance and custody launch policy ─────────────────────────────────

@@ -46,12 +46,18 @@ export async function GET() {
 
   // Emit alerts for critical failures (rate-limited to once per 60 s by the emitter).
   if (db.status === "unavailable") emitAlert("DB_DOWN", "Database health check failed");
+  if (db.status === "ok" && db.schema?.status !== "current") {
+    emitAlert("MIGRATION_FAILED", `Database schema is not ready: ${db.schema?.status ?? "unknown"}`);
+  }
   if (redis.status === "unavailable") emitAlert("REDIS_DOWN", "Redis health check failed");
   if (email === "unconfigured" && isProduction) emitAlert("EMAIL_NOT_CONFIGURED", "EMAIL_PROVIDER is not configured");
 
   const warnings: string[] = [];
   if (db.status === "unconfigured") warnings.push("database_not_configured: DATABASE_URL is missing or placeholder");
   if (db.status === "unavailable") warnings.push("database_unavailable: cannot connect to PostgreSQL");
+  if (db.status === "ok" && db.schema?.status !== "current") {
+    warnings.push(`database_schema_not_ready: ${db.schema?.status ?? "unknown"}`);
+  }
   if (redis.status === "unconfigured" && isProduction) warnings.push("redis_not_configured: production requires shared Redis");
   if (redis.status === "unavailable") warnings.push("redis_unavailable: cannot reach Redis");
   if (email === "unconfigured" && isProduction) warnings.push("email_not_configured: transactional emails will not be delivered");
@@ -61,7 +67,7 @@ export async function GET() {
   // keep an unhealthy instance behind a load balancer and route financial or
   // authenticated traffic to it.
   const criticalDependencyFailure =
-    db.status !== "ok" || (isProduction && redis.status !== "ok");
+    db.status !== "ok" || db.schema?.status !== "current" || (isProduction && redis.status !== "ok");
 
   const overall = criticalDependencyFailure
     ? "unhealthy"
@@ -72,6 +78,7 @@ export async function GET() {
   const checks = {
     app: "ok" as const,
     database: db.status,
+    schema: db.schema?.status ?? "unavailable",
     redis: redis.status,
     email,
   };
@@ -99,8 +106,14 @@ export async function GET() {
       redisMs: redis.latencyMs,
     },
     migrations: {
-      applied: db.migrations ?? null,
-      status: db.migrations !== undefined ? "tracked" : "unknown",
+      applied: db.schema?.applied ?? null,
+      expected: db.schema?.expected ?? null,
+      status: db.schema?.status ?? "unavailable",
+      planHash: db.schema?.planHash ?? null,
+      runnerId: db.schema?.runnerId ?? null,
+      startedAt: db.schema?.startedAt ?? null,
+      finishedAt: db.schema?.finishedAt ?? null,
+      errorCode: db.schema?.errorCode ?? null,
     },
     tenantSystem: {
       status: db.status === "ok" ? "available" : "unavailable",

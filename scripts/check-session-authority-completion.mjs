@@ -4,7 +4,7 @@ const files = {
   academyAuth: "src/app/api/academy-auth/route.ts",
   authority: "src/lib/security/session-authority.ts",
   legacyMigration: "src/lib/db-migrate-session-legacy-fallback.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   repair: "scripts/reconcile-session-revocations.ts",
   package: "package.json",
   legacyTest: "src/tests/security/auth-session-legacy-unbound-postgres.test.ts",

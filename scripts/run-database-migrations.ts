@@ -1,5 +1,6 @@
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../src/lib/db-migration-plan";
+import { checkMigrationReadiness } from "../src/lib/db-migration-readiness";
 
 function requiredDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
@@ -34,10 +35,22 @@ async function main(): Promise<void> {
   try {
     client = await pool.connect();
     const before = await migrationCount(client);
-    await applyDatabaseMigrationsWithLock(client);
+    const configuredTimeout = process.env.TECPEY_MIGRATION_LOCK_TIMEOUT_MS?.trim();
+    const lockTimeoutMs = configuredTimeout === undefined ? undefined : Number(configuredTimeout);
+    await applyDatabaseMigrationsWithLock(client, { lockTimeoutMs });
     const after = await migrationCount(client);
+    const readiness = await checkMigrationReadiness(client);
+    if (readiness.status !== "current") {
+      throw new Error(`migration_completed_without_current_schema:${readiness.status}`);
+    }
     process.stdout.write(
-      `${JSON.stringify({ status: "ok", migrationsBefore: before, migrationsAfter: after })}\n`,
+      `${JSON.stringify({
+        status: "ok",
+        migrationsBefore: before,
+        migrationsAfter: after,
+        schema: readiness.status,
+        planHash: readiness.planHash,
+      })}\n`,
     );
   } finally {
     client?.release();

@@ -11,7 +11,7 @@ const files = {
   scope: "src/lib/offline-sync-scope.ts",
   authority: "src/lib/offline-sync-authority.ts",
   isolationMigration: "src/lib/db-migrate-tenant-principal-isolation.ts",
-  plan: "src/lib/db-migration-plan.ts",
+  plan: "src/lib/db-migration-registry.ts",
   tests: "src/tests/security/offline-sync-authority-postgres.test.ts",
   scopeTests: "src/tests/security/offline-sync-scope.test.ts",
   telemetryTests: "src/tests/security/offline-sync-telemetry-source-guard.test.ts",

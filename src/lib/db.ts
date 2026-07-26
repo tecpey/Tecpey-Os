@@ -1,9 +1,14 @@
 import { Pool, type PoolClient } from "pg";
-import { applyDatabaseMigrationsWithLock } from "./db-migration-plan";
+import {
+  assertMigrationReady,
+  checkMigrationReadiness,
+  failedMigrationReadiness,
+  type MigrationReadiness,
+} from "./db-migration-readiness";
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
-let schemaInit: Promise<void> | null = null;
+let schemaVerification: Promise<void> | null = null;
 
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL;
@@ -33,13 +38,13 @@ function getPool(): Pool | null {
 export type DbHealthResult = {
   status: "ok" | "unavailable" | "unconfigured";
   latencyMs: number;
-  migrations?: number;
+  schema?: MigrationReadiness;
 };
 
 /**
  * Lightweight DB health probe — bypasses the migration runner so the health
  * endpoint remains fast and side-effect-free. Runs SELECT 1 plus an optional
- * migration count query.
+ * verify-only schema readiness query. It never executes DDL.
  */
 export async function checkDbHealth(): Promise<DbHealthResult> {
   const start = Date.now();
@@ -49,14 +54,16 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
   try {
     client = await p.connect();
     await client.query("SELECT 1");
-    let migrations: number | undefined;
+    let schema: MigrationReadiness;
     try {
-      const r = await client.query("SELECT COUNT(*)::int AS count FROM _migrations");
-      migrations = r.rows[0]?.count ?? 0;
-    } catch {
-      // _migrations may not exist on a fresh DB before first migration run.
+      schema = await checkMigrationReadiness(client);
+    } catch (error) {
+      logger.error("[db] schema readiness query failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      schema = failedMigrationReadiness("schema_verification_failed");
     }
-    return { status: "ok", latencyMs: Date.now() - start, migrations };
+    return { status: "ok", latencyMs: Date.now() - start, schema };
   } catch {
     return { status: "unavailable", latencyMs: Date.now() - start };
   } finally {
@@ -64,15 +71,15 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
   }
 }
 
-async function ensureSchema(p: Pool): Promise<void> {
-  if (!schemaInit) {
-    schemaInit = (async () => {
+async function ensureSchemaCurrent(p: Pool): Promise<void> {
+  if (!schemaVerification) {
+    schemaVerification = (async () => {
       let client: PoolClient | undefined;
       try {
         client = await p.connect();
-        await applyDatabaseMigrationsWithLock(client);
+        assertMigrationReady(await checkMigrationReadiness(client));
       } catch (err) {
-        schemaInit = null;
+        schemaVerification = null;
         throw err;
       } finally {
         client?.release();
@@ -80,7 +87,13 @@ async function ensureSchema(p: Pool): Promise<void> {
     })();
   }
 
-  await schemaInit;
+  await schemaVerification;
+}
+
+export async function assertDatabaseReadyForRuntime(): Promise<void> {
+  const p = getPool();
+  if (!p) throw new Error("database_not_configured");
+  await ensureSchemaCurrent(p);
 }
 
 export async function withDb<T>(
@@ -90,8 +103,11 @@ export async function withDb<T>(
   if (!p) return { enabled: false, value: null };
 
   try {
-    await ensureSchema(p);
-  } catch {
+    await ensureSchemaCurrent(p);
+  } catch (error) {
+    logger.error("[db] schema verification failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { enabled: false, value: null };
   }
 
@@ -114,8 +130,11 @@ export async function withTx<T>(
   if (!p) return { enabled: false, value: null };
 
   try {
-    await ensureSchema(p);
-  } catch {
+    await ensureSchemaCurrent(p);
+  } catch (error) {
+    logger.error("[db] schema verification failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { enabled: false, value: null };
   }
 

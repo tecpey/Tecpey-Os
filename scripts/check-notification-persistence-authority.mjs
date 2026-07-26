@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 const files = {
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   migration: "src/lib/db-migrate-notifications.ts",
   principal: "src/lib/notifications/principal.ts",
   repository: "src/lib/notifications/repository.ts",

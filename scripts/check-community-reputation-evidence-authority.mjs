@@ -4,7 +4,7 @@ import path from "node:path";
 const requiredFiles = {
   authority: "src/lib/community-reputation-evidence-authority.ts",
   migration: "src/lib/db-migrate-community-reputation-evidence.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   route: "src/app/api/community/reputation-evidence/route.ts",
   client: "src/lib/community-reputation-evidence-client.ts",
   panel: "src/components/academy/community/ReputationEvidencePanel.tsx",

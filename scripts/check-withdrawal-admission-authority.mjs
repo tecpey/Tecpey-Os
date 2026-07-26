@@ -18,7 +18,7 @@ const files = {
   admission: "src/lib/security/withdrawal-admission-service.ts",
   legacyGate: "src/lib/security/withdraw-gate.ts",
   migration: "src/lib/db-migrate-withdrawal-admission.ts",
-  migrationPlan: "src/lib/db-migration-plan.ts",
+  migrationPlan: "src/lib/db-migration-registry.ts",
   unitTests: "src/tests/security/withdrawal-admission.test.ts",
   postgresTests: "src/tests/security/withdrawal-admission-postgres.test.ts",
   replayTests: "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
