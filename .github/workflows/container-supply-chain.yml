@@ -15,6 +15,7 @@ on:
       - src/app/api/health/**
       - scripts/check-production-supply-chain.mjs
       - scripts/test-container-volume-recovery.sh
+      - scripts/test-container-image-rollback.sh
       - deploy/systemd/tecpey-web.service
       - ecosystem.config.cjs
       - scripts/ubuntu24-deploy-pm2.sh
@@ -120,9 +121,9 @@ jobs:
           retention-days: 30
 
   recovery:
-    name: Ephemeral staging persistent-volume restore
+    name: Ephemeral staging rollback and volume restore
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -134,6 +135,23 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Checkout exact previous release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          path: previous-release
+          persist-credentials: false
+
+      - name: Build exact candidate and previous release images
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"
+          docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
+          docker build --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
         run: bash scripts/test-container-volume-recovery.sh

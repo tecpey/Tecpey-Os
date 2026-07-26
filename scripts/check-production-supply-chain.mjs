@@ -17,6 +17,7 @@ const server = read("server.ts");
 const health = read("src/app/api/health/route.ts");
 const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
+const rollback = read("scripts/test-container-image-rollback.sh");
 const systemdService = read("deploy/systemd/tecpey-web.service");
 const pm2Config = read("ecosystem.config.cjs");
 const pm2Deploy = read("scripts/ubuntu24-deploy-pm2.sh");
@@ -82,6 +83,9 @@ for (const contract of [
 requireText(deploymentDoc, "persistent-volume restore", "deployment documentation must define restore evidence");
 for (const evidence of ["pg_dump", "pg_restore", "redis.rdb", "backup-digests.sha256"]) {
   requireText(recovery, evidence, `recovery drill must retain ${evidence} evidence`);
+}
+for (const evidence of ["CANDIDATE_ID", "PREVIOUS_ID", "previous-release-served"]) {
+  requireText(rollback, evidence, `rollback drill must retain ${evidence} evidence`);
 }
 
 for (const [name, workflow] of workflows) {

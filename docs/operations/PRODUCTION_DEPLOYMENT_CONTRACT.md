@@ -45,6 +45,10 @@ sessions close, preserving command ownership and avoiding duplicate execution.
 The container supply-chain workflow records the exact image digest, SPDX SBOM,
 critical/high vulnerability result, build provenance, and signature evidence.
 Evidence names include the exact source SHA and is retained with the workflow.
+On pull requests it also builds the candidate and exact base release images,
+serves the candidate, replaces it with the previous image on the same endpoint,
+and retains both image IDs and probe results as ephemeral staging rollback
+evidence.
 
 Before production promotion, the Release Operator performs the protected staging
 rollback and persistent-volume restore drill:
