@@ -30,6 +30,7 @@ requireText(dockerfile, "npm ci --omit=dev", "runtime dependencies must exclude 
 requireText(dockerfile, 'CMD ["node", "dist/server.cjs"]', "runtime must execute the compiled server");
 reject(dockerfile, /COPY --from=builder \/app\/node_modules/, "runtime must not copy builder dependencies");
 reject(dockerfile, /CMD \[[^\n]*tsx/, "runtime must not execute TypeScript");
+requireText(dockerfile, "/usr/local/lib/node_modules/npm", "runtime must remove unused npm tooling");
 requireText(dockerfile, "USER nextjs", "runtime must be rootless");
 requireText(dockerfile, "HEALTHCHECK", "runtime image must declare readiness health check");
 requireText(dockerfile, 'VOLUME ["/app/storage", "/app/.next/cache"]', "runtime writable paths must be explicit");
