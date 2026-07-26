@@ -421,7 +421,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
           spawned.once("error", reject);
           spawned.once("exit", resolve);
         });
-        assert.equal(code, 0);
+        assert.equal(code, 0, output);
         assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
         assert.match(output, /"status":"ok"/);
         assert.match(output, /"status":"migration_failed"/);
