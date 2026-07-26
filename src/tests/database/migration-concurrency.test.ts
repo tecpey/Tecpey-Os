@@ -31,7 +31,12 @@ async function withIsolatedDatabase(
     await admin.query(`CREATE DATABASE ${name}`);
     await run(isolatedUrl.toString());
   } finally {
-    await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    const sessions = await admin.query<{ count: number }>(
+      "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
+      [name],
+    );
+    assert.equal(sessions.rows[0]?.count, 0, "isolated migration database must release every session");
+    await admin.query(`DROP DATABASE IF EXISTS ${name}`);
     await admin.end();
   }
 }
@@ -390,40 +395,37 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
   it("fails a blocked runtime readiness query within its governed deadline", {
     timeout: 15_000,
   }, async () => {
-    await withIsolatedDatabase("readiness", async (isolatedDatabaseUrl) => {
-      const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 2 });
-      const holder = await pool.connect();
-      let child: ReturnType<typeof spawn> | undefined;
-      try {
-        await applyDatabaseMigrationsWithLock(holder);
-        await holder.query("BEGIN");
-        await holder.query("LOCK TABLE _migration_runtime_state IN ACCESS EXCLUSIVE MODE");
-        const startedAt = Date.now();
-        const spawned = spawn(process.execPath, [
-          "--import", "tsx", "--input-type=module", "--eval",
-          "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
-        ], {
-          cwd: process.cwd(),
-          env: { ...process.env, DATABASE_URL: isolatedDatabaseUrl, NODE_ENV: "test" },
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-        child = spawned;
-        let output = "";
-        spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
-        spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
-        const code = await new Promise<number | null>((resolve, reject) => {
-          spawned.once("error", reject);
-          spawned.once("exit", resolve);
-        });
-        assert.equal(code, 0);
-        assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
-        assert.match(output, /"status":"unavailable"/);
-      } finally {
-        if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-        await holder.query("ROLLBACK");
-        holder.release();
-        await pool.end();
-      }
-    });
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const holder = await pool.connect();
+    let child: ReturnType<typeof spawn> | undefined;
+    try {
+      await holder.query("BEGIN");
+      await holder.query("LOCK TABLE _migration_runtime_state IN ACCESS EXCLUSIVE MODE");
+      const startedAt = Date.now();
+      const spawned = spawn(process.execPath, [
+        "--import", "tsx", "--input-type=module", "--eval",
+        "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
+      ], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: databaseUrl, NODE_ENV: "test" },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      child = spawned;
+      let output = "";
+      spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
+      spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
+      const code = await new Promise<number | null>((resolve, reject) => {
+        spawned.once("error", reject);
+        spawned.once("exit", resolve);
+      });
+      assert.equal(code, 0);
+      assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
+      assert.match(output, /"status":"unavailable"/);
+    } finally {
+      if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await holder.query("ROLLBACK");
+      holder.release();
+      await pool.end();
+    }
   });
 });
