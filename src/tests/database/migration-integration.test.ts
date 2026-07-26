@@ -190,6 +190,9 @@ describe("PostgreSQL migration authority", () => {
       );
 
       const applied = new Set(secondLedger.rows.map((row) => row.filename));
+      const originalChecksums = new Map(
+        secondLedger.rows.map((row) => [row.filename, row.checksum]),
+      );
       for (const filename of REQUIRED_MIGRATIONS) {
         assert.ok(applied.has(filename), `required migration missing: ${filename}`);
       }
@@ -232,6 +235,18 @@ describe("PostgreSQL migration authority", () => {
           "governed historical full checksums must verify without rewriting ledger history",
         );
       } finally {
+        for (const identity of [
+          historicalBase.identity,
+          "0046_tenant_principal_isolation_foundation.sql",
+        ]) {
+          const originalChecksum = originalChecksums.get(identity);
+          assert.ok(originalChecksum, `original migration checksum missing: ${identity}`);
+          await client.query(
+            "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+            [originalChecksum, identity],
+          );
+        }
+        await applyDatabaseMigrationsWithLock(client);
         await client.query("SELECT pg_advisory_unlock($1, $2)", [
           ...DATABASE_MIGRATION_LOCK_KEYS,
         ]);
