@@ -37,7 +37,8 @@ describe("production database startup authority", () => {
         assert.doesNotMatch(command, /\bnext\s+start\b/, `${name} bypasses production readiness`);
       }
     }
-    assert.match(packageJson.scripts.start, /server\.ts/);
+    assert.match(packageJson.scripts.start, /node dist\/server\.cjs/);
+    assert.doesNotMatch(packageJson.scripts.start, /\btsx\b|server\.ts/);
 
     const deploymentPaths = await Promise.all([
       readFile("Dockerfile", "utf8"),
@@ -45,7 +46,7 @@ describe("production database startup authority", () => {
       readFile("deploy/systemd/tecpey-web.service", "utf8"),
       readFile("ecosystem.config.cjs", "utf8"),
     ]);
-    assert.match(deploymentPaths[0], /CMD \["npm", "run", "start"\]/);
+    assert.match(deploymentPaths[0], /CMD \["node", "dist\/server\.cjs"\]/);
     assert.doesNotMatch(deploymentPaths.join("\n"), /\bnext\s+start\b/);
   });
 

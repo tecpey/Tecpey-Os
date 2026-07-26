@@ -19,6 +19,8 @@ import {
   getCustodyLaunchStatus,
 } from "./src/lib/wallet/custody-launch-policy";
 import { assertDatabaseReadyForRuntime } from "./src/lib/db";
+import { setRuntimeReadiness } from "./src/lib/runtime-readiness";
+import { drainRuntime } from "./src/lib/runtime-shutdown";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
@@ -58,67 +60,20 @@ function configuredRedisUrl(): string | null {
   return raw;
 }
 
-async function closeWebSocketServer(): Promise<void> {
-  const current = webSocketServer;
-  webSocketServer = null;
-  if (!current) return;
-
-  for (const client of current.clients) client.terminate();
-  await new Promise<void>((resolve) => {
-    current.close(() => resolve());
-  });
-}
-
-async function closeHttpServer(): Promise<void> {
-  if (!httpServer.listening) return;
-
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      httpServer.closeAllConnections();
-      resolve();
-    }, 10_000);
-    timeout.unref?.();
-
-    httpServer.close((error) => {
-      clearTimeout(timeout);
-      if (error) reject(error);
-      else resolve();
-    });
-  });
-}
-
 async function shutdown(reason: string, exitCode: number): Promise<void> {
   if (shutdownPromise) return shutdownPromise;
 
   shutdownPromise = (async () => {
     console.error(`> TecPey controlled shutdown: ${reason}`);
-
-    const failures: string[] = [];
-    try {
-      await closeWebSocketServer();
-    } catch (error) {
-      failures.push(`websocket:${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    try {
-      await closeHttpServer();
-    } catch (error) {
-      failures.push(`http:${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    try {
-      await withdrawalWorkers?.stopWithdrawalWorkers();
-    } catch (error) {
-      failures.push(`workers:${error instanceof Error ? error.message : String(error)}`);
-    }
-
-    if (redisConfigured) {
-      try {
-        await pubsub.shutdown();
-      } catch (error) {
-        failures.push(`redis:${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
+    setRuntimeReadiness({ phase: "draining", requiredWorkers: "starting" });
+    const failures = await drainRuntime({
+      httpServer,
+      webSocketServer,
+      workers: withdrawalWorkers,
+      redis: pubsub,
+      redisConfigured,
+    });
+    webSocketServer = null;
 
     if (failures.length > 0) {
       console.error(`> Shutdown completed with errors: ${failures.join(", ")}`);
@@ -150,6 +105,7 @@ async function listen(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  setRuntimeReadiness({ phase: "starting", requiredWorkers: "starting" });
   // Production startup is verify-only. Schema changes are an explicit
   // deployment action (`npm run db:migrate`) and never run in web processes.
   if (!dev) await assertDatabaseReadyForRuntime();
@@ -228,6 +184,10 @@ async function main(): Promise<void> {
     }
   });
 
+  setRuntimeReadiness({
+    phase: "ready",
+    requiredWorkers: custodyStatus.workerEnabled ? "ready" : "disabled",
+  });
   await listen();
   const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
   console.log(

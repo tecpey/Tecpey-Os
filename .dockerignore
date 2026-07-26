@@ -1,0 +1,17 @@
+.git
+.github
+.next
+dist
+node_modules
+coverage
+tests/e2e/test-results
+tests/e2e/playwright-report
+storage/*
+.env
+.env.*
+!.env.example
+npm-debug.log*
+*.pem
+*.zip
+*.mp3
+Screenshot*.png

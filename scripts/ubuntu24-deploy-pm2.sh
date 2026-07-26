@@ -3,8 +3,9 @@ set -euo pipefail
 
 echo "== TecPey PM2 Deploy =="
 if [ ! -f .env.production ]; then echo "Missing .env.production"; exit 1; fi
-npm install
+npm ci --no-audit --no-fund
 npm run build
+npm prune --omit=dev --no-audit --no-fund
 if ! command -v pm2 >/dev/null 2>&1; then sudo npm i -g pm2; fi
 pm2 start ecosystem.config.cjs --env production || pm2 restart tecpey-web
 pm2 save

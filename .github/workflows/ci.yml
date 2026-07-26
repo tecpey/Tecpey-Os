@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -18,7 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Generate structured hygiene report
         run: node scripts/audit-repository-hygiene.mjs --json > repository-hygiene.json
@@ -27,7 +38,7 @@ jobs:
         run: node scripts/audit-repository-hygiene.mjs
 
       - name: Upload hygiene report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: repository-hygiene-${{ github.sha }}
           path: repository-hygiene.json
@@ -40,7 +51,7 @@ jobs:
 
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
         ports:
           - 6379:6379
         options: >-
@@ -49,7 +60,7 @@ jobs:
           --health-timeout 3s
           --health-retries 20
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -86,10 +97,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: 'npm'
@@ -124,7 +143,7 @@ jobs:
 
       - name: Upload TypeScript diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: typescript-diagnostics-${{ github.sha }}
           path: |
@@ -140,7 +159,7 @@ jobs:
 
       - name: Upload ESLint diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: eslint-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-eslint-diagnostics.log
@@ -156,6 +175,12 @@ jobs:
       - name: Runtime bootstrap authority guard
         run: node scripts/check-runtime-bootstrap.mjs
 
+      - name: Production supply-chain authority guard
+        run: npm run supply-chain:check
+
+      - name: Production deployment lifecycle tests
+        run: npm run test:deployment
+
       - name: Frontend development runtime style smoke
         run: |
           set -o pipefail
@@ -163,7 +188,7 @@ jobs:
 
       - name: Upload development UI runtime diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ui-runtime-development-${{ github.sha }}
           path: /tmp/tecpey-ui-runtime-dev.log
@@ -186,7 +211,7 @@ jobs:
 
       - name: Upload authentication session diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: auth-session-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-auth-session-tests.log
@@ -200,7 +225,7 @@ jobs:
 
       - name: Upload AI Mentor red-team diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ai-mentor-redteam-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-ai-mentor-redteam-tests.log
@@ -217,7 +242,7 @@ jobs:
 
       - name: Upload withdrawal admission diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: withdrawal-admission-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-withdrawal-admission-tests.log
@@ -235,7 +260,7 @@ jobs:
 
       - name: Upload offline sync diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: offline-sync-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-offline-sync-tests.log
@@ -253,7 +278,7 @@ jobs:
 
       - name: Upload CRM lead diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: crm-lead-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-crm-lead-tests.log
@@ -271,7 +296,7 @@ jobs:
 
       - name: Upload Academy progress diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: academy-progress-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-academy-progress-tests.log
@@ -295,7 +320,7 @@ jobs:
 
       - name: Upload database migration diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: database-migration-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-migration-tests.log
@@ -324,7 +349,7 @@ jobs:
 
       - name: Upload test diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-diagnostics-${{ github.sha }}
           path: /tmp/tecpey-test-diagnostics.log
@@ -343,7 +368,7 @@ jobs:
 
       - name: Upload production UI runtime diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ui-runtime-production-${{ github.sha }}
           path: /tmp/tecpey-ui-runtime-prod.log
