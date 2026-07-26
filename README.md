@@ -209,7 +209,7 @@ TecPey uses layered controls rather than a single “secure” flag:
 - explicit backend permissions and principal/tenant context helpers;
 - request-body limits, validation, operation manifests, and idempotency/revision controls;
 - transaction-coupled audit evidence for governed sensitive mutations;
-- CSP nonces and security headers, with a remaining production endpoint-allowlist issue tracked in #164;
+- CSP nonces for governed scripts and security headers; `src/proxy.ts` currently permits `'unsafe-inline'` for styles, and the production connection allowlist remains Issue #164;
 - deterministic, checksummed database migrations executed outside request paths;
 - verify-only health/readiness and fail-closed pre-listen startup;
 - mandatory production credentials and authenticated Redis;

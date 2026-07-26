@@ -176,7 +176,7 @@ The permanent target is clear: critical user and financial state must not be aut
 
 ## 9. Security and Trust Assessment
 
-**Implemented controls:** unified server sessions, HttpOnly cookies, CSRF Origin checks, principal/tenant contexts, RBAC foundations, TOTP, WebAuthn/passkeys, request-size limits, API operation manifests, database transactions, idempotency/revision controls, CSP nonces, strict production secrets, migration readiness, custody activation denial, and sensitive mutation audit.
+**Implemented controls:** unified server sessions, HttpOnly cookies, CSRF Origin checks, principal/tenant contexts, RBAC foundations, TOTP, WebAuthn/passkeys, request-size limits, API operation manifests, database transactions, idempotency/revision controls, script CSP nonces, strict production secrets, migration readiness, custody activation denial, and sensitive mutation audit. The current CSP is not described as strict overall because `src/proxy.ts` permits `'unsafe-inline'` for styles and retains the connection-policy gap tracked by #164.
 
 **Tested controls:** auth/session/revocation suites, AI trust tests, withdrawal/custody gates, Exchange authority and conservation tests, Academy/Arena authority tests, Community consent/evidence tests, API security policy tests, browser accessibility checks, migration concurrency/checksum/startup tests, and container/supply-chain authority.
 
@@ -292,7 +292,7 @@ Recommended dependency order: migration/deployment foundations (complete) → #1
 
 - Production backup policy, RPO/RTO, cross-release restore, and queue/object-store recovery are not fully evidenced (#110).
 - Real staging scheduler and alert activation is not evidenced (#229).
-- CSP production connection policy can fall back to broad schemes in `src/proxy.ts` (#164).
+- CSP production connection policy can fall back to broad schemes in `src/proxy.ts` (#164), and the style policy explicitly permits `'unsafe-inline'`.
 - ESLint correctness rules are disabled in repository configuration (#162).
 - Some active experience state and legacy simulation modules remain browser-local but classified by `scripts/check-browser-persistence.mjs`.
 - The official Arena and canonical Academy paths are server-backed, but full cross-device and failure-mode coverage is not uniform across every experience.
