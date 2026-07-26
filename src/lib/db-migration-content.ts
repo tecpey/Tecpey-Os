@@ -19,7 +19,10 @@ import { NOTIFICATION_CREATION_OUTBOX_RUNTIME_SQL } from "./db-migrate-notificat
 import { NOTIFICATION_DELIVERY_VISIBILITY_SQL } from "./db-migrate-notification-delivery-visibility";
 import { OFFLINE_SYNC_COMMAND_AUTHORITY_SQL } from "./db-migrate-offline-sync";
 import { NOTIFICATION_DOMAIN_OUTBOX_SQL } from "./db-migrate-notification-domain-outbox";
-import { CRM_LEAD_AUTHORITY_SQL } from "./db-migrate-crm-leads";
+import {
+  CRM_LEAD_AUTHORITY_SQL,
+  LEGACY_ACADEMY_LEADS_LOCK_SQL,
+} from "./db-migrate-crm-leads";
 import { CRM_LEAD_HARDENING_SQL } from "./db-migrate-crm-leads-hardening";
 import { ACADEMY_PROGRESS_AUTHORITY_V2_SQL } from "./db-migrate-academy-progress-hardening";
 import { EXCHANGE_ORDER_ADMISSION_SQL } from "./db-migrate-exchange-order-admission";
@@ -145,7 +148,10 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   notificationVisibility: one("0022_notification_delivery_visibility.sql", NOTIFICATION_DELIVERY_VISIBILITY_SQL),
   offlineSync: one("0023_offline_sync_command_authority.sql", OFFLINE_SYNC_COMMAND_AUTHORITY_SQL),
   notificationOutbox: one("0024_notification_domain_outbox.sql", NOTIFICATION_DOMAIN_OUTBOX_SQL),
-  crmLeads: one("0025_crm_lead_authority.sql", CRM_LEAD_AUTHORITY_SQL),
+  crmLeads: one(
+    "0025_crm_lead_authority.sql",
+    `${CRM_LEAD_AUTHORITY_SQL}\n${LEGACY_ACADEMY_LEADS_LOCK_SQL}`,
+  ),
   crmHardening: one("0026_crm_lead_hardening.sql", CRM_LEAD_HARDENING_SQL),
   academyHardening: one("0027_academy_progress_authority_v2.sql", ACADEMY_PROGRESS_AUTHORITY_V2_SQL),
   exchangeAdmission: one("0027_exchange_order_admission_authority.sql", EXCHANGE_ORDER_ADMISSION_SQL),
