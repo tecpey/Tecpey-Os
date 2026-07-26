@@ -1,0 +1,248 @@
+name: Container Supply Chain
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.production.yml
+      - package.json
+      - package-lock.json
+      - server.ts
+      - src/lib/runtime-readiness.ts
+      - src/lib/runtime-shutdown.ts
+      - src/app/api/health/**
+      - scripts/check-production-supply-chain.mjs
+      - scripts/test-container-volume-recovery.sh
+      - scripts/test-container-image-rollback.sh
+      - deploy/systemd/tecpey-web.service
+      - ecosystem.config.cjs
+      - scripts/ubuntu24-deploy-pm2.sh
+      - DEPLOY_UBUNTU_24_PRODUCTION.md
+      - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
+      - .github/workflows/**
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-supply-chain-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  verify:
+    name: Container artifact, SBOM and vulnerability gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Verify governed supply-chain contract
+        run: node scripts/check-production-supply-chain.mjs
+
+      - name: Prove mandatory Compose inputs
+        run: |
+          touch .env.production
+          if env -u TECPEY_IMAGE_DIGEST -u POSTGRES_PASSWORD -u REDIS_PASSWORD docker compose -f docker-compose.production.yml config >/dev/null 2>&1; then
+            echo "Compose unexpectedly accepted absent mandatory credentials" >&2
+            exit 1
+          fi
+          TECPEY_IMAGE_DIGEST="sha256:0000000000000000000000000000000000000000000000000000000000000000" POSTGRES_PASSWORD=compose-contract-postgres REDIS_PASSWORD=compose-contract-redis docker compose -f docker-compose.production.yml config >/dev/null
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build final runtime image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: runner
+          load: true
+          push: false
+          tags: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Record final image digest
+        env:
+          IMAGE: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p artifacts/container
+          docker image inspect --format '{{.Id}}' "$IMAGE" | tee artifacts/container/image-digest.txt
+          docker image inspect "$IMAGE" > artifacts/container/image-inspect.json
+
+      - name: Verify minimal rootless runtime filesystem
+        env:
+          IMAGE: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          docker run --rm --entrypoint sh "$IMAGE" -ec '
+            test "$(id -u)" = 1001
+            test ! -e /app/node_modules/.bin/tsx
+            test ! -e /app/server.ts
+            test ! -d /app/src
+            test -f /app/dist/server.cjs
+            test -f /app/dist/run-database-migrations.cjs
+          '
+
+      - name: Generate SPDX SBOM for final image
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          image: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+          format: spdx-json
+          output-file: artifacts/container/sbom.spdx.json
+
+      - name: Reject HIGH or CRITICAL runtime vulnerabilities
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+          format: json
+          output: artifacts/container/trivy.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Upload immutable container evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: container-supply-chain-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/container/**
+          if-no-files-found: error
+          retention-days: 30
+
+  recovery:
+    name: Ephemeral staging rollback and volume restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Build exact candidate image
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
+
+      - name: Checkout exact previous release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          path: previous-release
+          persist-credentials: false
+
+      - name: Build and deploy exact previous release image
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"
+          docker build --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
+          bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
+
+      - name: Restore PostgreSQL and Redis persistent volumes
+        run: bash scripts/test-container-volume-recovery.sh
+
+      - name: Upload recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: container-recovery-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/container-recovery/**
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish, attest and sign immutable image
+    if: ${{ github.event_name == 'push' }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish final image with SBOM and provenance attestations
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          target: runner
+          push: true
+          tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
+          sbom: true
+          provenance: mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f713795cb21599bc4e5c4b58cbad1da852d7eeb9 # v3
+
+      - name: Sign exact image digest
+        env:
+          IMAGE: ghcr.io/tecpey/tecpey-os@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-name: ghcr.io/tecpey/tecpey-os
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Retain final digest evidence
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p artifacts/container-release
+          printf '%s\n' "$DIGEST" > artifacts/container-release/image-digest.txt
+          cosign verify \
+            --certificate-identity-regexp '^https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main$' \
+            --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+            "ghcr.io/tecpey/tecpey-os@$DIGEST" > artifacts/container-release/signature-verification.json
+
+      - name: Upload release digest and signature evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: container-release-${{ github.sha }}
+          path: artifacts/container-release/**
+          if-no-files-found: error
+          retention-days: 90

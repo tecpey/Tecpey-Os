@@ -11,13 +11,17 @@
   "scripts": {
     "dev": "tsx server.ts",
     "dev:next": "next dev",
-    "build": "next build",
-    "start": "NODE_ENV=production tsx server.ts",
+    "build": "next build && npm run build:server",
+    "build:server": "esbuild server.ts scripts/run-database-migrations.ts scripts/run-production-bootstrap.ts --bundle --platform=node --format=cjs --packages=external --outdir=dist --entry-names=[name] --out-extension:.js=.cjs --log-level=warning",
+    "start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npx tsc --noEmit",
     "prod:build": "npm ci --no-audit --no-fund && npm run env:check && npm run build",
-    "prod:start": "NODE_ENV=production tsx server.ts",
+    "prod:start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
+    "container:migrate": "node dist/run-production-bootstrap.cjs migrate",
+    "supply-chain:check": "node scripts/check-production-supply-chain.mjs",
+    "test:deployment": "NODE_ENV=test node --import tsx --test src/tests/runtime/production-deployment-contract.test.ts",
     "health": "node scripts/check-health.mjs",
     "env:check": "node scripts/validate-env.mjs",
     "db:migrate": "tsx scripts/run-database-migrations.ts",
@@ -115,11 +119,11 @@
     "ioredis": "^5.11.1",
     "jose": "^6.2.3",
     "lucide-react": "^1.11.0",
-    "next": "^16.2.6",
+    "next": "16.2.11",
     "next-intl": "^4.9.1",
     "next-themes": "^0.4.6",
     "pg": "^8.13.1",
-    "postcss": "^8.5.10",
+    "postcss": "8.5.18",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-chartjs-2": "^5.3.1",
@@ -137,6 +141,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
+    "esbuild": "0.28.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
@@ -146,5 +151,11 @@
   "engines": {
     "node": ">=20.11.0",
     "npm": ">=10.0.0 <11.0.0"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "$postcss",
+      "sharp": "0.35.0"
+    }
   }
 }

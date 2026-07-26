@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'tecpey-web',
-      script: 'server.ts',
-      interpreter: 'tsx',
+      script: 'dist/server.cjs',
+      interpreter: 'node',
       cwd: process.cwd(),
       instances: 1,
       exec_mode: 'fork',

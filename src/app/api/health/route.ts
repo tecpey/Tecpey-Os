@@ -4,10 +4,20 @@ import { checkDbHealth } from "@/lib/db";
 import { getAllFlags } from "@/lib/feature-flags";
 import { isErrorTrackingConfigured } from "@/lib/error-tracking";
 import { emitAlert } from "@/lib/alerts";
+import { getRedisPubSub } from "@/lib/redis-pubsub";
+import { getRuntimeReadiness } from "@/lib/runtime-readiness";
 
 export const dynamic = "force-dynamic";
 
 async function checkRedis(): Promise<{ status: "ok" | "unavailable" | "unconfigured"; latencyMs: number }> {
+  const runtimeRedis = getRedisPubSub();
+  if (process.env.REDIS_URL?.trim()) {
+    const start = Date.now();
+    const status = runtimeRedis.getHealth().ready && await runtimeRedis.ping()
+      ? "ok"
+      : "unavailable";
+    return { status, latencyMs: Date.now() - start };
+  }
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.REDIS_REST_TOKEN;
   if (!url || !token) return { status: "unconfigured", latencyMs: 0 };
@@ -36,11 +46,19 @@ function memoryUsageMb() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("probe") === "live") {
+    return Response.json(
+      { status: "alive" },
+      { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
+
   const start = Date.now();
   const isProduction = process.env.NODE_ENV === "production";
 
   const [db, redis] = await Promise.all([checkDbHealth(), checkRedis()]);
+  const runtime = getRuntimeReadiness();
 
   const email = isEmailConfigured() ? "configured" : "unconfigured";
 
@@ -67,7 +85,10 @@ export async function GET() {
   // keep an unhealthy instance behind a load balancer and route financial or
   // authenticated traffic to it.
   const criticalDependencyFailure =
-    db.status !== "ok" || db.schema?.status !== "current" || (isProduction && redis.status !== "ok");
+    db.status !== "ok" ||
+    db.schema?.status !== "current" ||
+    (isProduction && redis.status !== "ok") ||
+    (isProduction && (runtime.phase !== "ready" || runtime.requiredWorkers === "starting"));
 
   const overall = criticalDependencyFailure
     ? "unhealthy"
@@ -80,6 +101,8 @@ export async function GET() {
     database: db.status,
     schema: db.schema?.status ?? "unavailable",
     redis: redis.status,
+    runtime: runtime.phase,
+    requiredWorkers: runtime.requiredWorkers,
     email,
   };
 

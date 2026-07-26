@@ -1,39 +1,117 @@
 services:
+  migrate:
+    image: ghcr.io/tecpey/tecpey-os@${TECPEY_IMAGE_DIGEST:?TECPEY_IMAGE_DIGEST is required}
+    env_file:
+      - .env.production
+    environment:
+      TECPEY_DATABASE_HOST: postgres
+      TECPEY_DATABASE_PORT: "5432"
+      TECPEY_DATABASE_NAME: tecpey
+      TECPEY_DATABASE_USER: tecpey
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TECPEY_REDIS_HOST: redis
+      TECPEY_REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: ["node", "dist/run-production-bootstrap.cjs", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [backend]
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   tecpey-web:
-    build: .
+    image: ghcr.io/tecpey/tecpey-os@${TECPEY_IMAGE_DIGEST:?TECPEY_IMAGE_DIGEST is required}
     container_name: tecpey-web
     restart: unless-stopped
     env_file:
       - .env.production
     ports:
       - "127.0.0.1:3000:3000"
+    environment:
+      TECPEY_DATABASE_HOST: postgres
+      TECPEY_DATABASE_PORT: "5432"
+      TECPEY_DATABASE_NAME: tecpey
+      TECPEY_DATABASE_USER: tecpey
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TECPEY_REDIS_HOST: redis
+      TECPEY_REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     depends_on:
-      - postgres
-      - redis
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [frontend, backend]
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - tecpey_app_storage:/app/storage
+      - tecpey_next_cache:/app/.next/cache
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     container_name: tecpey-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: tecpey
       POSTGRES_USER: tecpey
-      POSTGRES_PASSWORD: change_me_strong_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - tecpey_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432"
+    networks: [backend]
+    user: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tecpey -d tecpey"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     container_name: tecpey-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - tecpey_redis_data:/data
-    ports:
-      - "127.0.0.1:6379:6379"
+    networks: [backend]
+    user: redis
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -qx PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  frontend: {}
+  backend:
+    internal: true
 
 volumes:
   tecpey_postgres_data:
   tecpey_redis_data:
+  tecpey_app_storage:
+  tecpey_next_cache:
