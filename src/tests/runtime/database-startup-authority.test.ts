@@ -20,8 +20,11 @@ describe("production database startup authority", () => {
 
   it("makes schema state a fail-closed health dependency", async () => {
     const health = await readFile("src/app/api/health/route.ts", "utf8");
+    const databaseHealth = await readFile("src/app/api/health/database/route.ts", "utf8");
     assert.match(health, /db\.schema\?\.status !== "current"/);
     assert.match(health, /database_schema_not_ready/);
     assert.match(health, /criticalDependencyFailure/);
+    assert.match(databaseHealth, /schemaStatus !== "current"/);
+    assert.match(databaseHealth, /database_not_ready/);
   });
 });

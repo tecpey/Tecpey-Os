@@ -1,19 +1,27 @@
-import { withDb } from "@/lib/db";
+import { checkDbHealth } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const start = Date.now();
-  const result = await withDb(async (client) => {
-    const row = await client.query("SELECT 1 AS ok");
-    return row.rows[0]?.ok === 1;
-  });
-  const latencyMs = Date.now() - start;
+  const result = await checkDbHealth();
+  const schemaStatus = result.schema?.status ?? "unavailable";
 
-  if (!result.enabled) {
-    return apiError("database_not_configured", 503, { database: "not_configured", latencyMs }, { "Cache-Control": "no-store" });
+  if (result.status !== "ok" || schemaStatus !== "current") {
+    return apiError("database_not_ready", 503, {
+      database: result.status,
+      schema: schemaStatus,
+      migrationsApplied: result.schema?.applied ?? null,
+      migrationsExpected: result.schema?.expected ?? null,
+      latencyMs: result.latencyMs,
+    }, { "Cache-Control": "no-store" });
   }
 
-  return apiOk({ database: "connected", latencyMs }, 200, { "Cache-Control": "no-store" });
+  return apiOk({
+    database: "connected",
+    schema: "current",
+    migrationsApplied: result.schema?.applied ?? null,
+    migrationsExpected: result.schema?.expected ?? null,
+    latencyMs: result.latencyMs,
+  }, 200, { "Cache-Control": "no-store" });
 }
