@@ -103,7 +103,9 @@ export async function checkMigrationReadiness(client: PoolClient): Promise<Migra
   const ledgerValid =
     ledger.length === expectedFiles.size &&
     filenames.size === ledger.length &&
-    ledger.every((row) => expectedFiles.has(row.filename) && /^[0-9a-f]{16}$/.test(row.checksum));
+    ledger.every(
+      (row) => expectedFiles.has(row.filename) && /^[0-9a-f]{16}(?:[0-9a-f]{48})?$/.test(row.checksum),
+    );
   const digestMatches = state.ledger_digest === migrationLedgerDigest(ledger);
   if (state.plan_hash !== DATABASE_MIGRATION_PLAN_HASH || !ledgerValid || !digestMatches) {
     return { status: "outdated", ...evidence };

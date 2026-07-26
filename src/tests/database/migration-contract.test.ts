@@ -58,9 +58,9 @@ describe("canonical database migration registry", () => {
   });
 });
 describe("database schema readiness", () => {
-  const ledger = DATABASE_MIGRATION_FILENAMES.map((filename) => ({
+  const ledger = DATABASE_MIGRATION_FILENAMES.map((filename, index) => ({
     filename,
-    checksum: "a".repeat(16),
+    checksum: "a".repeat(index === 0 ? 64 : 16),
   }));
   const currentState = {
     status: "current",

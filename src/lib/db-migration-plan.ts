@@ -86,7 +86,7 @@ async function readAndValidateLedger(client: PoolClient): Promise<LedgerRow[]> {
   for (const row of result.rows) {
     if (actual.has(row.filename)) throw new Error(`migration_ledger_duplicate:${row.filename}`);
     if (!expected.has(row.filename)) throw new Error(`migration_ledger_unregistered:${row.filename}`);
-    if (!/^[0-9a-f]{16}$/.test(row.checksum)) {
+    if (!/^[0-9a-f]{16}(?:[0-9a-f]{48})?$/.test(row.checksum)) {
       throw new Error(`migration_ledger_checksum_invalid:${row.filename}`);
     }
     actual.add(row.filename);
