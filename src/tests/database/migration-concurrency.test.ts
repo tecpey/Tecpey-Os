@@ -112,7 +112,10 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         "0".repeat(16),
         target.identity,
       ]);
-      await assert.rejects(applyDatabaseMigrationsWithLock(client), /checksum mismatch/i);
+      await assert.rejects(
+        applyDatabaseMigrationsWithLock(client),
+        /migration_ledger_expected_checksum_mismatch:/,
+      );
       const failed = await checkMigrationReadiness(client);
       assert.equal(failed.status, "migration_failed");
       assert.match(failed.errorCode ?? "", /checksum/i);
