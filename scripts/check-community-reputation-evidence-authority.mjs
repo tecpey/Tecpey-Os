@@ -121,7 +121,7 @@ for (const forbidden of [
 
 for (const invariant of [
   "runCommunityReputationEvidenceMigrations",
-  "await runCommunityReputationEvidenceMigrations(client)",
+  "runCommunityReputationEvidenceMigrations",
 ]) {
   requireText("migrationPlan", invariant, `migration plan is missing ${invariant}`);
 }

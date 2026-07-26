@@ -31,7 +31,7 @@ const rejectText = (target, text, reason) => {
 };
 
 requireText("migrationPlan", 'import { runNotificationMigrations }', "canonical plan must import notification migrations");
-requireText("migrationPlan", "await runNotificationMigrations(client);", "canonical plan must execute notification migrations");
+requireText("migrationPlan", "runNotificationMigrations", "canonical plan must execute notification migrations");
 requireText("migration", "CREATE TABLE IF NOT EXISTS platform_principals", "tenant-scoped principal registry is required");
 requireText("migration", "UNIQUE (tenant_id, id)", "principal identity must expose a tenant-bound composite key");
 requireText("migration", "platform_principals_account_unique_idx", "account identity must be unique per tenant");

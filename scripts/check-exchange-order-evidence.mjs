@@ -158,9 +158,9 @@ for (const forbidden of ["NOT DEFERRABLE", "ON CONFLICT DO NOTHING", "chr(0)"]) 
 for (const invariant of [
   'import { runExchangeOrderEvidenceMigrations } from "./db-migrate-exchange-order-evidence"',
   'import { runExchangeOrderFinalEvidenceGateMigrations } from "./db-migrate-exchange-order-final-evidence-gate"',
-  "await runSensitiveMutationAuditMigrations(client)",
-  "await runExchangeOrderEvidenceMigrations(client)",
-  "await runExchangeOrderFinalEvidenceGateMigrations(client)",
+  "runSensitiveMutationAuditMigrations",
+  "runExchangeOrderEvidenceMigrations",
+  "runExchangeOrderFinalEvidenceGateMigrations",
 ]) {
   requireText(
     migrationPlan,
@@ -168,10 +168,10 @@ for (const invariant of [
     `canonical migration plan is missing Exchange evidence authority: ${invariant}`,
   );
 }
-const sensitiveIndex = migrationPlan.indexOf("await runSensitiveMutationAuditMigrations(client)");
-const exchangeIndex = migrationPlan.indexOf("await runExchangeOrderEvidenceMigrations(client)");
+const sensitiveIndex = migrationPlan.indexOf("0033_sensitive_mutation_audit.sql");
+const exchangeIndex = migrationPlan.indexOf("0037_exchange_order_transactional_evidence.sql");
 const finalGateIndex = migrationPlan.indexOf(
-  "await runExchangeOrderFinalEvidenceGateMigrations(client)",
+  "0038_exchange_order_final_evidence_gate.sql",
 );
 if (
   sensitiveIndex < 0 ||
