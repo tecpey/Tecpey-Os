@@ -4,6 +4,8 @@ const read = (path) => fs.readFileSync(path, "utf8");
 const db = read("src/lib/db.ts");
 const plan = read("src/lib/db-migration-plan.ts");
 const registry = read("src/lib/db-migration-registry.ts");
+const content = read("src/lib/db-migration-content.ts");
+const governance = read("src/lib/db-migration-governance.ts");
 const readiness = read("src/lib/db-migration-readiness.ts");
 const cli = read("scripts/run-database-migrations.ts");
 const server = read("server.ts");
@@ -55,7 +57,7 @@ const migrationSources = fs.readdirSync("src/lib")
   .map((filename) => read(`src/lib/${filename}`))
   .join("\n");
 const sourceFilenames = new Set(migrationSources.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
-const registryFilenames = new Set(registry.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
+const registryFilenames = new Set(content.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
 for (const filename of sourceFilenames) {
   if (!registryFilenames.has(filename)) failures.push(`migration source is not registered: ${filename}`);
 }
@@ -69,10 +71,40 @@ requireText(readiness, '"migration_running"', "readiness must distinguish a runn
 requireText(readiness, '"migration_failed"', "readiness must distinguish a failed migration");
 requireText(readiness, '"outdated"', "readiness must distinguish an outdated schema");
 requireText(health, "db.schema?.status", "health must expose schema readiness separately from connectivity");
+requireText(registry, "migrationEntryChecksum", "registry entries must bind canonical content checksums");
+requireText(registry, "owner", "registry entries must identify an accountable owner");
+requireText(registry, "domain", "registry entries must identify a domain");
+requireText(governance, "PINNED_DATABASE_MIGRATION_PLAN_HASH", "CI must pin the governed migration plan hash");
+
+const runtimeDdlPattern = /\b(?:CREATE\s+(?:TABLE|INDEX|SCHEMA|TYPE)|ALTER\s+TABLE|DROP\s+(?:TABLE|COLUMN|SCHEMA)|RENAME\s+(?:TABLE|COLUMN))\b/i;
+const runtimeSourceFiles = [];
+const visit = (directory) => {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (entry.name !== "tests") visit(path);
+    } else if (
+      /\.(?:ts|tsx|js|mjs|cjs)$/.test(entry.name) &&
+      !/^db-migrate(?:-.+)?\.ts$/.test(entry.name) &&
+      entry.name !== "db-migration-plan.ts"
+    ) {
+      runtimeSourceFiles.push(path);
+    }
+  }
+};
+visit("src");
+for (const path of runtimeSourceFiles) {
+  const source = read(path);
+  if (runtimeDdlPattern.test(source)) failures.push(`runtime source contains schema DDL: ${path}`);
+  if (/\bapplyDatabaseMigrations(?:WithLock)?\s*\(/.test(source)) {
+    failures.push(`runtime source invokes the migration executor: ${path}`);
+  }
+}
 
 requireText(cli, "applyDatabaseMigrationsWithLock", "db:migrate must execute the canonical migration plan");
 requireText(cli, "DATABASE_URL", "db:migrate must require an explicit database URL");
 requireText(pkg, '"db:migrate": "tsx scripts/run-database-migrations.ts"', "package.json must expose db:migrate");
+rejectText(pkg, '"start:next"', "package scripts must not expose a direct production next start bypass");
 
 requireText(workflow, "image: postgres:16-alpine", "CI must start a real PostgreSQL service");
 requireText(workflow, "POSTGRES_DB: ci_placeholder", "CI PostgreSQL must create the configured clean database");

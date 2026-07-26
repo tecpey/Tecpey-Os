@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { cleanText } from "@/lib/student-cartax";
+import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
 
 type Queryable = {
   query: (query: string, values?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -25,146 +26,18 @@ export function stableId(prefix: string, input: string) {
   return `${prefix}-${digest}`;
 }
 
-export async function ensureLearningOsTables(client: Queryable) {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS learning_events (
-      id BIGSERIAL PRIMARY KEY,
-      event_id TEXT UNIQUE NOT NULL,
-      student_id UUID,
-      event_type TEXT NOT NULL,
-      source TEXT NOT NULL DEFAULT 'web',
-      locale TEXT NOT NULL DEFAULT 'fa',
-      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`CREATE INDEX IF NOT EXISTS learning_events_student_idx ON learning_events(student_id, created_at DESC);`);
-  await client.query(`CREATE INDEX IF NOT EXISTS learning_events_type_idx ON learning_events(event_type, created_at DESC);`);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS learning_brain_profiles (
-      student_id UUID PRIMARY KEY,
-      learning_velocity INTEGER NOT NULL DEFAULT 0,
-      attention_score INTEGER NOT NULL DEFAULT 0,
-      decision_score INTEGER NOT NULL DEFAULT 0,
-      risk_appetite INTEGER NOT NULL DEFAULT 0,
-      emotional_stability INTEGER NOT NULL DEFAULT 0,
-      confidence_score INTEGER NOT NULL DEFAULT 0,
-      discipline_score INTEGER NOT NULL DEFAULT 0,
-      weak_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
-      strong_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
-      next_best_action TEXT,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS academy_question_bank (
-      id TEXT PRIMARY KEY,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      term_number INTEGER NOT NULL CHECK (term_number BETWEEN 1 AND 7),
-      lesson_slug TEXT NOT NULL,
-      topic TEXT NOT NULL,
-      cognitive_skill TEXT NOT NULL DEFAULT 'understanding',
-      difficulty INTEGER NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
-      question TEXT NOT NULL,
-      options JSONB NOT NULL,
-      correct_option TEXT NOT NULL CHECK (correct_option IN ('A','B','C','D')),
-      explanation TEXT,
-      approved BOOLEAN NOT NULL DEFAULT TRUE,
-      usage_count INTEGER NOT NULL DEFAULT 0,
-      success_count INTEGER NOT NULL DEFAULT 0,
-      created_by TEXT NOT NULL DEFAULT 'tecpey-question-bank',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`CREATE INDEX IF NOT EXISTS question_bank_lookup_idx ON academy_question_bank(locale, term_number, lesson_slug, topic, difficulty);`);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS mentor_challenge_attempts (
-      id BIGSERIAL PRIMARY KEY,
-      student_id UUID NOT NULL,
-      question_id TEXT NOT NULL,
-      term_number INTEGER NOT NULL,
-      lesson_slug TEXT NOT NULL,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      selected_option TEXT NOT NULL CHECK (selected_option IN ('A','B','C','D')),
-      is_correct BOOLEAN NOT NULL DEFAULT FALSE,
-      attempt_number INTEGER NOT NULL DEFAULT 1,
-      first_answer TEXT,
-      response_time_ms INTEGER NOT NULL DEFAULT 0,
-      confidence TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`CREATE INDEX IF NOT EXISTS mentor_attempt_student_idx ON mentor_challenge_attempts(student_id, created_at DESC);`);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS achievement_catalog (
-      code TEXT PRIMARY KEY,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      icon TEXT NOT NULL DEFAULT '🏆',
-      category TEXT NOT NULL DEFAULT 'learning',
-      xp INTEGER NOT NULL DEFAULT 0
-    );
-  `);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS student_achievements (
-      student_id UUID NOT NULL,
-      code TEXT NOT NULL,
-      earned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-      PRIMARY KEY(student_id, code)
-    );
-  `);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS notification_center (
-      id UUID PRIMARY KEY,
-      student_id UUID,
-      type TEXT NOT NULL DEFAULT 'learning',
-      title TEXT NOT NULL,
-      body TEXT NOT NULL,
-      action_url TEXT,
-      priority INTEGER NOT NULL DEFAULT 1,
-      channels JSONB NOT NULL DEFAULT '["in_app"]'::jsonb,
-      status TEXT NOT NULL DEFAULT 'queued',
-      read_at TIMESTAMPTZ,
-      scheduled_for TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      sent_at TIMESTAMPTZ,
-      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-  await client.query(`CREATE INDEX IF NOT EXISTS notification_student_idx ON notification_center(student_id, created_at DESC);`);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS device_tokens (
-      id BIGSERIAL PRIMARY KEY,
-      student_id UUID NOT NULL,
-      platform TEXT NOT NULL CHECK (platform IN ('web','android','ios')),
-      channel TEXT NOT NULL DEFAULT 'push',
-      token TEXT NOT NULL,
-      locale TEXT NOT NULL DEFAULT 'fa',
-      enabled BOOLEAN NOT NULL DEFAULT TRUE,
-      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(student_id, platform, token)
-    );
-  `);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS admin_audit_log (
-      id BIGSERIAL PRIMARY KEY,
-      actor TEXT NOT NULL DEFAULT 'system',
-      action TEXT NOT NULL,
-      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-
+export async function prepareLearningOsData(client: Queryable) {
+  await assertRequiredDatabaseTables(client, [
+    "learning_events",
+    "learning_brain_profiles",
+    "academy_question_bank",
+    "mentor_challenge_attempts",
+    "achievement_catalog",
+    "student_achievements",
+    "notification_center",
+    "device_tokens",
+    "admin_audit_log",
+  ], "learning_os");
   await seedAchievementCatalog(client);
   await seedQuestionBank(client);
 }

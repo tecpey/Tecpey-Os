@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Client } from "pg";
 import Link from "next/link";
 import { BadgeCheck, CalendarDays, GraduationCap, QrCode, ShieldCheck, XCircle } from "lucide-react";
-import { ensureCertificateTables, getCertificate } from "@/lib/academy-certificates";
-import { ensureStudentCartaxTables } from "@/lib/student-cartax";
+import { assertCertificateSchema, getCertificate } from "@/lib/academy-certificates";
+import { assertStudentCartaxSchema } from "@/lib/student-cartax";
 
 export async function generateMetadata({ params }: { params: Promise<{ certificateId: string }> }): Promise<Metadata> {
   const { certificateId } = await params;
@@ -31,8 +31,8 @@ async function readCertificate(id: string) {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    await ensureStudentCartaxTables(client);
-    await ensureCertificateTables(client);
+    await assertStudentCartaxSchema(client);
+    await assertCertificateSchema(client);
     return await getCertificate(client, id);
   } catch { return null; } finally { await client.end(); }
 }
