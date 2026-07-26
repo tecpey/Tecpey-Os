@@ -107,6 +107,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
       "SELECT checksum FROM _migrations WHERE filename = $1",
       [target.identity],
     );
+    await client.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
     try {
       await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
         "0".repeat(16),
@@ -127,13 +128,19 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
       await applyDatabaseMigrationsWithLock(client);
       assert.equal((await checkMigrationReadiness(client)).status, "current");
     } finally {
-      await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
-        original.rows[0].checksum,
-        target.identity,
-      ]);
-      await applyDatabaseMigrationsWithLock(client);
-      client.release();
-      await pool.end();
+      try {
+        await client.query("UPDATE _migrations SET checksum = $1 WHERE filename = $2", [
+          original.rows[0].checksum,
+          target.identity,
+        ]);
+        await applyDatabaseMigrationsWithLock(client);
+      } finally {
+        await client.query("SELECT pg_advisory_unlock($1, $2)", [
+          ...DATABASE_MIGRATION_LOCK_KEYS,
+        ]);
+        client.release();
+        await pool.end();
+      }
     }
   });
 
