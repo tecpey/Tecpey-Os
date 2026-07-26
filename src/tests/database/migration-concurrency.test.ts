@@ -32,6 +32,24 @@ async function waitForMigrationOperator(pool: Pool): Promise<void> {
   throw new Error("migration_operator_connection_not_observed");
 }
 
+async function waitForBlockedMigrationQuery(pool: Pool): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const result = await pool.query<{ blocked: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM pg_stat_activity
+          WHERE application_name = 'tecpey-database-migration-operator'
+            AND pid <> pg_backend_pid()
+            AND wait_event_type = 'Lock'
+            AND query LIKE '%CREATE TABLE IF NOT EXISTS mentor_ai_preferences%'
+       ) AS blocked`,
+    );
+    if (result.rows[0]?.blocked) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("in_flight_migration_query_not_observed");
+}
+
 describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () => {
   it("times out observably instead of waiting indefinitely for another runner", async () => {
     const pool = new Pool({ connectionString: databaseUrl, max: 2 });
@@ -288,6 +306,95 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         holder.release();
         await pool.end();
       }
+    }
+  });
+
+  it("cancels in-flight PostgreSQL migration queries on SIGINT and SIGTERM", {
+    timeout: 30_000,
+  }, async () => {
+    const target = DATABASE_MIGRATION_EXPECTATIONS.at(-1)!;
+    for (const [signal, expectedCode] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
+      const pool = new Pool({ connectionString: databaseUrl, max: 3 });
+      const holder = await pool.connect();
+      let child: ReturnType<typeof spawn> | undefined;
+      try {
+        await applyDatabaseMigrationsWithLock(holder);
+        await holder.query("DELETE FROM _migration_runtime_ledger WHERE identity = $1", [target.identity]);
+        await holder.query("DELETE FROM _migrations WHERE filename = $1", [target.identity]);
+        await holder.query("BEGIN");
+        await holder.query("LOCK TABLE mentor_ai_preferences IN ACCESS EXCLUSIVE MODE");
+
+        const spawned = spawn(process.execPath, ["--import", "tsx", "scripts/run-database-migrations.ts"], {
+          cwd: process.cwd(),
+          env: { ...process.env, DATABASE_URL: databaseUrl },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        child = spawned;
+        let output = "";
+        spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
+        spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
+        await waitForBlockedMigrationQuery(pool);
+        const exit = new Promise<number | null>((resolve, reject) => {
+          spawned.once("error", reject);
+          spawned.once("exit", resolve);
+        });
+        assert.equal(spawned.kill(signal), true);
+        assert.equal(await exit, expectedCode, `${signal} must cancel the active migration query`);
+        assert.match(output, /canceling statement due to user request|migration_interrupted/);
+        const ledger = await holder.query<{ applied: boolean }>(
+          "SELECT EXISTS (SELECT 1 FROM _migrations WHERE filename = $1) AS applied",
+          [target.identity],
+        );
+        assert.equal(ledger.rows[0]?.applied, false, `${signal} must roll back the interrupted step`);
+        const active = await pool.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM pg_stat_activity
+            WHERE application_name = 'tecpey-database-migration-operator'`,
+        );
+        assert.equal(active.rows[0]?.count, 0, `${signal} must release the migration session`);
+      } finally {
+        if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        await holder.query("ROLLBACK");
+        await applyDatabaseMigrationsWithLock(holder);
+        holder.release();
+        await pool.end();
+      }
+    }
+  });
+
+  it("fails a blocked runtime readiness query within its governed deadline", {
+    timeout: 15_000,
+  }, async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const holder = await pool.connect();
+    let child: ReturnType<typeof spawn> | undefined;
+    try {
+      await holder.query("BEGIN");
+      await holder.query("LOCK TABLE _migration_runtime_state IN ACCESS EXCLUSIVE MODE");
+      const startedAt = Date.now();
+      const spawned = spawn(process.execPath, [
+        "--import", "tsx", "--input-type=module", "--eval",
+        "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
+      ], {
+        cwd: process.cwd(),
+        env: { ...process.env, DATABASE_URL: databaseUrl, NODE_ENV: "test" },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      child = spawned;
+      let output = "";
+      spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
+      spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
+      const code = await new Promise<number | null>((resolve, reject) => {
+        spawned.once("error", reject);
+        spawned.once("exit", resolve);
+      });
+      assert.equal(code, 0);
+      assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
+      assert.match(output, /"status":"unavailable"/);
+    } finally {
+      if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await holder.query("ROLLBACK");
+      holder.release();
+      await pool.end();
     }
   });
 });

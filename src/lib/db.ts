@@ -8,7 +8,11 @@ import {
 import { logger } from "./logger";
 
 let pool: Pool | null = null;
+let readinessPool: Pool | null = null;
 let schemaVerification: Promise<void> | null = null;
+
+export const DATABASE_READINESS_STATEMENT_TIMEOUT_MS = 5_000;
+export const DATABASE_READINESS_QUERY_TIMEOUT_MS = 6_000;
 
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL;
@@ -35,6 +39,27 @@ function getPool(): Pool | null {
   return pool;
 }
 
+function getReadinessPool(): Pool | null {
+  const url = process.env.DATABASE_URL;
+  if (!url || url.includes("CHANGE_ME")) return null;
+  if (!readinessPool) {
+    readinessPool = new Pool({
+      connectionString: url,
+      max: 2,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+      statement_timeout: DATABASE_READINESS_STATEMENT_TIMEOUT_MS,
+      query_timeout: DATABASE_READINESS_QUERY_TIMEOUT_MS,
+      application_name: "tecpey-runtime-readiness",
+      allowExitOnIdle: process.env.NODE_ENV === "test",
+    });
+    readinessPool.on("error", (err) => {
+      logger.error("[db] readiness pool error", { message: err.message });
+    });
+  }
+  return readinessPool;
+}
+
 export type DbHealthResult = {
   status: "ok" | "unavailable" | "unconfigured";
   latencyMs: number;
@@ -48,7 +73,7 @@ export type DbHealthResult = {
  */
 export async function checkDbHealth(): Promise<DbHealthResult> {
   const start = Date.now();
-  const p = getPool();
+  const p = getReadinessPool();
   if (!p) return { status: "unconfigured", latencyMs: 0 };
   let client;
   try {
@@ -74,11 +99,13 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
   }
 }
 
-async function ensureSchemaCurrent(p: Pool): Promise<void> {
+async function ensureSchemaCurrent(): Promise<void> {
   if (!schemaVerification) {
     const verification = (async () => {
       let client: PoolClient | undefined;
       try {
+        const p = getReadinessPool();
+        if (!p) throw new Error("database_not_configured");
         client = await p.connect();
         assertMigrationReady(await checkMigrationReadiness(client));
       } finally {
@@ -97,9 +124,7 @@ async function ensureSchemaCurrent(p: Pool): Promise<void> {
 }
 
 export async function assertDatabaseReadyForRuntime(): Promise<void> {
-  const p = getPool();
-  if (!p) throw new Error("database_not_configured");
-  await ensureSchemaCurrent(p);
+  await ensureSchemaCurrent();
 }
 
 export async function withDb<T>(
@@ -109,7 +134,7 @@ export async function withDb<T>(
   if (!p) return { enabled: false, value: null };
 
   try {
-    await ensureSchemaCurrent(p);
+    await ensureSchemaCurrent();
   } catch (error) {
     logger.error("[db] schema verification failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -136,7 +161,7 @@ export async function withTx<T>(
   if (!p) return { enabled: false, value: null };
 
   try {
-    await ensureSchemaCurrent(p);
+    await ensureSchemaCurrent();
   } catch (error) {
     logger.error("[db] schema verification failed", {
       error: error instanceof Error ? error.message : String(error),

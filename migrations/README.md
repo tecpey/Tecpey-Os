@@ -25,10 +25,13 @@ full SHA-256 checksum derived from normalized SQL content. New canonical
 expected checksums are always 64 lowercase hexadecimal characters.
 
 The historical `_migrations` ledger and its applied checksums are immutable.
-Legacy rows using the former 16-character SHA-256 prefix remain accepted only
-when that prefix matches the current canonical full checksum. Existing
-64-character rows must match exactly. The runner never rewrites historical
-ledger checksums to normalize their width.
+Legacy rows using the former 16-character SHA-256 format remain accepted only
+when the exact historical checksum derived by the former whitespace-normalized
+algorithm is explicitly listed for that migration. Historical 64-character
+rows are likewise accepted only when their exact value is explicitly governed.
+They are not inferred from the current checksum. The runner never rewrites
+historical ledger checksums to normalize their width; all newly applied rows use
+the current full SHA-256 content checksum.
 
 `migrations/0001_initial_schema.sql` is retained as a historical/reference
 artifact. Executable canonical content is identified by the registry and the

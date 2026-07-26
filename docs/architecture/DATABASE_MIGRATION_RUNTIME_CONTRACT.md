@@ -41,7 +41,13 @@ raw environment data.
 
 Multiple migration commands may start concurrently, but they serialize on the
 bounded lock. Multiple web processes perform only the same read-only readiness
-verification.
+verification. Runtime readiness uses a dedicated PostgreSQL pool with a
+five-second server-side statement timeout and a six-second client-side fallback,
+so startup and health probes cannot wait indefinitely on a reachable database.
+
+The migration operator handles `SIGINT` and `SIGTERM` by requesting
+`pg_cancel_backend` for its active PostgreSQL session. The interrupted migration
+step rolls back before the advisory lock and session are released.
 
 ## Deterministic recovery
 

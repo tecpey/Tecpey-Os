@@ -1,14 +1,41 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import {
+  applyDatabaseMigrations,
   applyDatabaseMigrationsWithLock,
   DATABASE_MIGRATION_LOCK_KEYS,
 } from "../../lib/db-migration-plan";
 import { DATABASE_MIGRATION_EXPECTATIONS } from "../../lib/db-migration-registry";
+import { databaseSchemaFingerprint } from "../../lib/database-schema-contract";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
+
+function databaseConnectionUrl(name: string): string {
+  const url = new URL(databaseUrl!);
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+function governedDatabaseName(role: string, suffix: string): string {
+  const name = `tecpey_166_${role}_${suffix}`;
+  if (!/^[a-z0-9_]+$/.test(name)) throw new Error("invalid_governed_test_database_name");
+  return name;
+}
+
+async function migrateAndFingerprint(name: string): Promise<string> {
+  const pool = new Pool({ connectionString: databaseConnectionUrl(name), max: 1 });
+  const client = await pool.connect();
+  try {
+    await applyDatabaseMigrationsWithLock(client);
+    return await databaseSchemaFingerprint(client);
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
 
 const REQUIRED_MIGRATIONS = [
   "0001_initial_schema.sql",
@@ -156,6 +183,61 @@ const REQUIRED_CONSTRAINTS = [
 ] as const;
 
 describe("PostgreSQL migration authority", () => {
+  it("converges clean, upgraded, and restored databases to one schema fingerprint", {
+    skip: !databaseConfigured,
+    timeout: 120_000,
+  }, async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const clean = governedDatabaseName("clean", suffix);
+    const backup = governedDatabaseName("backup", suffix);
+    const restored = governedDatabaseName("restored", suffix);
+    const upgraded = governedDatabaseName("upgraded", suffix);
+    const adminUrl = new URL(databaseUrl!);
+    adminUrl.pathname = "/postgres";
+    const admin = new Pool({ connectionString: adminUrl.toString(), max: 1 });
+    try {
+      await admin.query(`CREATE DATABASE ${clean}`);
+      const cleanFingerprint = await migrateAndFingerprint(clean);
+
+      await admin.query(`CREATE DATABASE ${backup} TEMPLATE ${clean}`);
+      await admin.query(`CREATE DATABASE ${restored} TEMPLATE ${backup}`);
+      const restoredFingerprint = await migrateAndFingerprint(restored);
+
+      await admin.query(`CREATE DATABASE ${upgraded}`);
+      const upgradedPool = new Pool({ connectionString: databaseConnectionUrl(upgraded), max: 1 });
+      const upgradedClient = await upgradedPool.connect();
+      let upgradedFingerprint: string;
+      try {
+        // Reproduce the governed pre-contract database: application schema and
+        // historical ledger exist, but runtime plan evidence does not.
+        await applyDatabaseMigrations(upgradedClient);
+        for (const expectation of DATABASE_MIGRATION_EXPECTATIONS) {
+          const historicalChecksum = expectation.identity === "0046_tenant_principal_isolation_foundation.sql"
+            ? expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 64)
+            : expectation.compatibleHistoricalChecksums.find((checksum) => checksum.length === 16);
+          assert.ok(historicalChecksum);
+          await upgradedClient.query(
+            "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+            [historicalChecksum, expectation.identity],
+          );
+        }
+        await applyDatabaseMigrationsWithLock(upgradedClient);
+        upgradedFingerprint = await databaseSchemaFingerprint(upgradedClient);
+      } finally {
+        upgradedClient.release();
+        await upgradedPool.end();
+      }
+
+      assert.equal(upgradedFingerprint, cleanFingerprint, "upgraded schema must converge with clean schema");
+      assert.equal(restoredFingerprint, cleanFingerprint, "restored schema must converge with clean schema");
+    } finally {
+      for (const name of [restored, backup, upgraded, clean]) {
+        await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      }
+      await admin.end();
+    }
+  });
+
   it("builds the critical schema and reruns without ledger drift", {
     skip: !databaseConfigured,
     timeout: 60_000,

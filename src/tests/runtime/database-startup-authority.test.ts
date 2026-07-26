@@ -55,10 +55,18 @@ describe("production database startup authority", () => {
     assert.match(command, /\["SIGINT", "SIGTERM"\]/);
     assert.match(command, /process\.once\(signal/);
     assert.match(command, /interruption\.abort\(\)/);
+    assert.match(command, /pg_cancel_backend/);
     assert.match(command, /client\?\.release\(\)/);
     assert.match(command, /await pool\.end\(\)/);
     assert.doesNotMatch(packageJson, /test:migrations[^\n]*--test-force-exit/);
     assert.doesNotMatch(packageJson, /test:readiness[^\n]*--test-force-exit/);
     assert.doesNotMatch(packageJson, /test:startup[^\n]*--test-force-exit/);
+  });
+
+  it("uses a dedicated server- and client-bounded readiness pool", async () => {
+    const database = await readFile("src/lib/db.ts", "utf8");
+    assert.match(database, /statement_timeout: DATABASE_READINESS_STATEMENT_TIMEOUT_MS/);
+    assert.match(database, /query_timeout: DATABASE_READINESS_QUERY_TIMEOUT_MS/);
+    assert.match(database, /application_name: "tecpey-runtime-readiness"/);
   });
 });

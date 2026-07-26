@@ -4,12 +4,6 @@ import { checkMigrationReadiness } from "../src/lib/db-migration-readiness";
 
 const interruption = new AbortController();
 let terminationSignal: "SIGINT" | "SIGTERM" | null = null;
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.once(signal, () => {
-    terminationSignal = signal;
-    interruption.abort();
-  });
-}
 
 function requiredDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
@@ -35,13 +29,31 @@ async function migrationCount(client: PoolClient): Promise<number> {
 async function main(): Promise<void> {
   const pool = new Pool({
     connectionString: requiredDatabaseUrl(),
-    max: 1,
+    max: 2,
     application_name: "tecpey-database-migration-operator",
     idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 5_000,
   });
 
   let client: PoolClient | undefined;
+  let cancellation: Promise<void> | undefined;
+  let operationError: unknown;
+  const interrupt = (signal: "SIGINT" | "SIGTERM") => {
+    terminationSignal = signal;
+    interruption.abort();
+    const processId = (client as (PoolClient & { processID?: number }) | undefined)?.processID;
+    if (processId !== undefined) {
+      cancellation = pool.query<{ cancelled: boolean }>(
+        "SELECT pg_cancel_backend($1) AS cancelled",
+        [processId],
+      ).then((result) => {
+        if (result.rows[0]?.cancelled !== true) throw new Error("migration_query_cancel_failed");
+      });
+    }
+  };
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.once(signal, () => interrupt(signal));
+  }
   try {
     client = await pool.connect();
     const before = await migrationCount(client);
@@ -65,10 +77,23 @@ async function main(): Promise<void> {
         planHash: readiness.planHash,
       })}\n`,
     );
+  } catch (error) {
+    operationError = error;
   } finally {
+    try {
+      await cancellation;
+    } catch (cancellationError) {
+      operationError = operationError
+        ? new AggregateError(
+          [operationError, cancellationError],
+          "migration_failed_and_query_cancel_failed",
+        )
+        : cancellationError;
+    }
     client?.release();
     await pool.end();
   }
+  if (operationError) throw operationError;
 }
 
 main().catch((error: unknown) => {
