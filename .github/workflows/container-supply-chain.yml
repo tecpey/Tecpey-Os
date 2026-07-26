@@ -136,6 +136,11 @@ jobs:
           EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
+      - name: Build exact candidate image
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
+
       - name: Checkout exact previous release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -143,13 +148,12 @@ jobs:
           path: previous-release
           persist-credentials: false
 
-      - name: Build exact candidate and previous release images
+      - name: Build and deploy exact previous release image
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"
-          docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
           docker build --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
           bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
