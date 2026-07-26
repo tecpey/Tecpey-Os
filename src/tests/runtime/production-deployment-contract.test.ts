@@ -1,6 +1,46 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { configureProductionConnectionUrls } from "@/lib/production-connection-env";
 import { drainRuntime } from "@/lib/runtime-shutdown";
+
+test("production bootstrap safely encodes URI-reserved credential characters", () => {
+  const password = "s#tr?o/n%g@p:a ss";
+  const env: Record<string, string | undefined> = {
+    TECPEY_DATABASE_HOST: "postgres",
+    TECPEY_DATABASE_PORT: "5432",
+    TECPEY_DATABASE_NAME: "tecpey",
+    TECPEY_DATABASE_USER: "tecpey",
+    POSTGRES_PASSWORD: password,
+    TECPEY_REDIS_HOST: "redis",
+    TECPEY_REDIS_PORT: "6379",
+    REDIS_PASSWORD: password,
+  };
+
+  configureProductionConnectionUrls(env);
+
+  const database = new URL(env.DATABASE_URL!);
+  const redis = new URL(env.REDIS_URL!);
+  assert.equal(decodeURIComponent(database.password), password);
+  assert.equal(decodeURIComponent(redis.password), password);
+  assert.equal(database.hostname, "postgres");
+  assert.equal(redis.hostname, "redis");
+  assert.match(env.DATABASE_URL!, /%23/);
+  assert.match(env.REDIS_URL!, /%3F/);
+});
+
+test("production bootstrap preserves explicitly configured connection URLs", () => {
+  const env = {
+    DATABASE_URL: "postgresql://external/database",
+    REDIS_URL: "rediss://external:6380",
+    TECPEY_DATABASE_HOST: "postgres",
+    TECPEY_REDIS_HOST: "redis",
+  };
+
+  configureProductionConnectionUrls(env);
+
+  assert.equal(env.DATABASE_URL, "postgresql://external/database");
+  assert.equal(env.REDIS_URL, "rediss://external:6380");
+});
 
 test("bounded shutdown drains HTTP and WebSocket traffic before workers and Redis", async () => {
   const events: string[] = [];

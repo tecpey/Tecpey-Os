@@ -28,7 +28,7 @@ const workflows = fs.readdirSync(".github/workflows")
 requireText(dockerfile, "@sha256:", "Docker base image must be digest-pinned");
 reject(dockerfile, /^ARG\s+.*IMAGE/m, "Docker base-image authority must not be build-argument overridable");
 requireText(dockerfile, "npm ci --omit=dev", "runtime dependencies must exclude dev dependencies");
-requireText(dockerfile, 'CMD ["node", "dist/server.cjs"]', "runtime must execute the compiled server");
+requireText(dockerfile, 'CMD ["node", "dist/run-production-bootstrap.cjs", "server"]', "runtime must execute the compiled production bootstrap");
 reject(dockerfile, /COPY --from=builder \/app\/node_modules/, "runtime must not copy builder dependencies");
 reject(dockerfile, /CMD \[[^\n]*tsx/, "runtime must not execute TypeScript");
 requireText(dockerfile, "/usr/local/lib/node_modules/npm", "runtime must remove unused npm tooling");
@@ -56,9 +56,10 @@ for (const contract of [
   requireText(compose, contract, `Compose production contract missing: ${contract}`);
 }
 reject(compose, /change_me_strong_password/i, "Compose must not contain a literal production password");
+reject(compose, /(?:DATABASE_URL|REDIS_URL):[^\n]*\$\{(?:POSTGRES|REDIS)_PASSWORD/, "Compose must not interpolate raw credentials into connection URLs");
 reject(compose, /image:\s+[^\n@]+\s*$/m, "Compose service images must be digest-pinned");
 
-requireText(pkg, '"start": "NODE_ENV=production node dist/server.cjs"', "production start must use compiled server");
+requireText(pkg, '"start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server"', "production start must use compiled connection bootstrap");
 reject(pkg, /"build:server"[^\n]*--sourcemap/, "production server build must not retain source maps");
 requireText(pm2Config, "script: 'dist/server.cjs'", "PM2 must execute the compiled server");
 requireText(pm2Config, "interpreter: 'node'", "PM2 must not require TypeScript tooling");
