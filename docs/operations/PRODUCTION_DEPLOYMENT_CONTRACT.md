@@ -26,7 +26,8 @@ PostgreSQL and authenticated Redis run only on the internal backend network.
 4. Route traffic only when `/api/health` returns HTTP 200 with PostgreSQL `ok`,
    schema `current`, Redis `ok`, runtime `ready`, and required workers either
    `ready` or governed `disabled`.
-5. Use `/api/health/live` only for process liveness. It does not authorize traffic.
+5. Use `/api/health?probe=live` only for process liveness. It does not authorize
+   traffic.
 
 Redis authentication is mandatory even on the isolated private backend network.
 TLS must be terminated by the approved private network/service mesh when traffic

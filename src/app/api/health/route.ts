@@ -46,7 +46,14 @@ function memoryUsageMb() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (new URL(request.url).searchParams.get("probe") === "live") {
+    return Response.json(
+      { status: "alive" },
+      { status: 200, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
+  }
+
   const start = Date.now();
   const isProduction = process.env.NODE_ENV === "production";
 

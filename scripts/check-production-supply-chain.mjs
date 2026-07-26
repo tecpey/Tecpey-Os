@@ -15,7 +15,6 @@ const compose = read("docker-compose.production.yml");
 const pkg = read("package.json");
 const server = read("server.ts");
 const health = read("src/app/api/health/route.ts");
-const liveness = read("src/app/api/health/live/route.ts");
 const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
 const systemdService = read("deploy/systemd/tecpey-web.service");
@@ -66,7 +65,8 @@ requireText(pm2Deploy, "npm prune --omit=dev", "host deployment must remove deve
 requireText(server, "drainRuntime", "server termination must use the bounded drain contract");
 requireText(health, "runtime.requiredWorkers", "readiness must include required worker state");
 requireText(health, 'runtime.phase !== "ready"', "readiness must reject non-ready runtime phases");
-requireText(liveness, 'status: "alive"', "a separate process-liveness endpoint is required");
+requireText(health, 'get("probe") === "live"', "an explicit process-liveness probe is required");
+requireText(health, 'status: "alive"', "liveness must report only process state");
 for (const contract of [
   "ExecStart=/usr/bin/npm run start",
   "KillSignal=SIGTERM",

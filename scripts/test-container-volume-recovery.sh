@@ -52,10 +52,10 @@ docker cp "$PREFIX-redis:/data/dump.rdb" "$EVIDENCE_DIR/redis.rdb"
 docker rm -f "$PREFIX-pg" "$PREFIX-redis" >/dev/null
 
 docker run -d --name "$PREFIX-pg-restored" --network "$NETWORK" -e POSTGRES_USER=tecpey -e POSTGRES_DB=tecpey -e POSTGRES_PASSWORD="$PG_PASSWORD" -v "$PG_RESTORE:/var/lib/postgresql/data" "$POSTGRES_IMAGE" >/dev/null
-wait_for postgres_restore docker exec "$PREFIX-pg-restored" pg_isready -U tecpey -d tecpey
+wait_for postgres_restore docker exec "$PREFIX-pg-restored" pg_isready -h 127.0.0.1 -U tecpey -d tecpey
 docker cp "$EVIDENCE_DIR/postgres.dump" "$PREFIX-pg-restored:/tmp/tecpey.dump"
-docker exec "$PREFIX-pg-restored" pg_restore -U tecpey -d tecpey --clean --if-exists /tmp/tecpey.dump
-test "$(docker exec "$PREFIX-pg-restored" psql -U tecpey -d tecpey -Atc 'SELECT value FROM recovery_sentinel')" = issue-163
+docker exec "$PREFIX-pg-restored" pg_restore -h 127.0.0.1 -U tecpey -d tecpey --clean --if-exists /tmp/tecpey.dump
+test "$(docker exec "$PREFIX-pg-restored" psql -h 127.0.0.1 -U tecpey -d tecpey -Atc 'SELECT value FROM recovery_sentinel')" = issue-163
 
 docker create --name "$PREFIX-redis-restored" --network "$NETWORK" -e REDIS_PASSWORD="$REDIS_PASSWORD" -v "$REDIS_RESTORE:/data" "$REDIS_IMAGE" sh -ec 'exec redis-server --appendonly no --requirepass "$REDIS_PASSWORD"' >/dev/null
 docker cp "$EVIDENCE_DIR/redis.rdb" "$PREFIX-redis-restored:/data/dump.rdb"
