@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { emitAlert } from "./alerts";
 import {
-  DATABASE_MIGRATION_FILENAMES,
+  DATABASE_MIGRATION_EXPECTATIONS,
   DATABASE_MIGRATION_PLAN_HASH,
   DATABASE_MIGRATION_REGISTRY,
   validateMigrationRegistry,
@@ -17,9 +17,21 @@ const LOCK_POLL_INTERVAL_MS = 100;
 export type MigrationRunOptions = Readonly<{
   lockTimeoutMs?: number;
   runnerId?: string;
+  signal?: AbortSignal;
 }>;
 
 type LedgerRow = { filename: string; checksum: string };
+
+function ledgerChecksumMatchesExpected(
+  actual: string,
+  expected: string,
+  acceptsHistoricalChecksumPrefix: boolean,
+  compatibleHistoricalChecksums: readonly string[],
+): boolean {
+  return actual === expected ||
+    (acceptsHistoricalChecksumPrefix && actual.length === 16 && expected.startsWith(actual)) ||
+    compatibleHistoricalChecksums.includes(actual);
+}
 
 function boundedLockTimeout(value: number | undefined): number {
   const timeout = value ?? DEFAULT_MIGRATION_LOCK_TIMEOUT_MS;
@@ -29,8 +41,22 @@ function boundedLockTimeout(value: number | undefined): number {
   return timeout;
 }
 
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+function assertNotAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error("migration_interrupted");
+}
+
+function wait(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(new Error("migration_interrupted"));
+    };
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 async function ensureMigrationControlTable(client: PoolClient): Promise<void> {
@@ -48,17 +74,35 @@ async function ensureMigrationControlTable(client: PoolClient): Promise<void> {
       error_detail TEXT
     )
   `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS _migration_runtime_ledger (
+      identity TEXT PRIMARY KEY,
+      sequence INTEGER NOT NULL CHECK (sequence > 0),
+      ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+      migration_id TEXT NOT NULL,
+      expected_checksum TEXT NOT NULL CHECK (expected_checksum ~ '^[0-9a-f]{64}$'),
+      owner TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (sequence, ordinal)
+    )
+  `);
 }
 
-async function acquireMigrationLock(client: PoolClient, timeoutMs: number): Promise<number> {
+async function acquireMigrationLock(
+  client: PoolClient,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<number> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
+    assertNotAborted(signal);
     const result = await client.query<{ acquired: boolean }>(
       "SELECT pg_try_advisory_lock($1, $2) AS acquired",
       [...DATABASE_MIGRATION_LOCK_KEYS],
     );
     if (result.rows[0]?.acquired === true) return Date.now() - startedAt;
-    await wait(Math.min(LOCK_POLL_INTERVAL_MS, timeoutMs - (Date.now() - startedAt)));
+    await wait(Math.min(LOCK_POLL_INTERVAL_MS, timeoutMs - (Date.now() - startedAt)), signal);
   }
   throw new Error(`migration_lock_timeout:${timeoutMs}`);
 }
@@ -81,7 +125,8 @@ async function readAndValidateLedger(client: PoolClient): Promise<LedgerRow[]> {
   const result = await client.query<LedgerRow>(
     "SELECT filename, checksum FROM _migrations ORDER BY filename",
   );
-  const expected = new Set(DATABASE_MIGRATION_FILENAMES);
+  const expectations = new Map(DATABASE_MIGRATION_EXPECTATIONS.map((entry) => [entry.identity, entry]));
+  const expected = new Set(expectations.keys());
   const actual = new Set<string>();
   for (const row of result.rows) {
     if (actual.has(row.filename)) throw new Error(`migration_ledger_duplicate:${row.filename}`);
@@ -89,12 +134,77 @@ async function readAndValidateLedger(client: PoolClient): Promise<LedgerRow[]> {
     if (!/^[0-9a-f]{16}(?:[0-9a-f]{48})?$/.test(row.checksum)) {
       throw new Error(`migration_ledger_checksum_invalid:${row.filename}`);
     }
+    const expectation = expectations.get(row.filename);
+    if (!expectation || !ledgerChecksumMatchesExpected(
+      row.checksum,
+      expectation.checksum,
+      expectation.acceptsHistoricalChecksumPrefix,
+      expectation.compatibleHistoricalChecksums,
+    )) {
+      throw new Error(`migration_ledger_expected_checksum_mismatch:${row.filename}`);
+    }
     actual.add(row.filename);
   }
   for (const filename of expected) {
     if (!actual.has(filename)) throw new Error(`migration_ledger_missing:${filename}`);
   }
   return result.rows;
+}
+
+async function recordAndValidateCanonicalEvidence(client: PoolClient): Promise<void> {
+  for (const expectation of DATABASE_MIGRATION_EXPECTATIONS) {
+    await client.query(
+      `INSERT INTO _migration_runtime_ledger
+         (identity, sequence, ordinal, migration_id, expected_checksum, owner, domain)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (identity) DO NOTHING`,
+      [
+        expectation.identity,
+        expectation.sequence,
+        expectation.ordinal,
+        expectation.migrationId,
+        expectation.checksum,
+        expectation.owner,
+        expectation.domain,
+      ],
+    );
+  }
+  const evidence = await client.query<{
+    identity: string;
+    sequence: number;
+    ordinal: number;
+    migration_id: string;
+    expected_checksum: string;
+    owner: string;
+    domain: string;
+  }>(
+    `SELECT identity, sequence, ordinal, migration_id, expected_checksum, owner, domain
+       FROM _migration_runtime_ledger ORDER BY sequence, ordinal`,
+  );
+  if (evidence.rows.length !== DATABASE_MIGRATION_EXPECTATIONS.length) {
+    throw new Error("migration_runtime_ledger_membership_mismatch");
+  }
+  for (const [index, expected] of DATABASE_MIGRATION_EXPECTATIONS.entries()) {
+    const actual = evidence.rows[index];
+    if (!actual || actual.identity !== expected.identity) {
+      throw new Error(`migration_runtime_ledger_identity_mismatch:${expected.identity}`);
+    }
+    if (actual.sequence !== expected.sequence) {
+      throw new Error(`migration_runtime_ledger_sequence_mismatch:${expected.identity}`);
+    }
+    if (actual.ordinal !== expected.ordinal) {
+      throw new Error(`migration_runtime_ledger_ordinal_mismatch:${expected.identity}`);
+    }
+    if (actual.migration_id !== expected.migrationId) {
+      throw new Error(`migration_runtime_ledger_migration_id_mismatch:${expected.identity}`);
+    }
+    if (actual.expected_checksum !== expected.checksum) {
+      throw new Error(`migration_runtime_ledger_expected_checksum_mismatch:${expected.identity}`);
+    }
+    if (actual.owner !== expected.owner || actual.domain !== expected.domain) {
+      throw new Error(`migration_runtime_ledger_ownership_mismatch:${expected.identity}`);
+    }
+  }
 }
 
 async function hasCurrentMigrationEvidence(client: PoolClient): Promise<boolean> {
@@ -163,23 +273,58 @@ export async function applyDatabaseMigrationsWithLock(
   options: MigrationRunOptions = {},
 ): Promise<void> {
   validateMigrationRegistry();
-  await ensureMigrationControlTable(client);
   const timeoutMs = boundedLockTimeout(options.lockTimeoutMs);
   const runnerId = options.runnerId ?? randomUUID();
-  const waitMs = await acquireMigrationLock(client, timeoutMs);
+  let waitMs: number;
+  try {
+    waitMs = await acquireMigrationLock(client, timeoutMs, options.signal);
+  } catch (error) {
+    let detail = error instanceof Error ? error.message : String(error);
+    if (detail.startsWith("migration_lock_timeout:")) {
+      try {
+        const holder = await client.query<{ runner_id: string; status: string }>(
+          `SELECT runner_id, status FROM _migration_runtime_state
+            WHERE singleton = TRUE LIMIT 1`,
+        );
+        const row = holder.rows[0];
+        detail = `${detail}:holder:${row?.runner_id ?? "unknown"}:state:${row?.status ?? "unknown"}`;
+      } catch (holderError) {
+        logger.error("[db-migrate] migration lock holder lookup failed", {
+          runnerId,
+          error: holderError instanceof Error ? holderError.message : String(holderError),
+        });
+      }
+      error = new Error(detail);
+    }
+    logger.error("[db-migrate] migration lock acquisition failed", {
+      runnerId,
+      timeoutMs,
+      error: detail,
+    });
+    emitAlert("MIGRATION_FAILED", "Canonical database migration lock acquisition failed", {
+      runnerId,
+      timeoutMs,
+      error: detail,
+    });
+    throw error;
+  }
   logger.info("[db-migrate] bounded migration lock acquired", { runnerId, waitMs, timeoutMs });
 
   let alreadyCurrent = false;
   let runningRecorded = false;
   let originalError: unknown;
   try {
+    await ensureMigrationControlTable(client);
     alreadyCurrent = await hasCurrentMigrationEvidence(client);
+    assertNotAborted(options.signal);
     if (!alreadyCurrent) {
       await recordRunning(client, runnerId);
       runningRecorded = true;
     }
     await applyDatabaseMigrations(client);
+    assertNotAborted(options.signal);
     const ledger = await readAndValidateLedger(client);
+    await recordAndValidateCanonicalEvidence(client);
     if (!alreadyCurrent) await recordCurrent(client, runnerId, migrationLedgerDigest(ledger));
   } catch (error) {
     originalError = error;

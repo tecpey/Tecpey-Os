@@ -13,6 +13,9 @@ export async function GET() {
       schema: schemaStatus,
       migrationsApplied: result.schema?.applied ?? null,
       migrationsExpected: result.schema?.expected ?? null,
+      migrationPlanHash: result.schema?.planHash ?? null,
+      migrationRunnerId: result.schema?.runnerId ?? null,
+      migrationErrorCode: result.schema?.errorCode ?? null,
       latencyMs: result.latencyMs,
     }, { "Cache-Control": "no-store" });
   }

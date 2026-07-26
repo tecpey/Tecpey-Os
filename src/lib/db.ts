@@ -58,10 +58,13 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
     try {
       schema = await checkMigrationReadiness(client);
     } catch (error) {
+      const diagnostic = error instanceof Error
+        ? error.message.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, 240)
+        : "schema_verification_failed";
       logger.error("[db] schema readiness query failed", {
-        error: error instanceof Error ? error.message : String(error),
+        error: diagnostic,
       });
-      schema = failedMigrationReadiness("schema_verification_failed");
+      schema = failedMigrationReadiness(diagnostic);
     }
     return { status: "ok", latencyMs: Date.now() - start, schema };
   } catch {
@@ -73,21 +76,24 @@ export async function checkDbHealth(): Promise<DbHealthResult> {
 
 async function ensureSchemaCurrent(p: Pool): Promise<void> {
   if (!schemaVerification) {
-    schemaVerification = (async () => {
+    const verification = (async () => {
       let client: PoolClient | undefined;
       try {
         client = await p.connect();
         assertMigrationReady(await checkMigrationReadiness(client));
-      } catch (err) {
-        schemaVerification = null;
-        throw err;
       } finally {
         client?.release();
       }
     })();
+    schemaVerification = verification;
   }
 
-  await schemaVerification;
+  const verification = schemaVerification;
+  try {
+    await verification;
+  } finally {
+    if (schemaVerification === verification) schemaVerification = null;
+  }
 }
 
 export async function assertDatabaseReadyForRuntime(): Promise<void> {

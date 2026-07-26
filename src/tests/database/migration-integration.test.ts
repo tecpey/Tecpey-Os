@@ -186,6 +186,23 @@ describe("PostgreSQL migration authority", () => {
         assert.ok(applied.has(filename), `required migration missing: ${filename}`);
       }
 
+      const historicalTenantChecksum =
+        "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
+      await client.query(
+        "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+        [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
+      );
+      await applyDatabaseMigrationsWithLock(client);
+      const upgradedEvidence = await client.query<{ checksum: string }>(
+        "SELECT checksum FROM _migrations WHERE filename = $1",
+        ["0046_tenant_principal_isolation_foundation.sql"],
+      );
+      assert.equal(
+        upgradedEvidence.rows[0]?.checksum,
+        historicalTenantChecksum,
+        "governed historical full checksums must verify without rewriting ledger history",
+      );
+
       const tables = await client.query<{ table_name: string }>(
         `SELECT table_name
            FROM information_schema.tables

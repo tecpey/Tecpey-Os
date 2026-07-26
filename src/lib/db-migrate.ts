@@ -29,7 +29,7 @@ type Migration = {
   sql: string;
 };
 
-const MIGRATIONS: Migration[] = [
+export const BASE_DATABASE_MIGRATIONS: readonly Migration[] = [
   {
     filename: "0001_initial_schema.sql",
     sql: `
@@ -970,7 +970,7 @@ export async function runMigrations(client: PoolClient): Promise<void> {
   await ensureMigrationsTable(client);
   const applied = await getAppliedMigrations(client);
 
-  for (const migration of MIGRATIONS) {
+  for (const migration of BASE_DATABASE_MIGRATIONS) {
     const cs = computeChecksum(migration.sql);
 
     if (applied.has(migration.filename)) {

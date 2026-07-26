@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
+import {
+  CANONICAL_MIGRATION_CONTENT,
+  canonicalMigrationChecksum,
+  type CanonicalMigrationContent,
+} from "./db-migration-content";
 import { runMigrations } from "./db-migrate";
 import { runCompatibilityMigrations } from "./db-migrate-compat";
 import { runUserStateMigrations } from "./db-migrate-user-state";
@@ -41,6 +46,10 @@ import { runAiMentorTrustMigrations } from "./db-migrate-ai-mentor-trust";
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
   id: string;
+  owner: string;
+  domain: string;
+  checksum: string;
+  migrations: readonly CanonicalMigrationContent[];
   filenames: readonly string[];
   dependsOn: readonly string[];
   run: (client: PoolClient) => Promise<void>;
@@ -49,65 +58,69 @@ export type MigrationRegistryEntry = Readonly<{
 const entry = (
   sequence: number,
   id: string,
-  filenames: readonly string[],
+  migrations: readonly CanonicalMigrationContent[],
+  owner: string,
+  domain: string,
   run: MigrationRegistryEntry["run"],
-): MigrationRegistryEntry => ({
-  sequence,
-  id,
-  filenames,
-  dependsOn: sequence === 1 ? [] : [`migration-step-${String(sequence - 1).padStart(3, "0")}`],
-  run,
-});
+): MigrationRegistryEntry => {
+  const checksum = migrationEntryChecksum(migrations);
+  return {
+    sequence,
+    id,
+    owner,
+    domain,
+    checksum,
+    migrations,
+    filenames: migrations.map(({ identity }) => identity),
+    dependsOn: sequence === 1 ? [] : [`migration-step-${String(sequence - 1).padStart(3, "0")}`],
+    run,
+  };
+};
+
+export function migrationEntryChecksum(migrations: readonly CanonicalMigrationContent[]): string {
+  return createHash("sha256")
+    .update(JSON.stringify(migrations.map(({ identity, checksum }) => ({ identity, checksum }))))
+    .digest("hex");
+}
 
 export const DATABASE_MIGRATION_REGISTRY = [
-  entry(1, "migration-step-001", [
-    "0001_initial_schema.sql", "0002_extended_schema.sql", "0003_tenant_membership.sql",
-    "0004_trading_core.sql", "0005_wallet_balances.sql", "0006_spot_trading_indexes.sql",
-    "0007_security.sql", "0009_identity_security.sql", "0010_withdrawals.sql",
-    "0011_withdrawal_execution.sql", "0008_auth_hardening.sql",
-    "0002_withdrawal_ledger_idempotency.sql",
-  ], runMigrations),
-  entry(2, "migration-step-002", ["0012_academy_runtime_schema_repair.sql"], runCompatibilityMigrations),
-  entry(3, "migration-step-003", [
-    "0013_authoritative_academy_state.sql", "0014_academy_learning_memory.sql",
-    "0015_academy_reflection_memory.sql", "0016_trading_arena_account.sql",
-    "0017_academy_lesson_progress.sql", "0020_trading_arena_execution.sql",
-    "0021_academy_progress_authority.sql", "0022_trading_arena_reflections.sql",
-  ], runUserStateMigrations),
-  entry(4, "migration-step-004", ["0018_admin_control_plane_foundation.sql"], runAdminControlPlaneMigrations),
-  entry(5, "migration-step-005", ["0019_admin_control_plane_hardening.sql"], runAdminControlPlaneHardeningMigrations),
-  entry(6, "migration-step-006", ["0020_intelligent_notification_persistence.sql"], runNotificationMigrations),
-  entry(7, "migration-step-007", ["0021_notification_creation_outbox_runtime.sql"], runNotificationRuntimeMigrations),
-  entry(8, "migration-step-008", ["0022_notification_delivery_visibility.sql"], runNotificationDeliveryVisibilityMigrations),
-  entry(9, "migration-step-009", ["0023_offline_sync_command_authority.sql"], runOfflineSyncMigrations),
-  entry(10, "migration-step-010", ["0024_notification_domain_outbox.sql"], runNotificationDomainOutboxMigrations),
-  entry(11, "migration-step-011", ["0025_crm_lead_authority.sql"], runCrmLeadMigrations),
-  entry(12, "migration-step-012", ["0026_crm_lead_hardening.sql"], runCrmLeadHardeningMigrations),
-  entry(13, "migration-step-013", ["0027_academy_progress_authority_v2.sql"], runAcademyProgressHardeningMigrations),
-  entry(14, "migration-step-014", ["0027_exchange_order_admission_authority.sql"], runExchangeOrderAdmissionMigrations),
-  entry(15, "migration-step-015", ["0030_withdrawal_admission_authority.sql"], runWithdrawalAdmissionMigrations),
-  entry(16, "migration-step-016", ["0031_withdrawal_settlement_authority.sql"], runWithdrawalSettlementMigrations),
-  entry(17, "migration-step-017", ["0032_api_command_idempotency.sql"], runApiCommandIdempotencyMigrations),
-  entry(18, "migration-step-018", ["0033_sensitive_mutation_audit.sql"], runSensitiveMutationAuditMigrations),
-  entry(19, "migration-step-019", ["0037_exchange_order_transactional_evidence.sql"], runExchangeOrderEvidenceMigrations),
-  entry(20, "migration-step-020", ["0038_exchange_order_final_evidence_gate.sql"], runExchangeOrderFinalEvidenceGateMigrations),
-  entry(21, "migration-step-021", ["0039_withdrawal_prebroadcast_evidence.sql"], runWithdrawalPrebroadcastEvidenceMigrations),
-  entry(22, "migration-step-022", ["0040_withdrawal_admin_evidence_hardening.sql"], runWithdrawalAdminEvidenceHardeningMigrations),
-  entry(23, "migration-step-023", ["0041_withdrawal_prebroadcast_transition_gate.sql"], runWithdrawalPrebroadcastTransitionGateMigrations),
-  entry(24, "migration-step-024", ["0042_withdrawal_external_effect_evidence.sql"], runWithdrawalExternalEffectEvidenceMigrations),
-  entry(25, "migration-step-025", ["0043_withdrawal_external_effect_gate.sql"], runWithdrawalExternalEffectGateMigrations),
-  entry(26, "migration-step-026", ["0044_withdrawal_external_effect_gate_amount_cast.sql"], runWithdrawalExternalEffectGateAmountCastMigrations),
-  entry(27, "migration-step-027", ["0045_risk_enforcement_authority.sql"], runRiskEnforcementAuthorityMigrations),
-  entry(28, "migration-step-028", ["0046_tenant_principal_isolation_foundation.sql"], runTenantPrincipalIsolationMigrations),
-  entry(29, "migration-step-029", ["0047_community_profile_consent_authority.sql"], runCommunityProfileConsentMigrations),
-  entry(30, "migration-step-030", ["0048_community_journal_reflection_challenge.sql"], runCommunityJournalChallengeMigrations),
-  entry(31, "migration-step-031", ["0049_community_journal_challenge_finalization.sql"], runCommunityJournalChallengeFinalizationMigrations),
-  entry(32, "migration-step-032", ["0050_operational_job_evidence.sql"], runOperationalJobEvidenceMigrations),
-  entry(33, "migration-step-033", ["0051_community_reputation_evidence.sql"], runCommunityReputationEvidenceMigrations),
-  entry(34, "migration-step-034", ["0052_community_reputation_scoring_consent.sql"], runCommunityReputationScoringConsentMigrations),
-  entry(35, "migration-step-035", ["0035_session_authority.sql"], runSessionAuthorityMigrations),
-  entry(36, "migration-step-036", ["0036_session_legacy_unbound_fallback.sql"], runSessionLegacyFallbackMigrations),
-  entry(37, "migration-step-037", ["0034_ai_mentor_trust_boundary.sql"], runAiMentorTrustMigrations),
+  entry(1, "migration-step-001", CANONICAL_MIGRATION_CONTENT.base, "platform-infrastructure", "platform-core", runMigrations),
+  entry(2, "migration-step-002", CANONICAL_MIGRATION_CONTENT.compatibility, "academy-platform", "academy", runCompatibilityMigrations),
+  entry(3, "migration-step-003", CANONICAL_MIGRATION_CONTENT.userState, "academy-platform", "academy", runUserStateMigrations),
+  entry(4, "migration-step-004", CANONICAL_MIGRATION_CONTENT.adminFoundation, "security-platform", "admin", runAdminControlPlaneMigrations),
+  entry(5, "migration-step-005", CANONICAL_MIGRATION_CONTENT.adminHardening, "security-platform", "admin", runAdminControlPlaneHardeningMigrations),
+  entry(6, "migration-step-006", CANONICAL_MIGRATION_CONTENT.notifications, "engagement-platform", "notifications", runNotificationMigrations),
+  entry(7, "migration-step-007", CANONICAL_MIGRATION_CONTENT.notificationRuntime, "engagement-platform", "notifications", runNotificationRuntimeMigrations),
+  entry(8, "migration-step-008", CANONICAL_MIGRATION_CONTENT.notificationVisibility, "engagement-platform", "notifications", runNotificationDeliveryVisibilityMigrations),
+  entry(9, "migration-step-009", CANONICAL_MIGRATION_CONTENT.offlineSync, "platform-infrastructure", "offline-sync", runOfflineSyncMigrations),
+  entry(10, "migration-step-010", CANONICAL_MIGRATION_CONTENT.notificationOutbox, "engagement-platform", "notifications", runNotificationDomainOutboxMigrations),
+  entry(11, "migration-step-011", CANONICAL_MIGRATION_CONTENT.crmLeads, "growth-platform", "crm", runCrmLeadMigrations),
+  entry(12, "migration-step-012", CANONICAL_MIGRATION_CONTENT.crmHardening, "growth-platform", "crm", runCrmLeadHardeningMigrations),
+  entry(13, "migration-step-013", CANONICAL_MIGRATION_CONTENT.academyHardening, "academy-platform", "academy", runAcademyProgressHardeningMigrations),
+  entry(14, "migration-step-014", CANONICAL_MIGRATION_CONTENT.exchangeAdmission, "exchange-platform", "exchange", runExchangeOrderAdmissionMigrations),
+  entry(15, "migration-step-015", CANONICAL_MIGRATION_CONTENT.withdrawalAdmission, "custody-platform", "withdrawals", runWithdrawalAdmissionMigrations),
+  entry(16, "migration-step-016", CANONICAL_MIGRATION_CONTENT.withdrawalSettlement, "custody-platform", "withdrawals", runWithdrawalSettlementMigrations),
+  entry(17, "migration-step-017", CANONICAL_MIGRATION_CONTENT.commandIdempotency, "platform-infrastructure", "api-idempotency", runApiCommandIdempotencyMigrations),
+  entry(18, "migration-step-018", CANONICAL_MIGRATION_CONTENT.sensitiveAudit, "security-platform", "audit", runSensitiveMutationAuditMigrations),
+  entry(19, "migration-step-019", CANONICAL_MIGRATION_CONTENT.exchangeEvidence, "exchange-platform", "exchange", runExchangeOrderEvidenceMigrations),
+  entry(20, "migration-step-020", CANONICAL_MIGRATION_CONTENT.exchangeEvidenceGate, "exchange-platform", "exchange", runExchangeOrderFinalEvidenceGateMigrations),
+  entry(21, "migration-step-021", CANONICAL_MIGRATION_CONTENT.withdrawalPrebroadcast, "custody-platform", "withdrawals", runWithdrawalPrebroadcastEvidenceMigrations),
+  entry(22, "migration-step-022", CANONICAL_MIGRATION_CONTENT.withdrawalAdminHardening, "custody-platform", "withdrawals", runWithdrawalAdminEvidenceHardeningMigrations),
+  entry(23, "migration-step-023", CANONICAL_MIGRATION_CONTENT.withdrawalTransition, "custody-platform", "withdrawals", runWithdrawalPrebroadcastTransitionGateMigrations),
+  entry(24, "migration-step-024", CANONICAL_MIGRATION_CONTENT.withdrawalEvidence, "custody-platform", "withdrawals", runWithdrawalExternalEffectEvidenceMigrations),
+  entry(25, "migration-step-025", CANONICAL_MIGRATION_CONTENT.withdrawalGate, "custody-platform", "withdrawals", runWithdrawalExternalEffectGateMigrations),
+  entry(26, "migration-step-026", CANONICAL_MIGRATION_CONTENT.withdrawalAmountCast, "custody-platform", "withdrawals", runWithdrawalExternalEffectGateAmountCastMigrations),
+  entry(27, "migration-step-027", CANONICAL_MIGRATION_CONTENT.risk, "risk-platform", "risk", runRiskEnforcementAuthorityMigrations),
+  entry(28, "migration-step-028", CANONICAL_MIGRATION_CONTENT.tenant, "security-platform", "tenancy", runTenantPrincipalIsolationMigrations),
+  entry(29, "migration-step-029", CANONICAL_MIGRATION_CONTENT.communityConsent, "academy-platform", "community", runCommunityProfileConsentMigrations),
+  entry(30, "migration-step-030", CANONICAL_MIGRATION_CONTENT.communityChallenge, "academy-platform", "community", runCommunityJournalChallengeMigrations),
+  entry(31, "migration-step-031", CANONICAL_MIGRATION_CONTENT.communityFinalization, "academy-platform", "community", runCommunityJournalChallengeFinalizationMigrations),
+  entry(32, "migration-step-032", CANONICAL_MIGRATION_CONTENT.operationalEvidence, "platform-infrastructure", "operations", runOperationalJobEvidenceMigrations),
+  entry(33, "migration-step-033", CANONICAL_MIGRATION_CONTENT.reputationEvidence, "academy-platform", "community", runCommunityReputationEvidenceMigrations),
+  entry(34, "migration-step-034", CANONICAL_MIGRATION_CONTENT.reputationConsent, "academy-platform", "community", runCommunityReputationScoringConsentMigrations),
+  entry(35, "migration-step-035", CANONICAL_MIGRATION_CONTENT.sessionAuthority, "security-platform", "authentication", runSessionAuthorityMigrations),
+  entry(36, "migration-step-036", CANONICAL_MIGRATION_CONTENT.sessionFallback, "security-platform", "authentication", runSessionLegacyFallbackMigrations),
+  entry(37, "migration-step-037", CANONICAL_MIGRATION_CONTENT.aiMentor, "academy-platform", "ai-mentor", runAiMentorTrustMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
@@ -126,6 +139,30 @@ export function validateMigrationRegistry(
     if (!/^migration-step-\d{3}$/.test(migration.id) || ids.has(migration.id)) {
       throw new Error(`migration_registry_identity_invalid:${migration.id}`);
     }
+    if (migration.id !== `migration-step-${String(migration.sequence).padStart(3, "0")}`) {
+      throw new Error(`migration_registry_identity_sequence_mismatch:${migration.id}`);
+    }
+    if (!/^[a-z][a-z0-9-]{2,63}$/.test(migration.owner)) {
+      throw new Error(`migration_registry_owner_invalid:${migration.id}`);
+    }
+    if (!/^[a-z][a-z0-9-]{2,63}$/.test(migration.domain)) {
+      throw new Error(`migration_registry_domain_invalid:${migration.id}`);
+    }
+    if (!/^[0-9a-f]{64}$/.test(migration.checksum)) {
+      throw new Error(`migration_registry_checksum_invalid:${migration.id}`);
+    }
+    if (migration.checksum !== migrationEntryChecksum(migration.migrations)) {
+      throw new Error(`migration_registry_checksum_mismatch:${migration.id}`);
+    }
+    const requiredDependencies = migration.sequence === 1
+      ? []
+      : [`migration-step-${String(migration.sequence - 1).padStart(3, "0")}`];
+    if (
+      migration.dependsOn.length !== requiredDependencies.length ||
+      migration.dependsOn.some((dependency, dependencyIndex) => dependency !== requiredDependencies[dependencyIndex])
+    ) {
+      throw new Error(`migration_registry_dependency_chain_invalid:${migration.id}`);
+    }
     if (migration.filenames.length === 0) {
       throw new Error(`migration_registry_filenames_empty:${migration.id}`);
     }
@@ -140,6 +177,20 @@ export function validateMigrationRegistry(
       }
       filenames.add(filename);
     }
+    if (
+      migration.migrations.length !== migration.filenames.length ||
+      migration.migrations.some(({ identity, checksum }, migrationIndex) =>
+        identity !== migration.filenames[migrationIndex] ||
+        !/^[0-9a-f]{64}$/.test(checksum) ||
+        typeof migration.migrations[migrationIndex].acceptsHistoricalChecksumPrefix !== "boolean" ||
+        checksum !== canonicalMigrationChecksum(migration.migrations[migrationIndex].content) ||
+        migration.migrations[migrationIndex].compatibleHistoricalChecksums.some(
+          (historicalChecksum) =>
+            !/^[0-9a-f]{64}$/.test(historicalChecksum) || historicalChecksum === checksum,
+        ))
+    ) {
+      throw new Error(`migration_registry_content_invalid:${migration.id}`);
+    }
     ids.add(migration.id);
     sequences.add(migration.sequence);
     seenIds.add(migration.id);
@@ -150,8 +201,50 @@ export const DATABASE_MIGRATION_FILENAMES = Object.freeze(
   DATABASE_MIGRATION_REGISTRY.flatMap((migration) => migration.filenames),
 );
 
-export const DATABASE_MIGRATION_PLAN_HASH = createHash("sha256")
-  .update(JSON.stringify(DATABASE_MIGRATION_REGISTRY.map(({ sequence, id, filenames, dependsOn }) => ({
-    sequence, id, filenames, dependsOn,
+export const DATABASE_MIGRATION_EXPECTATIONS = Object.freeze(
+  DATABASE_MIGRATION_REGISTRY.flatMap((migration) =>
+    migration.migrations.map(({
+      identity,
+      checksum,
+      acceptsHistoricalChecksumPrefix,
+      compatibleHistoricalChecksums,
+    }, ordinal) => Object.freeze({
+      sequence: migration.sequence,
+      ordinal: ordinal + 1,
+      migrationId: migration.id,
+      identity,
+      checksum,
+      acceptsHistoricalChecksumPrefix,
+      compatibleHistoricalChecksums,
+      owner: migration.owner,
+      domain: migration.domain,
+    }))),
+);
+
+export function computeMigrationPlanHash(registry: readonly MigrationRegistryEntry[]): string {
+  return createHash("sha256")
+    .update(JSON.stringify(registry.map(({
+    sequence, id, migrations, dependsOn, owner, domain, checksum,
+  }) => ({
+    sequence,
+    id,
+    dependsOn,
+    migrations: migrations.map(({
+      identity,
+      checksum: contentChecksum,
+      acceptsHistoricalChecksumPrefix,
+      compatibleHistoricalChecksums,
+    }) => ({
+      identity,
+      checksum: contentChecksum,
+      acceptsHistoricalChecksumPrefix,
+      compatibleHistoricalChecksums,
+    })),
+    owner,
+    domain,
+    checksum,
   }))))
-  .digest("hex");
+    .digest("hex");
+}
+
+export const DATABASE_MIGRATION_PLAN_HASH = computeMigrationPlanHash(DATABASE_MIGRATION_REGISTRY);
