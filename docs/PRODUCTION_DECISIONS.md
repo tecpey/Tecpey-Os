@@ -9,26 +9,19 @@
 
 ---
 
-## D-01 — Schema Management: Schema-on-Connect (No Production Migration Runner Wired for Launch)
+## D-01 — Schema Management: Governed Migrations and Verify-Only Readiness
 
-**Decision:** Production will continue using `CREATE TABLE IF NOT EXISTS` on connection (`src/lib/db-schema.ts`) for the launch window. The existing migration runner (`src/lib/db-migrate.ts`) will not be the active production path at Soft Launch.
+**Decision:** Production schema changes run only through the governed migration command before application startup. Production requests never execute schema migrations, and startup and health readiness verify the canonical migration plan without executing or bypassing it.
 
-**Why:**
-- Migration runner exists but was not wired or battle-tested in Phase 39.5.
-- Current schema is stable; no breaking changes planned for Phase 40.
-- Wiring and full validation would add risk and delay to the hardening timeline.
+**Superseded historical context:** The Phase 39.5 decision to use schema-on-connect and defer the production migration runner is archived and is not the current production behavior.
 
-**Alternatives Rejected:**
-- Wire migration runner immediately (rejected due to scope and testing time).
-- Full manual schema management forever (rejected — this is temporary).
-
-**Future Migration Path:**
-- Phase 41: Wire `db-migrate.ts` as the authoritative path. Backfill `_migrations` table. Deprecate schema-on-connect for new environments.
-- All Phase 40 schema changes must be additive only.
+**Current controls:**
+- `npm run db:migrate` is the sole canonical production migration action.
+- Application runtime and health checks are verify-only and fail closed when schema readiness is not current.
+- No production schema-on-connect path or health bypass is permitted.
 
 **Owner:** CTO + Platform Engineering Lead  
-**Reversibility:** High cost after launch (manual schema drift cleanup).  
-**Expiration:** Phase 41.
+**Status:** Active canonical production contract.
 
 ---
 
