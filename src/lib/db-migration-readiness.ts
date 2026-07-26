@@ -16,7 +16,7 @@ export type MigrationReadinessStatus =
 export type MigrationReadiness = Readonly<{
   status: MigrationReadinessStatus;
   planHash: string;
-  applied: number;
+  applied: number | null;
   expected: number;
   runnerId?: string;
   startedAt?: string;
@@ -28,7 +28,7 @@ export function failedMigrationReadiness(errorCode: string): MigrationReadiness 
   return {
     status: "migration_failed",
     planHash: DATABASE_MIGRATION_PLAN_HASH,
-    applied: 0,
+    applied: null,
     expected: DATABASE_MIGRATION_FILENAMES.length,
     errorCode,
   };

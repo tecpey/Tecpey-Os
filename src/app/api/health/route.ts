@@ -116,7 +116,7 @@ export async function GET() {
       errorCode: db.schema?.errorCode ?? null,
     },
     tenantSystem: {
-      status: db.status === "ok" ? "available" : "unavailable",
+      status: db.status === "ok" && db.schema?.status === "current" ? "available" : "unavailable",
       mode: "single-tenant",
       defaultTenantId: process.env.PLATFORM_DEFAULT_TENANT_ID ?? "tecpey",
     },
