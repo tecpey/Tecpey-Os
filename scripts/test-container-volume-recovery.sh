@@ -38,7 +38,7 @@ for volume in "$PG_SOURCE" "$PG_RESTORE" "$REDIS_SOURCE" "$REDIS_RESTORE"; do
 done
 
 docker run -d --name "$PREFIX-pg" --network "$NETWORK" -e POSTGRES_USER=tecpey -e POSTGRES_DB=tecpey -e POSTGRES_PASSWORD="$PG_PASSWORD" -v "$PG_SOURCE:/var/lib/postgresql/data" "$POSTGRES_IMAGE" >/dev/null
-wait_for postgres docker exec "$PREFIX-pg" pg_isready -U tecpey -d tecpey
+wait_for postgres docker exec "$PREFIX-pg" psql -h 127.0.0.1 -U tecpey -d tecpey -Atc 'SELECT 1'
 docker exec "$PREFIX-pg" psql -U tecpey -d tecpey -v ON_ERROR_STOP=1 -c "CREATE TABLE recovery_sentinel (value text PRIMARY KEY); INSERT INTO recovery_sentinel VALUES ('issue-163');" >/dev/null
 docker exec "$PREFIX-pg" pg_dump -U tecpey -d tecpey -Fc -f /tmp/tecpey.dump
 docker cp "$PREFIX-pg:/tmp/tecpey.dump" "$EVIDENCE_DIR/postgres.dump"
@@ -52,7 +52,7 @@ docker cp "$PREFIX-redis:/data/dump.rdb" "$EVIDENCE_DIR/redis.rdb"
 docker rm -f "$PREFIX-pg" "$PREFIX-redis" >/dev/null
 
 docker run -d --name "$PREFIX-pg-restored" --network "$NETWORK" -e POSTGRES_USER=tecpey -e POSTGRES_DB=tecpey -e POSTGRES_PASSWORD="$PG_PASSWORD" -v "$PG_RESTORE:/var/lib/postgresql/data" "$POSTGRES_IMAGE" >/dev/null
-wait_for postgres_restore docker exec "$PREFIX-pg-restored" pg_isready -h 127.0.0.1 -U tecpey -d tecpey
+wait_for postgres_restore docker exec "$PREFIX-pg-restored" psql -h 127.0.0.1 -U tecpey -d tecpey -Atc 'SELECT 1'
 docker cp "$EVIDENCE_DIR/postgres.dump" "$PREFIX-pg-restored:/tmp/tecpey.dump"
 docker exec "$PREFIX-pg-restored" pg_restore -h 127.0.0.1 -U tecpey -d tecpey --clean --if-exists /tmp/tecpey.dump
 test "$(docker exec "$PREFIX-pg-restored" psql -h 127.0.0.1 -U tecpey -d tecpey -Atc 'SELECT value FROM recovery_sentinel')" = issue-163

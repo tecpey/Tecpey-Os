@@ -50,7 +50,7 @@ for (const invariant of [
   "TECPEY_STAGING_RUN_GROUP",
   "ops:staging:evidence:collect",
   "ops:staging:evidence:verify",
-  "actions/upload-artifact@v4",
+  "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
   "retention-days: 7",
 ]) {
   requireText("workflow", invariant, `protected staging workflow is missing ${invariant}`);
