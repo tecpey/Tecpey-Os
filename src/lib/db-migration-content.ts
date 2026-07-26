@@ -80,13 +80,14 @@ const canonical = (
   identity: string,
   content: string,
   compatibleHistoricalChecksums: readonly string[] = [],
+  historicalChecksum = historicalMigrationChecksum(content),
 ): CanonicalMigrationContent => ({
   identity,
   content,
   checksum: canonicalMigrationChecksum(content),
   acceptsHistoricalChecksumPrefix: false,
   compatibleHistoricalChecksums: Object.freeze([
-    historicalMigrationChecksum(content),
+    historicalChecksum,
     ...compatibleHistoricalChecksums,
   ]),
 });
@@ -95,8 +96,11 @@ const one = (
   identity: string,
   content: string,
   compatibleHistoricalChecksums: readonly string[] = [],
+  historicalChecksum?: string,
 ): readonly CanonicalMigrationContent[] =>
-  Object.freeze([canonical(identity, content, compatibleHistoricalChecksums)]);
+  Object.freeze([
+    canonical(identity, content, compatibleHistoricalChecksums, historicalChecksum),
+  ]);
 
 const EXPECTED_BASE_IDENTITIES = [
   "0001_initial_schema.sql",
@@ -127,6 +131,15 @@ function baseContent(): readonly CanonicalMigrationContent[] {
 
 const userStateSql = new Map(USER_STATE_DATABASE_MIGRATIONS.map(({ filename, sql }) => [filename, sql]));
 const requiredUserState = (identity: string, fallback: string): string => userStateSql.get(identity) ?? fallback;
+const communityReputationContent =
+  `${normalizeMigrationContent(COMMUNITY_REPUTATION_EVIDENCE_SQL)}\n${COMMUNITY_REPUTATION_BACKFILL_VERSION}`;
+const communityReputationHistoricalChecksum = createHash("sha256")
+  .update(
+    `${COMMUNITY_REPUTATION_EVIDENCE_SQL.replace(/\s+/g, " ").trim()}\n` +
+    COMMUNITY_REPUTATION_BACKFILL_VERSION,
+  )
+  .digest("hex")
+  .slice(0, 16);
 
 export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   base: baseContent(),
@@ -179,7 +192,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   operationalEvidence: one("0050_operational_job_evidence.sql", OPERATIONAL_JOB_EVIDENCE_SQL),
   reputationEvidence: one(
     "0051_community_reputation_evidence.sql",
-    `${COMMUNITY_REPUTATION_EVIDENCE_SQL}\n${COMMUNITY_REPUTATION_BACKFILL_VERSION}`,
+    communityReputationContent,
+    [],
+    communityReputationHistoricalChecksum,
   ),
   reputationConsent: one("0052_community_reputation_scoring_consent.sql", COMMUNITY_REPUTATION_SCORING_CONSENT_SQL),
   sessionAuthority: one("0035_session_authority.sql", SESSION_AUTHORITY_SQL),
