@@ -48,6 +48,7 @@ function runnerCompatibilityClient(client: PoolClient): PoolClient {
       ) => Promise<QueryResultWithRows>;
       return (async (queryTextOrConfig: unknown, values?: readonly unknown[]) => {
         const result = await query(queryTextOrConfig, values);
+        if (!Array.isArray(result.rows)) return result;
         return {
           ...result,
           rows: result.rows.map((candidate) => {
