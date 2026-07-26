@@ -945,8 +945,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_ledger_withdrawal_phase
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 function computeChecksum(sql: string): string {
-  const normalized = sql.replace(/\s+/g, " ").trim();
-  return createHash("sha256").update(normalized).digest("hex").slice(0, 16);
+  const normalized = sql.replace(/\r\n?/g, "\n").trim();
+  return createHash("sha256").update(normalized).digest("hex");
 }
 
 async function ensureMigrationsTable(client: PoolClient): Promise<void> {

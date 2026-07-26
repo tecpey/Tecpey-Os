@@ -56,6 +56,11 @@ const migrationSources = fs.readdirSync("src/lib")
   .filter((filename) => /^db-migrate(?:-.+)?\.ts$/.test(filename))
   .map((filename) => read(`src/lib/${filename}`))
   .join("\n");
+rejectText(
+  migrationSources,
+  ".slice(0, 16)",
+  "new migration applications must persist full SHA-256 checksums",
+);
 const sourceFilenames = new Set(migrationSources.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
 const registryFilenames = new Set(content.match(/\b\d{4}_[a-z0-9_]+\.sql\b/g) ?? []);
 for (const filename of sourceFilenames) {

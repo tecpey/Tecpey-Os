@@ -41,7 +41,10 @@ import { COMMUNITY_PROFILE_CONSENT_SQL } from "./db-migrate-community-profile-co
 import { COMMUNITY_JOURNAL_CHALLENGE_SQL } from "./db-migrate-community-journal-challenge";
 import { COMMUNITY_JOURNAL_CHALLENGE_FINALIZATION_SQL } from "./db-migrate-community-journal-challenge-finalization";
 import { OPERATIONAL_JOB_EVIDENCE_SQL } from "./db-migrate-operational-job-evidence";
-import { COMMUNITY_REPUTATION_EVIDENCE_SQL } from "./db-migrate-community-reputation-evidence";
+import {
+  COMMUNITY_REPUTATION_BACKFILL_VERSION,
+  COMMUNITY_REPUTATION_EVIDENCE_SQL,
+} from "./db-migrate-community-reputation-evidence";
 import { COMMUNITY_REPUTATION_SCORING_CONSENT_SQL } from "./db-migrate-community-reputation-scoring-consent";
 import { SESSION_AUTHORITY_SQL } from "./db-migrate-session-authority";
 import { SESSION_LEGACY_UNBOUND_FALLBACK_SQL } from "./db-migrate-session-legacy-fallback";
@@ -63,17 +66,26 @@ export function canonicalMigrationChecksum(content: string): string {
   return createHash("sha256").update(normalizeMigrationContent(content)).digest("hex");
 }
 
+export function historicalMigrationChecksum(content: string): string {
+  return createHash("sha256")
+    .update(content.replace(/\s+/g, " ").trim())
+    .digest("hex")
+    .slice(0, 16);
+}
+
 const canonical = (
   identity: string,
   content: string,
   compatibleHistoricalChecksums: readonly string[] = [],
-  acceptsHistoricalChecksumPrefix = false,
 ): CanonicalMigrationContent => ({
   identity,
   content,
   checksum: canonicalMigrationChecksum(content),
-  acceptsHistoricalChecksumPrefix,
-  compatibleHistoricalChecksums: Object.freeze([...compatibleHistoricalChecksums]),
+  acceptsHistoricalChecksumPrefix: false,
+  compatibleHistoricalChecksums: Object.freeze([
+    historicalMigrationChecksum(content),
+    ...compatibleHistoricalChecksums,
+  ]),
 });
 
 const one = (
@@ -106,7 +118,7 @@ function baseContent(): readonly CanonicalMigrationContent[] {
     throw new Error("canonical_base_migration_identity_drift");
   }
   return Object.freeze(BASE_DATABASE_MIGRATIONS.map(
-    ({ filename, sql }) => canonical(filename, sql, [], true),
+    ({ filename, sql }) => canonical(filename, sql),
   ));
 }
 
@@ -159,7 +171,10 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   communityChallenge: one("0048_community_journal_reflection_challenge.sql", COMMUNITY_JOURNAL_CHALLENGE_SQL),
   communityFinalization: one("0049_community_journal_challenge_finalization.sql", COMMUNITY_JOURNAL_CHALLENGE_FINALIZATION_SQL),
   operationalEvidence: one("0050_operational_job_evidence.sql", OPERATIONAL_JOB_EVIDENCE_SQL),
-  reputationEvidence: one("0051_community_reputation_evidence.sql", COMMUNITY_REPUTATION_EVIDENCE_SQL),
+  reputationEvidence: one(
+    "0051_community_reputation_evidence.sql",
+    `${COMMUNITY_REPUTATION_EVIDENCE_SQL}\n${COMMUNITY_REPUTATION_BACKFILL_VERSION}`,
+  ),
   reputationConsent: one("0052_community_reputation_scoring_consent.sql", COMMUNITY_REPUTATION_SCORING_CONSENT_SQL),
   sessionAuthority: one("0035_session_authority.sql", SESSION_AUTHORITY_SQL),
   sessionFallback: one("0036_session_legacy_unbound_fallback.sql", SESSION_LEGACY_UNBOUND_FALLBACK_SQL),

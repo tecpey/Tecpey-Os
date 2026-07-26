@@ -186,7 +186,8 @@ export function validateMigrationRegistry(
         checksum !== canonicalMigrationChecksum(migration.migrations[migrationIndex].content) ||
         migration.migrations[migrationIndex].compatibleHistoricalChecksums.some(
           (historicalChecksum) =>
-            !/^[0-9a-f]{64}$/.test(historicalChecksum) || historicalChecksum === checksum,
+            !/^[0-9a-f]{16}(?:[0-9a-f]{48})?$/.test(historicalChecksum) ||
+            historicalChecksum === checksum,
         ))
     ) {
       throw new Error(`migration_registry_content_invalid:${migration.id}`);

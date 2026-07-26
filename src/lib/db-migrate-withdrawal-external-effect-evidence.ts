@@ -354,9 +354,8 @@ CREATE TRIGGER withdrawal_confirmation_outbox_guard
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 export async function runWithdrawalExternalEffectEvidenceMigrations(

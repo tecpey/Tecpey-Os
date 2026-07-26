@@ -57,9 +57,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_academy_simulator_student_scenario
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 /**

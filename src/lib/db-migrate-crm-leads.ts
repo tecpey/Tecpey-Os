@@ -159,9 +159,8 @@ CREATE TRIGGER academy_leads_legacy_read_only
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 async function migrateLegacyAcademyLeads(client: PoolClient): Promise<void> {

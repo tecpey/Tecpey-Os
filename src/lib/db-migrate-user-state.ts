@@ -400,9 +400,8 @@ export const USER_STATE_DATABASE_MIGRATIONS: readonly Migration[] = [
 
 function checksum(sql: string): string {
   return createHash("sha256")
-    .update(sql.replace(/\s+/g, " ").trim())
-    .digest("hex")
-    .slice(0, 16);
+    .update(sql.replace(/\r\n?/g, "\n").trim())
+    .digest("hex");
 }
 
 export async function runUserStateMigrations(client: PoolClient): Promise<void> {

@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
+import { DATABASE_MIGRATION_EXPECTATIONS } from "../../lib/db-migration-registry";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -180,11 +181,34 @@ describe("PostgreSQL migration authority", () => {
         secondLedger.rows.length,
         "migration filenames must remain unique",
       );
+      assert.ok(
+        secondLedger.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum)),
+        "clean migration applications must persist full SHA-256 checksums",
+      );
 
       const applied = new Set(secondLedger.rows.map((row) => row.filename));
       for (const filename of REQUIRED_MIGRATIONS) {
         assert.ok(applied.has(filename), `required migration missing: ${filename}`);
       }
+
+      const historicalBase = DATABASE_MIGRATION_EXPECTATIONS.find(
+        (entry) => entry.identity === "0001_initial_schema.sql",
+      );
+      assert.ok(historicalBase?.compatibleHistoricalChecksums[0]);
+      await client.query(
+        "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+        [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
+      );
+      await applyDatabaseMigrationsWithLock(client);
+      const historicalBaseEvidence = await client.query<{ checksum: string }>(
+        "SELECT checksum FROM _migrations WHERE filename = $1",
+        [historicalBase.identity],
+      );
+      assert.equal(
+        historicalBaseEvidence.rows[0]?.checksum,
+        historicalBase.compatibleHistoricalChecksums[0],
+        "governed historical 16-character checksums must verify without ledger rewrites",
+      );
 
       const historicalTenantChecksum =
         "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";

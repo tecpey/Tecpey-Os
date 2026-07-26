@@ -199,6 +199,22 @@ describe("database schema readiness", () => {
     assert.equal(rejected.status, "outdated");
     assert.match(rejected.errorCode ?? "", /migration_checksum_mismatch/);
 
+    const historicalIndex = 0;
+    const exactHistorical = ledger.map((row, index) => index === historicalIndex ? {
+      ...row,
+      checksum: DATABASE_MIGRATION_EXPECTATIONS[historicalIndex].compatibleHistoricalChecksums[0],
+    } : row);
+    const exactHistoricalState = {
+      ...currentState,
+      ledger_digest: migrationLedgerDigest(exactHistorical),
+    };
+    assert.equal(
+      (await checkMigrationReadiness(
+        mockReadinessClient([exactHistoricalState], exactHistorical),
+      )).status,
+      "current",
+    );
+
     const tenantIndex = DATABASE_MIGRATION_EXPECTATIONS.findIndex(
       (entry) => entry.identity === "0046_tenant_principal_isolation_foundation.sql",
     );

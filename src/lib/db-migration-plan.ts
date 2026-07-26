@@ -22,6 +22,8 @@ export type MigrationRunOptions = Readonly<{
 
 type LedgerRow = { filename: string; checksum: string };
 
+type QueryResultWithRows = Readonly<{ rows: unknown[] }>;
+
 function ledgerChecksumMatchesExpected(
   actual: string,
   expected: string,
@@ -31,6 +33,44 @@ function ledgerChecksumMatchesExpected(
   return actual === expected ||
     (acceptsHistoricalChecksumPrefix && actual.length === 16 && expected.startsWith(actual)) ||
     compatibleHistoricalChecksums.includes(actual);
+}
+
+function runnerCompatibilityClient(client: PoolClient): PoolClient {
+  const expectations = new Map(
+    DATABASE_MIGRATION_EXPECTATIONS.map((expectation) => [expectation.identity, expectation]),
+  );
+  return new Proxy(client, {
+    get(target, property) {
+      if (property !== "query") return Reflect.get(target, property, target);
+      const query = target.query.bind(target) as (
+        queryTextOrConfig: unknown,
+        values?: readonly unknown[],
+      ) => Promise<QueryResultWithRows>;
+      return (async (queryTextOrConfig: unknown, values?: readonly unknown[]) => {
+        const result = await query(queryTextOrConfig, values);
+        return {
+          ...result,
+          rows: result.rows.map((candidate) => {
+            if (!candidate || typeof candidate !== "object") return candidate;
+            const row = candidate as { filename?: unknown; checksum?: unknown };
+            if (typeof row.filename !== "string" || typeof row.checksum !== "string") {
+              return candidate;
+            }
+            const expectation = expectations.get(row.filename);
+            if (!expectation || !ledgerChecksumMatchesExpected(
+              row.checksum,
+              expectation.checksum,
+              expectation.acceptsHistoricalChecksumPrefix,
+              expectation.compatibleHistoricalChecksums,
+            )) {
+              return candidate;
+            }
+            return { ...row, checksum: expectation.checksum };
+          }),
+        };
+      }) as PoolClient["query"];
+    },
+  });
 }
 
 function boundedLockTimeout(value: number | undefined): number {
@@ -265,7 +305,8 @@ async function recordFailure(client: PoolClient, runnerId: string, error: unknow
 
 export async function applyDatabaseMigrations(client: PoolClient): Promise<void> {
   validateMigrationRegistry();
-  for (const migration of DATABASE_MIGRATION_REGISTRY) await migration.run(client);
+  const compatibleClient = runnerCompatibilityClient(client);
+  for (const migration of DATABASE_MIGRATION_REGISTRY) await migration.run(compatibleClient);
 }
 
 export async function applyDatabaseMigrationsWithLock(
