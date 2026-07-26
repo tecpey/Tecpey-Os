@@ -350,8 +350,9 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
           await applyDatabaseMigrationsWithLock(holder);
           await holder.query("DELETE FROM _migration_runtime_ledger WHERE identity = $1", [target.identity]);
           await holder.query("DELETE FROM _migrations WHERE filename = $1", [target.identity]);
+          await holder.query("DROP TABLE mentor_ai_preferences");
           await holder.query("BEGIN");
-          await holder.query("LOCK TABLE mentor_ai_preferences IN ACCESS EXCLUSIVE MODE");
+          await holder.query("LOCK TABLE academy_students IN ACCESS EXCLUSIVE MODE");
 
           const spawned = spawn(process.execPath, ["--import", "tsx", "scripts/run-database-migrations.ts"], {
             cwd: process.cwd(),
@@ -395,37 +396,42 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
   it("fails a blocked runtime readiness query within its governed deadline", {
     timeout: 15_000,
   }, async () => {
-    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
-    const holder = await pool.connect();
-    let child: ReturnType<typeof spawn> | undefined;
-    try {
-      await holder.query("BEGIN");
-      await holder.query("LOCK TABLE _migration_runtime_state IN ACCESS EXCLUSIVE MODE");
-      const startedAt = Date.now();
-      const spawned = spawn(process.execPath, [
-        "--import", "tsx", "--input-type=module", "--eval",
-        "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
-      ], {
-        cwd: process.cwd(),
-        env: { ...process.env, DATABASE_URL: databaseUrl, NODE_ENV: "test" },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      child = spawned;
-      let output = "";
-      spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
-      spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
-      const code = await new Promise<number | null>((resolve, reject) => {
-        spawned.once("error", reject);
-        spawned.once("exit", resolve);
-      });
-      assert.equal(code, 0);
-      assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
-      assert.match(output, /"status":"unavailable"/);
-    } finally {
-      if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-      await holder.query("ROLLBACK");
-      holder.release();
-      await pool.end();
-    }
+    await withIsolatedDatabase("readiness", async (isolatedDatabaseUrl) => {
+      const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 2 });
+      const holder = await pool.connect();
+      let child: ReturnType<typeof spawn> | undefined;
+      try {
+        await applyDatabaseMigrationsWithLock(holder);
+        await holder.query("BEGIN");
+        await holder.query("LOCK TABLE _migration_runtime_state IN ACCESS EXCLUSIVE MODE");
+        const startedAt = Date.now();
+        const spawned = spawn(process.execPath, [
+          "--import", "tsx", "--input-type=module", "--eval",
+          "import { checkDbHealth } from './src/lib/db.ts'; console.log(JSON.stringify(await checkDbHealth()));",
+        ], {
+          cwd: process.cwd(),
+          env: { ...process.env, DATABASE_URL: isolatedDatabaseUrl, NODE_ENV: "test" },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        child = spawned;
+        let output = "";
+        spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
+        spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
+        const code = await new Promise<number | null>((resolve, reject) => {
+          spawned.once("error", reject);
+          spawned.once("exit", resolve);
+        });
+        assert.equal(code, 0);
+        assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
+        assert.match(output, /"status":"ok"/);
+        assert.match(output, /"status":"migration_failed"/);
+        assert.match(output, /canceling_statement_due_to_statement_timeout/);
+      } finally {
+        if (child && child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        await holder.query("ROLLBACK");
+        holder.release();
+        await pool.end();
+      }
+    });
   });
 });

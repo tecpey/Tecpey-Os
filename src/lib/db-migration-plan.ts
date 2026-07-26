@@ -47,17 +47,19 @@ function runnerCompatibilityClient(client: PoolClient): PoolClient {
         values?: readonly unknown[],
       ) => Promise<QueryResultWithRows>;
       return (async (queryTextOrConfig: unknown, values?: readonly unknown[]) => {
-        const result = await query(queryTextOrConfig, values);
-        if (!Array.isArray(result.rows)) return result;
-        return {
-          ...result,
-          rows: result.rows.map((candidate) => {
-            if (!candidate || typeof candidate !== "object") return candidate;
-            const row = candidate as { filename?: unknown; checksum?: unknown };
-            if (typeof row.filename !== "string" || typeof row.checksum !== "string") {
-              return candidate;
-            }
-            const expectation = expectations.get(row.filename);
+      const result = await query(queryTextOrConfig, values);
+      if (!Array.isArray(result.rows)) return result;
+      const queriedIdentity = typeof values?.[0] === "string" ? values[0] : undefined;
+      return {
+        ...result,
+        rows: result.rows.map((candidate) => {
+          if (!candidate || typeof candidate !== "object") return candidate;
+          const row = candidate as { filename?: unknown; checksum?: unknown };
+          const identity = typeof row.filename === "string" ? row.filename : queriedIdentity;
+          if (typeof identity !== "string" || typeof row.checksum !== "string") {
+            return candidate;
+          }
+          const expectation = expectations.get(identity);
             if (!expectation || !ledgerChecksumMatchesExpected(
               row.checksum,
               expectation.checksum,
