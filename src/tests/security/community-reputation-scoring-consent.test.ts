@@ -54,7 +54,7 @@ describe("Community reputation scoring consent source boundary", () => {
         path.join(root, "src/lib/db-migrate-community-reputation-scoring-consent.ts"),
         "utf8",
       ),
-      readFile(path.join(root, "src/lib/db-migration-plan.ts"), "utf8"),
+      readFile(path.join(root, "src/lib/db-migration-registry.ts"), "utf8"),
       readFile(path.join(root, "src/lib/community-career.ts"), "utf8"),
       readFile(path.join(root, "package.json"), "utf8"),
     ]);
