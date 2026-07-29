@@ -75,6 +75,19 @@ export type MentorContext = {
   } | null;
 };
 
+type TradingSignalRow = {
+  risk_percent?: unknown;
+  risk_flag?: unknown;
+  discipline_score?: unknown;
+  emotion?: unknown;
+};
+
+type MentorMemoryDbRow = {
+  category: string;
+  content: string;
+  importance: number;
+};
+
 // ── Internal sanitizer ────────────────────────────────────────────────────────
 
 function sanitize(value: unknown, max: number): string {
@@ -222,7 +235,7 @@ export async function getMentorContext(studentId: string): Promise<MentorContext
            WHERE student_id = $1::uuid ORDER BY created_at DESC LIMIT 20`,
           [studentId],
         )
-        .catch(() => ({ rows: [] as any[] })),
+        .catch(() => ({ rows: [] })),
     ]);
 
     const profile: MentorProfile | null = profileRes.rows[0]
@@ -268,17 +281,17 @@ export async function getMentorContext(studentId: string): Promise<MentorContext
 
     let tradingSignals: MentorContext["tradingSignals"] = null;
     if (tradeRes.rows.length > 0) {
-      const trades = tradeRes.rows;
+      const trades = tradeRes.rows as TradingSignalRow[];
       const count = trades.length;
       const avgRisk = Number(
-        (trades.reduce((s: number, r: any) => s + Number(r.risk_percent || 0), 0) / count).toFixed(2),
+        (trades.reduce((sum, row) => sum + Number(row.risk_percent || 0), 0) / count).toFixed(2),
       );
       const avgDiscipline = Math.round(
-        trades.reduce((s: number, r: any) => s + Number(r.discipline_score || 0), 0) / count,
+        trades.reduce((sum, row) => sum + Number(row.discipline_score || 0), 0) / count,
       );
-      const riskFlags = trades.filter((r: any) => r.risk_flag).length;
+      const riskFlags = trades.filter((row) => Boolean(row.risk_flag)).length;
       const recentEmotions = [
-        ...new Set(trades.map((r: any) => String(r.emotion || "")).filter(Boolean)),
+        ...new Set(trades.map((row) => String(row.emotion || "")).filter(Boolean)),
       ].slice(0, 5);
       tradingSignals = { avgRisk, avgDiscipline, riskFlags, recentEmotions };
     }
@@ -341,7 +354,7 @@ export async function generateMentorInsights(studentId: string): Promise<string 
     if (!memRes.rows.length) return null;
 
     const prof = profileRes.rows[0];
-    const memories: any[] = memRes.rows;
+    const memories = memRes.rows as MentorMemoryDbRow[];
 
     const critical = memories.filter((r) => r.importance === 100).map((r) => r.content);
     const important = memories.filter((r) => r.importance === 10).map((r) => r.content);

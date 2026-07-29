@@ -3,16 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { socket } from "@/lib/socket";
+import type { MarketTickerUpdate } from "@/types/market";
+
+type MarketTickerPayload = {
+  data?: MarketTickerUpdate;
+};
 
 export const useSocketioMarketPriceSpot = (
   pair: string[]
 ) => {
 
   const [data, setData] =
-    useState<any>(null);
+    useState<MarketTickerPayload | null>(null);
 
   const handler = useCallback(
-    (payload: any) => {
+    (payload: MarketTickerPayload) => {
       setData(payload);
     },
     []

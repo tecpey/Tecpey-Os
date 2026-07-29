@@ -346,7 +346,7 @@ function createRedisClient(): Redis | null {
   const url = process.env.REDIS_URL;
   if (!url) return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- #162: runtime-only Redis projection uses the existing optional CommonJS adapter.
     const { Redis } = require("ioredis") as typeof import("ioredis");
     if (!globalThis.tecpeyRedisClient) {
       globalThis.tecpeyRedisClient = new Redis(url, {

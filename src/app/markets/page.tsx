@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import useScrollReveal from "@/hooks/useScrollReveal";
 import { useTranslations } from "next-intl";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
@@ -10,6 +10,7 @@ import MarketsTable from "../../components/markets/MarketsTable";
 
 import { useQuery } from "@tanstack/react-query";
 import { getCurrencies } from "@/services/swap.services";
+import type { MarketCurrency } from "@/types/market";
 import {
 
   ChevronsLeft,
@@ -77,10 +78,6 @@ export default function MarketsPage() {
 
   const debouncedQuery = useDebouncedValue(query, 400);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedQuery]);
-
   const { data, isFetching } = useQuery({
     queryKey: ["market-currencies", currentPage, LIMIT, debouncedQuery, filter],
     queryFn: () => getCurrencies(currentPage, LIMIT, debouncedQuery),
@@ -95,12 +92,12 @@ export default function MarketsPage() {
 
   const processedCurrencies = useMemo(() => {
     let list = pageCurrencies.filter(
-      (coin: any) => !["IRT", "USD"].includes(coin.symbol),
+      (coin) => !["IRT", "USD"].includes(coin.symbol ?? ""),
     );
 
     const q = debouncedQuery.trim().toLowerCase();
     if (q) {
-      list = list.filter((c: any) => {
+      list = list.filter((c) => {
         const symbol = String(c?.symbol ?? "").toLowerCase();
         const name = String(c?.name ?? "").toLowerCase();
         const priceSymbol = String(c?.priceData?.symbol ?? "").toLowerCase();
@@ -111,11 +108,11 @@ export default function MarketsPage() {
       });
     }
 
-    const getChange = (c: any) => Number(c?.priceData?.changePercent ?? 0);
-    const getVolume = (c: any) => Number(c?.priceData?.volume ?? 0);
-    const getRank = (c: any) => Number(c?.priceData?.rank ?? 0);
+    const getChange = (c: MarketCurrency) => Number(c.priceData?.changePercent ?? 0);
+    const getVolume = (c: MarketCurrency) => Number(c.priceData?.volume ?? 0);
+    const getRank = (c: MarketCurrency) => Number(c.priceData?.rank ?? 0);
 
-    list = [...list].sort((a: any, b: any) => {
+    list = [...list].sort((a, b) => {
       if (filter === "all") {
         return getRank(a);
       }
@@ -154,7 +151,14 @@ export default function MarketsPage() {
       <MarketsHero t={t} />
 
       <section className="py-12 px-4 md:px-8 max-w-7xl mx-auto">
-        <MarketsSearchBar t={t} query={query} onQueryChange={setQuery} />
+        <MarketsSearchBar
+          t={t}
+          query={query}
+          onQueryChange={(value) => {
+            setQuery(value);
+            setCurrentPage(1);
+          }}
+        />
         {/* <MarketsFilters
           t={t}
           activeFilter={filter}

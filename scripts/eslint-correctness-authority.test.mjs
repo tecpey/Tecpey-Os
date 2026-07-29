@@ -1,0 +1,80 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ESLint } from "eslint";
+import {
+  compareBaseline,
+  hasGovernedInlineException,
+  runAuthorityCheck,
+} from "./check-eslint-correctness-authority.mjs";
+
+test("conditional hook calls fail the governed production config", async () => {
+  const eslint = new ESLint({ cwd: process.cwd() });
+  const [result] = await eslint.lintText(
+    `
+      import { useState } from "react";
+      export function InvalidHook({ enabled }: { enabled: boolean }) {
+        if (!enabled) return null;
+        const [value] = useState(0);
+        return <span>{value}</span>;
+      }
+    `,
+    { filePath: "src/__lint_fixtures__/invalid-hook.tsx" },
+  );
+  assert.ok(result.messages.some((message) =>
+    message.ruleId === "react-hooks/rules-of-hooks" && message.severity === 2));
+});
+
+test("new explicit any fails the governed production config", async () => {
+  const eslint = new ESLint({ cwd: process.cwd() });
+  const [result] = await eslint.lintText(
+    "export function invalidBoundary(value: any) { return value; }",
+    { filePath: "src/__lint_fixtures__/invalid-any.ts" },
+  );
+  assert.ok(result.messages.some((message) =>
+    message.ruleId === "@typescript-eslint/no-explicit-any" && message.severity === 2));
+});
+
+test("inline exceptions require an issue-linked reason", () => {
+  assert.equal(
+    hasGovernedInlineException(
+      "// eslint-disable-next-line react-hooks/exhaustive-deps",
+    ),
+    false,
+  );
+  assert.equal(
+    hasGovernedInlineException(
+      "// eslint-disable-next-line react-hooks/exhaustive-deps -- #162: mount-only hydration",
+    ),
+    true,
+  );
+  assert.equal(
+    hasGovernedInlineException(
+      "/* eslint-disable react-hooks/rules-of-hooks -- #162: broad file bypass */",
+    ),
+    false,
+  );
+  assert.equal(
+    hasGovernedInlineException(
+      "// eslint-disable-next-line react-hooks/refs, react-hooks/purity -- #162: broad rule bypass",
+    ),
+    false,
+  );
+});
+
+test("baseline comparison rejects growth or line drift", () => {
+  const expected = [{
+    rule: "react-hooks/set-state-in-effect",
+    path: "src/example.tsx",
+    line: 10,
+    column: 5,
+  }];
+  assert.equal(compareBaseline(expected, expected).matches, true);
+  assert.equal(compareBaseline(expected, [...expected, {
+    ...expected[0],
+    line: 11,
+  }]).matches, false);
+});
+
+test("repository correctness authority is internally consistent", async () => {
+  await runAuthorityCheck();
+});

@@ -497,3 +497,82 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     await degradedPage.close();
   }
 });
+
+test("market search resets pagination before requesting the filtered result", async ({ context, page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-fa-mobile",
+    "One governed Chromium interaction run is sufficient for this locale-independent state transition.",
+  );
+
+  await context.unroute("**/api/v1/user/currency/list**");
+  await context.route("**/api/v1/user/currency/list**", async (route) => {
+    const url = new URL(route.request().url());
+    const requestedPage = Number(url.searchParams.get("page") ?? "1");
+    const symbol = url.searchParams.get("symbol") ?? "";
+    const data = symbol
+      ? [{
+          id: "eth",
+          symbol: "ETH",
+          name: "Ethereum",
+          priceData: {
+            symbol: "ETHUSDT",
+            last: "3520.10",
+            changePercent: "-0.42",
+          },
+        }]
+      : requestedPage === 2
+        ? [{
+            id: "ton",
+            symbol: "TON",
+            name: "Toncoin",
+            priceData: {
+              symbol: "TONUSDT",
+              last: "7.18",
+              changePercent: "2.04",
+            },
+          }]
+        : [{
+            id: "btc",
+            symbol: "BTC",
+            name: "Bitcoin",
+            priceData: {
+              symbol: "BTCUSDT",
+              last: "67420.25",
+              changePercent: "1.25",
+            },
+          }];
+    await json(route, {
+      data,
+      meta: {
+        current_page: requestedPage,
+        last_page: symbol ? 1 : 2,
+      },
+    });
+  });
+
+  const response = await page.goto("/markets", { waitUntil: "domcontentloaded" });
+  expect(response?.status()).toBeLessThan(400);
+  await expect(page.locator('div[role="button"]').filter({ hasText: "Bitcoin" })).toBeVisible();
+
+  const nextPage = page.locator("button:has(svg.lucide-chevrons-right)");
+  const pageTwoRequest = page.waitForResponse((candidate) => {
+    const url = new URL(candidate.url());
+    return url.pathname.endsWith("/api/v1/user/currency/list") &&
+      url.searchParams.get("page") === "2" &&
+      url.searchParams.get("symbol") === "";
+  });
+  await nextPage.click();
+  await pageTwoRequest;
+  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toBeVisible();
+
+  const firstPageSearch = page.waitForResponse((candidate) => {
+    const url = new URL(candidate.url());
+    return url.pathname.endsWith("/api/v1/user/currency/list") &&
+      url.searchParams.get("page") === "1" &&
+      url.searchParams.get("symbol") === "ETH";
+  });
+  await page.getByPlaceholder("جستجو بر اساس نام ارز یا نماد...").fill("ETH");
+  await firstPageSearch;
+  await expect(page.locator('div[role="button"]').filter({ hasText: "Ethereum" })).toBeVisible();
+  await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toHaveCount(0);
+});

@@ -55,9 +55,12 @@ npm run dev
 3. **Run quality checks before pushing:**
    ```bash
    ./node_modules/.bin/tsc --noEmit
-   ./node_modules/.bin/eslint .
+   npm run lint
+   npm run lint:authority
+   npm run test:lint-authority
    ```
-   TypeScript must report 0 errors. ESLint must not introduce new errors.
+   TypeScript and ESLint must report 0 errors and 0 warnings. The reviewed
+   correctness baseline must match exactly; it may shrink but must never grow.
 
 4. **Fill in the PR template completely.** Incomplete PRs will not be reviewed.
 
@@ -71,13 +74,28 @@ npm run dev
 
 ### TypeScript
 - Strict mode is enabled. All new code must be fully typed.
-- No `any` types without an explicit `// eslint-disable-next-line` comment and justification.
+- Explicit `any` is prohibited. Model external data as `unknown`, validate it,
+  then narrow it to a domain type.
 - Prefer `type` over `interface` for object shapes.
 
 ### React / Next.js
 - Server Components by default. Use `"use client"` only when interactivity is required.
 - No unnecessary `useEffect` for data that can be fetched server-side.
+- Hook ordering, purity, refs and immutability rules are hard errors. Do not
+  bypass them with a broad file or configuration override.
 - All pages must have proper `metadata` exports (title, description, canonical).
+
+### ESLint Exceptions
+- Never disable a correctness rule globally.
+- An inline exception must name one rule, use the smallest possible line scope,
+  and include `-- #<issue>: <precise reason>`.
+- The only repository suppression baseline is the reviewed
+  `react-hooks/set-state-in-effect` inventory in
+  `config/eslint-correctness-baseline.json`.
+- Do not edit `eslint-suppressions.json` without updating the reviewed baseline
+  and reducing or preserving its exact count. New entries are rejected.
+- Run `npm run lint:authority` after moving any baselined line; line drift is an
+  intentional review gate, not a formatting nuisance.
 
 ### Styling
 - Use Tailwind CSS utility classes.

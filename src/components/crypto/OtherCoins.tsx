@@ -27,18 +27,18 @@ const OtherCoins = forwardRef<HTMLDivElement>((props, ref) => {
   const allCoins = useMemo(() => {
     return (
       data?.pages
-        ?.flatMap((page: any) => page.data)
-        ?.filter((coin: any) => coin.symbol !== "USDT" && coin.symbol !== "IRT")
-        ?.map((coin: any) => ({
-          id: coin.id,
-          symbol: coin.symbol,
-          name: coin.name,
-          icon: coin.icon || "/default-coin.svg",
-          rank: coin.rank || 999999,
+        ?.flatMap((page) => page.data)
+        ?.filter((coin) => coin.symbol !== "USDT" && coin.symbol !== "IRT")
+        ?.map((coin) => ({
+          id: String(coin.id ?? coin.symbol ?? ""),
+          symbol: String(coin.symbol ?? ""),
+          name: String(coin.name ?? coin.symbol ?? ""),
+          icon: String(coin.icon || "/default-coin.svg"),
+          rank: Number(coin.rank || 999999),
           price: Number(coin.priceData?.last || 0),
           change: Number(coin.priceData?.changePercent || 0),
           volume: Number(coin.priceData?.volume || 0),
-          timestamp: coin.priceData?.timestamp || 0,
+          timestamp: Number(coin.priceData?.timestamp || 0),
         })) || []
     );
   }, [data]);

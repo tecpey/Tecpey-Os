@@ -157,6 +157,11 @@ jobs:
           set -o pipefail
           ./node_modules/.bin/eslint . --max-warnings 0 2>&1 | tee /tmp/tecpey-eslint-diagnostics.log
 
+      - name: ESLint correctness authority
+        run: |
+          npm run lint:authority
+          npm run test:lint-authority
+
       - name: Upload ESLint diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

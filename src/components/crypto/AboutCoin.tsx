@@ -1,10 +1,11 @@
 "use client";
 import { forwardRef, useState } from "react";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
+import type { MarketCurrency } from "@/types/market";
 
 type Props = {
   symbol: string;
-  coin?: any;
+  coin?: MarketCurrency;
 };
 
 function metric(value: unknown, suffix = "") {
