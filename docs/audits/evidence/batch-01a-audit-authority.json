@@ -141,22 +141,38 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "61375e51122d1e32fdb69aca7969efe91b709bf0",
-      "sha256": "222e397ec481ca0427e157647f9e411f5480e5d3d26b43306f79ffbac4c6aa49",
-      "lines": 566,
+      "gitObjectId": "cf5ce9044dfde7ab5d6821cdfe5a14383ff12e93",
+      "sha256": "d21b224f2e988646cb5bb1405c7f870440131515f869ccc725301b221d694ed8",
+      "lines": 570,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 566
+          "endLine": 570
         }
       ],
-      "findingDisposition": "no-confirmed-findings",
+      "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
         "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
+        "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
         "Summary recomputation occurs after evidence application and completionClaim remains false."
       ],
-      "findings": []
+      "findings": [
+        {
+          "id": "B01A-P2-004",
+          "severity": "P2",
+          "line": 290,
+          "attackPath": "A declaration could encode P0 in its canonical finding identifier while separately declaring P3, presenting contradictory release severity to downstream consumers.",
+          "affectedInvariant": "A canonical finding identifier and its structured severity must represent one unambiguous priority.",
+          "evidence": "The former validator checked the ID shape and severity membership independently but did not compare the ID priority segment with finding.severity.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Manifest generation must reject a B01A-P0 identifier paired with P3 severity before semantic evidence is applied.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
