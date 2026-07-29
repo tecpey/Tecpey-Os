@@ -62,6 +62,7 @@ const DOMAIN_RULES = [
       /^src\/lib\/(?:api-error|api-validation|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
+      /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
       /^SECURITY\.md$/,
     ],
   },
@@ -129,6 +130,7 @@ const DOMAIN_RULES = [
       /^src\/lib\/ops\//,
       /^src\/lib\/(?:alerts|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
       /^src\/lib\/ws\//,
+      /^server\.ts$/,
     ],
   },
   {
@@ -232,7 +234,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 5,
+  version: 6,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),

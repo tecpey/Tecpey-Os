@@ -202,6 +202,18 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   assert.equal(classifyDomain(".github/workflows/repository-audit-manifest.yml").reviewBatch, 1);
   assert.equal(classifyDomain("scripts/repository-audit-manifest.mjs").reviewBatch, 1);
   assert.equal(classifyDomain("src/lib/compliance/ofac.ts").reviewBatch, 3);
+  assert.deepEqual(classifyDomain("config/api-security-exceptions.json"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
+  assert.deepEqual(classifyDomain("config/api-security-operation-overrides.json"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
@@ -216,6 +228,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     classificationRule: "product-ui-prefix",
   });
   assert.equal(classifyDomain("src/lib/ops/operational-job-evidence.ts").reviewBatch, 11);
+  assert.deepEqual(classifyDomain("server.ts"), {
+    domain: "operations-runtime",
+    riskTier: "P1",
+    reviewBatch: 11,
+    classificationRule: "operations-runtime",
+  });
   assert.deepEqual(classifyDomain("src/lib/platform-config.ts"), {
     domain: "platform-core",
     riskTier: "P1",
