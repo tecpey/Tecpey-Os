@@ -168,6 +168,71 @@ test("a timed-out child resolves only after process-group shutdown settles", asy
   assert.equal(completed, true);
 });
 
+test("a non-timeout leader exit resolves only after process-group shutdown settles", async () => {
+  const child = new EventEmitter();
+  let releaseShutdown;
+  const shutdown = new Promise((resolvePromise) => {
+    releaseShutdown = resolvePromise;
+  });
+  let stopCalls = 0;
+  let completed = false;
+
+  const completion = waitForProcessGroupCompletion(child, {
+    timeoutMs: 1_000,
+    stop: async () => {
+      stopCalls += 1;
+      await shutdown;
+    },
+  }).then((code) => {
+    completed = true;
+    return code;
+  });
+
+  child.emit("exit", 0, null);
+  await new Promise((resolvePromise) => setImmediate(resolvePromise));
+  assert.equal(stopCalls, 1);
+  assert.equal(
+    completed,
+    false,
+    "the next project became eligible while normal-exit descendants were still stopping",
+  );
+
+  releaseShutdown();
+  assert.equal(await completion, 0);
+  assert.equal(completed, true);
+});
+
+test("a non-timeout process-group shutdown failure fails the project", async () => {
+  const child = new EventEmitter();
+  const shutdownError = new Error("descendant_still_running");
+  let observedShutdownError;
+  const completion = waitForProcessGroupCompletion(child, {
+    timeoutMs: 1_000,
+    stop: async () => {
+      throw shutdownError;
+    },
+    onShutdownError(error) {
+      observedShutdownError = error;
+    },
+  });
+
+  child.emit("exit", 0, null);
+  assert.equal(await completion, 1);
+  assert.equal(observedShutdownError, shutdownError);
+});
+
+test("cleanup skips Redis drain when no server process was started", async () => {
+  let drainCalls = 0;
+  const redisNodeObserver = {
+    async waitForDrain() {
+      drainCalls += 1;
+    },
+  };
+
+  await stopServerAndWaitForRedisDrain(undefined, redisNodeObserver);
+  assert.equal(drainCalls, 0);
+});
+
 test(
   "does not permit the next server until descendants and Redis both drain",
   { skip: windows },

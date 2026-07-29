@@ -120,21 +120,33 @@ export async function waitForProcessGroupCompletion(
   return await new Promise((resolvePromise) => {
     let settled = false;
     let timedOut = false;
+    let shutdownStarted = false;
     const finish = (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       resolvePromise(code);
     };
+    const finishAfterShutdown = (code) => {
+      if (settled || shutdownStarted) return;
+      shutdownStarted = true;
+      clearTimeout(timeout);
+      void Promise.resolve()
+        .then(() => stop(child))
+        .then(
+          () => finish(code),
+          (error) => {
+            onShutdownError(error);
+            finish(1);
+          },
+        );
+    };
 
     const timeout = setTimeout(() => {
       if (settled) return;
       timedOut = true;
       onTimeout();
-      void Promise.resolve()
-        .then(() => stop(child))
-        .catch(onShutdownError)
-        .finally(() => finish(1));
+      finishAfterShutdown(1);
     }, timeoutMs);
     timeout.unref?.();
 
@@ -144,7 +156,7 @@ export async function waitForProcessGroupCompletion(
     });
     child.once("exit", (code, signal) => {
       onExit(code, signal);
-      if (!timedOut) finish(signal ? 1 : (code ?? 1));
+      if (!timedOut) finishAfterShutdown(signal ? 1 : (code ?? 1));
     });
   });
 }
@@ -154,6 +166,8 @@ export async function stopServerAndWaitForRedisDrain(
   redisNodeObserver,
   { process: processOptions, redis: redisOptions } = {},
 ) {
+  if (!child?.pid) return;
+
   const results = await Promise.allSettled([
     stopProcessGroup(child, processOptions),
     redisNodeObserver?.waitForDrain(redisOptions),
