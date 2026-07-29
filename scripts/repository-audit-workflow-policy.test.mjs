@@ -96,10 +96,35 @@ test("policy rejects write-capable or overridden workflow permissions", () => {
       "jobs:\n  manifest:",
       "jobs:\n  manifest:\n    permissions:\n      contents: write",
     ),
+    `${workflow}
+  bypass:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bypass audit
+        uses: actions/checkout@v4
+`,
   ]) {
     assert.match(
       repositoryAuditWorkflowFindings(mutated).join("\n"),
       /permissions must be exactly one top-level contents: read grant|YAML structure is invalid/,
+    );
+  }
+});
+
+test("policy rejects conditions that can skip governed audit steps", () => {
+  for (const stepName of [
+    "Generate exact tracked-path manifest",
+    "Verify exact denominator and evidence",
+    "Upload immutable manifest evidence",
+  ]) {
+    const mutated = workflow.replace(
+      `      - name: ${stepName}`,
+      `      - name: ${stepName}\n        if: false`,
+    );
+    assert.match(
+      repositoryAuditWorkflowFindings(mutated).join("\n"),
+      /unsupported property if|YAML structure is invalid/,
     );
   }
 });
