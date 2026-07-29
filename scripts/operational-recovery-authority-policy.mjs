@@ -54,6 +54,9 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "MAX_RECOVERY_SECONDS", "recovery_error=rto_exceeded",
     "backup-digests.sha256", "verify-operational-recovery-evidence.mjs",
     "recovery_error=evidence_dir_must_be_under_artifacts",
+    'ARTIFACTS_ROOT="$(realpath -m -- artifacts)"',
+    'CANONICAL_EVIDENCE_DIR="$(realpath -m -- "$EVIDENCE_DIR")"',
+    'EVIDENCE_DIR="$(realpath -e -- "$CANONICAL_EVIDENCE_DIR")"',
     "SOURCE_SHA=\"$(git rev-parse HEAD)\"", "recovery_error=source_sha_mismatch",
   ]) {
     requireText(failures, recovery, token, `recovery script is missing ${token}`);

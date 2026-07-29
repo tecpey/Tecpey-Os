@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
   evaluateOperationalRecoveryAuthority,
@@ -19,6 +23,34 @@ const valid = Object.fromEntries(
     Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")]),
   ),
 );
+const recoveryScript = path.resolve(files.recovery);
+
+async function runInvalidEvidencePath(t, evidenceDir, prepare) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "tecpey-recovery-path-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const bin = path.join(root, "bin");
+  await mkdir(bin);
+  const git = path.join(bin, "git");
+  await writeFile(
+    git,
+    "#!/bin/sh\n[ \"$1\" = rev-parse ] && [ \"$2\" = HEAD ] && printf '%s\\n' \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n",
+  );
+  await chmod(git, 0o755);
+  if (prepare) await prepare(root);
+
+  return {
+    root,
+    result: spawnSync("bash", [recoveryScript, "candidate-image"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        TECPEY_RECOVERY_EVIDENCE_DIR: evidenceDir,
+      },
+    }),
+  };
+}
 
 test("accepts the governed scheduled recovery contract", () => {
   assert.deepEqual(evaluateOperationalRecoveryAuthority(valid), []);
@@ -79,14 +111,43 @@ test("rejects weakening the measured RTO verifier", () => {
 
 test("rejects an unbounded recursive evidence cleanup", () => {
   const recovery = valid.recovery.replace(
-    "mkdir -p \"$EVIDENCE_DIR\"",
-    "rm -rf \"$EVIDENCE_DIR\"\nmkdir -p \"$EVIDENCE_DIR\"",
+    "mkdir -p -- \"$CANONICAL_EVIDENCE_DIR\"",
+    "rm -rf \"$CANONICAL_EVIDENCE_DIR\"\nmkdir -p -- \"$CANONICAL_EVIDENCE_DIR\"",
   );
   const failures = evaluateOperationalRecoveryAuthority({ ...valid, recovery });
   assert.equal(
     failures.includes("recovery script must not recursively delete evidence paths"),
     true,
   );
+});
+
+test("real recovery script rejects traversal before creating external evidence", async (t) => {
+  const escapeName = `tecpey-recovery-escape-${process.pid}`;
+  const { root, result } = await runInvalidEvidencePath(
+    t,
+    `artifacts/../../${escapeName}`,
+  );
+  const escaped = path.resolve(root, `../${escapeName}`);
+  t.after(() => rm(escaped, { recursive: true, force: true }));
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /evidence_dir_must_be_under_artifacts/);
+  assert.equal(existsSync(escaped), false);
+});
+
+test("real recovery script rejects an evidence symlink outside artifacts", async (t) => {
+  const outside = await mkdtemp(path.join(os.tmpdir(), "tecpey-recovery-outside-"));
+  t.after(() => rm(outside, { recursive: true, force: true }));
+  const { result } = await runInvalidEvidencePath(
+    t,
+    "artifacts/external/evidence",
+    async (root) => {
+      await mkdir(path.join(root, "artifacts"));
+      await symlink(outside, path.join(root, "artifacts", "external"));
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /evidence_dir_must_be_under_artifacts/);
+  assert.equal(existsSync(path.join(outside, "evidence")), false);
 });
 
 test("rejects reserved GitHub SHA override and loss of checkout binding", () => {

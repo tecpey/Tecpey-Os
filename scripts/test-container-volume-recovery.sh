@@ -73,15 +73,25 @@ if ! [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || [ "$SOURCE_SHA" != "$EXPE
   echo "recovery_error=source_sha_mismatch" >&2
   exit 1
 fi
-case "$EVIDENCE_DIR" in
-  artifacts/*) ;;
+ARTIFACTS_ROOT="$(realpath -m -- artifacts)"
+CANONICAL_EVIDENCE_DIR="$(realpath -m -- "$EVIDENCE_DIR")"
+case "$CANONICAL_EVIDENCE_DIR" in
+  "$ARTIFACTS_ROOT"/*) ;;
   *)
     echo "recovery_error=evidence_dir_must_be_under_artifacts" >&2
     exit 1
     ;;
 esac
 
-mkdir -p "$EVIDENCE_DIR"
+mkdir -p -- "$CANONICAL_EVIDENCE_DIR"
+EVIDENCE_DIR="$(realpath -e -- "$CANONICAL_EVIDENCE_DIR")"
+case "$EVIDENCE_DIR" in
+  "$ARTIFACTS_ROOT"/*) ;;
+  *)
+    echo "recovery_error=evidence_dir_must_be_under_artifacts" >&2
+    exit 1
+    ;;
+esac
 rm -f \
   "$EVIDENCE_DIR/source-migration.log" \
   "$EVIDENCE_DIR/restored-migration.log" \
