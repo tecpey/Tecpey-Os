@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { test } from "node:test";
 import {
+  hasLiveProcessGroupMember,
+  parseLinuxProcessStat,
   stopProcessGroup,
   stopServerAndWaitForRedisDrain,
 } from "./process-lifecycle.mjs";
@@ -48,24 +50,60 @@ async function waitForReady(child) {
   });
 }
 
+function forceKillFixture(child) {
+  if (!child?.pid || windows) return;
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+  }
+}
+
+test("parses Linux process stats without trusting the command field", () => {
+  assert.deepEqual(
+    parseLinuxProcessStat("42 (next server (qa)) S 1 123 123 0 -1"),
+    { pid: 42, state: "S", processGroupId: 123 },
+  );
+});
+
+test("treats zombie-only Linux process groups as stopped", () => {
+  const zombieStats = [
+    "42 (npm exec next) Z 1 123 123 0 -1",
+    "43 (next-server) X 1 123 123 0 -1",
+    "44 (unrelated) S 1 999 999 0 -1",
+  ];
+  assert.equal(hasLiveProcessGroupMember(123, zombieStats), false);
+  assert.equal(
+    hasLiveProcessGroupMember(123, [
+      ...zombieStats,
+      "45 (live descendant) S 1 123 123 0 -1",
+    ]),
+    true,
+  );
+});
+
 test(
   "waits for descendants after the process-group leader exits",
   { skip: windows },
   async () => {
     const descendantDelayMs = 300;
     const child = spawnDelayedDescendantGroup(descendantDelayMs);
-    await waitForReady(child);
+    try {
+      await waitForReady(child);
 
-    const startedAt = Date.now();
-    await stopProcessGroup(child, {
-      gracefulTimeoutMs: 2_000,
-      forceTimeoutMs: 1_000,
-    });
+      const startedAt = Date.now();
+      await stopProcessGroup(child, {
+        gracefulTimeoutMs: 2_000,
+        forceTimeoutMs: 1_000,
+      });
 
-    assert.ok(
-      Date.now() - startedAt >= descendantDelayMs - 50,
-      "shutdown returned before the delayed descendant exited",
-    );
+      assert.ok(
+        Date.now() - startedAt >= descendantDelayMs - 50,
+        "shutdown returned before the delayed descendant exited",
+      );
+    } finally {
+      forceKillFixture(child);
+    }
   },
 );
 
@@ -81,17 +119,21 @@ test("escalates to SIGKILL within a bounded deadline", { skip: windows }, async 
       stdio: ["ignore", "pipe", "ignore"],
     },
   );
-  await waitForReady(child);
+  try {
+    await waitForReady(child);
 
-  const startedAt = Date.now();
-  await stopProcessGroup(child, {
-    gracefulTimeoutMs: 100,
-    forceTimeoutMs: 1_000,
-  });
+    const startedAt = Date.now();
+    await stopProcessGroup(child, {
+      gracefulTimeoutMs: 100,
+      forceTimeoutMs: 1_000,
+    });
 
-  const elapsedMs = Date.now() - startedAt;
-  assert.ok(elapsedMs >= 75, "SIGKILL escalation happened before the grace window");
-  assert.ok(elapsedMs < 1_000, "bounded shutdown exceeded its force deadline");
+    const elapsedMs = Date.now() - startedAt;
+    assert.ok(elapsedMs >= 75, "SIGKILL escalation happened before the grace window");
+    assert.ok(elapsedMs < 1_000, "bounded shutdown exceeded its force deadline");
+  } finally {
+    forceKillFixture(child);
+  }
 });
 
 test(
@@ -99,35 +141,39 @@ test(
   { skip: windows },
   async () => {
     const child = spawnDelayedDescendantGroup(200);
-    await waitForReady(child);
-    let redisDrained = false;
-    let isolationComplete = false;
-    const redisNodeObserver = {
-      async waitForDrain() {
-        await new Promise((resolvePromise) => setTimeout(resolvePromise, 350));
-        redisDrained = true;
-      },
-    };
+    try {
+      await waitForReady(child);
+      let redisDrained = false;
+      let isolationComplete = false;
+      const redisNodeObserver = {
+        async waitForDrain() {
+          await new Promise((resolvePromise) => setTimeout(resolvePromise, 350));
+          redisDrained = true;
+        },
+      };
 
-    const isolation = stopServerAndWaitForRedisDrain(child, redisNodeObserver, {
-      process: { gracefulTimeoutMs: 2_000, forceTimeoutMs: 1_000 },
-    }).then(() => {
-      isolationComplete = true;
-    });
+      const isolation = stopServerAndWaitForRedisDrain(child, redisNodeObserver, {
+        process: { gracefulTimeoutMs: 2_000, forceTimeoutMs: 1_000 },
+      }).then(() => {
+        isolationComplete = true;
+      });
 
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
-    assert.equal(
-      isolationComplete,
-      false,
-      "the next server became eligible before delayed deregistration",
-    );
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+      assert.equal(
+        isolationComplete,
+        false,
+        "the next server became eligible before delayed deregistration",
+      );
 
-    await isolation;
-    assert.equal(redisDrained, true);
-    assert.equal(
-      isolationComplete,
-      true,
-      "the next server must become eligible only after full isolation",
-    );
+      await isolation;
+      assert.equal(redisDrained, true);
+      assert.equal(
+        isolationComplete,
+        true,
+        "the next server must become eligible only after full isolation",
+      );
+    } finally {
+      forceKillFixture(child);
+    }
   },
 );

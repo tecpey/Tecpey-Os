@@ -1,9 +1,60 @@
+import { readdirSync, readFileSync } from "node:fs";
+
 const pollIntervalMs = 25;
+
+export function parseLinuxProcessStat(stat) {
+  const commandEnd = stat.lastIndexOf(")");
+  if (commandEnd < 0) return null;
+
+  const pid = Number.parseInt(stat.slice(0, stat.indexOf(" ")), 10);
+  const fields = stat.slice(commandEnd + 2).trim().split(/\s+/);
+  const state = fields[0];
+  const processGroupId = Number.parseInt(fields[2], 10);
+  if (!Number.isInteger(pid) || !state || !Number.isInteger(processGroupId)) {
+    return null;
+  }
+  return { pid, state, processGroupId };
+}
+
+export function hasLiveProcessGroupMember(processGroupId, stats) {
+  return inspectLinuxProcessGroup(processGroupId, stats).hasLiveMember;
+}
+
+export function inspectLinuxProcessGroup(processGroupId, stats) {
+  let observed = false;
+  for (const stat of stats) {
+    const process = parseLinuxProcessStat(stat);
+    if (process?.processGroupId !== processGroupId) continue;
+    observed = true;
+    if (process.state !== "Z" && process.state !== "X") {
+      return { observed, hasLiveMember: true };
+    }
+  }
+  return { observed, hasLiveMember: false };
+}
+
+function linuxProcessGroupExists(processGroupId) {
+  const stats = [];
+  for (const entry of readdirSync("/proc", { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
+    try {
+      stats.push(readFileSync(`/proc/${entry.name}/stat`, "utf8"));
+    } catch (error) {
+      if (error?.code !== "ENOENT" && error?.code !== "ESRCH") throw error;
+    }
+  }
+  const result = inspectLinuxProcessGroup(processGroupId, stats);
+  return result.observed ? result.hasLiveMember : null;
+}
 
 function processGroupExists(child) {
   if (!child?.pid) return false;
   if (process.platform === "win32") {
     return child.exitCode === null && child.signalCode === null;
+  }
+  if (process.platform === "linux") {
+    const linuxResult = linuxProcessGroupExists(child.pid);
+    if (linuxResult !== null) return linuxResult;
   }
 
   try {
