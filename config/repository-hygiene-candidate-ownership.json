@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "baselineCommitSha": "56392395f84e82c8a196338afb2d39d0999076fc",
+  "completionClaim": false,
+  "candidates": [
+    {
+      "path": "src/app/crypto/[symbol]/ChartWrapper.tsx",
+      "reviewedBlobSha256": "6f9629b1e97145bda0fca225d201c2770d472d29180b58f0d3db9c0b121b8727",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26", "#83"],
+      "evidence": [
+        "src/app/crypto/[symbol]/page.tsx mounts TradingViewChart directly",
+        "ChartWrapper has no runtime import and is an earlier chart adapter generation"
+      ]
+    },
+    {
+      "path": "src/components/academy/AcademyMentorFloatingCTA.tsx",
+      "reviewedBlobSha256": "fbe175916b6baa26f2ef0330fa781043d891baf1c0f7d2a333604403bfc4984d",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26", "#84"],
+      "evidence": [
+        "the component is an explicit no-op compatibility export",
+        "src/app/layout.tsx owns the active global Mentor widget"
+      ]
+    },
+    {
+      "path": "src/components/academy/AcademyStudentDashboard.tsx",
+      "reviewedBlobSha256": "d4002f18b7f3ee68a893936007a561eb1a0f058aa053bf63fd60fa33fb89629f",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26"],
+      "evidence": [
+        "src/app/academy/profile/page.tsx mounts AcademyStudentDashboardV2",
+        "src/app/en/academy/profile/page.tsx mounts AcademyStudentDashboardV2"
+      ]
+    },
+    {
+      "path": "src/components/academy/community/InstructorDashboard.tsx",
+      "reviewedBlobSha256": "d12fb21818aff512191ef68d665232c1ad54148b7d7da3ef99ed303765f9a43f",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#13", "#160"],
+      "evidence": [
+        "src/app/academy/community/instructor/page.tsx intentionally renders a fail-closed activation boundary",
+        "docs/academy/COMMUNITY_INSTRUCTOR_ACCESS_BOUNDARY.md keeps Instructor authority gated"
+      ]
+    },
+    {
+      "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx",
+      "reviewedBlobSha256": "73126a4a22c35dfaaa372e632cafa3940d0e8445ca59467c2cef9efa7dbd4c49",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26"],
+      "evidence": [
+        "src/app/academy/trading-arena/scenarios/page.tsx explicitly quarantines the browser-owned scenario engine",
+        "the component depends on the transitional src/lib/trading-scenarios.ts model"
+      ]
+    },
+    {
+      "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
+      "reviewedBlobSha256": "40e905f4d92c45265fcef2e6abffa6c38e2a233123166380b5fe46afa1f614af",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26"],
+      "evidence": [
+        "src/app/academy/trading-arena/page.tsx mounts TradingArenaExecutionClient",
+        "the legacy dashboard uses simulated prices and browser-local journal state"
+      ]
+    },
+    {
+      "path": "src/components/crypto/LivePriceChart.tsx",
+      "reviewedBlobSha256": "622d71983088f7f2d7400803eb9cb0f5cad23abc8e4bbe6043eb4a7fab6f204a",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#83", "#164"],
+      "evidence": [
+        "the active crypto route currently mounts TradingViewChart instead",
+        "PR #261 hardens this owned ticker transport before any future activation"
+      ]
+    },
+    {
+      "path": "src/components/markets/MarketsFilters.tsx",
+      "reviewedBlobSha256": "7737ed4b6f65ce9942f69ada4357a52db9624602426208415df730fda2f73983",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#80", "#83"],
+      "evidence": [
+        "the component is an explicit no-op",
+        "src/app/markets/page.tsx retains only a commented integration site"
+      ]
+    },
+    {
+      "path": "src/components/skeletons/PriceCardSkeletone.tsx",
+      "reviewedBlobSha256": "af488ac5f50b0b410b7c7a7c329b584ab172ab5f110afe4f892bea1d2058390b",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26", "#80"],
+      "evidence": [
+        "no runtime import reaches this legacy presentation helper",
+        "removal requires a loading-state and visual-regression ownership review"
+      ]
+    },
+    {
+      "path": "src/components/ui/Skeleton.tsx",
+      "reviewedBlobSha256": "04d9d876e451efc568de5ecbd7cc6211f54b1f829adc46e8fa3bce977a019032",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#80"],
+      "evidence": [
+        "the generic Skeleton is a design-system primitive with no current runtime importer",
+        "Issue #80 owns loading-state and visual-system reconciliation"
+      ]
+    },
+    {
+      "path": "src/data/academyMentorQuestionGuides.ts",
+      "reviewedBlobSha256": "5ecd29b7068d43a3460b1bb9ee6150abe7cf6c55df8dd75c44372398586176e2",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26", "#84"],
+      "evidence": [
+        "the current route tree has no runtime import of this guide catalog",
+        "docs/internal-qa/TECPEY_AI_MENTOR_404_LINKS_REMOVED_QA.md records removal of its former link surface"
+      ]
+    },
+    {
+      "path": "src/data/languages.ts",
+      "reviewedBlobSha256": "cdb1ffb687be2cf020ebeda8423d8826f806d78feff7616473e97b14336cb0b7",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#20", "#80"],
+      "evidence": [
+        "the catalog advertises locales beyond the currently governed FA/EN product",
+        "no runtime import reaches this older locale selector data"
+      ]
+    },
+    {
+      "path": "src/lib/entity.ts",
+      "reviewedBlobSha256": "bbf07b2860273ee876684b0f80bdcba18f7e52d6859a2bcbc4ee3227ccb1d6fa",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#83"],
+      "evidence": [
+        "docs/PROJECT_MASTER_STATUS.md identifies this as the SEO/GEO entity and keyword model",
+        "no active runtime consumer currently owns the model"
+      ]
+    },
+    {
+      "path": "src/lib/i18n-locale.ts",
+      "reviewedBlobSha256": "c4330e438b64f7822d588288fa13b12555900adc36e01a21839df7f400432a18",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#20", "#80"],
+      "evidence": [
+        "the current application uses the next-intl request/runtime path",
+        "this older NextRequest locale-cookie helper has no runtime importer"
+      ]
+    },
+    {
+      "path": "src/lib/mentor-cleanup.ts",
+      "reviewedBlobSha256": "fe9e37c25af70f3500cb2c941a1ee1907d9346ae284a16d0a9fe2dfd0d9624d1",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#84", "#110"],
+      "evidence": [
+        "the module implements bounded PostgreSQL cleanup but is not scheduled",
+        "docs/PROJECT_MASTER_STATUS.md explicitly retains scheduler wiring as future work"
+      ]
+    },
+    {
+      "path": "src/lib/permission.ts",
+      "reviewedBlobSha256": "d89dc584fcdb3594d841515018c32b8017ab3a5491ff82373b4c3a55ce845deb",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#13", "#26"],
+      "evidence": [
+        "its only runtime-source consumer is the unreachable src/lib/route-guards.ts helper cluster",
+        "active privileged paths use domain-specific server authorization boundaries"
+      ]
+    },
+    {
+      "path": "src/lib/product-registry.ts",
+      "reviewedBlobSha256": "e5670453a6553bcaf18f3045ca97461da4f8f5ebe965cbd1cb39e9f3c838f538",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#20", "#26"],
+      "evidence": [
+        "the registry describes strategic product modules and feature gates",
+        "no current runtime consumer makes it an authoritative product-control plane"
+      ]
+    },
+    {
+      "path": "src/lib/route-guards.ts",
+      "reviewedBlobSha256": "a69328ab484d24bc1fbf687ae3f09d271a5a1e8dbb48eb6048c96b4c23f1e4b6",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#13", "#26"],
+      "evidence": [
+        "no route imports this generic guard layer",
+        "the helper depends on the likewise transitional src/lib/permission.ts module"
+      ]
+    },
+    {
+      "path": "src/lib/security/verified-social-arena-evidence.ts",
+      "reviewedBlobSha256": "b49aab95885d580fc614670c3bfbbd26186b3b6001c9ad37223acf87f22c230d",
+      "classification": "live-refactor-required",
+      "deletionApproved": false,
+      "ownerIssues": ["#160", "#226"],
+      "evidence": [
+        "the server-only branded constructor models future official Social/Arena evidence",
+        "current authority scripts keep browser-defined official outcomes fail closed"
+      ]
+    },
+    {
+      "path": "src/lib/security/withdraw-gate.ts",
+      "reviewedBlobSha256": "4757d6a9a4bfd18412244c316c8c3aa390bbb27377e96ed7c1313d4edfb8936d",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#29", "#26"],
+      "evidence": [
+        "the source marks runWithdrawGate deprecated and compatibility-only",
+        "the canonical route uses withdrawal-admission-service and PostgreSQL authority"
+      ]
+    },
+    {
+      "path": "src/lib/trading-journal.ts",
+      "reviewedBlobSha256": "62bb0cd3e76cb4001b5746e59d0692cb7a45e54e341fb5baddc902c2f2af3dd6",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26"],
+      "evidence": [
+        "the module persists journal state in localStorage",
+        "its only source consumer is the quarantined legacy TradingArenaDashboard"
+      ]
+    },
+    {
+      "path": "src/lib/trading-scenarios.ts",
+      "reviewedBlobSha256": "a12d797bbaed439d4b1526ad787ecb9a9babb14a51204b0d7cc325fedcbdfb74",
+      "classification": "transitional",
+      "deletionApproved": false,
+      "ownerIssues": ["#26"],
+      "evidence": [
+        "its only source consumer is the quarantined ScenarioPlayer",
+        "src/app/academy/trading-arena/scenarios/page.tsx requires a future server-owned scenario engine"
+      ]
+    }
+  ]
+}
