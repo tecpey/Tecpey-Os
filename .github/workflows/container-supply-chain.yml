@@ -62,7 +62,13 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Verify governed supply-chain contract
-        run: npm run supply-chain:check
+        run: node scripts/check-production-supply-chain.mjs
+
+      - name: Install policy-test dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify governed supply-chain negative tests
+        run: node --test scripts/production-host-supply-chain-policy.test.mjs
 
       - name: Prove mandatory Compose inputs
         run: |
