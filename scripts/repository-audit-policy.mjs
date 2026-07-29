@@ -13,7 +13,6 @@ const VENDORED_PREFIXES = [
 ];
 
 const PLATFORM_CORE_PATHS = new Set([
-  "src/lib/entity.ts",
   "src/lib/feature-flags.ts",
   "src/lib/platform-config.ts",
   "src/lib/platform-types.ts",
@@ -182,7 +181,7 @@ export function classifyDomain(repositoryPath) {
     normalized.startsWith("src/services/") ||
     normalized.startsWith("src/utils/") ||
     normalized.startsWith("public/") ||
-    /^src\/lib\/(?:api|i18n-locale|locale|seo)\.ts$/.test(normalized) ||
+    /^src\/lib\/(?:api|entity|i18n-locale|locale|seo)\.ts$/.test(normalized) ||
     normalized.startsWith("src/types/")
   ) {
     return {
@@ -231,7 +230,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 3,
+  version: 4,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),
