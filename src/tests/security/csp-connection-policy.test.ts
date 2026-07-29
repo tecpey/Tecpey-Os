@@ -130,6 +130,7 @@ test("extra sources accept only exact origins and reject CSP token injection", (
     "data:",
     "'unsafe-inline'",
     "https://extra.tecpey.ir/path",
+    "https://*.example.com",
     "https://extra.tecpey.ir?query=secret",
     "https://user:secret@extra.tecpey.ir",
     "http://extra.tecpey.ir",

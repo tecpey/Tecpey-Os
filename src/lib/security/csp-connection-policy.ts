@@ -66,6 +66,7 @@ function parseOrigin(
     throw policyError(name, `scheme_${url.protocol.replace(":", "") || "missing"}`);
   }
   if (!url.hostname) throw policyError(name, "hostname_missing");
+  if (url.hostname.includes("*")) throw policyError(name, "wildcard_forbidden");
   if (url.username || url.password) throw policyError(name, "credentials_forbidden");
   if (url.search) throw policyError(name, "query_forbidden");
   if (url.hash) throw policyError(name, "fragment_forbidden");
