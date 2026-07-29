@@ -74,6 +74,12 @@ test("inline exceptions require an issue-linked reason", () => {
   );
   assert.equal(
     hasGovernedInlineException(
+      "eslint @typescript-eslint/no-explicit-any: off",
+    ),
+    false,
+  );
+  assert.equal(
+    hasGovernedInlineException(
       "// eslint-disable-next-line react-hooks/refs, react-hooks/purity -- #162: broad rule bypass",
     ),
     false,

@@ -17,6 +17,7 @@ const GOVERNED_RULES = [
 ];
 const INLINE_DIRECTIVE =
   /^\s*(?:(?:\/\/|\/\*|\{\/\*)\s*)?(eslint-disable(?:-next-line|-line)?)\b(.*?)(?:\*\/\}?)?\s*$/u;
+const INLINE_RULE_CONFIGURATION = /^\s*eslint\s+(.+)$/u;
 const GOVERNED_DESCRIPTION = /--\s+#\d+:\s+\S/;
 const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/ThemeToggle.tsx:15:5",
@@ -72,6 +73,13 @@ function fail(message) {
 }
 
 export function hasGovernedInlineException(line) {
+  const ruleConfiguration = line.match(INLINE_RULE_CONFIGURATION);
+  if (
+    ruleConfiguration &&
+    GOVERNED_RULES.some((rule) => ruleConfiguration[1].includes(rule))
+  ) {
+    return false;
+  }
   const directive = line.match(INLINE_DIRECTIVE);
   if (!directive) return true;
   if (directive[1] === "eslint-disable") return false;
@@ -194,15 +202,17 @@ export async function runAuthorityCheck() {
   }
 
   const eslint = new ESLint({ cwd: ROOT });
-  const representativeConfig = await eslint.calculateConfigForFile(
-    "src/components/ThemeToggle.tsx",
-  );
-  for (const rule of GOVERNED_RULES) {
-    const severity = representativeConfig?.rules?.[rule]?.[0];
-    if (severity !== 2) fail(`rule_not_error:${rule}:${String(severity)}`);
-  }
-
   const results = await eslint.lintFiles(["."]);
+  for (const result of results) {
+    const relative = path.relative(ROOT, result.filePath).split(path.sep).join("/");
+    const config = await eslint.calculateConfigForFile(result.filePath);
+    for (const rule of GOVERNED_RULES) {
+      const severity = config?.rules?.[rule]?.[0];
+      if (severity !== 2) {
+        fail(`rule_not_error:${relative}:${rule}:${String(severity)}`);
+      }
+    }
+  }
   await assertInlineExceptionPolicy(results.map((result) => result.filePath));
   const actual = [];
   const unexpected = [];

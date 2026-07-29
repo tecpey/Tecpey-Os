@@ -64,7 +64,12 @@ export function normalizeChartPayload(value: unknown): Chart {
   const pairCount = Math.min(chart.labels.length, chart.prices.length);
   for (let index = 0; index < pairCount; index += 1) {
     const label = chart.labels[index];
-    const price = Number(chart.prices[index]);
+    const rawPrice = chart.prices[index];
+    const price =
+      typeof rawPrice === "number" ||
+      (typeof rawPrice === "string" && rawPrice.trim().length > 0)
+        ? Number(rawPrice)
+        : Number.NaN;
     if (
       (typeof label !== "string" && typeof label !== "number") ||
       !Number.isFinite(price)

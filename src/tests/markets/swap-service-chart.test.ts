@@ -35,5 +35,17 @@ describe("market chart transport normalization", () => {
       labels: [],
       prices: [],
     });
+    assert.deepEqual(
+      normalizeChartPayload({
+        data: {
+          labels: ["10:00", "10:01", "10:02", "10:03"],
+          prices: [null, "", "  ", "4.5"],
+        },
+      }),
+      {
+        labels: ["10:03"],
+        prices: [4.5],
+      },
+    );
   });
 });
