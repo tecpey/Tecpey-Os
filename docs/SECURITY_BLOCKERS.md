@@ -89,8 +89,11 @@
 ### SB-009 — Broad CSP Fallback
 
 - **Risk:** CSP includes broad `https:`, `wss:`, and `ws:` when env vars are incomplete.
-- **Location:** `deploy/nginx/tecpey.conf`
-- **Fix:** Tighten CSP `connect-src` in production.
+- **Location:** Historical implementation in `src/proxy.ts`.
+- **Fix:** Implemented under issue #164 through the typed fail-closed connection
+  authority, production bootstrap validation, exact-origin tests and
+  privacy-minimized browser violation evidence. Closure requires final CI/runtime
+  evidence on the unchanged PR head.
 - **Target Phase:** 39.6
 
 ### SB-010 — Secret Fan-Out

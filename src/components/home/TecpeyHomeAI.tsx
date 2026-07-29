@@ -257,10 +257,10 @@ function newsSections(items: NewsItem[]) {
 function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; intelligence?: NewsResponse["marketIntelligence"] }) {
   const isFa = locale === "fa";
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT"]);
-  const btc = currencies.find((coin: any) => String(coin?.symbol ?? coin?.priceData?.symbol ?? "").includes("BTC"));
-  const eth = currencies.find((coin: any) => String(coin?.symbol ?? coin?.priceData?.symbol ?? "").includes("ETH"));
-  const btcChange = Number((btc as any)?.priceData?.changePercent ?? (btc as any)?.changePercent ?? 0);
-  const ethChange = Number((eth as any)?.priceData?.changePercent ?? (eth as any)?.changePercent ?? 0);
+  const btc = currencies.find((coin) => String(coin.symbol ?? coin.priceData?.symbol ?? "").includes("BTC"));
+  const eth = currencies.find((coin) => String(coin.symbol ?? coin.priceData?.symbol ?? "").includes("ETH"));
+  const btcChange = Number(btc?.priceData?.changePercent ?? btc?.changePercent ?? 0);
+  const ethChange = Number(eth?.priceData?.changePercent ?? eth?.changePercent ?? 0);
   const defaultBrief = isFa
     ? { headline: "بازار را با نظم، نه هیجان، دنبال کنید.", risk: "نوسان کوتاه‌مدت می‌تواند تصمیم‌های عجولانه ایجاد کند.", action: "اگر تازه‌کار هستید، قبل از هر تصمیم سری به ترم مدیریت ریسک بزنید.", tone: "neutral" as Tone }
     : { headline: "Follow the market with discipline, not emotion.", risk: "Short-term volatility can trigger rushed decisions.", action: "If you are new, review risk management before acting.", tone: "neutral" as Tone };

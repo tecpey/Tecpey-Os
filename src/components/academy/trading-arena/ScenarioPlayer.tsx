@@ -128,6 +128,43 @@ function ActiveScenario({ scenario, arenaState, onUpdate, onExit }: {
 
   const currentPrice = scenario.priceSequence[stepIndex] ?? scenario.startPrice;
 
+  function endScenario(didPass: boolean) {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setPassed(didPass);
+    setPhase("result");
+
+    const newArenaState: TradingArenaState = {
+      ...arenaState,
+      scenarioProgress: {
+        ...arenaState.scenarioProgress,
+        [scenario.id]: didPass ? "passed" : "failed",
+      },
+    };
+    saveArenaState(newArenaState);
+    onUpdate(newArenaState);
+  }
+
+  function evaluateAtEnd() {
+    const { successCriteria, failureCriteria } = scenario;
+
+    if (successCriteria.type === "pnl-positive") {
+      endScenario(scenarioState.totalRealizedPnl > 0);
+    } else if (successCriteria.type === "pnl-pct") {
+      const threshold = successCriteria.value ?? 0;
+      const pnlPct = (scenarioState.totalRealizedPnl / scenarioState.initialBalance) * 100;
+      endScenario(pnlPct >= threshold);
+    } else if (successCriteria.type === "stop-loss-set") {
+      const allHadSL = scenarioState.closedTrades.every((trade) => trade.hadStopLoss);
+      const anyTrade = scenarioState.closedTrades.length > 0;
+      endScenario(anyTrade && allHadSL);
+    } else if (failureCriteria.type === "no-stop-loss") {
+      const anyNoSL = scenarioState.closedTrades.some((trade) => !trade.hadStopLoss);
+      endScenario(!anyNoSL && scenarioState.closedTrades.length > 0);
+    } else {
+      endScenario(scenarioState.totalRealizedPnl >= 0);
+    }
+  }
+
   // Advance price on a timer during trading phase
   useEffect(() => {
     if (phase !== "trading") return;
@@ -151,7 +188,7 @@ function ActiveScenario({ scenario, arenaState, onUpdate, onExit }: {
     const prices = { BTC: currentPrice, ETH: currentPrice } as Record<Asset, number>;
     const updated = processPriceTick(scenarioState, prices);
     if (updated !== scenarioState) setScenarioState(updated);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: each price step consumes the current scenario snapshot exactly once.
   }, [stepIndex]);
 
   // Check win/loss conditions
@@ -182,46 +219,8 @@ function ActiveScenario({ scenario, arenaState, onUpdate, onExit }: {
     if (isLast) {
       evaluateAtEnd();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: terminal evaluation is keyed to step/state changes; callbacks are render-local derivations.
   }, [stepIndex, scenarioState]);
-
-  const evaluateAtEnd = () => {
-    const { successCriteria, failureCriteria } = scenario;
-
-    if (successCriteria.type === "pnl-positive") {
-      endScenario(scenarioState.totalRealizedPnl > 0);
-    } else if (successCriteria.type === "pnl-pct") {
-      const threshold = successCriteria.value ?? 0;
-      const pnlPct = (scenarioState.totalRealizedPnl / scenarioState.initialBalance) * 100;
-      endScenario(pnlPct >= threshold);
-    } else if (successCriteria.type === "stop-loss-set") {
-      const allHadSL = scenarioState.closedTrades.every((t) => t.hadStopLoss);
-      const anyTrade = scenarioState.closedTrades.length > 0;
-      endScenario(anyTrade && allHadSL);
-    } else if (failureCriteria.type === "no-stop-loss") {
-      const anyNoSL = scenarioState.closedTrades.some((t) => !t.hadStopLoss);
-      endScenario(!anyNoSL && scenarioState.closedTrades.length > 0);
-    } else {
-      endScenario(scenarioState.totalRealizedPnl >= 0);
-    }
-  };
-
-  const endScenario = (didPass: boolean) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    setPassed(didPass);
-    setPhase("result");
-
-    // Update main arena scenario progress
-    const newArenaState: TradingArenaState = {
-      ...arenaState,
-      scenarioProgress: {
-        ...arenaState.scenarioProgress,
-        [scenario.id]: didPass ? "passed" : "failed",
-      },
-    };
-    saveArenaState(newArenaState);
-    onUpdate(newArenaState);
-  };
 
   const handleBuy = () => {
     const usdtNum = parseFloat(usdt);

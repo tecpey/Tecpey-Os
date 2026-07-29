@@ -4,9 +4,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Chart from "@/components/charts/chart";
 import { handleDecimal } from "@/utils/handleDecimal";
+import type { MarketCurrency } from "@/types/market";
 
 type Props = {
-  coin: any;
+  coin: MarketCurrency;
   isIRTenabled: boolean;
   USDT_IRT?: number | string | null;
   tradeLabel: string;
@@ -104,7 +105,7 @@ export default function MarketsTableRow({
 
       {/* chart */}
       <div className="h-[28px] w-[54px] sm:h-[32px] sm:w-[76px] lg:w-[92px]">
-        <Chart symbol={coin.priceData?.symbol} change={change} height={28} />
+        <Chart symbol={coin.priceData?.symbol ?? coin.symbol ?? ""} change={change} height={28} />
       </div>
 
       {/* action */}

@@ -75,8 +75,8 @@ jobs:
       NEXT_PUBLIC_GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
       NEXT_PUBLIC_API_URL: http://127.0.0.1:3100
-      NEXT_PUBLIC_API_BACKEND_URL: http://127.0.0.1:3100
-      NEXT_PUBLIC_API_SOCKET_URL: ws://127.0.0.1:3100/ws
+      NEXT_PUBLIC_API_BACKEND_URL: https://api.e2e.tecpey.test
+      NEXT_PUBLIC_API_SOCKET_URL: wss://stream.e2e.tecpey.test/ws
       TECPEY_SESSION_SECRET: e2e-session-secret-distinct-32-characters
       TECPEY_REFRESH_SECRET: e2e-refresh-secret-distinct-32-characters
       TECPEY_ACADEMY_AUTH_SECRET: e2e-academy-auth-secret-distinct-32-chars
