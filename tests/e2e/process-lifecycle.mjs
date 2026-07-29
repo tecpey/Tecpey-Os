@@ -33,18 +33,44 @@ export function inspectLinuxProcessGroup(processGroupId, stats) {
   return { observed, hasLiveMember: false };
 }
 
-function linuxProcessGroupExists(processGroupId) {
+const unavailableProcfsCodes = new Set(["ENOENT", "EACCES", "EPERM"]);
+
+function procfsUnavailable(error) {
+  return unavailableProcfsCodes.has(error?.code);
+}
+
+export function inspectLinuxProcessGroupFromProcfs(
+  processGroupId,
+  {
+    readDirectory = () => readdirSync("/proc", { withFileTypes: true }),
+    readStat = (pid) => readFileSync(`/proc/${pid}/stat`, "utf8"),
+  } = {},
+) {
+  let entries;
+  try {
+    entries = readDirectory();
+  } catch (error) {
+    if (procfsUnavailable(error)) return null;
+    throw error;
+  }
+
   const stats = [];
-  for (const entry of readdirSync("/proc", { withFileTypes: true })) {
+  for (const entry of entries) {
     if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
     try {
-      stats.push(readFileSync(`/proc/${entry.name}/stat`, "utf8"));
+      stats.push(readStat(entry.name));
     } catch (error) {
-      if (error?.code !== "ENOENT" && error?.code !== "ESRCH") throw error;
+      if (error?.code === "ENOENT" || error?.code === "ESRCH") continue;
+      if (procfsUnavailable(error)) return null;
+      throw error;
     }
   }
   const result = inspectLinuxProcessGroup(processGroupId, stats);
   return result.observed ? result.hasLiveMember : null;
+}
+
+function linuxProcessGroupExists(processGroupId) {
+  return inspectLinuxProcessGroupFromProcfs(processGroupId);
 }
 
 function processGroupExists(child) {

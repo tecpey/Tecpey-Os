@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import {
   hasLiveProcessGroupMember,
+  inspectLinuxProcessGroupFromProcfs,
   parseLinuxProcessStat,
   stopProcessGroup,
   stopServerAndWaitForRedisDrain,
@@ -11,6 +12,10 @@ import {
 } from "./process-lifecycle.mjs";
 
 const windows = process.platform === "win32";
+
+function processError(code) {
+  return Object.assign(new Error(`procfs_${code.toLowerCase()}`), { code });
+}
 
 function spawnDelayedDescendantGroup(delayMs) {
   const descendantSource = `
@@ -82,6 +87,40 @@ test("treats zombie-only Linux process groups as stopped", () => {
     ]),
     true,
   );
+});
+
+test("treats an unavailable procfs root as unobservable", () => {
+  for (const code of ["ENOENT", "EACCES", "EPERM"]) {
+    assert.equal(
+      inspectLinuxProcessGroupFromProcfs(123, {
+        readDirectory() {
+          throw processError(code);
+        },
+      }),
+      null,
+      `${code} must use the process-signal fallback`,
+    );
+  }
+});
+
+test("treats a permission-restricted procfs stat as unobservable", () => {
+  const entries = [
+    { name: "42", isDirectory: () => true },
+    { name: "not-a-pid", isDirectory: () => true },
+  ];
+
+  for (const code of ["EACCES", "EPERM"]) {
+    assert.equal(
+      inspectLinuxProcessGroupFromProcfs(123, {
+        readDirectory: () => entries,
+        readStat() {
+          throw processError(code);
+        },
+      }),
+      null,
+      `${code} must not turn process-group shutdown into a procfs failure`,
+    );
+  }
 });
 
 test(
