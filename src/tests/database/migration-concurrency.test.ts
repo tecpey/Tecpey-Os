@@ -116,6 +116,19 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         const readiness = await checkMigrationReadiness(observer);
         assert.equal(readiness.status, "migration_running");
         assert.equal(readiness.runnerId, runnerId);
+
+        const sharedPool = new Pool({ connectionString: databaseUrl, max: 1 });
+        const unrelatedConsumer = await sharedPool.connect();
+        try {
+          assert.equal(
+            (await checkMigrationReadiness(unrelatedConsumer)).status,
+            "current",
+            "an isolated migration fixture must not change shared database readiness",
+          );
+        } finally {
+          unrelatedConsumer.release();
+          await sharedPool.end();
+        }
       } finally {
         await holder.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
         await applyDatabaseMigrationsWithLock(holder);
