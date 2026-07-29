@@ -56,6 +56,21 @@ requireText(
   'mode === "development" ? "" : (process.env.REDIS_URL ?? "")',
   "runtime smoke must prove development without Redis and production with governed Redis",
 );
+requireText(
+  runtimeSmoke,
+  "const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL",
+  "production runtime smoke must reuse the API endpoint embedded at build time",
+);
+requireText(
+  runtimeSmoke,
+  "const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL",
+  "production runtime smoke must reuse the socket endpoint embedded at build time",
+);
+rejectText(
+  runtimeSmoke,
+  "runtime-smoke.tecpey.test",
+  "production runtime smoke must not replace build-time endpoints with different origins",
+);
 
 if (failures.length) {
   console.error("Runtime bootstrap authority check failed:");

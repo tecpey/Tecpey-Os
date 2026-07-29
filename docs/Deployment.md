@@ -52,6 +52,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/tecpey
 
 # Site
 NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir/spot
 
 # Auth secrets (generate with: openssl rand -hex 32)
 TECPEY_SESSION_SECRET=your_session_secret_min_24_chars
@@ -68,6 +71,14 @@ NODE_ENV=production
 - Rotate secrets every 90 days
 - Use at least 32 random characters for each secret
 - Set file permissions: `chmod 600 /etc/tecpey/.env.production`
+- Keep `NEXT_PUBLIC_API_BACKEND_URL` and `NEXT_PUBLIC_API_SOCKET_URL` identical
+  at build and runtime; rebuild when either endpoint changes.
+- Production API/WebSocket values must be exact `https://`/`wss://` origins.
+  Plaintext schemes, credentials, placeholders and arbitrary CSP tokens fail
+  environment validation and runtime bootstrap.
+
+See `docs/security/CSP_CONNECTION_POLICY.md` for the owned integration registry,
+development policy and CSP violation-reporting contract.
 
 ---
 
