@@ -3,10 +3,11 @@
 import React, { useMemo } from "react";
 import MarketsTableRow from "./MarketsTableRow";
 import PriceTableSkeleton from "../skeletons/PriceTableSkeletone";
+import type { MarketCurrency } from "@/types/market";
 
 type Props = {
-  t: any;
-  rows: any[];
+  t: (key: string) => string;
+  rows: MarketCurrency[];
   isIRTenabled: boolean;
   USDT_IRT?: number | string | null;
   itemsPerPage: number;

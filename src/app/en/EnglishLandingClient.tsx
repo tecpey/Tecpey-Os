@@ -6,6 +6,7 @@ import { TermGateLink } from "@/components/academy/TermGateLink";
 import { EnglishShell } from "./components/EnglishUI";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import type { MarketCurrency } from "@/types/market";
 
 const features = [
   { icon: TrendingUp, title: "Educational market overview", text: "Learn first, then review reference data for Bitcoin, Tether, Ethereum and other major crypto markets before virtual practice." },
@@ -19,7 +20,7 @@ function usd(value: unknown) {
   return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 10 ? 4 : 2 }).format(n)}`;
 }
 
-function resolveUsdPrice(coin: any, symbol: string) {
+function resolveUsdPrice(coin: MarketCurrency, symbol: string) {
   if (symbol === "USDT") return 1;
   return (
     coin?.priceData?.price ??
@@ -442,7 +443,7 @@ function LearningExperienceSystemEn() {
 }
 export default function EnglishLandingClient({ schema }: { schema: React.ReactNode }) {
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
-  const fallback = [
+  const fallback: MarketCurrency[] = [
     { symbol: "BTC", name: "Bitcoin", priceData: { last: 0 } },
     { symbol: "USDT", name: "Tether", priceData: { last: 1 } },
     { symbol: "ETH", name: "Ethereum", priceData: { last: 0 } },
@@ -484,7 +485,7 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
             <h2 className="text-2xl font-black text-slate-950 dark:text-white">TecPey Educational Market Overview</h2>
             <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-400">Reference market data for learning and virtual practice · USD/USDT</p>
             <div className="mt-4 space-y-2">
-              {rows.map((coin: any, index: number) => {
+              {rows.map((coin, index) => {
                 const symbol = String(coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
                 const name = coin?.name ?? symbol;
                 const price = resolveUsdPrice(coin, symbol);

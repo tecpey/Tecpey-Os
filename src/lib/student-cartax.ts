@@ -1,9 +1,8 @@
 import { randomUUID } from "crypto";
-import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
-
-type Queryable = {
-  query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }>;
-};
+import {
+  assertRequiredDatabaseTables,
+  type SchemaQueryable,
+} from "@/lib/database-schema-contract";
 
 export type StudentCartaxInput = {
   locale?: string;
@@ -41,7 +40,7 @@ export function numeric(value: unknown, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-export async function assertStudentCartaxSchema(client: Queryable) {
+export async function assertStudentCartaxSchema(client: SchemaQueryable) {
   await assertRequiredDatabaseTables(client, [
     "academy_students",
     "academy_student_cartax",
@@ -51,7 +50,7 @@ export async function assertStudentCartaxSchema(client: Queryable) {
   ], "student_cartax");
 }
 
-export async function upsertStudentCartax(client: Queryable, input: StudentCartaxInput, fallbackStudentId?: string) {
+export async function upsertStudentCartax(client: SchemaQueryable, input: StudentCartaxInput, fallbackStudentId?: string) {
   const id = fallbackStudentId || randomUUID();
   const email = cleanText(input.email, 180) || null;
   const phone = cleanText(input.phone, 60) || null;
@@ -75,7 +74,7 @@ export async function upsertStudentCartax(client: Queryable, input: StudentCarta
      LIMIT 1`,
     [email, phone, googleId, appleId, id, username],
   );
-  const studentId = lookup.rows[0]?.id || id;
+  const studentId = String(lookup.rows[0]?.id ?? id);
   const publicStudentId = makePublicStudentId(studentId);
 
   await client.query(
