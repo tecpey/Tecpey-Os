@@ -22,8 +22,12 @@ const hygieneSource = fs.readFileSync(
 if (!hygieneSource.includes('  "artifacts",')) {
   throw new Error("Repository hygiene must exclude generated audit artifacts from its working-tree inventory");
 }
-if (!hygieneSource.includes("[\\\\s;&|]")) {
-  throw new Error("Repository hygiene package-binary detection must preserve its whitespace boundary");
+const packageBinaryBoundaryCount =
+  hygieneSource.match(/\[\\\\s;&\|\]/g)?.length ?? 0;
+if (packageBinaryBoundaryCount < 2) {
+  throw new Error(
+    "Repository hygiene package-binary detection must preserve both whitespace boundaries",
+  );
 }
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
