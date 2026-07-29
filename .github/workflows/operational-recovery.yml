@@ -61,7 +61,16 @@ jobs:
       - name: Build exact migration image
         env:
           RECOVERY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: docker build --target runner --tag "tecpey-recovery:$RECOVERY_SHA" .
+        run: >-
+          docker build
+          --build-arg "TECPEY_BUILD_COMMIT_SHA=$RECOVERY_SHA"
+          --build-arg "NEXT_PUBLIC_SITE_URL=https://tecpey.ir"
+          --build-arg "NEXT_PUBLIC_API_URL=https://my.tecpey.ir"
+          --build-arg "NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir"
+          --build-arg "NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir"
+          --target runner
+          --tag "tecpey-recovery:$RECOVERY_SHA"
+          .
 
       - name: Execute isolated PostgreSQL and Redis restore
         env:

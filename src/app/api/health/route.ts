@@ -119,7 +119,7 @@ export async function GET(request: Request) {
     },
     build: {
       version: process.env.NEXT_PUBLIC_BUILD_VERSION ?? process.env.npm_package_version ?? "unknown",
-      commit: process.env.NEXT_PUBLIC_GIT_COMMIT ?? "unknown",
+      commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown",
       node: process.version,
     },
     memory: memoryUsageMb(),
