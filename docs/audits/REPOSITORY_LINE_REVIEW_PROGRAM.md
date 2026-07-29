@@ -40,8 +40,9 @@ without review.
 - Binary content is never decoded as text. Its semantic scan is explicitly
   marked not applicable, while ownership review remains required.
 - Automated scanning is intentionally narrow: unresolved conflict markers are
-  P1 and source-owned TODO/FIXME/HACK markers are P3 review debt. These results
-  do not substitute for semantic review.
+  P1 and standalone source-comment TODO/FIXME/HACK annotations are P3 review
+  debt. Prose, string literals, scanner definitions and Markdown headings do
+  not become findings. These results do not substitute for semantic review.
 
 ## Review batches
 

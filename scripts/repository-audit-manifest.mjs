@@ -68,12 +68,18 @@ function parseTree(buffer) {
     const match = /^(?<mode>\d{6}) (?<type>\S+) (?<object>[0-9a-f]+)$/.exec(header);
     if (!match?.groups) throw new Error(`Unexpected git ls-tree header: ${JSON.stringify(header)}`);
     const repositoryPath = decodeUtf8(rawEntry.subarray(tab + 1), "tracked path");
-    if (match.groups.type !== "blob") {
-      throw new Error(`Tracked path ${repositoryPath} is a ${match.groups.type}; only blob entries are supported`);
+    if (
+      match.groups.type !== "blob" &&
+      !(match.groups.type === "commit" && match.groups.mode === "160000")
+    ) {
+      throw new Error(
+        `Tracked path ${repositoryPath} has unsupported Git type ${match.groups.type} and mode ${match.groups.mode}`,
+      );
     }
     entries.push({
       gitMode: match.groups.mode,
       objectId: match.groups.object,
+      objectType: match.groups.type,
       path: repositoryPath,
     });
     offset = end + 1;
@@ -113,15 +119,47 @@ function contentKindForBlob(blob) {
   }
 }
 
+function debtAnnotationPattern(repositoryPath) {
+  const extension = repositoryPath.split(".").at(-1)?.toLowerCase();
+  if (["md", "mdx", "html", "htm", "svg"].includes(extension)) {
+    return /^\s*<!--\s*(?:TODO|FIXME|HACK)\b/;
+  }
+  if (["sh", "bash", "zsh", "yml", "yaml", "py", "rb", "toml", "conf"].includes(extension)) {
+    return /^\s*#\s*(?:TODO|FIXME|HACK)\b/;
+  }
+  if (
+    [
+      "c",
+      "cc",
+      "cpp",
+      "css",
+      "cjs",
+      "go",
+      "java",
+      "js",
+      "jsx",
+      "mjs",
+      "rs",
+      "scss",
+      "ts",
+      "tsx",
+    ].includes(extension)
+  ) {
+    return /^\s*(?:\/\/|\/\*+|\*)\s*(?:TODO|FIXME|HACK)\b/;
+  }
+  return null;
+}
+
 function lineCount(text) {
   if (text.length === 0) return 0;
   const breaks = text.match(/\r\n|\r|\n/g)?.length ?? 0;
   return breaks + (/(?:\r\n|\r|\n)$/.test(text) ? 0 : 1);
 }
 
-function scanText(text, provenance) {
+function scanText(text, provenance, repositoryPath) {
   const findings = [];
   const lines = text.split(/\r\n|\r|\n/);
+  const debtPattern = debtAnnotationPattern(repositoryPath);
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (/^(?:<<<<<<< .+|=======|>>>>>>> .+)$/.test(line)) {
@@ -131,15 +169,12 @@ function scanText(text, provenance) {
         line: index + 1,
       });
     }
-    if (provenance === "source") {
-      const markerPattern = /\b(?:TODO|FIXME|HACK)\b/g;
-      for (const _match of line.matchAll(markerPattern)) {
-        findings.push({
-          severity: "P3",
-          ruleId: "review-debt-marker",
-          line: index + 1,
-        });
-      }
+    if (provenance === "source" && debtPattern?.test(line)) {
+      findings.push({
+        severity: "P3",
+        ruleId: "standalone-review-debt-annotation",
+        line: index + 1,
+      });
     }
   }
   return findings;
@@ -213,25 +248,31 @@ export async function generateRepositoryAuditManifest({
     sourceCommitSha,
   ]);
   const treeEntries = parseTree(treeBuffer).sort(comparePaths);
-  const batchInput = Buffer.from(treeEntries.map((entry) => `${entry.objectId}\n`).join(""), "ascii");
+  const blobEntries = treeEntries.filter((entry) => entry.objectType === "blob");
+  const batchInput = Buffer.from(blobEntries.map((entry) => `${entry.objectId}\n`).join(""), "ascii");
   const blobBuffer = await runGit(repositoryRoot, ["cat-file", "--batch"], { input: batchInput });
-  const blobs = parseBatchBlobs(blobBuffer, treeEntries);
+  const blobs = parseBatchBlobs(blobBuffer, blobEntries);
 
   const files = treeEntries.map((entry) => {
-    const blob = blobs.get(entry.objectId);
-    const contentKind = contentKindForBlob(blob);
-    const provenance = classifyProvenance(entry.path);
+    const isGitlink = entry.objectType === "commit";
+    const blob = isGitlink ? null : blobs.get(entry.objectId);
+    const contentKind = isGitlink ? "gitlink" : contentKindForBlob(blob);
+    const provenance = isGitlink ? "vendored" : classifyProvenance(entry.path);
     const domain = classifyDomain(entry.path);
     const text = contentKind === "text" ? decodeUtf8(blob, entry.path) : null;
-    const findings = text === null ? [] : scanText(text, provenance);
+    const findings = text === null ? [] : scanText(text, provenance, entry.path);
+    const digestInput = isGitlink
+      ? Buffer.from(`gitlink\0${entry.objectId}`, "ascii")
+      : blob;
     return {
       path: entry.path,
       gitMode: entry.gitMode,
       gitObjectId: entry.objectId,
+      gitObjectType: entry.objectType,
       fileType: fileTypeForPath(entry.path, entry.gitMode),
-      bytes: blob.length,
+      bytes: isGitlink ? 0 : blob.length,
       lines: text === null ? null : lineCount(text),
-      sha256: createHash("sha256").update(blob).digest("hex"),
+      sha256: createHash("sha256").update(digestInput).digest("hex"),
       contentKind,
       provenance,
       domain: domain.domain,
@@ -239,7 +280,11 @@ export async function generateRepositoryAuditManifest({
       reviewBatch: domain.reviewBatch,
       classificationRule: domain.classificationRule,
       automatedScan: {
-        status: text === null ? "not-applicable-binary" : "completed",
+        status: isGitlink
+          ? "not-applicable-gitlink"
+          : text === null
+            ? "not-applicable-binary"
+            : "completed",
         findingCounts: findingCounts(findings),
         findings,
       },

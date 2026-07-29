@@ -1,6 +1,8 @@
 import path from "node:path";
 
 const GENERATED_PATHS = new Set([
+  "docs/security/generated/api-security-manifest.json",
+  "docs/security/generated/tenant-principal-isolation-inventory.json",
   "package-lock.json",
   "tests/e2e/package-lock.json",
 ]);
@@ -229,7 +231,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 2,
+  version: 3,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),

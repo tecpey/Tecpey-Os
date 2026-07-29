@@ -37,7 +37,7 @@ async function fixtureRepository() {
   await git(root, "init", "--quiet");
   await fs.mkdir(path.join(root, "src", "lib", "wallet"), { recursive: true });
   await fs.mkdir(path.join(root, "public", "charting_library"), { recursive: true });
-  await fs.writeFile(path.join(root, "README.md"), "review me\n", "utf8");
+  await fs.writeFile(path.join(root, "README.md"), "TODO appears here as prose, not an annotation\n", "utf8");
   await fs.writeFile(path.join(root, "src", "lib", "wallet", "sign.ts"), "// TODO harden\n", "utf8");
   await fs.writeFile(path.join(root, "public", "charting_library", "vendor.js"), "// TODO vendor\n", "utf8");
   await fs.writeFile(path.join(root, "asset.bin"), Buffer.from([0x00, 0xff, 0x01]));
@@ -67,6 +67,7 @@ test("manifest inventories the exact committed tree with deterministic evidence"
   assert.equal(first.summary.trackedPaths, 4);
   assert.equal(first.files.some((file) => file.path === "untracked.txt"), false);
   assert.equal(first.files.find((file) => file.path === "README.md").lines, 1);
+  assert.equal(first.files.find((file) => file.path === "README.md").automatedScan.findingCounts.P3, 0);
   assert.equal(first.files.find((file) => file.path === "asset.bin").lines, null);
   assert.equal(first.files.find((file) => file.path.endsWith("sign.ts")).riskTier, "P0");
   assert.equal(first.files.find((file) => file.path.endsWith("sign.ts")).automatedScan.findingCounts.P3, 1);
@@ -121,8 +122,63 @@ test("manifest verification rejects tampering or path omission", async (t) => {
   );
 });
 
+test("manifest inventories a tracked gitlink without requiring submodule object content", async (t) => {
+  const root = await fixtureRepository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const referencedCommit = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+  await git(
+    root,
+    "update-index",
+    "--add",
+    "--cacheinfo",
+    `160000,${referencedCommit},vendor/component`,
+  );
+  await git(root, "commit", "--quiet", "-m", "track gitlink");
+
+  const manifest = await generateRepositoryAuditManifest({ repositoryRoot: root });
+  const gitlink = manifest.files.find((file) => file.path === "vendor/component");
+  assert.deepEqual(
+    {
+      gitMode: gitlink.gitMode,
+      gitObjectId: gitlink.gitObjectId,
+      gitObjectType: gitlink.gitObjectType,
+      fileType: gitlink.fileType,
+      bytes: gitlink.bytes,
+      lines: gitlink.lines,
+      contentKind: gitlink.contentKind,
+      provenance: gitlink.provenance,
+      scanStatus: gitlink.automatedScan.status,
+      reviewStatus: gitlink.review.status,
+    },
+    {
+      gitMode: "160000",
+      gitObjectId: referencedCommit,
+      gitObjectType: "commit",
+      fileType: "gitlink",
+      bytes: 0,
+      lines: null,
+      contentKind: "gitlink",
+      provenance: "vendored",
+      scanStatus: "not-applicable-gitlink",
+      reviewStatus: "ownership-review-pending",
+    },
+  );
+});
+
 test("policy assigns explicit provenance, domains, batches and pending status", () => {
   assert.equal(classifyProvenance("package-lock.json"), "generated");
+  assert.equal(
+    classifyProvenance("docs/security/generated/api-security-manifest.json"),
+    "generated",
+  );
+  assert.equal(
+    classifyProvenance("docs/security/generated/tenant-principal-isolation-inventory.json"),
+    "generated",
+  );
+  assert.equal(
+    classifyProvenance("docs/security/generated/api-security-manifest-reviewed-deltas.json"),
+    "source",
+  );
   assert.equal(classifyProvenance("public/charting_library/bundle.js"), "vendored");
   assert.equal(classifyProvenance("src/app/page.tsx"), "source");
   assert.deepEqual(classifyDomain("src/lib/wallet/keystore.ts"), {
