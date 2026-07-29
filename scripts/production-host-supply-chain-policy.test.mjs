@@ -19,6 +19,9 @@ const sources = {
   healthRoute: fs.readFileSync("src/app/api/health/route.ts", "utf8"),
   dockerfile: fs.readFileSync("Dockerfile", "utf8"),
   containerWorkflow: fs.readFileSync(".github/workflows/container-supply-chain.yml", "utf8"),
+  environmentTemplate: fs.readFileSync(".env.production.example", "utf8"),
+  environmentValidator: fs.readFileSync("scripts/validate-env.mjs", "utf8"),
+  systemdService: fs.readFileSync("deploy/systemd/tecpey-web.service", "utf8"),
   deploymentDocs: [
     ["Ubuntu quick deployment guide", fs.readFileSync("DEPLOY_UBUNTU_24.md", "utf8")],
     [
@@ -32,7 +35,6 @@ const sources = {
     ["Mac ZIP no-error install guide", fs.readFileSync("INSTALL_MAC_NO_ERROR.md", "utf8")],
   ],
 };
-const preflightPath = path.resolve("scripts/ubuntu24-preflight.sh");
 const expectedReleaseSha = "a".repeat(40);
 const healthyPayload = {
   ok: true,
@@ -56,6 +58,9 @@ function runPreflight(t, {
   curlExitCode = 22,
   curlSuccessAfter = 0,
   gitStatusOutput = "",
+  migrationExitCode = 0,
+  systemdNodeMajor = "22",
+  systemdNpmMajor = "10",
   healthPayload = healthyPayload,
   liveWorktreeIsFixture = false,
   phase = "runtime",
@@ -66,7 +71,7 @@ function runPreflight(t, {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(root, "package.json"), "{}\n");
   fs.writeFileSync(path.join(root, ".env.production"), "NODE_ENV=production\n");
-  if (phase === "runtime") {
+  if (phase !== "candidate") {
     fs.mkdirSync(path.join(root, ".next"));
     fs.writeFileSync(
       path.join(root, ".next", "required-server-files.json"),
@@ -80,21 +85,34 @@ function runPreflight(t, {
 
   writeExecutable(
     path.join(bin, "node"),
+    '#!/usr/bin/env bash\nprintf "22\\n"\n',
+  );
+  writeExecutable(
+    path.join(bin, "npm"),
+    '#!/usr/bin/env bash\nprintf "10.0.0\\n"\n',
+  );
+  const systemdNode = path.join(bin, "systemd-node");
+  const systemdNpm = path.join(bin, "systemd-npm");
+  writeExecutable(
+    systemdNode,
     `#!/usr/bin/env bash
 if [ "\${1:-}" = "-p" ]; then
-  printf "%s\\n" "\${FAKE_NODE_MAJOR:-22}"
+  printf "%s\\n" "\${FAKE_SYSTEMD_NODE_MAJOR:-22}"
 elif [ "\${1:-}" = "-v" ] || [ "\${1:-}" = "--version" ]; then
-  printf "v%s.0.0\\n" "\${FAKE_NODE_MAJOR:-22}"
+  printf "v%s.0.0\\n" "\${FAKE_SYSTEMD_NODE_MAJOR:-22}"
+elif [ "\${1:-}" = "--env-file=.env.production" ]; then
+  printf "node NODE_ENV=%s %s\\n" "\${NODE_ENV:-}" "$*" >> "$FAKE_COMMAND_LOG"
+  exit "$FAKE_MIGRATION_EXIT_CODE"
 else
   exec "$REAL_NODE" "$@"
 fi
 `,
   );
   writeExecutable(
-    path.join(bin, "npm"),
+    systemdNpm,
     `#!/usr/bin/env bash
 if [ "\${1:-}" = "--version" ] || [ "\${1:-}" = "-v" ]; then
-  printf "%s.0.0\\n" "\${FAKE_NPM_MAJOR:-10}"
+  printf "%s.0.0\\n" "\${FAKE_SYSTEMD_NPM_MAJOR:-10}"
   exit 0
 fi
 printf "npm %s\\n" "$*" >> "$FAKE_COMMAND_LOG"
@@ -140,17 +158,23 @@ exit "$FAKE_CURL_EXIT_CODE"
 `,
   );
 
-  let executablePreflightPath = preflightPath;
+  const executablePreflightPath = path.join(root, "ubuntu24-preflight.sh");
+  let executablePreflight = sources.preflight
+    .replace(
+      "readonly SYSTEMD_NODE_BIN=/usr/bin/node",
+      `readonly SYSTEMD_NODE_BIN=${JSON.stringify(systemdNode)}`,
+    )
+    .replace(
+      "readonly SYSTEMD_NPM_BIN=/usr/bin/npm",
+      `readonly SYSTEMD_NPM_BIN=${JSON.stringify(systemdNpm)}`,
+    );
   if (liveWorktreeIsFixture) {
-    executablePreflightPath = path.join(root, "ubuntu24-preflight.sh");
-    fs.writeFileSync(
-      executablePreflightPath,
-      sources.preflight.replace(
-        "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey",
-        `readonly SYSTEMD_LIVE_WORKTREE=${JSON.stringify(root)}`,
-      ),
+    executablePreflight = executablePreflight.replace(
+      "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey",
+      `readonly SYSTEMD_LIVE_WORKTREE=${JSON.stringify(root)}`,
     );
   }
+  writeExecutable(executablePreflightPath, executablePreflight);
 
   const result = spawnSync("/bin/bash", [executablePreflightPath, phase], {
     cwd: root,
@@ -164,8 +188,9 @@ exit "$FAKE_CURL_EXIT_CODE"
       FAKE_CURL_SUCCESS_AFTER: String(curlSuccessAfter),
       FAKE_HEALTH_PAYLOAD: JSON.stringify(healthPayload),
       FAKE_GIT_STATUS: gitStatusOutput,
-      FAKE_NODE_MAJOR: "22",
-      FAKE_NPM_MAJOR: "10",
+      FAKE_MIGRATION_EXIT_CODE: String(migrationExitCode),
+      FAKE_SYSTEMD_NODE_MAJOR: systemdNodeMajor,
+      FAKE_SYSTEMD_NPM_MAJOR: systemdNpmMajor,
       FAKE_RELEASE_SHA: expectedReleaseSha,
       REAL_NODE: process.execPath,
     },
@@ -243,7 +268,10 @@ test("policy rejects mutable global process-manager installation", () => {
 test("policy rejects non-lockfile production installation", () => {
   const mutated = {
     ...sources,
-    preflight: sources.preflight.replace("npm ci --no-audit --no-fund", "npm install"),
+    preflight: sources.preflight.replace(
+      '"$SYSTEMD_NPM_BIN" ci --no-audit --no-fund',
+      '"$SYSTEMD_NPM_BIN" install',
+    ),
   };
   const findings = productionHostSupplyChainFindings(mutated).join("\n");
   assert.match(findings, /exact lockfile/);
@@ -314,8 +342,8 @@ test("policy rejects runtime-mutable or unbound build identity", () => {
   const unboundPreflight = {
     ...sources,
     preflight: sources.preflight.replace(
-      'TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build',
-      "npm run build",
+      'PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build',
+      '"$SYSTEMD_NPM_BIN" run build',
     ),
   };
   assert.match(
@@ -461,7 +489,7 @@ test("policy rejects a mutable or fail-open production verification wrapper", ()
   }
 });
 
-test("real preflight separates isolated candidate build from promoted runtime verification", async (t) => {
+test("real preflight separates candidate build, migration and promoted runtime verification", async (t) => {
   await t.test("candidate", (subtest) => {
     const result = runPreflight(subtest, { phase: "candidate" });
     assert.equal(result.status, 0, result.stderr);
@@ -470,6 +498,26 @@ test("real preflight separates isolated candidate build from promoted runtime ve
     assert.match(result.commandLog, /^npm run env:check$/m);
     assert.match(result.commandLog, /^npm run check$/m);
     assert.match(result.commandLog, /^npm run build$/m);
+  });
+
+  await t.test("migration", (subtest) => {
+    const result = runPreflight(subtest, { phase: "migrate" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.curlCount, 0);
+    assert.match(
+      result.commandLog,
+      /^node NODE_ENV=production --env-file=\.env\.production dist\/run-production-bootstrap\.cjs migrate$/m,
+    );
+    assert.doesNotMatch(result.commandLog, /^npm /m);
+  });
+
+  await t.test("migration failure", (subtest) => {
+    const result = runPreflight(subtest, {
+      phase: "migrate",
+      migrationExitCode: 1,
+    });
+    assert.equal(result.status, 1);
+    assert.doesNotMatch(result.stdout, /migration passed/);
   });
 
   await t.test("runtime", (subtest) => {
@@ -481,16 +529,18 @@ test("real preflight separates isolated candidate build from promoted runtime ve
   });
 });
 
-test("promoted live worktree permits runtime checks but refuses candidate builds", async (t) => {
-  await t.test("candidate", (subtest) => {
-    const result = runPreflight(subtest, {
-      phase: "candidate",
-      liveWorktreeIsFixture: true,
+test("promoted live worktree permits runtime checks but refuses candidate build and migration", async (t) => {
+  for (const phase of ["candidate", "migrate"]) {
+    await t.test(phase, (subtest) => {
+      const result = runPreflight(subtest, {
+        phase,
+        liveWorktreeIsFixture: true,
+      });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /Refusing to build or migrate inside the live systemd working tree/);
+      assert.doesNotMatch(result.commandLog, /^(?:npm|node) /m);
     });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /Refusing to verify inside the live systemd working tree/);
-    assert.doesNotMatch(result.commandLog, /^npm /m);
-  });
+  }
 
   await t.test("runtime", (subtest) => {
     const result = runPreflight(subtest, {
@@ -504,17 +554,17 @@ test("promoted live worktree permits runtime checks but refuses candidate builds
   });
 });
 
-test("policy requires the live-worktree refusal to be candidate-only", () => {
+test("policy requires live-worktree refusal for build and migration but not runtime", () => {
   const mutated = {
     ...sources,
     preflight: sources.preflight.replace(
-      'if [ "$VERIFICATION_PHASE" = "candidate" ] &&\n  ',
+      'if [ "$VERIFICATION_PHASE" != "runtime" ] &&\n  ',
       "if ",
     ),
   };
   assert.match(
     productionHostSupplyChainFindings(mutated).join("\n"),
-    /refuse the live worktree only during candidate verification/,
+    /refuse the live worktree during candidate build and migration/,
   );
 });
 
@@ -539,44 +589,18 @@ test("real runtime verification rejects artifact metadata from another commit be
   assert.match(result.stderr, /artifact commit does not match/);
 });
 
-test("real preflight rejects an unapproved Node.js or npm major before installation", (t) => {
+test("real preflight rejects unapproved systemd binaries even when PATH reports approved versions", (t) => {
   for (const [nodeMajor, npmMajor] of [
     ["21", "10"],
     ["22", "11"],
   ]) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-host-version-"));
-    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const bin = path.join(root, "bin");
-    fs.mkdirSync(bin);
-    fs.writeFileSync(path.join(root, "package.json"), "{}\n");
-    fs.writeFileSync(path.join(root, ".env.production"), "NODE_ENV=production\n");
-    const commandLog = path.join(root, "commands.log");
-    writeExecutable(
-      path.join(bin, "node"),
-      `#!/usr/bin/env bash
-if [ "\${1:-}" = "-p" ]; then printf "%s\\n" "$FAKE_NODE_MAJOR"; else printf "v%s.0.0\\n" "$FAKE_NODE_MAJOR"; fi
-`,
-    );
-    writeExecutable(
-      path.join(bin, "npm"),
-      `#!/usr/bin/env bash
-if [ "\${1:-}" = "--version" ] || [ "\${1:-}" = "-v" ]; then printf "%s.0.0\\n" "$FAKE_NPM_MAJOR"; exit 0; fi
-printf "npm %s\\n" "$*" >> "$FAKE_COMMAND_LOG"
-`,
-    );
-    const result = spawnSync("/bin/bash", [preflightPath, "candidate"], {
-      cwd: root,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${bin}:${process.env.PATH}`,
-        FAKE_COMMAND_LOG: commandLog,
-        FAKE_NODE_MAJOR: nodeMajor,
-        FAKE_NPM_MAJOR: npmMajor,
-      },
+    const result = runPreflight(t, {
+      phase: "candidate",
+      systemdNodeMajor: nodeMajor,
+      systemdNpmMajor: npmMajor,
     });
     assert.equal(result.status, 1);
-    assert.equal(fs.existsSync(commandLog), false, "npm install/build commands must not run");
+    assert.doesNotMatch(result.commandLog, /^npm /m);
   }
 });
 
@@ -725,7 +749,7 @@ test("policy rejects hidden untracked changes or live-tree verification guidance
     deploymentDocs,
   }).join("\n");
   assert.match(docFindings, /separate isolated candidate verification from runtime promotion/);
-  assert.match(docFindings, /select an explicit candidate or runtime verification phase/);
+  assert.match(docFindings, /select an explicit candidate, migration or runtime verification phase/);
 });
 
 test("policy requires systemd migration before promotion and restart", () => {
@@ -733,7 +757,7 @@ test("policy requires systemd migration before promotion and restart", () => {
     label,
     label === "Ubuntu production deployment guide"
       ? source.replace(
-          "node dist/run-production-bootstrap.cjs migrate",
+          "bash scripts/ubuntu24-preflight.sh migrate",
           "echo migration omitted",
         )
       : source,
@@ -752,10 +776,10 @@ test("policy requires systemd migration before promotion and restart", () => {
     label,
     label === "Ubuntu production deployment guide"
       ? source
-          .replace("node dist/run-production-bootstrap.cjs migrate", "migration deferred")
+          .replace("bash scripts/ubuntu24-preflight.sh migrate", "migration deferred")
           .replace(
             "bash scripts/ubuntu24-preflight.sh runtime",
-            "node dist/run-production-bootstrap.cjs migrate\nbash scripts/ubuntu24-preflight.sh runtime",
+            "bash scripts/ubuntu24-preflight.sh migrate\nbash scripts/ubuntu24-preflight.sh runtime",
           )
       : source,
   ]);
@@ -768,8 +792,13 @@ test("policy requires systemd migration before promotion and restart", () => {
   );
 });
 
-test("container workflow triggers for every build-identity source", () => {
-  for (const path of ["next.config.ts", "scripts/resolve-build-identity.ts"]) {
+test("container workflow triggers for every build and environment authority source", () => {
+  for (const path of [
+    ".env.production.example",
+    "next.config.ts",
+    "scripts/resolve-build-identity.ts",
+    "scripts/validate-env.mjs",
+  ]) {
     const mutated = {
       ...sources,
       containerWorkflow: sources.containerWorkflow.replace(`      - ${path}\n`, ""),
@@ -779,4 +808,103 @@ test("container workflow triggers for every build-identity source", () => {
       new RegExp(`must run for build-identity source changes: ${path.replaceAll(".", "\\.")}`),
     );
   }
+});
+
+test("production template covers every validator-required and runtime-required key", () => {
+  const requiredBlock = /const required = \[([\s\S]*?)\];/.exec(
+    sources.environmentValidator,
+  );
+  assert.ok(requiredBlock);
+  const requiredKeys = [
+    ...requiredBlock[1].matchAll(/'([A-Z][A-Z0-9_]*)'/g),
+  ].map((match) => match[1]);
+
+  for (const key of [
+    ...requiredKeys,
+    "NODE_ENV",
+    "REDIS_URL",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+  ]) {
+    const mutated = {
+      ...sources,
+      environmentTemplate: sources.environmentTemplate.replace(
+        new RegExp(`^${key}=.*\\n`, "m"),
+        "",
+      ),
+    };
+    assert.match(
+      productionHostSupplyChainFindings(mutated).join("\n"),
+      new RegExp(`Production environment template must declare (?:required|runtime) key: ${key}`),
+    );
+  }
+});
+
+test("production template fails unchanged and passes after complete governed replacement", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-production-env-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const validator = path.resolve("scripts/validate-env.mjs");
+  const environmentPath = path.join(root, ".env.production");
+  const runValidator = () =>
+    spawnSync(process.execPath, [validator], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        LANG: "C",
+        LC_ALL: "C",
+      },
+    });
+
+  fs.writeFileSync(environmentPath, sources.environmentTemplate);
+  const unchanged = runValidator();
+  assert.equal(unchanged.status, 1);
+  assert.match(unchanged.stderr, /still contains a placeholder/);
+
+  const values = {
+    TECPEY_SESSION_SECRET: "a".repeat(32),
+    TECPEY_REFRESH_SECRET: "b".repeat(32),
+    TECPEY_ACADEMY_AUTH_SECRET: "c".repeat(32),
+    CERTIFICATE_SIGNING_SECRET: "d".repeat(32),
+    TECPEY_WITHDRAWAL_PRICE_SECRET: "e".repeat(32),
+    TECPEY_OFFLINE_SYNC_SECRET: "f".repeat(32),
+    TECPEY_CRM_PII_KEY_B64: Buffer.alloc(32, 7).toString("base64"),
+    TECPEY_CRM_CONTACT_HASH_SECRET: "g".repeat(32),
+    DATABASE_URL: "postgresql://tecpey:test-password@postgres:5432/tecpey",
+    REDIS_URL: "redis://:test-password@redis:6379",
+    UPSTASH_REDIS_REST_URL: "https://rate-limit-redis.example.invalid",
+    UPSTASH_REDIS_REST_TOKEN: "test-rate-limit-token",
+  };
+  const configured = sources.environmentTemplate
+    .split(/\r?\n/)
+    .map((line) => {
+      const match = /^([A-Z][A-Z0-9_]*)=/.exec(line);
+      return match && Object.hasOwn(values, match[1])
+        ? `${match[1]}=${values[match[1]]}`
+        : line;
+    })
+    .join("\n");
+  assert.doesNotMatch(configured, /^[A-Z][A-Z0-9_]*=.*REPLACE_WITH/m);
+  fs.writeFileSync(environmentPath, configured);
+
+  const validated = runValidator();
+  assert.equal(validated.status, 0, validated.stderr);
+  assert.match(validated.stdout, /environment validation passed/);
+});
+
+test("policy binds preflight and systemd to the same exact runtime binaries", () => {
+  const mutated = {
+    ...sources,
+    preflight: sources.preflight
+      .replace("readonly SYSTEMD_NODE_BIN=/usr/bin/node", "readonly SYSTEMD_NODE_BIN=node")
+      .replace("readonly SYSTEMD_NPM_BIN=/usr/bin/npm", "readonly SYSTEMD_NPM_BIN=npm"),
+    systemdService: sources.systemdService.replace(
+      "ExecStart=/usr/bin/node dist/run-production-bootstrap.cjs server",
+      "ExecStart=/usr/local/bin/npm run start",
+    ),
+  };
+  const findings = productionHostSupplyChainFindings(mutated).join("\n");
+  assert.match(findings, /verify the systemd Node\.js binary/);
+  assert.match(findings, /governed candidate npm binary/);
+  assert.match(findings, /systemd must execute the exact Node\.js binary/);
 });

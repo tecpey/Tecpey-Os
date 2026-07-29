@@ -30,11 +30,17 @@ cp .env.production.example .env.production
 nano .env.production
 ```
 
-Set at minimum:
+The tracked template is the governed list of variables required by
+`npm run env:check`, including the public API/socket origins, distinct signing
+secrets, CRM protection keys, trusted-proxy settings, PostgreSQL, Redis and
+coordinated rate-limiting credentials. Replace every `REPLACE_WITH` value
+through the approved secret/configuration manager before verification. The
+candidate gate rejects an unchanged or incomplete template.
+
+For the Compose path, the approved secret values must preserve these internal
+service hosts:
 
 ```env
-NEXT_PUBLIC_SITE_URL=https://tecpey.ir
-OPENAI_API_KEY=YOUR_NEW_PRODUCTION_KEY
 DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey
 REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379
 ```
@@ -101,7 +107,11 @@ Expected:
 ## 6. Optional pre-provisioned systemd verification
 
 The checked-in systemd unit remains an audited runtime authority for an
-infrastructure-managed host that already provides approved Node/npm packages.
+infrastructure-managed host that already provides approved `/usr/bin/node` and
+`/usr/bin/npm` packages. The unit executes
+`/usr/bin/node dist/run-production-bootstrap.cjs server` directly; candidate
+verification checks and uses those same binaries rather than a shell-specific
+nvm/asdf/PATH selection.
 The repository does not install those privileged dependencies. Never build in
 the live systemd working tree at `/var/www/tecpey`. Prepare an exact detached
 checkout in an isolated path such as
@@ -123,7 +133,7 @@ isolated candidate passes, run the governed compiled migration target from that
 same exact candidate and require its successful `schema: "current"` result:
 
 ```bash
-node dist/run-production-bootstrap.cjs migrate
+bash scripts/ubuntu24-preflight.sh migrate
 ```
 
 Only after the migration succeeds may the infrastructure owner perform the
@@ -136,11 +146,14 @@ checkout and bind the live readiness result to the same exact commit:
 bash scripts/ubuntu24-preflight.sh runtime
 ```
 
-Both phases reject tracked or untracked source changes and refuse to run from
-the live systemd working tree. The candidate phase fails on environment,
-static-check, or production-build errors. The runtime phase fails on an
-unhealthy service or a baked artifact commit that differs from the isolated
-candidate. Runtime environment variables cannot override this build identity.
+All three phases reject tracked or untracked source changes. Candidate build and
+migration refuse the live systemd working tree. The candidate phase fails on
+environment, static-check, or production-build errors. The migration phase
+loads the approved candidate `.env.production` explicitly with Node's
+`--env-file` support and fails unless the compiled migration authority reaches
+the current schema. The runtime phase fails on an unhealthy service or a baked
+artifact commit that differs from the isolated candidate. Runtime environment
+variables cannot override this build identity.
 
 ## 7. Operational checklist
 

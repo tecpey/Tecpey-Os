@@ -23,6 +23,8 @@ const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
 const rollback = read("scripts/test-container-image-rollback.sh");
 const systemdService = read("deploy/systemd/tecpey-web.service");
+const environmentTemplate = read(".env.production.example");
+const environmentValidator = read("scripts/validate-env.mjs");
 const hostBaseInstaller = read("scripts/ubuntu24-install-base.sh");
 const pm2Deploy = read("scripts/ubuntu24-deploy-pm2.sh");
 const hostPreflight = read("scripts/ubuntu24-preflight.sh");
@@ -121,6 +123,9 @@ try {
     healthRoute: health,
     dockerfile,
     containerWorkflow,
+    environmentTemplate,
+    environmentValidator,
+    systemdService,
     deploymentDocs: activeDeploymentDocs,
     localInstallDocs,
   });
@@ -133,7 +138,7 @@ requireText(health, 'runtime.phase !== "ready"', "readiness must reject non-read
 requireText(health, 'get("probe") === "live"', "an explicit process-liveness probe is required");
 requireText(health, 'status: "alive"', "liveness must report only process state");
 for (const contract of [
-  "ExecStart=/usr/bin/npm run start",
+  "ExecStart=/usr/bin/node dist/run-production-bootstrap.cjs server",
   "KillSignal=SIGTERM",
   "TimeoutStopSec=20",
   "User=www-data",

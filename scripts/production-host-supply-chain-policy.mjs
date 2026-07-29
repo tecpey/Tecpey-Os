@@ -1,22 +1,31 @@
 const RETIREMENT_SENTINEL = 'readonly HOST_DEPLOYMENT_RETIRED=1';
 const RETIREMENT_EXIT = 'exit "$HOST_DEPLOYMENT_RETIRED"';
-const LOCKFILE_INSTALL = "npm ci --no-audit --no-fund";
+const LOCKFILE_INSTALL =
+  'PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund';
 const READINESS_PROBE =
   "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health";
 const READINESS_ATTEMPTS = "readonly READINESS_ATTEMPTS=5";
 const READINESS_LOOP = "for attempt in 1 2 3 4 5; do";
 const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
 const NPM_VERSION_CONTRACT = "readonly EXPECTED_NPM_MAJOR=10";
+const SYSTEMD_NODE_BINARY_CONTRACT = "readonly SYSTEMD_NODE_BIN=/usr/bin/node";
+const SYSTEMD_NPM_BINARY_CONTRACT = "readonly SYSTEMD_NPM_BIN=/usr/bin/npm";
+const SYSTEMD_COMMAND_PATH_CONTRACT =
+  "readonly SYSTEMD_COMMAND_PATH=/usr/bin:/bin";
+const SYSTEMD_EXEC_START =
+  "ExecStart=/usr/bin/node dist/run-production-bootstrap.cjs server";
 const VERIFICATION_PHASE_CONTRACT = 'readonly VERIFICATION_PHASE="${1:-}"';
 const LIVE_WORKTREE_CONTRACT = "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey";
 const LIVE_WORKTREE_PHASE_GUARD =
-  'if [ "$VERIFICATION_PHASE" = "candidate" ] &&\n' +
+  'if [ "$VERIFICATION_PHASE" != "runtime" ] &&\n' +
   '  [ "$candidate_worktree" = "$live_worktree" ]; then';
 const CLEAN_CHECKOUT_CONTRACT = "git status --short --untracked-files=all";
 const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
 const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
 const BAKED_BUILD_COMMAND =
-  'TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build';
+  'PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build';
+const EXACT_MIGRATION_COMMAND =
+  'NODE_ENV=production "$SYSTEMD_NODE_BIN" --env-file=.env.production';
 const BAKED_HEALTH_COMMIT =
   'commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown"';
 const LOCAL_SOURCE_ARCHIVE_BUILD =
@@ -28,7 +37,7 @@ const GIT_BUILD_IDENTITY_PROBE = 'execFileSync("git", ["rev-parse", "HEAD"]';
 const SYSTEMD_CANDIDATE_VERIFICATION =
   "bash scripts/ubuntu24-preflight.sh candidate";
 const SYSTEMD_MIGRATION =
-  "node dist/run-production-bootstrap.cjs migrate";
+  "bash scripts/ubuntu24-preflight.sh migrate";
 const SYSTEMD_PROMOTION = "atomic promotion";
 const SYSTEMD_RESTART = "controlled service restart";
 const SYSTEMD_RUNTIME_VERIFICATION =
@@ -50,6 +59,20 @@ function requireText(findings, source, expected, message) {
 
 function reject(findings, source, pattern, message) {
   if (pattern.test(source)) findings.push(message);
+}
+
+function declaredEnvironmentKeys(source, declarationName) {
+  const declaration = new RegExp(
+    `const\\s+${declarationName}\\s*=\\s*\\[([\\s\\S]*?)\\];`,
+  ).exec(source);
+  if (!declaration) return null;
+  return [...declaration[1].matchAll(/['"]([A-Z][A-Z0-9_]*)['"]/g)].map(
+    (match) => match[1],
+  );
+}
+
+function templateEnvironmentKeys(source) {
+  return [...source.matchAll(/^([A-Z][A-Z0-9_]*)=/gm)].map((match) => match[1]);
 }
 
 function validateRetiredScript(findings, label, source) {
@@ -97,6 +120,9 @@ export function productionHostSupplyChainFindings({
   healthRoute,
   dockerfile,
   containerWorkflow,
+  environmentTemplate,
+  environmentValidator,
+  systemdService,
   deploymentDocs = [],
   localInstallDocs = [],
 }) {
@@ -228,28 +254,74 @@ export function productionHostSupplyChainFindings({
         findings,
         source,
         /^bash scripts\/ubuntu24-preflight\.sh\s*$/m,
-        `${label} must select an explicit candidate or runtime verification phase`,
+        `${label} must select an explicit candidate, migration or runtime verification phase`,
+      );
+      requireText(
+        findings,
+        source,
+        "Replace every `REPLACE_WITH` value",
+        `${label} must require replacement of every production template placeholder`,
       );
     }
   }
 
+  const validatorRequiredKeys = declaredEnvironmentKeys(
+    environmentValidator,
+    "required",
+  );
+  if (!validatorRequiredKeys || validatorRequiredKeys.length === 0) {
+    findings.push("Production environment validator must expose a governed required-key list");
+  }
+  const templateKeys = templateEnvironmentKeys(environmentTemplate);
+  if (new Set(templateKeys).size !== templateKeys.length) {
+    findings.push("Production environment template must not declare duplicate keys");
+  }
+  for (const key of validatorRequiredKeys ?? []) {
+    if (!templateKeys.includes(key)) {
+      findings.push(`Production environment template must declare required key: ${key}`);
+    }
+  }
+  for (const key of [
+    "NODE_ENV",
+    "REDIS_URL",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+  ]) {
+    if (!templateKeys.includes(key)) {
+      findings.push(`Production environment template must declare runtime key: ${key}`);
+    }
+  }
+  requireText(
+    findings,
+    environmentTemplate,
+    "REPLACE_WITH",
+    "Production environment template must retain fail-closed placeholders",
+  );
+
   requireText(findings, preflight, LOCKFILE_INSTALL, "Ubuntu preflight must use the exact lockfile");
-  requireText(findings, preflight, "npm run env:check", "Ubuntu preflight must validate the production environment");
-  requireText(findings, preflight, "npm run check", "Ubuntu preflight must run static quality gates");
+  requireText(findings, preflight, '"$SYSTEMD_NPM_BIN" run env:check', "Ubuntu preflight must validate the production environment");
+  requireText(findings, preflight, '"$SYSTEMD_NPM_BIN" run check', "Ubuntu preflight must run static quality gates");
   requireText(findings, preflight, BAKED_BUILD_COMMAND, "Ubuntu preflight must bind the production build to the exact candidate");
+  requireText(findings, preflight, EXACT_MIGRATION_COMMAND, "Ubuntu preflight must load the candidate environment for migration");
+  requireText(findings, preflight, "dist/run-production-bootstrap.cjs migrate", "Ubuntu preflight must execute the compiled migration authority");
   requireText(findings, preflight, ".next/required-server-files.json", "Ubuntu preflight must read artifact-baked release metadata");
   requireText(findings, preflight, "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA", "Ubuntu preflight must verify the artifact-baked commit");
   requireText(findings, preflight, NODE_VERSION_CONTRACT, "Ubuntu preflight must verify the approved Node.js major");
   requireText(findings, preflight, NPM_VERSION_CONTRACT, "Ubuntu preflight must verify the approved npm major");
+  requireText(findings, preflight, SYSTEMD_NODE_BINARY_CONTRACT, "Ubuntu preflight must verify the systemd Node.js binary");
+  requireText(findings, preflight, SYSTEMD_NPM_BINARY_CONTRACT, "Ubuntu preflight must use the governed candidate npm binary");
+  requireText(findings, preflight, SYSTEMD_COMMAND_PATH_CONTRACT, "Ubuntu preflight must isolate npm from interactive PATH shims");
+  requireText(findings, systemdService, SYSTEMD_EXEC_START, "systemd must execute the exact Node.js binary verified by preflight");
+  requireText(findings, systemdService, "EnvironmentFile=/var/www/tecpey/.env.production", "systemd must load the governed production environment");
   requireText(findings, preflight, VERIFICATION_PHASE_CONTRACT, "Ubuntu preflight must require an explicit verification phase");
-  requireText(findings, preflight, 'candidate|runtime) ;;', "Ubuntu preflight must separate candidate and runtime verification");
+  requireText(findings, preflight, 'candidate|migrate|runtime) ;;', "Ubuntu preflight must separate candidate, migration and runtime verification");
   requireText(findings, preflight, LIVE_WORKTREE_CONTRACT, "Ubuntu preflight must identify the live systemd working tree");
   requireText(findings, preflight, 'candidate_worktree=$(pwd -P)', "Ubuntu preflight must resolve the physical candidate checkout");
   requireText(
     findings,
     preflight,
     LIVE_WORKTREE_PHASE_GUARD,
-    "Ubuntu preflight must refuse the live worktree only during candidate verification",
+    "Ubuntu preflight must refuse the live worktree during candidate build and migration",
   );
   requireText(findings, preflight, CLEAN_CHECKOUT_CONTRACT, "Ubuntu preflight must reject tracked and untracked source changes");
   reject(
@@ -336,7 +408,12 @@ export function productionHostSupplyChainFindings({
     pullRequestTriggerStart >= 0 && pushTriggerStart > pullRequestTriggerStart
       ? containerWorkflow.slice(pullRequestTriggerStart, pushTriggerStart)
       : "";
-  for (const path of ["next.config.ts", "scripts/resolve-build-identity.ts"]) {
+  for (const path of [
+    ".env.production.example",
+    "next.config.ts",
+    "scripts/resolve-build-identity.ts",
+    "scripts/validate-env.mjs",
+  ]) {
     requireText(
       findings,
       pullRequestTrigger,
@@ -379,7 +456,7 @@ export function productionHostSupplyChainFindings({
   reject(
     findings,
     preflight,
-    /\bnpm\s+(?:install|i)\b/,
+    /(?:\bnpm|"\$SYSTEMD_NPM_BIN")\s+(?:install|i)\b/,
     "Ubuntu preflight must not bypass the lockfile with npm install",
   );
   reject(
