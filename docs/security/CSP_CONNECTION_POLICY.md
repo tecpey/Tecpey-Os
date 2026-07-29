@@ -27,6 +27,7 @@ The following are deliberately not browser connection authorities:
 
 | Integration class | Current policy | Owner | Reason |
 |---|---|---|---|
+| Upstream market-data providers | No direct browser origin | Market Data Platform | Provider traffic is normalized server-side and reaches browsers only through the owned TecPey API/WebSocket boundary |
 | AI model providers | No direct browser origin | AI Platform | Provider traffic and credentials remain server-side |
 | Analytics/advertising | No origin approved | Product + Privacy + Platform Security | No browser analytics integration has completed privacy and security review |
 | Customer support/chat widgets | No origin approved | Support + Privacy + Platform Security | No browser widget is currently authorized |

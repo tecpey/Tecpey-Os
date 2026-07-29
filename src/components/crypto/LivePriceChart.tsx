@@ -15,28 +15,54 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
 type LivePriceChartProps = {
-  symbol: string;  
+  symbol: string;
 };
+
+type TickerFrame = {
+  channel?: unknown;
+  data?: {
+    lastPrice?: unknown;
+  };
+};
+
+function browserSocketUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_SOCKET_URL;
+  if (configured) return configured;
+
+  const url = new URL("/ws", window.location.origin);
+  url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
 
 export default function LivePriceChart({ symbol }: LivePriceChartProps) {
   const [prices, setPrices] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
 
-  
   useEffect(() => {
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
+    const market = symbol.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,32}$/.test(market)) return;
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      const price = parseFloat(message.p);
-      const time = new Date(message.T).toLocaleTimeString();
-        
-      setPrices((prev) => [...prev.slice(-49), price]); 
-      setLabels((prev) => [...prev.slice(-49), time]);
+    const ws = new WebSocket(browserSocketUrl());
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "subscribe", channel: "ticker", market }));
     };
 
-    ws.onerror = (err) => console.error("WebSocket Error:", err);
-    ws.onclose = () => { };
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(String(event.data)) as TickerFrame;
+        if (message.channel !== "ticker") return;
+        const price = Number(message.data?.lastPrice);
+        if (!Number.isFinite(price) || price <= 0) return;
+
+        setPrices((previous) => [...previous.slice(-49), price]);
+        setLabels((previous) => [
+          ...previous.slice(-49),
+          new Date().toLocaleTimeString(),
+        ]);
+      } catch {
+        // Ignore malformed or unrelated frames; the owned socket may carry many channels.
+      }
+    };
 
     return () => ws.close();
   }, [symbol]);
