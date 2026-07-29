@@ -10,6 +10,14 @@ const VENDORED_PREFIXES = [
   "public/datafeeds/",
 ];
 
+const PLATFORM_CORE_PATHS = new Set([
+  "src/lib/entity.ts",
+  "src/lib/feature-flags.ts",
+  "src/lib/platform-config.ts",
+  "src/lib/platform-types.ts",
+  "src/lib/product-registry.ts",
+]);
+
 const DOMAIN_RULES = [
   {
     domain: "tests-quality-evidence",
@@ -36,6 +44,10 @@ const DOMAIN_RULES = [
     reviewBatch: 6,
     patterns: [
       /(?:^|\/)(?:exchange|orderbook|orders?|trades?|fills?|matching|ledger|financial|balances?|fees?)(?:[./_-]|$)/i,
+      /^src\/lib\/trading\//,
+      /^src\/helper\/spot\//,
+      /^src\/services\/swap\.services\.ts$/,
+      /^src\/utils\/handleDecimal\.ts$/,
     ],
   },
   {
@@ -44,6 +56,10 @@ const DOMAIN_RULES = [
     reviewBatch: 3,
     patterns: [
       /(?:^|\/)(?:auth|session|csrf|webauthn|passkey|two-factor|2fa|admin|rbac|abac|tenant|principal|security|risk|audit)(?:[./_-]|$)/i,
+      /^src\/lib\/compliance\//,
+      /^src\/lib\/(?:api-error|api-validation|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
+      /^src\/lib\/production-connection-env\.ts$/,
+      /^src\/proxy\.ts$/,
       /^SECURITY\.md$/,
     ],
   },
@@ -55,25 +71,36 @@ const DOMAIN_RULES = [
       /^migrations\//,
       /(?:^|\/)(?:database|postgres|redis|bullmq|migration|persistence|repository|outbox)(?:[./_-]|$)/i,
       /^src\/lib\/db(?:[./_-]|$)/i,
+      /^src\/lib\/offline-sync(?:[./_-]|$)/i,
     ],
   },
   {
     domain: "academy",
     riskTier: "P2",
     reviewBatch: 4,
-    patterns: [/(?:^|\/)(?:academy|lesson|assessment|certificate|curriculum|quiz|flashcard)(?:[./_-]|$)/i],
+    patterns: [
+      /(?:^|\/)(?:academy|lesson|assessment|certificate|curriculum|quiz|flashcard)(?:[./_-]|$)/i,
+      /^src\/data\/academy/i,
+      /^src\/lib\/(?:learning-os|phase5-achievement-engine|spaced-repetition|student-cartax)\.ts$/,
+    ],
   },
   {
     domain: "trading-arena",
     riskTier: "P2",
     reviewBatch: 5,
-    patterns: [/(?:^|\/)(?:trading-arena|arena|virtual-trading|trading-journal)(?:[./_-]|$)/i],
+    patterns: [
+      /(?:^|\/)(?:trading-arena|arena|virtual-trading|trading-journal)(?:[./_-]|$)/i,
+      /^src\/lib\/(?:behavioral-client|behavioral-context-server|behavioral-engine|trading-dna|trading-scenarios)\.ts$/,
+    ],
   },
   {
     domain: "mentor-ai",
     riskTier: "P2",
     reviewBatch: 8,
-    patterns: [/(?:^|\/)(?:mentor|ai|model-provider|prompt)(?:[./_-]|$)/i],
+    patterns: [
+      /(?:^|\/)(?:mentor|ai|model-provider|prompt)(?:[./_-]|$)/i,
+      /^src\/lib\/(?:coaching-engine|knowledge-graph|smart-review)\.ts$/,
+    ],
   },
   {
     domain: "crm-notifications-community",
@@ -81,6 +108,9 @@ const DOMAIN_RULES = [
     reviewBatch: 9,
     patterns: [
       /(?:^|\/)(?:crm|notification|community|social|reputation|journal-challenge|lead)(?:[./_-]|$)/i,
+      /^src\/lib\/email\.ts$/,
+      /^src\/lib\/notifications\//,
+      /^src\/services\/profile\.ts$/,
     ],
   },
   {
@@ -93,6 +123,9 @@ const DOMAIN_RULES = [
       /^Dockerfile$/,
       /^ecosystem\.config\./,
       /(?:^|\/)(?:operations|deployment|runtime|bootstrap|readiness|health|recovery|backup|restore|observability)(?:[./_-]|$)/i,
+      /^src\/lib\/ops\//,
+      /^src\/lib\/(?:alerts|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
+      /^src\/lib\/ws\//,
     ],
   },
   {
@@ -138,7 +171,18 @@ export function classifyDomain(repositoryPath) {
     }
   }
 
-  if (normalized.startsWith("src/app/") || normalized.startsWith("src/components/") || normalized.startsWith("public/")) {
+  if (
+    normalized.startsWith("src/app/") ||
+    normalized.startsWith("src/components/") ||
+    normalized.startsWith("src/data/") ||
+    normalized.startsWith("src/hooks/") ||
+    normalized.startsWith("src/i18n/") ||
+    normalized.startsWith("src/services/") ||
+    normalized.startsWith("src/utils/") ||
+    normalized.startsWith("public/") ||
+    /^src\/lib\/(?:api|i18n-locale|locale|seo)\.ts$/.test(normalized) ||
+    normalized.startsWith("src/types/")
+  ) {
     return {
       domain: "product-ui",
       riskTier: "P2",
@@ -147,13 +191,17 @@ export function classifyDomain(repositoryPath) {
     };
   }
 
-  if (normalized.startsWith("src/")) {
+  if (PLATFORM_CORE_PATHS.has(normalized)) {
     return {
       domain: "platform-core",
       riskTier: "P1",
       reviewBatch: 1,
-      classificationRule: "platform-core-prefix",
+      classificationRule: "platform-core-explicit",
     };
+  }
+
+  if (normalized.startsWith("src/")) {
+    throw new Error(`Source path has no explicit audit domain policy: ${normalized}`);
   }
 
   return {
@@ -181,8 +229,9 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 1,
+  version: 2,
   generatedPaths: [...GENERATED_PATHS].sort(),
+  platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),
   reviewBatches: Object.freeze({
     1: "Root, CI, supply chain and runtime bootstrap",

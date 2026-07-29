@@ -131,7 +131,32 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 7,
     classificationRule: "wallet-custody",
   });
+  assert.deepEqual(classifyDomain("src/lib/trading/engine.ts"), {
+    domain: "exchange-ledger",
+    riskTier: "P0",
+    reviewBatch: 6,
+    classificationRule: "exchange-ledger",
+  });
+  assert.equal(classifyDomain("src/lib/offline-sync-authority.ts").reviewBatch, 2);
+  assert.equal(classifyDomain("src/lib/compliance/ofac.ts").reviewBatch, 3);
+  assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
+  assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
+  assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
+  assert.equal(classifyDomain("src/lib/notifications/policy.ts").reviewBatch, 9);
   assert.equal(classifyDomain("src/components/Button.tsx").reviewBatch, 10);
+  assert.equal(classifyDomain("src/hooks/useLiveTicker.ts").reviewBatch, 10);
+  assert.equal(classifyDomain("src/i18n/messages/fa.json").reviewBatch, 10);
+  assert.equal(classifyDomain("src/lib/ops/operational-job-evidence.ts").reviewBatch, 11);
+  assert.deepEqual(classifyDomain("src/lib/platform-config.ts"), {
+    domain: "platform-core",
+    riskTier: "P1",
+    reviewBatch: 1,
+    classificationRule: "platform-core-explicit",
+  });
+  assert.throws(
+    () => classifyDomain("src/lib/new-unclassified-module.ts"),
+    /no explicit audit domain policy/,
+  );
   assert.equal(initialReviewStatus({ contentKind: "text", provenance: "source" }), "semantic-review-pending");
   assert.equal(initialReviewStatus({ contentKind: "binary", provenance: "source" }), "ownership-review-pending");
 });
