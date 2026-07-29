@@ -1,6 +1,7 @@
 import path from "node:path";
 
 const GENERATED_PATHS = new Set([
+  "docs/internal-qa/QA_STATIC_PRODUCTION_REPORT.json",
   "docs/security/generated/api-security-manifest.json",
   "docs/security/generated/tenant-principal-isolation-inventory.json",
   "package-lock.json",
@@ -70,7 +71,8 @@ const DOMAIN_RULES = [
     reviewBatch: 2,
     patterns: [
       /^migrations\//,
-      /(?:^|\/)(?:database|postgres|redis|bullmq|migration|persistence|repository|outbox)(?:[./_-]|$)/i,
+      /(?:^|\/)(?:database|postgres|redis|bullmq|migration|persistence|outbox)(?:[./_-]|$)/i,
+      /^src\/(?:.+\/)?(?:repository|repositories)(?:[./_-]|$)/i,
       /^src\/lib\/db(?:[./_-]|$)/i,
       /^src\/lib\/offline-sync(?:[./_-]|$)/i,
     ],
@@ -230,7 +232,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 4,
+  version: 5,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),
