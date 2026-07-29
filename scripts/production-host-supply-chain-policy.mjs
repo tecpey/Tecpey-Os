@@ -9,6 +9,10 @@ const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
 const NPM_VERSION_CONTRACT = "readonly EXPECTED_NPM_MAJOR=10";
 const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
 const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
+const COMPOSE_DATABASE_URL =
+  "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
+const COMPOSE_REDIS_URL =
+  "REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379";
 const PRODUCTION_VERIFICATION_LINES = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
@@ -132,6 +136,26 @@ export function productionHostSupplyChainFindings({
       /\b(?:npm\s+(?:install|i)\b|git\s+pull\b)/i,
       `${label} must not advertise mutable live-source deployment`,
     );
+    if (label === "Ubuntu production deployment guide") {
+      requireText(
+        findings,
+        source,
+        COMPOSE_DATABASE_URL,
+        `${label} must use the internal PostgreSQL service name`,
+      );
+      requireText(
+        findings,
+        source,
+        COMPOSE_REDIS_URL,
+        `${label} must use the internal Redis service name`,
+      );
+      reject(
+        findings,
+        source,
+        /(?:DATABASE_URL|REDIS_URL)=[^\n]*@(?:127\.0\.0\.1|localhost)(?=[:/]|$)/i,
+        `${label} must not use loopback connection URLs inside Compose containers`,
+      );
+    }
   }
 
   requireText(findings, preflight, LOCKFILE_INSTALL, "Ubuntu preflight must use the exact lockfile");

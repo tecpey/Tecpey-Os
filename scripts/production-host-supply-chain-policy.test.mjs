@@ -409,3 +409,28 @@ test("policy rejects revival of mutable deployment documentation", () => {
   assert.match(findings, /mutable production image/);
   assert.match(findings, /mutable live-source deployment/);
 });
+
+test("policy rejects loopback database or Redis URLs in the Compose guide", () => {
+  const productionGuideIndex = sources.deploymentDocs.findIndex(
+    ([label]) => label === "Ubuntu production deployment guide",
+  );
+  assert.notEqual(productionGuideIndex, -1);
+
+  for (const [serviceName, loopback] of [
+    ["postgres", "127.0.0.1"],
+    ["redis", "localhost"],
+  ]) {
+    const deploymentDocs = sources.deploymentDocs.map(([label, source], index) => [
+      label,
+      index === productionGuideIndex
+        ? source.replace(`@${serviceName}:`, `@${loopback}:`)
+        : source,
+    ]);
+    const findings = productionHostSupplyChainFindings({
+      ...sources,
+      deploymentDocs,
+    }).join("\n");
+    assert.match(findings, /must use the internal (?:PostgreSQL|Redis) service name/);
+    assert.match(findings, /must not use loopback connection URLs inside Compose containers/);
+  }
+});

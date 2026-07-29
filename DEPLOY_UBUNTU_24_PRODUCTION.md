@@ -36,9 +36,15 @@ Set at minimum:
 NEXT_PUBLIC_SITE_URL=https://tecpey.ir
 NEXT_PUBLIC_GIT_COMMIT=EXACT_40_CHARACTER_RELEASE_SHA
 OPENAI_API_KEY=YOUR_NEW_PRODUCTION_KEY
-DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@127.0.0.1:5432/tecpey
-REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@127.0.0.1:6379
+DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey
+REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379
 ```
+
+`postgres` and `redis` are the internal Compose service names. Do not replace
+them with `127.0.0.1` or `localhost`: inside `migrate` and `tecpey-web`, a
+loopback address points back to that container rather than to the database or
+Redis service. A separately pre-provisioned systemd runtime must instead use
+infrastructure-approved endpoints that are actually reachable from the host.
 
 Do not put API keys in Git, screenshots, chat, or frontend code.
 
