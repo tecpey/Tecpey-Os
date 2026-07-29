@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01a-audit-authority",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-29",
+  "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
+  "residualRisks": [
+    {
+      "id": "B01A-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews nine Batch 1 audit-authority files only; test authorities remain assigned to Batch 12 and all other repository paths retain their pending status.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01A-RISK-002",
+      "severity": "P2",
+      "statement": "The workflow guard intentionally implements only the governed repository-audit YAML shape rather than the complete YAML specification; any future workflow restructuring requires policy and negative-fixture updates.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/repository-audit-manifest.yml",
+      "gitObjectId": "e98fe6ba86d050f8a3f1584a0dd3e92c6605cdb5",
+      "sha256": "adff1bf5a7fed254c4875571f5820be4a7d85a14c7cbeeefe54fb6419ac9d0c4",
+      "lines": 61,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 61
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Triggers, read-only permissions, exact PR-head checkout, non-persistent credentials, expected-SHA propagation, authority verification, manifest regeneration, tests and immutable artifact upload were reviewed as one fail-closed sequence.",
+        "All third-party actions are pinned to full commit SHAs and the artifact name is bound to the exact reviewed head."
+      ],
+      "findings": []
+    },
+    {
+      "path": "package.json",
+      "gitObjectId": "59abd966f30beafef684359684bea48ff8f4003e",
+      "sha256": "53356dbc51ec488850a7d7f434904bea21d5ce9087445ea8dbe418ce1085c38b",
+      "lines": 165,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 165
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "All scripts, dependency pins, engine constraints and override declarations were reviewed; the four audit commands are exact, deterministic and separated between generation, authority checking, verification and tests.",
+        "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority."
+      ],
+      "findings": [
+        {
+          "id": "B01A-P2-002",
+          "severity": "P2",
+          "line": 98,
+          "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
+          "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
+          "evidence": "package.json lines 98 and 101-102 use npm config set/delete before repository-scoped install commands.",
+          "fixOwner": "developer-experience",
+          "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
+          "disposition": "tracked-debt",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/audit-repository-hygiene.mjs",
+      "gitObjectId": "7b3a8575e28a9378a8ea8566986e0a3f89bfe78f",
+      "sha256": "4cb1cf1c90e930ef099f04352daef867b567d56b9c60a9f8e22e6be7c9257733",
+      "lines": 339,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 339
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Filesystem scope, ignored runtime outputs, import extraction, local resolution, entrypoint reachability, artifact heuristics, dependency ownership, bounded reporting and non-deletion warning were reviewed line by line.",
+        "Package-binary ownership now preserves the regular-expression whitespace class at runtime instead of collapsing it inside a JavaScript template literal."
+      ],
+      "findings": [
+        {
+          "id": "B01A-P2-003",
+          "severity": "P2",
+          "line": 252,
+          "attackPath": "A package binary referenced after whitespace in package scripts was not recognized because the template literal consumed the regex backslash, producing a false unreferenced-dependency lead.",
+          "affectedInvariant": "Repository hygiene evidence must not classify an owned dependency as unreferenced because of a malformed scanner boundary.",
+          "evidence": "The former template literal used [\\s;&|] in source semantics that evaluated as [s;&|]; the final source escapes the backslash and the authority guard preserves that contract.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The permanent authority check must reject removal of the escaped whitespace boundary and the hygiene report must continue to execute successfully.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/check-repository-audit-authority.mjs",
+      "gitObjectId": "9b039d98e8a946530fb212afbd15ab3ca8580615",
+      "sha256": "e2d0f8772b4d87cae44d68545a3c38d776a1244b529a801baba54b23e35473d7",
+      "lines": 43,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 43
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "The guard verifies workflow authority, committed evidence schema/batch identity, runtime-artifact hygiene exclusion and exact package command ownership before manifest generation."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/generate-repository-audit-manifest.mjs",
+      "gitObjectId": "04240f6302ef8e38d6f8422c5155dfe7092e559b",
+      "sha256": "8969dc594a3b637caebec0cf34b4634ca08c065957da0b938e91a75adf5e5c54",
+      "lines": 18,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 18
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Output resolution, parent creation, truncating write semantics and summary logging were reviewed; generated runtime evidence remains outside the tracked denominator."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/repository-audit-manifest.mjs",
+      "gitObjectId": "61375e51122d1e32fdb69aca7969efe91b709bf0",
+      "sha256": "222e397ec481ca0427e157647f9e411f5480e5d3d26b43306f79ffbac4c6aa49",
+      "lines": 566,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 566
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
+        "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
+        "Summary recomputation occurs after evidence application and completionClaim remains false."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/repository-audit-policy.mjs",
+      "gitObjectId": "2d784f656bfdfde6651ca1db29e71104f86ed286",
+      "sha256": "25fe38e92090a2f6227e4fe26046098066894826a8f83f6db40e61a168a3bac3",
+      "lines": 269,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 269
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v9 evidence-path ownership were reviewed.",
+        "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/repository-audit-workflow-policy.mjs",
+      "gitObjectId": "4d4d88e826ecdf76285ce5e059e1111e7f9c1229",
+      "sha256": "51e4da0406b64302308d325f99ce0e6b271b481991a79a8d90cf52b465edc4a4",
+      "lines": 343,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 343
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Comment handling, scalar parsing, indentation and block boundaries, exact governed step sequence, permissions, exact-head propagation, reserved variable rejection, full-SHA action pinning and aggregate failure reporting were reviewed.",
+        "Required executable contracts are now validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence."
+      ],
+      "findings": [
+        {
+          "id": "B01A-P1-001",
+          "severity": "P1",
+          "line": 228,
+          "attackPath": "A required checkout, verification or artifact contract could be removed from executable YAML and preserved only as a comment while the former substring guard still returned success.",
+          "affectedInvariant": "Repository audit evidence must fail closed when an exact-head workflow control is not executable.",
+          "evidence": "The previous guard used unrestricted includes() checks; the final implementation parses the governed YAML structure and validates exact effective step nodes, keys, values and sequence.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Negative fixtures must move each governed contract into a comment and observe a policy failure; the unchanged real workflow must pass.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/verify-repository-audit-manifest.mjs",
+      "gitObjectId": "14a0a8b23071d066620af5cbb2f2b27ed7076b2d",
+      "sha256": "3893a295475d6a83e36992c6d769a79eba08431965bf69410d54efda46c316f0",
+      "lines": 14,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 14
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Input resolution, strict JSON parsing, full regeneration/structural comparison and verified-denominator reporting were reviewed; malformed or stale artifacts fail before success output."
+      ],
+      "findings": []
+    }
+  ]
+}
