@@ -158,7 +158,11 @@ jobs:
           bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
-        run: bash scripts/test-container-volume-recovery.sh
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_RTO_SECONDS: '300'
+        run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
 
       - name: Upload recovery evidence
         if: ${{ always() }}
