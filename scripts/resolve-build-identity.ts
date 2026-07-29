@@ -12,6 +12,10 @@ export function resolveImmutableBuildCommit(): string {
     return configured;
   }
 
+  if (process.env.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD?.trim() === "1") {
+    return localSourceArchiveBuild;
+  }
+
   try {
     const commit = execFileSync("git", ["rev-parse", "HEAD"], {
       encoding: "utf8",
@@ -22,9 +26,6 @@ export function resolveImmutableBuildCommit(): string {
     }
     return commit;
   } catch {
-    if (process.env.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD?.trim() === "1") {
-      return localSourceArchiveBuild;
-    }
     throw new Error(
       "Build identity is unavailable: set TECPEY_BUILD_COMMIT_SHA to the exact release SHA, " +
         "or set TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 only for an unverified local source-archive build",

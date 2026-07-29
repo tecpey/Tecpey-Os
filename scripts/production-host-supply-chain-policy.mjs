@@ -22,6 +22,9 @@ const BAKED_HEALTH_COMMIT =
 const LOCAL_SOURCE_ARCHIVE_BUILD =
   "TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run build";
 const LOCAL_SOURCE_ARCHIVE_SENTINEL = "unverified-local-source-archive";
+const LOCAL_SOURCE_ARCHIVE_OPT_IN =
+  'process.env.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD?.trim() === "1"';
+const GIT_BUILD_IDENTITY_PROBE = 'execFileSync("git", ["rev-parse", "HEAD"]';
 const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
@@ -245,6 +248,17 @@ export function productionHostSupplyChainFindings({
     LOCAL_SOURCE_ARCHIVE_SENTINEL,
     "Next config must label local source-archive artifacts as unverified",
   );
+  const archiveOptInIndex = buildIdentity.indexOf(LOCAL_SOURCE_ARCHIVE_OPT_IN);
+  const gitProbeIndex = buildIdentity.indexOf(GIT_BUILD_IDENTITY_PROBE);
+  if (
+    archiveOptInIndex < 0 ||
+    gitProbeIndex < 0 ||
+    archiveOptInIndex > gitProbeIndex
+  ) {
+    findings.push(
+      "Next config must honor explicit local source-archive mode before Git discovery",
+    );
+  }
   for (const [label, source] of localInstallDocs) {
     requireText(
       findings,

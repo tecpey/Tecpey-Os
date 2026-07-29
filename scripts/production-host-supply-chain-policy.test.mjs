@@ -357,6 +357,21 @@ test("source archives require an explicit local-only unverified build identity",
     productionHostSupplyChainFindings(missingSentinel).join("\n"),
     /label local source-archive artifacts as unverified/,
   );
+
+  const archiveModeAfterGit = {
+    ...sources,
+    buildIdentity: sources.buildIdentity.replace(
+      /  if \(process\.env\.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD\?\.trim\(\) === "1"\) \{\n    return localSourceArchiveBuild;\n  \}\n\n/,
+      "",
+    ).replace(
+      "  } catch {\n",
+      '  } catch {\n    if (process.env.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD?.trim() === "1") {\n      return localSourceArchiveBuild;\n    }\n',
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(archiveModeAfterGit).join("\n"),
+    /honor explicit local source-archive mode before Git discovery/,
+  );
 });
 
 test("next config builds explicitly opted-in source archives without Git metadata", (t) => {
@@ -385,6 +400,45 @@ test("next config builds explicitly opted-in source archives without Git metadat
   });
   assert.notEqual(failClosed.status, 0);
   assert.match(failClosed.stderr, /Build identity is unavailable/);
+});
+
+test("source archive opt-in takes precedence over an enclosing Git worktree", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-nested-source-archive-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const git = (args) =>
+    spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      env: process.env,
+    });
+  assert.equal(git(["init", "--quiet"]).status, 0);
+  assert.equal(git(["config", "user.email", "test@example.invalid"]).status, 0);
+  assert.equal(git(["config", "user.name", "Tecpey Test"]).status, 0);
+  fs.writeFileSync(path.join(root, "parent-repository.txt"), "parent\n");
+  assert.equal(git(["add", "parent-repository.txt"]).status, 0);
+  assert.equal(git(["commit", "--quiet", "-m", "test parent"]).status, 0);
+
+  const archive = path.join(root, "extracted-archive");
+  fs.mkdirSync(archive);
+  fs.writeFileSync(path.join(archive, "package.json"), "{}\n");
+  const buildIdentityUrl = new URL("./resolve-build-identity.ts", import.meta.url).href;
+  const expression =
+    `import(${JSON.stringify(buildIdentityUrl)}).then(({ resolveImmutableBuildCommit }) => ` +
+    `process.stdout.write(resolveImmutableBuildCommit()))`;
+  const env = { ...process.env, TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD: "1" };
+  delete env.TECPEY_BUILD_COMMIT_SHA;
+
+  const result = spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", "--eval", expression],
+    {
+      cwd: archive,
+      encoding: "utf8",
+      env,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "unverified-local-source-archive");
 });
 
 test("policy rejects a mutable or fail-open production verification wrapper", () => {
