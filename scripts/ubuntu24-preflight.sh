@@ -35,7 +35,8 @@ if [ -d "$SYSTEMD_LIVE_WORKTREE" ]; then
 else
   live_worktree="$SYSTEMD_LIVE_WORKTREE"
 fi
-if [ "$candidate_worktree" = "$live_worktree" ]; then
+if [ "$VERIFICATION_PHASE" = "candidate" ] &&
+  [ "$candidate_worktree" = "$live_worktree" ]; then
   echo "Refusing to verify inside the live systemd working tree; use an isolated candidate checkout." >&2
   exit 1
 fi
