@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "baselineCommitSha": "56392395f84e82c8a196338afb2d39d0999076fc",
+  "baselineCommitSha": "109c6f927afe4709c5eecb714aa03162c761ff20",
   "completionClaim": false,
   "candidates": [
     {
       "path": "src/app/crypto/[symbol]/ChartWrapper.tsx",
-      "reviewedBlobSha256": "6f9629b1e97145bda0fca225d201c2770d472d29180b58f0d3db9c0b121b8727",
+      "reviewedBlobSha256": "0cbc6e23af7a37ce26e21d0fd4986da0633977cb53c9f2a455d30842dcd618aa",
       "classification": "transitional",
       "deletionApproved": false,
       "ownerIssues": ["#26", "#83"],
       "evidence": [
         "src/app/crypto/[symbol]/page.tsx mounts TradingViewChart directly",
-        "ChartWrapper has no runtime import and is an earlier chart adapter generation"
+        "ChartWrapper remains unimported after its duplicate TradingView globals moved to shared declarations"
       ]
     },
     {
@@ -49,35 +49,35 @@
     },
     {
       "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx",
-      "reviewedBlobSha256": "73126a4a22c35dfaaa372e632cafa3940d0e8445ca59467c2cef9efa7dbd4c49",
+      "reviewedBlobSha256": "9f38403a0e5cb15a8ae3216c37405fd65d960027001544deb7798555003cb5f5",
       "classification": "transitional",
       "deletionApproved": false,
       "ownerIssues": ["#26"],
       "evidence": [
         "src/app/academy/trading-arena/scenarios/page.tsx explicitly quarantines the browser-owned scenario engine",
-        "the component depends on the transitional src/lib/trading-scenarios.ts model"
+        "the hook-order refactor retains direct saveArenaState use and the transitional browser-owned scenario model"
       ]
     },
     {
       "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx",
-      "reviewedBlobSha256": "40e905f4d92c45265fcef2e6abffa6c38e2a233123166380b5fe46afa1f614af",
+      "reviewedBlobSha256": "6037cc653cac54dd37109eca4dd62d13313dd81e5fc4e48346cc5040527aed8d",
       "classification": "transitional",
       "deletionApproved": false,
       "ownerIssues": ["#26"],
       "evidence": [
         "src/app/academy/trading-arena/page.tsx mounts TradingArenaExecutionClient",
-        "the legacy dashboard uses simulated prices and browser-local journal state"
+        "the lint-suppression clarification does not replace its simulated prices or browser-local journal state"
       ]
     },
     {
       "path": "src/components/crypto/LivePriceChart.tsx",
-      "reviewedBlobSha256": "622d71983088f7f2d7400803eb9cb0f5cad23abc8e4bbe6043eb4a7fab6f204a",
+      "reviewedBlobSha256": "98f9afa6f4a3fe4b752b4e7bcb9e14ab4e4e4fd68f81e205a4acbc3d0ce8f74d",
       "classification": "live-refactor-required",
       "deletionApproved": false,
-      "ownerIssues": ["#83", "#164"],
+      "ownerIssues": ["#83"],
       "evidence": [
         "the active crypto route currently mounts TradingViewChart instead",
-        "PR #261 hardens this owned ticker transport before any future activation"
+        "merged PR #261 replaced direct Binance access with the TecPey socket boundary, but activation remains owned by open Issue #83"
       ]
     },
     {

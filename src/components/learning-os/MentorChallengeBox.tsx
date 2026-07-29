@@ -39,7 +39,7 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
 
   useEffect(() => {
     void Promise.resolve().then(load);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: the persisted challenge snapshot is intentionally hydrated once on mount.
   }, [locale, termNumber, lessonSlug, topic]);
 
   const entries = useMemo(() => optionKeys.map((key) => [key, question?.options?.[key]] as const).filter(([, value]) => Boolean(value)), [question]);

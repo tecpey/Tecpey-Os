@@ -9,14 +9,25 @@ import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import type { SchemaQueryable } from "@/lib/database-schema-contract";
 
-type Queryable = { query: (query: string, values?: unknown[]) => Promise<{ rows: any[] }> };
+type SimulatorDecision = {
+  scenario_id: string;
+  choice_id: string;
+  score: number;
+  xp: number;
+  feedback: string;
+  entry_reason: string;
+  emotion_state: string;
+  risk_plan: string;
+  created_at: unknown;
+};
 
 function findScenario(scenarioId: string) {
   return academySimulations.find((item) => item.id === scenarioId) || null;
 }
 
-async function summarize(client: Queryable, studentId: string) {
+async function summarize(client: SchemaQueryable, studentId: string) {
   const rows = await client.query(
     `SELECT scenario_id, choice_id, score, xp, feedback, entry_reason, emotion_state, risk_plan, created_at
      FROM academy_simulator_decisions
@@ -24,10 +35,20 @@ async function summarize(client: Queryable, studentId: string) {
      ORDER BY created_at DESC`,
     [studentId],
   );
-  const decisions = rows.rows;
-  const completed = Object.fromEntries(decisions.map((item) => [item.scenario_id, { score: Number(item.score || 0), choice: item.choice_id, at: item.created_at }]));
-  const totalXp = decisions.reduce((sum, item) => sum + Number(item.xp || 0), 0);
-  const avgScore = decisions.length ? Math.round(decisions.reduce((sum, item) => sum + Number(item.score || 0), 0) / decisions.length) : 0;
+  const decisions: SimulatorDecision[] = rows.rows.map((item) => ({
+    scenario_id: String(item.scenario_id ?? ""),
+    choice_id: String(item.choice_id ?? ""),
+    score: Number(item.score ?? 0),
+    xp: Number(item.xp ?? 0),
+    feedback: String(item.feedback ?? ""),
+    entry_reason: String(item.entry_reason ?? ""),
+    emotion_state: String(item.emotion_state ?? ""),
+    risk_plan: String(item.risk_plan ?? ""),
+    created_at: item.created_at,
+  }));
+  const completed = Object.fromEntries(decisions.map((item) => [item.scenario_id, { score: item.score, choice: item.choice_id, at: item.created_at }]));
+  const totalXp = decisions.reduce((sum, item) => sum + item.xp, 0);
+  const avgScore = decisions.length ? Math.round(decisions.reduce((sum, item) => sum + item.score, 0) / decisions.length) : 0;
   return { decisions, completed, totalXp, avgScore, completedCount: decisions.length };
 }
 

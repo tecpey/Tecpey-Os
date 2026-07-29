@@ -2,18 +2,19 @@ import { useSocketioMarketPriceSpot } from "./useLiveTicker";
 import { getCurrencies } from "@/services/swap.services";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { usdPrice } from "@/helper/spot/usdPrice";
+import { useUsdPrice } from "@/helper/spot/usdPrice";
+import type { MarketCurrency } from "@/types/market";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
-  const USDT_IRT = usdPrice();
+  const USDT_IRT = useUsdPrice();
 
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [currencyList, setCurrencyList] = useState<any[]>([]);
+  const [currencyList, setCurrencyList] = useState<MarketCurrency[]>([]);
 
   const initializedRef = useRef(false);
 
@@ -38,7 +39,7 @@ export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
   const pairs = useMemo(() =>{
     return allCurrencies.map(
-      (item) => item.priceData.symbol
+      (item) => item.priceData?.symbol ?? ""
     )
   },[allCurrencies])
 
@@ -56,7 +57,7 @@ export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
       return allCurrencies.map((apiCurrency) => {
         const existing = prev.find(
-          (item) => item.priceData.symbol === apiCurrency.priceData.symbol,
+          (item) => item.priceData?.symbol === apiCurrency.priceData?.symbol,
         );
 
         return existing ?? apiCurrency;
@@ -69,7 +70,7 @@ export const useBaseCurrenciesPrice = (_pair: string[]) => {
 
     setCurrencyList((prev) => {
       const index = prev.findIndex(
-        (item) => item.priceData.symbol === livePrice.symbol,
+        (item) => item.priceData?.symbol === livePrice.symbol,
       );
 
       if (index === -1) return prev;

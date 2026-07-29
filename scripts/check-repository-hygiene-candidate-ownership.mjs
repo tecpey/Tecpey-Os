@@ -20,6 +20,22 @@ const hygiene = JSON.parse(
 const findings = validateRepositoryHygieneCandidateRegistry(registry, {
   orphanCandidates: hygiene.orphanCandidates,
   readFile: (repositoryPath) => fs.readFileSync(path.join(root, repositoryPath)),
+  readBaselineFile: (commitSha, repositoryPath) =>
+    execFileSync("git", ["show", `${commitSha}:${repositoryPath}`], {
+      cwd: root,
+      maxBuffer: 20 * 1024 * 1024,
+    }),
+  isBaselineAncestor: (commitSha) => {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", commitSha, "HEAD"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 });
 
 if (findings.length > 0) {

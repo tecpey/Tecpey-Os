@@ -13,7 +13,7 @@ two evidence statements.
 ## Current disposition
 
 At baseline `main` commit
-`56392395f84e82c8a196338afb2d39d0999076fc`, the hygiene scanner reports 22
+`109c6f927afe4709c5eecb714aa03162c761ff20`, the hygiene scanner reports 22
 runtime-source candidates:
 
 - 15 are **transitional** compatibility, replacement, or quarantined paths;
@@ -42,8 +42,9 @@ an exact set match with the registry. It fails when:
 - a new candidate is not classified;
 - a stale classification remains after a path becomes reachable or is removed;
 - reviewed file bytes change;
+- the reviewed baseline is not an ancestor or its candidate bytes differ;
 - a path is duplicated or the registry order drifts;
-- owner/evidence fields are missing;
+- owner/evidence fields are missing or contain duplicate claims;
 - deletion is approved in this classification-only phase.
 
 `npm run test:hygiene-candidates` provides negative tests for those bypasses.

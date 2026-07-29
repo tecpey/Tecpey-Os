@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { assertProductionHostSupplyChain } from "./production-host-supply-chain-policy.mjs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const failures = [];
@@ -10,17 +11,33 @@ const reject = (source, pattern, message) => {
 };
 
 const dockerfile = read("Dockerfile");
+const nextConfig = read("next.config.ts");
+const buildIdentity = read("scripts/resolve-build-identity.ts");
 const dockerignore = read(".dockerignore");
 const compose = read("docker-compose.production.yml");
 const pkg = read("package.json");
 const server = read("server.ts");
 const health = read("src/app/api/health/route.ts");
+const containerWorkflow = read(".github/workflows/container-supply-chain.yml");
 const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
 const rollback = read("scripts/test-container-image-rollback.sh");
 const systemdService = read("deploy/systemd/tecpey-web.service");
-const pm2Config = read("ecosystem.config.cjs");
+const environmentTemplate = read(".env.production.example");
+const environmentValidator = read("scripts/validate-env.mjs");
+const hostBaseInstaller = read("scripts/ubuntu24-install-base.sh");
 const pm2Deploy = read("scripts/ubuntu24-deploy-pm2.sh");
+const hostPreflight = read("scripts/ubuntu24-preflight.sh");
+const productionVerification = read("VERIFY_PRODUCTION.sh");
+const activeDeploymentDocs = [
+  ["Ubuntu quick deployment guide", read("DEPLOY_UBUNTU_24.md")],
+  ["Ubuntu production deployment guide", read("DEPLOY_UBUNTU_24_PRODUCTION.md")],
+  ["Deployment entry point", read("docs/Deployment.md")],
+];
+const localInstallDocs = [
+  ["Mac ZIP install guide", read("INSTALL_MAC.md")],
+  ["Mac ZIP no-error install guide", read("INSTALL_MAC_NO_ERROR.md")],
+];
 const workflows = fs.readdirSync(".github/workflows")
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
   .map((name) => [name, read(`.github/workflows/${name}`)]);
@@ -37,6 +54,40 @@ requireText(dockerfile, "HEALTHCHECK", "runtime image must declare readiness hea
 requireText(dockerfile, 'VOLUME ["/app/storage", "/app/.next/cache"]', "runtime writable paths must be explicit");
 for (const excluded of [".git", ".env.*", "node_modules", ".next", "dist"]) {
   requireText(dockerignore, excluded, `Docker build context must exclude ${excluded}`);
+}
+for (const contract of [
+  "ARG TECPEY_BUILD_COMMIT_SHA",
+  "ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA",
+  "grep -Eq '^[0-9a-f]{40}$'",
+]) {
+  requireText(dockerfile, contract, `Docker build identity contract missing: ${contract}`);
+}
+requireText(
+  nextConfig,
+  "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit",
+  "Next build must bake the exact immutable commit into compiled artifacts",
+);
+requireText(
+  health,
+  'commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown"',
+  "Health must report only the artifact-baked commit",
+);
+reject(
+  health,
+  /NEXT_PUBLIC_GIT_COMMIT/,
+  "Health must not trust a runtime-overridable public Git commit",
+);
+for (const contract of [
+  "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
+  'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
+  'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
+  "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
+]) {
+  requireText(
+    containerWorkflow,
+    contract,
+    `Container workflow must bind every build to an exact commit: ${contract}`,
+  );
 }
 
 for (const variable of ["POSTGRES_PASSWORD", "REDIS_PASSWORD", "TECPEY_IMAGE_DIGEST"]) {
@@ -61,17 +112,33 @@ reject(compose, /image:\s+[^\n@]+\s*$/m, "Compose service images must be digest-
 
 requireText(pkg, '"start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server"', "production start must use compiled connection bootstrap");
 reject(pkg, /"build:server"[^\n]*--sourcemap/, "production server build must not retain source maps");
-requireText(pm2Config, "script: 'dist/server.cjs'", "PM2 must execute the compiled server");
-requireText(pm2Config, "interpreter: 'node'", "PM2 must not require TypeScript tooling");
-reject(pm2Config, /\btsx\b|server\.ts/, "PM2 must not execute TypeScript in production");
-requireText(pm2Deploy, "npm prune --omit=dev", "host deployment must remove development dependencies after build");
+try {
+  assertProductionHostSupplyChain({
+    baseInstaller: hostBaseInstaller,
+    pm2Deploy,
+    preflight: hostPreflight,
+    productionVerification,
+    buildConfig: nextConfig,
+    buildIdentity,
+    healthRoute: health,
+    dockerfile,
+    containerWorkflow,
+    environmentTemplate,
+    environmentValidator,
+    systemdService,
+    deploymentDocs: activeDeploymentDocs,
+    localInstallDocs,
+  });
+} catch (error) {
+  failures.push(error instanceof Error ? error.message : String(error));
+}
 requireText(server, "drainRuntime", "server termination must use the bounded drain contract");
 requireText(health, "runtime.requiredWorkers", "readiness must include required worker state");
 requireText(health, 'runtime.phase !== "ready"', "readiness must reject non-ready runtime phases");
 requireText(health, 'get("probe") === "live"', "an explicit process-liveness probe is required");
 requireText(health, 'status: "alive"', "liveness must report only process state");
 for (const contract of [
-  "ExecStart=/usr/bin/npm run start",
+  "ExecStart=/usr/bin/node dist/run-production-bootstrap.cjs server",
   "KillSignal=SIGTERM",
   "TimeoutStopSec=20",
   "User=www-data",

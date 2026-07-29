@@ -16,6 +16,8 @@ const hygiene = JSON.parse(
 const options = {
   orphanCandidates: hygiene.orphanCandidates,
   readFile: (repositoryPath) => fs.readFileSync(repositoryPath),
+  readBaselineFile: (_commitSha, repositoryPath) => fs.readFileSync(repositoryPath),
+  isBaselineAncestor: () => true,
 };
 
 function cloneRegistry() {
@@ -52,6 +54,35 @@ test("policy rejects content drift after ownership review", () => {
     validateRepositoryHygieneCandidateRegistry(changed, options).join("\n"),
     /content changed after ownership review/,
   );
+});
+
+test("policy binds reviewed bytes to an ancestor baseline", () => {
+  const nonAncestor = validateRepositoryHygieneCandidateRegistry(registry, {
+    ...options,
+    isBaselineAncestor: () => false,
+  }).join("\n");
+  assert.match(nonAncestor, /baselineCommitSha must be an ancestor/);
+
+  const baselineDrift = validateRepositoryHygieneCandidateRegistry(registry, {
+    ...options,
+    readBaselineFile: () => Buffer.from("different baseline bytes"),
+  }).join("\n");
+  assert.match(baselineDrift, /reviewed bytes do not match baselineCommitSha/);
+});
+
+test("policy rejects ambiguous paths and duplicated ownership claims", () => {
+  const changed = cloneRegistry();
+  changed.candidates[0].path = "../outside.ts";
+  changed.candidates[1].ownerIssues.push(changed.candidates[1].ownerIssues[0]);
+  changed.candidates[2].evidence[1] = changed.candidates[2].evidence[0];
+  const findings = validateRepositoryHygieneCandidateRegistry(changed, {
+    ...options,
+    orphanCandidates: options.orphanCandidates.map((candidatePath, index) =>
+      index === 0 ? "../outside.ts" : candidatePath),
+  }).join("\n");
+  assert.match(findings, /path must be a normalized repository-relative src path/);
+  assert.match(findings, /owner issues must be unique/);
+  assert.match(findings, /ownership evidence statements must be distinct/);
 });
 
 test("policy never authorizes deletion for transitional or live candidates", () => {

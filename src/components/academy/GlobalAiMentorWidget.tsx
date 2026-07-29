@@ -280,6 +280,7 @@ export function GlobalAiMentorWidget() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const localMessageIdRef = useRef(0);
   // Prevent repeated server-to-state syncs after the user has manually changed level/risk.
   const serverSyncedRef = useRef(false);
 
@@ -440,7 +441,7 @@ export function GlobalAiMentorWidget() {
 
   function streamAssistant(content: string) {
     const finalText = content.trim() || (isEn ? "The mentor is preparing an educational answer. Please try again." : "مربی هوشمند در حال آماده‌سازی پاسخ آموزشی است. لطفاً دوباره تلاش کن.");
-    const id = Date.now();
+    const id = --localMessageIdRef.current;
 
     if (typingTimerRef.current) clearInterval(typingTimerRef.current);
     setStreaming(true);
@@ -471,7 +472,11 @@ export function GlobalAiMentorWidget() {
     const cleanQuestion = (providedQuestion ?? question).trim();
     if (!cleanQuestion || loading || streaming) return;
 
-    const userMessage: ChatMessage = { role: "user", content: cleanQuestion, at: Date.now() };
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: cleanQuestion,
+      at: --localMessageIdRef.current,
+    };
     setHistory((items) => [...items, userMessage].slice(-30));
     setQuestion("");
     setLoading(true);

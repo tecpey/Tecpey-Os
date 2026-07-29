@@ -332,7 +332,18 @@ function MatchingQuestion({
 }) {
   const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
   const terms = pairs.map(([t]) => t);
-  const definitions = [...pairs.map(([, d]) => d)].sort(() => Math.random() - 0.5);
+  const seed = pairs.map(([term]) => term).join("|");
+  const definitions = [...pairs.map(([, definition]) => definition)].sort((a, b) => {
+    const rank = (value: string) => {
+      let hash = 2166136261;
+      for (const character of `${seed}:${value}`) {
+        hash ^= character.charCodeAt(0);
+        hash = Math.imul(hash, 16777619);
+      }
+      return hash >>> 0;
+    };
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">

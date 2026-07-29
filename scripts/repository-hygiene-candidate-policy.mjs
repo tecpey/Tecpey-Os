@@ -17,12 +17,21 @@ export function validateRepositoryHygieneCandidateRegistry(
   {
     orphanCandidates,
     readFile,
+    readBaselineFile,
+    isBaselineAncestor,
   },
 ) {
   const findings = [];
   if (registry?.schemaVersion !== 1) findings.push("schemaVersion must be 1");
-  if (!/^[0-9a-f]{40}$/.test(registry?.baselineCommitSha ?? "")) {
+  const baselineCommitSha = registry?.baselineCommitSha ?? "";
+  const baselineIsValid = /^[0-9a-f]{40}$/.test(baselineCommitSha);
+  if (!baselineIsValid) {
     findings.push("baselineCommitSha must be a full commit SHA");
+  } else if (
+    typeof isBaselineAncestor !== "function" ||
+    !isBaselineAncestor(baselineCommitSha)
+  ) {
+    findings.push("baselineCommitSha must be an ancestor of the reviewed tree");
   }
   if (registry?.completionClaim !== false) {
     findings.push("candidate classification must not claim repository-hygiene completion");
@@ -53,6 +62,15 @@ export function validateRepositoryHygieneCandidateRegistry(
 
   for (const candidate of registry.candidates) {
     const label = candidate?.path ?? "<missing-path>";
+    const pathIsValid = typeof candidate?.path === "string" &&
+      candidate.path.startsWith("src/") &&
+      !candidate.path.includes("\\") &&
+      !candidate.path.includes("\0") &&
+      !candidate.path.split("/").includes("..");
+    if (!pathIsValid) {
+      findings.push(`${label}: path must be a normalized repository-relative src path`);
+      continue;
+    }
     if (!ALLOWED_CLASSIFICATIONS.has(candidate?.classification)) {
       findings.push(`${label}: classification is not governed`);
     }
@@ -60,11 +78,17 @@ export function validateRepositoryHygieneCandidateRegistry(
       findings.push(`${label}: at least one owner issue is required`);
     } else if (candidate.ownerIssues.some((issue) => !/^#[1-9]\d*$/.test(issue))) {
       findings.push(`${label}: owner issues must use #<number> form`);
+    } else if (new Set(candidate.ownerIssues).size !== candidate.ownerIssues.length) {
+      findings.push(`${label}: owner issues must be unique`);
     }
     if (!Array.isArray(candidate?.evidence) || candidate.evidence.length < 2) {
       findings.push(`${label}: at least two ownership evidence statements are required`);
     } else if (candidate.evidence.some((item) => typeof item !== "string" || item.trim().length < 20)) {
       findings.push(`${label}: ownership evidence must be precise non-empty text`);
+    } else if (
+      new Set(candidate.evidence.map((item) => item.trim())).size !== candidate.evidence.length
+    ) {
+      findings.push(`${label}: ownership evidence statements must be distinct`);
     }
     if (candidate?.deletionApproved !== false) {
       if (candidate?.classification !== "proven-dead") {
@@ -84,6 +108,17 @@ export function validateRepositoryHygieneCandidateRegistry(
       }
     } catch {
       findings.push(`${label}: reviewed candidate file is missing`);
+    }
+    if (baselineIsValid) {
+      try {
+        const baselineContent = readBaselineFile(baselineCommitSha, candidate.path);
+        const baselineSha = createHash("sha256").update(baselineContent).digest("hex");
+        if (baselineSha !== candidate.reviewedBlobSha256) {
+          findings.push(`${label}: reviewed bytes do not match baselineCommitSha`);
+        }
+      } catch {
+        findings.push(`${label}: reviewed candidate is missing from baselineCommitSha`);
+      }
     }
   }
 

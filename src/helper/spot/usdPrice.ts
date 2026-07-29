@@ -2,9 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { socket } from "@/lib/socket";
+import type { MarketScalar } from "@/types/market";
 
-export const usdPrice = () => {
-  const [data, setData] = useState<any>(null);
+type FiatTicker = {
+  last?: MarketScalar;
+};
+
+type FiatTickerPayload = {
+  data?: FiatTicker;
+};
+
+export const useUsdPrice = () => {
+  const [data, setData] = useState<FiatTicker | null>(null);
 
   useEffect(() => {
     const emit = "fiat:USDT_IRT";
@@ -13,8 +22,8 @@ export const usdPrice = () => {
       pair: "USDT_IRT",
     };
 
-    const handler = (payload: any) => {
-      setData(payload.data);
+    const handler = (payload: FiatTickerPayload) => {
+      setData(payload.data ?? null);
     };
 
     socket.on(emit, handler);

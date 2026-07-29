@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Verify exact checkout
@@ -82,8 +83,8 @@ jobs:
     env:
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
-      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      NEXT_PUBLIC_API_BACKEND_URL: https://api.ci.tecpey.test
+      NEXT_PUBLIC_API_SOCKET_URL: wss://stream.ci.tecpey.test/spot
       TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
       TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
       TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
@@ -163,6 +164,11 @@ jobs:
           set -o pipefail
           ./node_modules/.bin/eslint . --max-warnings 0 2>&1 | tee /tmp/tecpey-eslint-diagnostics.log
 
+      - name: ESLint correctness authority
+        run: |
+          npm run lint:authority
+          npm run test:lint-authority
+
       - name: Upload ESLint diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -183,6 +189,12 @@ jobs:
 
       - name: Production supply-chain authority guard
         run: npm run supply-chain:check
+
+      - name: Secret-scanning authority guard
+        run: npm run security:secrets:check
+
+      - name: Operational recovery authority and negative tests
+        run: npm run test:ops-recovery-authority
 
       - name: Production deployment lifecycle tests
         run: npm run test:deployment

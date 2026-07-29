@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanonicalSession } from "@/lib/auth-session";
+import { buildCspConnectSrc } from "@/lib/security/csp-connection-policy";
 import {
   REQUEST_ROUTE_CONTEXT_HEADER,
 } from "@/lib/request-route-context";
@@ -14,48 +15,6 @@ const PUBLIC_ACADEMY_PATHS = new Set([
   "/en/academy/free",
 ]);
 
-/**
- * Build the connect-src directive using explicit env-var URLs where available.
- * Falls back to broad https:/wss:/ws: only when backend URLs are not configured —
- * this case is logged as a warning in development (not production, to avoid noise).
- *
- * Remaining risk: if additional frontend fetch calls target external APIs not listed
- * here, they will be blocked when env vars are configured. Add explicit origins to
- * NEXT_PUBLIC_EXTRA_CONNECT_SRC (space-separated) as an escape hatch.
- */
-function buildConnectSrc(): string {
-  const parts: string[] = ["'self'"];
-  const backendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL;
-  const socketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL;
-  const extraSrc = process.env.NEXT_PUBLIC_EXTRA_CONNECT_SRC;
-
-  if (backendUrl && !backendUrl.includes("CHANGE_ME")) {
-    try { parts.push(new URL(backendUrl).origin); } catch { parts.push("https:"); }
-  } else {
-    parts.push("https:");
-  }
-
-  if (socketUrl && !socketUrl.includes("CHANGE_ME")) {
-    try {
-      const u = new URL(socketUrl);
-      // normalise to wss:// origin
-      parts.push(`${u.protocol === "ws:" ? "ws:" : "wss:"}//${u.host}`);
-    } catch {
-      parts.push("wss:", "ws:");
-    }
-  } else {
-    parts.push("wss:", "ws:");
-  }
-
-  if (extraSrc) {
-    for (const src of extraSrc.trim().split(/\s+/)) {
-      if (src) parts.push(src);
-    }
-  }
-
-  return `connect-src ${parts.join(" ")}`;
-}
-
 function buildCsp(nonce: string): string {
   const isDev = process.env.NODE_ENV === "development";
   const directives = [
@@ -69,7 +28,7 @@ function buildCsp(nonce: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    buildConnectSrc(),
+    buildCspConnectSrc(),
     "media-src 'none'",
     "object-src 'none'",
     "frame-src 'self'",

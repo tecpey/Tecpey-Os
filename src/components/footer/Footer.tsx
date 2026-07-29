@@ -253,7 +253,7 @@ export default function Footer() {
                 <Link key={item.title} href={item.href} target="_blank" rel="noopener noreferrer" className="group relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-[30px] border border-cyan-300/15 bg-[#071827]/80 p-5 shadow-[0_18px_55px_rgba(0,0,0,.20)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" aria-label={`${item.title} - ${item.status}`}>
                   <span className="absolute right-4 top-4 rounded-full border border-amber-300/35 bg-amber-300/12 px-3 py-1 text-[11px] font-black text-amber-100">{item.status}</span>
                   <div className="flex min-h-[130px] items-center justify-center pt-8">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- #162: external trust-badge URLs are not part of the governed Next image allowlist. */}
                     <img src={item.image} alt={item.title} className="max-h-32 max-w-[190px] object-contain opacity-100 drop-shadow-[0_0_18px_rgba(34,211,238,.18)] transition group-hover:scale-105" />
                   </div>
                   <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3 text-center">

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { resolveImmutableBuildCommit } from "./scripts/resolve-build-identity";
 
 const withNextIntl = createNextIntlPlugin();
+
+const immutableBuildCommit = resolveImmutableBuildCommit();
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -30,6 +33,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Values declared through Next's env config are replaced in the compiled
+  // server/client artifacts. Runtime EnvironmentFile changes cannot alter this
+  // release identity without rebuilding the artifact.
+  env: {
+    TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit,
+  },
 
   // Public pages use request-time rendering so Next.js can propagate the CSP
   // nonce to framework and hydration scripts. Keep compiled CSS as cacheable
