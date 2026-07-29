@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { assertProductionHostSupplyChain } from "./production-host-supply-chain-policy.mjs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const failures = [];
@@ -19,8 +20,14 @@ const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
 const rollback = read("scripts/test-container-image-rollback.sh");
 const systemdService = read("deploy/systemd/tecpey-web.service");
-const pm2Config = read("ecosystem.config.cjs");
+const hostBaseInstaller = read("scripts/ubuntu24-install-base.sh");
 const pm2Deploy = read("scripts/ubuntu24-deploy-pm2.sh");
+const hostPreflight = read("scripts/ubuntu24-preflight.sh");
+const activeDeploymentDocs = [
+  ["Ubuntu quick deployment guide", read("DEPLOY_UBUNTU_24.md")],
+  ["Ubuntu production deployment guide", read("DEPLOY_UBUNTU_24_PRODUCTION.md")],
+  ["Deployment entry point", read("docs/Deployment.md")],
+];
 const workflows = fs.readdirSync(".github/workflows")
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
   .map((name) => [name, read(`.github/workflows/${name}`)]);
@@ -61,10 +68,16 @@ reject(compose, /image:\s+[^\n@]+\s*$/m, "Compose service images must be digest-
 
 requireText(pkg, '"start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server"', "production start must use compiled connection bootstrap");
 reject(pkg, /"build:server"[^\n]*--sourcemap/, "production server build must not retain source maps");
-requireText(pm2Config, "script: 'dist/server.cjs'", "PM2 must execute the compiled server");
-requireText(pm2Config, "interpreter: 'node'", "PM2 must not require TypeScript tooling");
-reject(pm2Config, /\btsx\b|server\.ts/, "PM2 must not execute TypeScript in production");
-requireText(pm2Deploy, "npm prune --omit=dev", "host deployment must remove development dependencies after build");
+try {
+  assertProductionHostSupplyChain({
+    baseInstaller: hostBaseInstaller,
+    pm2Deploy,
+    preflight: hostPreflight,
+    deploymentDocs: activeDeploymentDocs,
+  });
+} catch (error) {
+  failures.push(error instanceof Error ? error.message : String(error));
+}
 requireText(server, "drainRuntime", "server termination must use the bounded drain contract");
 requireText(health, "runtime.requiredWorkers", "readiness must include required worker state");
 requireText(health, 'runtime.phase !== "ready"', "readiness must reject non-ready runtime phases");

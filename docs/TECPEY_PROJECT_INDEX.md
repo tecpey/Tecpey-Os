@@ -135,13 +135,13 @@
 | `INSTALL_MAC_NO_ERROR.md` | 🟢 Current | Mac dev setup (no-error version) |
 | `Dockerfile` | 🟢 Current | Multi-stage build |
 | `docker-compose.production.yml` | 🟢 Current | Docker Compose services |
-| `ecosystem.config.cjs` | 🟢 Current | PM2 config |
+| `ecosystem.config.cjs` | ⚫ Retired | Historical PM2 config; not a production authority |
 | `deploy/nginx/tecpey.conf` | 🟢 Current | Nginx config |
 | `deploy/nginx/tecpey.ssl.conf` | ⚪ Not yet created | SSL Nginx template |
 | `deploy/systemd/tecpey-web.service` | 🟢 Current | Systemd service |
-| `scripts/ubuntu24-install-base.sh` | 🟢 Current | Server baseline install |
-| `scripts/ubuntu24-preflight.sh` | 🟢 Current | Pre-deployment checks |
-| `scripts/ubuntu24-deploy-pm2.sh` | 🟢 Current | PM2 deployment |
+| `scripts/ubuntu24-install-base.sh` | ⚫ Retired | Fails closed; privileged repository bootstrap is prohibited |
+| `scripts/ubuntu24-preflight.sh` | 🟢 Current | Lockfile/static/build/live-readiness verification |
+| `scripts/ubuntu24-deploy-pm2.sh` | ⚫ Retired | Fails closed; PM2 is not an approved release path |
 | `scripts/check-health.mjs` | 🟢 Current | Health check |
 | `scripts/validate-env.mjs` | 🟡 Needs update | Requires Phase 39.5 env validation expansion |
 | `scripts/qa-*.mjs` | 🟢 Current | 6 QA scripts |

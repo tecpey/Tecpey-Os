@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "== TecPey PM2 Deploy =="
-if [ ! -f .env.production ]; then echo "Missing .env.production"; exit 1; fi
-npm ci --no-audit --no-fund
-npm run build
-npm prune --omit=dev --no-audit --no-fund
-if ! command -v pm2 >/dev/null 2>&1; then sudo npm i -g pm2; fi
-pm2 start ecosystem.config.cjs --env production || pm2 restart tecpey-web
-pm2 save
-pm2 startup systemd -u "$USER" --hp "$HOME" || true
-echo "TecPey is running on http://127.0.0.1:3000"
+readonly HOST_DEPLOYMENT_RETIRED=1
+echo "Retired: PM2 host deployment is not an approved TecPey production release path." >&2
+echo "Use the immutable digest-pinned Docker Compose release path documented in DEPLOY_UBUNTU_24_PRODUCTION.md." >&2
+exit "$HOST_DEPLOYMENT_RETIRED"

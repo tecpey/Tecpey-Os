@@ -1,8 +1,8 @@
 # TecPey Production Deployment — Ubuntu 24.04 LTS
 
-This package supports Ubuntu 24.04 deployment through the compiled custom server,
-Nginx, PM2 or immutable Docker Compose images, PostgreSQL, authenticated Redis,
-and fail-closed production readiness. The canonical operational contract is
+The approved Ubuntu 24.04 production path uses the immutable, digest-pinned
+Docker Compose release, PostgreSQL, authenticated Redis, and fail-closed
+production readiness. The canonical operational contract is
 `docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`.
 
 ## 1. Server baseline
@@ -14,11 +14,13 @@ Recommended launch server:
 - 8 vCPU / 16GB RAM recommended for AI Brain, news, academy, and future community features
 - NVMe SSD
 
-Install base tools:
+Provision Docker Engine and the Compose plugin through the approved infrastructure
+baseline. The repository does not execute privileged network installers. These
+legacy commands intentionally fail closed:
 
 ```bash
-cd /var/www/tecpey
 bash scripts/ubuntu24-install-base.sh
+bash scripts/ubuntu24-deploy-pm2.sh
 ```
 
 ## 2. Environment
@@ -39,22 +41,19 @@ REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@127.0.0.1:6379
 
 Do not put API keys in Git, screenshots, chat, or frontend code.
 
-## 3. PM2 deployment
+## 3. Immutable release deployment
 
 ```bash
-npm ci --no-audit --no-fund
-npm run build
-npm run db:migrate
-npm prune --omit=dev --no-audit --no-fund
-pm2 start ecosystem.config.cjs
-pm2 save
-pm2 startup
+export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
+export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+docker compose -f docker-compose.production.yml up -d
 ```
 
 Check:
 
 ```bash
-curl http://127.0.0.1:3000/api/health
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health
 ```
 
 ## 4. Nginx
@@ -73,26 +72,15 @@ sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d tecpey.ir -d www.tecpey.ir
 ```
 
-## 5. Docker Compose option
-
-```bash
-export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
-export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
-export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
-docker compose -f docker-compose.production.yml up -d
-```
-
-## 6. Production QA commands
+## 5. Production QA commands
 
 ```bash
 npm ci --no-audit --no-fund
+npm run env:check
 npm run check
 npm run build
-npm run db:migrate
-npm prune --omit=dev --no-audit --no-fund
-npm run start
-curl -I http://127.0.0.1:3000
-curl http://127.0.0.1:3000/api/health
+docker compose -f docker-compose.production.yml config
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health
 ```
 
 Expected:
@@ -104,6 +92,20 @@ Expected:
 - Nginx: `200 OK`
 - API key: server-side only
 
+## 6. Optional pre-provisioned systemd verification
+
+The checked-in systemd unit remains an audited runtime authority for an
+infrastructure-managed host that already provides approved Node/npm packages.
+The repository does not install those privileged dependencies. After the
+candidate is built and the service is running, verify it with:
+
+```bash
+bash scripts/ubuntu24-preflight.sh
+```
+
+This command is intentionally fail closed when environment validation, static
+checks, the production build, or live readiness fails.
+
 ## 7. Operational checklist
 
 - Enable UFW and Fail2Ban.
@@ -111,5 +113,5 @@ Expected:
 - Keep `.env.production` outside version control.
 - Rotate the test OpenAI key before production.
 - Back up PostgreSQL daily.
-- Monitor PM2 logs.
+- Retain the exact image digest and deployment evidence.
 - Keep Redis authenticated and private; never expose its port publicly.

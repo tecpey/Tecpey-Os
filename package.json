@@ -20,7 +20,7 @@
     "prod:build": "npm ci --no-audit --no-fund && npm run env:check && npm run build",
     "prod:start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
     "container:migrate": "node dist/run-production-bootstrap.cjs migrate",
-    "supply-chain:check": "node scripts/check-production-supply-chain.mjs",
+    "supply-chain:check": "node scripts/check-production-supply-chain.mjs && node --test scripts/production-host-supply-chain-policy.test.mjs",
     "test:deployment": "NODE_ENV=test node --import tsx --test src/tests/runtime/production-deployment-contract.test.ts",
     "health": "node scripts/check-health.mjs",
     "env:check": "node scripts/validate-env.mjs",

@@ -9,12 +9,11 @@ cat DEPLOY_UBUNTU_24_PRODUCTION.md
 Quick path:
 
 ```bash
-cp .env.production.example .env.production
-nano .env.production
-npm install
-npm run build
-pm2 start ecosystem.config.cjs
-curl http://127.0.0.1:3000/api/health
+export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
+export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+docker compose -f docker-compose.production.yml up -d
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health
 ```
 
 Nginx config is available at:
@@ -23,8 +22,5 @@ Nginx config is available at:
 deploy/nginx/tecpey.conf
 ```
 
-Docker Compose option:
-
-```bash
-docker compose -f docker-compose.production.yml up -d --build
-```
+Repository-owned privileged host bootstrap and PM2 deployment are retired. They
+must not be used as production release paths.
