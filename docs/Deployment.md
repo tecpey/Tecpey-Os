@@ -1,264 +1,41 @@
-# TecPey — Deployment Guide
+# TecPey production deployment
 
-## Target Environment
+This document is an entry point, not a second deployment authority. The
+canonical operational contract is
+[`docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md`](operations/PRODUCTION_DEPLOYMENT_CONTRACT.md),
+and the Ubuntu operator procedure is
+[`DEPLOY_UBUNTU_24_PRODUCTION.md`](../DEPLOY_UBUNTU_24_PRODUCTION.md).
 
-| Component | Specification |
-|-----------|--------------|
-| OS | Ubuntu 24.04 LTS |
-| Node.js | 22.x LTS (minimum 20.9.0 per Next.js 16 requirement) |
-| Database | PostgreSQL 15+ |
-| Process Manager | PM2 or Docker |
-| Reverse Proxy | Nginx |
-| SSL | Let's Encrypt (Certbot) |
+## Approved release path
 
----
-
-## CI / CD Pipeline
-
-TecPey uses GitHub Actions for automated quality checks on every push to `main` and every pull request.
-
-### Workflow: `.github/workflows/ci.yml`
-
-| Step | Command | Failure condition |
-|------|---------|-------------------|
-| Install | `npm ci` | missing or conflicting deps |
-| TypeScript | `tsc --noEmit` | any type error |
-| ESLint | `eslint . --max-warnings 130` | any new error or warnings exceeding threshold |
-| Build | `npm run build` | any build error |
-
-### Adding CI secrets (GitHub repository → Settings → Secrets → Actions)
-
-For sensitive production variables that the build-time CI needs as real values (e.g. when you add server-side checks at build time), add them as **repository secrets**:
-
-```
-TECPEY_SESSION_SECRET
-CERTIFICATE_SIGNING_SECRET
-DATABASE_URL
-NEXT_PUBLIC_API_BACKEND_URL
-NEXT_PUBLIC_API_SOCKET_URL
-```
-
-The CI workflow currently uses placeholder values for all env vars since `next build` does not call `env:check`. Once real secrets are added as GitHub Actions secrets, replace the inline `env:` block in `ci.yml` with `${{ secrets.SECRET_NAME }}` references.
-
----
-
-## Environment Variables
-
-Create `/etc/tecpey/.env.production` (never committed to git):
-
-```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/tecpey
-
-# Site
-NEXT_PUBLIC_SITE_URL=https://tecpey.ir
-NEXT_PUBLIC_API_URL=https://my.tecpey.ir
-NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
-NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir/spot
-
-# Auth secrets (generate with: openssl rand -hex 32)
-TECPEY_SESSION_SECRET=your_session_secret_min_24_chars
-TECPEY_ACADEMY_AUTH_SECRET=your_academy_secret_min_24_chars
-TECPEY_ADMIN_TOKEN=your_admin_token_min_24_chars
-
-# Optional
-TECPEY_COOKIE_SECURE=true
-NODE_ENV=production
-```
-
-**Security rules:**
-- Never commit `.env` files
-- Rotate secrets every 90 days
-- Use at least 32 random characters for each secret
-- Set file permissions: `chmod 600 /etc/tecpey/.env.production`
-- Keep `NEXT_PUBLIC_API_BACKEND_URL` and `NEXT_PUBLIC_API_SOCKET_URL` identical
-  at build and runtime; rebuild when either endpoint changes.
-- Production API/WebSocket values must be exact `https://`/`wss://` origins.
-  Plaintext schemes, credentials, placeholders and arbitrary CSP tokens fail
-  environment validation and runtime bootstrap.
-
-See `docs/security/CSP_CONNECTION_POLICY.md` for the owned integration registry,
-development policy and CSP violation-reporting contract.
-
----
-
-## Option A: PM2 Deployment
-
-### 1. Install dependencies
+Production releases use the reviewed container image by immutable digest. The
+host must already have Docker Engine and the Compose plugin from the approved
+infrastructure baseline; repository scripts do not install privileged host
+dependencies.
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-sudo npm install -g pm2
+export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
+export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+npm run env:check
+docker compose -f docker-compose.production.yml up -d
+curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health
 ```
 
-### 2. Clone and build
+Retain the exact image digest, migration result, readiness response, rollback
+evidence, and recovery-drill artifact for the release record. Do not deploy
+from a mutable tag or a live source checkout.
+
+## Retired host paths
+
+Repository-owned privileged bootstrap and PM2 deployment are retired. The
+legacy scripts remain only as fail-closed compatibility sentinels:
 
 ```bash
-git clone https://github.com/tecpey/Tecpey-Os.git /opt/tecpey
-cd /opt/tecpey
-npm ci --production
-npm run build
+bash scripts/ubuntu24-install-base.sh
+bash scripts/ubuntu24-deploy-pm2.sh
 ```
 
-### 3. Start with PM2
-
-```bash
-pm2 start ecosystem.config.cjs
-pm2 save
-pm2 startup
-```
-
-### 4. Configure Nginx
-
-Copy the provided config:
-
-```bash
-sudo cp deploy/nginx/tecpey.ssl.conf /etc/nginx/sites-available/tecpey
-sudo ln -s /etc/nginx/sites-available/tecpey /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
----
-
-## Option B: Docker Deployment
-
-### 1. Build the image
-
-```bash
-docker build -t tecpey:latest .
-```
-
-### 2. Start with Docker Compose
-
-```bash
-docker-compose -f docker-compose.production.yml up -d
-```
-
-### 3. View logs
-
-```bash
-docker-compose -f docker-compose.production.yml logs -f
-```
-
----
-
-## Option C: systemd Service
-
-```bash
-sudo cp deploy/systemd/tecpey-web.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable tecpey-web
-sudo systemctl start tecpey-web
-sudo systemctl status tecpey-web
-```
-
----
-
-## Nginx Configuration
-
-The Nginx config (`deploy/nginx/tecpey.ssl.conf`) includes:
-
-- SSL termination with Let's Encrypt
-- HTTP → HTTPS redirect
-- Reverse proxy to Next.js on port 3000
-- Static asset caching headers
-- Security headers (`X-Frame-Options`, `X-Content-Type-Options`, etc.)
-- Gzip compression
-
-### Obtain SSL Certificate
-
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d tecpey.ir -d www.tecpey.ir
-```
-
----
-
-## Database Setup
-
-```bash
-sudo apt install postgresql-15
-sudo -u postgres createuser tecpey
-sudo -u postgres createdb tecpey -O tecpey
-sudo -u postgres psql -c "ALTER USER tecpey WITH PASSWORD 'your_password';"
-```
-
-Run migrations (if applicable):
-
-```bash
-cd /opt/tecpey
-npm run db:migrate
-```
-
----
-
-## Zero-Downtime Updates
-
-```bash
-cd /opt/tecpey
-git pull origin main
-npm ci --production
-npm run build
-pm2 reload ecosystem.config.cjs --update-env
-```
-
-For Docker:
-
-```bash
-docker-compose -f docker-compose.production.yml pull
-docker-compose -f docker-compose.production.yml up -d --no-deps --build
-```
-
----
-
-## Health Checks
-
-```bash
-# Check application
-curl -I https://tecpey.ir
-
-# Check PM2
-pm2 status
-
-# Check Nginx
-sudo systemctl status nginx
-
-# Check PostgreSQL
-sudo systemctl status postgresql
-```
-
----
-
-## Monitoring
-
-- **Application logs:** `pm2 logs tecpey` or `journalctl -u tecpey-web`
-- **Nginx logs:** `/var/log/nginx/access.log` and `/var/log/nginx/error.log`
-- **Database logs:** `journalctl -u postgresql`
-
----
-
-## Backup
-
-```bash
-# Database backup
-pg_dump tecpey > /backups/tecpey_$(date +%Y%m%d).sql
-
-# Application backup
-tar -czf /backups/tecpey_app_$(date +%Y%m%d).tar.gz /opt/tecpey --exclude node_modules --exclude .next
-```
-
----
-
-## Rollback
-
-```bash
-# Via git tag
-git checkout v0.11-enterprise-polish
-npm ci --production
-npm run build
-pm2 reload ecosystem.config.cjs
-```
-
-See [CHANGELOG.md](../CHANGELOG.md) for available version tags.
+Both commands must exit non-zero. A pre-provisioned systemd host may use the
+audited unit only under infrastructure ownership and the verification contract
+described in the Ubuntu operator procedure.

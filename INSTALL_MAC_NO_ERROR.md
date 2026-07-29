@@ -69,9 +69,14 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```bash
 npm run env:check
 npm run check
-npm run build
-npm run dev
+TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run build
+TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run dev
 ```
+
+`TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1` فقط برای توسعه محلی از ZIP بدون متادیتای
+`.git` است. این حالت مقدار `unverified-local-source-archive` را داخل Artifact
+ثبت می‌کند و نباید در Production استفاده شود. Build رسمی Production باید
+`TECPEY_BUILD_COMMIT_SHA` را با SHA دقیق ۴۰ کاراکتری Git دریافت کند.
 
 بعد برو به:
 
