@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
 import { ESLint } from "eslint";
 import {
@@ -49,6 +50,22 @@ test("inline exceptions require an issue-linked reason", () => {
     ),
     true,
   );
+  for (const governedRule of [
+    "@typescript-eslint/no-explicit-any",
+    "react-hooks/immutability",
+    "react-hooks/purity",
+    "react-hooks/refs",
+    "react-hooks/rules-of-hooks",
+    "react-hooks/set-state-in-effect",
+  ]) {
+    assert.equal(
+      hasGovernedInlineException(
+        `// eslint-disable-next-line ${governedRule} -- #999: attempted governed bypass`,
+      ),
+      false,
+      `${governedRule} must remain unsuppressible`,
+    );
+  }
   assert.equal(
     hasGovernedInlineException(
       "/* eslint-disable react-hooks/rules-of-hooks -- #162: broad file bypass */",
@@ -73,6 +90,14 @@ test("inline exceptions require an issue-linked reason", () => {
     ),
     [],
   );
+});
+
+test("ESLint-driven authority includes root production entrypoints", async () => {
+  const eslint = new ESLint({ cwd: process.cwd() });
+  const results = await eslint.lintFiles(["."]);
+  const lintedPaths = new Set(results.map((result) => path.resolve(result.filePath)));
+  assert.ok(lintedPaths.has(path.resolve("server.ts")));
+  assert.ok(lintedPaths.has(path.resolve("next.config.ts")));
 });
 
 test("baseline comparison rejects growth or line drift", () => {

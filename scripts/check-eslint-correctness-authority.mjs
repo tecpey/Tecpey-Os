@@ -15,7 +15,6 @@ const GOVERNED_RULES = [
   "react-hooks/rules-of-hooks",
   "react-hooks/set-state-in-effect",
 ];
-const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
 const INLINE_DIRECTIVE =
   /^\s*(?:(?:\/\/|\/\*|\{\/\*)\s*)?(eslint-disable(?:-next-line|-line)?)\b(.*?)(?:\*\/\}?)?\s*$/u;
 const GOVERNED_DESCRIPTION = /--\s+#\d+:\s+\S/;
@@ -84,7 +83,11 @@ export function hasGovernedInlineException(line) {
     .split(",")
     .map((rule) => rule.trim())
     .filter(Boolean);
-  return rules.length === 1 && rules[0] !== "all";
+  return (
+    rules.length === 1 &&
+    rules[0] !== "all" &&
+    !GOVERNED_RULES.includes(rules[0])
+  );
 }
 
 export function compareBaseline(expected, actual) {
@@ -120,26 +123,9 @@ async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
 
-async function walkSourceFiles(directory) {
-  const entries = await fs.readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const resolved = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...await walkSourceFiles(resolved));
-    } else if (SOURCE_EXTENSIONS.has(path.extname(entry.name))) {
-      files.push(resolved);
-    }
-  }
-  return files;
-}
-
-async function assertInlineExceptionPolicy() {
-  const roots = ["scripts", "src", "tests"]
-    .map((entry) => path.join(ROOT, entry));
-  const files = (await Promise.all(roots.map(walkSourceFiles))).flat();
+async function assertInlineExceptionPolicy(files) {
   const invalid = [];
-  for (const file of files) {
+  for (const file of new Set(files)) {
     const relative = path.relative(ROOT, file).split(path.sep).join("/");
     const source = await fs.readFile(file, "utf8");
     for (const line of invalidInlineExceptionLines(source)) {
@@ -217,6 +203,7 @@ export async function runAuthorityCheck() {
   }
 
   const results = await eslint.lintFiles(["."]);
+  await assertInlineExceptionPolicy(results.map((result) => result.filePath));
   const actual = [];
   const unexpected = [];
   for (const result of results) {
@@ -252,8 +239,6 @@ export async function runAuthorityCheck() {
   ) {
     fail("eslint_suppressions_do_not_match_reviewed_baseline");
   }
-
-  await assertInlineExceptionPolicy();
   console.log(
     `ESLint correctness authority passed: ${GOVERNED_RULES.length - 1} zero-debt rules, ` +
     `${baseline.entries.length} reviewed set-state baseline entries, no baseline growth.`,
