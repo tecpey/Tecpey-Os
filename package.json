@@ -21,6 +21,8 @@
     "prod:start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
     "container:migrate": "node dist/run-production-bootstrap.cjs migrate",
     "supply-chain:check": "node scripts/check-production-supply-chain.mjs",
+    "security:secrets:check": "node scripts/check-secret-scanning-authority.mjs",
+    "test:secret-scanning": "node --test scripts/secret-scanning-baseline.test.mjs scripts/secret-scanning-authority.test.mjs",
     "ops:recovery:check": "node scripts/check-operational-recovery-authority.mjs",
     "test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs",
     "test:deployment": "NODE_ENV=test node --import tsx --test src/tests/runtime/production-deployment-contract.test.ts",
