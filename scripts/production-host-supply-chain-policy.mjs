@@ -9,6 +9,9 @@ const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
 const NPM_VERSION_CONTRACT = "readonly EXPECTED_NPM_MAJOR=10";
 const VERIFICATION_PHASE_CONTRACT = 'readonly VERIFICATION_PHASE="${1:-}"';
 const LIVE_WORKTREE_CONTRACT = "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey";
+const LIVE_WORKTREE_PHASE_GUARD =
+  'if [ "$VERIFICATION_PHASE" = "candidate" ] &&\n' +
+  '  [ "$candidate_worktree" = "$live_worktree" ]; then';
 const CLEAN_CHECKOUT_CONTRACT = "git status --short --untracked-files=all";
 const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
 const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
@@ -211,6 +214,12 @@ export function productionHostSupplyChainFindings({
   requireText(findings, preflight, 'candidate|runtime) ;;', "Ubuntu preflight must separate candidate and runtime verification");
   requireText(findings, preflight, LIVE_WORKTREE_CONTRACT, "Ubuntu preflight must identify the live systemd working tree");
   requireText(findings, preflight, 'candidate_worktree=$(pwd -P)', "Ubuntu preflight must resolve the physical candidate checkout");
+  requireText(
+    findings,
+    preflight,
+    LIVE_WORKTREE_PHASE_GUARD,
+    "Ubuntu preflight must refuse the live worktree only during candidate verification",
+  );
   requireText(findings, preflight, CLEAN_CHECKOUT_CONTRACT, "Ubuntu preflight must reject tracked and untracked source changes");
   reject(
     findings,

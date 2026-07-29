@@ -57,6 +57,7 @@ function runPreflight(t, {
   curlSuccessAfter = 0,
   gitStatusOutput = "",
   healthPayload = healthyPayload,
+  liveWorktreeIsFixture = false,
   phase = "runtime",
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-host-preflight-"));
@@ -139,7 +140,19 @@ exit "$FAKE_CURL_EXIT_CODE"
 `,
   );
 
-  const result = spawnSync("/bin/bash", [preflightPath, phase], {
+  let executablePreflightPath = preflightPath;
+  if (liveWorktreeIsFixture) {
+    executablePreflightPath = path.join(root, "ubuntu24-preflight.sh");
+    fs.writeFileSync(
+      executablePreflightPath,
+      sources.preflight.replace(
+        "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey",
+        `readonly SYSTEMD_LIVE_WORKTREE=${JSON.stringify(root)}`,
+      ),
+    );
+  }
+
+  const result = spawnSync("/bin/bash", [executablePreflightPath, phase], {
     cwd: root,
     encoding: "utf8",
     env: {
@@ -412,6 +425,43 @@ test("real preflight separates isolated candidate build from promoted runtime ve
     assert.doesNotMatch(result.commandLog, /^npm /m);
     assert.equal((result.commandLog.match(/^sleep 2$/gm) ?? []).length, 2);
   });
+});
+
+test("promoted live worktree permits runtime checks but refuses candidate builds", async (t) => {
+  await t.test("candidate", (subtest) => {
+    const result = runPreflight(subtest, {
+      phase: "candidate",
+      liveWorktreeIsFixture: true,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Refusing to verify inside the live systemd working tree/);
+    assert.doesNotMatch(result.commandLog, /^npm /m);
+  });
+
+  await t.test("runtime", (subtest) => {
+    const result = runPreflight(subtest, {
+      phase: "runtime",
+      liveWorktreeIsFixture: true,
+      curlSuccessAfter: 1,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.curlCount, 1);
+    assert.doesNotMatch(result.commandLog, /^npm /m);
+  });
+});
+
+test("policy requires the live-worktree refusal to be candidate-only", () => {
+  const mutated = {
+    ...sources,
+    preflight: sources.preflight.replace(
+      'if [ "$VERIFICATION_PHASE" = "candidate" ] &&\n  ',
+      "if ",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(mutated).join("\n"),
+    /refuse the live worktree only during candidate verification/,
+  );
 });
 
 test("real preflight rejects untracked candidate source before install or build", (t) => {
