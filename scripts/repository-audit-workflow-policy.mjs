@@ -146,6 +146,9 @@ function parseSteps(lines, stepsIndex) {
     if (!currentStep) throw new Error("workflow step property appears before a named step");
     if (line.indent === 8) {
       const { key, rawValue } = keyValue(line.text);
+      if (!["env", "run", "uses", "with"].includes(key)) {
+        throw new Error(`workflow step ${currentStep.name} has unsupported property ${key}`);
+      }
       if (Object.hasOwn(currentStep, key)) {
         throw new Error(`workflow step ${currentStep.name} repeats ${key}`);
       }
@@ -176,8 +179,12 @@ function parseSteps(lines, stepsIndex) {
 
 function parseWorkflow(workflowSource) {
   const lines = yamlLines(workflowSource);
-  const permissionNodes = lines.filter((line) => line.text === "permissions:");
-  if (permissionNodes.length !== 1 || permissionNodes[0].indent !== 0) {
+  const permissionNodes = lines.filter((line) => line.text.startsWith("permissions:"));
+  if (
+    permissionNodes.length !== 1 ||
+    permissionNodes[0].indent !== 0 ||
+    permissionNodes[0].text !== "permissions:"
+  ) {
     throw new Error("workflow permissions must be one top-level mapping");
   }
   const permissionsIndex = lines.indexOf(permissionNodes[0]);
@@ -189,6 +196,12 @@ function parseWorkflow(workflowSource) {
     "top-level jobs",
   );
   const jobsEnd = blockEnd(lines, jobsIndex);
+  const jobNodes = lines
+    .slice(jobsIndex + 1, jobsEnd)
+    .filter((line) => line.indent === 2);
+  if (jobNodes.length !== 1 || jobNodes[0].text !== "manifest:") {
+    throw new Error("workflow YAML must contain exactly the governed manifest job");
+  }
   const manifestIndex = singleNode(
     lines.slice(jobsIndex + 1, jobsEnd),
     (line) => line.indent === 2 && line.text === "manifest:",

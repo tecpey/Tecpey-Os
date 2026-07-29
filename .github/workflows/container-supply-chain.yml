@@ -9,17 +9,29 @@ on:
       - docker-compose.production.yml
       - package.json
       - package-lock.json
+      - .env.production.example
+      - next.config.ts
       - server.ts
       - src/lib/runtime-readiness.ts
       - src/lib/runtime-shutdown.ts
       - src/app/api/health/**
       - scripts/check-production-supply-chain.mjs
+      - scripts/validate-env.mjs
+      - scripts/resolve-build-identity.ts
       - scripts/test-container-volume-recovery.sh
       - scripts/test-container-image-rollback.sh
       - deploy/systemd/tecpey-web.service
       - ecosystem.config.cjs
+      - VERIFY_PRODUCTION.sh
+      - scripts/production-host-supply-chain-policy.mjs
+      - scripts/production-host-supply-chain-policy.test.mjs
+      - scripts/ubuntu24-install-base.sh
       - scripts/ubuntu24-deploy-pm2.sh
+      - scripts/ubuntu24-preflight.sh
+      - DEPLOY_UBUNTU_24.md
       - DEPLOY_UBUNTU_24_PRODUCTION.md
+      - docs/Deployment.md
+      - docs/TECPEY_PROJECT_INDEX.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
       - .github/workflows/**
   push:
@@ -52,6 +64,12 @@ jobs:
       - name: Verify governed supply-chain contract
         run: node scripts/check-production-supply-chain.mjs
 
+      - name: Install policy-test dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify governed supply-chain negative tests
+        run: node --test scripts/production-host-supply-chain-policy.test.mjs
+
       - name: Prove mandatory Compose inputs
         run: |
           touch .env.production
@@ -72,6 +90,12 @@ jobs:
           load: true
           push: false
           tags: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
 
       - name: Record final image digest
         env:
@@ -139,7 +163,7 @@ jobs:
       - name: Build exact candidate image
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
+        run: docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA" --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
 
       - name: Checkout exact previous release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -154,7 +178,7 @@ jobs:
           PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"
-          docker build --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
+          docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA" --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
           bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
@@ -214,6 +238,12 @@ jobs:
           target: runner
           push: true
           tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
           sbom: true
           provenance: mode=max
 

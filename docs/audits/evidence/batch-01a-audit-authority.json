@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "966d55f8caa337d9add026dd6b8a151e82d8e705",
-      "sha256": "af611799bbe642dc4d50b6e45e63f03da0dc2031400f7658677ee117b573f56b",
+      "gitObjectId": "b2b65ef554cd4a42951a2d6009e91c42638bdbf3",
+      "sha256": "e4e87bd7cc9394ceaf00bce33a585e360c142b1d58e05f1205bba3dc67a19ef6",
       "lines": 171,
       "reviewedRanges": [
         {
@@ -53,7 +53,7 @@
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "All scripts, dependency pins, engine constraints and override declarations were reviewed; the audit commands remain exact and separated between generation, authority checking, verification and tests.",
-        "The added ESLint, secret-scanning and operational-recovery commands bind their permanent guards to focused tests, while env:check now composes the existing environment validator with the production CSP connection validator.",
+        "The added ESLint, secret-scanning, operational-recovery and production supply-chain commands bind their permanent guards to focused tests; supply-chain:check now executes both its source authority and 44 host-policy tests, while env:check composes the existing environment validator with the production CSP connection validator.",
         "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority."
       ],
       "findings": [
@@ -225,19 +225,20 @@
     },
     {
       "path": "scripts/repository-audit-workflow-policy.mjs",
-      "gitObjectId": "4d4d88e826ecdf76285ce5e059e1111e7f9c1229",
-      "sha256": "51e4da0406b64302308d325f99ce0e6b271b481991a79a8d90cf52b465edc4a4",
-      "lines": 343,
+      "gitObjectId": "35be717a78a8100c8f38ba4ab55fe8cb4bb497a7",
+      "sha256": "eff6758cf3cb91958fae562f1c99c2084cf991422030fd09a146817f49b30ead",
+      "lines": 356,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 343
+          "endLine": 356
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Comment handling, scalar parsing, indentation and block boundaries, exact governed step sequence, permissions, exact-head propagation, reserved variable rejection, full-SHA action pinning and aggregate failure reporting were reviewed.",
-        "Required executable contracts are now validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence."
+        "Required executable contracts are validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence; the workflow is constrained to one manifest job, exactly one top-level permissions mapping and the governed step-property set.",
+        "Step-level conditions, continue-on-error controls, scalar or job-level permission overrides, extra jobs and their actions are rejected fail closed instead of remaining outside the parsed authority."
       ],
       "findings": [
         {
@@ -249,6 +250,34 @@
           "evidence": "The previous guard used unrestricted includes() checks; the final implementation parses the governed YAML structure and validates exact effective step nodes, keys, values and sequence.",
           "fixOwner": "repository-supply-chain",
           "verificationRequirement": "Negative fixtures must move each governed contract into a comment and observe a policy failure; the unchanged real workflow must pass.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01A-P2-007",
+          "severity": "P2",
+          "line": 182,
+          "attackPath": "A second workflow job could declare permissions: write-all and execute an unpinned action while the previous parser inspected only the governed manifest job and top-level mapping.",
+          "affectedInvariant": "Every job in the repository-audit workflow must remain inside the exact read-only and action-pinned authority.",
+          "evidence": "The parser now rejects every permissions node except the single top-level mapping and requires jobs to contain exactly the governed manifest job.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "A negative fixture must append a second job with scalar write-all permissions and an unpinned action, then observe a structural policy failure.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01A-P2-008",
+          "severity": "P2",
+          "line": 149,
+          "attackPath": "An if: false condition on manifest generation, verification or upload could skip required evidence while the previous parser ignored arbitrary scalar step properties.",
+          "affectedInvariant": "Every governed audit step must execute unconditionally whenever the workflow job runs.",
+          "evidence": "The parser now accepts only env, run, uses and with on governed steps, so if and other skip-capable properties fail structural validation.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Negative fixtures must add if: false independently to generation, verification and upload and observe policy failure for each mutation.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"

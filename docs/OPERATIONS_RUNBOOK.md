@@ -22,7 +22,7 @@ Before any production deployment, verify:
 | `TECPEY_ADMIN_TOKEN` | **Yes** | Admin panel access token |
 | `EMAIL_PROVIDER` | Recommended | `resend` or `sendgrid` for email delivery |
 | `RESEND_API_KEY` | If `EMAIL_PROVIDER=resend` | Resend.com API key |
-| `NEXT_PUBLIC_GIT_COMMIT` | Recommended | Git SHA injected at build time |
+| `TECPEY_BUILD_COMMIT_SHA` | **Build only** | Exact Git SHA baked into the compiled artifact; never set through runtime EnvironmentFile |
 | `NEXT_PUBLIC_BUILD_VERSION` | Recommended | Semver/build number |
 | `ERROR_TRACKING_PROVIDER` | Recommended | `betterstack` or `sentry` |
 | `ALERT_WEBHOOK_URL` | Recommended | Slack/PagerDuty webhook for critical alerts |
@@ -48,7 +48,7 @@ curl -s https://tecpey.ir/api/health | jq '.checks, .warnings'
 - [ ] `X-Frame-Options: DENY` in response headers
 - [ ] Error tracking configured (`ERROR_TRACKING_PROVIDER=betterstack` or `sentry`)
 - [ ] Alert webhook configured (`ALERT_WEBHOOK_URL`)
-- [ ] Build version set (`NEXT_PUBLIC_GIT_COMMIT`, `NEXT_PUBLIC_BUILD_VERSION`)
+- [ ] Immutable build commit is baked by the governed build (`TECPEY_BUILD_COMMIT_SHA`)
 - [ ] Admin panel accessible: `GET /api/admin/metrics` returns 200 with token
 - [ ] Rate limiting cross-instance: Redis mode confirmed via `"mode": "redis"` in rate-limit logs
 
