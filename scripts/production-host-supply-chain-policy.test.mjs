@@ -727,3 +727,56 @@ test("policy rejects hidden untracked changes or live-tree verification guidance
   assert.match(docFindings, /separate isolated candidate verification from runtime promotion/);
   assert.match(docFindings, /select an explicit candidate or runtime verification phase/);
 });
+
+test("policy requires systemd migration before promotion and restart", () => {
+  const deploymentDocs = sources.deploymentDocs.map(([label, source]) => [
+    label,
+    label === "Ubuntu production deployment guide"
+      ? source.replace(
+          "node dist/run-production-bootstrap.cjs migrate",
+          "echo migration omitted",
+        )
+      : source,
+  ]);
+  const missingMigrationFindings = productionHostSupplyChainFindings({
+    ...sources,
+    deploymentDocs,
+  }).join("\n");
+  assert.match(missingMigrationFindings, /separate isolated candidate verification/);
+  assert.match(
+    missingMigrationFindings,
+    /migrate the exact candidate before promotion and restart/,
+  );
+
+  const reorderedDocs = sources.deploymentDocs.map(([label, source]) => [
+    label,
+    label === "Ubuntu production deployment guide"
+      ? source
+          .replace("node dist/run-production-bootstrap.cjs migrate", "migration deferred")
+          .replace(
+            "bash scripts/ubuntu24-preflight.sh runtime",
+            "node dist/run-production-bootstrap.cjs migrate\nbash scripts/ubuntu24-preflight.sh runtime",
+          )
+      : source,
+  ]);
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      deploymentDocs: reorderedDocs,
+    }).join("\n"),
+    /migrate the exact candidate before promotion and restart/,
+  );
+});
+
+test("container workflow triggers for every build-identity source", () => {
+  for (const path of ["next.config.ts", "scripts/resolve-build-identity.ts"]) {
+    const mutated = {
+      ...sources,
+      containerWorkflow: sources.containerWorkflow.replace(`      - ${path}\n`, ""),
+    };
+    assert.match(
+      productionHostSupplyChainFindings(mutated).join("\n"),
+      new RegExp(`must run for build-identity source changes: ${path.replaceAll(".", "\\.")}`),
+    );
+  }
+});

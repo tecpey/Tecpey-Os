@@ -118,11 +118,19 @@ test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_SHA"
 bash scripts/ubuntu24-preflight.sh candidate
 ```
 
-Only after the isolated candidate passes may the infrastructure owner perform
-an atomic promotion and controlled service restart. The repository does not
-copy candidate artifacts into the live tree or automate that privileged
-transition. After promotion, remain in the isolated candidate checkout and bind
-the live readiness result to the same exact commit:
+Production startup is verify-only and never applies migrations. After the
+isolated candidate passes, run the governed compiled migration target from that
+same exact candidate and require its successful `schema: "current"` result:
+
+```bash
+node dist/run-production-bootstrap.cjs migrate
+```
+
+Only after the migration succeeds may the infrastructure owner perform the
+atomic promotion. Only after promotion may the owner perform the controlled service restart.
+The repository does not copy candidate artifacts into the live tree or automate
+those privileged transitions. After the restart, remain in the isolated candidate
+checkout and bind the live readiness result to the same exact commit:
 
 ```bash
 bash scripts/ubuntu24-preflight.sh runtime

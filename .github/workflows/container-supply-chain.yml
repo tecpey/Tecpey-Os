@@ -9,11 +9,13 @@ on:
       - docker-compose.production.yml
       - package.json
       - package-lock.json
+      - next.config.ts
       - server.ts
       - src/lib/runtime-readiness.ts
       - src/lib/runtime-shutdown.ts
       - src/app/api/health/**
       - scripts/check-production-supply-chain.mjs
+      - scripts/resolve-build-identity.ts
       - scripts/test-container-volume-recovery.sh
       - scripts/test-container-image-rollback.sh
       - deploy/systemd/tecpey-web.service

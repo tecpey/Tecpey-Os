@@ -25,6 +25,14 @@ const LOCAL_SOURCE_ARCHIVE_SENTINEL = "unverified-local-source-archive";
 const LOCAL_SOURCE_ARCHIVE_OPT_IN =
   'process.env.TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD?.trim() === "1"';
 const GIT_BUILD_IDENTITY_PROBE = 'execFileSync("git", ["rev-parse", "HEAD"]';
+const SYSTEMD_CANDIDATE_VERIFICATION =
+  "bash scripts/ubuntu24-preflight.sh candidate";
+const SYSTEMD_MIGRATION =
+  "node dist/run-production-bootstrap.cjs migrate";
+const SYSTEMD_PROMOTION = "atomic promotion";
+const SYSTEMD_RESTART = "controlled service restart";
+const SYSTEMD_RUNTIME_VERIFICATION =
+  "bash scripts/ubuntu24-preflight.sh runtime";
 const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
@@ -185,15 +193,35 @@ export function productionHostSupplyChainFindings({
       );
       for (const contract of [
         "/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA",
-        "bash scripts/ubuntu24-preflight.sh candidate",
-        "bash scripts/ubuntu24-preflight.sh runtime",
-        "atomic promotion and controlled service restart",
+        SYSTEMD_CANDIDATE_VERIFICATION,
+        SYSTEMD_MIGRATION,
+        SYSTEMD_PROMOTION,
+        SYSTEMD_RESTART,
+        SYSTEMD_RUNTIME_VERIFICATION,
       ]) {
         requireText(
           findings,
           source,
           contract,
           `${label} must separate isolated candidate verification from runtime promotion`,
+        );
+      }
+      const systemdReleaseOrder = [
+        SYSTEMD_CANDIDATE_VERIFICATION,
+        SYSTEMD_MIGRATION,
+        SYSTEMD_PROMOTION,
+        SYSTEMD_RESTART,
+        SYSTEMD_RUNTIME_VERIFICATION,
+      ].map((contract) => source.indexOf(contract));
+      if (
+        systemdReleaseOrder.some((index) => index < 0) ||
+        systemdReleaseOrder.some(
+          (index, position) =>
+            position > 0 && index <= systemdReleaseOrder[position - 1],
+        )
+      ) {
+        findings.push(
+          `${label} must migrate the exact candidate before promotion and restart`,
         );
       }
       reject(
@@ -300,6 +328,20 @@ export function productionHostSupplyChainFindings({
       dockerfile,
       contract,
       `Docker must receive an exact build commit: ${contract}`,
+    );
+  }
+  const pullRequestTriggerStart = containerWorkflow.indexOf("  pull_request:");
+  const pushTriggerStart = containerWorkflow.indexOf("  push:", pullRequestTriggerStart);
+  const pullRequestTrigger =
+    pullRequestTriggerStart >= 0 && pushTriggerStart > pullRequestTriggerStart
+      ? containerWorkflow.slice(pullRequestTriggerStart, pushTriggerStart)
+      : "";
+  for (const path of ["next.config.ts", "scripts/resolve-build-identity.ts"]) {
+    requireText(
+      findings,
+      pullRequestTrigger,
+      `- ${path}`,
+      `Container workflow must run for build-identity source changes: ${path}`,
     );
   }
   for (const contract of [
