@@ -178,6 +178,9 @@ jobs:
       - name: Production supply-chain authority guard
         run: npm run supply-chain:check
 
+      - name: Secret-scanning authority guard
+        run: npm run security:secrets:check
+
       - name: Operational recovery authority and negative tests
         run: npm run test:ops-recovery-authority
 
