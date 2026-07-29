@@ -84,7 +84,17 @@ for (const contract of [
   requireText(systemdService, contract, `systemd production contract missing: ${contract}`);
 }
 requireText(deploymentDoc, "persistent-volume restore", "deployment documentation must define restore evidence");
-for (const evidence of ["pg_dump", "pg_restore", "redis.rdb", "backup-digests.sha256"]) {
+for (const evidence of [
+  "pg_dump",
+  "pg_restore",
+  "redis.rdb",
+  "backup-digests.sha256",
+  "dist/run-database-migrations.cjs",
+  "SOURCE_PLAN_HASH",
+  "RESTORED_PLAN_HASH",
+  "committedAfterBackupAbsent",
+  "recovery_error=rto_exceeded",
+]) {
   requireText(recovery, evidence, `recovery drill must retain ${evidence} evidence`);
 }
 for (const evidence of ["CANDIDATE_ID", "PREVIOUS_ID", "previous-release-served"]) {
