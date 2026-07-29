@@ -14,7 +14,8 @@ PG_PASSWORD='ephemeral-recovery-password'
 REDIS_PASSWORD='ephemeral-recovery-redis-password'
 EVIDENCE_DIR="${TECPEY_RECOVERY_EVIDENCE_DIR:-artifacts/container-recovery}"
 MAX_RECOVERY_SECONDS="${TECPEY_RECOVERY_RTO_SECONDS:-300}"
-SOURCE_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+SOURCE_SHA="$(git rev-parse HEAD)"
+EXPECTED_SOURCE_SHA="${TECPEY_RECOVERY_SOURCE_SHA:-$SOURCE_SHA}"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 STARTED_MS="$(date +%s%3N)"
 
@@ -66,6 +67,10 @@ if ! [[ "$MAX_RECOVERY_SECONDS" =~ ^[1-9][0-9]*$ ]] || [ "$MAX_RECOVERY_SECONDS"
 fi
 if ! [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]; then
   echo "recovery_error=invalid_source_sha" >&2
+  exit 1
+fi
+if ! [[ "$EXPECTED_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]] || [ "$SOURCE_SHA" != "$EXPECTED_SOURCE_SHA" ]; then
+  echo "recovery_error=source_sha_mismatch" >&2
   exit 1
 fi
 case "$EVIDENCE_DIR" in

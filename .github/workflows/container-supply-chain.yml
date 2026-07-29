@@ -160,7 +160,7 @@ jobs:
       - name: Restore PostgreSQL and Redis persistent volumes
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           TECPEY_RECOVERY_RTO_SECONDS: '300'
         run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
 

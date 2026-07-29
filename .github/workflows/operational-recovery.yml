@@ -60,8 +60,8 @@ jobs:
 
       - name: Execute isolated PostgreSQL and Redis restore
         env:
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           RECOVERY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           TECPEY_RECOVERY_RTO_SECONDS: '300'
         run: bash scripts/test-container-volume-recovery.sh "tecpey-recovery:$RECOVERY_SHA"
 

@@ -13,6 +13,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "workflow_dispatch:", "pull_request:", "permissions:", "contents: read",
     "cancel-in-progress: false", "timeout-minutes: 25", "git rev-parse HEAD",
     "persist-credentials: false", "TECPEY_RECOVERY_RTO_SECONDS: '300'",
+    "TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
     "test-container-volume-recovery.sh", "retention-days: 30",
   ]) {
     requireText(failures, workflow, token, `scheduled workflow is missing ${token}`);
@@ -28,6 +29,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
   );
   reject(failures, workflow, /permissions:\s*\n\s+contents:\s+write/, "workflow must not write contents");
   reject(failures, workflow, /continue-on-error:\s*true/, "recovery failures must fail closed");
+  reject(failures, workflow, /\n\s+GITHUB_SHA:/, "reserved GitHub environment variables must not be overridden");
 
   for (const token of [
     "MIGRATION_IMAGE=", "dist/run-database-migrations.cjs", "SOURCE_PLAN_HASH",
@@ -37,6 +39,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "MAX_RECOVERY_SECONDS", "recovery_error=rto_exceeded",
     "backup-digests.sha256", "verify-operational-recovery-evidence.mjs",
     "recovery_error=evidence_dir_must_be_under_artifacts",
+    "SOURCE_SHA=\"$(git rev-parse HEAD)\"", "recovery_error=source_sha_mismatch",
   ]) {
     requireText(failures, recovery, token, `recovery script is missing ${token}`);
   }

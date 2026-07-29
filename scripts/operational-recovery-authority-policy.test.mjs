@@ -71,3 +71,20 @@ test("rejects an unbounded recursive evidence cleanup", () => {
     true,
   );
 });
+
+test("rejects reserved GitHub SHA override and loss of checkout binding", () => {
+  const workflow = valid.workflow.replace(
+    "TECPEY_RECOVERY_SOURCE_SHA:",
+    "GITHUB_SHA:",
+  );
+  const recovery = valid.recovery.replace(
+    'SOURCE_SHA="$(git rev-parse HEAD)"',
+    'SOURCE_SHA="${GITHUB_SHA}"',
+  );
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, workflow, recovery });
+  assert.equal(
+    failures.includes("reserved GitHub environment variables must not be overridden"),
+    true,
+  );
+  assert.equal(failures.some((value) => value.includes("SOURCE_SHA")), true);
+});
