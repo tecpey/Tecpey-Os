@@ -2,6 +2,8 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stopProcessGroup } from "./process-lifecycle.mjs";
+import { createRedisWebNodeObserver } from "./redis-node-isolation.mjs";
 import { startRedisRestStub } from "./redis-rest-stub.mjs";
 
 const e2eRoot = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +22,10 @@ const redisRestPort = Number.parseInt(
 const redisRestToken =
   process.env.UPSTASH_REDIS_REST_TOKEN ??
   "deterministic-browser-qa-redis-rest-token";
+const runtimeRedisUrl =
+  runtimeMode === "production"
+    ? process.env.REDIS_URL || "redis://127.0.0.1:6379"
+    : process.env.REDIS_URL || "";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
@@ -63,16 +69,6 @@ async function fetchWithDeadline(url, timeoutMs = 10_000) {
   }
 }
 
-function killProcessGroup(child, signal) {
-  if (!child || child.exitCode !== null) return;
-  try {
-    if (process.platform === "win32") child.kill(signal);
-    else process.kill(-child.pid, signal);
-  } catch {
-    child.kill(signal);
-  }
-}
-
 function spawnServer(onOutput, redisRestUrl) {
   const child = spawn(npmCommand, ["run", serverScript], {
     cwd: repositoryRoot,
@@ -106,9 +102,7 @@ function spawnServer(onOutput, redisRestUrl) {
         process.env.TECPEY_OFFLINE_SYNC_SECRET ||
         "e2e-offline-sync-secret-32-characters",
       REDIS_URL:
-        runtimeMode === "production"
-          ? process.env.REDIS_URL || "redis://127.0.0.1:6379"
-          : process.env.REDIS_URL || "",
+        runtimeRedisUrl,
       UPSTASH_REDIS_REST_URL: redisRestUrl,
       UPSTASH_REDIS_REST_TOKEN: redisRestToken,
     },
@@ -158,21 +152,7 @@ async function waitForServer(server, getOutput) {
 }
 
 async function stopServer(server) {
-  if (!server || server.exitCode !== null) return;
-
-  killProcessGroup(server, "SIGTERM");
-  await Promise.race([
-    new Promise((resolvePromise) => server.once("exit", resolvePromise)),
-    new Promise((resolvePromise) => setTimeout(resolvePromise, 10_000)),
-  ]);
-
-  if (server.exitCode === null) {
-    killProcessGroup(server, "SIGKILL");
-    await Promise.race([
-      new Promise((resolvePromise) => server.once("exit", resolvePromise)),
-      new Promise((resolvePromise) => setTimeout(resolvePromise, 5_000)),
-    ]);
-  }
+  await stopProcessGroup(server);
 }
 
 async function runPlaywrightProject(project, onOutput) {
@@ -218,8 +198,11 @@ async function runPlaywrightProject(project, onOutput) {
       onOutput(
         `Playwright project ${project} exceeded ${projectTimeoutMs}ms and was terminated.\n`,
       );
-      killProcessGroup(child, "SIGTERM");
-      setTimeout(() => killProcessGroup(child, "SIGKILL"), 5_000).unref?.();
+      void stopProcessGroup(child).catch((error) => {
+        onOutput(
+          `Playwright process-group shutdown failed: ${error.stack || error.message}\n`,
+        );
+      });
       finish(1);
     }, projectTimeoutMs);
     timeout.unref?.();
@@ -239,23 +222,33 @@ async function runPlaywrightProject(project, onOutput) {
 
 let activeServer;
 let redisRestStub;
+let redisNodeObserver;
 let cleanupPromise;
 
 async function stopActiveServer() {
   const server = activeServer;
   activeServer = undefined;
-  await stopServer(server);
+  const results = await Promise.allSettled([
+    stopServer(server),
+    redisNodeObserver?.waitForDrain(),
+  ]);
+  const failures = results
+    .filter((result) => result.status === "rejected")
+    .map((result) => result.reason);
+  if (failures.length > 0) {
+    throw new AggregateError(failures, "Browser QA server isolation failed");
+  }
 }
 
 async function cleanup() {
   if (cleanupPromise) return cleanupPromise;
   cleanupPromise = (async () => {
-    const results = await Promise.allSettled([
-      stopActiveServer(),
-      redisRestStub?.stop(),
-    ]);
+    const serverResult = await Promise.allSettled([stopActiveServer()]);
+    redisNodeObserver?.close();
+    redisNodeObserver = undefined;
+    const stubResult = await Promise.allSettled([redisRestStub?.stop()]);
     redisRestStub = undefined;
-    const failures = results
+    const failures = [...serverResult, ...stubResult]
       .filter((result) => result.status === "rejected")
       .map((result) => result.reason);
     if (failures.length > 0) {
@@ -289,6 +282,11 @@ async function run() {
   console.log(
     `Browser QA: authenticated Redis REST stub ready on ${redisRestStub.url}.`,
   );
+  if (runtimeRedisUrl) {
+    redisNodeObserver = await createRedisWebNodeObserver(runtimeRedisUrl);
+    await redisNodeObserver.waitForDrain();
+    console.log("Browser QA: Redis web-node registry is empty.");
+  }
 
   for (const project of projects) {
     let serverOutput = "";
@@ -320,7 +318,7 @@ async function run() {
     } finally {
       persistDiagnostics(project, serverOutput, playwrightOutput);
       await stopActiveServer();
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+      console.log(`Browser QA: ${project} process and Redis isolation complete.`);
     }
   }
 
