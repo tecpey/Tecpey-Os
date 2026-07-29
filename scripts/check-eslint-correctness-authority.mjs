@@ -73,14 +73,15 @@ function fail(message) {
 }
 
 export function hasGovernedInlineException(line) {
-  const ruleConfiguration = line.match(INLINE_RULE_CONFIGURATION);
+  const normalized = line.replace(/\s+/gu, " ").trim();
+  const ruleConfiguration = normalized.match(INLINE_RULE_CONFIGURATION);
   if (
     ruleConfiguration &&
     GOVERNED_RULES.some((rule) => ruleConfiguration[1].includes(rule))
   ) {
     return false;
   }
-  const directive = line.match(INLINE_DIRECTIVE);
+  const directive = normalized.match(INLINE_DIRECTIVE);
   if (!directive) return true;
   if (directive[1] === "eslint-disable") return false;
   if (!GOVERNED_DESCRIPTION.test(directive[2])) return false;

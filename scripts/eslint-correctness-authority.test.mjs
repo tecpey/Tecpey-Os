@@ -98,6 +98,25 @@ test("inline exceptions require an issue-linked reason", () => {
   );
 });
 
+test("multiline governed directives remain visible to the authority", async () => {
+  const source = `/* eslint-disable-next-line
+ @typescript-eslint/no-explicit-any -- #999: attempted governed bypass */
+export const value: any = 1;`;
+  const eslint = new ESLint({ cwd: process.cwd() });
+  const [result] = await eslint.lintText(source, {
+    filePath: "src/__lint_fixtures__/multiline-any.ts",
+  });
+
+  assert.deepEqual(
+    result.messages.filter(
+      (message) => message.ruleId === "@typescript-eslint/no-explicit-any",
+    ),
+    [],
+    "the fixture must prove ESLint accepts the multiline suppression",
+  );
+  assert.deepEqual(invalidInlineExceptionLines(source), [1]);
+});
+
 test("ESLint-driven authority includes root production entrypoints", async () => {
   const eslint = new ESLint({ cwd: process.cwd() });
   const results = await eslint.lintFiles(["."]);
