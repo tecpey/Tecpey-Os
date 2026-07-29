@@ -7,6 +7,11 @@ on:
       - Dockerfile
       - package.json
       - package-lock.json
+      - migrations/**
+      - scripts/run-database-migrations.ts
+      - scripts/run-production-bootstrap.ts
+      - src/lib/db-migrate*.ts
+      - src/lib/db-migration-*.ts
       - scripts/test-container-volume-recovery.sh
       - scripts/verify-operational-recovery-evidence.mjs
       - scripts/check-operational-recovery-authority.mjs

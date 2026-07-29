@@ -4,6 +4,13 @@ const requireText = (failures, source, text, message) => {
 const reject = (failures, source, pattern, message) => {
   if (pattern.test(source)) failures.push(message);
 };
+export const RECOVERY_MIGRATION_TRIGGER_PATHS = [
+  "migrations/**",
+  "scripts/run-database-migrations.ts",
+  "scripts/run-production-bootstrap.ts",
+  "src/lib/db-migrate*.ts",
+  "src/lib/db-migration-*.ts",
+];
 
 export function evaluateOperationalRecoveryAuthority(source) {
   const failures = [];
@@ -20,6 +27,14 @@ export function evaluateOperationalRecoveryAuthority(source) {
   }
   if (!/\n  schedule:\s*\n/.test(workflow)) {
     failures.push("scheduled workflow is missing schedule:");
+  }
+  for (const migrationPath of RECOVERY_MIGRATION_TRIGGER_PATHS) {
+    requireText(
+      failures,
+      workflow,
+      `- ${migrationPath}`,
+      `scheduled workflow does not run for migration input ${migrationPath}`,
+    );
   }
   reject(
     failures,

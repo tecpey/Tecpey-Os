@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { evaluateOperationalRecoveryAuthority } from "./operational-recovery-authority-policy.mjs";
+import {
+  evaluateOperationalRecoveryAuthority,
+  RECOVERY_MIGRATION_TRIGGER_PATHS,
+} from "./operational-recovery-authority-policy.mjs";
 
 const files = {
   workflow: ".github/workflows/operational-recovery.yml",
@@ -28,6 +31,20 @@ test("rejects removal of the schedule and exact-head assertion", () => {
   const failures = evaluateOperationalRecoveryAuthority({ ...valid, workflow });
   assert.equal(failures.some((value) => value.includes("schedule:")), true);
   assert.equal(failures.some((value) => value.includes("git rev-parse HEAD")), true);
+});
+
+test("rejects omission of every migration artifact input from pull-request triggers", () => {
+  for (const migrationPath of RECOVERY_MIGRATION_TRIGGER_PATHS) {
+    const workflow = valid.workflow.replace(`      - ${migrationPath}\n`, "");
+    const failures = evaluateOperationalRecoveryAuthority({ ...valid, workflow });
+    assert.equal(
+      failures.includes(
+        `scheduled workflow does not run for migration input ${migrationPath}`,
+      ),
+      true,
+      migrationPath,
+    );
+  }
 });
 
 test("rejects a mutable action and a non-failing drill", () => {
