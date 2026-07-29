@@ -27,7 +27,7 @@
     "test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs",
     "test:deployment": "NODE_ENV=test node --import tsx --test src/tests/runtime/production-deployment-contract.test.ts",
     "health": "node scripts/check-health.mjs",
-    "env:check": "node scripts/validate-env.mjs",
+    "env:check": "node scripts/validate-env.mjs && node --import tsx scripts/validate-csp-connection-env.ts",
     "db:migrate": "tsx scripts/run-database-migrations.ts",
     "migrations:check": "node scripts/check-database-migration-authority.mjs",
     "test:migrations": "NODE_ENV=test node --import tsx --test 'src/tests/database/migration-*.test.ts'",

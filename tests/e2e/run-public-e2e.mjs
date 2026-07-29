@@ -83,9 +83,15 @@ function spawnServer(onOutput, redisRestUrl) {
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || baseURL,
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || baseURL,
       NEXT_PUBLIC_API_BACKEND_URL:
-        process.env.NEXT_PUBLIC_API_BACKEND_URL || baseURL,
+        process.env.NEXT_PUBLIC_API_BACKEND_URL ||
+        (runtimeMode === "production"
+          ? "https://api.e2e.tecpey.test"
+          : baseURL),
       NEXT_PUBLIC_API_SOCKET_URL:
-        process.env.NEXT_PUBLIC_API_SOCKET_URL || `ws://${host}:${port}/ws`,
+        process.env.NEXT_PUBLIC_API_SOCKET_URL ||
+        (runtimeMode === "production"
+          ? "wss://stream.e2e.tecpey.test/ws"
+          : `ws://${host}:${port}/ws`),
       TECPEY_SESSION_SECRET:
         process.env.TECPEY_SESSION_SECRET ||
         "e2e-session-secret-32-characters-minimum",

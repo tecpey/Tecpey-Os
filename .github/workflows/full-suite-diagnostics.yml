@@ -45,8 +45,8 @@ jobs:
       NODE_ENV: test
       NEXT_PUBLIC_SITE_URL: https://tecpey.ir
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
-      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
-      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      NEXT_PUBLIC_API_BACKEND_URL: https://api.ci.tecpey.test
+      NEXT_PUBLIC_API_SOCKET_URL: wss://stream.ci.tecpey.test/spot
       TECPEY_SESSION_SECRET: diagnostics-session-secret-32-characters-minimum
       TECPEY_REFRESH_SECRET: diagnostics-refresh-secret-32-characters-minimum
       TECPEY_ACADEMY_AUTH_SECRET: diagnostics-academy-secret-32-characters-minimum
