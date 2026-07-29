@@ -1,0 +1,15 @@
+{
+  "academy_build_passed_previous_user_test": true,
+  "academy_progress_combines_lessons_and_correct_quiz": true,
+  "academy_writes_term_unlock_key": true,
+  "academy_auto_marks_lesson_complete_on_correct_answer": true,
+  "term_gate_reacts_to_progress_event": true,
+  "navbar_toolbox_fa": true,
+  "navbar_toolbox_en": true,
+  "footer_toolbox_fa": true,
+  "coin_static_has_detailed_market_explainer": true,
+  "coin_dynamic_has_market_interpretation": true,
+  "about_collapsed_height_increased": true,
+  "video_cards_still_present": true,
+  "quick_questions_count": 49
+}

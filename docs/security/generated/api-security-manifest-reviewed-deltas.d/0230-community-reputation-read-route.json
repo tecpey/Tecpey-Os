@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/community/reputation-evidence",
+      "sourcePath": "src/app/api/community/reputation-evidence/route.ts",
+      "sourceHash": "96661a1dcea2f2c54c134571",
+      "issue": "#230",
+      "owner": "community-platform",
+      "reason": "Adds one private evidence-only GET route with strict session revocation, bounded rate limiting, server-resolved tenant and principal identity, explicit private no-store caching, no query parameters and no mutating method exports.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ]
+}

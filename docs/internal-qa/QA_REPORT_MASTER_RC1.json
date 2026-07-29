@@ -1,0 +1,16 @@
+{
+  "landing_hero_single_message": true,
+  "landing_free_signup_cta": true,
+  "landing_why_tecpey": true,
+  "mobile_sticky_cta_single": true,
+  "academy_master_cards": true,
+  "academy_two_videos": true,
+  "academy_quiz_count": 49,
+  "academy_unlock_progress": true,
+  "crypto_static_10_10": true,
+  "crypto_dynamic_10_10": true,
+  "toolbox_complete": true,
+  "navbar_toolbox": true,
+  "footer_toolbox": true,
+  "package_lock_removed": true
+}

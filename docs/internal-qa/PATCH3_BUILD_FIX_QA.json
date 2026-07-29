@@ -1,0 +1,8 @@
+{
+  "fixed": "Block-scoped variable termNo used before its declaration",
+  "termNo_declared_before_effect_dependency": true,
+  "academy_video_cards_present": true,
+  "toolbox_navbar_present": true,
+  "crypto_market_explainer_present": true,
+  "package_lock_removed": true
+}

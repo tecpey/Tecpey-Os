@@ -1,0 +1,7 @@
+{
+  "fixed_error": "Cannot find name termNumberFromSlug",
+  "termNumberFromSlug_defined": true,
+  "termLessonKey_uses_helper": true,
+  "lesson_specific_questions": 49,
+  "package_lock_removed": true
+}

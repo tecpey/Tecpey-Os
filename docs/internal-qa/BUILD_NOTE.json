@@ -1,0 +1,5 @@
+{
+  "attempted": false,
+  "exit": null,
+  "note": "Dependencies not installed in package workspace; run npm install then npm run build on Mac."
+}

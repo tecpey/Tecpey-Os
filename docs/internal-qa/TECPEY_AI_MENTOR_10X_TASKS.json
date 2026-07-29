@@ -1,0 +1,72 @@
+{
+  "title": "TecPey AI Mentor 10/10 Upgrade Tasks",
+  "version": "mentor-10x-patch-1",
+  "tasks": [
+    {
+      "id": "M10-01",
+      "name": "Mentor DNA",
+      "status": "patched-basic",
+      "description": "Persist user learning profile locally: level, risk, weak area, goal, score, completed terms.",
+      "acceptance": [
+        "Profile stored in localStorage",
+        "Profile visible in mentor empty state",
+        "Profile sent to /api/ai-mentor as progress context"
+      ]
+    },
+    {
+      "id": "M10-02",
+      "name": "Coach Quick Actions",
+      "status": "patched-basic",
+      "description": "Add coach prompts for readiness, next lesson, common mistake, and wiki connection.",
+      "acceptance": [
+        "Four coach chips appear inside mentor",
+        "Clicking chip fills input without navigation",
+        "Prompt includes current page context"
+      ]
+    },
+    {
+      "id": "M10-03",
+      "name": "Readiness Coach",
+      "status": "scaffolded",
+      "description": "Mentor can answer 'Am I ready to trade today?' based on score, weak area, and risk profile.",
+      "acceptance": [
+        "No buy/sell signal",
+        "Returns educational readiness guidance",
+        "Always includes risk disclaimer"
+      ]
+    },
+    {
+      "id": "M10-04",
+      "name": "Crypto Wiki Connection",
+      "status": "scaffolded",
+      "description": "Mentor should recommend related glossary/academy pages for each question.",
+      "acceptance": [
+        "Funding Rate recommends Open Interest, Long Squeeze, Short Squeeze",
+        "FVG recommends Order Block, BOS, CHoCH, Liquidity Sweep",
+        "Links are internal when pages exist"
+      ]
+    },
+    {
+      "id": "M10-05",
+      "name": "Journey Map",
+      "status": "next",
+      "description": "Connect real academy progress from my.tecpey.ir after auth integration.",
+      "acceptance": [
+        "Reads term/lesson progress from backend",
+        "Suggests next lesson",
+        "Blocks trading advice and keeps education-first tone"
+      ]
+    },
+    {
+      "id": "M10-06",
+      "name": "Chart Vision",
+      "status": "future",
+      "description": "Allow user to upload chart screenshots for educational pattern review.",
+      "acceptance": [
+        "No financial advice",
+        "Detects only educational concepts",
+        "Adds warning: not a buy/sell signal"
+      ]
+    }
+  ]
+}

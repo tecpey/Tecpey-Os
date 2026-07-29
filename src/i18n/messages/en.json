@@ -1,0 +1,358 @@
+{
+  "Navbar": {
+    "language": "Language",
+    "markets": "Markets",
+    "About Us": "About Us",
+    "Contact Us": "Contact Us",
+    "Fees": "Fees",
+    "Rules": "Rules",
+    "market": "Price List",
+    "trade": "Trade",
+    "Home": "Home",
+    "derivatives": "Derivatives",
+    "launchHub": "Launch Hub",
+    "earn": "Earn",
+    "institutional": "Institutional",
+    "more": "More",
+    "login": "Log In",
+    "signup": "Sign Up",
+    "market-item1": "Spot Markets",
+    "market-item2": "Futures Markets",
+    "login-dashboard": "Login Dashboard",
+    "logout": "Log Out",
+    "profile": "My Profile",
+    "IdentityVerification": "Identity Verification",
+    "level": "Level 3"
+  },
+  "Hero": {
+    "titleLine1": "Buy and sell crypto with TecPey",
+    "titleLine2": "Fast, secure, transparent",
+    "subtitle": "Live prices, clear onboarding and a professional crypto experience.",
+    "bonus": "TecPey",
+    "placeholder": "Email or phone number",
+    "button": "Start now"
+  },
+  "Services": {
+    "title": "TecPey Core Services",
+    "subtitle": "A simple, secure and clear path for users who want to start trading digital assets.",
+    "spot": {
+      "title": "Spot Trading",
+      "desc": "Buy and sell crypto instantly on TecPey secure spot market."
+    },
+    "swap": {
+      "title": "Swap",
+      "desc": "Swap cryptocurrencies in seconds with fast and simple trading."
+    },
+    "futures": {
+      "title": "Futures Trading",
+      "desc": "Trade crypto with leverage and advanced tools."
+    },
+    "staking": {
+      "title": "Staking",
+      "desc": "Earn passive income by staking your crypto."
+    },
+    "boxes": {
+      "title": "Investment Boxes",
+      "desc": "Discover smart crypto portfolios designed for investing."
+    }
+  },
+  "Swap": {
+    "title": "Swap Anytime, Anywhere",
+    "subtitle": "Buy and sell crypto with zero app fees across more than 19 networks including Ethereum, Uniswap, and Base.",
+    "button": "Get Started",
+    "sell": "Sell",
+    "buy": "Buy",
+    "selectToken": "Select Token"
+  },
+  "PriceList": {
+    "title": "Live Price List",
+    "coin": "Coin",
+    "price": "Price (USDT)",
+    "volume": "Volume",
+    "change": "Change",
+    "chart": "Chart",
+    "trade": "Trade",
+    "priceIrt": "Price (IRT)"
+  },
+  "Markets": {
+    "title": "Price List",
+    "searchPlaceholder": "Search by coin name or symbol...",
+    "all": "All",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "high_volume": "High Volume",
+    "coin": "Coin",
+    "priceUsdt": "Price (USDT)",
+    "priceIrt": "Price (IRT)",
+    "volume": "Volume",
+    "change": "Change",
+    "chart": "Chart",
+    "trade": "Trade",
+    "buy": "Buy",
+    "filterAll": "All",
+    "filterFavorites": "My List",
+    "filterIrt": "IRT Base",
+    "filterUsdt": "USDT Base",
+    "market24hVolume": "24h Volume",
+    "basedOnUsdt": "Based on USDT",
+    "activeMarkets": "Active Markets",
+    "marketStatus": "Market Status",
+    "gainers": "Gainers",
+    "losers": "Losers",
+    "unchanged": "Unchanged",
+    "positiveMarket": "Positive Market",
+    "todayTrend": "Today’s Trend",
+    "last24h": "Last 24h",
+    "noData": "No data found",
+    "marketCapTitle": "Market Cap",
+    "btcDominanceTitle": "BTC Dominance",
+    "trendingNowTitle": "Trending Now",
+    "hotTrendsTitle": "Hot Trends"
+  },
+  "About": {
+    "title": "TecPey — a secure and modern way to enter the digital asset economy",
+    "description": "TecPey focuses on live crypto prices, security, transparency and a responsive user experience built for Persian-speaking users.",
+    "tileCard1": "No. 1 ",
+    "descCard1": "in globalization",
+    "tileCard2": "40 milions",
+    "descCard2": "Global Users",
+    "tileCard3": "4,718,124,227",
+    "descCard3": "24h Trading Volume (USD)",
+    "tileCard4": "1,000 +",
+    "descCard4": "Listed Tokens",
+    "OurStory-title": "Our Story",
+    "OurStory-desc": "TecPey was created to give users a clearer, safer and more professional starting point for crypto trading.",
+    "vision-title": "Our Vision",
+    "vision-desc": "To become a trusted Persian fintech brand for secure access to the digital economy.",
+    "mission-title": "Our Mission",
+    "mission-desc": "To reduce complexity, improve transparency and help users start crypto trading with confidence.",
+    "advantage-title": "Why TecPey?",
+    "advantage-desc": "TecPey combines mobile-first UX, live markets, educational content and trust-building design.",
+    "security-title": "Security First",
+    "security-desc": "TecPey prioritizes the security of our users' funds and data. We implement multi-layer security measures, including cold storage, two-factor authentication, and regular security audits to ensure the safety of our users' assets.",
+    "ecosystem-title": "Comprehensive Trading Ecosystem",
+    "ecosystem-desc": "TecPey offers a wide range of trading options, including spot trading, futures trading, staking, and investment boxes. Our platform is designed to meet the needs of both beginners and experienced traders, providing a seamless trading experience.",
+    "mce-title": "TecPey Ecosystem Benefits",
+    "mce-desc": "TecPey (TecPey Community Ecosystem) is designed to foster a vibrant community of users, developers, and partners who are committed to the growth and success of the TecPey platform.",
+    "principles-title": "Ten Core Principles of TecPey",
+    "principle1": "Respect the Market — Act with Insight and Responsibility",
+    "principle2": "Own the Outcome — Base Decisions on Data, Not Guesswork",
+    "principle3": "Face Challenges with Agility and Courage",
+    "principle4": "Empower People, Empower the Future",
+    "principle5": "Build with Integrity and Transparency",
+    "principle6": "Collaborate to Achieve Excellence",
+    "future-title": "Shape the Future with TecPey",
+    "future-desc": "If you're ready to help build a future powered by trust, innovation, and collaboration, TecPey is the place for you.",
+    "future-btn": "View Open Roles"
+  },
+  "Social": {
+    "title": "TecPey Community",
+    "follow-us": "Join the TecPey community",
+    "description": "TecPey is a path to learn, explore markets, start trading and grow with more confidence.",
+    "join-community": "Get Started",
+    "support": "Support and user guidance",
+    "support-description": "Questions about registration, markets or trading? TecPey helps reduce user confusion."
+  },
+  "Blog": {
+    "title": "TecPey Academy & Blog",
+    "subtitle": "Guides about USDT, Bitcoin, crypto security, market education and getting started with TecPey."
+  },
+  "Faq": {
+    "title": "FAQ",
+    "q1": "What is TecPey?",
+    "q2": "Is TecPey suitable for buying USDT and Bitcoin?",
+    "q3": "How can I trade more securely on TecPey?",
+    "q4": "Why does TecPey focus on جست‌وجو and پاسخ‌گویی content?",
+    "a1": "TecPey is a Persian crypto exchange platform focused on live prices, clear onboarding, security and professional user experience.",
+    "a2": "Yes. TecPey is designed for users who want to review USDT, Bitcoin and other crypto markets before starting.",
+    "a3": "Use secure login practices, identity verification and TecPey security guidance before trading.",
+    "a4": "Structured educational content and FAQ pages help users find clearer, faster and more trustworthy answers."
+  },
+  "Contact": {
+    "title": "Contact Us",
+    "description": "Have a question, need support, or want to get in touch with our team? We’re here to help. Reach out to TecPey anytime — our support team is ready to assist you with fast, reliable answers.",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "messagePlaceholder": "Enter your message",
+    "message": "Message",
+    "subject": "Subject",
+    "subjectPlaceholder": "Enter the subject of your message",
+    "sendMessage": "Send Message",
+    "address": "Address",
+    "addressDescription": "Mazandaran, Babol, Chaharrah Tondast, next to Cristal, TechnoPardakht office.",
+    "socials": "Follow Us on Social Media"
+  },
+  "MarketStats": {
+    "title": "",
+    "subtitle": "Real-time insights into the crypto market at "
+  },
+  "Rules": {
+    "title": "Trading Rules",
+    "subtitle": "Understand the rules and guidelines that govern trading on TecPey to ensure a safe and compliant trading experience.",
+    "rule1-title": "1.Account Security",
+    "rule1-desc": "Keep your account secure by using strong passwords, enabling two-factor authentication, and never sharing your login credentials with anyone.",
+    "rule2-title": "2.Trading Conduct",
+    "rule2-desc": "Engage in fair and ethical trading practices. Avoid market manipulation, insider trading, and any activities that could harm the integrity of the market.",
+    "rule3-title": "3.Compliance with Laws",
+    "rule3-desc": "Adhere to all applicable laws and regulations in your jurisdiction when trading on TecPey. This includes tax obligations and reporting requirements.",
+    "rule4-title": "4.Prohibited Activities",
+    "rule4-desc": "Do not engage in any prohibited activities such as money laundering, fraud, or any other illegal activities.",
+    "rule5-title": "5.Trading Hours",
+    "rule5-desc": "Be aware of the trading hours for different markets and plan your trading activities accordingly. TecPey operates 24/7, but certain markets may have specific trading hours.",
+    "rule6-title": "6.Risk Management",
+    "rule6-desc": "Understand the risks associated with trading cryptocurrencies and use risk management strategies to protect your investments."
+  },
+  "NotFound": {
+    "title": "Page Not Found",
+    "description": "The page you are looking for may have been removed, had its name changed, or is temporarily unavailable. You can return to the home page or check the URL.",
+    "home": "Return to Home",
+    "back": "Go Back"
+  },
+  "Fees": {
+    "title": "Fees",
+    "desc": "Transparent and clear fee structure to help users trade with confidence on TecPey.",
+    "tradeTitle": "Spot Trading Fees",
+    "tradeDesc": "Our spot trading fees are designed to be competitive and transparent. We offer a tiered fee structure based on your 30-day trading volume, with discounts for high-volume traders.",
+    "userLevel": "User Level",
+    "takerCurrency": "Taker Fee",
+    "makerFee": "Maker Fee",
+    "marketCommission": "Market Commission",
+    "depositAccess": "Deposit Access",
+    "withdrawalAccess": "Withdrawal Access",
+    "feesDesc": "Trading Fees on TecPey Trading fees on the TecPey platform are\ncalculated as a percentage of the total transaction amount and are\napplied based on the rules described below. These fees help\nprevent artificial or repetitive trading activity and ensure a\nfair and efficient market environment for all users. TecPey\ncharges a percentage‑based fee on both sides of every trade,\nregardless of whether you are buying or selling. How Fees Are\nCalculated Fees are calculated as a percentage of the asset you\nreceive in the transaction. For example: If you are selling\nBitcoin and receiving IRT, the fee is calculated from the IRT\namount. If you are buying Bitcoin using IRT, the fee is calculated\nfrom the Bitcoin amount. When placing an order on TecPey, the\nexact fee amount for that trade will be displayed before you\nconfirm your transaction.",
+    "cryptoTitle": "Crypto Deposits & Withdrawals",
+    "cryptoDesc": "TecPey offers a wide range of cryptocurrencies for deposit and withdrawal. The fees for these transactions vary based on the specific cryptocurrency and the network used. We strive to keep our fees competitive while ensuring the security and reliability of our services.",
+    "search": "Search",
+    "irtTitle": "IRT Deposit & Withdrawal Fees",
+    "irtDesc": "TecPey provides convenient options for depositing and withdrawing IRT. The fees for these transactions are designed to be transparent and competitive, allowing you to manage your funds with confidence. Please refer to our fee schedule for the most up-to-date information on IRT deposit and withdrawal fees.",
+    "active": "Active",
+    "network": "Network",
+    "cryptocurrency": "CryptoCurrency",
+    "withdrawal Fee": "Withdrawal Fee",
+    "minimum Withdrawal": "Minimum Withdrawal",
+    "deposit methode": "Deposit Method",
+    "fee": "Fee",
+    "status": "Status"
+  },
+  "MarketTabs": {
+    "marketChart": "Market Chart",
+    "marketData": "Market Data",
+    "priceInformation": "Price Information",
+    "aboutCoin": "About Coin",
+    "otherCoins": "Other Coins",
+    "sell": "Sell",
+    "buy": "Buy",
+    "in24h": "In 24 H",
+    "minPrice": "Min Price",
+    "maxPrice": "Max Price",
+    "marketCap": "Market Cap",
+    "tradingVolume": "24h Trading Volume",
+    "priceChange": "24h Price Change",
+    "rank": "Market Rank",
+    "currentPrice": "CurrentPrice",
+    "symbol": "Symbol",
+    "viewMore": "View More",
+    "viewLess": "View Less",
+    "tabs": {
+      "trending": "Trending",
+      "gainers": "Gainers",
+      "newest": "Newest"
+    },
+    "coins": {
+      "BTC": {
+        "name": "Bitcoin",
+        "title": "About Bitcoin",
+        "desc": "Bitcoin (BTC) is the first decentralized cryptocurrency, created in 2009 by an anonymous person or group known as Satoshi Nakamoto. It introduced blockchain technology — a distributed ledger that records transactions securely and transparently without the need for a central authority. Bitcoin is widely considered the most established digital asset and is often referred to as digital gold due to its limited supply of 21 million coins. The price of Bitcoin is determined by supply and demand in global cryptocurrency markets and is influenced by factors such as institutional adoption, macroeconomic trends, regulation, and investor sentiment."
+      },
+      "ETH": {
+        "name": "Ethereum",
+        "title": "About Ethereum",
+        "desc": "Ethereum (ETH) is a decentralized blockchain platform launched in 2015 by Vitalik Buterin and other developers. Unlike Bitcoin, Ethereum was designed to support smart contracts — self‑executing programs that run on the blockchain. This capability allows developers to build decentralized applications (dApps), decentralized finance (DeFi) protocols, and NFTs. Ethereum operates using its native cryptocurrency, Ether (ETH), which is used to pay for transaction fees and computational services on the network."
+      },
+      "BNB": {
+        "name": "BNB",
+        "title": "About BNB",
+        "desc": "BNB is the native cryptocurrency of the BNB Chain ecosystem, originally launched by the Binance exchange in 2019. It was initially created as a utility token to reduce trading fees on the Binance platform but has since evolved into a major asset powering a broad ecosystem including decentralized finance applications, NFT marketplaces, and blockchain games. BNB is used for transaction fees, staking, and governance within the BNB Chain network."
+      },
+      "SOL": {
+        "name": "Solana",
+        "title": "About Solana",
+        "desc": "Solana (SOL) is a high‑performance blockchain designed to support scalable decentralized applications and crypto projects. Launched in 2020, Solana focuses on extremely fast transaction speeds and low fees. It uses a unique consensus mechanism called Proof of History combined with Proof of Stake, enabling the network to process thousands of transactions per second. Solana has become popular for DeFi platforms, NFT marketplaces, and Web3 applications."
+      },
+      "XRP": {
+        "name": "XRP",
+        "title": "About XRP",
+        "desc": "XRP is the native digital asset of the XRP Ledger, a blockchain designed for fast and efficient cross‑border payments. Developed by Ripple Labs, XRP aims to improve international money transfers by enabling near‑instant settlement with very low transaction costs. Financial institutions and payment providers often explore the XRP Ledger as an alternative infrastructure for global payment systems."
+      },
+      "ADA": {
+        "name": "Cardano",
+        "title": "About Cardano",
+        "desc": "Cardano (ADA) is a third‑generation blockchain platform focused on scalability, sustainability, and academic research‑driven development. Founded by Charles Hoskinson, one of Ethereum’s co‑founders, Cardano uses a Proof of Stake consensus mechanism called Ouroboros. The platform supports smart contracts and decentralized applications while emphasizing security, formal verification, and long‑term network sustainability."
+      },
+      "DOGE": {
+        "name": "Dogecoin",
+        "title": "About Dogecoin",
+        "desc": "Dogecoin (DOGE) is a cryptocurrency that started as a light‑hearted project in 2013 but has grown into a widely recognized digital asset with a strong community. Inspired by the Doge internet meme featuring a Shiba Inu dog, Dogecoin was originally created as a fun alternative to Bitcoin. It is known for fast transaction times, low fees, and a community‑driven ecosystem. Although it began as a meme coin, Dogecoin has become one of the most traded cryptocurrencies in the market."
+      }
+    }
+  },
+  "Footer": {
+    "brand": "TecPey",
+    "copyright": "© {startYear}–{currentYear} TecPey. All rights reserved.",
+    "sections": {
+      "corporate": {
+        "title": "Corporate",
+        "links": {
+          "about": "About Us",
+          "join": "Contact Us",
+          "blog": "Blog",
+          "news": "News & Announcements",
+          "mediaKit": "Media Kit",
+          "brandPartnerships": "Brand Partnerships",
+          "labs": "TecPey Labs",
+          "por": "Proof of Reserves",
+          "security": "Security",
+          "terms": "Terms of Use",
+          "privacy": "Privacy Policy"
+        }
+      },
+      "products": {
+        "title": "Products",
+        "links": {
+          "buyCrypto": "Buy Crypto",
+          "convert": "Convert",
+          "card": "TecPey Card",
+          "pay": "TecPey Pay",
+          "spot": "Spot Trading",
+          "futures": "Futures Trading",
+          "margin": "Margin Trading",
+          "earn": "TecPey Earn",
+          "converter": "Converter"
+        }
+      },
+      "service": {
+        "title": "Service",
+        "links": {
+          "help": "Help Center",
+          "support": "Support",
+          "api": "Integration Guide",
+          "fees": "Fees",
+          "rules": "Trading Rules",
+          "status": "Status"
+        }
+      },
+      "business": {
+        "title": "Business",
+        "links": {
+          "institutional": "Institutional",
+          "affiliate": "Affiliate Program",
+          "listing": "Listing Application",
+          "partnerships": "Partnerships",
+          "press": "Press"
+        }
+      }
+    }
+  }
+}

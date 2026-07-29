@@ -1,0 +1,35 @@
+:root {
+  --tp-bg: #f4f8ff;
+  --tp-surface: #eaf2ff;
+  --tp-card: #ffffff;
+  --tp-text: #0f172a;
+  --tp-muted: #526176;
+  --tp-primary: #0b74e5;
+  --tp-border: rgba(15, 85, 170, 0.18);
+  --tp-focus: rgba(14, 165, 233, 0.58);
+  --tp-success: #059669;
+  --tp-danger: #dc2626;
+}
+
+.dark {
+  --tp-bg: #020617;
+  --tp-surface: #07111f;
+  --tp-card: #0f172a;
+  --tp-text: #f8fafc;
+  --tp-muted: #94a3b8;
+  --tp-primary: #1688f0;
+  --tp-border: rgba(103, 232, 249, 0.18);
+  --tp-focus: rgba(34, 211, 238, 0.72);
+  --tp-success: #34d399;
+  --tp-danger: #fb7185;
+}
+
+.tecpey-enterprise {
+  background: var(--tp-bg);
+  color: var(--tp-text);
+}
+
+.tecpey-enterprise :focus-visible {
+  outline: 3px solid var(--tp-focus);
+  outline-offset: 3px;
+}

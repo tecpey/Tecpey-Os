@@ -1,0 +1,13 @@
+{
+  "source_base": "tecpey-final-coin-details-academy-quiz-home-clean.zip",
+  "lesson_specific_quick_questions": 49,
+  "quick_question_logic": true,
+  "generic_paragraphs_hidden_from_ui": true,
+  "footer_toolbox_fa": true,
+  "footer_toolbox_en": true,
+  "toolbox_has_official_links": true,
+  "crypto_dynamic_fields": true,
+  "market_stats_fields": true,
+  "static_coin_pages_market_note": true,
+  "package_lock_removed": true
+}

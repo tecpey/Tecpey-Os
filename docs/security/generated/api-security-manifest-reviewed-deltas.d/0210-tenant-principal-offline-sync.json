@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/offline-sync",
+      "method": "POST",
+      "previousSourceHash": "520c64193c3c9845b9cca1f9",
+      "issue": "#155",
+      "owner": "security-platform",
+      "reason": "Offline Sync now resolves one PostgreSQL-bound tenant/workspace/student context, verifies signed scope against that context and passes the typed context to the transactional command authority.",
+      "replacement": {
+        "route": "/api/offline-sync",
+        "method": "POST",
+        "sourcePath": "src/app/api/offline-sync/route.ts",
+        "sourceHash": "df893646cca3182c92ac1b1c",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "offline-sync",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "offline-sync",
+        "testReferences": [
+          "src/tests/security/offline-sync-authority-postgres.test.ts",
+          "src/tests/security/offline-sync-queue-capacity.test.ts",
+          "src/tests/security/offline-sync-scope.test.ts",
+          "src/tests/security/offline-sync-telemetry-source-guard.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/offline-sync/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

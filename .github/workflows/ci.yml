@@ -1,0 +1,382 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A new PR synchronize event still cancels stale work. Manual reruns use
+  # run_attempt > 1 and must not cancel their own unchanged-head evidence.
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  hygiene:
+    name: Repository Hygiene Inventory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Generate structured hygiene report
+        run: node scripts/audit-repository-hygiene.mjs --json > repository-hygiene.json
+
+      - name: Print hygiene summary
+        run: node scripts/audit-repository-hygiene.mjs
+
+      - name: Upload hygiene report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: repository-hygiene-${{ github.sha }}
+          path: repository-hygiene.json
+          if-no-files-found: error
+          retention-days: 14
+
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      NEXT_PUBLIC_API_URL: https://my.tecpey.ir
+      NEXT_PUBLIC_API_BACKEND_URL: https://ci-placeholder.tecpey.ir
+      NEXT_PUBLIC_API_SOCKET_URL: wss://ci-placeholder.tecpey.ir/spot
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
+      TECPEY_WITHDRAWAL_PRICE_SECRET: ci-placeholder-withdrawal-price-secret-32-min
+      TECPEY_OFFLINE_SYNC_SECRET: ci-placeholder-offline-scope-secret-32-min
+      TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      TECPEY_CRM_CONTACT_HASH_SECRET: ci-placeholder-crm-contact-hash-secret-32-min
+      TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
+      TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
+      TECPEY_TRUSTED_PROXY_HOPS: '1'
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
+      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+          echo "npm $(npm --version) OK"
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Production environment contract
+        env:
+          NODE_ENV: production
+        run: npm run env:check
+
+      - name: Clean database migrations
+        run: npm run db:migrate
+
+      - name: Database migration idempotency
+        run: npm run db:migrate
+
+      - name: TypeScript
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/tsc --noEmit 2>&1 | tee /tmp/tecpey-typescript-diagnostics.log
+
+      - name: Upload TypeScript diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: typescript-diagnostics-${{ github.sha }}
+          path: |
+            /tmp/tecpey-typescript-diagnostics.log
+            src/lib/security/session-authority.ts
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: ESLint
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/eslint . --max-warnings 0 2>&1 | tee /tmp/tecpey-eslint-diagnostics.log
+
+      - name: Upload ESLint diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eslint-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-eslint-diagnostics.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Frontend style authority guard
+        run: npm run ui:check
+
+      - name: Public UI interaction foundation guard
+        run: npm run ui:public:check
+
+      - name: Runtime bootstrap authority guard
+        run: node scripts/check-runtime-bootstrap.mjs
+
+      - name: Production supply-chain authority guard
+        run: npm run supply-chain:check
+
+      - name: Secret-scanning authority guard
+        run: npm run security:secrets:check
+
+      - name: Operational recovery authority and negative tests
+        run: npm run test:ops-recovery-authority
+
+      - name: Production deployment lifecycle tests
+        run: npm run test:deployment
+
+      - name: Frontend development runtime style smoke
+        run: |
+          set -o pipefail
+          npm run ui:runtime:dev 2>&1 | tee /tmp/tecpey-ui-runtime-dev.log
+
+      - name: Upload development UI runtime diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ui-runtime-development-${{ github.sha }}
+          path: /tmp/tecpey-ui-runtime-dev.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Browser persistence guard
+        run: node scripts/check-browser-persistence.mjs
+
+      - name: Admin authentication boundary guard
+        run: node scripts/check-admin-auth-boundary.mjs
+
+      - name: Authentication session authority guard
+        run: npm run auth:check
+
+      - name: Authentication session integration tests
+        run: |
+          set -o pipefail
+          npm run test:auth-session 2>&1 | tee /tmp/tecpey-auth-session-tests.log
+
+      - name: Upload authentication session diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: auth-session-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-auth-session-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: AI Mentor red-team gate
+        run: |
+          set -o pipefail
+          npm run ai:redteam:check 2>&1 | tee /tmp/tecpey-ai-mentor-redteam-tests.log
+
+      - name: Upload AI Mentor red-team diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-mentor-redteam-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-ai-mentor-redteam-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Withdrawal admission authority guard
+        run: npm run withdrawals:check
+
+      - name: Withdrawal admission integration tests
+        run: |
+          set -o pipefail
+          npm run test:withdrawal-admission 2>&1 | tee /tmp/tecpey-withdrawal-admission-tests.log
+
+      - name: Upload withdrawal admission diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: withdrawal-admission-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-withdrawal-admission-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Offline sync authority guard
+        run: npm run offline:check
+
+      - name: Offline sync PostgreSQL integration tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:offline-sync 2>&1 | tee /tmp/tecpey-offline-sync-tests.log
+
+      - name: Upload offline sync diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: offline-sync-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-offline-sync-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: CRM lead authority guard
+        run: npm run crm:check
+
+      - name: CRM lead PostgreSQL integration tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:crm-leads 2>&1 | tee /tmp/tecpey-crm-lead-tests.log
+
+      - name: Upload CRM lead diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-lead-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-crm-lead-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Academy authority boundary guard
+        run: npm run academy:progress:check
+
+      - name: Academy progress authority tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:academy-progress 2>&1 | tee /tmp/tecpey-academy-progress-tests.log
+
+      - name: Upload Academy progress diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: academy-progress-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-academy-progress-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Arena UI authority boundary guard
+        run: node scripts/check-arena-ui-authority.mjs
+
+      - name: Wallet authority boundary guard
+        run: node scripts/check-wallet-authority.mjs
+
+      - name: Database migration authority guard
+        run: npm run migrations:check
+
+      - name: Database migration readiness and concurrency tests
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          npm run test:migrations 2>&1 | tee /tmp/tecpey-migration-tests.log
+
+      - name: Upload database migration diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: database-migration-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-migration-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Notification persistence authority guard
+        run: npm run notifications:check
+
+      - name: Notification runtime authority guard
+        run: npm run notifications:runtime:check
+
+      - name: Notification producer authority guard
+        run: npm run notifications:producers:check
+
+      - name: Notification domain outbox authority guard
+        run: npm run notifications:domain:check
+
+      - name: Exchange order admission authority guard
+        run: node scripts/check-exchange-order-admission.mjs
+
+      - name: Tests
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/tecpey-test-diagnostics.log
+
+      - name: Upload test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-diagnostics-${{ github.sha }}
+          path: /tmp/tecpey-test-diagnostics.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Build
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Frontend production runtime style smoke
+        run: |
+          set -o pipefail
+          npm run ui:runtime:prod 2>&1 | tee /tmp/tecpey-ui-runtime-prod.log
+
+      - name: Upload production UI runtime diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ui-runtime-production-${{ github.sha }}
+          path: /tmp/tecpey-ui-runtime-prod.log
+          if-no-files-found: ignore
+          retention-days: 7

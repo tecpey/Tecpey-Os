@@ -1,0 +1,14 @@
+{
+  "base": "tecpey-content-team-ready-fixed-term-number.zip",
+  "academy_two_video_library": true,
+  "thumbnail_cards": true,
+  "video_pair_keys": 98,
+  "two_video_cards_rendered": true,
+  "quick_questions": 49,
+  "termNumberFromSlug_defined": true,
+  "footer_toolbox_fa": true,
+  "footer_toolbox_en": true,
+  "crypto_about_fields": true,
+  "market_stats_fields": true,
+  "package_lock_removed": true
+}

@@ -1,0 +1,18 @@
+{
+  "name": "TecPey | تک‌پی",
+  "short_name": "TecPey",
+  "description": "تک‌پی؛ نقطه امن ورود به بازار رمزارز با آکادمی، منتور هوشمند و مسیر یادگیری آفلاین‌فرست.",
+  "start_url": "/academy",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06111F",
+  "theme_color": "#06B6D4",
+  "dir": "rtl",
+  "lang": "fa-IR",
+  "orientation": "portrait-primary",
+  "categories": ["education", "finance", "productivity"],
+  "icons": [
+    {"src":"/android-chrome-192x192.png","sizes":"192x192","type":"image/png"},
+    {"src":"/android-chrome-512x512.png","sizes":"512x512","type":"image/png"}
+  ]
+}

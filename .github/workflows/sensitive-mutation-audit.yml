@@ -1,0 +1,127 @@
+name: Sensitive Mutation Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sensitive-mutation-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  authority:
+    name: Sensitive Mutation Audit Authority
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_placeholder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
+      REDIS_URL: redis://localhost:6379
+      NEXT_PUBLIC_SITE_URL: https://tecpey.ir
+      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
+      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm version
+        run: |
+          NPM_MAJOR=$(npm --version | cut -d. -f1)
+          if [ "$NPM_MAJOR" != "10" ]; then
+            echo "ERROR: npm major version must be 10. Got: $(npm --version)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Apply canonical migrations
+        run: npm run db:migrate
+
+      - name: Withdrawal read and outage authority guards
+        run: |
+          set -o pipefail
+          node scripts/run-withdrawal-authority-checks.mjs 2>&1 | tee /tmp/tecpey-withdrawal-read-authority.log
+
+      - name: Retired security and audit governance guards
+        run: |
+          set -o pipefail
+          node scripts/check-retired-security-surface.mjs 2>&1 | tee /tmp/tecpey-retired-security-surface.log
+          node scripts/check-sensitive-audit-domain-inventory.mjs 2>&1 | tee /tmp/tecpey-sensitive-audit-domain-inventory.log
+          node scripts/check-sensitive-audit-governance-doc.mjs 2>&1 | tee /tmp/tecpey-sensitive-audit-governance.log
+
+      - name: Sensitive mutation audit authority guard
+        run: |
+          set -o pipefail
+          npm run audit:sensitive:check 2>&1 | tee /tmp/tecpey-sensitive-audit-guard.log
+
+      - name: Sensitive mutation audit PostgreSQL and Redis tests
+        run: |
+          set -o pipefail
+          npm run test:sensitive-mutation-audit 2>&1 | tee /tmp/tecpey-sensitive-audit-tests.log
+
+      - name: TypeScript
+        run: |
+          set -o pipefail
+          ./node_modules/.bin/tsc --noEmit 2>&1 | tee /tmp/tecpey-sensitive-audit-typescript.log
+
+      - name: Upload sensitive audit diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sensitive-mutation-audit-diagnostics-${{ github.sha }}
+          path: |
+            /tmp/tecpey-withdrawal-read-authority.log
+            /tmp/tecpey-retired-security-surface.log
+            /tmp/tecpey-sensitive-audit-domain-inventory.log
+            /tmp/tecpey-sensitive-audit-governance.log
+            /tmp/tecpey-sensitive-audit-guard.log
+            /tmp/tecpey-sensitive-audit-tests.log
+            /tmp/tecpey-sensitive-audit-typescript.log
+          if-no-files-found: ignore
+          retention-days: 7

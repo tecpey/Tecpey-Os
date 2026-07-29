@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/community/journal-discipline-score",
+      "sourcePath": "src/app/api/community/journal-discipline-score/route.ts",
+      "sourceHash": "ae6e95ddc27005296ea870e2",
+      "issue": "#235",
+      "owner": "community-platform",
+      "reason": "The private Journal Discipline Score GET projection now requires the separate default-off reputation-scoring-consent authority before any evidence window is selected or score is computed. The route still accepts no query parameters or client identity, requires strict session revocation, bounded rate limiting, verified tenant/principal context, active binding, private no-store caching and explicit fail-closed authority behavior. Missing consent returns a bounded conflict and creates no score, public ranking or downstream decision.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ]
+}
