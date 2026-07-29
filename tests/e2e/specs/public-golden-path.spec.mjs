@@ -166,6 +166,12 @@ async function installCspViolationObserver(page) {
     },
   );
   await page.addInitScript(() => {
+    const pendingDeliveries = new Set();
+    Object.defineProperty(window, "__tecpeyPendingCspViolationDeliveries", {
+      configurable: false,
+      value: pendingDeliveries,
+      writable: false,
+    });
     document.addEventListener("securitypolicyviolation", (event) => {
       const rawBlocked = String(event.blockedURI || "").trim();
       const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval):?$/i.test(
@@ -184,15 +190,38 @@ async function installCspViolationObserver(page) {
           blockedTarget = "redacted";
         }
       }
-      void window.__tecpeyRecordCspViolation({
-        effectiveDirective:
-          String(event.effectiveDirective || "unknown")
-            .toLowerCase()
-            .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown",
-        disposition: event.disposition === "report" ? "report" : "enforce",
-        blockedTarget,
-      });
+      const delivery = Promise.resolve(
+        window.__tecpeyRecordCspViolation({
+          effectiveDirective:
+            String(event.effectiveDirective || "unknown")
+              .toLowerCase()
+              .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown",
+          disposition: event.disposition === "report" ? "report" : "enforce",
+          blockedTarget,
+        }),
+      );
+      pendingDeliveries.add(delivery);
+      void delivery.then(
+        () => pendingDeliveries.delete(delivery),
+        () => pendingDeliveries.delete(delivery),
+      );
     });
+  });
+}
+
+async function waitForPendingCspViolationDeliveries(page) {
+  await page.evaluate(async () => {
+    const settle = () =>
+      Promise.allSettled([
+        ...(window.__tecpeyPendingCspViolationDeliveries ?? []),
+      ]);
+
+    // Cross two task boundaries so a CSP event queued at the end of the
+    // preceding interaction can register its binding promise before draining.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settle();
   });
 }
 
@@ -211,6 +240,7 @@ async function expectNoCspViolations(
   attachmentName,
   contextLabel,
 ) {
+  await waitForPendingCspViolationDeliveries(page);
   const violations = cspViolations(page);
   if (violations.length > 0) {
     await testInfo.attach(attachmentName, {
@@ -539,6 +569,7 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await switchToLight.click();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
+  await waitForPendingCspViolationDeliveries(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
@@ -639,14 +670,19 @@ test("CSP evidence remains available after a document reload", async ({ page }, 
     "data:text/html,%3Ctitle%3ECSP%20observer%20lifecycle%20probe%3C%2Ftitle%3E",
     { waitUntil: "domcontentloaded" },
   );
-  await page.evaluate(() =>
-    window.__tecpeyRecordCspViolation({
-      effectiveDirective: "connect-src",
-      disposition: "enforce",
-      blockedTarget: "https://probe.invalid/private/path?secret=redacted",
-    }),
-  );
-  await expect.poll(() => cspViolations(page)).toEqual([
+  await page.evaluate(() => {
+    const violation = new Event("securitypolicyviolation");
+    Object.defineProperties(violation, {
+      blockedURI: {
+        value: "https://probe.invalid/private/path?secret=redacted",
+      },
+      disposition: { value: "enforce" },
+      effectiveDirective: { value: "connect-src" },
+    });
+    document.dispatchEvent(violation);
+  });
+  await waitForPendingCspViolationDeliveries(page);
+  expect(cspViolations(page)).toEqual([
     {
       effectiveDirective: "connect-src",
       disposition: "enforce",
@@ -654,6 +690,7 @@ test("CSP evidence remains available after a document reload", async ({ page }, 
     },
   ]);
 
+  await waitForPendingCspViolationDeliveries(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   expect(cspViolations(page)).toEqual([
     {

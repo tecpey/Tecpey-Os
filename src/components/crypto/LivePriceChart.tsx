@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
+import { socket } from "@/lib/socket";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,20 +19,22 @@ type LivePriceChartProps = {
   symbol: string;
 };
 
-type TickerFrame = {
-  channel?: unknown;
+type TickerPayload = {
   data?: {
+    symbol?: unknown;
+    last?: unknown;
     lastPrice?: unknown;
+    price?: unknown;
+    close?: unknown;
   };
 };
 
-function browserSocketUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_SOCKET_URL;
-  if (configured) return configured;
+function tickerPrice(payload: TickerPayload): number | null {
+  const data = payload.data;
+  if (!data) return null;
 
-  const url = new URL("/ws", window.location.origin);
-  url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return url.toString();
+  const price = Number(data.last ?? data.lastPrice ?? data.price ?? data.close);
+  return Number.isFinite(price) && price > 0 ? price : null;
 }
 
 export default function LivePriceChart({ symbol }: LivePriceChartProps) {
@@ -42,29 +45,30 @@ export default function LivePriceChart({ symbol }: LivePriceChartProps) {
     const market = symbol.trim().toUpperCase();
     if (!/^[A-Z0-9_-]{2,32}$/.test(market)) return;
 
-    const ws = new WebSocket(browserSocketUrl());
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "subscribe", channel: "ticker", market }));
+    const handler = (payload: TickerPayload) => {
+      const payloadMarket = String(payload.data?.symbol ?? "")
+        .trim()
+        .toUpperCase();
+      if (payloadMarket && payloadMarket !== market) return;
+
+      const price = tickerPrice(payload);
+      if (price === null) return;
+
+      setPrices((previous) => [...previous.slice(-49), price]);
+      setLabels((previous) => [
+        ...previous.slice(-49),
+        new Date().toLocaleTimeString(),
+      ]);
     };
 
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(String(event.data)) as TickerFrame;
-        if (message.channel !== "ticker") return;
-        const price = Number(message.data?.lastPrice);
-        if (!Number.isFinite(price) || price <= 0) return;
+    const subscription = { pair: [market] };
+    socket.on("pair:price", handler);
+    socket.emit("subscribe:pair:price", subscription);
 
-        setPrices((previous) => [...previous.slice(-49), price]);
-        setLabels((previous) => [
-          ...previous.slice(-49),
-          new Date().toLocaleTimeString(),
-        ]);
-      } catch {
-        // Ignore malformed or unrelated frames; the owned socket may carry many channels.
-      }
+    return () => {
+      socket.off("pair:price", handler);
+      socket.emit("unsubscribe:pair:price", subscription);
     };
-
-    return () => ws.close();
   }, [symbol]);
 
   if (prices.length === 0) {

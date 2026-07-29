@@ -29,3 +29,16 @@ test("client components contain no direct WebSocket provider origins", () => {
     );
   }
 });
+
+test("the live price chart uses the governed Socket.IO ticker contract", () => {
+  const source = readFileSync(
+    "src/components/crypto/LivePriceChart.tsx",
+    "utf8",
+  );
+
+  assert.match(source, /import\s+\{\s*socket\s*\}\s+from\s+"@\/lib\/socket"/u);
+  assert.match(source, /socket\.on\(\s*"pair:price"/u);
+  assert.match(source, /socket\.emit\(\s*"subscribe:pair:price"/u);
+  assert.match(source, /socket\.emit\(\s*"unsubscribe:pair:price"/u);
+  assert.doesNotMatch(source, /\bnew\s+WebSocket\s*\(/u);
+});
