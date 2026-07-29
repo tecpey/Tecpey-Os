@@ -107,20 +107,35 @@
     },
     {
       "path": "scripts/check-repository-audit-authority.mjs",
-      "gitObjectId": "9b039d98e8a946530fb212afbd15ab3ca8580615",
-      "sha256": "e2d0f8772b4d87cae44d68545a3c38d776a1244b529a801baba54b23e35473d7",
-      "lines": 43,
+      "gitObjectId": "feb7f650a7f1f3e3c3ae8e2af0a5a6016ae45cf9",
+      "sha256": "115058d51613fc82129a8a681b00d162b4434b5f073b7c9f64ae2c7c2cd2a7e8",
+      "lines": 47,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 43
+          "endLine": 47
         }
       ],
-      "findingDisposition": "no-confirmed-findings",
+      "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "The guard verifies workflow authority, committed evidence schema/batch identity, runtime-artifact hygiene exclusion and exact package command ownership before manifest generation."
+        "The guard verifies workflow authority, committed evidence schema/batch identity, runtime-artifact hygiene exclusion, both package-binary whitespace boundaries and exact package command ownership before manifest generation."
       ],
-      "findings": []
+      "findings": [
+        {
+          "id": "B01A-P2-006",
+          "severity": "P2",
+          "line": 25,
+          "attackPath": "A later scanner edit could regress only the leading package-binary whitespace class while leaving the trailing class intact, allowing the former single-substring guard to pass and miss package binaries after shell separators.",
+          "affectedInvariant": "Repository hygiene evidence must preserve both package-binary boundary classes so dependency ownership is not undercounted.",
+          "evidence": "The former authority check required only one escaped boundary occurrence; the remediated guard counts the source occurrences and requires at least two.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The permanent authority check must fail if either escaped package-binary whitespace boundary is removed.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
     },
     {
       "path": "scripts/generate-repository-audit-manifest.mjs",
