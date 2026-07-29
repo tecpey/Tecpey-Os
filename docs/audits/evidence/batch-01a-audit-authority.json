@@ -141,13 +141,13 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "cf5ce9044dfde7ab5d6821cdfe5a14383ff12e93",
-      "sha256": "d21b224f2e988646cb5bb1405c7f870440131515f869ccc725301b221d694ed8",
-      "lines": 570,
+      "gitObjectId": "cd34de3c936232a5f980b60ecb0a7097e5045b44",
+      "sha256": "dbab24b45ef0bf8a264ae785dd5c438984c13116927acb428f51da1f19f70943",
+      "lines": 573,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 570
+          "endLine": 573
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -155,6 +155,7 @@
         "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
         "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
         "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
+        "Every evidence declaration configured by Policy v9 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
         "Summary recomputation occurs after evidence application and completionClaim remains false."
       ],
       "findings": [
@@ -167,6 +168,20 @@
           "evidence": "The former validator checked the ID shape and severity membership independently but did not compare the ID priority segment with finding.severity.",
           "fixOwner": "repository-supply-chain",
           "verificationRequirement": "Manifest generation must reject a B01A-P0 identifier paired with P3 severity before semantic evidence is applied.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01A-P2-005",
+          "severity": "P2",
+          "line": 330,
+          "attackPath": "Deleting a configured evidence declaration while leaving its policy entry intact could previously produce a schema-valid manifest with an empty reviewEvidenceSets array.",
+          "affectedInvariant": "Every semantic evidence path configured by the audit policy must exist in the exact tracked tree before generation or verification can succeed.",
+          "evidence": "The former loop continued when filesByPath did not contain a configured declaration, silently downgrading previously recorded semantic review evidence.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "A committed deletion of batch-01a-audit-authority.json must make both manifest generation and verification fail closed.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"

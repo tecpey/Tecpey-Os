@@ -33,7 +33,7 @@ async function git(root, ...args) {
   });
 }
 
-async function fixtureRepository() {
+async function fixtureRepository({ withSemanticEvidence = true } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "tecpey-audit-manifest-"));
   await git(root, "init", "--quiet");
   await fs.mkdir(path.join(root, "src", "lib", "wallet"), { recursive: true });
@@ -44,6 +44,7 @@ async function fixtureRepository() {
   await fs.writeFile(path.join(root, "asset.bin"), Buffer.from([0x00, 0xff, 0x01]));
   await git(root, "add", ".");
   await git(root, "commit", "--quiet", "-m", "fixture");
+  if (withSemanticEvidence) await addSemanticEvidenceFixture(root);
   return root;
 }
 
@@ -101,7 +102,7 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
 }
 
 test("semantic evidence rejects a finding severity that contradicts its id", async (t) => {
-  const root = await fixtureRepository();
+  const root = await fixtureRepository({ withSemanticEvidence: false });
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   await addSemanticEvidenceFixture(root, {
     findingDisposition: "confirmed-findings",
@@ -146,7 +147,7 @@ test("manifest inventories the exact committed tree with deterministic evidence"
   });
 
   assert.deepEqual(first, second);
-  assert.equal(first.summary.trackedPaths, 4);
+  assert.equal(first.summary.trackedPaths, 6);
   assert.equal(first.files.some((file) => file.path === "untracked.txt"), false);
   assert.equal(first.files.find((file) => file.path === "README.md").lines, 1);
   assert.equal(first.files.find((file) => file.path === "README.md").automatedScan.findingCounts.P3, 0);
@@ -158,7 +159,11 @@ test("manifest inventories the exact committed tree with deterministic evidence"
     0,
   );
   assert.equal(first.files.every((file) => file.inventoryCommitSha === sourceSha), true);
-  assert.equal(first.files.every((file) => file.review.reviewedCommitSha === null), true);
+  assert.equal(first.reviewEvidenceSets.length, 1);
+  assert.equal(
+    first.files.filter((file) => file.review.reviewedCommitSha !== null).length,
+    1,
+  );
   await validateRepositoryAuditManifest(first, { repositoryRoot: root, expectedSourceSha: sourceSha });
 });
 
@@ -226,8 +231,29 @@ test("manifest verification rejects tampering or path omission", async (t) => {
   );
 });
 
-test("manifest applies line-addressable semantic evidence to the exact reviewed blob", async (t) => {
+test("manifest generation and verification reject a deleted configured evidence declaration", async (t) => {
   const root = await fixtureRepository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const manifest = await generateRepositoryAuditManifest({ repositoryRoot: root });
+  const evidencePath = "docs/audits/evidence/batch-01a-audit-authority.json";
+
+  await git(root, "rm", "--quiet", evidencePath);
+  await git(root, "commit", "--quiet", "-m", "delete configured semantic evidence");
+
+  const expectedError =
+    /batch-01a-audit-authority\.json is missing from the exact tracked tree/;
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: root }),
+    expectedError,
+  );
+  await assert.rejects(
+    validateRepositoryAuditManifest(manifest, { repositoryRoot: root }),
+    expectedError,
+  );
+});
+
+test("manifest applies line-addressable semantic evidence to the exact reviewed blob", async (t) => {
+  const root = await fixtureRepository({ withSemanticEvidence: false });
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const { targetPath } = await addSemanticEvidenceFixture(root);
   const sourceSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
@@ -254,7 +280,7 @@ test("manifest applies line-addressable semantic evidence to the exact reviewed 
 });
 
 test("manifest rejects stale reviewed blobs and incomplete line coverage", async (t) => {
-  const staleRoot = await fixtureRepository();
+  const staleRoot = await fixtureRepository({ withSemanticEvidence: false });
   t.after(() => fs.rm(staleRoot, { recursive: true, force: true }));
   const stale = await addSemanticEvidenceFixture(staleRoot);
   await fs.writeFile(path.join(staleRoot, stale.targetPath), "export const governed = false;\n", "utf8");
@@ -265,7 +291,7 @@ test("manifest rejects stale reviewed blobs and incomplete line coverage", async
     /Git blob changed after review/,
   );
 
-  const gapRoot = await fixtureRepository();
+  const gapRoot = await fixtureRepository({ withSemanticEvidence: false });
   t.after(() => fs.rm(gapRoot, { recursive: true, force: true }));
   const gap = await addSemanticEvidenceFixture(gapRoot);
   gap.declaration.files[0].reviewedRanges = [{ startLine: 1, endLine: 2 }];

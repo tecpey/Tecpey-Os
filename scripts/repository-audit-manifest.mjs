@@ -327,7 +327,10 @@ function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
 
   for (const declarationPath of repositoryAuditPolicy.reviewEvidencePaths) {
     const declarationFile = filesByPath.get(declarationPath);
-    if (!declarationFile) continue;
+    requireEvidence(
+      declarationFile,
+      `${declarationPath} is missing from the exact tracked tree`,
+    );
     requireEvidence(
       declarationFile.contentKind === "text" && declarationFile.gitObjectType === "blob",
       `${declarationPath} must be a textual Git blob`,
