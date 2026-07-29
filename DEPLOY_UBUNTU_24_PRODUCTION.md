@@ -34,6 +34,7 @@ Set at minimum:
 
 ```env
 NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+NEXT_PUBLIC_GIT_COMMIT=EXACT_40_CHARACTER_RELEASE_SHA
 OPENAI_API_KEY=YOUR_NEW_PRODUCTION_KEY
 DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@127.0.0.1:5432/tecpey
 REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@127.0.0.1:6379
@@ -99,12 +100,15 @@ infrastructure-managed host that already provides approved Node/npm packages.
 The repository does not install those privileged dependencies. After the
 candidate is built and the service is running, verify it with:
 
+- Node.js major `22`;
+- npm major `10`, matching the repository engine and CI contract.
+
 ```bash
 bash scripts/ubuntu24-preflight.sh
 ```
 
 This command is intentionally fail closed when environment validation, static
-checks, the production build, or live readiness fails.
+checks, the production build, exact runtime commit, or live readiness fails.
 
 ## 7. Operational checklist
 

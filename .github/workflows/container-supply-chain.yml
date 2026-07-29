@@ -18,8 +18,16 @@ on:
       - scripts/test-container-image-rollback.sh
       - deploy/systemd/tecpey-web.service
       - ecosystem.config.cjs
+      - VERIFY_PRODUCTION.sh
+      - scripts/production-host-supply-chain-policy.mjs
+      - scripts/production-host-supply-chain-policy.test.mjs
+      - scripts/ubuntu24-install-base.sh
       - scripts/ubuntu24-deploy-pm2.sh
+      - scripts/ubuntu24-preflight.sh
+      - DEPLOY_UBUNTU_24.md
       - DEPLOY_UBUNTU_24_PRODUCTION.md
+      - docs/Deployment.md
+      - docs/TECPEY_PROJECT_INDEX.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
       - .github/workflows/**
   push:
@@ -50,7 +58,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Verify governed supply-chain contract
-        run: node scripts/check-production-supply-chain.mjs
+        run: npm run supply-chain:check
 
       - name: Prove mandatory Compose inputs
         run: |

@@ -23,6 +23,7 @@ const systemdService = read("deploy/systemd/tecpey-web.service");
 const hostBaseInstaller = read("scripts/ubuntu24-install-base.sh");
 const pm2Deploy = read("scripts/ubuntu24-deploy-pm2.sh");
 const hostPreflight = read("scripts/ubuntu24-preflight.sh");
+const productionVerification = read("VERIFY_PRODUCTION.sh");
 const activeDeploymentDocs = [
   ["Ubuntu quick deployment guide", read("DEPLOY_UBUNTU_24.md")],
   ["Ubuntu production deployment guide", read("DEPLOY_UBUNTU_24_PRODUCTION.md")],
@@ -73,6 +74,7 @@ try {
     baseInstaller: hostBaseInstaller,
     pm2Deploy,
     preflight: hostPreflight,
+    productionVerification,
     deploymentDocs: activeDeploymentDocs,
   });
 } catch (error) {

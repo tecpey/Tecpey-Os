@@ -3,6 +3,18 @@ const RETIREMENT_EXIT = 'exit "$HOST_DEPLOYMENT_RETIRED"';
 const LOCKFILE_INSTALL = "npm ci --no-audit --no-fund";
 const READINESS_PROBE =
   "curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health";
+const READINESS_ATTEMPTS = "readonly READINESS_ATTEMPTS=5";
+const READINESS_LOOP = "for attempt in 1 2 3 4 5; do";
+const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
+const NPM_VERSION_CONTRACT = "readonly EXPECTED_NPM_MAJOR=10";
+const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
+const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
+const PRODUCTION_VERIFICATION_LINES = [
+  "#!/usr/bin/env bash",
+  "set -euo pipefail",
+  'cd "$(dirname "$0")"',
+  "exec bash scripts/ubuntu24-preflight.sh",
+];
 
 function requireText(findings, source, expected, message) {
   if (!source.includes(expected)) findings.push(message);
@@ -12,10 +24,46 @@ function reject(findings, source, pattern, message) {
   if (pattern.test(source)) findings.push(message);
 }
 
+function validateRetiredScript(findings, label, source) {
+  requireText(findings, source, RETIREMENT_SENTINEL, `${label} must be explicitly retired`);
+  requireText(findings, source, RETIREMENT_EXIT, `${label} must fail closed`);
+
+  const lines = source.split(/\r?\n/).map((line) => line.trim());
+  const sentinelIndex = lines.indexOf(RETIREMENT_SENTINEL);
+  const exitIndex = lines.indexOf(RETIREMENT_EXIT);
+  if (sentinelIndex < 0 || exitIndex < 0) return;
+  if (sentinelIndex >= exitIndex) {
+    findings.push(`${label} must set the retirement sentinel before exiting`);
+    return;
+  }
+
+  const executableBeforeSentinel = lines
+    .slice(0, sentinelIndex)
+    .filter((line) => line && !line.startsWith("#") && line !== "set -euo pipefail");
+  if (executableBeforeSentinel.length > 0) {
+    findings.push(`${label} must not execute commands before the retirement sentinel`);
+  }
+
+  const unexpectedBeforeExit = lines
+    .slice(sentinelIndex + 1, exitIndex)
+    .filter((line) => line && !line.startsWith("#") && !/^echo "[^"$`\\]*" >&2$/.test(line));
+  if (unexpectedBeforeExit.length > 0) {
+    findings.push(`${label} may only emit diagnostics before the retirement exit`);
+  }
+
+  const dormantCommands = lines
+    .slice(exitIndex + 1)
+    .filter((line) => line && !line.startsWith("#"));
+  if (dormantCommands.length > 0) {
+    findings.push(`${label} must not retain dormant commands after the retirement exit`);
+  }
+}
+
 export function productionHostSupplyChainFindings({
   baseInstaller,
   pm2Deploy,
   preflight,
+  productionVerification,
   deploymentDocs = [],
 }) {
   const findings = [];
@@ -25,8 +73,7 @@ export function productionHostSupplyChainFindings({
   ];
 
   for (const [label, source] of retiredScripts) {
-    requireText(findings, source, RETIREMENT_SENTINEL, `${label} must be explicitly retired`);
-    requireText(findings, source, RETIREMENT_EXIT, `${label} must fail closed`);
+    validateRetiredScript(findings, label, source);
   }
 
   for (const [label, source] of [
@@ -91,7 +138,27 @@ export function productionHostSupplyChainFindings({
   requireText(findings, preflight, "npm run env:check", "Ubuntu preflight must validate the production environment");
   requireText(findings, preflight, "npm run check", "Ubuntu preflight must run static quality gates");
   requireText(findings, preflight, "npm run build", "Ubuntu preflight must build the production candidate");
+  requireText(findings, preflight, NODE_VERSION_CONTRACT, "Ubuntu preflight must verify the approved Node.js major");
+  requireText(findings, preflight, NPM_VERSION_CONTRACT, "Ubuntu preflight must verify the approved npm major");
+  requireText(findings, preflight, EXACT_RELEASE_CONTRACT, "Ubuntu preflight must resolve the exact candidate commit");
+  requireText(findings, preflight, EXACT_RUNTIME_CONTRACT, "Ubuntu preflight must bind readiness to the exact runtime commit");
+  for (const readinessContract of [
+    'body.health !== "ok"',
+    'body.checks?.database !== "ok"',
+    'body.checks?.schema !== "current"',
+    'body.checks?.redis !== "ok"',
+    'body.checks?.runtime !== "ready"',
+  ]) {
+    requireText(
+      findings,
+      preflight,
+      readinessContract,
+      `Ubuntu preflight must enforce runtime readiness contract: ${readinessContract}`,
+    );
+  }
   requireText(findings, preflight, READINESS_PROBE, "Ubuntu preflight must fail on an unhealthy runtime");
+  requireText(findings, preflight, READINESS_ATTEMPTS, "Ubuntu preflight must bound readiness attempts");
+  requireText(findings, preflight, READINESS_LOOP, "Ubuntu preflight must retry readiness deterministically");
   reject(
     findings,
     preflight,
@@ -104,6 +171,14 @@ export function productionHostSupplyChainFindings({
     /\|\|\s*true|process\.exit\(0\)/,
     "Ubuntu preflight must not swallow readiness failure",
   );
+
+  const verificationLines = productionVerification
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (JSON.stringify(verificationLines) !== JSON.stringify(PRODUCTION_VERIFICATION_LINES)) {
+    findings.push("Production verification must delegate exactly to the governed host preflight");
+  }
 
   return findings;
 }

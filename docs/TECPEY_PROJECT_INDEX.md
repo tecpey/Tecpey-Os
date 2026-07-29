@@ -168,7 +168,7 @@
 | `SECURITY.md` | 🟢 Current | Vulnerability reporting policy |
 | `AGENTS.md` | 🟢 Current | AI agent instructions |
 | `CLAUDE.md` | 🟢 Current | Claude Code project instructions |
-| `VERIFY_PRODUCTION.sh` | 🟢 Current | Production verification script |
+| `VERIFY_PRODUCTION.sh` | 🟢 Current | Delegates to the governed fail-closed host preflight |
 
 ---
 
