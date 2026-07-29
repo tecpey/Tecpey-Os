@@ -4,7 +4,20 @@ const mode = process.argv.includes("--dev") ? "development" : "production";
 const port = mode === "development" ? 3181 : 3182;
 const baseUrl = `http://127.0.0.1:${port}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const npmArgs = mode === "development" ? ["run", "dev:next"] : ["run", "start"];
+const npmArgs =
+  mode === "development"
+    ? ["run", "dev:next", "--", "-H", "127.0.0.1"]
+    : ["run", "start"];
+const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL;
+const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL;
+if (
+  mode === "production" &&
+  (!productionBackendUrl || !productionSocketUrl)
+) {
+  throw new Error(
+    "Production UI runtime smoke requires the same API and socket endpoints used by the build.",
+  );
+}
 
 let output = "";
 const child = spawn(npmCommand, npmArgs, {
@@ -14,9 +27,16 @@ const child = spawn(npmCommand, npmArgs, {
     PORT: String(port),
     NODE_ENV: mode,
     REDIS_URL: mode === "development" ? "" : (process.env.REDIS_URL ?? ""),
-    NEXT_PUBLIC_API_BACKEND_URL: "",
-    NEXT_PUBLIC_API_SOCKET_URL: "",
-    NEXT_PUBLIC_API_URL: "",
+    NEXT_PUBLIC_SITE_URL: baseUrl,
+    NEXT_PUBLIC_API_URL: baseUrl,
+    NEXT_PUBLIC_API_BACKEND_URL:
+      mode === "development"
+        ? baseUrl
+        : productionBackendUrl,
+    NEXT_PUBLIC_API_SOCKET_URL:
+      mode === "development"
+        ? `ws://127.0.0.1:${port}/ws`
+        : productionSocketUrl,
     NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
   },
   detached: process.platform !== "win32",
@@ -70,6 +90,36 @@ async function waitForRoot() {
     await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   throw new Error(`TecPey ${mode} server did not become ready: ${lastError}\n${output}`);
+}
+
+function assertCspPolicy(response) {
+  const csp = response.headers.get("content-security-policy");
+  if (!csp) throw new Error("root response is missing Content-Security-Policy");
+  const connectDirective = csp
+    .split(";")
+    .map((directive) => directive.trim())
+    .find((directive) => directive.startsWith("connect-src "));
+  if (!connectDirective) throw new Error("CSP is missing connect-src");
+
+  const sources = connectDirective.split(/\s+/).slice(1);
+  for (const broadSource of ["http:", "https:", "ws:", "wss:", "*"]) {
+    if (sources.includes(broadSource)) {
+      throw new Error(`connect-src contains broad source ${broadSource}`);
+    }
+  }
+  const required =
+    mode === "development"
+      ? [baseUrl, `ws://127.0.0.1:${port}`]
+      : [
+          new URL(productionBackendUrl).origin,
+          new URL(productionSocketUrl).origin,
+        ];
+  for (const source of required) {
+    if (!sources.includes(source)) {
+      throw new Error(`connect-src is missing explicit runtime origin ${source}`);
+    }
+  }
+  console.log(`UI runtime: strict connect-src verified for ${mode}.`);
 }
 
 function stylesheetLinks(html) {
@@ -129,6 +179,7 @@ async function assertPublicRoute(path, expectedText) {
 try {
   console.log(`UI runtime: starting isolated ${mode} server on ${baseUrl}.`);
   const response = await waitForRoot();
+  assertCspPolicy(response);
   const html = await response.text();
   console.log(`UI runtime: root returned ${html.length} HTML bytes.`);
 

@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 const runtimeErrors = new WeakMap();
+const cspViolationEvidence = new WeakMap();
 
 const MARKET_RESPONSE = {
   data: [
@@ -128,9 +129,152 @@ function trackRuntimeErrors(page, errors) {
   });
 }
 
+function normalizeCspViolationRecord(value) {
+  const record = value && typeof value === "object" ? value : {};
+  const effectiveDirective =
+    String(record.effectiveDirective || "unknown")
+      .toLowerCase()
+      .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown";
+  const disposition = record.disposition === "report" ? "report" : "enforce";
+  const rawBlocked = String(record.blockedTarget || "").trim();
+  const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval|redacted):?$/i.test(
+    rawBlocked,
+  );
+  let blockedTarget = safeToken
+    ? rawBlocked.toLowerCase().replace(/:$/, "")
+    : "redacted";
+  if (!safeToken) {
+    try {
+      const parsed = new URL(rawBlocked);
+      if (["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
+        blockedTarget = parsed.origin;
+      }
+    } catch {
+      blockedTarget = "redacted";
+    }
+  }
+  return { effectiveDirective, disposition, blockedTarget };
+}
+
+async function installCspViolationObserver(page) {
+  const evidence = [];
+  cspViolationEvidence.set(page, evidence);
+  await page.exposeBinding(
+    "__tecpeyRecordCspViolation",
+    (_source, violation) => {
+      evidence.push(normalizeCspViolationRecord(violation));
+    },
+  );
+  await page.addInitScript(() => {
+    const pendingDeliveries = new Set();
+    Object.defineProperty(window, "__tecpeyPendingCspViolationDeliveries", {
+      configurable: false,
+      value: pendingDeliveries,
+      writable: false,
+    });
+    document.addEventListener("securitypolicyviolation", (event) => {
+      const rawBlocked = String(event.blockedURI || "").trim();
+      const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval):?$/i.test(
+        rawBlocked,
+      );
+      let blockedTarget = safeToken
+        ? rawBlocked.toLowerCase().replace(/:$/, "")
+        : "redacted";
+      if (!safeToken) {
+        try {
+          const parsed = new URL(rawBlocked);
+          if (["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
+            blockedTarget = parsed.origin;
+          }
+        } catch {
+          blockedTarget = "redacted";
+        }
+      }
+      const delivery = Promise.resolve(
+        window.__tecpeyRecordCspViolation({
+          effectiveDirective:
+            String(event.effectiveDirective || "unknown")
+              .toLowerCase()
+              .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown",
+          disposition: event.disposition === "report" ? "report" : "enforce",
+          blockedTarget,
+        }),
+      );
+      pendingDeliveries.add(delivery);
+      void delivery.then(
+        () => pendingDeliveries.delete(delivery),
+        () => pendingDeliveries.delete(delivery),
+      );
+    });
+  });
+}
+
+async function waitForPendingCspViolationDeliveries(page) {
+  await page.evaluate(async () => {
+    const settle = () =>
+      Promise.allSettled([
+        ...(window.__tecpeyPendingCspViolationDeliveries ?? []),
+      ]);
+
+    // Cross two task boundaries so a CSP event queued at the end of the
+    // preceding interaction can register its binding promise before draining.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settle();
+  });
+}
+
+function cspViolations(page) {
+  return [...(cspViolationEvidence.get(page) ?? [])];
+}
+
+function clearCspViolations(page) {
+  const evidence = cspViolationEvidence.get(page);
+  if (evidence) evidence.length = 0;
+}
+
+async function expectNoCspViolations(
+  page,
+  testInfo,
+  attachmentName,
+  contextLabel,
+) {
+  await waitForPendingCspViolationDeliveries(page);
+  const violations = cspViolations(page);
+  if (violations.length > 0) {
+    await testInfo.attach(attachmentName, {
+      body: Buffer.from(JSON.stringify(violations, null, 2), "utf8"),
+      contentType: "application/json",
+    });
+  }
+  expect(
+    violations,
+    `${contextLabel} emitted Content Security Policy violations`,
+  ).toEqual([]);
+}
+
+function expectStrictConnectPolicy(response, path) {
+  const csp = response?.headers()["content-security-policy"];
+  expect(csp, `${path}: Content-Security-Policy header is missing`).toBeTruthy();
+  const connectDirective = csp
+    .split(";")
+    .map((directive) => directive.trim())
+    .find((directive) => directive.startsWith("connect-src "));
+  expect(connectDirective, `${path}: connect-src directive is missing`).toBeTruthy();
+  const sources = connectDirective.split(/\s+/).slice(1);
+  for (const broadSource of ["http:", "https:", "ws:", "wss:", "*"]) {
+    expect(
+      sources,
+      `${path}: connect-src includes broad source ${broadSource}`,
+    ).not.toContain(broadSource);
+  }
+}
+
 async function openPublicPage(page, contract) {
   const response = await page.goto(contract.path, { waitUntil: "domcontentloaded" });
   expect(response?.status(), `HTTP status for ${contract.path}`).toBeLessThan(400);
+  expectStrictConnectPolicy(response, contract.path);
   await expect(page.getByRole("heading", { level: 1, name: contract.heading })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", contract.lang);
   await expect(page.locator("html")).toHaveAttribute("dir", contract.dir);
@@ -379,6 +523,7 @@ async function assertAccessibility(page, testInfo) {
 
 test.beforeEach(async ({ context, page }) => {
   await installDeterministicApi(context);
+  await installCspViolationObserver(page);
   const errors = [];
   runtimeErrors.set(page, errors);
   trackRuntimeErrors(page, errors);
@@ -393,6 +538,12 @@ test.afterEach(async ({ page }, testInfo) => {
     });
   }
   expect(errors, "public page emitted fatal browser runtime errors").toEqual([]);
+  await expectNoCspViolations(
+    page,
+    testInfo,
+    "csp-violations-sanitized",
+    "public page",
+  );
 });
 
 test("public Soft Launch Golden Path is localized, interactive, truthful and accessible", async ({ context, page }, testInfo) => {
@@ -418,6 +569,7 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await switchToLight.click();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
+  await waitForPendingCspViolationDeliveries(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
@@ -481,20 +633,30 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   if (testInfo.project.name.startsWith("chromium")) {
     const degradedPage = await context.newPage();
     trackRuntimeErrors(degradedPage, errors);
-    await degradedPage.emulateMedia({ reducedMotion: "reduce" });
-    await degradedPage.addInitScript(() => {
-      Object.defineProperty(window, "IntersectionObserver", {
-        configurable: true,
-        writable: true,
-        value: undefined,
+    await installCspViolationObserver(degradedPage);
+    try {
+      await degradedPage.emulateMedia({ reducedMotion: "reduce" });
+      await degradedPage.addInitScript(() => {
+        Object.defineProperty(window, "IntersectionObserver", {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        });
       });
-    });
-    await openPublicPage(degradedPage, contract);
-    await expectMajorSectionsVisible(degradedPage, contract);
-    await degradedPage.locator("footer").scrollIntoViewIfNeeded();
-    await expect(degradedPage.locator("footer")).toBeVisible();
-    await expectNoHorizontalOverflow(degradedPage);
-    await degradedPage.close();
+      await openPublicPage(degradedPage, contract);
+      await expectMajorSectionsVisible(degradedPage, contract);
+      await degradedPage.locator("footer").scrollIntoViewIfNeeded();
+      await expect(degradedPage.locator("footer")).toBeVisible();
+      await expectNoHorizontalOverflow(degradedPage);
+      await expectNoCspViolations(
+        degradedPage,
+        testInfo,
+        "degraded-page-csp-violations-sanitized",
+        "degraded public page",
+      );
+    } finally {
+      await degradedPage.close();
+    }
   }
 });
 
@@ -575,4 +737,46 @@ test("market search resets pagination before requesting the filtered result", as
   await firstPageSearch;
   await expect(page.locator('div[role="button"]').filter({ hasText: "Ethereum" })).toBeVisible();
   await expect(page.locator('div[role="button"]').filter({ hasText: "Toncoin" })).toHaveCount(0);
+});
+
+test("CSP evidence remains available after a document reload", async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-fa-mobile",
+    "One governed Chromium run is sufficient for the observer lifecycle contract.",
+  );
+
+  await page.goto(
+    "data:text/html,%3Ctitle%3ECSP%20observer%20lifecycle%20probe%3C%2Ftitle%3E",
+    { waitUntil: "domcontentloaded" },
+  );
+  await page.evaluate(() => {
+    const violation = new Event("securitypolicyviolation");
+    Object.defineProperties(violation, {
+      blockedURI: {
+        value: "https://probe.invalid/private/path?secret=redacted",
+      },
+      disposition: { value: "enforce" },
+      effectiveDirective: { value: "connect-src" },
+    });
+    document.dispatchEvent(violation);
+  });
+  await waitForPendingCspViolationDeliveries(page);
+  expect(cspViolations(page)).toEqual([
+    {
+      effectiveDirective: "connect-src",
+      disposition: "enforce",
+      blockedTarget: "https://probe.invalid",
+    },
+  ]);
+
+  await waitForPendingCspViolationDeliveries(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  expect(cspViolations(page)).toEqual([
+    {
+      effectiveDirective: "connect-src",
+      disposition: "enforce",
+      blockedTarget: "https://probe.invalid",
+    },
+  ]);
+  clearCspViolations(page);
 });

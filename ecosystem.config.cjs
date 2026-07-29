@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'tecpey-web',
-      script: 'dist/server.cjs',
+      script: 'dist/run-production-bootstrap.cjs',
+      args: 'server',
       interpreter: 'node',
       cwd: process.cwd(),
       instances: 1,

@@ -40,14 +40,20 @@ describe("production database startup authority", () => {
     assert.match(packageJson.scripts.start, /node dist\/run-production-bootstrap\.cjs server/);
     assert.doesNotMatch(packageJson.scripts.start, /\btsx\b|server\.ts/);
 
-    const deploymentPaths = await Promise.all([
+    const [dockerfile, compose, systemdService, pm2Config] = await Promise.all([
       readFile("Dockerfile", "utf8"),
       readFile("docker-compose.production.yml", "utf8"),
       readFile("deploy/systemd/tecpey-web.service", "utf8"),
       readFile("ecosystem.config.cjs", "utf8"),
     ]);
-    assert.match(deploymentPaths[0], /CMD \["node", "dist\/run-production-bootstrap\.cjs", "server"\]/);
-    assert.doesNotMatch(deploymentPaths.join("\n"), /\bnext\s+start\b/);
+    assert.match(dockerfile, /CMD \["node", "dist\/run-production-bootstrap\.cjs", "server"\]/);
+    assert.match(pm2Config, /script:\s*['"]dist\/run-production-bootstrap\.cjs['"]/);
+    assert.match(pm2Config, /args:\s*['"]server['"]/);
+    assert.doesNotMatch(pm2Config, /script:\s*['"]dist\/server\.cjs['"]/);
+    assert.doesNotMatch(
+      [dockerfile, compose, systemdService, pm2Config].join("\n"),
+      /\bnext\s+start\b/,
+    );
   });
 
   it("governs migration command cleanup and signal interruption without forced test exit", async () => {

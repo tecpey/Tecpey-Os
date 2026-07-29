@@ -1,6 +1,13 @@
+import { loadEnvConfig } from "@next/env";
 import { configureProductionConnectionUrls } from "../src/lib/production-connection-env";
+import { assertCspConnectionEnvironment } from "../src/lib/security/csp-connection-policy";
 
+if (!Reflect.set(process.env, "NODE_ENV", "production")) {
+  throw new Error("production_bootstrap_node_env_unavailable");
+}
+loadEnvConfig(process.cwd(), false);
 configureProductionConnectionUrls();
+assertCspConnectionEnvironment();
 
 async function main(): Promise<void> {
   if (process.argv[2] === "migrate") {

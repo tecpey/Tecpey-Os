@@ -66,3 +66,8 @@ rollback and persistent-volume restore drill:
 
 An unsuccessful migration, rollback, or restore is a release failure. Destructive
 production restore is never used as a test; drills use isolated staging volumes.
+The weekly repository-owned restore drill and the remaining protected-staging
+matrix are governed by
+`docs/operations/OPERATIONAL_RECOVERY_DRILLS.md`. Repository evidence must never
+be presented as proof that an independent operator or a real staging backup was
+successfully exercised.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
+import { socket } from "@/lib/socket";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,30 +16,59 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
 
 type LivePriceChartProps = {
-  symbol: string;  
+  symbol: string;
 };
+
+type TickerPayload = {
+  data?: {
+    symbol?: unknown;
+    last?: unknown;
+    lastPrice?: unknown;
+    price?: unknown;
+    close?: unknown;
+  };
+};
+
+function tickerPrice(payload: TickerPayload): number | null {
+  const data = payload.data;
+  if (!data) return null;
+
+  const price = Number(data.last ?? data.lastPrice ?? data.price ?? data.close);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
 
 export default function LivePriceChart({ symbol }: LivePriceChartProps) {
   const [prices, setPrices] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
 
-  
   useEffect(() => {
-    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
+    const market = symbol.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,32}$/.test(market)) return;
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      const price = parseFloat(message.p);
-      const time = new Date(message.T).toLocaleTimeString();
-        
-      setPrices((prev) => [...prev.slice(-49), price]); 
-      setLabels((prev) => [...prev.slice(-49), time]);
+    const handler = (payload: TickerPayload) => {
+      const payloadMarket = String(payload.data?.symbol ?? "")
+        .trim()
+        .toUpperCase();
+      if (payloadMarket && payloadMarket !== market) return;
+
+      const price = tickerPrice(payload);
+      if (price === null) return;
+
+      setPrices((previous) => [...previous.slice(-49), price]);
+      setLabels((previous) => [
+        ...previous.slice(-49),
+        new Date().toLocaleTimeString(),
+      ]);
     };
 
-    ws.onerror = (err) => console.error("WebSocket Error:", err);
-    ws.onclose = () => { };
+    const subscription = { pair: [market] };
+    socket.on("pair:price", handler);
+    socket.emit("subscribe:pair:price", subscription);
 
-    return () => ws.close();
+    return () => {
+      socket.off("pair:price", handler);
+      socket.emit("unsubscribe:pair:price", subscription);
+    };
   }, [symbol]);
 
   if (prices.length === 0) {
