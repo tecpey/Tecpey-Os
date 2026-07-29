@@ -8,6 +8,16 @@ const npmArgs =
   mode === "development"
     ? ["run", "dev:next", "--", "-H", "127.0.0.1"]
     : ["run", "start"];
+const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL;
+const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL;
+if (
+  mode === "production" &&
+  (!productionBackendUrl || !productionSocketUrl)
+) {
+  throw new Error(
+    "Production UI runtime smoke requires the same API and socket endpoints used by the build.",
+  );
+}
 
 let output = "";
 const child = spawn(npmCommand, npmArgs, {
@@ -22,11 +32,11 @@ const child = spawn(npmCommand, npmArgs, {
     NEXT_PUBLIC_API_BACKEND_URL:
       mode === "development"
         ? baseUrl
-        : "https://api.runtime-smoke.tecpey.test",
+        : productionBackendUrl,
     NEXT_PUBLIC_API_SOCKET_URL:
       mode === "development"
         ? `ws://127.0.0.1:${port}/ws`
-        : "wss://stream.runtime-smoke.tecpey.test/ws",
+        : productionSocketUrl,
     NEXT_PUBLIC_EXTRA_CONNECT_SRC: "",
   },
   detached: process.platform !== "win32",
@@ -101,8 +111,8 @@ function assertCspPolicy(response) {
     mode === "development"
       ? [baseUrl, `ws://127.0.0.1:${port}`]
       : [
-          "https://api.runtime-smoke.tecpey.test",
-          "wss://stream.runtime-smoke.tecpey.test",
+          new URL(productionBackendUrl).origin,
+          new URL(productionSocketUrl).origin,
         ];
   for (const source of required) {
     if (!sources.includes(source)) {
