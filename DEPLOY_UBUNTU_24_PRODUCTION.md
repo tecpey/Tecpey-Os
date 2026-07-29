@@ -103,18 +103,35 @@ Expected:
 
 The checked-in systemd unit remains an audited runtime authority for an
 infrastructure-managed host that already provides approved Node/npm packages.
-The repository does not install those privileged dependencies. After the
-candidate is built and the service is running, verify it with:
+The repository does not install those privileged dependencies. Never build in
+the live systemd working tree at `/var/www/tecpey`. Prepare an exact detached
+checkout in an isolated path such as
+`/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA`, provide its approved
+`.env.production`, and verify the candidate there:
 
 - Node.js major `22`;
 - npm major `10`, matching the repository engine and CI contract.
 
 ```bash
-bash scripts/ubuntu24-preflight.sh
+cd "/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA"
+test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_SHA"
+bash scripts/ubuntu24-preflight.sh candidate
 ```
 
-This command is intentionally fail closed when environment validation, static
-checks, the production build, exact runtime commit, or live readiness fails.
+Only after the isolated candidate passes may the infrastructure owner perform
+an atomic promotion and controlled service restart. The repository does not
+copy candidate artifacts into the live tree or automate that privileged
+transition. After promotion, remain in the isolated candidate checkout and bind
+the live readiness result to the same exact commit:
+
+```bash
+bash scripts/ubuntu24-preflight.sh runtime
+```
+
+Both phases reject tracked or untracked source changes and refuse to run from
+the live systemd working tree. The candidate phase fails on environment,
+static-check, or production-build errors. The runtime phase fails on an
+unhealthy service or a runtime commit that differs from the isolated candidate.
 
 ## 7. Operational checklist
 

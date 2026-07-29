@@ -45,7 +45,9 @@ function writeExecutable(filePath, source) {
 function runPreflight(t, {
   curlExitCode = 22,
   curlSuccessAfter = 0,
+  gitStatusOutput = "",
   healthPayload = healthyPayload,
+  phase = "runtime",
 } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-host-preflight-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -91,6 +93,7 @@ if [ "\${1:-}" = "rev-parse" ] && [ "\${2:-}" = "HEAD" ]; then
   exit 0
 fi
 if [ "\${1:-}" = "status" ]; then
+  printf "%s" "$FAKE_GIT_STATUS"
   exit 0
 fi
 exit 2
@@ -113,7 +116,7 @@ exit "$FAKE_CURL_EXIT_CODE"
 `,
   );
 
-  const result = spawnSync("/bin/bash", [preflightPath], {
+  const result = spawnSync("/bin/bash", [preflightPath, phase], {
     cwd: root,
     encoding: "utf8",
     env: {
@@ -124,6 +127,7 @@ exit "$FAKE_CURL_EXIT_CODE"
       FAKE_CURL_STATE: curlState,
       FAKE_CURL_SUCCESS_AFTER: String(curlSuccessAfter),
       FAKE_HEALTH_PAYLOAD: JSON.stringify(healthPayload),
+      FAKE_GIT_STATUS: gitStatusOutput,
       FAKE_NODE_MAJOR: "22",
       FAKE_NPM_MAJOR: "10",
       FAKE_RELEASE_SHA: expectedReleaseSha,
@@ -133,7 +137,9 @@ exit "$FAKE_CURL_EXIT_CODE"
   return {
     ...result,
     commandLog: fs.existsSync(commandLog) ? fs.readFileSync(commandLog, "utf8") : "",
-    curlCount: Number(fs.readFileSync(curlState, "utf8").trim()),
+    curlCount: fs.existsSync(curlState)
+      ? Number(fs.readFileSync(curlState, "utf8").trim())
+      : 0,
   };
 }
 
@@ -277,15 +283,34 @@ test("policy rejects a mutable or fail-open production verification wrapper", ()
   }
 });
 
-test("real preflight retries and succeeds only after live readiness passes", (t) => {
-  const result = runPreflight(t, { curlSuccessAfter: 3 });
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.curlCount, 3);
-  assert.match(result.commandLog, /^npm ci --no-audit --no-fund$/m);
-  assert.match(result.commandLog, /^npm run env:check$/m);
-  assert.match(result.commandLog, /^npm run check$/m);
-  assert.match(result.commandLog, /^npm run build$/m);
-  assert.equal((result.commandLog.match(/^sleep 2$/gm) ?? []).length, 2);
+test("real preflight separates isolated candidate build from promoted runtime verification", async (t) => {
+  await t.test("candidate", (subtest) => {
+    const result = runPreflight(subtest, { phase: "candidate" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.curlCount, 0);
+    assert.match(result.commandLog, /^npm ci --no-audit --no-fund$/m);
+    assert.match(result.commandLog, /^npm run env:check$/m);
+    assert.match(result.commandLog, /^npm run check$/m);
+    assert.match(result.commandLog, /^npm run build$/m);
+  });
+
+  await t.test("runtime", (subtest) => {
+    const result = runPreflight(subtest, { phase: "runtime", curlSuccessAfter: 3 });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.curlCount, 3);
+    assert.doesNotMatch(result.commandLog, /^npm /m);
+    assert.equal((result.commandLog.match(/^sleep 2$/gm) ?? []).length, 2);
+  });
+});
+
+test("real preflight rejects untracked candidate source before install or build", (t) => {
+  const result = runPreflight(t, {
+    phase: "candidate",
+    gitStatusOutput: "?? src/unreviewed-route.ts\n",
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tracked or untracked changes/);
+  assert.doesNotMatch(result.commandLog, /^npm /m);
 });
 
 test("real preflight rejects an unapproved Node.js or npm major before installation", (t) => {
@@ -313,7 +338,7 @@ if [ "\${1:-}" = "--version" ] || [ "\${1:-}" = "-v" ]; then printf "%s.0.0\\n" 
 printf "npm %s\\n" "$*" >> "$FAKE_COMMAND_LOG"
 `,
     );
-    const result = spawnSync("/bin/bash", [preflightPath], {
+    const result = spawnSync("/bin/bash", [preflightPath, "candidate"], {
       cwd: root,
       encoding: "utf8",
       env: {
@@ -433,4 +458,32 @@ test("policy rejects loopback database or Redis URLs in the Compose guide", () =
     assert.match(findings, /must use the internal (?:PostgreSQL|Redis) service name/);
     assert.match(findings, /must not use loopback connection URLs inside Compose containers/);
   }
+});
+
+test("policy rejects hidden untracked changes or live-tree verification guidance", () => {
+  const hiddenUntracked = {
+    ...sources,
+    preflight: sources.preflight.replace(
+      "git status --short --untracked-files=all",
+      "git status --short --untracked-files=no",
+    ),
+  };
+  const preflightFindings = productionHostSupplyChainFindings(hiddenUntracked).join("\n");
+  assert.match(preflightFindings, /reject tracked and untracked source changes/);
+  assert.match(preflightFindings, /must not hide untracked source changes/);
+
+  const deploymentDocs = sources.deploymentDocs.map(([label, source]) => [
+    label,
+    label === "Ubuntu production deployment guide"
+      ? source
+          .replace("/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA", "/var/www/tecpey")
+          .replace("bash scripts/ubuntu24-preflight.sh candidate", "bash scripts/ubuntu24-preflight.sh")
+      : source,
+  ]);
+  const docFindings = productionHostSupplyChainFindings({
+    ...sources,
+    deploymentDocs,
+  }).join("\n");
+  assert.match(docFindings, /separate isolated candidate verification from runtime promotion/);
+  assert.match(docFindings, /select an explicit candidate or runtime verification phase/);
 });

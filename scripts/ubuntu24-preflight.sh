@@ -2,10 +2,20 @@
 set -euo pipefail
 
 echo "== TecPey governed host candidate verification =="
+readonly VERIFICATION_PHASE="${1:-}"
+case "$VERIFICATION_PHASE" in
+  candidate|runtime) ;;
+  *)
+    echo "Usage: $0 candidate|runtime" >&2
+    exit 64
+    ;;
+esac
+
 node -v
 npm -v
 readonly EXPECTED_NODE_MAJOR=22
 readonly EXPECTED_NPM_MAJOR=10
+readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey
 node_major=$(node -p 'process.versions.node.split(".")[0]')
 npm_version=$(npm --version)
 npm_major=${npm_version%%.*}
@@ -19,19 +29,34 @@ if [ "$npm_major" != "$EXPECTED_NPM_MAJOR" ]; then
 fi
 if [ ! -f package.json ]; then echo "package.json not found. Run from project root."; exit 1; fi
 if [ ! -f .env.production ]; then echo "Missing .env.production. Copy from .env.production.example first."; exit 1; fi
+candidate_worktree=$(pwd -P)
+if [ -d "$SYSTEMD_LIVE_WORKTREE" ]; then
+  live_worktree=$(cd "$SYSTEMD_LIVE_WORKTREE" && pwd -P)
+else
+  live_worktree="$SYSTEMD_LIVE_WORKTREE"
+fi
+if [ "$candidate_worktree" = "$live_worktree" ]; then
+  echo "Refusing to verify inside the live systemd working tree; use an isolated candidate checkout." >&2
+  exit 1
+fi
 expected_release_sha=$(git rev-parse HEAD)
 if [[ ! "$expected_release_sha" =~ ^[0-9a-f]{40}$ ]]; then
   echo "Unable to resolve an exact lowercase release SHA." >&2
   exit 1
 fi
-if [ -n "$(git status --short --untracked-files=no)" ]; then
-  echo "Tracked source checkout is dirty; production verification is refused." >&2
+if [ -n "$(git status --short --untracked-files=all)" ]; then
+  echo "Candidate checkout has tracked or untracked changes; production verification is refused." >&2
   exit 1
 fi
-npm ci --no-audit --no-fund
-npm run env:check
-npm run check
-npm run build
+
+if [ "$VERIFICATION_PHASE" = "candidate" ]; then
+  npm ci --no-audit --no-fund
+  npm run env:check
+  npm run check
+  npm run build
+  echo "Isolated candidate build passed for $expected_release_sha."
+  exit 0
+fi
 
 readonly READINESS_ATTEMPTS=5
 health_payload=$(mktemp)
@@ -66,4 +91,4 @@ if [ "$readiness_ok" -ne 1 ]; then
   exit 1
 fi
 
-echo "Candidate build and live readiness passed."
+echo "Promoted runtime readiness passed for $expected_release_sha."

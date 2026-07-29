@@ -7,6 +7,9 @@ const READINESS_ATTEMPTS = "readonly READINESS_ATTEMPTS=5";
 const READINESS_LOOP = "for attempt in 1 2 3 4 5; do";
 const NODE_VERSION_CONTRACT = "readonly EXPECTED_NODE_MAJOR=22";
 const NPM_VERSION_CONTRACT = "readonly EXPECTED_NPM_MAJOR=10";
+const VERIFICATION_PHASE_CONTRACT = 'readonly VERIFICATION_PHASE="${1:-}"';
+const LIVE_WORKTREE_CONTRACT = "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey";
+const CLEAN_CHECKOUT_CONTRACT = "git status --short --untracked-files=all";
 const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
 const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
 const COMPOSE_DATABASE_URL =
@@ -17,7 +20,7 @@ const PRODUCTION_VERIFICATION_LINES = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
   'cd "$(dirname "$0")"',
-  "exec bash scripts/ubuntu24-preflight.sh",
+  'exec bash scripts/ubuntu24-preflight.sh "$@"',
 ];
 
 function requireText(findings, source, expected, message) {
@@ -155,6 +158,25 @@ export function productionHostSupplyChainFindings({
         /(?:DATABASE_URL|REDIS_URL)=[^\n]*@(?:127\.0\.0\.1|localhost)(?=[:/]|$)/i,
         `${label} must not use loopback connection URLs inside Compose containers`,
       );
+      for (const contract of [
+        "/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA",
+        "bash scripts/ubuntu24-preflight.sh candidate",
+        "bash scripts/ubuntu24-preflight.sh runtime",
+        "atomic promotion and controlled service restart",
+      ]) {
+        requireText(
+          findings,
+          source,
+          contract,
+          `${label} must separate isolated candidate verification from runtime promotion`,
+        );
+      }
+      reject(
+        findings,
+        source,
+        /^bash scripts\/ubuntu24-preflight\.sh\s*$/m,
+        `${label} must select an explicit candidate or runtime verification phase`,
+      );
     }
   }
 
@@ -164,6 +186,17 @@ export function productionHostSupplyChainFindings({
   requireText(findings, preflight, "npm run build", "Ubuntu preflight must build the production candidate");
   requireText(findings, preflight, NODE_VERSION_CONTRACT, "Ubuntu preflight must verify the approved Node.js major");
   requireText(findings, preflight, NPM_VERSION_CONTRACT, "Ubuntu preflight must verify the approved npm major");
+  requireText(findings, preflight, VERIFICATION_PHASE_CONTRACT, "Ubuntu preflight must require an explicit verification phase");
+  requireText(findings, preflight, 'candidate|runtime) ;;', "Ubuntu preflight must separate candidate and runtime verification");
+  requireText(findings, preflight, LIVE_WORKTREE_CONTRACT, "Ubuntu preflight must identify the live systemd working tree");
+  requireText(findings, preflight, 'candidate_worktree=$(pwd -P)', "Ubuntu preflight must resolve the physical candidate checkout");
+  requireText(findings, preflight, CLEAN_CHECKOUT_CONTRACT, "Ubuntu preflight must reject tracked and untracked source changes");
+  reject(
+    findings,
+    preflight,
+    /git status[^\n]*--untracked-files=no/,
+    "Ubuntu preflight must not hide untracked source changes",
+  );
   requireText(findings, preflight, EXACT_RELEASE_CONTRACT, "Ubuntu preflight must resolve the exact candidate commit");
   requireText(findings, preflight, EXACT_RUNTIME_CONTRACT, "Ubuntu preflight must bind readiness to the exact runtime commit");
   for (const readinessContract of [
