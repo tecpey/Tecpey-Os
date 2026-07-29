@@ -33,6 +33,14 @@ const DOMAIN_RULES = [
     ],
   },
   {
+    domain: "repository-supply-chain",
+    riskTier: "P1",
+    reviewBatch: 1,
+    patterns: [
+      /^scripts\/audit-repository-hygiene\.mjs$/,
+    ],
+  },
+  {
     domain: "wallet-custody",
     riskTier: "P0",
     reviewBatch: 7,
@@ -235,7 +243,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 7,
+  version: 8,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),

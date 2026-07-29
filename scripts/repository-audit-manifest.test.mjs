@@ -222,6 +222,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   assert.equal(classifyDomain("src/lib/offline-sync-authority.ts").reviewBatch, 2);
   assert.equal(classifyDomain("src/lib/catalog/repository.ts").reviewBatch, 2);
   assert.equal(classifyDomain(".github/workflows/repository-audit-manifest.yml").reviewBatch, 1);
+  assert.deepEqual(classifyDomain("scripts/audit-repository-hygiene.mjs"), {
+    domain: "repository-supply-chain",
+    riskTier: "P1",
+    reviewBatch: 1,
+    classificationRule: "repository-supply-chain",
+  });
   assert.equal(classifyDomain("scripts/repository-audit-manifest.mjs").reviewBatch, 1);
   assert.equal(classifyDomain("src/lib/compliance/ofac.ts").reviewBatch, 3);
   assert.deepEqual(classifyDomain("config/api-security-exceptions.json"), {

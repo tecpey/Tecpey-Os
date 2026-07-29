@@ -38,6 +38,55 @@ test("policy rejects floating third-party actions", () => {
   assert.match(repositoryAuditWorkflowFindings(mutated).join("\n"), /not pinned/);
 });
 
+test("policy validates required controls at their effective YAML nodes", () => {
+  for (const [mutated, finding] of [
+    [
+      workflow.replace(
+        "          ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+        "          # ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+      ),
+      /pull-request head SHA|YAML structure is invalid/,
+    ],
+    [
+      workflow.replace(
+        "          persist-credentials: false",
+        "          # persist-credentials: false",
+      ),
+      /credentials must not persist|pull-request head SHA/,
+    ],
+    [
+      workflow.replace(
+        "        run: npm run audit:manifest:verify",
+        "        run: echo verification-disabled # npm run audit:manifest:verify",
+      ),
+      /exact manifest verification is missing/,
+    ],
+    [
+      workflow.replace(
+        "        run: npm run audit:manifest:check",
+        "        # run: npm run audit:manifest:check",
+      ),
+      /authority guard is missing|YAML structure is invalid/,
+    ],
+    [
+      workflow.replace(
+        "          TECPEY_AUDIT_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
+        "          MOVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
+      ),
+      /manifest generation must receive|exact manifest verification is missing/,
+    ],
+    [
+      workflow.replace(
+        "      - name: Run manifest policy tests",
+        "      - name: Injected ungoverned step\n        run: echo bypass\n\n      - name: Run manifest policy tests",
+      ),
+      /exact governed step sequence/,
+    ],
+  ]) {
+    assert.match(repositoryAuditWorkflowFindings(mutated).join("\n"), finding);
+  }
+});
+
 test("policy rejects write-capable or overridden workflow permissions", () => {
   for (const mutated of [
     workflow.replace("  contents: read", "  contents: write"),
@@ -50,7 +99,7 @@ test("policy rejects write-capable or overridden workflow permissions", () => {
   ]) {
     assert.match(
       repositoryAuditWorkflowFindings(mutated).join("\n"),
-      /permissions must be exactly one top-level contents: read grant/,
+      /permissions must be exactly one top-level contents: read grant|YAML structure is invalid/,
     );
   }
 });
