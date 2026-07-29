@@ -176,6 +176,10 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     "generated",
   );
   assert.equal(
+    classifyProvenance("docs/internal-qa/QA_STATIC_PRODUCTION_REPORT.json"),
+    "generated",
+  );
+  assert.equal(
     classifyProvenance("docs/security/generated/api-security-manifest-reviewed-deltas.json"),
     "source",
   );
@@ -194,6 +198,9 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     classificationRule: "exchange-ledger",
   });
   assert.equal(classifyDomain("src/lib/offline-sync-authority.ts").reviewBatch, 2);
+  assert.equal(classifyDomain("src/lib/catalog/repository.ts").reviewBatch, 2);
+  assert.equal(classifyDomain(".github/workflows/repository-audit-manifest.yml").reviewBatch, 1);
+  assert.equal(classifyDomain("scripts/repository-audit-manifest.mjs").reviewBatch, 1);
   assert.equal(classifyDomain("src/lib/compliance/ofac.ts").reviewBatch, 3);
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
