@@ -1,7 +1,9 @@
 import { Redis } from "ioredis";
 
 export const webNodeRegistryKey = "tecpey:nodes:web";
-export const redisWebNodeDrainTimeoutMs = 70_000;
+// Covers the 60s production registration TTL, the default 10s graceful
+// shutdown window, the 5s force-stop window, and a final polling margin.
+export const redisWebNodeDrainTimeoutMs = 80_000;
 
 const activeNodeCountScript = `
 local now = ARGV[1]

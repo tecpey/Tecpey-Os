@@ -24,7 +24,7 @@ test("uses the production web-node registry key", async () => {
   );
 });
 
-test("default drain deadline exceeds the production registration TTL", async () => {
+test("default drain deadline covers registration TTL and shutdown grace", async () => {
   const productionSource = await readFile(
     resolve(e2eRoot, "../../src/lib/redis-pubsub.ts"),
     "utf8",
@@ -32,9 +32,14 @@ test("default drain deadline exceeds the production registration TTL", async () 
   const ttlSource = /const NODE_TTL_MS = ([\d_]+);/.exec(productionSource)?.[1];
   assert.ok(ttlSource, "production web-node TTL must remain statically governed");
   const productionTtlMs = Number(ttlSource.replaceAll("_", ""));
+  const defaultGracefulShutdownMs = 10_000;
+  const defaultForceShutdownMs = 5_000;
   assert.ok(
-    redisWebNodeDrainTimeoutMs > productionTtlMs,
-    "Redis drain must allow a force-killed server registration to expire",
+    redisWebNodeDrainTimeoutMs >
+      productionTtlMs +
+        defaultGracefulShutdownMs +
+        defaultForceShutdownMs,
+    "Redis drain must cover a last heartbeat, graceful shutdown, force stop, and polling margin",
   );
 });
 
