@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { configureProductionConnectionUrls } from "@/lib/production-connection-env";
 import { drainRuntime } from "@/lib/runtime-shutdown";
@@ -40,6 +41,29 @@ test("production bootstrap preserves explicitly configured connection URLs", () 
 
   assert.equal(env.DATABASE_URL, "postgresql://external/database");
   assert.equal(env.REDIS_URL, "rediss://external:6380");
+});
+
+test("production bootstrap enforces the CSP connection environment before runtime import", () => {
+  const bootstrap = readFileSync(
+    "scripts/run-production-bootstrap.ts",
+    "utf8",
+  );
+  const assertion = bootstrap.indexOf("assertCspConnectionEnvironment();");
+  const serverImport = bootstrap.indexOf('await import("../server")');
+
+  assert.ok(assertion >= 0);
+  assert.ok(serverImport >= 0);
+  assert.ok(assertion < serverImport);
+});
+
+test("CSP runtime authority avoids build-time inlining of public endpoint values", () => {
+  const policy = readFileSync(
+    "src/lib/security/csp-connection-policy.ts",
+    "utf8",
+  );
+
+  assert.doesNotMatch(policy, /process\.env\.NEXT_PUBLIC_/);
+  assert.match(policy, /env\[name\]/);
 });
 
 test("bounded shutdown drains HTTP and WebSocket traffic before workers and Redis", async () => {

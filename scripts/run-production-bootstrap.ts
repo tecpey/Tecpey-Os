@@ -1,6 +1,8 @@
 import { configureProductionConnectionUrls } from "../src/lib/production-connection-env";
+import { assertCspConnectionEnvironment } from "../src/lib/security/csp-connection-policy";
 
 configureProductionConnectionUrls();
+assertCspConnectionEnvironment();
 
 async function main(): Promise<void> {
   if (process.argv[2] === "migrate") {

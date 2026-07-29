@@ -128,9 +128,68 @@ function trackRuntimeErrors(page, errors) {
   });
 }
 
+async function installCspViolationObserver(page) {
+  await page.addInitScript(() => {
+    window.__tecpeyCspViolations = [];
+    document.addEventListener("securitypolicyviolation", (event) => {
+      const rawBlocked = String(event.blockedURI || "").trim();
+      const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval):?$/i.test(
+        rawBlocked,
+      );
+      let blockedTarget = safeToken
+        ? rawBlocked.toLowerCase().replace(/:$/, "")
+        : "redacted";
+      if (!safeToken) {
+        try {
+          const parsed = new URL(rawBlocked);
+          if (["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
+            blockedTarget = parsed.origin;
+          }
+        } catch {
+          blockedTarget = "redacted";
+        }
+      }
+      window.__tecpeyCspViolations.push({
+        effectiveDirective:
+          String(event.effectiveDirective || "unknown")
+            .toLowerCase()
+            .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown",
+        disposition: event.disposition === "report" ? "report" : "enforce",
+        blockedTarget,
+      });
+    });
+  });
+}
+
+async function cspViolations(page) {
+  return page.evaluate(() =>
+    Array.isArray(window.__tecpeyCspViolations)
+      ? window.__tecpeyCspViolations
+      : [],
+  );
+}
+
+function expectStrictConnectPolicy(response, path) {
+  const csp = response?.headers()["content-security-policy"];
+  expect(csp, `${path}: Content-Security-Policy header is missing`).toBeTruthy();
+  const connectDirective = csp
+    .split(";")
+    .map((directive) => directive.trim())
+    .find((directive) => directive.startsWith("connect-src "));
+  expect(connectDirective, `${path}: connect-src directive is missing`).toBeTruthy();
+  const sources = connectDirective.split(/\s+/).slice(1);
+  for (const broadSource of ["http:", "https:", "ws:", "wss:", "*"]) {
+    expect(
+      sources,
+      `${path}: connect-src includes broad source ${broadSource}`,
+    ).not.toContain(broadSource);
+  }
+}
+
 async function openPublicPage(page, contract) {
   const response = await page.goto(contract.path, { waitUntil: "domcontentloaded" });
   expect(response?.status(), `HTTP status for ${contract.path}`).toBeLessThan(400);
+  expectStrictConnectPolicy(response, contract.path);
   await expect(page.getByRole("heading", { level: 1, name: contract.heading })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", contract.lang);
   await expect(page.locator("html")).toHaveAttribute("dir", contract.dir);
@@ -379,6 +438,7 @@ async function assertAccessibility(page, testInfo) {
 
 test.beforeEach(async ({ context, page }) => {
   await installDeterministicApi(context);
+  await installCspViolationObserver(page);
   const errors = [];
   runtimeErrors.set(page, errors);
   trackRuntimeErrors(page, errors);
@@ -386,13 +446,24 @@ test.beforeEach(async ({ context, page }) => {
 
 test.afterEach(async ({ page }, testInfo) => {
   const errors = runtimeErrors.get(page) ?? [];
+  const violations = await cspViolations(page);
   if (errors.length > 0) {
     await testInfo.attach("runtime-errors", {
       body: Buffer.from(errors.join("\n"), "utf8"),
       contentType: "text/plain",
     });
   }
+  if (violations.length > 0) {
+    await testInfo.attach("csp-violations-sanitized", {
+      body: Buffer.from(JSON.stringify(violations, null, 2), "utf8"),
+      contentType: "application/json",
+    });
+  }
   expect(errors, "public page emitted fatal browser runtime errors").toEqual([]);
+  expect(
+    violations,
+    "public page emitted Content Security Policy violations",
+  ).toEqual([]);
 });
 
 test("public Soft Launch Golden Path is localized, interactive, truthful and accessible", async ({ context, page }, testInfo) => {
@@ -481,6 +552,7 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   if (testInfo.project.name.startsWith("chromium")) {
     const degradedPage = await context.newPage();
     trackRuntimeErrors(degradedPage, errors);
+    await installCspViolationObserver(degradedPage);
     await degradedPage.emulateMedia({ reducedMotion: "reduce" });
     await degradedPage.addInitScript(() => {
       Object.defineProperty(window, "IntersectionObserver", {
