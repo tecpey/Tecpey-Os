@@ -1,6 +1,7 @@
 import { Redis } from "ioredis";
 
 export const webNodeRegistryKey = "tecpey:nodes:web";
+export const redisWebNodeDrainTimeoutMs = 70_000;
 
 const activeNodeCountScript = `
 local now = ARGV[1]
@@ -14,7 +15,7 @@ function safeError(error) {
 
 export async function waitForRedisWebNodeDrain(
   redis,
-  { timeoutMs = 10_000, pollIntervalMs = 100 } = {},
+  { timeoutMs = redisWebNodeDrainTimeoutMs, pollIntervalMs = 100 } = {},
 ) {
   const deadline = Date.now() + timeoutMs;
   let activeNodes = null;

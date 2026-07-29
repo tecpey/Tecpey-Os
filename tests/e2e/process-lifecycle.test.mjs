@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import {
   hasLiveProcessGroupMember,
   parseLinuxProcessStat,
   stopProcessGroup,
   stopServerAndWaitForRedisDrain,
+  waitForProcessGroupCompletion,
 } from "./process-lifecycle.mjs";
 
 const windows = process.platform === "win32";
@@ -134,6 +136,36 @@ test("escalates to SIGKILL within a bounded deadline", { skip: windows }, async 
   } finally {
     forceKillFixture(child);
   }
+});
+
+test("a timed-out child resolves only after process-group shutdown settles", async () => {
+  const child = new EventEmitter();
+  let releaseShutdown;
+  const shutdown = new Promise((resolvePromise) => {
+    releaseShutdown = resolvePromise;
+  });
+  let completed = false;
+
+  const completion = waitForProcessGroupCompletion(child, {
+    timeoutMs: 1,
+    stop: async () => shutdown,
+  }).then((code) => {
+    completed = true;
+    return code;
+  });
+
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+  child.emit("exit", null, "SIGTERM");
+  await new Promise((resolvePromise) => setImmediate(resolvePromise));
+  assert.equal(
+    completed,
+    false,
+    "the next project became eligible while timed-out descendants were still stopping",
+  );
+
+  releaseShutdown();
+  assert.equal(await completion, 1);
+  assert.equal(completed, true);
 });
 
 test(

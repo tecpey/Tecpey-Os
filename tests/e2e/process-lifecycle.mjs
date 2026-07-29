@@ -106,6 +106,49 @@ export async function stopProcessGroup(
   );
 }
 
+export async function waitForProcessGroupCompletion(
+  child,
+  {
+    timeoutMs,
+    stop = stopProcessGroup,
+    onTimeout = () => {},
+    onError = () => {},
+    onExit = () => {},
+    onShutdownError = () => {},
+  },
+) {
+  return await new Promise((resolvePromise) => {
+    let settled = false;
+    let timedOut = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolvePromise(code);
+    };
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      timedOut = true;
+      onTimeout();
+      void Promise.resolve()
+        .then(() => stop(child))
+        .catch(onShutdownError)
+        .finally(() => finish(1));
+    }, timeoutMs);
+    timeout.unref?.();
+
+    child.once("error", (error) => {
+      onError(error);
+      if (!timedOut) finish(1);
+    });
+    child.once("exit", (code, signal) => {
+      onExit(code, signal);
+      if (!timedOut) finish(signal ? 1 : (code ?? 1));
+    });
+  });
+}
+
 export async function stopServerAndWaitForRedisDrain(
   child,
   redisNodeObserver,

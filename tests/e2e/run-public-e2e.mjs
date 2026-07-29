@@ -3,8 +3,8 @@ import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  stopProcessGroup,
   stopServerAndWaitForRedisDrain,
+  waitForProcessGroupCompletion,
 } from "./process-lifecycle.mjs";
 import { createRedisWebNodeObserver } from "./redis-node-isolation.mjs";
 import { startRedisRestStub } from "./redis-rest-stub.mjs";
@@ -184,38 +184,26 @@ async function runPlaywrightProject(project, onOutput) {
     process.stderr.write(chunk);
   });
 
-  return await new Promise((resolvePromise) => {
-    let settled = false;
-    const finish = (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      resolvePromise(code);
-    };
-
-    const timeout = setTimeout(() => {
+  return await waitForProcessGroupCompletion(child, {
+    timeoutMs: projectTimeoutMs,
+    onTimeout() {
       onOutput(
         `Playwright project ${project} exceeded ${projectTimeoutMs}ms and was terminated.\n`,
       );
-      void stopProcessGroup(child).catch((error) => {
-        onOutput(
-          `Playwright process-group shutdown failed: ${error.stack || error.message}\n`,
-        );
-      });
-      finish(1);
-    }, projectTimeoutMs);
-    timeout.unref?.();
-
-    child.once("error", (error) => {
+    },
+    onError(error) {
       onOutput(`Playwright process error: ${error.stack || error.message}\n`);
-      finish(1);
-    });
-    child.once("exit", (code, signal) => {
+    },
+    onExit(code, signal) {
       onOutput(
         `Playwright process exit: code=${code ?? "null"} signal=${signal ?? "none"}\n`,
       );
-      finish(signal ? 1 : (code ?? 1));
-    });
+    },
+    onShutdownError(error) {
+      onOutput(
+        `Playwright process-group shutdown failed: ${error.stack || error.message}\n`,
+      );
+    },
   });
 }
 

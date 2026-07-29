@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import {
+  redisWebNodeDrainTimeoutMs,
   waitForRedisWebNodeDrain,
   webNodeRegistryKey,
 } from "./redis-node-isolation.mjs";
@@ -20,6 +21,20 @@ test("uses the production web-node registry key", async () => {
     new RegExp(
       `const WEB_NODE_REGISTRY_KEY = ${JSON.stringify(webNodeRegistryKey)}`,
     ),
+  );
+});
+
+test("default drain deadline exceeds the production registration TTL", async () => {
+  const productionSource = await readFile(
+    resolve(e2eRoot, "../../src/lib/redis-pubsub.ts"),
+    "utf8",
+  );
+  const ttlSource = /const NODE_TTL_MS = ([\d_]+);/.exec(productionSource)?.[1];
+  assert.ok(ttlSource, "production web-node TTL must remain statically governed");
+  const productionTtlMs = Number(ttlSource.replaceAll("_", ""));
+  assert.ok(
+    redisWebNodeDrainTimeoutMs > productionTtlMs,
+    "Redis drain must allow a force-killed server registration to expire",
   );
 });
 
