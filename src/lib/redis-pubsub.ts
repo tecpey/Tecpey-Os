@@ -96,7 +96,7 @@ export type PubSubMetrics = {
 export type RedisClientFactory = (redisUrl: string, options: RedisOptions) => Redis;
 
 const createRedisClient: RedisClientFactory = (redisUrl, options) => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- #162: lazy CommonJS load keeps the optional Redis runtime out of import-time bootstrap.
   const { Redis } = require("ioredis") as typeof import("ioredis");
   return new Redis(redisUrl, options);
 };

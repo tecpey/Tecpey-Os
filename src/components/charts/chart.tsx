@@ -31,23 +31,6 @@ export default function Chart({ symbol, change, height = 60 }: ChartProps) {
   const isStaticCoin =
   symbol === "USDT";
 
-   if (isStaticCoin) {
-  return (
-    <svg
-      viewBox="0 0 100 40"
-      className="w-full h-full"
-      preserveAspectRatio="none"
-    >
-      <path
-        d="M0 20 L20 20 L40 19 L60 20 L80 20 L100 20"
-        stroke="#9CA3AF"
-        strokeWidth="2"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
   const { data, isLoading, error } = useQuery({
     queryKey: ["chart", formattedSymbol],
 
@@ -56,7 +39,7 @@ export default function Chart({ symbol, change, height = 60 }: ChartProps) {
         symbol: formattedSymbol,
       }),
 
-    enabled: !!formattedSymbol,
+    enabled: Boolean(formattedSymbol) && !isStaticCoin,
   });
 
   const chartData: ChartPoint[] = useMemo(() => {
@@ -69,6 +52,23 @@ export default function Chart({ symbol, change, height = 60 }: ChartProps) {
       value: Number(data.prices[index] ?? 0),
     }));
   }, [data]);
+
+  if (isStaticCoin) {
+    return (
+      <svg
+        viewBox="0 0 100 40"
+        className="w-full h-full"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0 20 L20 20 L40 19 L60 20 L80 20 L100 20"
+          stroke="#9CA3AF"
+          strokeWidth="2"
+          fill="none"
+        />
+      </svg>
+    );
+  }
 
   if (isLoading) {
     return <div className="text-xs opacity-50">...</div>;

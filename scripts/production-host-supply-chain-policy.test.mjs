@@ -364,6 +364,44 @@ test("policy rejects runtime-mutable or unbound build identity", () => {
   );
 });
 
+test("published images bake public configuration and Compose validates before startup", () => {
+  const missingBuildInput = {
+    ...sources,
+    containerWorkflow: sources.containerWorkflow.replaceAll(
+      "NEXT_PUBLIC_API_URL=https://my.tecpey.ir\n",
+      "",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(missingBuildInput).join("\n"),
+    /Published images must bake governed public configuration/,
+  );
+
+  const invalidDashboardHost = {
+    ...sources,
+    environmentTemplate: sources.environmentTemplate.replace(
+      "NEXT_PUBLIC_API_URL=https://my.tecpey.ir",
+      "NEXT_PUBLIC_API_URL=https://api.tecpey.ir",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(invalidDashboardHost).join("\n"),
+    /dashboard host/,
+  );
+
+  const unvalidatedDocs = {
+    ...sources,
+    deploymentDocs: sources.deploymentDocs.map(([label, source]) => [
+      label,
+      source.replace("npm run env:check\n", ""),
+    ]),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(unvalidatedDocs).join("\n"),
+    /validate the complete production environment before Compose startup/,
+  );
+});
+
 test("source archives require an explicit local-only unverified build identity", () => {
   const missingOptIn = {
     ...sources,

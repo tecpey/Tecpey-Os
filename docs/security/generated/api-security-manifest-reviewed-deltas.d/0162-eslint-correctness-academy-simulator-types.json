@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-simulator-decision",
+      "method": "POST",
+      "previousSourceHash": "e2e149e496b2cff90d4b9906",
+      "issue": "#162",
+      "owner": "academy-platform",
+      "reason": "The simulator decision payload and PostgreSQL row boundaries now use explicit typed records instead of TypeScript any. Authentication, CSRF, bounded-body parsing, rate limiting, transactional persistence, audit evidence, no-store caching and fail-closed behavior are unchanged.",
+      "replacement": {
+        "route": "/api/academy-simulator-decision",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+        "sourceHash": "b25386a340a7007faf892653",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getStudentSessionFromRequest",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-simulator-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-simulator-decision",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

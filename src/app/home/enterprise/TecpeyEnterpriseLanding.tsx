@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import type { MarketCurrency } from "@/types/market";
 
 const freeAcademyHref = "https://my.tecpey.ir/signup";
 
@@ -69,11 +70,11 @@ function formatFaNumber(value: unknown) {
   return new Intl.NumberFormat("fa-IR").format(Math.round(n));
 }
 
-function normalizeSymbol(row: any) {
+function normalizeSymbol(row: MarketCurrency) {
   return String(row?.symbol ?? row?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
 }
 
-function resolveUsdLast(row: any, symbol: string) {
+function resolveUsdLast(row: MarketCurrency, symbol: string) {
   if (symbol === "USDT") return 1;
   return Number(
     row?.priceData?.last ??
@@ -87,7 +88,7 @@ function resolveUsdLast(row: any, symbol: string) {
   );
 }
 
-function resolveIrtPrice(row: any, symbol: string, usdtIrt: unknown) {
+function resolveIrtPrice(row: MarketCurrency, symbol: string, usdtIrt: unknown) {
   const direct = Number(row?.priceData?.priceIRT ?? row?.priceIRT ?? 0);
   if (Number.isFinite(direct) && direct > 0) return direct;
   const usd = resolveUsdLast(row, symbol);
@@ -96,7 +97,7 @@ function resolveIrtPrice(row: any, symbol: string, usdtIrt: unknown) {
   return usd > 0 && rate > 0 ? usd * rate : 0;
 }
 
-function getMarketFallback() {
+function getMarketFallback(): MarketCurrency[] {
   return marketRows.map((row) => ({
     symbol: row.symbol,
     name: row.name,
@@ -149,7 +150,7 @@ function DeviceFrame() {
           </div>
 
           <div className="mt-3 overflow-hidden rounded-2xl border border-[color:var(--tp-border)] bg-white/[0.06] backdrop-blur-xl dark:bg-white/[0.045]">
-            {dynamicRows.map((row: any, index: number) => {
+            {dynamicRows.map((row, index) => {
               const symbol = normalizeSymbol(row);
               const faName = row?.faName ?? row?.fa ?? ({ BTC: "بیت‌کوین", ETH: "اتریوم", USDT: "تتر", TON: "تون‌کوین" } as Record<string, string>)[symbol] ?? symbol;
               const name = row?.name ?? symbol;

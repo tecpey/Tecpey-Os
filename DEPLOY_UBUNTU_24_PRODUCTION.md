@@ -59,6 +59,7 @@ Do not put API keys in Git, screenshots, chat, or frontend code.
 export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
 export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
 export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+npm run env:check
 docker compose -f docker-compose.production.yml up -d
 ```
 

@@ -411,6 +411,9 @@ export function JournalView() {
   const [reflectionLoading, setReflectionLoading] = useState(false);
   const [reflectionErrors, setReflectionErrors] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [pendingIdentities, setPendingIdentities] = useState<
+    Record<string, ArenaPendingReflectionIdentity | undefined>
+  >({});
   const mountedRef = useRef(true);
   const snapshotRef = useRef<ArenaExecutionSnapshot | null>(null);
   const reflectionsRef = useRef<Record<string, ArenaReflectionView>>({});
@@ -419,6 +422,23 @@ export function JournalView() {
   const lastAppliedSequenceRef = useRef(0);
   const reflectionSequenceRef = useRef(0);
   const reflectionMutationSequenceRef = useRef<Record<string, number>>({});
+
+  const updatePendingIdentity = useCallback((
+    tradeId: string,
+    identity: ArenaPendingReflectionIdentity | null,
+  ) => {
+    if (identity) {
+      pendingRef.current[tradeId] = identity;
+    } else {
+      delete pendingRef.current[tradeId];
+    }
+    setPendingIdentities((current) => {
+      const next = { ...current };
+      if (identity) next[tradeId] = identity;
+      else delete next[tradeId];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -504,12 +524,15 @@ export function JournalView() {
         }
         return result;
       });
-      for (const [tradeId, identity] of Object.entries(pendingRef.current)) {
+      const pendingNext = { ...pendingRef.current };
+      for (const [tradeId, identity] of Object.entries(pendingNext)) {
         const authoritative = next[tradeId];
         if (identity && authoritative && authoritative.revision > identity.expectedRevision) {
-          delete pendingRef.current[tradeId];
+          delete pendingNext[tradeId];
         }
       }
+      pendingRef.current = pendingNext;
+      setPendingIdentities(pendingNext);
       setError(null);
     } catch {
       if (mountedRef.current && responseSequence === reflectionSequenceRef.current) {
@@ -532,6 +555,7 @@ export function JournalView() {
     reflectionsRef.current = {};
     reflectionMutationSequenceRef.current = {};
     pendingRef.current = {};
+    setPendingIdentities({});
     setReflections({});
     setDrafts({});
     setReflectionErrors({});
@@ -587,7 +611,7 @@ export function JournalView() {
       return true;
     };
 
-    pendingRef.current[trade.id] = decision.identity;
+    updatePendingIdentity(trade.id, decision.identity);
     setSaving((current) => ({ ...current, [trade.id]: true }));
     setReflectionErrors((current) => ({ ...current, [trade.id]: null }));
 
@@ -612,7 +636,7 @@ export function JournalView() {
           response.status < 500 &&
           pendingRef.current[trade.id]?.idempotencyKey === decision.identity.idempotencyKey
         ) {
-          delete pendingRef.current[trade.id];
+          updatePendingIdentity(trade.id, null);
         }
         setReflectionErrors((current) => ({
           ...current,
@@ -628,7 +652,7 @@ export function JournalView() {
       if (!isLatestResponse()) return;
       const applied = applyIncoming(parsed.reflection);
       if (pendingRef.current[trade.id]?.idempotencyKey === decision.identity.idempotencyKey) {
-        delete pendingRef.current[trade.id];
+        updatePendingIdentity(trade.id, null);
       }
       if (applied) {
         setDrafts((current) => ({
@@ -649,7 +673,7 @@ export function JournalView() {
         setSaving((current) => ({ ...current, [trade.id]: false }));
       }
     }
-  }, [drafts]);
+  }, [drafts, updatePendingIdentity]);
 
   const stats = useMemo(() => {
     const closed = snapshot?.state.closedTrades ?? [];
@@ -747,7 +771,7 @@ export function JournalView() {
                     trade={trade}
                     reflection={reflections[trade.id] ?? null}
                     draft={drafts[trade.id] ?? reflectionDraftFromAuthoritative(reflections[trade.id] ?? null)}
-                    pending={pendingRef.current[trade.id] ?? null}
+                    pending={pendingIdentities[trade.id] ?? null}
                     saving={saving[trade.id] === true}
                     error={reflectionErrors[trade.id] ?? null}
                     onDraftChange={(draft) => setDrafts((current) => ({ ...current, [trade.id]: draft }))}

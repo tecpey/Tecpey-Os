@@ -171,6 +171,12 @@ export function productionHostSupplyChainFindings({
     requireText(
       findings,
       source,
+      "npm run env:check",
+      `${label} must validate the complete production environment before Compose startup`,
+    );
+    requireText(
+      findings,
+      source,
       "docker compose -f docker-compose.production.yml up -d",
       `${label} must use the governed Compose release`,
     );
@@ -394,12 +400,35 @@ export function productionHostSupplyChainFindings({
   for (const contract of [
     "ARG TECPEY_BUILD_COMMIT_SHA",
     "ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA",
+    "ARG NEXT_PUBLIC_SITE_URL",
+    "ARG NEXT_PUBLIC_API_URL",
+    "ARG NEXT_PUBLIC_API_BACKEND_URL",
+    "ARG NEXT_PUBLIC_API_SOCKET_URL",
   ]) {
     requireText(
       findings,
       dockerfile,
       contract,
       `Docker must receive an exact build commit: ${contract}`,
+    );
+  }
+  requireText(
+    findings,
+    environmentTemplate,
+    "NEXT_PUBLIC_API_URL=https://my.tecpey.ir",
+    "Production environment template must point account navigation at the dashboard host",
+  );
+  for (const publicBuildInput of [
+    "NEXT_PUBLIC_SITE_URL=https://tecpey.ir",
+    "NEXT_PUBLIC_API_URL=https://my.tecpey.ir",
+    "NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir",
+    "NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir",
+  ]) {
+    requireText(
+      findings,
+      containerWorkflow,
+      publicBuildInput,
+      `Published images must bake governed public configuration: ${publicBuildInput}`,
     );
   }
   const pullRequestTriggerStart = containerWorkflow.indexOf("  pull_request:");

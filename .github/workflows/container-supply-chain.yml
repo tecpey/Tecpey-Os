@@ -86,6 +86,10 @@ jobs:
           tags: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
           build-args: |
             TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
 
       - name: Record final image digest
         env:
@@ -172,7 +176,11 @@ jobs:
           bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
-        run: bash scripts/test-container-volume-recovery.sh
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TECPEY_RECOVERY_RTO_SECONDS: '300'
+        run: bash scripts/test-container-volume-recovery.sh "tecpey-candidate:$CANDIDATE_SHA"
 
       - name: Upload recovery evidence
         if: ${{ always() }}
@@ -226,6 +234,10 @@ jobs:
           tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
           build-args: |
             TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}
+            NEXT_PUBLIC_SITE_URL=https://tecpey.ir
+            NEXT_PUBLIC_API_URL=https://my.tecpey.ir
+            NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.ir
+            NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.ir
           sbom: true
           provenance: mode=max
 

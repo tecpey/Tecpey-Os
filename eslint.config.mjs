@@ -7,21 +7,21 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
         destructuredArrayIgnorePattern: "^_",
       }],
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/rules-of-hooks": "off",
-      "@next/next/no-img-element": "warn",
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "@next/next/no-img-element": "error",
       "@next/next/no-html-link-for-pages": "off",
       "react/no-unescaped-entities": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/immutability": "off",
+      "react-hooks/refs": "error",
+      "react-hooks/purity": "error",
+      "react-hooks/immutability": "error",
     },
   },
   globalIgnores([

@@ -2,12 +2,13 @@ import { MessageSquare } from "lucide-react";
 import { forwardRef } from "react";
 import { useTranslations } from "next-intl";
 import { handleDecimal } from "@/utils/handleDecimal";
+import type { MarketCurrency } from "@/types/market";
 
 type Props = {
-  coin: any;
+  coin: MarketCurrency;
 };
 
-const parseNum = (value: any) => {
+const parseNum = (value: unknown) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
 };

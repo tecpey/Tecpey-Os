@@ -104,10 +104,10 @@ Exact-head CI evidence overrides stale file-location assumptions.
 
 ### TD-H07 — Broad CSP Fallback
 
-- **Status:** Open
-- **Location:** production Nginx/security headers
-- **Impact:** Expanded XSS/connect surface when environment configuration is incomplete
-- **Required fix:** Explicit production allowlist and deployment test
+- **Status:** Remediated in issue #164; final closure requires unchanged-head CI and runtime evidence
+- **Location:** `src/lib/security/csp-connection-policy.ts`, `src/proxy.ts`
+- **Control:** Typed production allowlist, startup/env fail-closed validation,
+  deterministic exact origins and privacy-minimized browser violation evidence
 
 ### TD-H08 — Bitcoin Multi-Input Signing
 

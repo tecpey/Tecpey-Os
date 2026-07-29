@@ -21,7 +21,7 @@ const loadScriptOnce = (src: string) =>
 export default function TradingViewChart({ symbol }: { symbol: string }) {
   const locale = useLocale();
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const widgetRef = useRef<any>(null);
+  const widgetRef = useRef<TradingViewWidgetInstance | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const [themeMode, setThemeMode] = useState("light");
@@ -56,11 +56,12 @@ export default function TradingViewChart({ symbol }: { symbol: string }) {
   }, []);
 
   useEffect(() => {
-    if (widgetRef.current) {
-      widgetRef.current.onChartReady(() => {
-        widgetRef.current.changeTheme(themeMode === "dark" ? "Dark" : "Light");
+    const widget = widgetRef.current;
+    if (widget) {
+      widget.onChartReady(() => {
+        widget.changeTheme(themeMode === "dark" ? "Dark" : "Light");
         
-        widgetRef.current.applyOverrides(getOverrides(themeMode));
+        widget.applyOverrides(getOverrides(themeMode));
       });
     }
   }, [themeMode]);
@@ -78,13 +79,13 @@ export default function TradingViewChart({ symbol }: { symbol: string }) {
       await loadScriptOnce("/charting_library/charting_library.standalone.js");
       await loadScriptOnce("/datafeeds/udf/bundle/bundle.js");
 
-      if (!isActive || !(window as any).TradingView) return;
+      if (!isActive || !window.TradingView || !window.Datafeeds) return;
 
       if (widgetRef.current) {
         widgetRef.current.remove();
       }
 
-      const widget = new (window as any).TradingView.widget({
+      const widget = new window.TradingView.widget({
         container: chartContainerRef.current,
         autosize: true,
         symbol: symbolCoin,
@@ -93,7 +94,7 @@ export default function TradingViewChart({ symbol }: { symbol: string }) {
         timezone: tvTimezone,
         library_path: "/charting_library/",
         overrides: getOverrides(themeMode),
-        datafeed: new (window as any).Datafeeds.UDFCompatibleDatafeed(
+        datafeed: new window.Datafeeds.UDFCompatibleDatafeed(
           `${process.env.NEXT_PUBLIC_API_BACKEND_URL}/api/v1/chart/spot`
         ),
         disabled_features: ["use_localstorage_for_settings"], 
@@ -107,7 +108,7 @@ export default function TradingViewChart({ symbol }: { symbol: string }) {
     return () => {
       isActive = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: widget ownership is keyed to symbol/locale/mount; theme updates through its dedicated effect.
   }, [symbolCoin, locale, mounted]);
 
   return (

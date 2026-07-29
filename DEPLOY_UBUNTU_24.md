@@ -12,6 +12,7 @@ Quick path:
 export TECPEY_IMAGE_DIGEST='sha256:REVIEWED_RELEASE_DIGEST'
 export POSTGRES_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
 export REDIS_PASSWORD='SECRET_FROM_APPROVED_MANAGER'
+npm run env:check
 docker compose -f docker-compose.production.yml up -d
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health
 ```
