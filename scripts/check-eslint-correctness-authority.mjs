@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ESLint } from "eslint";
+import { parseForESLint } from "@typescript-eslint/parser";
 
 const ROOT = process.cwd();
 const BASELINE_PATH = path.join(ROOT, "config/eslint-correctness-baseline.json");
@@ -15,8 +16,48 @@ const GOVERNED_RULES = [
   "react-hooks/set-state-in-effect",
 ];
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
-const INLINE_DIRECTIVE = /^\s*(?:\/\/|\/\*|\{\/\*)\s*(eslint-disable(?:-next-line|-line)?)\b(.*)$/;
+const INLINE_DIRECTIVE =
+  /^\s*(?:(?:\/\/|\/\*|\{\/\*)\s*)?(eslint-disable(?:-next-line|-line)?)\b(.*?)(?:\*\/\}?)?\s*$/u;
 const GOVERNED_DESCRIPTION = /--\s+#\d+:\s+\S/;
+const REVIEWED_BASELINE_KEYS = new Set([
+  "react-hooks/set-state-in-effect:src/components/ThemeToggle.tsx:15:5",
+  "react-hooks/set-state-in-effect:src/components/TradingViewChart.tsx:47:5",
+  "react-hooks/set-state-in-effect:src/components/academy/AcademyCertificatesClient.tsx:40:21",
+  "react-hooks/set-state-in-effect:src/components/academy/AcademyEngagementHub.tsx:43:19",
+  "react-hooks/set-state-in-effect:src/components/academy/AcademyMentorCoachCenter.tsx:68:5",
+  "react-hooks/set-state-in-effect:src/components/academy/AiMentorExperience.tsx:174:5",
+  "react-hooks/set-state-in-effect:src/components/academy/GlobalAiMentorWidget.tsx:362:5",
+  "react-hooks/set-state-in-effect:src/components/academy/TradingArenaProClient.tsx:142:5",
+  "react-hooks/set-state-in-effect:src/components/academy/community/ChallengeCenter.tsx:321:10",
+  "react-hooks/set-state-in-effect:src/components/academy/community/CommunityHub.tsx:199:5",
+  "react-hooks/set-state-in-effect:src/components/academy/community/InstructorDashboard.tsx:86:5",
+  "react-hooks/set-state-in-effect:src/components/academy/community/JournalDisciplineScorePanel.tsx:120:10",
+  "react-hooks/set-state-in-effect:src/components/academy/community/PeerJournals.tsx:184:10",
+  "react-hooks/set-state-in-effect:src/components/academy/community/ReputationEvidencePanel.tsx:39:10",
+  "react-hooks/set-state-in-effect:src/components/academy/community/ReputationScoringConsentControl.tsx:204:10",
+  "react-hooks/set-state-in-effect:src/components/academy/community/StudyGroups.tsx:127:5",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/JournalView.tsx:549:10",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/JournalView.tsx:558:5",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/ScenarioPlayer.tsx:190:36",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/ScenarioPlayer.tsx:202:7",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/ScenarioPlayer.tsx:510:5",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/TradingArenaDashboard.tsx:423:33",
+  "react-hooks/set-state-in-effect:src/components/academy/trading-arena/TradingArenaExecutionClient.tsx:680:10",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/FlashcardDeck.tsx:259:5",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/FlashcardsPageClient.tsx:21:5",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/LearningInsightsDashboard.tsx:375:5",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/LessonPlayerV2.tsx:288:5",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/LessonPlayerV2Client.tsx:22:5",
+  "react-hooks/set-state-in-effect:src/components/academy/v2/MentorV2.tsx:276:5",
+  "react-hooks/set-state-in-effect:src/components/admin/AdminPasskeyAccessGate.tsx:223:10",
+  "react-hooks/set-state-in-effect:src/components/admin/CommandCenterDashboard.tsx:101:10",
+  "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:115:7",
+  "react-hooks/set-state-in-effect:src/components/home/TecpeyHomeAI.tsx:299:5",
+  "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
+  "react-hooks/set-state-in-effect:src/components/navbar/Navbar.tsx:229:5",
+  "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:71:5",
+  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:90:7",
+]);
 
 function findingKey(finding) {
   return [
@@ -56,6 +97,25 @@ export function compareBaseline(expected, actual) {
   };
 }
 
+export function unreviewedBaselineKeys(entries) {
+  return entries
+    .map(findingKey)
+    .filter((key) => !REVIEWED_BASELINE_KEYS.has(key));
+}
+
+export function invalidInlineExceptionLines(source) {
+  const parsed = parseForESLint(source, {
+    comment: true,
+    jsx: true,
+    loc: true,
+    range: true,
+    sourceType: "module",
+  });
+  return (parsed.ast.comments ?? [])
+    .filter((comment) => !hasGovernedInlineException(comment.value))
+    .map((comment) => comment.loc.start.line);
+}
+
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, "utf8"));
 }
@@ -81,11 +141,9 @@ async function assertInlineExceptionPolicy() {
   const invalid = [];
   for (const file of files) {
     const relative = path.relative(ROOT, file).split(path.sep).join("/");
-    const lines = (await fs.readFile(file, "utf8")).split(/\r?\n/u);
-    for (const [index, line] of lines.entries()) {
-      if (!hasGovernedInlineException(line)) {
-        invalid.push(`${relative}:${index + 1}`);
-      }
+    const source = await fs.readFile(file, "utf8");
+    for (const line of invalidInlineExceptionLines(source)) {
+      invalid.push(`${relative}:${line}`);
     }
   }
   if (invalid.length > 0) {
@@ -132,6 +190,10 @@ export async function runAuthorityCheck() {
     .map(findingKey)
     .filter((key, index, all) => all.indexOf(key) !== index);
   if (duplicateKeys.length > 0) fail(`duplicate_baseline:${duplicateKeys.join(",")}`);
+  const unreviewedKeys = unreviewedBaselineKeys(baseline.entries);
+  if (unreviewedKeys.length > 0) {
+    fail(`baseline_growth_not_reviewed:${unreviewedKeys.join(",")}`);
+  }
   for (const entry of baseline.entries) {
     if (
       entry.rule !== "react-hooks/set-state-in-effect" ||

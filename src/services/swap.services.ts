@@ -44,6 +44,39 @@ type Chart = {
   prices: number[];
 };
 
+export function normalizeChartPayload(value: unknown): Chart {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("data" in value) ||
+    typeof value.data !== "object" ||
+    value.data === null
+  ) {
+    return { labels: [], prices: [] };
+  }
+
+  const chart = value.data as { labels?: unknown; prices?: unknown };
+  if (!Array.isArray(chart.labels) || !Array.isArray(chart.prices)) {
+    return { labels: [], prices: [] };
+  }
+
+  const normalized: Chart = { labels: [], prices: [] };
+  const pairCount = Math.min(chart.labels.length, chart.prices.length);
+  for (let index = 0; index < pairCount; index += 1) {
+    const label = chart.labels[index];
+    const price = Number(chart.prices[index]);
+    if (
+      (typeof label !== "string" && typeof label !== "number") ||
+      !Number.isFinite(price)
+    ) {
+      continue;
+    }
+    normalized.labels.push(String(label));
+    normalized.prices.push(price);
+  }
+  return normalized;
+}
+
 export const getCurrencyInfo = async ({
   symbol,
 }: {
@@ -62,26 +95,7 @@ export const getCurrencyInfo = async ({
       `${chartBaseUrl}/api/v1/currency/chart?symbol=${formattedSymbol}&type=line`
     );
 
-    const data: unknown = await response.json();
-    if (
-      typeof data !== "object" ||
-      data === null ||
-      !("data" in data) ||
-      typeof data.data !== "object" ||
-      data.data === null
-    ) {
-      return { labels: [], prices: [] };
-    }
-    const chart = data.data as { labels?: unknown; prices?: unknown };
-
-    return {
-      labels: Array.isArray(chart.labels)
-        ? chart.labels.map((label) => String(label))
-        : [],
-      prices: Array.isArray(chart.prices)
-        ? chart.prices.map((price) => Number(price)).filter(Number.isFinite)
-        : [],
-    };
+    return normalizeChartPayload(await response.json());
 
   } catch {
 

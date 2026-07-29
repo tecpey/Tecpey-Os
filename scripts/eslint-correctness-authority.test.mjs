@@ -4,7 +4,9 @@ import { ESLint } from "eslint";
 import {
   compareBaseline,
   hasGovernedInlineException,
+  invalidInlineExceptionLines,
   runAuthorityCheck,
+  unreviewedBaselineKeys,
 } from "./check-eslint-correctness-authority.mjs";
 
 test("conditional hook calls fail the governed production config", async () => {
@@ -59,6 +61,18 @@ test("inline exceptions require an issue-linked reason", () => {
     ),
     false,
   );
+  assert.deepEqual(
+    invalidInlineExceptionLines(
+      "const value: unknown = input; // eslint-disable-line @typescript-eslint/no-explicit-any",
+    ),
+    [1],
+  );
+  assert.deepEqual(
+    invalidInlineExceptionLines(
+      'const example = "// eslint-disable-line @typescript-eslint/no-explicit-any";',
+    ),
+    [],
+  );
 });
 
 test("baseline comparison rejects growth or line drift", () => {
@@ -73,6 +87,20 @@ test("baseline comparison rejects growth or line drift", () => {
     ...expected[0],
     line: 11,
   }]).matches, false);
+  assert.deepEqual(unreviewedBaselineKeys([{
+    rule: "react-hooks/set-state-in-effect",
+    path: "src/components/ThemeToggle.tsx",
+    line: 15,
+    column: 5,
+  }]), []);
+  assert.deepEqual(unreviewedBaselineKeys([{
+    rule: "react-hooks/set-state-in-effect",
+    path: "src/new-debt.tsx",
+    line: 1,
+    column: 1,
+  }]), [
+    "react-hooks/set-state-in-effect:src/new-debt.tsx:1:1",
+  ]);
 });
 
 test("repository correctness authority is internally consistent", async () => {
