@@ -61,7 +61,9 @@ reject(compose, /image:\s+[^\n@]+\s*$/m, "Compose service images must be digest-
 
 requireText(pkg, '"start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server"', "production start must use compiled connection bootstrap");
 reject(pkg, /"build:server"[^\n]*--sourcemap/, "production server build must not retain source maps");
-requireText(pm2Config, "script: 'dist/server.cjs'", "PM2 must execute the compiled server");
+requireText(pm2Config, "script: 'dist/run-production-bootstrap.cjs'", "PM2 must execute the compiled production bootstrap");
+requireText(pm2Config, "args: 'server'", "PM2 must select the governed server bootstrap target");
+reject(pm2Config, /script:\s*['"]dist\/server\.cjs['"]/, "PM2 must not bypass the compiled production bootstrap");
 requireText(pm2Config, "interpreter: 'node'", "PM2 must not require TypeScript tooling");
 reject(pm2Config, /\btsx\b|server\.ts/, "PM2 must not execute TypeScript in production");
 requireText(pm2Deploy, "npm prune --omit=dev", "host deployment must remove development dependencies after build");
