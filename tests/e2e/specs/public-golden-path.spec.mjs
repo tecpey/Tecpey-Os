@@ -5,6 +5,7 @@ import { expect, test } from "@playwright/test";
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 const runtimeErrors = new WeakMap();
+const cspViolationEvidence = new WeakMap();
 
 const MARKET_RESPONSE = {
   data: [
@@ -128,9 +129,43 @@ function trackRuntimeErrors(page, errors) {
   });
 }
 
+function normalizeCspViolationRecord(value) {
+  const record = value && typeof value === "object" ? value : {};
+  const effectiveDirective =
+    String(record.effectiveDirective || "unknown")
+      .toLowerCase()
+      .match(/^[a-z][a-z0-9-]{0,63}$/)?.[0] || "unknown";
+  const disposition = record.disposition === "report" ? "report" : "enforce";
+  const rawBlocked = String(record.blockedTarget || "").trim();
+  const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval|redacted):?$/i.test(
+    rawBlocked,
+  );
+  let blockedTarget = safeToken
+    ? rawBlocked.toLowerCase().replace(/:$/, "")
+    : "redacted";
+  if (!safeToken) {
+    try {
+      const parsed = new URL(rawBlocked);
+      if (["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) {
+        blockedTarget = parsed.origin;
+      }
+    } catch {
+      blockedTarget = "redacted";
+    }
+  }
+  return { effectiveDirective, disposition, blockedTarget };
+}
+
 async function installCspViolationObserver(page) {
+  const evidence = [];
+  cspViolationEvidence.set(page, evidence);
+  await page.exposeBinding(
+    "__tecpeyRecordCspViolation",
+    (_source, violation) => {
+      evidence.push(normalizeCspViolationRecord(violation));
+    },
+  );
   await page.addInitScript(() => {
-    window.__tecpeyCspViolations = [];
     document.addEventListener("securitypolicyviolation", (event) => {
       const rawBlocked = String(event.blockedURI || "").trim();
       const safeToken = /^(?:blob|data|eval|inline|self|wasm-eval):?$/i.test(
@@ -149,7 +184,7 @@ async function installCspViolationObserver(page) {
           blockedTarget = "redacted";
         }
       }
-      window.__tecpeyCspViolations.push({
+      void window.__tecpeyRecordCspViolation({
         effectiveDirective:
           String(event.effectiveDirective || "unknown")
             .toLowerCase()
@@ -161,12 +196,32 @@ async function installCspViolationObserver(page) {
   });
 }
 
-async function cspViolations(page) {
-  return page.evaluate(() =>
-    Array.isArray(window.__tecpeyCspViolations)
-      ? window.__tecpeyCspViolations
-      : [],
-  );
+function cspViolations(page) {
+  return [...(cspViolationEvidence.get(page) ?? [])];
+}
+
+function clearCspViolations(page) {
+  const evidence = cspViolationEvidence.get(page);
+  if (evidence) evidence.length = 0;
+}
+
+async function expectNoCspViolations(
+  page,
+  testInfo,
+  attachmentName,
+  contextLabel,
+) {
+  const violations = cspViolations(page);
+  if (violations.length > 0) {
+    await testInfo.attach(attachmentName, {
+      body: Buffer.from(JSON.stringify(violations, null, 2), "utf8"),
+      contentType: "application/json",
+    });
+  }
+  expect(
+    violations,
+    `${contextLabel} emitted Content Security Policy violations`,
+  ).toEqual([]);
 }
 
 function expectStrictConnectPolicy(response, path) {
@@ -446,24 +501,19 @@ test.beforeEach(async ({ context, page }) => {
 
 test.afterEach(async ({ page }, testInfo) => {
   const errors = runtimeErrors.get(page) ?? [];
-  const violations = await cspViolations(page);
   if (errors.length > 0) {
     await testInfo.attach("runtime-errors", {
       body: Buffer.from(errors.join("\n"), "utf8"),
       contentType: "text/plain",
     });
   }
-  if (violations.length > 0) {
-    await testInfo.attach("csp-violations-sanitized", {
-      body: Buffer.from(JSON.stringify(violations, null, 2), "utf8"),
-      contentType: "application/json",
-    });
-  }
   expect(errors, "public page emitted fatal browser runtime errors").toEqual([]);
-  expect(
-    violations,
-    "public page emitted Content Security Policy violations",
-  ).toEqual([]);
+  await expectNoCspViolations(
+    page,
+    testInfo,
+    "csp-violations-sanitized",
+    "public page",
+  );
 });
 
 test("public Soft Launch Golden Path is localized, interactive, truthful and accessible", async ({ context, page }, testInfo) => {
@@ -553,19 +603,64 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     const degradedPage = await context.newPage();
     trackRuntimeErrors(degradedPage, errors);
     await installCspViolationObserver(degradedPage);
-    await degradedPage.emulateMedia({ reducedMotion: "reduce" });
-    await degradedPage.addInitScript(() => {
-      Object.defineProperty(window, "IntersectionObserver", {
-        configurable: true,
-        writable: true,
-        value: undefined,
+    try {
+      await degradedPage.emulateMedia({ reducedMotion: "reduce" });
+      await degradedPage.addInitScript(() => {
+        Object.defineProperty(window, "IntersectionObserver", {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        });
       });
-    });
-    await openPublicPage(degradedPage, contract);
-    await expectMajorSectionsVisible(degradedPage, contract);
-    await degradedPage.locator("footer").scrollIntoViewIfNeeded();
-    await expect(degradedPage.locator("footer")).toBeVisible();
-    await expectNoHorizontalOverflow(degradedPage);
-    await degradedPage.close();
+      await openPublicPage(degradedPage, contract);
+      await expectMajorSectionsVisible(degradedPage, contract);
+      await degradedPage.locator("footer").scrollIntoViewIfNeeded();
+      await expect(degradedPage.locator("footer")).toBeVisible();
+      await expectNoHorizontalOverflow(degradedPage);
+      await expectNoCspViolations(
+        degradedPage,
+        testInfo,
+        "degraded-page-csp-violations-sanitized",
+        "degraded public page",
+      );
+    } finally {
+      await degradedPage.close();
+    }
   }
+});
+
+test("CSP evidence remains available after a document reload", async ({ page }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-fa-mobile",
+    "One governed Chromium run is sufficient for the observer lifecycle contract.",
+  );
+
+  await page.goto(
+    "data:text/html,%3Ctitle%3ECSP%20observer%20lifecycle%20probe%3C%2Ftitle%3E",
+    { waitUntil: "domcontentloaded" },
+  );
+  await page.evaluate(() =>
+    window.__tecpeyRecordCspViolation({
+      effectiveDirective: "connect-src",
+      disposition: "enforce",
+      blockedTarget: "https://probe.invalid/private/path?secret=redacted",
+    }),
+  );
+  await expect.poll(() => cspViolations(page)).toEqual([
+    {
+      effectiveDirective: "connect-src",
+      disposition: "enforce",
+      blockedTarget: "https://probe.invalid",
+    },
+  ]);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  expect(cspViolations(page)).toEqual([
+    {
+      effectiveDirective: "connect-src",
+      disposition: "enforce",
+      blockedTarget: "https://probe.invalid",
+    },
+  ]);
+  clearCspViolations(page);
 });
