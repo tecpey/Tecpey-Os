@@ -79,6 +79,7 @@ export function productionHostSupplyChainFindings({
   preflight,
   productionVerification,
   buildConfig,
+  buildIdentity,
   healthRoute,
   dockerfile,
   containerWorkflow,
@@ -225,13 +226,13 @@ export function productionHostSupplyChainFindings({
   );
   requireText(
     findings,
-    buildConfig,
+    buildIdentity,
     "TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD",
     "Next config must expose an explicit local source-archive build mode",
   );
   requireText(
     findings,
-    buildConfig,
+    buildIdentity,
     LOCAL_SOURCE_ARCHIVE_SENTINEL,
     "Next config must label local source-archive artifacts as unverified",
   );

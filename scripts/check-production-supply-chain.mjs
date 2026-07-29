@@ -12,6 +12,7 @@ const reject = (source, pattern, message) => {
 
 const dockerfile = read("Dockerfile");
 const nextConfig = read("next.config.ts");
+const buildIdentity = read("scripts/resolve-build-identity.ts");
 const dockerignore = read(".dockerignore");
 const compose = read("docker-compose.production.yml");
 const pkg = read("package.json");
@@ -116,6 +117,7 @@ try {
     preflight: hostPreflight,
     productionVerification,
     buildConfig: nextConfig,
+    buildIdentity,
     healthRoute: health,
     dockerfile,
     containerWorkflow,

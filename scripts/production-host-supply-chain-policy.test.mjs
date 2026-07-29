@@ -15,6 +15,7 @@ const sources = {
   preflight: fs.readFileSync("scripts/ubuntu24-preflight.sh", "utf8"),
   productionVerification: fs.readFileSync("VERIFY_PRODUCTION.sh", "utf8"),
   buildConfig: fs.readFileSync("next.config.ts", "utf8"),
+  buildIdentity: fs.readFileSync("scripts/resolve-build-identity.ts", "utf8"),
   healthRoute: fs.readFileSync("src/app/api/health/route.ts", "utf8"),
   dockerfile: fs.readFileSync("Dockerfile", "utf8"),
   containerWorkflow: fs.readFileSync(".github/workflows/container-supply-chain.yml", "utf8"),
@@ -337,7 +338,7 @@ test("source archives require an explicit local-only unverified build identity",
 
   const missingSentinel = {
     ...sources,
-    buildConfig: sources.buildConfig.replace("unverified-local-source-archive", "unknown"),
+    buildIdentity: sources.buildIdentity.replace("unverified-local-source-archive", "unknown"),
   };
   assert.match(
     productionHostSupplyChainFindings(missingSentinel).join("\n"),
@@ -349,16 +350,14 @@ test("next config builds explicitly opted-in source archives without Git metadat
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-source-archive-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, "package.json"), "{}\n");
-  const nextConfigUrl = new URL("../next.config.ts", import.meta.url).href;
-  const tsxLoaderPath = new URL("../node_modules/tsx/dist/loader.mjs", import.meta.url).pathname;
+  const buildIdentityUrl = new URL("./resolve-build-identity.ts", import.meta.url).href;
   const expression =
-    `import(${JSON.stringify(nextConfigUrl)}).then(({ default: imported }) => { ` +
-    `const config = imported.default ?? imported; ` +
-    `process.stdout.write(config.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA); })`;
+    `import(${JSON.stringify(buildIdentityUrl)}).then(({ resolveImmutableBuildCommit }) => ` +
+    `process.stdout.write(resolveImmutableBuildCommit()))`;
   const baseEnv = { ...process.env };
   delete baseEnv.TECPEY_BUILD_COMMIT_SHA;
 
-  const optedIn = spawnSync(process.execPath, ["--import", tsxLoaderPath, "--eval", expression], {
+  const optedIn = spawnSync(process.execPath, ["--experimental-strip-types", "--eval", expression], {
     cwd: root,
     encoding: "utf8",
     env: { ...baseEnv, TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD: "1" },
@@ -366,7 +365,7 @@ test("next config builds explicitly opted-in source archives without Git metadat
   assert.equal(optedIn.status, 0, optedIn.stderr);
   assert.equal(optedIn.stdout, "unverified-local-source-archive");
 
-  const failClosed = spawnSync(process.execPath, ["--import", tsxLoaderPath, "--eval", expression], {
+  const failClosed = spawnSync(process.execPath, ["--experimental-strip-types", "--eval", expression], {
     cwd: root,
     encoding: "utf8",
     env: baseEnv,
