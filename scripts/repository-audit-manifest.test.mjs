@@ -100,6 +100,34 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
   return { declaration, evidencePath, targetPath };
 }
 
+test("semantic evidence rejects a finding severity that contradicts its id", async (t) => {
+  const root = await fixtureRepository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await addSemanticEvidenceFixture(root, {
+    findingDisposition: "confirmed-findings",
+    findings: [{
+      id: "B01A-P0-001",
+      severity: "P3",
+      line: 1,
+      attackPath: "Contradictory evidence could mislead release consumers.",
+      affectedInvariant: "Finding identifiers and severities must agree.",
+      evidence: "The ID encodes P0 while severity declares P3.",
+      fixOwner: "repository-supply-chain",
+      verificationRequirement: "Manifest generation must fail closed.",
+      disposition: "release-no-go",
+      remediation: ["#156"],
+    }],
+  });
+  const sourceSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+  await assert.rejects(
+    generateRepositoryAuditManifest({
+      repositoryRoot: root,
+      expectedSourceSha: sourceSha,
+    }),
+    /severity does not match its id/,
+  );
+});
+
 test("manifest inventories the exact committed tree with deterministic evidence", async (t) => {
   const root = await fixtureRepository();
   t.after(() => fs.rm(root, { recursive: true, force: true }));

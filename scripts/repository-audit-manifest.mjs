@@ -287,6 +287,10 @@ function validateFinding(finding, repositoryPath, lines) {
   );
   requireEvidence(SEVERITIES.includes(finding.severity), `${repositoryPath} finding severity is invalid`);
   requireEvidence(
+    finding.id.split("-")[1] === finding.severity,
+    `${repositoryPath} finding ${finding.id} severity does not match its id`,
+  );
+  requireEvidence(
     Number.isInteger(finding.line) && finding.line >= 1 && finding.line <= lines,
     `${repositoryPath} finding line is outside the reviewed file`,
   );
