@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { test } from "node:test";
-import { stopProcessGroup } from "./process-lifecycle.mjs";
+import {
+  stopProcessGroup,
+  stopServerAndWaitForRedisDrain,
+} from "./process-lifecycle.mjs";
 
 const windows = process.platform === "win32";
 
@@ -90,3 +93,41 @@ test("escalates to SIGKILL within a bounded deadline", { skip: windows }, async 
   assert.ok(elapsedMs >= 75, "SIGKILL escalation happened before the grace window");
   assert.ok(elapsedMs < 1_000, "bounded shutdown exceeded its force deadline");
 });
+
+test(
+  "does not permit the next server until descendants and Redis both drain",
+  { skip: windows },
+  async () => {
+    const child = spawnDelayedDescendantGroup(200);
+    await waitForReady(child);
+    let redisDrained = false;
+    let isolationComplete = false;
+    const redisNodeObserver = {
+      async waitForDrain() {
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 350));
+        redisDrained = true;
+      },
+    };
+
+    const isolation = stopServerAndWaitForRedisDrain(child, redisNodeObserver, {
+      process: { gracefulTimeoutMs: 2_000, forceTimeoutMs: 1_000 },
+    }).then(() => {
+      isolationComplete = true;
+    });
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    assert.equal(
+      isolationComplete,
+      false,
+      "the next server became eligible before delayed deregistration",
+    );
+
+    await isolation;
+    assert.equal(redisDrained, true);
+    assert.equal(
+      isolationComplete,
+      true,
+      "the next server must become eligible only after full isolation",
+    );
+  },
+);

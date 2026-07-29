@@ -2,7 +2,10 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stopProcessGroup } from "./process-lifecycle.mjs";
+import {
+  stopProcessGroup,
+  stopServerAndWaitForRedisDrain,
+} from "./process-lifecycle.mjs";
 import { createRedisWebNodeObserver } from "./redis-node-isolation.mjs";
 import { startRedisRestStub } from "./redis-rest-stub.mjs";
 
@@ -151,10 +154,6 @@ async function waitForServer(server, getOutput) {
   );
 }
 
-async function stopServer(server) {
-  await stopProcessGroup(server);
-}
-
 async function runPlaywrightProject(project, onOutput) {
   const child = spawn(
     process.execPath,
@@ -228,16 +227,7 @@ let cleanupPromise;
 async function stopActiveServer() {
   const server = activeServer;
   activeServer = undefined;
-  const results = await Promise.allSettled([
-    stopServer(server),
-    redisNodeObserver?.waitForDrain(),
-  ]);
-  const failures = results
-    .filter((result) => result.status === "rejected")
-    .map((result) => result.reason);
-  if (failures.length > 0) {
-    throw new AggregateError(failures, "Browser QA server isolation failed");
-  }
+  await stopServerAndWaitForRedisDrain(server, redisNodeObserver);
 }
 
 async function cleanup() {

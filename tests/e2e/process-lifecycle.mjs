@@ -48,5 +48,26 @@ export async function stopProcessGroup(
   signalProcessGroup(child, "SIGKILL");
   if (await waitForProcessGroupExit(child, forceTimeoutMs)) return;
 
-  throw new Error(`process_group_shutdown_timeout:${child.pid}`);
+  throw new Error(
+    `process_group_shutdown_timeout:pid=${child.pid}:` +
+      `leader_exit=${child.exitCode ?? "running"}:` +
+      `leader_signal=${child.signalCode ?? "none"}`,
+  );
+}
+
+export async function stopServerAndWaitForRedisDrain(
+  child,
+  redisNodeObserver,
+  { process: processOptions, redis: redisOptions } = {},
+) {
+  const results = await Promise.allSettled([
+    stopProcessGroup(child, processOptions),
+    redisNodeObserver?.waitForDrain(redisOptions),
+  ]);
+  const failures = results
+    .filter((result) => result.status === "rejected")
+    .map((result) => result.reason);
+  if (failures.length > 0) {
+    throw new AggregateError(failures, "Browser QA server isolation failed");
+  }
 }
