@@ -72,13 +72,16 @@ TECPEY_HOST_EVIDENCE_KEY=<at-least-32-random-characters>
 
 `TECPEY_OPS_ALERT_BEARER_TOKEN` may be omitted only when the approved provider uses another governed authentication method. The evidence collector never prints these values.
 
-The application itself must expose the build commit through:
+The governed build must receive the exact release SHA through:
 
 ```bash
-NEXT_PUBLIC_GIT_COMMIT=<exact-release-sha>
+TECPEY_BUILD_COMMIT_SHA=<exact-release-sha> npm run build
 ```
 
-The `/api/health` response must report the exact release SHA. A build whose health response says `unknown` cannot pass activation evidence.
+Next.js bakes this value into the compiled artifact as
+`TECPEY_IMMUTABLE_BUILD_COMMIT_SHA`. Do not place either variable in the runtime
+environment file. The `/api/health` response must report the exact release SHA;
+a build whose health response says `unknown` cannot pass activation evidence.
 
 ## Initial scheduler installation
 
@@ -214,7 +217,9 @@ Record the workflow run URL, release SHA, artifact name, approving operator and 
 
 ### Release mismatch
 
-Do not override the verifier. Confirm the immutable application checkout and `NEXT_PUBLIC_GIT_COMMIT`, rebuild if necessary and rerun.
+Do not override the verifier. Confirm the immutable application checkout and
+the artifact-baked `TECPEY_IMMUTABLE_BUILD_COMMIT_SHA`, rebuild if necessary and
+rerun.
 
 ### Unit drift
 

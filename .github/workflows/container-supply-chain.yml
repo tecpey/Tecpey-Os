@@ -80,6 +80,8 @@ jobs:
           load: true
           push: false
           tags: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Record final image digest
         env:
@@ -147,7 +149,7 @@ jobs:
       - name: Build exact candidate image
         env:
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: docker build --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
+        run: docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA" --target runner --tag "tecpey-candidate:$CANDIDATE_SHA" .
 
       - name: Checkout exact previous release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -162,7 +164,7 @@ jobs:
           PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           test "$(git -C previous-release rev-parse HEAD)" = "$PREVIOUS_SHA"
-          docker build --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
+          docker build --build-arg "TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA" --target runner --tag "tecpey-previous:$PREVIOUS_SHA" previous-release
           bash scripts/test-container-image-rollback.sh "tecpey-candidate:$CANDIDATE_SHA" "tecpey-previous:$PREVIOUS_SHA"
 
       - name: Restore PostgreSQL and Redis persistent volumes
@@ -218,6 +220,8 @@ jobs:
           target: runner
           push: true
           tags: ghcr.io/tecpey/tecpey-os:${{ github.sha }}
+          build-args: |
+            TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}
           sbom: true
           provenance: mode=max
 

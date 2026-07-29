@@ -12,6 +12,10 @@ const LIVE_WORKTREE_CONTRACT = "readonly SYSTEMD_LIVE_WORKTREE=/var/www/tecpey";
 const CLEAN_CHECKOUT_CONTRACT = "git status --short --untracked-files=all";
 const EXACT_RELEASE_CONTRACT = "expected_release_sha=$(git rev-parse HEAD)";
 const EXACT_RUNTIME_CONTRACT = "body.build?.commit !== expected";
+const BAKED_BUILD_COMMAND =
+  'TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build';
+const BAKED_HEALTH_COMMIT =
+  'commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown"';
 const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
@@ -71,6 +75,10 @@ export function productionHostSupplyChainFindings({
   pm2Deploy,
   preflight,
   productionVerification,
+  buildConfig,
+  healthRoute,
+  dockerfile,
+  containerWorkflow,
   deploymentDocs = [],
 }) {
   const findings = [];
@@ -183,7 +191,9 @@ export function productionHostSupplyChainFindings({
   requireText(findings, preflight, LOCKFILE_INSTALL, "Ubuntu preflight must use the exact lockfile");
   requireText(findings, preflight, "npm run env:check", "Ubuntu preflight must validate the production environment");
   requireText(findings, preflight, "npm run check", "Ubuntu preflight must run static quality gates");
-  requireText(findings, preflight, "npm run build", "Ubuntu preflight must build the production candidate");
+  requireText(findings, preflight, BAKED_BUILD_COMMAND, "Ubuntu preflight must bind the production build to the exact candidate");
+  requireText(findings, preflight, ".next/required-server-files.json", "Ubuntu preflight must read artifact-baked release metadata");
+  requireText(findings, preflight, "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA", "Ubuntu preflight must verify the artifact-baked commit");
   requireText(findings, preflight, NODE_VERSION_CONTRACT, "Ubuntu preflight must verify the approved Node.js major");
   requireText(findings, preflight, NPM_VERSION_CONTRACT, "Ubuntu preflight must verify the approved npm major");
   requireText(findings, preflight, VERIFICATION_PHASE_CONTRACT, "Ubuntu preflight must require an explicit verification phase");
@@ -197,6 +207,48 @@ export function productionHostSupplyChainFindings({
     /git status[^\n]*--untracked-files=no/,
     "Ubuntu preflight must not hide untracked source changes",
   );
+  requireText(
+    findings,
+    buildConfig,
+    "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit",
+    "Next config must bake immutable release identity into compiled artifacts",
+  );
+  requireText(
+    findings,
+    healthRoute,
+    BAKED_HEALTH_COMMIT,
+    "Health must report the artifact-baked commit",
+  );
+  reject(
+    findings,
+    healthRoute,
+    /NEXT_PUBLIC_GIT_COMMIT/,
+    "Health must not trust a runtime-overridable public Git commit",
+  );
+  for (const contract of [
+    "ARG TECPEY_BUILD_COMMIT_SHA",
+    "ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA",
+  ]) {
+    requireText(
+      findings,
+      dockerfile,
+      contract,
+      `Docker must receive an exact build commit: ${contract}`,
+    );
+  }
+  for (const contract of [
+    "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
+    'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
+    'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
+    "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
+  ]) {
+    requireText(
+      findings,
+      containerWorkflow,
+      contract,
+      `Container workflow must bind every build to an exact commit: ${contract}`,
+    );
+  }
   requireText(findings, preflight, EXACT_RELEASE_CONTRACT, "Ubuntu preflight must resolve the exact candidate commit");
   requireText(findings, preflight, EXACT_RUNTIME_CONTRACT, "Ubuntu preflight must bind readiness to the exact runtime commit");
   for (const readinessContract of [

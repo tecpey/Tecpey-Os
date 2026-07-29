@@ -11,11 +11,13 @@ const reject = (source, pattern, message) => {
 };
 
 const dockerfile = read("Dockerfile");
+const nextConfig = read("next.config.ts");
 const dockerignore = read(".dockerignore");
 const compose = read("docker-compose.production.yml");
 const pkg = read("package.json");
 const server = read("server.ts");
 const health = read("src/app/api/health/route.ts");
+const containerWorkflow = read(".github/workflows/container-supply-chain.yml");
 const deploymentDoc = read("docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md");
 const recovery = read("scripts/test-container-volume-recovery.sh");
 const rollback = read("scripts/test-container-image-rollback.sh");
@@ -46,6 +48,40 @@ requireText(dockerfile, 'VOLUME ["/app/storage", "/app/.next/cache"]', "runtime 
 for (const excluded of [".git", ".env.*", "node_modules", ".next", "dist"]) {
   requireText(dockerignore, excluded, `Docker build context must exclude ${excluded}`);
 }
+for (const contract of [
+  "ARG TECPEY_BUILD_COMMIT_SHA",
+  "ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA",
+  "grep -Eq '^[0-9a-f]{40}$'",
+]) {
+  requireText(dockerfile, contract, `Docker build identity contract missing: ${contract}`);
+}
+requireText(
+  nextConfig,
+  "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit",
+  "Next build must bake the exact immutable commit into compiled artifacts",
+);
+requireText(
+  health,
+  'commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown"',
+  "Health must report only the artifact-baked commit",
+);
+reject(
+  health,
+  /NEXT_PUBLIC_GIT_COMMIT/,
+  "Health must not trust a runtime-overridable public Git commit",
+);
+for (const contract of [
+  "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
+  'TECPEY_BUILD_COMMIT_SHA=$CANDIDATE_SHA',
+  'TECPEY_BUILD_COMMIT_SHA=$PREVIOUS_SHA',
+  "TECPEY_BUILD_COMMIT_SHA=${{ github.sha }}",
+]) {
+  requireText(
+    containerWorkflow,
+    contract,
+    `Container workflow must bind every build to an exact commit: ${contract}`,
+  );
+}
 
 for (const variable of ["POSTGRES_PASSWORD", "REDIS_PASSWORD", "TECPEY_IMAGE_DIGEST"]) {
   requireText(compose, `\${${variable}:?`, `Compose must fail when ${variable} is absent`);
@@ -75,6 +111,10 @@ try {
     pm2Deploy,
     preflight: hostPreflight,
     productionVerification,
+    buildConfig: nextConfig,
+    healthRoute: health,
+    dockerfile,
+    containerWorkflow,
     deploymentDocs: activeDeploymentDocs,
   });
 } catch (error) {

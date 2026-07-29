@@ -34,7 +34,6 @@ Set at minimum:
 
 ```env
 NEXT_PUBLIC_SITE_URL=https://tecpey.ir
-NEXT_PUBLIC_GIT_COMMIT=EXACT_40_CHARACTER_RELEASE_SHA
 OPENAI_API_KEY=YOUR_NEW_PRODUCTION_KEY
 DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey
 REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379
@@ -113,6 +112,7 @@ checkout in an isolated path such as
 - npm major `10`, matching the repository engine and CI contract.
 
 ```bash
+export EXPECTED_RELEASE_SHA='EXACT_40_CHARACTER_RELEASE_SHA'
 cd "/var/www/tecpey-candidates/$EXPECTED_RELEASE_SHA"
 test "$(git rev-parse HEAD)" = "$EXPECTED_RELEASE_SHA"
 bash scripts/ubuntu24-preflight.sh candidate
@@ -131,7 +131,8 @@ bash scripts/ubuntu24-preflight.sh runtime
 Both phases reject tracked or untracked source changes and refuse to run from
 the live systemd working tree. The candidate phase fails on environment,
 static-check, or production-build errors. The runtime phase fails on an
-unhealthy service or a runtime commit that differs from the isolated candidate.
+unhealthy service or a baked artifact commit that differs from the isolated
+candidate. Runtime environment variables cannot override this build identity.
 
 ## 7. Operational checklist
 

@@ -14,6 +14,10 @@ const sources = {
   pm2Deploy: fs.readFileSync("scripts/ubuntu24-deploy-pm2.sh", "utf8"),
   preflight: fs.readFileSync("scripts/ubuntu24-preflight.sh", "utf8"),
   productionVerification: fs.readFileSync("VERIFY_PRODUCTION.sh", "utf8"),
+  buildConfig: fs.readFileSync("next.config.ts", "utf8"),
+  healthRoute: fs.readFileSync("src/app/api/health/route.ts", "utf8"),
+  dockerfile: fs.readFileSync("Dockerfile", "utf8"),
+  containerWorkflow: fs.readFileSync(".github/workflows/container-supply-chain.yml", "utf8"),
   deploymentDocs: [
     ["Ubuntu quick deployment guide", fs.readFileSync("DEPLOY_UBUNTU_24.md", "utf8")],
     [
@@ -43,6 +47,7 @@ function writeExecutable(filePath, source) {
 }
 
 function runPreflight(t, {
+  bakedReleaseSha = expectedReleaseSha,
   curlExitCode = 22,
   curlSuccessAfter = 0,
   gitStatusOutput = "",
@@ -55,6 +60,15 @@ function runPreflight(t, {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(root, "package.json"), "{}\n");
   fs.writeFileSync(path.join(root, ".env.production"), "NODE_ENV=production\n");
+  if (phase === "runtime") {
+    fs.mkdirSync(path.join(root, ".next"));
+    fs.writeFileSync(
+      path.join(root, ".next", "required-server-files.json"),
+      `${JSON.stringify({
+        config: { env: { TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: bakedReleaseSha } },
+      })}\n`,
+    );
+  }
   const commandLog = path.join(root, "commands.log");
   const curlState = path.join(root, "curl-count");
 
@@ -78,6 +92,10 @@ if [ "\${1:-}" = "--version" ] || [ "\${1:-}" = "-v" ]; then
   exit 0
 fi
 printf "npm %s\\n" "$*" >> "$FAKE_COMMAND_LOG"
+if [ "$*" = "run build" ]; then
+  mkdir -p .next
+  printf '{"config":{"env":{"TECPEY_IMMUTABLE_BUILD_COMMIT_SHA":"%s"}}}\\n' "$FAKE_RELEASE_SHA" > .next/required-server-files.json
+fi
 exit 0
 `,
   );
@@ -263,6 +281,43 @@ test("policy rejects removal of exact candidate and runtime readiness binding", 
   assert.match(findings, /bind readiness to the exact runtime commit/);
 });
 
+test("policy rejects runtime-mutable or unbound build identity", () => {
+  const mutableHealth = {
+    ...sources,
+    healthRoute: sources.healthRoute.replace(
+      "process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA",
+      "process.env.NEXT_PUBLIC_GIT_COMMIT",
+    ),
+  };
+  const healthFindings = productionHostSupplyChainFindings(mutableHealth).join("\n");
+  assert.match(healthFindings, /artifact-baked commit/);
+  assert.match(healthFindings, /runtime-overridable public Git commit/);
+
+  const unboundPreflight = {
+    ...sources,
+    preflight: sources.preflight.replace(
+      'TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build',
+      "npm run build",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(unboundPreflight).join("\n"),
+    /bind the production build to the exact candidate/,
+  );
+
+  const unboundContainer = {
+    ...sources,
+    containerWorkflow: sources.containerWorkflow.replace(
+      "TECPEY_BUILD_COMMIT_SHA=${{ github.event.pull_request.head.sha || github.sha }}",
+      "TECPEY_BUILD_COMMIT_SHA=unknown",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(unboundContainer).join("\n"),
+    /bind every build to an exact commit/,
+  );
+});
+
 test("policy rejects a mutable or fail-open production verification wrapper", () => {
   for (const injected of [
     "npm install",
@@ -311,6 +366,17 @@ test("real preflight rejects untracked candidate source before install or build"
   assert.equal(result.status, 1);
   assert.match(result.stderr, /tracked or untracked changes/);
   assert.doesNotMatch(result.commandLog, /^npm /m);
+});
+
+test("real runtime verification rejects artifact metadata from another commit before probing", (t) => {
+  const result = runPreflight(t, {
+    phase: "runtime",
+    bakedReleaseSha: "b".repeat(40),
+    curlSuccessAfter: 1,
+  });
+  assert.equal(result.status, 1);
+  assert.equal(result.curlCount, 0);
+  assert.match(result.stderr, /artifact commit does not match/);
 });
 
 test("real preflight rejects an unapproved Node.js or npm major before installation", (t) => {

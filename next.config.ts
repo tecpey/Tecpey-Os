@@ -1,7 +1,25 @@
+import { execFileSync } from "node:child_process";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin();
+const exactCommitPattern = /^[0-9a-f]{40}$/;
+
+function resolveImmutableBuildCommit(): string {
+  const configured = process.env.TECPEY_BUILD_COMMIT_SHA?.trim();
+  const commit =
+    configured ??
+    execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+    }).trim();
+  if (!exactCommitPattern.test(commit)) {
+    throw new Error("TECPEY_BUILD_COMMIT_SHA must be an exact lowercase 40-character Git SHA");
+  }
+  return commit;
+}
+
+const immutableBuildCommit = resolveImmutableBuildCommit();
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -30,6 +48,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Values declared through Next's env config are replaced in the compiled
+  // server/client artifacts. Runtime EnvironmentFile changes cannot alter this
+  // release identity without rebuilding the artifact.
+  env: {
+    TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit,
+  },
 
   // Public pages use request-time rendering so Next.js can propagate the CSP
   // nonce to framework and hydration scripts. Keep compiled CSS as cacheable

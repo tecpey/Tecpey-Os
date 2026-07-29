@@ -6,9 +6,12 @@ RUN npm ci --no-audit --no-fund
 FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG TECPEY_BUILD_COMMIT_SHA
+ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN printf '%s\n' "$TECPEY_BUILD_COMMIT_SHA" | grep -Eq '^[0-9a-f]{40}$' \
+    && npm run build
 
 FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS production-deps
 WORKDIR /app

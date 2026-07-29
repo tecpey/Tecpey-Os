@@ -49,13 +49,34 @@ if [ -n "$(git status --short --untracked-files=all)" ]; then
   exit 1
 fi
 
+read_baked_release_sha() {
+  node -e '
+    const fs = require("node:fs");
+    const source = JSON.parse(fs.readFileSync(".next/required-server-files.json", "utf8"));
+    const commit = source.config?.env?.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA;
+    if (typeof commit !== "string" || !/^[0-9a-f]{40}$/.test(commit)) process.exit(1);
+    process.stdout.write(commit);
+  '
+}
+
 if [ "$VERIFICATION_PHASE" = "candidate" ]; then
   npm ci --no-audit --no-fund
   npm run env:check
   npm run check
-  npm run build
+  TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build
+  baked_release_sha=$(read_baked_release_sha)
+  if [ "$baked_release_sha" != "$expected_release_sha" ]; then
+    echo "Built artifact commit does not match the exact candidate checkout." >&2
+    exit 1
+  fi
   echo "Isolated candidate build passed for $expected_release_sha."
   exit 0
+fi
+
+baked_release_sha=$(read_baked_release_sha)
+if [ "$baked_release_sha" != "$expected_release_sha" ]; then
+  echo "Candidate artifact commit does not match the exact candidate checkout." >&2
+  exit 1
 fi
 
 readonly READINESS_ATTEMPTS=5
@@ -64,7 +85,7 @@ trap 'rm -f "$health_payload"' EXIT
 readiness_ok=0
 for attempt in 1 2 3 4 5; do
   if curl --fail --silent --show-error --max-time 10 http://127.0.0.1:3000/api/health > "$health_payload" &&
-    EXPECTED_RELEASE_SHA="$expected_release_sha" node -e '
+    EXPECTED_RELEASE_SHA="$baked_release_sha" node -e '
       const fs = require("node:fs");
       const body = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
       const expected = process.env.EXPECTED_RELEASE_SHA;
