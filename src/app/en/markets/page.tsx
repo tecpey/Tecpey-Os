@@ -5,6 +5,7 @@ import { Search, TrendingUp, ShieldCheck, WalletCards } from "lucide-react";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { EnglishShell } from "../components/EnglishUI";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
+import type { MarketCurrency } from "@/types/market";
 
 function formatUsdPrice(value: unknown) {
   const n = Number(value ?? 0);
@@ -23,7 +24,7 @@ export default function EnglishMarketsPage() {
   }, [query, setSearchQuery]);
 
   const visibleCurrencies = useMemo(() => {
-    return (currencies ?? []).filter((coin: any) => !["IRT", "USD"].includes(coin?.symbol));
+    return currencies.filter((coin) => !["IRT", "USD"].includes(coin.symbol ?? ""));
   }, [currencies]);
 
   return (
@@ -81,7 +82,10 @@ export default function EnglishMarketsPage() {
                   <span className="text-right">Change</span>
                 </div>
                 <div className="divide-y divide-white/10">
-                  {((isLoading && !visibleCurrencies.length ? Array.from({ length: 8 }) : visibleCurrencies.slice(0, 12))).map((coin: any, index: number) => {
+                  {(isLoading && !visibleCurrencies.length
+                    ? Array.from<MarketCurrency | undefined>({ length: 8 })
+                    : visibleCurrencies.slice(0, 12)
+                  ).map((coin, index) => {
                     const symbol = coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "";
                     const name = coin?.name ?? symbol;
                     const rawSymbol = coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "";

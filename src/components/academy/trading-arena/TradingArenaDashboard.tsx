@@ -421,7 +421,7 @@ export function TradingArenaDashboard() {
     if (!arenaState || ticks === 0) return;
     const updated = processPriceTick(arenaState, prices);
     if (updated !== arenaState) setArenaState(updated);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: the persisted-state hydration is intentionally mount-only.
   }, [ticks]);
 
   const handleBuy = useCallback((

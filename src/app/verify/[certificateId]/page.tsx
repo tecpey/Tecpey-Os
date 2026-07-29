@@ -9,8 +9,7 @@ export async function generateMetadata({ params }: { params: Promise<{ certifica
   const { certificateId } = await params;
   const id = normalizeId(certificateId);
   const cert = await readCertificate(id);
-  const verified = Boolean(cert && cert.status === "verified" && !cert.revoked_at);
-  if (!verified) {
+  if (!cert || cert.status !== "verified" || cert.revoked_at) {
     return {
       title: "مدرک یافت نشد | تک‌پی",
       description: "این مدرک در سامانه رسمی آکادمی تک‌پی تأیید نشده است.",
@@ -74,7 +73,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
               </div>
             </div>
             <div className="rounded-[28px] border border-slate-200 bg-white p-4 text-center dark:border-white/10 dark:bg-white/90">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- #162: the generated QR data URL must render directly and never traverse the image optimizer. */}
               <img src={`/api/academy-certificates/qr/${id}`} alt="certificate QR" className="mx-auto h-44 w-44" />
               <p className="mt-2 inline-flex items-center gap-1 text-xs font-black text-slate-700"><QrCode className="h-4 w-4" /> QR Verification</p>
             </div>

@@ -148,7 +148,7 @@ This README is based on the repository audit dated **2026-07-26** at exact `main
 
 At that SHA, the GitHub `main` checks for quality, repository hygiene, API and sensitive-mutation authority, public browser Golden Path, container/SBOM/vulnerability enforcement, rollback/volume restore, and image provenance completed successfully. Deterministic migration/readiness work and production deployment hardening had been merged through PRs #258 and #259.
 
-The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence; real staging evidence; bounded CSP allowlisting; known lint-authority gaps; and final controlled-launch reconciliation. Real-money Exchange and custody have a larger independent certification path.
+The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence; real staging evidence; bounded CSP allowlisting; and final controlled-launch reconciliation. React/TypeScript correctness rules are enforced with a reviewed non-growing legacy `set-state-in-effect` baseline. Real-money Exchange and custody have a larger independent certification path.
 
 ## Architecture Overview
 

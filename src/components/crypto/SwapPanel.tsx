@@ -8,8 +8,16 @@ import { useParams } from "next/navigation";
 import { getCurrencies } from "@/services/swap.services";
 import SwapSkeleton from "../skeletons/SwapSkeleton";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import type { MarketCurrency } from "@/types/market";
 
-export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
+type SwapCoin = {
+  symbol: string;
+  name?: string;
+  icon: string;
+  price?: number;
+};
+
+export default function SwapPanel({ coins: initialCoins }: { coins: MarketCurrency[] }) {
   const t = useTranslations("MarketTabs");
 
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
@@ -42,8 +50,8 @@ export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
   const sellRef = useRef<HTMLDivElement | null>(null);
   const buyRef = useRef<HTMLDivElement | null>(null);
 
-  const [selectedSellCoin, setSelectedSellCoin] = useState<any>(null);
-  const [selectedBuyCoin, setSelectedBuyCoin] = useState<any>(null);
+  const [selectedSellCoin, setSelectedSellCoin] = useState<SwapCoin | null>(null);
+  const [selectedBuyCoin, setSelectedBuyCoin] = useState<SwapCoin | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
@@ -57,18 +65,14 @@ export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
     });
 
   const coins = useMemo(() => {
-    return (
-      data?.pages
-        ?.flatMap((page) => page.data)
-        ?.map((coin: any) => ({
-          symbol: coin.symbol.replace("_USDT", ""),
-          name: coin.name || coin.fullName || "",
-          icon: coin.icon || "/default-coin.svg",
+    const normalize = (coin: MarketCurrency): SwapCoin => ({
+          symbol: String(coin.symbol ?? "").replace("_USDT", ""),
+          name: coin.name || String(coin.fullName ?? ""),
+          icon: String(coin.icon || "/default-coin.svg"),
           price: Number(coin.priceData?.last || 0),
-        })) ||
-      initialCoins ||
-      []
-    );
+    });
+    const remote = data?.pages?.flatMap((page) => page.data).map(normalize) ?? [];
+    return remote.length > 0 ? remote : initialCoins.map(normalize);
   }, [data, initialCoins]);
 
   const paymentCoins = useMemo(
@@ -153,7 +157,7 @@ export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
     return source.filter(
       (coin) =>
         coin.symbol.toLowerCase().includes(searchSell.toLowerCase()) ||
-        coin.name.toLowerCase().includes(searchSell.toLowerCase()),
+        (coin.name ?? "").toLowerCase().includes(searchSell.toLowerCase()),
     );
   }, [activeTab, paymentCoins, tradeCoins, searchSell]);
 
@@ -163,7 +167,7 @@ export default function SwapPanel({ coins: initialCoins }: { coins: any[] }) {
     return source.filter(
       (coin) =>
         coin.symbol.toLowerCase().includes(searchBuy.toLowerCase()) ||
-        coin.name.toLowerCase().includes(searchBuy.toLowerCase()),
+        (coin.name ?? "").toLowerCase().includes(searchBuy.toLowerCase()),
     );
   }, [activeTab, paymentCoins, tradeCoins, searchBuy]);
 

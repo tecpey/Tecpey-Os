@@ -36,7 +36,7 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
     } finally { setLoading(false); }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- #162: certificate hydration is an intentional one-shot server read.
   useEffect(() => { load(); }, []);
 
   const issue = async (term: number, _score: number) => {
