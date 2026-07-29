@@ -48,11 +48,16 @@ test("production bootstrap enforces the CSP connection environment before runtim
     "scripts/run-production-bootstrap.ts",
     "utf8",
   );
+  const environmentLoad = bootstrap.indexOf(
+    "loadEnvConfig(process.cwd(), false);",
+  );
   const assertion = bootstrap.indexOf("assertCspConnectionEnvironment();");
   const serverImport = bootstrap.indexOf('await import("../server")');
 
+  assert.ok(environmentLoad >= 0);
   assert.ok(assertion >= 0);
   assert.ok(serverImport >= 0);
+  assert.ok(environmentLoad < assertion);
   assert.ok(assertion < serverImport);
 });
 

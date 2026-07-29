@@ -1,6 +1,8 @@
+import { loadEnvConfig } from "@next/env";
 import { configureProductionConnectionUrls } from "../src/lib/production-connection-env";
 import { assertCspConnectionEnvironment } from "../src/lib/security/csp-connection-policy";
 
+loadEnvConfig(process.cwd(), false);
 configureProductionConnectionUrls();
 assertCspConnectionEnvironment();
 
