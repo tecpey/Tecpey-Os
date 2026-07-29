@@ -31,6 +31,10 @@ const activeDeploymentDocs = [
   ["Ubuntu production deployment guide", read("DEPLOY_UBUNTU_24_PRODUCTION.md")],
   ["Deployment entry point", read("docs/Deployment.md")],
 ];
+const localInstallDocs = [
+  ["Mac ZIP install guide", read("INSTALL_MAC.md")],
+  ["Mac ZIP no-error install guide", read("INSTALL_MAC_NO_ERROR.md")],
+];
 const workflows = fs.readdirSync(".github/workflows")
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
   .map((name) => [name, read(`.github/workflows/${name}`)]);
@@ -116,6 +120,7 @@ try {
     dockerfile,
     containerWorkflow,
     deploymentDocs: activeDeploymentDocs,
+    localInstallDocs,
   });
 } catch (error) {
   failures.push(error instanceof Error ? error.message : String(error));

@@ -16,6 +16,9 @@ const BAKED_BUILD_COMMAND =
   'TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" npm run build';
 const BAKED_HEALTH_COMMIT =
   'commit: process.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA ?? "unknown"';
+const LOCAL_SOURCE_ARCHIVE_BUILD =
+  "TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run build";
+const LOCAL_SOURCE_ARCHIVE_SENTINEL = "unverified-local-source-archive";
 const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
@@ -80,6 +83,7 @@ export function productionHostSupplyChainFindings({
   dockerfile,
   containerWorkflow,
   deploymentDocs = [],
+  localInstallDocs = [],
 }) {
   const findings = [];
   const retiredScripts = [
@@ -111,6 +115,12 @@ export function productionHostSupplyChainFindings({
   }
 
   for (const [label, source] of deploymentDocs) {
+    reject(
+      findings,
+      source,
+      /TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD/,
+      `${label} must not enable the unverified local source-archive mode`,
+    );
     requireText(
       findings,
       source,
@@ -213,6 +223,38 @@ export function productionHostSupplyChainFindings({
     "TECPEY_IMMUTABLE_BUILD_COMMIT_SHA: immutableBuildCommit",
     "Next config must bake immutable release identity into compiled artifacts",
   );
+  requireText(
+    findings,
+    buildConfig,
+    "TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD",
+    "Next config must expose an explicit local source-archive build mode",
+  );
+  requireText(
+    findings,
+    buildConfig,
+    LOCAL_SOURCE_ARCHIVE_SENTINEL,
+    "Next config must label local source-archive artifacts as unverified",
+  );
+  for (const [label, source] of localInstallDocs) {
+    requireText(
+      findings,
+      source,
+      LOCAL_SOURCE_ARCHIVE_BUILD,
+      `${label} must opt in explicitly when building outside a Git checkout`,
+    );
+    requireText(
+      findings,
+      source,
+      LOCAL_SOURCE_ARCHIVE_SENTINEL,
+      `${label} must disclose the unverified artifact identity`,
+    );
+    requireText(
+      findings,
+      source,
+      "TECPEY_BUILD_COMMIT_SHA",
+      `${label} must preserve the exact production build identity contract`,
+    );
+  }
   requireText(
     findings,
     healthRoute,

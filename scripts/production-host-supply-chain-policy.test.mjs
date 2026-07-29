@@ -26,6 +26,10 @@ const sources = {
     ],
     ["Deployment entry point", fs.readFileSync("docs/Deployment.md", "utf8")],
   ],
+  localInstallDocs: [
+    ["Mac ZIP install guide", fs.readFileSync("INSTALL_MAC.md", "utf8")],
+    ["Mac ZIP no-error install guide", fs.readFileSync("INSTALL_MAC_NO_ERROR.md", "utf8")],
+  ],
 };
 const preflightPath = path.resolve("scripts/ubuntu24-preflight.sh");
 const expectedReleaseSha = "a".repeat(40);
@@ -318,6 +322,59 @@ test("policy rejects runtime-mutable or unbound build identity", () => {
   );
 });
 
+test("source archives require an explicit local-only unverified build identity", () => {
+  const missingOptIn = {
+    ...sources,
+    localInstallDocs: sources.localInstallDocs.map(([label, source]) => [
+      label,
+      source.replace("TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run build", "npm run build"),
+    ]),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(missingOptIn).join("\n"),
+    /must opt in explicitly when building outside a Git checkout/,
+  );
+
+  const missingSentinel = {
+    ...sources,
+    buildConfig: sources.buildConfig.replace("unverified-local-source-archive", "unknown"),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(missingSentinel).join("\n"),
+    /label local source-archive artifacts as unverified/,
+  );
+});
+
+test("next config builds explicitly opted-in source archives without Git metadata", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tecpey-source-archive-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(root, "package.json"), "{}\n");
+  const nextConfigUrl = new URL("../next.config.ts", import.meta.url).href;
+  const tsxLoaderPath = new URL("../node_modules/tsx/dist/loader.mjs", import.meta.url).pathname;
+  const expression =
+    `import(${JSON.stringify(nextConfigUrl)}).then(({ default: imported }) => { ` +
+    `const config = imported.default ?? imported; ` +
+    `process.stdout.write(config.env.TECPEY_IMMUTABLE_BUILD_COMMIT_SHA); })`;
+  const baseEnv = { ...process.env };
+  delete baseEnv.TECPEY_BUILD_COMMIT_SHA;
+
+  const optedIn = spawnSync(process.execPath, ["--import", tsxLoaderPath, "--eval", expression], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...baseEnv, TECPEY_LOCAL_SOURCE_ARCHIVE_BUILD: "1" },
+  });
+  assert.equal(optedIn.status, 0, optedIn.stderr);
+  assert.equal(optedIn.stdout, "unverified-local-source-archive");
+
+  const failClosed = spawnSync(process.execPath, ["--import", tsxLoaderPath, "--eval", expression], {
+    cwd: root,
+    encoding: "utf8",
+    env: baseEnv,
+  });
+  assert.notEqual(failClosed.status, 0);
+  assert.match(failClosed.stderr, /Build identity is unavailable/);
+});
+
 test("policy rejects a mutable or fail-open production verification wrapper", () => {
   for (const injected of [
     "npm install",
@@ -499,6 +556,20 @@ test("policy rejects revival of mutable deployment documentation", () => {
   assert.match(findings, /retired PM2 release path/);
   assert.match(findings, /mutable production image/);
   assert.match(findings, /mutable live-source deployment/);
+});
+
+test("policy rejects local source-archive mode in production deployment guidance", () => {
+  const mutated = {
+    ...sources,
+    deploymentDocs: sources.deploymentDocs.map(([label, source], index) => [
+      label,
+      index === 0 ? `${source}\nTECPEY_LOCAL_SOURCE_ARCHIVE_BUILD=1 npm run build\n` : source,
+    ]),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(mutated).join("\n"),
+    /must not enable the unverified local source-archive mode/,
+  );
 });
 
 test("policy rejects loopback database or Redis URLs in the Compose guide", () => {
