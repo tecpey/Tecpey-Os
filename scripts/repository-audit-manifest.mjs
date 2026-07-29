@@ -11,6 +11,18 @@ import {
 
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 const SEVERITIES = ["P0", "P1", "P2", "P3"];
+const AUDIT_AUTHORITY_PATHS = [
+  ".github/workflows/repository-audit-manifest.yml",
+  "package.json",
+  "scripts/check-repository-audit-authority.mjs",
+  "scripts/generate-repository-audit-manifest.mjs",
+  "scripts/repository-audit-manifest.mjs",
+  "scripts/repository-audit-manifest.test.mjs",
+  "scripts/repository-audit-policy.mjs",
+  "scripts/repository-audit-workflow-policy.mjs",
+  "scripts/repository-audit-workflow-policy.test.mjs",
+  "scripts/verify-repository-audit-manifest.mjs",
+];
 
 function runGit(repositoryRoot, args, { input } = {}) {
   return new Promise((resolve, reject) => {
@@ -49,6 +61,21 @@ function decodeUtf8(buffer, label) {
     return utf8Decoder.decode(buffer);
   } catch {
     throw new Error(`${label} is not valid UTF-8`);
+  }
+}
+
+async function assertAuditAuthorityClean(repositoryRoot) {
+  const status = await runGit(repositoryRoot, [
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--",
+    ...AUDIT_AUTHORITY_PATHS,
+  ]);
+  if (status.length > 0) {
+    throw new Error(
+      "Repository audit authority files differ from the exact committed tree",
+    );
   }
 }
 
@@ -230,6 +257,7 @@ export async function generateRepositoryAuditManifest({
   repositoryRoot = process.cwd(),
   expectedSourceSha = process.env.TECPEY_AUDIT_SOURCE_SHA,
 } = {}) {
+  await assertAuditAuthorityClean(repositoryRoot);
   const sourceCommitSha = (await runGit(repositoryRoot, ["rev-parse", "HEAD^{commit}"]))
     .toString("ascii")
     .trim();

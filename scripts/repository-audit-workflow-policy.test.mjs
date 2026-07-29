@@ -37,3 +37,20 @@ test("policy rejects floating third-party actions", () => {
   );
   assert.match(repositoryAuditWorkflowFindings(mutated).join("\n"), /not pinned/);
 });
+
+test("policy rejects write-capable or overridden workflow permissions", () => {
+  for (const mutated of [
+    workflow.replace("  contents: read", "  contents: write"),
+    workflow.replace("  contents: read", "  contents: read\n  actions: write"),
+    workflow.replace("permissions:\n  contents: read", "permissions: read-all"),
+    workflow.replace(
+      "jobs:\n  manifest:",
+      "jobs:\n  manifest:\n    permissions:\n      contents: write",
+    ),
+  ]) {
+    assert.match(
+      repositoryAuditWorkflowFindings(mutated).join("\n"),
+      /permissions must be exactly one top-level contents: read grant/,
+    );
+  }
+});

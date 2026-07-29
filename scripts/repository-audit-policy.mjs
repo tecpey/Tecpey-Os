@@ -131,6 +131,7 @@ const DOMAIN_RULES = [
       /^src\/lib\/(?:alerts|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
       /^src\/lib\/ws\//,
       /^server\.ts$/,
+      /^VERIFY_PRODUCTION\.sh$/,
     ],
   },
   {
@@ -234,7 +235,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 6,
+  version: 7,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),

@@ -92,6 +92,28 @@ test("manifest rejects an expected SHA that is not the exact checkout", async (t
   );
 });
 
+test("manifest rejects dirty or staged audit authority code", async (t) => {
+  const root = await fixtureRepository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await fs.mkdir(path.join(root, "scripts"), { recursive: true });
+  const policyPath = path.join(root, "scripts", "repository-audit-policy.mjs");
+  await fs.writeFile(policyPath, "export const policyVersion = 1;\n", "utf8");
+  await git(root, "add", ".");
+  await git(root, "commit", "--quiet", "-m", "add audit authority fixture");
+
+  await fs.writeFile(policyPath, "export const policyVersion = 2;\n", "utf8");
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: root }),
+    /audit authority files differ from the exact committed tree/,
+  );
+
+  await git(root, "add", policyPath);
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: root }),
+    /audit authority files differ from the exact committed tree/,
+  );
+});
+
 test("manifest fails closed instead of replacing a non-UTF-8 tracked path", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "tecpey-audit-invalid-path-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
@@ -229,6 +251,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   });
   assert.equal(classifyDomain("src/lib/ops/operational-job-evidence.ts").reviewBatch, 11);
   assert.deepEqual(classifyDomain("server.ts"), {
+    domain: "operations-runtime",
+    riskTier: "P1",
+    reviewBatch: 11,
+    classificationRule: "operations-runtime",
+  });
+  assert.deepEqual(classifyDomain("VERIFY_PRODUCTION.sh"), {
     domain: "operations-runtime",
     riskTier: "P1",
     reviewBatch: 11,
