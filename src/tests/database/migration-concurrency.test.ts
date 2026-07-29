@@ -19,7 +19,7 @@ const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_
 
 async function withIsolatedDatabase(
   purpose: string,
-  run: (isolatedDatabaseUrl: string) => Promise<void>,
+  run: (isolatedDatabaseUrl: string, isolatedDatabaseName: string) => Promise<void>,
 ): Promise<void> {
   const name = `tecpey_166_${purpose}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
   const adminUrl = new URL(databaseUrl!);
@@ -29,7 +29,7 @@ async function withIsolatedDatabase(
   const admin = new Pool({ connectionString: adminUrl.toString(), max: 1 });
   try {
     await admin.query(`CREATE DATABASE ${name}`);
-    await run(isolatedUrl.toString());
+    await run(isolatedUrl.toString(), name);
   } finally {
     const sessions = await admin.query<{ count: number }>(
       "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
@@ -97,7 +97,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
   });
 
   it("reports the lock-owning runner as migration_running to a waiting process", async () => {
-    await withIsolatedDatabase("running", async (isolatedDatabaseUrl) => {
+    await withIsolatedDatabase("running", async (isolatedDatabaseUrl, isolatedDatabaseName) => {
       const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 2 });
       const holder = await pool.connect();
       const observer = await pool.connect();
@@ -116,19 +116,16 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         const readiness = await checkMigrationReadiness(observer);
         assert.equal(readiness.status, "migration_running");
         assert.equal(readiness.runnerId, runnerId);
-
-        const sharedPool = new Pool({ connectionString: databaseUrl, max: 1 });
-        const unrelatedConsumer = await sharedPool.connect();
-        try {
-          assert.equal(
-            (await checkMigrationReadiness(unrelatedConsumer)).status,
-            "current",
-            "an isolated migration fixture must not change shared database readiness",
-          );
-        } finally {
-          unrelatedConsumer.release();
-          await sharedPool.end();
-        }
+        const databaseIdentity = await observer.query<{ database_name: string }>(
+          "SELECT current_database() AS database_name",
+        );
+        const sharedDatabaseName = decodeURIComponent(new URL(databaseUrl!).pathname.slice(1));
+        assert.equal(databaseIdentity.rows[0]?.database_name, isolatedDatabaseName);
+        assert.notEqual(
+          databaseIdentity.rows[0]?.database_name,
+          sharedDatabaseName,
+          "migration-running evidence must be written only inside the isolated fixture database",
+        );
       } finally {
         await holder.query("SELECT pg_advisory_unlock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
         await applyDatabaseMigrationsWithLock(holder);
