@@ -92,6 +92,10 @@ describe("root configuration authority", () => {
         /Docker build context.*\.agents/u,
       ],
       [
+        { ...sources, dockerIgnore: `${sources.dockerIgnore}\n!artifacts/private.json\n` },
+        /Docker build context.*artifacts\/private\.json/u,
+      ],
+      [
         { ...sources, gitIgnore: sources.gitIgnore.replace(".env.*\n", ".env.*.local\n") },
         /Git environment boundary.*\.env\.\*/u,
       ],

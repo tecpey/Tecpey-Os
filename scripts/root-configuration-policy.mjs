@@ -20,6 +20,9 @@ const ALLOWED_ENV_REINCLUSIONS = new Set([
   "!.env.example",
   "!.env.*.example",
 ]);
+const ALLOWED_DOCKER_REINCLUSIONS = new Set([
+  "!.env.example",
+]);
 
 function meaningfulLines(source) {
   if (typeof source !== "string") return new Set();
@@ -50,6 +53,13 @@ function parseJson(findings, source, label) {
   }
 }
 
+function protectedDockerTarget(target, protectedPath) {
+  if (protectedPath.endsWith(".*")) {
+    return target === protectedPath || target.startsWith(protectedPath.slice(0, -1));
+  }
+  return target === protectedPath || target.startsWith(`${protectedPath}/`);
+}
+
 export function rootConfigurationFindings(sources) {
   const findings = [];
   if (!sources || typeof sources !== "object" || Array.isArray(sources)) {
@@ -60,9 +70,15 @@ export function rootConfigurationFindings(sources) {
   for (const required of REQUIRED_DOCKER_IGNORES) {
     requireLine(findings, dockerIgnoreLines, required, "Docker build context");
   }
-  for (const protectedPath of ["artifacts", ".agents", ".env", ".env.*"]) {
-    if (dockerIgnoreLines.has(`!${protectedPath}`)) {
-      findings.push(`Docker build context must not re-include ${protectedPath}`);
+  for (const line of dockerIgnoreLines) {
+    if (!line.startsWith("!")) continue;
+    if (ALLOWED_DOCKER_REINCLUSIONS.has(line)) continue;
+    const target = line.slice(1).replace(/^\/+/u, "");
+    const protectedPath = REQUIRED_DOCKER_IGNORES.find((required) =>
+      protectedDockerTarget(target, required),
+    );
+    if (protectedPath) {
+      findings.push(`Docker build context must not re-include ${target}`);
     }
   }
 

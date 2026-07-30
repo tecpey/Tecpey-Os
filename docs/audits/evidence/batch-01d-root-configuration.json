@@ -248,30 +248,44 @@
     },
     {
       "path": "scripts/root-configuration-policy.mjs",
-      "gitObjectId": "09dcc018a78720ff9e7591c9e89a9a21f13d1f98",
-      "sha256": "6e14ce50c99b45e48302ccc95e6d44fbecc832cdf04264effe506e24d05d29d5",
-      "lines": 182,
+      "gitObjectId": "82d2cafd3ddc7b129fa6ef297c0178e916653abb",
+      "sha256": "abcad8fb52e18d1631cb804b07aef72cb4ff4e4def00b3bfc107d0f4dd2d420d",
+      "lines": 198,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 182
+          "endLine": 198
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "Input typing, exact ignore lines, complete environment re-inclusion rejection, CommonJS lint contract, browser headers, immutable build identity, parsed TypeScript/Kilo configuration and agent/tool delegation checks were reviewed.",
-        "The policy allows only the two inert example re-inclusions, rejects every other .env or .env.* negation regardless of future stage name, and is exercised by production-source acceptance, effective Git/ESLint behavior and negative mutations."
+        "Input typing, exact ignore lines, descendant-aware Docker and complete environment re-inclusion rejection, CommonJS lint contract, browser headers, immutable build identity, parsed TypeScript/Kilo configuration and agent/tool delegation checks were reviewed.",
+        "The policy allows only the exact inert example re-inclusions, rejects protected Docker roots and descendants plus every other .env negation regardless of future stage name, and is exercised by production-source acceptance, effective Git/ESLint behavior and negative mutations."
       ],
       "findings": [
         {
           "id": "B01D-P2-003",
           "severity": "P2",
-          "line": 74,
+          "line": 90,
           "attackPath": "The former policy rejected explicit re-inclusion of only five named environment files, so a future rule such as !.env.preview could make a new secret-bearing file committable while the guard still passed.",
           "affectedInvariant": "Only inert .env example templates may be re-included after the broad environment-file ignore.",
           "evidence": "The former loop enumerated local, production, staging, test and development names; a mutation adding !.env.preview produced no policy finding.",
           "fixOwner": "repository-supply-chain",
           "verificationRequirement": "The root policy must inspect every .env-class negation, allow only the two governed example patterns and reject an arbitrary future stage name in a permanent mutation test.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/pull/276"
+          ]
+        },
+        {
+          "id": "B01D-P2-004",
+          "severity": "P2",
+          "line": 77,
+          "attackPath": "The former Docker policy rejected only exact root negations, so a later rule such as !artifacts/private.json or !.agents/session.json could override the parent exclusion and send local evidence or agent state into the COPY . . build context while the guard passed.",
+          "affectedInvariant": "A mandatory Docker exclusion must cover its complete descendant tree unless an exact inert example exception is explicitly governed.",
+          "evidence": "The former loop compared only !artifacts, !.agents, !.env and !.env.*; a descendant re-inclusion produced no finding even though Docker ignore negation rules can restore that child path.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The root policy must reject re-inclusion of every mandatory root or descendant, allow only the exact inert .env.example exception and permanently test an artifacts/private.json mutation.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/pull/276"
