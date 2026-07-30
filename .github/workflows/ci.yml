@@ -407,6 +407,12 @@ jobs:
       - name: Staging scheduler evidence tests
         run: npm run test:ops-staging-evidence
 
+      - name: Exchange reconciliation authority guard
+        run: npm run exchange:reconcile:check
+
+      - name: Exchange reconciliation tests
+        run: npm run test:exchange-reconciliation
+
       - name: Release gate coverage guard
         run: npm run release:coverage:check
 
