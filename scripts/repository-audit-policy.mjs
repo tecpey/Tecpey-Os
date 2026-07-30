@@ -75,6 +75,7 @@ const DOMAIN_RULES = [
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
       /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
+      /^config\/secret-scanning-baseline\.json$/,
       /^SECURITY\.md$/,
     ],
   },
