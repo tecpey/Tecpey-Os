@@ -98,7 +98,10 @@ workflows plus their structural policy and negative tests. Pull-request
 artifacts are now named with the exact checked-out head SHA instead of GitHub's
 synthetic merge SHA, every governed job has a bounded timeout, every Node
 workflow verifies the npm 10 runtime contract, and staging evidence rejects a
-release older than the approved scheduler-authority baseline.
+release older than the approved scheduler-authority baseline. Exact-head CI
+also exposed destructive migration tests sharing PostgreSQL state with other
+suites; their UUID-scoped database fixtures now make the required test result
+independent of suite scheduling order.
 
 Policy v11 binds the third independently identified evidence slice. Batch 1C
 adds seven semantically reviewed paths; all other paths remain pending and

@@ -25,13 +25,6 @@
       "statement": "The staging scheduler workflow now rejects releases older than the approved authority baseline, but no staging-host activation is claimed until the protected runner, environment, alert destination and accepted evidence required by issue #229 exist.",
       "owner": "operations-runtime",
       "disposition": "release-no-go"
-    },
-    {
-      "id": "B01C-RISK-004",
-      "severity": "P2",
-      "statement": "Two different service-backed tests failed on separate CI attempts and then passed on the unchanged head in both the exact-head Full Suite and final CI attempt; deterministic test-isolation remediation remains quality debt rather than being hidden by the successful retry.",
-      "owner": "tests-quality-evidence",
-      "disposition": "tracked-debt"
     }
   ],
   "files": [
@@ -82,7 +75,8 @@
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Both jobs, service images, environment contract, exact-head checkout, pinned actions, migrations, type and lint authorities, domain-specific guards, service-backed tests, full test suite, production build, runtime smokes and failure diagnostics were reviewed as the primary integration gate.",
-        "Hygiene and quality jobs now have explicit 10- and 60-minute bounds, all diagnostic artifacts use the exact source SHA, and the new structural CI workflow guard runs before the remaining security authorities."
+        "Hygiene and quality jobs now have explicit 10- and 60-minute bounds, all diagnostic artifacts use the exact source SHA, and the new structural CI workflow guard runs before the remaining security authorities.",
+        "Exact-head CI exposed destructive migration-concurrency tests mutating the shared service database while the notification outbox suite was reading its ledger; those tests now use per-test UUID databases and bounded session cleanup."
       ],
       "findings": [
         {
@@ -108,6 +102,20 @@
           "evidence": "Neither CI job previously declared timeout-minutes; the remediated hygiene and quality jobs declare 10 and 60 minutes respectively.",
           "fixOwner": "tests-quality-evidence",
           "verificationRequirement": "The structural policy must require the exact bounded timeout for every governed CI job and reject missing or expanded values.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01C-P2-003",
+          "severity": "P2",
+          "line": 362,
+          "attackPath": "The primary npm test step ran destructive migration-concurrency cases in parallel with other service-backed suites against one shared PostgreSQL database, allowing a temporary checksum mutation to make unrelated notification tests fail nondeterministically.",
+          "affectedInvariant": "A required exact-head CI result must be determined by the tested source, not by cross-suite mutation order in a shared service fixture.",
+          "evidence": "CI run 30505060431 captured migration-concurrency tests setting the canonical ledger checksum to sixteen zeroes while notification-creation-outbox-runtime tests observed that invalid shared state; the remediated migration tests create UUID-scoped databases and assert bounded session release before forced fixture cleanup.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The exact-head primary CI and Full Suite workflows must both pass the service-backed test suite with the destructive migration cases confined to isolated databases.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"
