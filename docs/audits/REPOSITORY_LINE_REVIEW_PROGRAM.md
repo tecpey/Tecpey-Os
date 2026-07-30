@@ -78,6 +78,19 @@ generated manifest binds accepted evidence to the exact checkout through
 declared ranges fails closed. Files outside this bounded slice remain pending,
 and `completionClaim` remains `false`.
 
+## Batch 1B: operational-workflow semantic evidence
+
+The second bounded slice reviews four production-facing GitHub workflows and
+the production host supply-chain policy. It records three remediated P1
+findings: publication without recovery dependency, omission of unfixed HIGH or
+CRITICAL vulnerabilities, and browser-gate path filters that could skip shared
+runtime or security changes.
+
+Policy v10 accepts multiple independently identified evidence slices while
+binding each finding and residual-risk identifier to its declaring slice.
+Batch 1B adds five semantically reviewed paths; all other paths remain pending
+and `completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash

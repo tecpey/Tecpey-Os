@@ -40,16 +40,21 @@ const localInstallDocs = [
 ];
 const workflows = fs.readdirSync(".github/workflows")
   .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
-  .map((name) => [name, read(`.github/workflows/${name}`)]);
+    .map((name) => [name, read(`.github/workflows/${name}`)]);
+const immutableAlpineRuntime =
+  "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
 
 requireText(dockerfile, "@sha256:", "Docker base image must be digest-pinned");
+if (dockerfile.split(immutableAlpineRuntime).length - 1 !== 2) {
+  failures.push("production dependencies and runtime must use the exact minimal Alpine image");
+}
 reject(dockerfile, /^ARG\s+.*IMAGE/m, "Docker base-image authority must not be build-argument overridable");
 requireText(dockerfile, "npm ci --omit=dev", "runtime dependencies must exclude dev dependencies");
 requireText(dockerfile, 'CMD ["node", "dist/run-production-bootstrap.cjs", "server"]', "runtime must execute the compiled production bootstrap");
 reject(dockerfile, /COPY --from=builder \/app\/node_modules/, "runtime must not copy builder dependencies");
 reject(dockerfile, /CMD \[[^\n]*tsx/, "runtime must not execute TypeScript");
 requireText(dockerfile, "/usr/local/lib/node_modules/npm", "runtime must remove unused npm tooling");
-requireText(dockerfile, "USER nextjs", "runtime must be rootless");
+requireText(dockerfile, "USER node", "runtime must use the image-owned non-root identity");
 requireText(dockerfile, "HEALTHCHECK", "runtime image must declare readiness health check");
 requireText(dockerfile, 'VOLUME ["/app/storage", "/app/.next/cache"]', "runtime writable paths must be explicit");
 for (const excluded of [".git", ".env.*", "node_modules", ".next", "dist"]) {
