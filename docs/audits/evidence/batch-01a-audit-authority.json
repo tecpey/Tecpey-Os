@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-07-29",
+  "reviewedAt": "2026-07-30",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -207,44 +207,46 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "2d784f656bfdfde6651ca1db29e71104f86ed286",
-      "sha256": "25fe38e92090a2f6227e4fe26046098066894826a8f83f6db40e61a168a3bac3",
-      "lines": 269,
+      "gitObjectId": "518b0200f075205d0af0a6a273f7e6d3a095a872",
+      "sha256": "7e360d73b1ee853898746b62dba42c5edb3c79c426a794681ab263a5ddf5afd7",
+      "lines": 270,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 269
+          "endLine": 270
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v9 evidence-path ownership were reviewed.",
-        "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities."
+        "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
+        "Re-reviewed in full after merging main 63cffc08 (PR #264): the change is limited to the secret-scanning-baseline authentication-admin-security routing line (policy) and the GOVERNED_JOB_PROPERTIES job-property guard with duplicate rejection (workflow policy); both were authored and line-reviewed in this session, negative tests cover them, and no new findings resulted."
       ],
       "findings": []
     },
     {
       "path": "scripts/repository-audit-workflow-policy.mjs",
-      "gitObjectId": "35be717a78a8100c8f38ba4ab55fe8cb4bb497a7",
-      "sha256": "eff6758cf3cb91958fae562f1c99c2084cf991422030fd09a146817f49b30ead",
-      "lines": 356,
+      "gitObjectId": "7dba3a0d92879f34e97d61078db6cea52019b99a",
+      "sha256": "8c028f08c6440ff068a073038dfdae5a1ea6fafb5a486c52d2bc6861abf00d99",
+      "lines": 369,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 356
+          "endLine": 369
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Comment handling, scalar parsing, indentation and block boundaries, exact governed step sequence, permissions, exact-head propagation, reserved variable rejection, full-SHA action pinning and aggregate failure reporting were reviewed.",
         "Required executable contracts are validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence; the workflow is constrained to one manifest job, exactly one top-level permissions mapping and the governed step-property set.",
-        "Step-level conditions, continue-on-error controls, scalar or job-level permission overrides, extra jobs and their actions are rejected fail closed instead of remaining outside the parsed authority."
+        "Step-level conditions, continue-on-error controls, scalar or job-level permission overrides, extra jobs and their actions are rejected fail closed instead of remaining outside the parsed authority.",
+        "Re-reviewed in full after merging main 63cffc08 (PR #264): the change is limited to the secret-scanning-baseline authentication-admin-security routing line (policy) and the GOVERNED_JOB_PROPERTIES job-property guard with duplicate rejection (workflow policy); both were authored and line-reviewed in this session, negative tests cover them, and no new findings resulted."
       ],
       "findings": [
         {
           "id": "B01A-P1-001",
           "severity": "P1",
-          "line": 228,
+          "line": 241,
           "attackPath": "A required checkout, verification or artifact contract could be removed from executable YAML and preserved only as a comment while the former substring guard still returned success.",
           "affectedInvariant": "Repository audit evidence must fail closed when an exact-head workflow control is not executable.",
           "evidence": "The previous guard used unrestricted includes() checks; the final implementation parses the governed YAML structure and validates exact effective step nodes, keys, values and sequence.",
@@ -258,7 +260,7 @@
         {
           "id": "B01A-P2-007",
           "severity": "P2",
-          "line": 182,
+          "line": 183,
           "attackPath": "A second workflow job could declare permissions: write-all and execute an unpinned action while the previous parser inspected only the governed manifest job and top-level mapping.",
           "affectedInvariant": "Every job in the repository-audit workflow must remain inside the exact read-only and action-pinned authority.",
           "evidence": "The parser now rejects every permissions node except the single top-level mapping and requires jobs to contain exactly the governed manifest job.",
@@ -272,7 +274,7 @@
         {
           "id": "B01A-P2-008",
           "severity": "P2",
-          "line": 149,
+          "line": 150,
           "attackPath": "An if: false condition on manifest generation, verification or upload could skip required evidence while the previous parser ignored arbitrary scalar step properties.",
           "affectedInvariant": "Every governed audit step must execute unconditionally whenever the workflow job runs.",
           "evidence": "The parser now accepts only env, run, uses and with on governed steps, so if and other skip-capable properties fail structural validation.",
