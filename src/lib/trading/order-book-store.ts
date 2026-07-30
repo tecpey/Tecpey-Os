@@ -1,4 +1,3 @@
-import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { OrderBookSnapshot, OrderSide } from "./types";
 import { getOrderBook } from "./order-book";
@@ -309,32 +308,11 @@ class RedisOrderBookStore extends InMemoryOrderBookStore {
       });
   }
 
-  async warmFromRedis(market: string): Promise<number> {
-    const symbol = market.toUpperCase();
-    let count = 0;
-    try {
-      const [bids, asks] = await Promise.all([
-        this.redis.zrange(`tecpey:ob:${symbol}:bids`, 0, -1),
-        this.redis.zrange(`tecpey:ob:${symbol}:asks`, 0, -1),
-      ]);
-      const displayBook = getOrderBook(symbol);
-      for (const member of [...bids, ...asks]) {
-        try {
-          const entry = normalizeEntry(JSON.parse(member) as EngineOrder);
-          super.insert(entry.market, entry);
-          displayBook.insert(entry.side, entry.pricePerUnit, entry.remaining);
-          count += 1;
-        } catch {
-          // Ignore malformed projection members; PostgreSQL rebuild remains available.
-        }
-      }
-    } catch (error) {
-      logger.warn("[order-book-store] Redis warm-start failed", { error });
-      return 0;
-    }
-    logger.info("[order-book-store] warmed from Redis", { market: symbol, orders: count });
-    return count;
-  }
+  // Deliberately no Redis warm-start reader. Redis is a write-only projection
+  // here: resting liquidity may only be reconstructed by
+  // `rebuildMarketBookFromAuthority`, which purges these keys and rebuilds from
+  // PostgreSQL. A cancelled order whose fire-and-forget cleanup below failed
+  // must never be able to re-enter the matching book from this cache.
 }
 
 declare global {
@@ -378,56 +356,4 @@ export function getOrderBookStore(): OrderBookStore {
 
 export function getRedisClient(): Redis | undefined {
   return globalThis.tecpeyRedisClient;
-}
-
-export async function rebuildOrderBook(market: string): Promise<void> {
-  const symbol = market.toUpperCase();
-  const store = getOrderBookStore();
-  if (store instanceof RedisOrderBookStore) {
-    const count = await store.warmFromRedis(symbol);
-    if (count > 0) return;
-  }
-
-  const result = await withDb(async (client) => {
-    const rows = await client.query<{
-      id: string;
-      user_id: string;
-      side: OrderSide;
-      price: string | null;
-      quantity: string;
-      remaining_quantity: string;
-      created_at: Date;
-    }>(
-      `SELECT id::text, user_id, side, price::text, quantity::text,
-              remaining_quantity::text, created_at
-         FROM orders
-        WHERE market = $1
-          AND status IN ('NEW', 'PARTIALLY_FILLED')
-          AND type = 'limit'
-        ORDER BY created_at ASC, id ASC`,
-      [symbol],
-    );
-    return rows.rows;
-  });
-  if (!result.enabled || !result.value?.length) return;
-
-  const displayBook = getOrderBook(symbol);
-  let rebuilt = 0;
-  for (const row of result.value) {
-    if (!row.price) continue;
-    const entry: EngineOrder = normalizeEntry({
-      orderId: row.id,
-      userId: row.user_id,
-      market: symbol,
-      side: row.side,
-      pricePerUnit: row.price,
-      originalQty: row.quantity,
-      remaining: row.remaining_quantity,
-      ts: row.created_at.getTime(),
-    });
-    store.insert(symbol, entry);
-    displayBook.insert(entry.side, entry.pricePerUnit, entry.remaining);
-    rebuilt += 1;
-  }
-  logger.info("[order-book-store] rebuilt book from DB", { market: symbol, orders: rebuilt });
 }

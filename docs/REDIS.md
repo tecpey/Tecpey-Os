@@ -57,12 +57,25 @@ The `OrderBookStore` interface (`getLevels`, `getFOKVolume`, `snapshot`) is sync
 1. In-memory: update `entry.remaining` (or remove if 0)
 2. Redis (async): `ZREM` old member + `ZADD` new member (for partial fill), or `DEL` (for full fill)
 
-### Warm-start from Redis
+### Rebuild is PostgreSQL-authoritative — never from Redis
 
-On engine startup, `rebuildOrderBook(market)` tries Redis first:
-1. `ZRANGE tecpey:ob:{market}:bids 0 -1` + `ZRANGE tecpey:ob:{market}:asks 0 -1`
-2. For each member, parse JSON EngineOrder, insert into in-memory store + display book
-3. If Redis returns 0 orders, fall back to DB query (same as Phase 30)
+The Redis order-book keys are a **write-only projection**. Nothing reads them
+back into the matching book, and no warm-start reader exists.
+
+Resting liquidity is reconstructed only by
+`rebuildMarketBookFromAuthority(market)` (`src/lib/trading/order-book-recovery.ts`):
+
+1. Clear the in-memory engine book and the display book.
+2. `DEL tecpey:ob:{market}:bids` + `DEL tecpey:ob:{market}:asks` — the stale
+   projection is purged, never trusted.
+3. Rebuild from PostgreSQL, admitting only orders whose durable command is
+   `state = 'final'` **and** `result->>'accepted' = true`.
+4. Fail closed (`order_book_storage_unavailable`) if PostgreSQL is unavailable.
+
+A historical `rebuildOrderBook()` helper tried Redis first and fell back to the
+database. It was removed: because Redis writes are fire-and-forget, a failed
+cleanup left a cancelled order in the projection, and a Redis-first rebuild
+would have resurrected it as live resting liquidity.
 
 ---
 
@@ -180,8 +193,8 @@ Without `REDIS_URL`, the server runs in `"local"` mode:
 |----------|-----------|
 | Redis down at startup | `validate()` logs warning; in-memory continues |
 | Redis down during trading | Writes fail silently (fire-and-forget); in-memory remains authoritative |
-| Redis restart | Order book must be rebuilt from DB (warm-start) |
-| Redis data corruption | `rebuildOrderBook()` from DB overwrites Redis data |
+| Redis restart | No impact on matching; the book is rebuilt from PostgreSQL |
+| Redis data corruption | Harmless — the projection is never read; `rebuildMarketBookFromAuthority()` purges and rebuilds it from PostgreSQL |
 | `REDIS_URL` set but unreachable | PING fails, logged as warning in dev; in-memory fallback |
 
 ---
