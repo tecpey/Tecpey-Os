@@ -52,7 +52,7 @@ test("baseline rejects weakened, duplicate or mismatched finding authority", () 
   const broadPath = clone(baseline);
   broadPath.findings[0].path = "../outside";
   broadPath.findings[0].findingIdentity =
-    `${broadPath.findings[0].commit}:/outside:${broadPath.findings[0].ruleId}:${broadPath.findings[0].line}`.replace(":/outside", "../outside");
+    `${broadPath.findings[0].commit}:../outside:${broadPath.findings[0].ruleId}:${broadPath.findings[0].line}`;
   assert.throws(() => validateSecretScanningBaseline(broadPath), /canonical/);
 });
 
