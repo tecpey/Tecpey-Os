@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { withDb } from "../../lib/db";
@@ -14,13 +14,21 @@ function principal(prefix: string): string {
   return `${prefix}-${randomUUID()}`;
 }
 
+// `risk_authority_events` is unique on (tenant_id, event_key) and this suite
+// proves its rows are append-preserved — the seeded row can never be deleted.
+// A fixed key would therefore let the suite pass exactly once per database and
+// fail with 23505 on every later run against the same one.
+function uniqueEventKey(): string {
+  return createHash("sha256").update(randomUUID()).digest("hex");
+}
+
 describe("Risk enforcement database guards", () => {
   it(
     "keeps risk events append-preserved and rejects forbidden detector metadata",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const principalId = principal("risk-schema-event");
-      const eventKey = "a".repeat(64);
+      const eventKey = uniqueEventKey();
       const inserted = await withDb(async (client) => {
         await client.query(
           `INSERT INTO risk_authority_events
