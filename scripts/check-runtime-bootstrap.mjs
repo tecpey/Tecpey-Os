@@ -1,85 +1,208 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const server = await readFile("server.ts", "utf8");
-const runtimeSmoke = await readFile("scripts/check-ui-runtime.mjs", "utf8");
-const failures = [];
+export function runtimeBootstrapFindings({
+  server,
+  runtimeSmoke,
+  productionBootstrap,
+  environmentValidator,
+  cspValidator,
+}) {
+  const failures = [];
+  const requireText = (source, text, message) => {
+    if (!source.includes(text)) failures.push(message);
+  };
+  const rejectText = (source, text, message) => {
+    if (source.includes(text)) failures.push(message);
+  };
 
-const requireText = (source, text, message) => {
-  if (!source.includes(text)) failures.push(message);
-};
-const rejectText = (source, text, message) => {
-  if (source.includes(text)) failures.push(message);
-};
+  rejectText(
+    server,
+    'from "./src/workers/withdrawal-worker"',
+    "server must not statically import Redis/BullMQ withdrawal workers before environment validation",
+  );
+  requireText(
+    server,
+    'await import("./src/workers/withdrawal-worker")',
+    "withdrawal workers must be loaded dynamically after Redis validation",
+  );
+  requireText(
+    server,
+    "process.env.REDIS_URL?.trim()",
+    "blank Redis configuration must be normalized before bootstrap decisions",
+  );
+  requireText(
+    server,
+    'throw new Error("redis_url_required_in_production")',
+    "production custom server must fail closed without Redis",
+  );
+  requireText(
+    server,
+    'parsed.protocol !== "redis:" && parsed.protocol !== "rediss:"',
+    "custom server must reject unsupported Redis URL protocols",
+  );
+  requireText(
+    server,
+    'process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0"',
+    "custom server must define one explicit governed bind hostname",
+  );
+  requireText(
+    server,
+    "next({ dev, hostname, port, httpServer })",
+    "Next custom-server bootstrap must receive the same hostname, port and HTTP server identity",
+  );
+  requireText(
+    server,
+    "httpServer.listen(port, hostname",
+    "HTTP listen identity must match the hostname and port passed to Next",
+  );
+  requireText(
+    runtimeSmoke,
+    'mode === "development" ? "" : (process.env.REDIS_URL ?? "")',
+    "runtime smoke must prove development without Redis and production with governed Redis",
+  );
+  requireText(
+    runtimeSmoke,
+    "const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL",
+    "production runtime smoke must reuse the API endpoint embedded at build time",
+  );
+  requireText(
+    runtimeSmoke,
+    "const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL",
+    "production runtime smoke must reuse the socket endpoint embedded at build time",
+  );
+  rejectText(
+    runtimeSmoke,
+    "runtime-smoke.tecpey.test",
+    "production runtime smoke must not replace build-time endpoints with different origins",
+  );
+  for (const [label, source, productionMode] of [
+    [
+      "production bootstrap",
+      productionBootstrap,
+      'Reflect.set(process.env, "NODE_ENV", "production")',
+    ],
+    [
+      "environment validator",
+      environmentValidator,
+      "Reflect.set(process.env, 'NODE_ENV', 'production')",
+    ],
+    [
+      "CSP validator",
+      cspValidator,
+      'Reflect.set(process.env, "NODE_ENV", "production")',
+    ],
+  ]) {
+    const productionIndex = source.indexOf(productionMode);
+    const environmentLoadIndex = source.indexOf(
+      "loadEnvConfig(process.cwd(), false);",
+    );
+    if (
+      productionIndex < 0 ||
+      environmentLoadIndex < 0 ||
+      productionIndex >= environmentLoadIndex
+    ) {
+      failures.push(
+        `${label} must force production mode before loading environment files`,
+      );
+    }
+  }
 
-rejectText(
-  server,
-  'from "./src/workers/withdrawal-worker"',
-  "server must not statically import Redis/BullMQ withdrawal workers before environment validation",
-);
-requireText(
-  server,
-  'await import("./src/workers/withdrawal-worker")',
-  "withdrawal workers must be loaded dynamically after Redis validation",
-);
-requireText(
-  server,
-  "process.env.REDIS_URL?.trim()",
-  "blank Redis configuration must be normalized before bootstrap decisions",
-);
-requireText(
-  server,
-  'throw new Error("redis_url_required_in_production")',
-  "production custom server must fail closed without Redis",
-);
-requireText(
-  server,
-  'parsed.protocol !== "redis:" && parsed.protocol !== "rediss:"',
-  "custom server must reject unsupported Redis URL protocols",
-);
-requireText(
-  server,
-  'process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0"',
-  "custom server must define one explicit governed bind hostname",
-);
-requireText(
-  server,
-  "next({ dev, hostname, port, httpServer })",
-  "Next custom-server bootstrap must receive the same hostname, port and HTTP server identity",
-);
-requireText(
-  server,
-  "httpServer.listen(port, hostname",
-  "HTTP listen identity must match the hostname and port passed to Next",
-);
-requireText(
-  runtimeSmoke,
-  'mode === "development" ? "" : (process.env.REDIS_URL ?? "")',
-  "runtime smoke must prove development without Redis and production with governed Redis",
-);
-requireText(
-  runtimeSmoke,
-  "const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL",
-  "production runtime smoke must reuse the API endpoint embedded at build time",
-);
-requireText(
-  runtimeSmoke,
-  "const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL",
-  "production runtime smoke must reuse the socket endpoint embedded at build time",
-);
-rejectText(
-  runtimeSmoke,
-  "runtime-smoke.tecpey.test",
-  "production runtime smoke must not replace build-time endpoints with different origins",
-);
+  const fullValidation = productionBootstrap.indexOf(
+    'await import("./validate-env.mjs")',
+  );
+  const migrationImport = productionBootstrap.indexOf(
+    'await import("./run-database-migrations")',
+  );
+  const serverImport = productionBootstrap.indexOf('await import("../server")');
+  if (
+    fullValidation < 0 ||
+    migrationImport < 0 ||
+    serverImport < 0 ||
+    fullValidation >= migrationImport ||
+    fullValidation >= serverImport
+  ) {
+    failures.push(
+      "production bootstrap must run complete environment validation before migration or server imports",
+    );
+  }
 
-if (failures.length) {
-  console.error("Runtime bootstrap authority check failed:");
-  for (const failure of failures) console.error(`- ${failure}`);
-  process.exit(1);
+  for (const [text, message] of [
+    [
+      "value !== value.trim()",
+      "environment validator must reject surrounding whitespace in required values",
+    ],
+    [
+      "validateHttpsOrigin('NEXT_PUBLIC_SITE_URL')",
+      "environment validator must require an HTTPS site origin",
+    ],
+    [
+      "validateHttpsOrigin('NEXT_PUBLIC_API_URL')",
+      "environment validator must require an HTTPS application origin",
+    ],
+    [
+      "decoded.toString('base64') !== crmPiiKey",
+      "environment validator must require a canonical 32-byte CRM encryption key",
+    ],
+    [
+      "validateConnectionUrl('DATABASE_URL'",
+      "environment validator must validate the PostgreSQL connection URL",
+    ],
+    [
+      "validateConnectionUrl('REDIS_URL'",
+      "environment validator must validate the production Redis connection URL",
+    ],
+  ]) {
+    requireText(environmentValidator, text, message);
+  }
+
+  return failures;
 }
 
-await import("./check-redis-safety-authority.mjs");
+async function main() {
+  const [
+    server,
+    runtimeSmoke,
+    productionBootstrap,
+    environmentValidator,
+    cspValidator,
+  ] = await Promise.all([
+    readFile("server.ts", "utf8"),
+    readFile("scripts/check-ui-runtime.mjs", "utf8"),
+    readFile("scripts/run-production-bootstrap.ts", "utf8"),
+    readFile("scripts/validate-env.mjs", "utf8"),
+    readFile("scripts/validate-csp-connection-env.ts", "utf8"),
+  ]);
+  const failures = runtimeBootstrapFindings({
+    server,
+    runtimeSmoke,
+    productionBootstrap,
+    environmentValidator,
+    cspValidator,
+  });
 
-console.log(
-  "Runtime bootstrap authority check passed: explicit Next/HTTP network identity, Redis-optional development and fail-closed production.",
-);
+  if (failures.length) {
+    console.error("Runtime bootstrap authority check failed:");
+    for (const failure of failures) console.error(`- ${failure}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  await import("./check-redis-safety-authority.mjs");
+
+  console.log(
+    "Runtime bootstrap authority check passed: explicit Next/HTTP network identity, Redis-optional development and fail-closed production.",
+  );
+}
+
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === resolve(process.argv[1])
+) {
+  void main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Runtime bootstrap authority check failed: ${message}`);
+    process.exitCode = 1;
+  });
+}

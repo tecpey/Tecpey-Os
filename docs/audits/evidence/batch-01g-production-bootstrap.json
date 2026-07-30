@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01g-production-bootstrap",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of the production environment validator, standalone CSP environment validator, compiled production bootstrap and permanent runtime-bootstrap authority, including environment-file selection, process-mode ordering, required-value normalization, public origins, connection URL schemes, secret/key encoding, custody and session gates, migration/server import order, child-process behavior and negative policy mutations.",
+  "residualRisks": [
+    {
+      "id": "B01G-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews four production-bootstrap authority paths only; the remaining Batch 1 deployment, package, changelog and script paths retain their pending status and no repository-wide completion claim is made.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01G-RISK-002",
+      "severity": "P2",
+      "statement": "Startup URL validation proves syntax, scheme and origin shape but does not prove DNS, certificate, authentication, reachability or failover behavior; those remain assigned to Batch 11 runtime and recovery evidence.",
+      "owner": "operations-reliability",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01G-RISK-003",
+      "severity": "P2",
+      "statement": "Split Docker connection-variable assembly is consumed before validation but its complete encoding and deployment semantics remain assigned to the production-connection and deployment authorities in Batch 3 and Batch 11.",
+      "owner": "operations-reliability",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": "scripts/check-runtime-bootstrap.mjs",
+      "gitObjectId": "ca6d7c4684b339a9c8cd09456daffc857670a327",
+      "sha256": "aaecc89bc144d9dff7489e773b1ef1a2e6badc407e8bf281b36e5a48a2e89ef8",
+      "lines": 208,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 208
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Every server and runtime-smoke source binding, Redis startup boundary, Next/HTTP identity condition, validator mode/load ordering requirement and complete-validation import order was reviewed line by line.",
+        "The authority now exports deterministic findings so negative tests can mutate each new production contract rather than merely observing that the current source passes."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/run-production-bootstrap.ts",
+      "gitObjectId": "18099a9c9c57ebf661637e9efca0692a1262115c",
+      "sha256": "908c28a2247fefac009e4a6cdd00ebcc904c67c6d2a440bf8e07776b90e2b073",
+      "lines": 28,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Production-mode forcing, Next environment loading, split connection assembly, CSP assertion, target parsing, dynamic imports and rejected-promise reporting were reviewed as one ordered startup sequence.",
+        "The complete validator is now bundled into and awaited by the compiled bootstrap before either migrations or the HTTP server can be imported."
+      ],
+      "findings": [
+        {
+          "id": "B01G-P1-003",
+          "severity": "P1",
+          "line": 13,
+          "attackPath": "Container, Docker Compose or PM2 could invoke the compiled production bootstrap directly with valid CSP endpoints but missing session, refresh, CRM, database, Redis, custody or trusted-proxy configuration; the former bootstrap validated only CSP and continued to the selected runtime target.",
+          "affectedInvariant": "Every production server and migration process must pass the complete production environment contract before application or migration code is imported.",
+          "evidence": "A child process with only NEXT_PUBLIC_API_BACKEND_URL and NEXT_PUBLIC_API_SOCKET_URL reached unsupported_production_bootstrap_target instead of reporting the missing required environment; Docker CMD and PM2 both execute this bootstrap directly.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The bundled bootstrap must await validate-env before both target imports, a child-process test must fail on missing NEXT_PUBLIC_SITE_URL before target selection and the permanent policy must reject removal or reordering of the import.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/validate-csp-connection-env.ts",
+      "gitObjectId": "a194578d821a8afd8b81873d6455b7f2b2fe55c2",
+      "sha256": "902e06219158cd6945763f6c55be66803eabf5e3d34a85fcfb90a5093e84ad0c",
+      "lines": 15,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 15
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Module resolution, process-mode ordering, Next environment-file selection, CSP assertion input and fail-closed diagnostic behavior were reviewed in full.",
+        "The process now becomes Production before loadEnvConfig, preventing inherited test mode from selecting .env.test while claiming to validate production connection sources."
+      ],
+      "findings": [
+        {
+          "id": "B01G-P1-002",
+          "severity": "P1",
+          "line": 5,
+          "attackPath": "When the standalone CSP validator inherited NODE_ENV=test, @next/env selected .env.test even though loadEnvConfig received false; the assertion then applied production CSP semantics to the wrong file and could leave unsafe or missing .env.production endpoints unvalidated.",
+          "affectedInvariant": "A command named by env:check as the production CSP validator must always load production environment files independent of inherited caller mode.",
+          "evidence": "@next/env gives NODE_ENV=test precedence over the dev=false argument when choosing its file set; the former validator changed NODE_ENV only in the copied assertion object after environment loading.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The validator must force production before loadEnvConfig and both the runtime policy and child-process test must reject an unsafe production endpoint when the caller does not export NODE_ENV.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/validate-env.mjs",
+      "gitObjectId": "046b9f670e6d011aea148c1e43ca6acd642d0c57",
+      "sha256": "f6654a7803537a5138c068ea5bf760ac74f39ec0775c98a566373fccd7a0d703",
+      "lines": 354,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 354
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "All required and optional names, placeholder rules, public and connection URL semantics, signing-secret length and separation, CRM key decoding, proxy bounds, webhook coupling, session lifetime, legacy sunset, model allowlist, custody prohibitions, Redis requirements and diagnostic exits were reviewed line by line.",
+        "Production mode is now fixed before environment loading, public trust origins and connection schemes are explicit, required values cannot hide whitespace and the CRM encryption key uses one canonical byte representation."
+      ],
+      "findings": [
+        {
+          "id": "B01G-P1-001",
+          "severity": "P1",
+          "line": 5,
+          "attackPath": "Direct env:check execution without an exported NODE_ENV loaded production files but evaluated custody, real-withdrawal, Redis and legacy-cookie branches as non-production; a complete inline environment with TECPEY_REAL_WITHDRAWALS_ENABLED=1 exited successfully.",
+          "affectedInvariant": "The production environment validator must not depend on caller-provided mode to activate its production-only security gates.",
+          "evidence": "The pre-remediation child-process reproduction removed NODE_ENV, supplied every required value and enabled real withdrawals; validate-env printed that validation passed with status zero.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "validate-env must force Production before loadEnvConfig, a child-process test without NODE_ENV must reject real withdrawals and the permanent policy must reject weakening the ordered mode assignment.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01G-P1-004",
+          "severity": "P1",
+          "line": 123,
+          "attackPath": "NEXT_PUBLIC_SITE_URL and NEXT_PUBLIC_API_URL were checked only for non-empty placeholder-free text, so an HTTP, credential-bearing, path-bearing or malformed value could pass preflight and become WebAuthn relying-party or CSRF trust configuration.",
+          "affectedInvariant": "Production public identity and application navigation configuration must be unambiguous credential-free HTTPS origins.",
+          "evidence": "The former validator had no URL parse for either required key; WebAuthn and CSRF consumers parse NEXT_PUBLIC_SITE_URL as a relying-party/trusted origin and some invalid values fall back to localhost behavior.",
+          "fixOwner": "authentication-admin-security",
+          "verificationRequirement": "The validator and its permanent policy must require HTTPS origins with ASCII-only input, hostname, no credentials, no non-root path, no query and no fragment; a child process must reject an HTTP path-bearing site value.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01G-P2-005",
+          "severity": "P2",
+          "line": 165,
+          "attackPath": "Node's permissive base64 decoder ignored invalid trailing characters and surrounding whitespace, so TECPEY_CRM_PII_KEY_B64 could satisfy the former 32-byte length check without being a canonical reviewable key representation.",
+          "affectedInvariant": "One configured CRM encryption key string must map to exactly one canonical 32-byte value and malformed input must fail before runtime.",
+          "evidence": "Buffer.from(valid32ByteBase64 + '!!!', 'base64') returned 32 bytes and re-encoded to the clean value, while the former validator compared only decoded length.",
+          "fixOwner": "crm-privacy",
+          "verificationRequirement": "Validation must require the decoded value to be exactly 32 bytes and re-encode byte-for-byte to the original string; a child-process fixture with ignored suffix characters must fail.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01G-P2-006",
+          "severity": "P2",
+          "line": 87,
+          "attackPath": "Whitespace-only required values were truthy, and surrounding whitespace was not rejected; a nominally present site, API, trusted-proxy or database value could therefore pass the required-key phase while representing no usable governed value.",
+          "affectedInvariant": "A required production value must be non-blank and must not acquire ambiguous semantics through surrounding whitespace.",
+          "evidence": "The former required loop used only if (!value), while downstream consumers inconsistently trim, parse or preserve the same values.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The complete validator must treat trim-empty values as missing, reject any required value that differs from its trim and retain this source contract in the runtime-bootstrap policy.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01G-P2-007",
+          "severity": "P2",
+          "line": 139,
+          "attackPath": "DATABASE_URL had no syntax or protocol validation and REDIS_URL was checked only for presence in the environment validator, so preflight could report success for unsupported or malformed connection schemes before later startup code failed inconsistently.",
+          "affectedInvariant": "Production preflight and the compiled bootstrap must reject malformed or unsupported PostgreSQL and Redis connection URLs through the same complete environment authority.",
+          "evidence": "The former validator never constructed a URL for DATABASE_URL and its Redis production branch tested trim presence only; server.ts separately checked Redis but migration and preflight reporting did not share that early contract.",
+          "fixOwner": "persistence-infrastructure",
+          "verificationRequirement": "The complete validator must parse both values and allow only postgres/postgresql and redis/rediss protocols respectively; the permanent runtime-bootstrap policy must require both checks.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,10 @@ import nextEnvironment from '@next/env';
 
 const { loadEnvConfig } = nextEnvironment;
 
+if (!Reflect.set(process.env, 'NODE_ENV', 'production')) {
+  throw new Error('production_environment_node_env_unavailable');
+}
+
 function parseDurationSeconds(value) {
   const raw = value?.trim();
   if (!raw) return null;
@@ -68,16 +72,71 @@ const optional = [
   'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 
-const badTokens = ['CHANGE_ME', 'your-real', 'admin-de', 'wss-dem', 'REPLACE_WITH'];
+const placeholderPatterns = [
+  /change[_-]?me/iu,
+  /placeholder/iu,
+  /replace[_-]?with/iu,
+  /your[-_ ]?real/iu,
+  /admin-de/iu,
+  /wss-dem/iu,
+];
 const errors = [];
 
 for (const key of required) {
   const value = process.env[key];
-  if (!value) errors.push(`${key} is missing`);
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (!value?.trim()) {
+    errors.push(`${key} is missing`);
+  } else if (value !== value.trim()) {
+    errors.push(`${key} must not contain surrounding whitespace`);
+  }
+  if (value && placeholderPatterns.some((pattern) => pattern.test(value))) {
     errors.push(`${key} still contains a placeholder`);
   }
 }
+
+function validateHttpsOrigin(key) {
+  const value = process.env[key];
+  if (!value?.trim()) return;
+  if (!/^[\x21-\x7e]+$/u.test(value)) {
+    errors.push(`${key} must contain one unambiguous ASCII URL`);
+    return;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (
+      parsed.protocol !== 'https:' ||
+      !parsed.hostname ||
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== '/' ||
+      parsed.search ||
+      parsed.hash
+    ) {
+      errors.push(`${key} must be an HTTPS origin without credentials, path, query or fragment`);
+    }
+  } catch {
+    errors.push(`${key} must be a valid HTTPS origin`);
+  }
+}
+
+validateHttpsOrigin('NEXT_PUBLIC_SITE_URL');
+validateHttpsOrigin('NEXT_PUBLIC_API_URL');
+
+function validateConnectionUrl(key, allowedProtocols) {
+  const value = process.env[key]?.trim();
+  if (!value) return;
+  try {
+    const parsed = new URL(value);
+    if (!allowedProtocols.has(parsed.protocol)) {
+      errors.push(`${key} uses an unsupported protocol`);
+    }
+  } catch {
+    errors.push(`${key} must be a valid connection URL`);
+  }
+}
+
+validateConnectionUrl('DATABASE_URL', new Set(['postgres:', 'postgresql:']));
 
 const signingSecretNames = [
   'TECPEY_SESSION_SECRET',
@@ -100,11 +159,17 @@ for (const key of signingSecretNames) {
 const crmPiiKey = process.env.TECPEY_CRM_PII_KEY_B64?.trim();
 if (crmPiiKey) {
   try {
-    if (Buffer.from(crmPiiKey, 'base64').length !== 32) {
-      errors.push('TECPEY_CRM_PII_KEY_B64 must decode to exactly 32 bytes');
+    const decoded = Buffer.from(crmPiiKey, 'base64');
+    if (
+      decoded.length !== 32 ||
+      decoded.toString('base64') !== crmPiiKey
+    ) {
+      errors.push(
+        'TECPEY_CRM_PII_KEY_B64 must be canonical base64 encoding exactly 32 bytes',
+      );
     }
   } catch {
-    errors.push('TECPEY_CRM_PII_KEY_B64 must be valid base64');
+    errors.push('TECPEY_CRM_PII_KEY_B64 must be canonical base64 encoding exactly 32 bytes');
   }
 }
 
@@ -130,7 +195,7 @@ if (process.env.TECPEY_TRUSTED_PROXY_HOPS && (!Number.isInteger(trustedProxyHops
 
 for (const key of optional) {
   const value = process.env[key];
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (value && placeholderPatterns.some((pattern) => pattern.test(value))) {
     errors.push(`${key} still contains a placeholder`);
   }
 }
@@ -257,6 +322,8 @@ if (process.env.NODE_ENV === 'production') {
     errors.push(
       'REDIS_URL is required in production because strict session and withdrawal risk authority use the shared ioredis client; Redis REST credentials alone are insufficient.'
     );
+  } else {
+    validateConnectionUrl('REDIS_URL', new Set(['redis:', 'rediss:']));
   }
 
   if (process.env.TECPEY_REAL_WITHDRAWALS_ENABLED === '1') {

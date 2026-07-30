@@ -5,9 +5,41 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
+import { runtimeBootstrapFindings } from "../../../scripts/check-runtime-bootstrap.mjs";
 
 const repositoryRoot = process.cwd();
 const tsxImport = createRequire(import.meta.url).resolve("tsx");
+
+function validProductionEnvironment(
+  overrides: Record<string, string> = {},
+): string {
+  const values = {
+    NEXT_PUBLIC_SITE_URL: "https://tecpey.test",
+    NEXT_PUBLIC_API_URL: "https://my.tecpey.test",
+    NEXT_PUBLIC_API_BACKEND_URL: "https://api.tecpey.test",
+    NEXT_PUBLIC_API_SOCKET_URL: "wss://stream.tecpey.test",
+    TECPEY_SESSION_SECRET: "a".repeat(32),
+    TECPEY_REFRESH_SECRET: "b".repeat(32),
+    TECPEY_ACADEMY_AUTH_SECRET: "c".repeat(32),
+    CERTIFICATE_SIGNING_SECRET: "d".repeat(32),
+    TECPEY_WITHDRAWAL_PRICE_SECRET: "e".repeat(32),
+    TECPEY_OFFLINE_SYNC_SECRET: "f".repeat(32),
+    TECPEY_CRM_PII_KEY_B64: Buffer.alloc(32, 7).toString("base64"),
+    TECPEY_CRM_CONTACT_HASH_SECRET: "g".repeat(32),
+    TECPEY_TRUSTED_PROXY_HEADER: "x-forwarded-for",
+    TECPEY_TRUSTED_PROXY_HOPS: "1",
+    DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+    REDIS_URL: "redis://localhost:6379",
+    UPSTASH_REDIS_REST_URL: "https://rate-limit.tecpey.test",
+    UPSTASH_REDIS_REST_TOKEN: "rate-limit-token",
+    TECPEY_REAL_WITHDRAWALS_ENABLED: "0",
+    TECPEY_CUSTODY_SIMULATION_ENABLED: "0",
+    ...overrides,
+  };
+  return Object.entries(values)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+}
 
 function productionChildEnvironment(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
@@ -41,15 +73,44 @@ function runTypeScript(
   );
 }
 
+function productionBootstrapSources() {
+  const [
+    server,
+    runtimeSmoke,
+    productionBootstrap,
+    environmentValidator,
+    cspValidator,
+  ] = [
+    readFileSync(resolve(repositoryRoot, "server.ts"), "utf8"),
+    readFileSync(resolve(repositoryRoot, "scripts/check-ui-runtime.mjs"), "utf8"),
+    readFileSync(
+      resolve(repositoryRoot, "scripts/run-production-bootstrap.ts"),
+      "utf8",
+    ),
+    readFileSync(resolve(repositoryRoot, "scripts/validate-env.mjs"), "utf8"),
+    readFileSync(
+      resolve(repositoryRoot, "scripts/validate-csp-connection-env.ts"),
+      "utf8",
+    ),
+  ];
+  return {
+    server,
+    runtimeSmoke,
+    productionBootstrap,
+    environmentValidator,
+    cspValidator,
+  };
+}
+
 test("production bootstrap loads .env.production before CSP validation", () => {
   const workingDirectory = mkdtempSync(join(tmpdir(), "tecpey-csp-bootstrap-"));
   try {
     writeFileSync(
       join(workingDirectory, ".env.production"),
-      [
-        "NEXT_PUBLIC_API_BACKEND_URL=https://api.file-env.tecpey.test",
-        "NEXT_PUBLIC_API_SOCKET_URL=wss://stream.file-env.tecpey.test/ws",
-      ].join("\n"),
+      validProductionEnvironment({
+        NEXT_PUBLIC_API_BACKEND_URL: "https://api.file-env.tecpey.test",
+        NEXT_PUBLIC_API_SOCKET_URL: "wss://stream.file-env.tecpey.test/ws",
+      }),
     );
 
     const child = runTypeScript(
@@ -144,5 +205,152 @@ test("standalone CSP validation loads production files and enforces production s
     );
   } finally {
     rmSync(workingDirectory, { recursive: true, force: true });
+  }
+});
+
+test("standalone environment validation forces every production-only gate", () => {
+  const workingDirectory = mkdtempSync(join(tmpdir(), "tecpey-full-env-check-"));
+  try {
+    writeFileSync(
+      join(workingDirectory, ".env.production"),
+      validProductionEnvironment({
+        TECPEY_REAL_WITHDRAWALS_ENABLED: "1",
+      }),
+    );
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      LANG: "C",
+      NODE_ENV: "production",
+    };
+    Reflect.deleteProperty(env, "NODE_ENV");
+
+    const child = runTypeScript(
+      workingDirectory,
+      "scripts/validate-env.mjs",
+      [],
+      env,
+    );
+
+    assert.equal(child.status, 1);
+    assert.match(
+      child.stderr,
+      /TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden/u,
+    );
+  } finally {
+    rmSync(workingDirectory, { recursive: true, force: true });
+  }
+});
+
+test("production bootstrap runs complete validation before selecting a target", () => {
+  const workingDirectory = mkdtempSync(join(tmpdir(), "tecpey-full-bootstrap-"));
+  try {
+    writeFileSync(
+      join(workingDirectory, ".env.production"),
+      [
+        "NEXT_PUBLIC_API_BACKEND_URL=https://api.tecpey.test",
+        "NEXT_PUBLIC_API_SOCKET_URL=wss://stream.tecpey.test",
+      ].join("\n"),
+    );
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      LANG: "C",
+      NODE_ENV: "production",
+    };
+    Reflect.deleteProperty(env, "NODE_ENV");
+
+    const child = runTypeScript(
+      workingDirectory,
+      "scripts/run-production-bootstrap.ts",
+      ["unsupported-test-target"],
+      env,
+    );
+
+    assert.equal(child.status, 1);
+    assert.match(child.stderr, /NEXT_PUBLIC_SITE_URL is missing/u);
+    assert.doesNotMatch(child.stderr, /unsupported_production_bootstrap_target/u);
+  } finally {
+    rmSync(workingDirectory, { recursive: true, force: true });
+  }
+});
+
+test("production validation rejects unsafe origins and non-canonical CRM keys", () => {
+  const workingDirectory = mkdtempSync(join(tmpdir(), "tecpey-strict-env-check-"));
+  try {
+    writeFileSync(
+      join(workingDirectory, ".env.production"),
+      validProductionEnvironment({
+        NEXT_PUBLIC_SITE_URL: "http://tecpey.test/path",
+        TECPEY_CRM_PII_KEY_B64: `${Buffer.alloc(32, 7).toString("base64")}!!!`,
+      }),
+    );
+    const env: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      LANG: "C",
+      NODE_ENV: "production",
+    };
+    Reflect.deleteProperty(env, "NODE_ENV");
+
+    const child = runTypeScript(
+      workingDirectory,
+      "scripts/validate-env.mjs",
+      [],
+      env,
+    );
+
+    assert.equal(child.status, 1);
+    assert.match(child.stderr, /NEXT_PUBLIC_SITE_URL must be an HTTPS origin/u);
+    assert.match(child.stderr, /must be canonical base64 encoding exactly 32 bytes/u);
+  } finally {
+    rmSync(workingDirectory, { recursive: true, force: true });
+  }
+});
+
+test("runtime bootstrap policy rejects weakened production validation", () => {
+  const sources = productionBootstrapSources();
+  assert.deepEqual(runtimeBootstrapFindings(sources), []);
+
+  for (const [mutated, expected] of [
+    [
+      {
+        ...sources,
+        productionBootstrap: sources.productionBootstrap.replace(
+          'await import("./validate-env.mjs");',
+          "",
+        ),
+      },
+      /complete environment validation/u,
+    ],
+    [
+      {
+        ...sources,
+        environmentValidator: sources.environmentValidator.replace(
+          "Reflect.set(process.env, 'NODE_ENV', 'production')",
+          "Reflect.set(process.env, 'NODE_ENV', 'development')",
+        ),
+      },
+      /environment validator must force production mode/u,
+    ],
+    [
+      {
+        ...sources,
+        environmentValidator: sources.environmentValidator.replace(
+          "validateHttpsOrigin('NEXT_PUBLIC_SITE_URL');",
+          "",
+        ),
+      },
+      /HTTPS site origin/u,
+    ],
+    [
+      {
+        ...sources,
+        environmentValidator: sources.environmentValidator.replace(
+          "decoded.toString('base64') !== crmPiiKey",
+          "false",
+        ),
+      },
+      /canonical 32-byte CRM encryption key/u,
+    ],
+  ] as const) {
+    assert.match(runtimeBootstrapFindings(mutated).join("\n"), expected);
   }
 });

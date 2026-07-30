@@ -144,8 +144,25 @@ declared flag; and access JWT issuance plus its permanent authentication check
 derive `iat` and `exp` from one timestamp so the four-hour ceiling cannot gain
 a boundary second.
 
-Policy v14 binds the sixth independently identified evidence slice. Batch 1F
+Policy v13 binds the sixth independently identified evidence slice. Batch 1F
 adds six semantically reviewed paths; all other paths remain pending and
+`completionClaim` remains `false`.
+
+## Batch 1G: production bootstrap environment authority
+
+The seventh bounded slice reviews the complete production environment
+validator, standalone CSP validator, compiled production bootstrap and their
+permanent runtime-bootstrap guard. Both standalone validators now force
+Production before loading Next environment files; required values reject
+surrounding whitespace; public site and application configuration must be
+HTTPS origins; PostgreSQL and Redis schemes are checked; and the CRM encryption
+key must be canonical base64 for exactly 32 bytes. The compiled server and
+migration bootstrap now executes the complete environment validator before
+importing either runtime target, so Container and PM2 startup cannot bypass the
+same custody, session, database, Redis and secret gates used by preflight.
+
+Policy v14 binds the seventh independently identified evidence slice. Batch 1G
+adds four semantically reviewed paths; all other paths remain pending and
 `completionClaim` remains `false`.
 
 ## Local verification

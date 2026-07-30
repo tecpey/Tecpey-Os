@@ -10,7 +10,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     ...process.env,
     NODE_ENV: "production",
     NEXT_PUBLIC_SITE_URL: "https://tecpey.test",
-    NEXT_PUBLIC_API_URL: "https://tecpey.test/api",
+    NEXT_PUBLIC_API_URL: "https://tecpey.test",
     NEXT_PUBLIC_API_BACKEND_URL: "https://backend.tecpey.test",
     NEXT_PUBLIC_API_SOCKET_URL: "wss://tecpey.test/ws",
     TECPEY_SESSION_SECRET: secret("session"),

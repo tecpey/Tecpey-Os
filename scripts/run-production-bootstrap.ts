@@ -10,6 +10,8 @@ configureProductionConnectionUrls();
 assertCspConnectionEnvironment();
 
 async function main(): Promise<void> {
+  await import("./validate-env.mjs");
+
   if (process.argv[2] === "migrate") {
     await import("./run-database-migrations");
   } else if (process.argv[2] === undefined || process.argv[2] === "server") {
