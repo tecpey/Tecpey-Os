@@ -353,6 +353,66 @@ jobs:
       - name: Exchange order admission authority guard
         run: node scripts/check-exchange-order-admission.mjs
 
+      # Gates below were declared in release:check but ran in no workflow.
+      # custody:check and bounded-body:check had both silently rotted against
+      # refactored code while nothing executed them.
+      - name: Wallet custody launch gate
+        run: npm run custody:check
+
+      - name: Wallet custody launch gate tests
+        run: npm run test:custody-gate
+
+      - name: Bounded request body authority guard
+        run: npm run bounded-body:check
+
+      - name: Bounded request body tests
+        run: npm run test:bounded-body
+
+      - name: Risk enforcement authority guard
+        run: npm run risk:check
+
+      - name: Risk enforcement tests
+        run: npm run test:risk-enforcement
+
+      - name: Redis safety authority guard
+        run: npm run redis:safety:check
+
+      - name: Redis safety tests
+        run: npm run test:redis-safety
+
+      - name: API command idempotency tests
+        run: npm run test:api-command-idempotency
+
+      - name: Community reputation evidence guard
+        run: npm run community:reputation:check
+
+      - name: Community reputation tests
+        run: npm run test:community-reputation
+
+      - name: Community journal discipline guard
+        run: npm run community:journal-discipline:check
+
+      - name: Community journal discipline tests
+        run: npm run test:community-journal-discipline
+
+      - name: Operational scheduler authority guard
+        run: npm run ops:scheduler:check
+
+      - name: Operational scheduler tests
+        run: npm run test:ops-scheduler
+
+      - name: Staging scheduler evidence guard
+        run: npm run ops:staging:evidence:check
+
+      - name: Staging scheduler evidence tests
+        run: npm run test:ops-staging-evidence
+
+      - name: Release gate coverage guard
+        run: npm run release:coverage:check
+
+      - name: Security marker coverage guard
+        run: npm run security:markers:check
+
       - name: Tests
         run: |
           set -o pipefail

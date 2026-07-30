@@ -39,14 +39,32 @@ if (!/assertCustodyCapability\("withdrawal_worker"\)/.test(worker)) {
 
 const executor = await source("src/lib/wallet/withdrawal-executor.ts");
 const executionGate = executor.indexOf('assertCustodyCapability("withdrawal_worker")');
-const claim = executor.indexOf("claimWithdrawal(job.withdrawalId)");
+const claim = executor.search(/claimWithdrawalExecution\s*\(/);
 if (executionGate < 0 || claim < 0 || executionGate > claim) {
   failures.push("executor: custody gate must run before withdrawal claim");
 }
-if (!/assertCustodyCapability\("transaction_signing", \{ chainId: withdrawal\.network \}\)/.test(executor)) {
+
+// Assert the security property, not one spelling of it: the capability must be
+// used, and *every* use must carry a chainId. Matching an exact single-line call
+// silently rots the moment the call is reformatted or the chain expression
+// changes — which is how this gate previously failed closed against correct code.
+function everyCapabilityCallIsChainBound(text, capability) {
+  const calls =
+    text.match(new RegExp(`assertCustodyCapability\\(\\s*"${capability}"`, "g")) ?? [];
+  const chainBound =
+    text.match(
+      new RegExp(
+        `assertCustodyCapability\\(\\s*"${capability}"\\s*,\\s*\\{[^}]*\\bchainId\\s*:`,
+        "g",
+      ),
+    ) ?? [];
+  return calls.length > 0 && calls.length === chainBound.length;
+}
+
+if (!everyCapabilityCallIsChainBound(executor, "transaction_signing")) {
   failures.push("executor: signing capability is not bound to authoritative chain");
 }
-if (!/assertCustodyCapability\("transaction_broadcast", \{ chainId \}\)/.test(executor)) {
+if (!everyCapabilityCallIsChainBound(executor, "transaction_broadcast")) {
   failures.push("executor: broadcast capability is not bound to authoritative chain");
 }
 

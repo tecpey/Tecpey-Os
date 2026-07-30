@@ -41,20 +41,21 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "b2b65ef554cd4a42951a2d6009e91c42638bdbf3",
-      "sha256": "e4e87bd7cc9394ceaf00bce33a585e360c142b1d58e05f1205bba3dc67a19ef6",
-      "lines": 171,
+      "gitObjectId": "9c9f619e1875da1a75aba2c55c794b9bfa483eed",
+      "sha256": "a36e26c6aef46bce2fc525f73ddd9a2b60c7ff73de1ffcf8c22c927c2fbb8025",
+      "lines": 173,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 171
+          "endLine": 173
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "All scripts, dependency pins, engine constraints and override declarations were reviewed; the audit commands remain exact and separated between generation, authority checking, verification and tests.",
         "The added ESLint, secret-scanning, operational-recovery and production supply-chain commands bind their permanent guards to focused tests; supply-chain:check now executes both its source authority and 44 host-policy tests, while env:check composes the existing environment validator with the production CSP connection validator.",
-        "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority."
+        "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority.",
+        "Re-reviewed after adding release:coverage:check and security:markers:check. Both are read-only static guards over package.json and .github/workflows; neither runs application code, touches the network, or mutates developer npm configuration. release:check gains both and stays a composition of governed checks."
       ],
       "findings": [
         {

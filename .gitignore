@@ -60,3 +60,7 @@ next-env.d.ts
 # runtime data
 /storage/*.jsonl
 !/storage/.gitkeep
+
+# Redis local runtime dumps (never commit runtime artifacts)
+dump.rdb
+*.rdb

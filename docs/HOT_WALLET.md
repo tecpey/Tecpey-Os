@@ -1,6 +1,36 @@
 # Hot Wallet & Disbursement Engine — Phase 38
 
-> Enterprise-grade blockchain withdrawal execution: build → sign → broadcast → confirm.
+> Blockchain withdrawal execution: build → sign → broadcast → confirm.
+
+---
+
+## ⛔ Custody is disabled in production — read this first
+
+**Nothing in this document currently runs in production.**
+`src/lib/wallet/custody-launch-policy.ts` returns `mode: "disabled"` whenever
+`NODE_ENV === "production"`, which forces `signingEnabled`, `broadcastEnabled`,
+`withdrawalApprovalEnabled`, `workerEnabled` and
+`depositAddressAllocationEnabled` all to `false`, with
+`enabledChains: []`. `assertCustodyCapability()` is called at every executor
+stage, so an approved withdrawal cannot even enter an execution state.
+
+This is **not** a configuration toggle. Setting the environment variables in the
+Configuration section below does not enable production custody — it makes boot
+**fail**: `assertProductionCustodyConfiguration()` rejects
+`TECPEY_REAL_WITHDRAWALS_ENABLED=1`, any environment-supplied private key
+(`environment_private_keys_forbidden`), any unimplemented HSM/MPC backend, and
+`TECPEY_CUSTODY_SIMULATION_ENABLED=1`.
+
+The blocking reason is `custody_not_production_ready`: TecPey has no approved
+non-exportable signer. Real custody stays off until an HSM/MPC signer is
+implemented and certified — tracked by issues #29 and #106, and by the Phase
+39/40 wallet scope.
+
+The signing code below is real (secp256k1 / Ed25519, not simulated) and runs in
+development and test. Treat everything here as **the design and the
+non-production path**, not as a live production capability.
+
+See `docs/security/CUSTODY_LAUNCH_GATE.md` for the gate itself.
 
 ---
 

@@ -1,28 +1,117 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
+// Strict revocation is a ratchet. Every route enrolled here must keep
+// `strictRevocation: true`, and — enforced below — every route that requests it
+// must be enrolled. This list previously held 9 entries while 43 routes actually
+// used strict revocation, so 34 of them (including withdrawals, orders and API
+// keys) could have lost it silently without any gate failing.
 const directStrictFiles = [
+  "src/app/api/academy-auth/route.ts",
+  "src/app/api/academy-flashcards/route.ts",
+  "src/app/api/academy-lesson-assessment/route.ts",
+  "src/app/api/academy-lesson-progress/route.ts",
+  "src/app/api/academy-reflections/route.ts",
+  "src/app/api/academy-state/route.ts",
+  "src/app/api/academy-student-profile/route.ts",
+  "src/app/api/academy-term-progress/route.ts",
   "src/app/api/ai-mentor/route.ts",
+  "src/app/api/api-keys/[id]/route.ts",
+  "src/app/api/api-keys/route.ts",
   "src/app/api/auth/2fa/backup/route.ts",
   "src/app/api/auth/2fa/disable/route.ts",
   "src/app/api/auth/2fa/enroll/route.ts",
+  "src/app/api/auth/2fa/verify/route.ts",
   "src/app/api/auth/devices/[id]/route.ts",
+  "src/app/api/auth/devices/route.ts",
+  "src/app/api/auth/password/change/route.ts",
+  "src/app/api/auth/sessions/[id]/route.ts",
+  "src/app/api/auth/sessions/route.ts",
   "src/app/api/auth/webauthn/credentials/[id]/route.ts",
+  "src/app/api/auth/webauthn/credentials/route.ts",
+  "src/app/api/auth/webauthn/register/challenge/route.ts",
   "src/app/api/auth/webauthn/register/verify/route.ts",
-  "src/app/api/mentor-memory/route.ts",
+  "src/app/api/auth/withdraw/[id]/route.ts",
+  "src/app/api/auth/withdraw/authorize/route.ts",
+  "src/app/api/auth/withdraw/route.ts",
+  "src/app/api/community/journal-discipline-score/route.ts",
   "src/app/api/community/profile/route.ts",
+  "src/app/api/community/reputation-evidence/route.ts",
+  "src/app/api/device-token/route.ts",
+  "src/app/api/mentor-conversations/migrate/route.ts",
+  "src/app/api/mentor-memory/route.ts",
+  "src/app/api/mentor-preferences/route.ts",
+  "src/app/api/mentor-profile/recompute/route.ts",
+  "src/app/api/notifications/consent/route.ts",
+  "src/app/api/notifications/preferences/route.ts",
+  "src/app/api/offline-sync/route.ts",
+  "src/app/api/orders/[id]/route.ts",
+  "src/app/api/orders/route.ts",
+  "src/app/api/trading-arena/execution/route.ts",
+  "src/app/api/trading-arena/reflections/route.ts",
+  "src/app/api/trading-arena/route.ts",
 ];
 const sources = new Map(
   await Promise.all(
-    directStrictFiles.map(async (path) => [path, await readFile(path, "utf8")]),
+    directStrictFiles.map(async (path) => [
+      path,
+      await readFile(path, "utf8").catch(() => null),
+    ]),
   ),
 );
 const failures = [];
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// The invariant is per handler, not per file. A read handler may use the
+// non-strict session — it tolerates the short revocation cache — but every
+// mutating handler must resolve identity with `strictRevocation: true`. Several
+// governed routes legitimately serve a non-strict GET alongside a strict POST,
+// so a file-wide ban on the non-strict call would be wrong.
+function handlerBlocks(source) {
+  const pattern = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*\(/g;
+  const found = [...source.matchAll(pattern)];
+  return found.map((match, index) => ({
+    method: match[1],
+    body: source.slice(match.index, found[index + 1]?.index ?? source.length),
+  }));
+}
+
 for (const [path, source] of sources) {
+  if (source === null) continue;
   if (!source.includes("strictRevocation: true")) {
     failures.push(`${path}: strict revocation evidence is missing`);
+    continue;
   }
-  if (source.includes("getCanonicalSession(req);")) {
-    failures.push(`${path}: non-strict canonical session call remains`);
+  for (const { method, body } of handlerBlocks(source)) {
+    if (!MUTATING_METHODS.has(method)) continue;
+    if (!body.includes("getCanonicalSession(")) continue;
+    if (!body.includes("strictRevocation: true")) {
+      failures.push(
+        `${path}: ${method} resolves identity without strict revocation`,
+      );
+    }
+  }
+}
+
+// Drift detection. A hand-maintained enrollment list cannot notice a route that
+// starts using strict revocation, and an unenrolled route is one nobody guards.
+const enrolled = new Set(directStrictFiles);
+const apiRoutes = (await readdir("src/app/api", { recursive: true }))
+  .filter((entry) => entry.endsWith("route.ts"))
+  .map((entry) => `src/app/api/${entry.replaceAll("\\", "/")}`)
+  .sort();
+
+for (const path of apiRoutes) {
+  if (enrolled.has(path)) continue;
+  const source = await readFile(path, "utf8");
+  if (source.includes("strictRevocation: true")) {
+    failures.push(
+      `${path}: requests strict revocation but is not enrolled in the strict revocation inventory`,
+    );
+  }
+}
+for (const path of enrolled) {
+  if (!apiRoutes.includes(path)) {
+    failures.push(`${path}: enrolled for strict revocation but no longer exists`);
   }
 }
 

@@ -457,9 +457,11 @@ The engine's `placeOrder` separates matching into three phases:
 
 Any DB failure rolls back the entire fill sequence — no partial trades.
 
-### Warm-start recovery
+### Book recovery (PostgreSQL-authoritative)
 
-`rebuildOrderBook(market)` rebuilds the in-memory engine book from `orders WHERE status IN ('NEW', 'PARTIALLY_FILLED')` on process restart. Called automatically when `getEngineBook` detects an empty book.
+`rebuildMarketBookFromAuthority(market)` (`src/lib/trading/order-book-recovery.ts`) rebuilds the in-memory engine book and the display book from PostgreSQL, admitting only orders that are `NEW`/`PARTIALLY_FILLED` **and** whose durable `exchange_order_commands` row is `final` with `accepted = true`. It first purges the Redis projection keys, then fails closed (`order_book_storage_unavailable`) if PostgreSQL is unavailable.
+
+It is invoked by the matching engine and the cancel authority at the points where resting liquidity must be re-derived. The Redis projection is never read back into the book.
 
 ### Redis abstraction
 

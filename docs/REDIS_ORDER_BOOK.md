@@ -1,6 +1,6 @@
 # Redis Order Book — Phase 30 Foundation
 
-> Architecture, key schema, warm-start recovery, and activation guide.
+> Architecture, key schema, PostgreSQL-authoritative recovery, and activation guide.
 
 ---
 
@@ -75,26 +75,44 @@ Use `MULTI` / `EXEC` (Redis transaction) for compound operations like insert (ZA
 
 ---
 
-## Warm-start Recovery
+## Book Recovery (PostgreSQL-authoritative)
 
-On first order request for a market, if the in-memory book is empty, `rebuildOrderBook(market)` runs automatically:
+Recovery never reads the Redis projection. It runs through:
 
 ```typescript
-// src/lib/trading/order-book-store.ts
-export async function rebuildOrderBook(market: string): Promise<void>
+// src/lib/trading/order-book-recovery.ts
+export async function rebuildMarketBookFromAuthority(market: string): Promise<void>
 ```
 
-It queries:
+It clears the in-memory and display books, **deletes** `tecpey:ob:{market}:bids`
+and `tecpey:ob:{market}:asks`, then queries:
+
 ```sql
-SELECT id, user_id, side, type, price, quantity, remaining_quantity, created_at
-FROM orders
-WHERE market = $1 AND status IN ('NEW', 'PARTIALLY_FILLED') AND type = 'limit'
-ORDER BY created_at ASC
+SELECT o.id, o.user_id, o.side, o.price, o.quantity, o.remaining_quantity, o.created_at
+FROM orders o
+JOIN exchange_order_commands command ON command.order_id = o.id
+WHERE o.market = $1
+  AND o.status IN ('NEW', 'PARTIALLY_FILLED')
+  AND o.type = 'limit'
+  AND o.price IS NOT NULL
+  AND command.state = 'final'
+  AND COALESCE((command.result->>'accepted')::boolean, FALSE) = TRUE
+ORDER BY o.created_at ASC, o.id ASC
 ```
 
-For each open limit order, it inserts an `EngineOrder` into the store and a price level into the display `OrderBook`. This restores full matching state after a process restart without replaying the full event log.
+The command-finality join is what keeps an admitted-but-not-yet-accepted order
+out of the book. If PostgreSQL is unavailable the function throws
+`order_book_storage_unavailable` rather than serving a partial book.
 
-For the Redis store, warm-start should populate Redis Sorted Sets from the same query, then serve subsequent requests from Redis (not from DB).
+> A historical `rebuildOrderBook()` helper warm-started from Redis and fell back
+> to the database. It was removed. Redis writes here are fire-and-forget, so a
+> failed cleanup leaves a cancelled order in the projection; a Redis-first
+> rebuild would have resurrected it as live resting liquidity.
+
+For the future Redis store, recovery must first clear the Redis projection and
+repopulate it exclusively from the PostgreSQL-authoritative query above. Redis
+may serve reads after that rebuild completes, but it must never be used as a
+recovery source or trusted to warm-start the authoritative book.
 
 ---
 
@@ -114,7 +132,8 @@ For the Redis store, warm-start should populate Redis Sorted Sets from the same 
 3. Implement `RedisOrderBookStore` in `src/lib/trading/order-book-store.ts`:
    - Replace the `extends InMemoryOrderBookStore` stub with full Redis commands.
    - Add `MULTI/EXEC` around compound key operations.
-   - Implement warm-start population of Redis Sorted Sets from DB.
+   - Implement projection rebuilding that clears Redis and repopulates it only from the PostgreSQL-authoritative query.
+   - Never read Redis as the source for recovery or warm-start authority.
 
 4. Call `validate()` at application startup to confirm the connection before serving orders.
 

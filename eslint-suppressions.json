@@ -84,16 +84,6 @@
       "count": 2
     }
   },
-  "src/components/academy/trading-arena/ScenarioPlayer.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 3
-    }
-  },
-  "src/components/academy/trading-arena/TradingArenaDashboard.tsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx": {
     "react-hooks/set-state-in-effect": {
       "count": 1

@@ -25,11 +25,28 @@ Exact-head CI evidence overrides stale file-location assumptions.
 
 ### TD-C01 — Browser Persistence as Source of Truth
 
-- **Status:** Open
-- **Location:** Remaining Academy, Arena, journal, spaced-repetition and behavioral browser-state inventory
-- **Impact:** Device-local loss, incomplete multi-device history, weak analytics/export authority
-- **Required fix:** Phase 43 server-side persistence migration with backend database as source of truth
-- **Blocks:** Complete Academy/Arena trust, multi-device continuity, real leaderboard and reliable Mentor history
+- **Status:** Authority portion closed — residual is disposable cache only
+- **Location:** `scripts/check-browser-persistence.mjs` is the authoritative
+  inventory. It reports 25 classified lines across 7 production files, and
+  **zero** browser-owned authority: 23 `disposable-ui-cache`, 1
+  `one-shot-legacy-migration`, 1 `repairable-offline-projection`.
+- **Impact:** None for durable state. Clearing browser storage now loses only
+  re-derivable UI cache; account, trade, journal and progress state are server-owned.
+- **What closed it:** The last `quarantined-legacy-authority` modules
+  (`src/lib/trading-arena.ts`, `src/lib/trading-journal.ts`) and their only
+  consumers (`ScenarioPlayer.tsx`, `TradingArenaDashboard.tsx`) were deleted
+  after being proven unreachable — the live Arena route mounts
+  `TradingArenaExecutionClient` and the scenarios route is a migration notice.
+  The guard now refuses the `quarantined-legacy-authority` classification
+  outright, so browser-owned authority cannot be reintroduced quietly.
+- **Residual work:** Reduce the remaining Mentor/Academy UI caches when those
+  components are next touched. This is hygiene, not a trust or launch blocker.
+
+> Historical note: this entry previously read "Open — most users still on
+> browser state", and the wider repository hygiene marker count (112) was often
+> quoted as its size. That marker counts the bare word across all scanned
+> sources; the governed authority inventory was 45 lines/15 files at RT-01,
+> 30/9 before this change, and 25/7 with zero authority now.
 
 ### TD-C03 — Fragmented Identity and Session Model
 

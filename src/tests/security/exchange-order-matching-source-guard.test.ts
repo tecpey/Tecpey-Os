@@ -76,6 +76,29 @@ describe("Exchange Decimal matching source authority", () => {
     assertPresent("engine", "applyExactOrderFillTx", "engine must use exact order fill authority");
   });
 
+  it("forbids resurrecting resting liquidity from the Redis projection", () => {
+    // A cancelled order's Redis cleanup is fire-and-forget, so the projection
+    // may retain it. Reading the projection back into the book would make a
+    // cancelled order tradable again after a rebuild.
+    assertAbsent("book", /\.zrange\s*\(/, "the Redis order-book projection must never be read back");
+    assertAbsent("book", /warmFromRedis/, "Redis warm-start recovery must not be reintroduced");
+    assertAbsent("book", /rebuildOrderBook/, "Redis-first rebuild must not be reintroduced");
+
+    // Recovery purges the projection and re-derives from PostgreSQL only.
+    assertPresent("recovery", ".del(`tecpey:ob:", "rebuild must purge the stale Redis projection");
+    assertPresent("recovery", "command.state = 'final'", "only final commands may become resting liquidity");
+    assertPresent(
+      "recovery",
+      "COALESCE((command.result->>'accepted')::boolean, FALSE) = TRUE",
+      "only accepted commands may become resting liquidity",
+    );
+    assertPresent(
+      "recovery",
+      "order_book_storage_unavailable",
+      "rebuild must fail closed when PostgreSQL authority is unavailable",
+    );
+  });
+
   it("requires explicit rounding and value conservation", () => {
     assertPresent("financials", "Decimal.ROUND_DOWN", "settlement rounding policy must be explicit");
     assertPresent("financials", "trade_amount_below_settlement_scale", "sub-scale zero trades must fail closed");

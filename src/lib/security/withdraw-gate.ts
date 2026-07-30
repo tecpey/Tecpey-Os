@@ -1,9 +1,13 @@
-// Legacy withdrawal gate retained only for compatibility with non-route callers.
-// The canonical route uses withdrawal-admission-service and PostgreSQL velocity.
-// Every unavailable authority in this compatibility layer fails closed.
+// Legacy withdrawal gate. It has no callers: the canonical route uses
+// withdrawal-admission-service, whose velocity window and daily limit are
+// evaluated in PostgreSQL under row locks. This module is retained only as a
+// permanently inert landing point for any reintroduced legacy caller, and
+// `scripts/check-withdrawal-admission-authority.mjs` enforces that it stays
+// inert — `runWithdrawGate` can never return an allow decision, browser-supplied
+// verification booleans are never authority, and every unavailable dependency
+// fails closed. Do not add a decision path here; extend the admission service.
 
 import { logger } from "@/lib/logger";
-import { withDb } from "@/lib/db";
 import { getStrictWithdrawalRiskLevel } from "./withdrawal-admission-authority";
 
 const VELOCITY_PREFIX = "tecpey:withdraw:velocity:";
@@ -114,22 +118,10 @@ export async function getWithdrawVolume(userId: string): Promise<number | null> 
   }
 }
 
+// Amount-tiered 2FA is retired: the canonical route requires a one-time
+// request-bound authorization for every withdrawal, regardless of value.
 export function requires2faForWithdrawal(_amountUsd: number): boolean {
   return true;
-}
-
-export async function isDeviceTrusted(
-  userId: string,
-  fingerprint: string,
-): Promise<boolean> {
-  const result = await withDb(async (db) => {
-    const rows = await db.query(
-      `SELECT id FROM known_devices WHERE user_id = $1 AND fingerprint = $2`,
-      [userId, fingerprint],
-    );
-    return (rows.rowCount ?? 0) > 0;
-  });
-  return result.enabled ? result.value : false;
 }
 
 export type WithdrawGateResult =
