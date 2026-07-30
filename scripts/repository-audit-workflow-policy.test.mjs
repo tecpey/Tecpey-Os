@@ -128,3 +128,13 @@ test("policy rejects conditions that can skip governed audit steps", () => {
     );
   }
 });
+
+test("policy rejects conditions or overrides on the governed audit job", () => {
+  for (const injected of ["    if: false", "    permissions: write-all", "    environment: production"]) {
+    const mutated = workflow.replace("  manifest:\n", `  manifest:\n${injected}\n`);
+    assert.match(
+      repositoryAuditWorkflowFindings(mutated).join("\n"),
+      /unsupported property|YAML structure is invalid/,
+    );
+  }
+});

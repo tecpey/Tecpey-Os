@@ -10,6 +10,7 @@ const EXPECTED_STEP_NAMES = [
   "Run manifest policy tests",
   "Upload immutable manifest evidence",
 ];
+const GOVERNED_JOB_PROPERTIES = new Set(["name", "runs-on", "timeout-minutes", "steps"]);
 
 function stripYamlComment(line) {
   let singleQuoted = false;
@@ -208,6 +209,18 @@ function parseWorkflow(workflowSource) {
     "jobs.manifest",
   ) + jobsIndex + 1;
   const manifestEnd = blockEnd(lines, manifestIndex);
+  const seenJobProperties = new Set();
+  for (const line of lines.slice(manifestIndex + 1, manifestEnd)) {
+    if (line.indent !== 4) continue;
+    const { key } = keyValue(line.text);
+    if (!GOVERNED_JOB_PROPERTIES.has(key)) {
+      throw new Error(`jobs.manifest has unsupported property ${key}`);
+    }
+    if (seenJobProperties.has(key)) {
+      throw new Error(`jobs.manifest repeats ${key}`);
+    }
+    seenJobProperties.add(key);
+  }
   const stepsIndex = singleNode(
     lines.slice(manifestIndex + 1, manifestEnd),
     (line) => line.indent === 4 && line.text === "steps:",
