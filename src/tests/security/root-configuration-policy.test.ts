@@ -96,6 +96,10 @@ describe("root configuration authority", () => {
         /Git environment boundary.*\.env\.\*/u,
       ],
       [
+        { ...sources, gitIgnore: `${sources.gitIgnore}\n!.env.preview\n` },
+        /Git environment boundary.*\.env\.preview/u,
+      ],
+      [
         {
           ...sources,
           eslintConfig: sources.eslintConfig.replace(

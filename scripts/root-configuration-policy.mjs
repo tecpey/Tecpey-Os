@@ -16,6 +16,10 @@ const REQUIRED_GIT_IGNORES = Object.freeze([
   "!.env.example",
   "!.env.*.example",
 ]);
+const ALLOWED_ENV_REINCLUSIONS = new Set([
+  "!.env.example",
+  "!.env.*.example",
+]);
 
 function meaningfulLines(source) {
   if (typeof source !== "string") return new Set();
@@ -66,15 +70,9 @@ export function rootConfigurationFindings(sources) {
   for (const required of REQUIRED_GIT_IGNORES) {
     requireLine(findings, gitIgnoreLines, required, "Git environment boundary");
   }
-  for (const unsafeEnvironmentName of [
-    ".env.local",
-    ".env.production",
-    ".env.staging",
-    ".env.test",
-    ".env.development",
-  ]) {
-    if (gitIgnoreLines.has(`!${unsafeEnvironmentName}`)) {
-      findings.push(`Git environment boundary must not re-include ${unsafeEnvironmentName}`);
+  for (const line of gitIgnoreLines) {
+    if (/^!\.env(?:$|\.)/u.test(line) && !ALLOWED_ENV_REINCLUSIONS.has(line)) {
+      findings.push(`Git environment boundary must not re-include ${line.slice(1)}`);
     }
   }
 

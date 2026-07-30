@@ -248,21 +248,36 @@
     },
     {
       "path": "scripts/root-configuration-policy.mjs",
-      "gitObjectId": "7c9804facd51666dade84c44b42c19f0902a9738",
-      "sha256": "245aff7d637778eef92d1ca9454224253b5f8bb8f3628877fd30b55aa8934187",
-      "lines": 184,
+      "gitObjectId": "09dcc018a78720ff9e7591c9e89a9a21f13d1f98",
+      "sha256": "6e14ce50c99b45e48302ccc95e6d44fbecc832cdf04264effe506e24d05d29d5",
+      "lines": 182,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 184
+          "endLine": 182
         }
       ],
-      "findingDisposition": "no-confirmed-findings",
+      "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "Input typing, exact ignore lines, re-inclusion rejection, CommonJS lint contract, browser headers, immutable build identity, parsed TypeScript/Kilo configuration and agent/tool delegation checks were reviewed.",
-        "The policy fails closed with aggregated findings and is exercised by production-source acceptance, effective Git/ESLint behavior and negative mutations for every governed boundary."
+        "Input typing, exact ignore lines, complete environment re-inclusion rejection, CommonJS lint contract, browser headers, immutable build identity, parsed TypeScript/Kilo configuration and agent/tool delegation checks were reviewed.",
+        "The policy allows only the two inert example re-inclusions, rejects every other .env or .env.* negation regardless of future stage name, and is exercised by production-source acceptance, effective Git/ESLint behavior and negative mutations."
       ],
-      "findings": []
+      "findings": [
+        {
+          "id": "B01D-P2-003",
+          "severity": "P2",
+          "line": 74,
+          "attackPath": "The former policy rejected explicit re-inclusion of only five named environment files, so a future rule such as !.env.preview could make a new secret-bearing file committable while the guard still passed.",
+          "affectedInvariant": "Only inert .env example templates may be re-included after the broad environment-file ignore.",
+          "evidence": "The former loop enumerated local, production, staging, test and development names; a mutation adding !.env.preview produced no policy finding.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The root policy must inspect every .env-class negation, allow only the two governed example patterns and reject an arbitrary future stage name in a permanent mutation test.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/pull/276"
+          ]
+        }
+      ]
     },
     {
       "path": "tsconfig.json",
