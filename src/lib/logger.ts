@@ -3,6 +3,23 @@ export type LogContext = Record<string, unknown>;
 
 const SERVICE = "tecpey-web";
 
+// Structured logs are shipped to long-lived log stores. Any context field whose
+// name suggests a secret, credential or session artifact is redacted at the
+// sink so an accidental `logger.info("...", { token })` can never persist raw
+// secrets. Keys remain visible so the log entry stays debuggable.
+const SENSITIVE_KEY_PATTERN =
+  /(secret|token|password|authorization|api[-_]?key|credential|cookie|session[-_]?id|jwt|private[-_]?key|refresh)/i;
+const REDACTED = "[redacted]";
+
+function redactContext(context?: LogContext): LogContext | undefined {
+  if (!context) return context;
+  const safe: LogContext = {};
+  for (const [key, value] of Object.entries(context)) {
+    safe[key] = SENSITIVE_KEY_PATTERN.test(key) ? REDACTED : value;
+  }
+  return safe;
+}
+
 function emit(level: LogLevel, message: string, context?: LogContext) {
   const entry: Record<string, unknown> = {
     ts: new Date().toISOString(),
@@ -10,7 +27,7 @@ function emit(level: LogLevel, message: string, context?: LogContext) {
     service: SERVICE,
     environment: process.env.NODE_ENV ?? "unknown",
     msg: message,
-    ...(context ?? {}),
+    ...(redactContext(context) ?? {}),
   };
   const line = JSON.stringify(entry);
   if (level === "error") console.error(line);

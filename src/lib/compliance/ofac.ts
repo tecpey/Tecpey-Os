@@ -7,7 +7,7 @@
 // Primary strategy: OFAC Web API (free, no API key needed)
 //   https://ofac-api.com/api/v4/search (third-party mirror, also available)
 //
-// Fallback: Name-match via string similarity (when API unavailable)
+// Fallback: fail-closed (screening unavailable is treated as a potential hit)
 //
 // Configuration:
 //   OFAC_API_URL — override API endpoint
@@ -50,6 +50,20 @@ const noHit: SanctionsHit = {
   screenedAt: new Date(),
 };
 
+// Fail-closed (docs/audit/FINDINGS.md F-008): an unreachable screening API is
+// treated as a potential hit that blocks the operation for manual review.
+// A silent pass here is a sanctions-compliance violation, not a graceful
+// degradation. Callers distinguish this state via listName and may route it
+// to a manual review queue instead of an automatic block if their policy
+// allows — but they must never interpret it as "no hit".
+const screeningUnavailableHit: SanctionsHit = {
+  matched: true,
+  listName: "OFAC SDN (screening unavailable — fail-closed)",
+  matchedName: null,
+  confidence: null,
+  screenedAt: new Date(),
+};
+
 export class OfacSanctionsProvider implements SanctionsProvider {
   async screenUser(opts: {
     userId: string;
@@ -69,7 +83,7 @@ export class OfacSanctionsProvider implements SanctionsProvider {
 
     const result = await ofacSearch(params);
 
-    if (!result) return { ...noHit, screenedAt: new Date() };
+    if (!result) return { ...screeningUnavailableHit, screenedAt: new Date() };
 
     const topMatch = result.matches?.[0];
     if (!topMatch || (topMatch.score ?? 0) < MATCH_THRESHOLD * 100) {
@@ -95,7 +109,7 @@ export class OfacSanctionsProvider implements SanctionsProvider {
       minScore: "100", // address must be exact match
     });
 
-    if (!result) return { ...noHit, screenedAt: new Date() };
+    if (!result) return { ...screeningUnavailableHit, screenedAt: new Date() };
 
     const match = result.matches?.[0];
     if (!match || (match.score ?? 0) < 100) {

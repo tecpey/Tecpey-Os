@@ -31,11 +31,22 @@ async function withIsolatedDatabase(
     await admin.query(`CREATE DATABASE ${name}`);
     await run(isolatedUrl.toString(), name);
   } finally {
-    const sessions = await admin.query<{ count: number }>(
-      "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
-      [name],
-    );
-    assert.equal(sessions.rows[0]?.count, 0, "isolated migration database must release every session");
+    // Backend termination is only visible in pg_stat_activity once the server
+    // finishes cleaning up the socket; poll within a bounded deadline instead
+    // of asserting on a single racy read. The assertion itself is unchanged:
+    // the isolated database must still release every session.
+    const deadline = Date.now() + 10_000;
+    let remaining = Number.POSITIVE_INFINITY;
+    while (Date.now() < deadline) {
+      const sessions = await admin.query<{ count: number }>(
+        "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
+        [name],
+      );
+      remaining = sessions.rows[0]?.count ?? Number.POSITIVE_INFINITY;
+      if (remaining === 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal(remaining, 0, "isolated migration database must release every session");
     await admin.query(`DROP DATABASE IF EXISTS ${name}`);
     await admin.end();
   }

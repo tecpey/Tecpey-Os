@@ -14,6 +14,26 @@ let schemaVerification: Promise<void> | null = null;
 export const DATABASE_READINESS_STATEMENT_TIMEOUT_MS = 5_000;
 export const DATABASE_READINESS_QUERY_TIMEOUT_MS = 6_000;
 
+// Runtime pool statement/query timeouts. The main pool previously had no
+// server-side timeout at all: a hung or pathologically slow query could hold
+// one of the 10 connections (and its transaction locks) indefinitely, slowly
+// exhausting the pool under load. Defaults are deliberately generous so
+// legitimate reporting queries are unaffected; tighten via env when needed.
+function boundedTimeoutMs(raw: string | undefined, fallback: number): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1_000) return fallback;
+  return Math.floor(parsed);
+}
+
+export const DATABASE_STATEMENT_TIMEOUT_MS = boundedTimeoutMs(
+  process.env.TECPEY_DB_STATEMENT_TIMEOUT_MS,
+  15_000,
+);
+export const DATABASE_QUERY_TIMEOUT_MS = boundedTimeoutMs(
+  process.env.TECPEY_DB_QUERY_TIMEOUT_MS,
+  20_000,
+);
+
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL;
   if (!url || url.includes("CHANGE_ME")) {
@@ -28,6 +48,9 @@ function getPool(): Pool | null {
       max: 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      statement_timeout: DATABASE_STATEMENT_TIMEOUT_MS,
+      query_timeout: DATABASE_QUERY_TIMEOUT_MS,
+      application_name: "tecpey-runtime",
       // Test workers import the shared DB authority directly. Once assertions
       // complete, idle sockets must not keep the Node test process alive.
       allowExitOnIdle: process.env.NODE_ENV === "test",
