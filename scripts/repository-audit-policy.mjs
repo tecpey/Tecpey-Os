@@ -71,6 +71,7 @@ const DOMAIN_RULES = [
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
       /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
+      /^config\/secret-scanning-baseline\.json$/,
       /^SECURITY\.md$/,
     ],
   },
@@ -243,7 +244,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 8,
+  version: 9,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),
