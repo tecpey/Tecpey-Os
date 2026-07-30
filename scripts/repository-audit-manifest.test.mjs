@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +33,7 @@ async function git(root, ...args) {
   });
 }
 
-async function fixtureRepository() {
+async function fixtureRepository({ withSemanticEvidence = true } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "tecpey-audit-manifest-"));
   await git(root, "init", "--quiet");
   await fs.mkdir(path.join(root, "src", "lib", "wallet"), { recursive: true });
@@ -43,8 +44,90 @@ async function fixtureRepository() {
   await fs.writeFile(path.join(root, "asset.bin"), Buffer.from([0x00, 0xff, 0x01]));
   await git(root, "add", ".");
   await git(root, "commit", "--quiet", "-m", "fixture");
+  if (withSemanticEvidence) await addSemanticEvidenceFixture(root);
   return root;
 }
+
+async function addSemanticEvidenceFixture(root, overrides = {}) {
+  const targetPath = "scripts/root-authority.mjs";
+  await fs.mkdir(path.join(root, "scripts"), { recursive: true });
+  await fs.writeFile(path.join(root, targetPath), "export const governed = true;\n", "utf8");
+  await git(root, "add", ".");
+  await git(root, "commit", "--quiet", "-m", "add reviewed authority");
+  const content = await fs.readFile(path.join(root, targetPath));
+  const gitObjectId = (
+    await execFileAsync("git", ["rev-parse", `HEAD:${targetPath}`], { cwd: root })
+  ).stdout.trim();
+  const declaration = {
+    schemaVersion: 1,
+    evidenceId: "batch-01a-audit-authority",
+    reviewBatch: 1,
+    reviewedAt: "2026-07-29",
+    reviewMethod: "Complete line-addressable semantic review of one governed fixture.",
+    residualRisks: [
+      {
+        id: "B01A-RISK-001",
+        severity: "P3",
+        statement: "Fixture review does not claim repository-wide completion.",
+        owner: "audit-test",
+        disposition: "tracked-debt",
+      },
+    ],
+    files: [
+      {
+        path: targetPath,
+        gitObjectId,
+        sha256: createHash("sha256").update(content).digest("hex"),
+        lines: 1,
+        reviewedRanges: [{ startLine: 1, endLine: 1 }],
+        findingDisposition: "no-confirmed-findings",
+        reviewNotes: ["The single exported authority line was reviewed."],
+        findings: [],
+        ...overrides,
+      },
+    ],
+  };
+  const evidencePath = path.join(
+    root,
+    "docs",
+    "audits",
+    "evidence",
+    "batch-01a-audit-authority.json",
+  );
+  await fs.mkdir(path.dirname(evidencePath), { recursive: true });
+  await fs.writeFile(evidencePath, `${JSON.stringify(declaration, null, 2)}\n`, "utf8");
+  await git(root, "add", ".");
+  await git(root, "commit", "--quiet", "-m", "add semantic evidence");
+  return { declaration, evidencePath, targetPath };
+}
+
+test("semantic evidence rejects a finding severity that contradicts its id", async (t) => {
+  const root = await fixtureRepository({ withSemanticEvidence: false });
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  await addSemanticEvidenceFixture(root, {
+    findingDisposition: "confirmed-findings",
+    findings: [{
+      id: "B01A-P0-001",
+      severity: "P3",
+      line: 1,
+      attackPath: "Contradictory evidence could mislead release consumers.",
+      affectedInvariant: "Finding identifiers and severities must agree.",
+      evidence: "The ID encodes P0 while severity declares P3.",
+      fixOwner: "repository-supply-chain",
+      verificationRequirement: "Manifest generation must fail closed.",
+      disposition: "release-no-go",
+      remediation: ["#156"],
+    }],
+  });
+  const sourceSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+  await assert.rejects(
+    generateRepositoryAuditManifest({
+      repositoryRoot: root,
+      expectedSourceSha: sourceSha,
+    }),
+    /severity does not match its id/,
+  );
+});
 
 test("manifest inventories the exact committed tree with deterministic evidence", async (t) => {
   const root = await fixtureRepository();
@@ -64,7 +147,7 @@ test("manifest inventories the exact committed tree with deterministic evidence"
   });
 
   assert.deepEqual(first, second);
-  assert.equal(first.summary.trackedPaths, 4);
+  assert.equal(first.summary.trackedPaths, 6);
   assert.equal(first.files.some((file) => file.path === "untracked.txt"), false);
   assert.equal(first.files.find((file) => file.path === "README.md").lines, 1);
   assert.equal(first.files.find((file) => file.path === "README.md").automatedScan.findingCounts.P3, 0);
@@ -76,7 +159,11 @@ test("manifest inventories the exact committed tree with deterministic evidence"
     0,
   );
   assert.equal(first.files.every((file) => file.inventoryCommitSha === sourceSha), true);
-  assert.equal(first.files.every((file) => file.review.reviewedCommitSha === null), true);
+  assert.equal(first.reviewEvidenceSets.length, 1);
+  assert.equal(
+    first.files.filter((file) => file.review.reviewedCommitSha !== null).length,
+    1,
+  );
   await validateRepositoryAuditManifest(first, { repositoryRoot: root, expectedSourceSha: sourceSha });
 });
 
@@ -141,6 +228,79 @@ test("manifest verification rejects tampering or path omission", async (t) => {
   await assert.rejects(
     validateRepositoryAuditManifest(manifest, { repositoryRoot: root }),
     /does not match the exact tracked commit/,
+  );
+});
+
+test("manifest generation and verification reject a deleted configured evidence declaration", async (t) => {
+  const root = await fixtureRepository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const manifest = await generateRepositoryAuditManifest({ repositoryRoot: root });
+  const evidencePath = "docs/audits/evidence/batch-01a-audit-authority.json";
+
+  await git(root, "rm", "--quiet", evidencePath);
+  await git(root, "commit", "--quiet", "-m", "delete configured semantic evidence");
+
+  const expectedError =
+    /batch-01a-audit-authority\.json is missing from the exact tracked tree/;
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: root }),
+    expectedError,
+  );
+  await assert.rejects(
+    validateRepositoryAuditManifest(manifest, { repositoryRoot: root }),
+    expectedError,
+  );
+});
+
+test("manifest applies line-addressable semantic evidence to the exact reviewed blob", async (t) => {
+  const root = await fixtureRepository({ withSemanticEvidence: false });
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const { targetPath } = await addSemanticEvidenceFixture(root);
+  const sourceSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim();
+
+  const manifest = await generateRepositoryAuditManifest({
+    repositoryRoot: root,
+    expectedSourceSha: sourceSha,
+  });
+  const reviewed = manifest.files.find((file) => file.path === targetPath);
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.reviewEvidenceSets.length, 1);
+  assert.equal(manifest.reviewEvidenceSets[0].reviewedPaths, 1);
+  assert.equal(manifest.reviewEvidenceSets[0].reviewedLines, 1);
+  assert.equal(reviewed.review.status, "semantic-reviewed");
+  assert.equal(reviewed.review.reviewedCommitSha, sourceSha);
+  assert.deepEqual(reviewed.review.semanticEvidence.reviewedRanges, [
+    { startLine: 1, endLine: 1 },
+  ]);
+  assert.equal(manifest.completionClaim, false);
+  await validateRepositoryAuditManifest(manifest, {
+    repositoryRoot: root,
+    expectedSourceSha: sourceSha,
+  });
+});
+
+test("manifest rejects stale reviewed blobs and incomplete line coverage", async (t) => {
+  const staleRoot = await fixtureRepository({ withSemanticEvidence: false });
+  t.after(() => fs.rm(staleRoot, { recursive: true, force: true }));
+  const stale = await addSemanticEvidenceFixture(staleRoot);
+  await fs.writeFile(path.join(staleRoot, stale.targetPath), "export const governed = false;\n", "utf8");
+  await git(staleRoot, "add", ".");
+  await git(staleRoot, "commit", "--quiet", "-m", "change reviewed authority");
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: staleRoot }),
+    /Git blob changed after review/,
+  );
+
+  const gapRoot = await fixtureRepository({ withSemanticEvidence: false });
+  t.after(() => fs.rm(gapRoot, { recursive: true, force: true }));
+  const gap = await addSemanticEvidenceFixture(gapRoot);
+  gap.declaration.files[0].reviewedRanges = [{ startLine: 1, endLine: 2 }];
+  await fs.writeFile(gap.evidencePath, `${JSON.stringify(gap.declaration, null, 2)}\n`, "utf8");
+  await git(gapRoot, "add", ".");
+  await git(gapRoot, "commit", "--quiet", "-m", "break reviewed ranges");
+  await assert.rejects(
+    generateRepositoryAuditManifest({ repositoryRoot: gapRoot }),
+    /reviewed ranges must be ordered, contiguous and bounded/,
   );
 });
 
