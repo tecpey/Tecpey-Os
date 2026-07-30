@@ -4,6 +4,8 @@
 dist
 node_modules
 coverage
+artifacts
+.agents
 tests/e2e/test-results
 tests/e2e/playwright-report
 storage/*

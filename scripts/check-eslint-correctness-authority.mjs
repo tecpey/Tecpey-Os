@@ -72,6 +72,10 @@ function fail(message) {
   throw new Error(`eslint_correctness_authority:${message}`);
 }
 
+export function governedRulesForPath(filePath) {
+  return filePath.endsWith(".cjs") ? [] : GOVERNED_RULES;
+}
+
 export function hasGovernedInlineException(line) {
   const normalized = line.replace(/\s+/gu, " ").trim();
   const ruleConfiguration = normalized.match(INLINE_RULE_CONFIGURATION);
@@ -207,7 +211,7 @@ export async function runAuthorityCheck() {
   for (const result of results) {
     const relative = path.relative(ROOT, result.filePath).split(path.sep).join("/");
     const config = await eslint.calculateConfigForFile(result.filePath);
-    for (const rule of GOVERNED_RULES) {
+    for (const rule of governedRulesForPath(relative)) {
       const severity = config?.rules?.[rule]?.[0];
       if (severity !== 2) {
         fail(`rule_not_error:${relative}:${rule}:${String(severity)}`);

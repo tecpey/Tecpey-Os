@@ -4,6 +4,7 @@ import test from "node:test";
 import { ESLint } from "eslint";
 import {
   compareBaseline,
+  governedRulesForPath,
   hasGovernedInlineException,
   invalidInlineExceptionLines,
   runAuthorityCheck,
@@ -35,6 +36,22 @@ test("new explicit any fails the governed production config", async () => {
   );
   assert.ok(result.messages.some((message) =>
     message.ruleId === "@typescript-eslint/no-explicit-any" && message.severity === 2));
+});
+
+test("governed React and TypeScript rules apply only to relevant source classes", () => {
+  assert.deepEqual(governedRulesForPath("ecosystem.config.cjs"), []);
+  assert.equal(
+    governedRulesForPath("src/components/example.tsx").includes(
+      "react-hooks/rules-of-hooks",
+    ),
+    true,
+  );
+  assert.equal(
+    governedRulesForPath("src/lib/example.ts").includes(
+      "@typescript-eslint/no-explicit-any",
+    ),
+    true,
+  );
 });
 
 test("inline exceptions require an issue-linked reason", () => {

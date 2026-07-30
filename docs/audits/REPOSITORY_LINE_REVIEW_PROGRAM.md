@@ -107,6 +107,19 @@ Policy v11 binds the third independently identified evidence slice. Batch 1C
 adds seven semantically reviewed paths; all other paths remain pending and
 `completionClaim` remains `false`.
 
+## Batch 1D: root configuration authority
+
+The fourth bounded slice reviews the repository and Docker ignore boundaries,
+production environment template, agent instructions, ESLint, Next.js,
+PostCSS, TypeScript and their permanent structural policy. Real environment
+files now fail effective Git ignore checks across production, staging, test and
+development names; Docker excludes generated evidence and local agent state;
+CommonJS configuration is linted; and speculative DNS prefetch is disabled.
+
+Policy v12 binds the fourth independently identified evidence slice. Batch 1D
+adds eleven semantically reviewed paths and 480 reviewed lines; all other paths
+remain pending and `completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash

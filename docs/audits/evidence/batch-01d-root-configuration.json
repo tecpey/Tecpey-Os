@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01d-root-configuration",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of the root ignore, production environment, agent, lint, Next.js, PostCSS and TypeScript configuration authorities plus the permanent root-configuration policy, including effective Git ignore behavior, Docker build-context exposure, production placeholder validation, compiler strictness, CommonJS lint coverage, immutable build identity and security response headers.",
+  "residualRisks": [
+    {
+      "id": "B01D-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews eleven root-configuration authority files only; the remaining Batch 1 package, governance, deployment and script paths retain their pending status and no repository-wide completion claim is made.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01D-RISK-002",
+      "severity": "P2",
+      "statement": "Filename-based ignore controls cannot identify a secret stored under an arbitrary non-environment filename; the independent full-history and working-tree secret-scanning authorities remain mandatory defense in depth.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01D-RISK-003",
+      "severity": "P2",
+      "statement": "The production PM2 file is now linted and retains a focused startup-boundary test, but its complete operational semantics remain assigned to pending Batch 11 review.",
+      "owner": "operations-runtime",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": ".dockerignore",
+      "gitObjectId": "07b5d35859bdb9437b6017fada3b0f753592c09f",
+      "sha256": "57ae25b0e9b6991827665f16f9661aca83d2f6c5df46cb757074d91843935409",
+      "lines": 19,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 19
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Every build-context exclusion and re-inclusion was reviewed against Dockerfile COPY behavior, repository-generated evidence locations, local agent state, environment files, private-key formats and large local artifacts.",
+        "Generated artifacts and local agent state are now excluded before Docker sends the context to the daemon or copies it into the builder."
+      ],
+      "findings": [
+        {
+          "id": "B01D-P1-001",
+          "severity": "P1",
+          "line": 7,
+          "attackPath": "Dockerfile copies the complete non-ignored context into the builder, while generated artifacts and root .agents state were Git-ignored but not Docker-ignored; local evidence, diagnostics or agent context could therefore be sent to the daemon and retained in a builder layer.",
+          "affectedInvariant": "Untracked local evidence and agent state must never enter a production build context.",
+          "evidence": "git check-ignore confirmed artifacts are local-only, Dockerfile line 20 uses COPY . ., and the former Docker ignore list contained neither artifacts nor .agents.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The permanent root-configuration policy must require both exclusions and reject any effective re-inclusion.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".env.production.example",
+      "gitObjectId": "99ffc8afac42f6b86415f3a3c9de2adb658f1bda",
+      "sha256": "a2f4e443a95ff9b0daa4ad410d3da6427f779602640f28a5ab4c4b36c5a015e9",
+      "lines": 39,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 39
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "All public origins, distinct secret placeholders, proxy inputs, PostgreSQL/Redis authorities, rate-limit credentials, custody fail-closed flags and optional Mentor model settings were reviewed against validate-env and production-host supply-chain tests.",
+        "The unchanged template fails validation until every required placeholder is replaced, passes the governed replacement fixture and keeps real withdrawals and custody simulation disabled."
+      ],
+      "findings": []
+    },
+    {
+      "path": ".gitignore",
+      "gitObjectId": "db1cf8d058584ed19a58d0effd3e3924f4515930",
+      "sha256": "9243d13ee3e30bb264b2ac9c23255ed1f5f4306b489e9107aacfa1fdb4747f3a",
+      "lines": 62,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 62
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Dependency, test, Next.js, production, local artifact, debug, environment, Vercel, TypeScript and runtime-data patterns were reviewed with effective git check-ignore behavior.",
+        "Every .env variant is now ignored while inert .env.example and .env.*.example templates remain reviewable and committable."
+      ],
+      "findings": [
+        {
+          "id": "B01D-P1-002",
+          "severity": "P1",
+          "line": 49,
+          "attackPath": "The former explicit list ignored .env, .env.local, .env.production and .env.*.local but allowed common secret-bearing names such as .env.staging, .env.test and .env.development to appear as committable files.",
+          "affectedInvariant": "Every real environment file must be excluded from Git regardless of deployment stage naming.",
+          "evidence": "git check-ignore --no-index returned non-ignored for .env.staging, .env.test and .env.development before remediation; the broad rule plus explicit example re-inclusions now produces the intended result for all tested names.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "A permanent test must exercise effective Git ignore behavior for production, local, staging, test and development names and prove examples remain committable.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".kilo/kilo.jsonc",
+      "gitObjectId": "571a15bec11ed1225aa3fb7c0ac6a431d384dd51",
+      "sha256": "50de534d570283f9704e3205c086dbd2a7bb2392de26446f9bec1cd614711f1e",
+      "lines": 3,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 3
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "The file is valid JSON and contains only the editor schema locator; it declares no executable command, MCP server, credential or repository mutation."
+      ],
+      "findings": []
+    },
+    {
+      "path": "AGENTS.md",
+      "gitObjectId": "8bd0e39085d5260e7f8faffcad2fdc45e10aef33",
+      "sha256": "e3447d84251880fb34cfae09131cb4c57471529bbfe60976a3245793cf621627",
+      "lines": 5,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 5
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "The only agent instruction directs contributors to the installed Next.js 16 documentation inside node_modules before code changes and contains no remote execution, credential access or authority override."
+      ],
+      "findings": []
+    },
+    {
+      "path": "CLAUDE.md",
+      "gitObjectId": "43c994c2d3617f947bcb5adf1933e21dabe46bb5",
+      "sha256": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49",
+      "lines": 1,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 1
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Claude delegates to the canonical AGENTS.md rather than maintaining a divergent instruction surface."
+      ],
+      "findings": []
+    },
+    {
+      "path": "eslint.config.mjs",
+      "gitObjectId": "b58769d9c1d856286d1589f110f18ece885c075d",
+      "sha256": "6feff605df10a3ef7af331916f77ec0d0eadc61efe416afae5a12c741f2038a5",
+      "lines": 58,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 58
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Next.js and TypeScript presets, zero-debt correctness rules, rule scope and every global ignore were reviewed against the permanent ESLint authority.",
+        "CommonJS files now receive their own Node-safe core-rule configuration, and the production PM2 configuration passes ESLint instead of relying on a broad config-file exclusion."
+      ],
+      "findings": [
+        {
+          "id": "B01D-P2-001",
+          "severity": "P2",
+          "line": 29,
+          "attackPath": "The former *.config.cjs global ignore silently excluded every present or future CommonJS configuration file from ESLint, including the production PM2 entry point.",
+          "affectedInvariant": "Executable repository configuration must not disappear from static analysis because of a broad filename class.",
+          "evidence": "ESLint reported ecosystem.config.cjs as ignored before remediation; the new CommonJS block supplies readonly Node globals and core no-undef/no-unused-vars rules, and both ecosystem.config.cjs and a future config path are now non-ignored.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The root policy and ESLint API test must reject the broad ignore and prove both current and future CommonJS config paths remain lintable.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "next.config.ts",
+      "gitObjectId": "db1069da4820dfe0148306e595d13d7620353f7b",
+      "sha256": "b1337347cf39794d7aa956a8daf99943673f1141e6e6057b77e10664def1f14a",
+      "lines": 62,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 62
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Immutable build identity, strict React behavior, framework disclosure, Turbopack root and every response header were reviewed against proxy CSP and production build/runtime evidence.",
+        "Security headers remain global; DNS prefetch is now disabled so an unvisited external link does not trigger speculative name resolution."
+      ],
+      "findings": [
+        {
+          "id": "B01D-P2-002",
+          "severity": "P2",
+          "line": 15,
+          "attackPath": "X-DNS-Prefetch-Control was explicitly on, allowing browsers to resolve external link hostnames before a user chose to follow them and exposing avoidable browsing-context metadata.",
+          "affectedInvariant": "The financial application must not enable speculative third-party network disclosure without a demonstrated product requirement.",
+          "evidence": "The former header value was on; the remediated global header is off, matching the conservative OWASP header recommendation for uncontrolled links.",
+          "fixOwner": "privacy-security",
+          "verificationRequirement": "The root policy mutation test must reject re-enabling DNS prefetch, and the production browser/header gate must pass on the exact head.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "postcss.config.mjs",
+      "gitObjectId": "61e36849cf7cfa9f1f71b4a3964a4953e3e243d3",
+      "sha256": "dfac7ac2d86d326a0e5adb024e7943c181393ed17a5fcb8f0315b24c7da6ddde",
+      "lines": 7,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 7
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "The configuration exposes only the expected Tailwind PostCSS plugin and no dynamic loading, remote resource or environment-dependent mutation."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/root-configuration-policy.mjs",
+      "gitObjectId": "7c9804facd51666dade84c44b42c19f0902a9738",
+      "sha256": "245aff7d637778eef92d1ca9454224253b5f8bb8f3628877fd30b55aa8934187",
+      "lines": 184,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 184
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Input typing, exact ignore lines, re-inclusion rejection, CommonJS lint contract, browser headers, immutable build identity, parsed TypeScript/Kilo configuration and agent/tool delegation checks were reviewed.",
+        "The policy fails closed with aggregated findings and is exercised by production-source acceptance, effective Git/ESLint behavior and negative mutations for every governed boundary."
+      ],
+      "findings": []
+    },
+    {
+      "path": "tsconfig.json",
+      "gitObjectId": "d8641e0685c43be19948a78ee1788d7c23b6e0c1",
+      "sha256": "37427b8a27daf4581546a02f8596aaf4562d74f08d14741cd37668e83392a8c3",
+      "lines": 40,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 40
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Target libraries, strict/no-emit compiler contract, bundler resolution, isolated modules, Next plugin, canonical source alias, generated Next type inputs and explicit exclusions were reviewed.",
+        "The permanent root policy parses the actual JSON and rejects weakening strict, noEmit, isolatedModules, bundler resolution, React JSX or the Next plugin."
+      ],
+      "findings": []
+    }
+  ]
+}

@@ -6,6 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ["**/*.{js,jsx,ts,tsx,mjs}"],
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["error", {
@@ -24,6 +25,20 @@ const eslintConfig = defineConfig([
       "react-hooks/immutability": "error",
     },
   },
+  {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        module: "readonly",
+        process: "readonly",
+      },
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",
@@ -37,7 +52,6 @@ const eslintConfig = defineConfig([
     "public/**/*.min.js",
     "docs/internal-qa/**",
     "docs/engineering/phase39/wallet-candidates/**",
-    "*.config.cjs",
   ]),
 ]);
 

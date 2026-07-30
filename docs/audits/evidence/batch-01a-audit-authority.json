@@ -171,7 +171,7 @@
         "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
         "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
         "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
-        "Every evidence declaration configured by Policy v11 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
+        "Every evidence declaration configured by the active audit policy must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
         "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
         "Summary recomputation occurs after evidence application and completionClaim remains false."
       ],
@@ -208,18 +208,18 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "44a6f1ae9744c39782fd1b970f26d4b50efc3776",
-      "sha256": "37755a48b6fbebfeb76c444139f8a53ee4faa3f9f9ff8ae6771a7f52a90935fc",
-      "lines": 279,
+      "gitObjectId": "f226cb505a79f7fe21b9f97a9c42c5e69351bd6a",
+      "sha256": "07b175807c5611f7fe9004d7682e49ebc2827e9e35f829e3a6948be1af9dfbfd",
+      "lines": 280,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 279
+          "endLine": 280
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "Generated/vendored ownership, explicit repository-supply-chain authorities including the exact CI policy and test paths, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v11 multi-slice evidence-path ownership were reviewed.",
+        "Generated/vendored ownership, explicit repository-supply-chain authorities including the exact CI policy and test paths, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v12 four-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities."
       ],
       "findings": []
