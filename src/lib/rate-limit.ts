@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { logger } from "./logger";
+import { getTrustedClientIp } from "./security/trusted-client-ip";
 
 // Logged at most once per process lifetime to avoid flooding logs.
 let _redisUnconfiguredWarned = false;
+let _untrustedProxyHeadersWarned = false;
 
 function warnRedisUnconfigured() {
   if (_redisUnconfiguredWarned) return;
@@ -11,6 +13,17 @@ function warnRedisUnconfigured() {
     "[rate-limit] Redis is not configured in production. Rate limits are per-instance only " +
     "and will not coordinate across multiple server instances. Set UPSTASH_REDIS_REST_URL " +
     "and UPSTASH_REDIS_REST_TOKEN before deploying.",
+  );
+}
+
+function warnUntrustedProxyHeaders() {
+  if (_untrustedProxyHeadersWarned) return;
+  _untrustedProxyHeadersWarned = true;
+  logger.error(
+    "[rate-limit] client IP is not verifiable: TECPEY_TRUSTED_PROXY_HEADER / " +
+    "TECPEY_TRUSTED_PROXY_HOPS is unset or the configured forwarding header is missing/invalid. " +
+    "Spoofable forwarding headers are ignored and affected requests share one conservative " +
+    "fail-closed bucket. Configure the trusted proxy contract before deploying.",
   );
 }
 
@@ -42,7 +55,28 @@ const fallbackBuckets = () => {
   return store;
 };
 
+/**
+ * Client identity for rate limiting and audit trails.
+ *
+ * Security contract (docs/audit/FINDINGS.md F-007): forwarding headers are
+ * attacker-controlled and may be trusted only when the deployment explicitly
+ * opts in through TECPEY_TRUSTED_PROXY_HEADER / TECPEY_TRUSTED_PROXY_HOPS
+ * (see src/lib/security/trusted-client-ip.ts and scripts/validate-env.mjs).
+ *
+ * When the trusted contract cannot establish a verified address, production
+ * requests share one conservative bucket instead of trusting a spoofable
+ * header value. Outside production the legacy header order is kept so local
+ * development remains ergonomic.
+ */
 export function getClientIp(request: NextRequest) {
+  const trusted = getTrustedClientIp(request);
+  if (trusted) return trusted.slice(0, 80);
+
+  if (process.env.NODE_ENV === "production") {
+    warnUntrustedProxyHeaders();
+    return "untrusted-identity";
+  }
+
   return (
     request.headers.get("cf-connecting-ip") ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -80,19 +114,26 @@ async function redisRestRateLimit(key: string, limit: number, windowMs: number):
   const now = Date.now();
   const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
 
-  const incr = await fetch(`${url}/incr/${encodeURIComponent(safeKey)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  // Atomic create-with-TTL + increment in one pipeline round-trip. The previous
+  // INCR-then-EXPIRE pair could leave a key without any TTL when the second
+  // call failed, permanently blocking the identity — a self-inflicted denial
+  // of service against legitimate users.
+  const res = await fetch(`${url}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([
+      ["SET", safeKey, "0", "PX", String(windowMs), "NX"],
+      ["INCR", safeKey],
+    ]),
     cache: "no-store",
   });
-  if (!incr.ok) return null;
-  const incrData = await incr.json().catch(() => null) as { result?: number } | null;
-  const count = Number(incrData?.result || 0);
-  if (count === 1) {
-    await fetch(`${url}/expire/${encodeURIComponent(safeKey)}/${windowSeconds}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    }).catch(() => null);
-  }
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => null)) as Array<{ result?: unknown }> | null;
+  const count = Number(data?.[1]?.result ?? 0);
+  if (!Number.isFinite(count) || count < 1) return null;
 
   const ok = count <= limit;
   const remaining = Math.max(0, limit - count);
