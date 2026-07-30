@@ -10,6 +10,25 @@ const VELOCITY_PREFIX = "tecpey:withdraw:velocity:";
 const VELOCITY_WINDOW_S = 24 * 60 * 60;
 const DEFAULT_DAILY_LIMIT_USD = 10_000;
 
+// Atomic velocity decision (docs/audit/FINDINGS.md F-009): read, limit check
+// and increment execute as one Lua script so concurrent withdrawal requests
+// cannot both pass the check and push the counter past the daily limit
+// (time-of-check to time-of-use race). TTL is attached on creation only (NX).
+const VELOCITY_CHECK_LUA = `
+local current = tonumber(redis.call("GET", KEYS[1]) or "0")
+if current == nil or current < 0 then
+  return {-2, 0}
+end
+local limit = tonumber(ARGV[1])
+local amount = tonumber(ARGV[2])
+if current + amount > limit then
+  return {0, limit - current}
+end
+redis.call("INCRBYFLOAT", KEYS[1], amount)
+redis.call("EXPIRE", KEYS[1], tonumber(ARGV[3]), "NX")
+return {1, limit - current - amount}
+`;
+
 function redis() {
   return globalThis.tecpeyRedisClient ?? null;
 }
@@ -37,25 +56,16 @@ export async function checkWithdrawVelocity(
 
   const key = `${VELOCITY_PREFIX}${userId}`;
   try {
-    const currentRaw = await client.get(key);
-    const current = currentRaw ? Number(currentRaw) : 0;
-    if (!Number.isFinite(current) || current < 0) {
-      return {
-        allowed: false,
-        remaining: 0,
-        reason: "velocity_evidence_invalid",
-      };
-    }
-    const remaining = Math.max(0, limitUsd - current);
-    if (current + amountUsd > limitUsd) {
-      return { allowed: false, remaining, reason: "daily_limit_exceeded" };
-    }
+    const result = (await client.eval(
+      VELOCITY_CHECK_LUA,
+      1,
+      key,
+      String(limitUsd),
+      String(amountUsd),
+      String(VELOCITY_WINDOW_S),
+    )) as [number, number] | null;
 
-    const transaction = client.multi();
-    transaction.incrbyfloat(key, amountUsd);
-    transaction.expire(key, VELOCITY_WINDOW_S, "NX");
-    const result = await transaction.exec();
-    if (!Array.isArray(result) || result.some((entry) => entry?.[0])) {
+    if (!Array.isArray(result)) {
       return {
         allowed: false,
         remaining: 0,
@@ -63,7 +73,21 @@ export async function checkWithdrawVelocity(
       };
     }
 
-    return { allowed: true, remaining: Math.max(0, remaining - amountUsd) };
+    const [verdict, remainingRaw] = result;
+    const remaining = Math.max(0, Number(remainingRaw) || 0);
+
+    if (verdict === -2) {
+      return {
+        allowed: false,
+        remaining: 0,
+        reason: "velocity_evidence_invalid",
+      };
+    }
+    if (verdict === 0) {
+      return { allowed: false, remaining, reason: "daily_limit_exceeded" };
+    }
+
+    return { allowed: true, remaining };
   } catch (error) {
     logger.warn("[withdraw-gate] velocity check failed — blocking", {
       userId,

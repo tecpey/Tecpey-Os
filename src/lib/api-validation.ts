@@ -70,7 +70,14 @@ export function apiError(
 export const Validate = {
   email(value: unknown): string | null {
     const s = String(value ?? "").trim().toLowerCase().slice(0, 254);
-    return /^\S+@\S+\.\S+$/.test(s) ? s : null;
+    // RFC 5322-flavoured practical check (docs/audit/FINDINGS.md F-006):
+    // rejects double @, whitespace/control characters, label-leading/trailing
+    // hyphens, missing dot in the domain and a non-letter or 1-character TLD.
+    const EMAIL_PATTERN =
+      /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+    if (!EMAIL_PATTERN.test(s)) return null;
+    const tld = s.slice(s.lastIndexOf(".") + 1);
+    return /^[a-z]{2,}$/.test(tld) ? s : null;
   },
 
   password(value: unknown): string | null {

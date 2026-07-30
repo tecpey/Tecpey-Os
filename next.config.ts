@@ -28,6 +28,12 @@ const securityHeaders = [
   },
   // Disable the legacy XSS auditor (per OWASP — the auditor itself introduced vulnerabilities).
   { key: "X-XSS-Protection", value: "0" },
+  // Cross-origin isolation hardening: our documents get their own browsing
+  // context group and our responses may not be embedded cross-origin. This
+  // complements CSP frame-ancestors and blocks cross-origin window references
+  // and resource embedding ( Spectre-class and UI-redress mitigations ).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
 ];
 
 const nextConfig: NextConfig = {
