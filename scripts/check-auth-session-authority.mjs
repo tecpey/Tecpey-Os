@@ -66,7 +66,20 @@ for (const target of ["unified", "legacySession"]) {
   rejectText(target, "NEXTAUTH_SECRET", "NextAuth secret fallback is forbidden");
 }
 requireText("platform", "ACCESS_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60", "access sessions need a four-hour ceiling");
-requireText("platform", "return `${sessionMaxAgeSeconds()}s`", "JWT and cookie duration must share authority");
+requireText("platform", "export function sessionMaxAgeSeconds(): number", "access lifetime needs one numeric authority");
+requireText("unified", "const issuedAt = Math.floor(Date.now() / 1000);", "JWT issuance must capture one timestamp");
+requireText("unified", ".setIssuedAt(issuedAt)", "JWT issued-at must use the captured timestamp");
+requireText(
+  "unified",
+  ".setExpirationTime(issuedAt + sessionMaxAgeSeconds())",
+  "JWT and cookie duration must share the numeric authority",
+);
+rejectText("unified", ".setIssuedAt()", "JWT issued-at cannot read an implicit second wall clock");
+rejectText(
+  "unified",
+  ".setExpirationTime(sessionMaxAge())",
+  "relative JWT duration cannot read an implicit second wall clock",
+);
 requireText("refresh", "ACCESS_COOKIE_TTL_S = sessionMaxAgeSeconds()", "access cookie lifetime must match JWT authority");
 requireText("refresh", "TECPEY_REFRESH_SECRET", "refresh tokens require a dedicated secret");
 requireText("refresh", "prepareRefreshToken", "refresh tokens must be prepared before transaction admission");

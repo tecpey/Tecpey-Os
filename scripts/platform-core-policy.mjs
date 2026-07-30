@@ -97,6 +97,29 @@ export function platformCoreFindings(sources) {
       "Unified-session expiry must not read a second implicit wall-clock timestamp",
     );
   }
+  for (const expected of [
+    'requireText("platform", "export function sessionMaxAgeSeconds(): number"',
+    'requireText("unified", "const issuedAt = Math.floor(Date.now() / 1000);"',
+    '".setExpirationTime(issuedAt + sessionMaxAgeSeconds())"',
+    'rejectText("unified", ".setIssuedAt()"',
+    'rejectText(\n  "unified",\n  ".setExpirationTime(sessionMaxAge())"',
+  ]) {
+    requireSource(
+      findings,
+      sources.authSessionAuthority,
+      expected,
+      "Authentication session checker",
+    );
+  }
+  if (
+    sources.authSessionAuthority?.includes(
+      'requireText("platform", "return `${sessionMaxAgeSeconds()}s`"',
+    )
+  ) {
+    findings.push(
+      "Authentication session checker must not require the retired relative JWT duration",
+    );
+  }
 
   for (const expected of REQUIRED_PLATFORM_TYPE_CONTRACTS) {
     requireSource(

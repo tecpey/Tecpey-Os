@@ -3,12 +3,12 @@
   "evidenceId": "batch-01f-platform-core",
   "reviewBatch": 1,
   "reviewedAt": "2026-07-30",
-  "reviewMethod": "Complete line-by-line semantic review of the platform feature-flag definitions, cookie/session and platform configuration, platform context types, product registry and permanent platform-core policy, including malformed environment values, production cookie transport, bounded access-session lifetime, single-timestamp JWT issuance, product-to-flag derivation, permission metadata and the distinction between availability flags and security or launch gates.",
+  "reviewMethod": "Complete line-by-line semantic review of the platform feature-flag definitions, cookie/session and platform configuration, platform context types, product registry, authentication-session checker and permanent platform-core policy, including malformed environment values, production cookie transport, bounded access-session lifetime, single-timestamp JWT issuance, product-to-flag derivation, permission metadata and the distinction between availability flags and security or launch gates.",
   "residualRisks": [
     {
       "id": "B01F-RISK-001",
       "severity": "P2",
-      "statement": "This bounded slice reviews five platform-core authority paths only; the remaining Batch 1 deployment, package, changelog and script paths retain their pending status and no repository-wide completion claim is made.",
+      "statement": "This bounded slice reviews six platform-core authority paths only; the remaining Batch 1 deployment, package, changelog and script paths retain their pending status and no repository-wide completion claim is made.",
       "owner": "platform-core",
       "disposition": "tracked-debt"
     },
@@ -36,19 +36,52 @@
   ],
   "files": [
     {
-      "path": "scripts/platform-core-policy.mjs",
-      "gitObjectId": "532ca6ad9a6bbbfd407981dccdc774d7c29f4218",
-      "sha256": "6b2a984a1f071cb1f3e51c316a99810f2d4b4cde36b6ae617347943b11638fed",
-      "lines": 150,
+      "path": "scripts/check-auth-session-authority.mjs",
+      "gitObjectId": "de5870b367a5a3f03c7ff9c584c0fa5ce87c87ac",
+      "sha256": "afad6caefe68a2d1eb418d6a5a075b7bb9a4e012aaad4ec1c44c576e7823d073",
+      "lines": 225,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 150
+          "endLine": 225
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Every governed file binding and authentication invariant was reviewed, including secret separation, four-hour access lifetime, transaction-coupled issuance and rotation, revocation, legacy retirement and PostgreSQL/Redis evidence.",
+        "The lifetime guard now requires one numeric sessionMaxAgeSeconds authority, one captured issuedAt value and an absolute expiry while explicitly rejecting the former implicit-clock and relative-duration forms."
+      ],
+      "findings": [
+        {
+          "id": "B01F-P2-003",
+          "severity": "P2",
+          "line": 69,
+          "attackPath": "The permanent authentication checker required the retired relative sessionMaxAge duration helper, so the one-timestamp JWT fix was rejected by CI even though the old helper was the source of the observed 14,401-second boundary overshoot.",
+          "affectedInvariant": "Permanent security authority must enforce the exact numeric lifetime contract and must not require a weaker relative-duration implementation.",
+          "evidence": "CI Authentication session authority guard on exact head 0d0ac655 failed only because platform-config no longer contained return `${sessionMaxAgeSeconds()}s`; the runtime signer, focused lifetime tests and Full Suite already used and proved the safer absolute expiry.",
+          "fixOwner": "authentication-admin-security",
+          "verificationRequirement": "npm run auth:check and the platform-core negative policy test must require issuedAt plus sessionMaxAgeSeconds and reject both implicit setIssuedAt and relative sessionMaxAge expiry.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/platform-core-policy.mjs",
+      "gitObjectId": "d6bc131ebd0a72d0c2c8ba8f99c023e781fcce97",
+      "sha256": "3664497f7b68d6530f29234c148bd5acb14bc2f492afa5ced9f679f17bf17936",
+      "lines": 173,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 173
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "Input validation, exact source contracts, ordering-sensitive production cookie enforcement, single-timestamp JWT checks, platform type requirements, product identity coverage and duplicate callback rejection were reviewed line by line.",
+        "Input validation, exact source contracts, ordering-sensitive production cookie enforcement, single-timestamp JWT and authentication-checker contracts, platform type requirements, product identity coverage and duplicate callback rejection were reviewed line by line.",
         "The policy deliberately consumes the pending unified-session source only for the bounded timestamp remediation and does not mark that Batch 3 file semantically reviewed."
       ],
       "findings": []

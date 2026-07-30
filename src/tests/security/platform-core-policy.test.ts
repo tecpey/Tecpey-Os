@@ -14,13 +14,20 @@ import { shouldUseSecureCookie } from "../../lib/platform-config";
 import { PRODUCTS } from "../../lib/product-registry";
 
 async function productionSources() {
-  const [featureFlags, platformConfig, platformTypes, productRegistry, unifiedSession] =
-    await Promise.all([
+  const [
+    featureFlags,
+    platformConfig,
+    platformTypes,
+    productRegistry,
+    unifiedSession,
+    authSessionAuthority,
+  ] = await Promise.all([
       readFile("src/lib/feature-flags.ts", "utf8"),
       readFile("src/lib/platform-config.ts", "utf8"),
       readFile("src/lib/platform-types.ts", "utf8"),
       readFile("src/lib/product-registry.ts", "utf8"),
       readFile("src/lib/unified-session.ts", "utf8"),
+      readFile("scripts/check-auth-session-authority.mjs", "utf8"),
     ]);
   return {
     featureFlags,
@@ -28,6 +35,7 @@ async function productionSources() {
     platformTypes,
     productRegistry,
     unifiedSession,
+    authSessionAuthority,
   };
 }
 
@@ -223,6 +231,16 @@ export function sessionMaxAge(): string {
 `,
         },
         /relative JWT duration/u,
+      ],
+      [
+        {
+          ...sources,
+          authSessionAuthority: sources.authSessionAuthority.replace(
+            ".setExpirationTime(issuedAt + sessionMaxAgeSeconds())",
+            ".setExpirationTime(sessionMaxAge())",
+          ),
+        },
+        /Authentication session checker[\s\S]*issuedAt \+ sessionMaxAgeSeconds/u,
       ],
       [
         {
