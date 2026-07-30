@@ -66,11 +66,11 @@ jobs:
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
-          POSTGRES_DB: ci_placeholder
+          POSTGRES_DB: ci_contract
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ci -d ci_placeholder"
+          --health-cmd "pg_isready -U ci -d ci_contract"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
@@ -80,21 +80,21 @@ jobs:
       NEXT_PUBLIC_API_URL: https://my.tecpey.ir
       NEXT_PUBLIC_API_BACKEND_URL: https://api.ci.tecpey.test
       NEXT_PUBLIC_API_SOCKET_URL: wss://stream.ci.tecpey.test/spot
-      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
-      TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
-      TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
-      CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
-      TECPEY_WITHDRAWAL_PRICE_SECRET: ci-placeholder-withdrawal-price-secret-32-min
-      TECPEY_OFFLINE_SYNC_SECRET: ci-placeholder-offline-scope-secret-32-min
+      TECPEY_SESSION_SECRET: ci-contract-session-secret-32-chars-min
+      TECPEY_REFRESH_SECRET: ci-contract-refresh-secret-32-chars-min
+      TECPEY_ACADEMY_AUTH_SECRET: ci-contract-academy-auth-secret-32chars
+      CERTIFICATE_SIGNING_SECRET: ci-contract-cert-signing-secret-32-min
+      TECPEY_WITHDRAWAL_PRICE_SECRET: ci-contract-withdrawal-price-secret-32-min
+      TECPEY_OFFLINE_SYNC_SECRET: ci-contract-offline-scope-secret-32-min
       TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      TECPEY_CRM_CONTACT_HASH_SECRET: ci-placeholder-crm-contact-hash-secret-32-min
-      TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
-      ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
+      TECPEY_CRM_CONTACT_HASH_SECRET: ci-contract-crm-contact-hash-secret-32-min
+      TECPEY_CRM_WEBHOOK_SECRET: ci-contract-crm-webhook-secret-32-min
+      ACADEMY_LEADS_WEBHOOK_URL: https://crm.ci.tecpey.test/academy-leads
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: '1'
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
-      UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
-      UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_contract
+      UPSTASH_REDIS_REST_URL: https://rate-limit.ci.tecpey.test
+      UPSTASH_REDIS_REST_TOKEN: ci-contract-redis-rest-token
       REDIS_URL: redis://localhost:6379
 
     steps:
@@ -170,7 +170,7 @@ jobs:
         with:
           name: eslint-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-eslint-diagnostics.log
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Frontend style authority guard

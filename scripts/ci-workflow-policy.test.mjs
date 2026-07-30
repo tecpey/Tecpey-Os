@@ -72,6 +72,33 @@ test("policy rejects missing npm runtime verification", () => {
   assert.match(ciWorkflowPolicyFindings(changed).join("\n"), /npm 10 runtime verification/);
 });
 
+test("policy rejects invalid production fixtures and secondary diagnostic failures", () => {
+  const path = ".github/workflows/ci.yml";
+  for (const [search, replacement, expected] of [
+    [
+      "      TECPEY_SESSION_SECRET: ci-contract-session-secret-32-chars-min",
+      "      TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min",
+      /production contract fixture .* rejected placeholder/u,
+    ],
+    [
+      [
+        "          name: eslint-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}",
+        "          path: /tmp/tecpey-eslint-diagnostics.log",
+        "          if-no-files-found: ignore",
+      ].join("\n"),
+      [
+        "          name: eslint-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}",
+        "          path: /tmp/tecpey-eslint-diagnostics.log",
+        "          if-no-files-found: error",
+      ].join("\n"),
+      /conditional failure diagnostics must ignore a missing artifact/u,
+    ],
+  ]) {
+    const changed = mutate(path, search, replacement);
+    assert.match(ciWorkflowPolicyFindings(changed).join("\n"), expected);
+  }
+});
+
 test("policy rejects a staging release older than the approved authority baseline", () => {
   const path = ".github/workflows/staging-community-challenge-scheduler-evidence.yml";
   const changed = mutate(

@@ -112,7 +112,7 @@ requireText(pkg, '"db:migrate": "tsx scripts/run-database-migrations.ts"', "pack
 rejectText(pkg, '"start:next"', "package scripts must not expose a direct production next start bypass");
 
 requireText(workflow, "image: postgres:16-alpine", "CI must start a real PostgreSQL service");
-requireText(workflow, "POSTGRES_DB: ci_placeholder", "CI PostgreSQL must create the configured clean database");
+requireText(workflow, "POSTGRES_DB: ci_contract", "CI PostgreSQL must create the configured clean database");
 const migrationRuns = workflow.match(/npm run db:migrate/g)?.length ?? 0;
 if (migrationRuns < 2) failures.push("CI must run db:migrate twice to prove idempotent reruns");
 

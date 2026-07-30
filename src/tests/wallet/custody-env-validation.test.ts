@@ -7,7 +7,8 @@ type EnvOverrides = Record<string, string | undefined>;
 function baseProductionEnv(): NodeJS.ProcessEnv {
   const secret = (label: string) => `${label}-${"x".repeat(48)}`;
   return {
-    ...process.env,
+    PATH: process.env.PATH,
+    LANG: "C",
     NODE_ENV: "production",
     NEXT_PUBLIC_SITE_URL: "https://tecpey.test",
     NEXT_PUBLIC_API_URL: "https://tecpey.test",

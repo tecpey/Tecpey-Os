@@ -3,6 +3,8 @@ const PULL_REQUEST_HEAD_SHA = "${{ github.event.pull_request.head.sha }}";
 const STAGING_RELEASE_SHA = "${{ inputs.release_sha }}";
 const MINIMUM_STAGING_RELEASE_SHA = "575fc904f9d87ae51994aa5e59e4c95ab29e628b";
 const PINNED_ACTION = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@[0-9a-f]{40}$/;
+const REJECTED_PRODUCTION_FIXTURE_MARKER =
+  /(?:change[_-]?me|placeholder|replace[_-]?with|your[-_ ]?real|admin-de|wss-dem)/iu;
 
 export const GOVERNED_CI_WORKFLOWS = Object.freeze({
   ".github/workflows/api-security-manifest.yml": {
@@ -188,6 +190,21 @@ function parseWorkflow(source) {
     jobs[name] = {
       timeoutMinutes: direct["timeout-minutes"],
       steps: parseSteps(lines, index),
+      env: (() => {
+        const end = blockEnd(lines, index);
+        const envIndexes = [];
+        for (let child = index + 1; child < end; child += 1) {
+          if (lines[child].indent === 4 && lines[child].text === "env:") {
+            envIndexes.push(child);
+          }
+        }
+        if (envIndexes.length > 1) {
+          throw new Error(`expected at most one ${name}: job environment node`);
+        }
+        return envIndexes.length === 1
+          ? directMap(lines, envIndexes[0], 6)
+          : {};
+      })(),
     };
   }
   return {
@@ -245,6 +262,15 @@ function workflowFindings(path, source, contract) {
     if (typeof upload.with?.name !== "string" || !upload.with.name.includes(contract.artifactSha)) {
       findings.push(`${path}: artifact ${upload.name} is not bound to the exact evidence SHA`);
     }
+    if (
+      path === ".github/workflows/ci.yml" &&
+      upload.if === "${{ failure() }}" &&
+      upload.with?.["if-no-files-found"] !== "ignore"
+    ) {
+      findings.push(
+        `${path}: conditional failure diagnostics must ignore a missing artifact when its producer was skipped`,
+      );
+    }
   }
 
   const setupNode = steps.find((step) => step.uses?.startsWith("actions/setup-node@"));
@@ -258,6 +284,27 @@ function workflowFindings(path, source, contract) {
     !npmVerification.effectiveText.includes("10")
   ) {
     findings.push(`${path}: npm 10 runtime verification is missing`);
+  }
+
+  if (path === ".github/workflows/ci.yml") {
+    const quality = workflow.jobs.quality;
+    const productionContract = quality?.steps.find(
+      (step) => step.name === "Production environment contract",
+    );
+    if (
+      productionContract?.env?.NODE_ENV !== "production" ||
+      productionContract?.run !== "npm run env:check"
+    ) {
+      findings.push(`${path}: production environment contract must execute env:check in production mode`);
+    }
+    for (const [key, value] of Object.entries(quality?.env ?? {})) {
+      if (
+        typeof value === "string" &&
+        REJECTED_PRODUCTION_FIXTURE_MARKER.test(value)
+      ) {
+        findings.push(`${path}: production contract fixture ${key} contains a rejected placeholder marker`);
+      }
+    }
   }
 
   if (contract.minimumReleaseSha) {

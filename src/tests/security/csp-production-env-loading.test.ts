@@ -42,18 +42,11 @@ function validProductionEnvironment(
 }
 
 function productionChildEnvironment(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  return {
+    PATH: process.env.PATH,
+    LANG: "C",
     NODE_ENV: "production",
   };
-  for (const name of [
-    "NEXT_PUBLIC_API_BACKEND_URL",
-    "NEXT_PUBLIC_API_SOCKET_URL",
-    "NEXT_PUBLIC_EXTRA_CONNECT_SRC",
-  ]) {
-    Reflect.deleteProperty(env, name);
-  }
-  return env;
 }
 
 function runTypeScript(

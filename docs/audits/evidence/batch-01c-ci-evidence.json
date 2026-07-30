@@ -3,7 +3,7 @@
   "evidenceId": "batch-01c-ci-evidence",
   "reviewBatch": 1,
   "reviewedAt": "2026-07-30",
-  "reviewMethod": "Complete line-by-line semantic review of five CI and staging-evidence workflows plus the structural CI workflow policy and its negative tests, including trigger and permission scope, exact-head checkout and artifact identity, action pinning, job time bounds, Node/npm runtime contracts, service dependencies, failure diagnostics, staging release ancestry and comment-spoof resistance.",
+  "reviewMethod": "Complete line-by-line semantic review of five CI and staging-evidence workflows plus the structural CI workflow policy and its negative tests, including trigger and permission scope, exact-head checkout and artifact identity, action pinning, job time bounds, Node/npm runtime contracts, production environment fixtures, service dependencies, failure diagnostics, staging release ancestry and comment-spoof resistance.",
   "residualRisks": [
     {
       "id": "B01C-RISK-001",
@@ -63,8 +63,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "gitObjectId": "99f0c4acb10c6d0e19ab85c0f66c280b1908f4d4",
-      "sha256": "f9e2866ca49aa24dc2fa1906f7ed8cb3b1a57b1c521f3359a2d920b47629d8a2",
+      "gitObjectId": "b0cb272003d765154f29867acd650c8f724b7787",
+      "sha256": "a0c17277c3339a17ae189223afb6a9cf02b895858ece9932e92392115792df10",
       "lines": 392,
       "reviewedRanges": [
         {
@@ -76,7 +76,8 @@
       "reviewNotes": [
         "Both jobs, service images, environment contract, exact-head checkout, pinned actions, migrations, type and lint authorities, domain-specific guards, service-backed tests, full test suite, production build, runtime smokes and failure diagnostics were reviewed as the primary integration gate.",
         "Hygiene and quality jobs now have explicit 10- and 60-minute bounds, all diagnostic artifacts use the exact source SHA, and the new structural CI workflow guard runs before the remaining security authorities.",
-        "Exact-head CI exposed destructive migration-concurrency tests mutating the shared service database while the notification outbox suite was reading its ledger; those tests now use per-test UUID databases and bounded session cleanup."
+        "Exact-head CI exposed destructive migration-concurrency tests mutating the shared service database while the notification outbox suite was reading its ledger; those tests now use per-test UUID databases and bounded session cleanup.",
+        "The Production environment contract now uses distinct non-placeholder CI fixtures accepted by the same fail-closed validator as runtime startup, and failure-only diagnostic uploads cannot add a second failure when an earlier step skipped their producer."
       ],
       "findings": [
         {
@@ -116,6 +117,34 @@
           "evidence": "CI run 30505060431 captured migration-concurrency tests setting the canonical ledger checksum to sixteen zeroes while notification-creation-outbox-runtime tests observed that invalid shared state; the remediated migration tests create UUID-scoped databases and assert bounded session release before forced fixture cleanup.",
           "fixOwner": "tests-quality-evidence",
           "verificationRequirement": "The exact-head primary CI and Full Suite workflows must both pass the service-backed test suite with the destructive migration cases confined to isolated databases.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01C-P2-004",
+          "severity": "P2",
+          "line": 83,
+          "attackPath": "The primary CI Production environment contract supplied required and optional values containing the validator's rejected placeholder marker, so the newly complete fail-closed validator stopped the job before migrations, TypeScript, lint, tests or build could run.",
+          "affectedInvariant": "The required CI production preflight must exercise a complete syntactically valid non-production fixture without weakening or bypassing the runtime validator.",
+          "evidence": "CI run 30513139519 on exact head 053e6221 failed in Production environment contract and reported the placeholder marker in ten configured secrets and URLs.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The workflow fixture must use distinct non-placeholder test values, env:check must pass in production mode and the structural policy must reject any placeholder-bearing job environment value.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01C-P2-005",
+          "severity": "P2",
+          "line": 173,
+          "attackPath": "When Production environment validation stopped CI before ESLint, the failure-only ESLint artifact step required a file that its skipped producer never created and recorded an additional failed step.",
+          "affectedInvariant": "Conditional diagnostic collection must preserve the primary failure even when an earlier gate legitimately prevents the diagnostic producer from running.",
+          "evidence": "The same CI run reported No files were found for /tmp/tecpey-eslint-diagnostics.log after the Production environment contract failure.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "Every failure-only upload in the primary CI workflow must ignore an absent artifact, and the structural policy plus a negative mutation must reject regression to error.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"
@@ -239,36 +268,37 @@
     },
     {
       "path": "scripts/ci-workflow-policy.mjs",
-      "gitObjectId": "e7b6824fe5c5e9b808ffdb5d9c2c21670b9f3ab3",
-      "sha256": "eb66cd203528d382158605aa3168109691032a072d17b01b8663f1c215c5db1f",
-      "lines": 303,
+      "gitObjectId": "59b9863d59e8187332d4139e44f77dfc35bf5673",
+      "sha256": "35a85f1eaaf8ae12cfc618c2740256d57e1a895cdfef646e53f042b02df4644c",
+      "lines": 350,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 303
+          "endLine": 350
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Comment handling, indentation, block boundaries, direct scalar maps, job and step extraction, exact permissions, timeouts, checkout identity, credential persistence, full-SHA action pins, artifact identity, Node/npm contracts, staging ancestry and aggregate failure reporting were reviewed.",
-        "The parser validates effective YAML nodes and strips comment-only controls; its contract is deliberately limited to the five declared workflows and rejects a missing or expanded source set."
+        "The parser validates effective YAML nodes and strips comment-only controls; its contract is deliberately limited to the five declared workflows and rejects a missing or expanded source set.",
+        "Job-level environments are now parsed so the primary Production contract cannot reintroduce rejected placeholder values, and conditional failure uploads in that workflow must tolerate an absent file from a skipped producer."
       ],
       "findings": []
     },
     {
       "path": "scripts/ci-workflow-policy.test.mjs",
-      "gitObjectId": "4677c31250d3d2f8cfd652e02eab918627de1200",
-      "sha256": "65a907cd2eaa7080676b6ad168498490e883a47b84df70d5d092412a6589649a",
-      "lines": 103,
+      "gitObjectId": "3281a8a0ca4a8b7e83e9bfcae8ce36b57ee4b4a2",
+      "sha256": "ee3e19b68bd9a7c510b1ffa5fb81da51c0ab801b650a6ee48d05a04b09000af7",
+      "lines": 130,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 103
+          "endLine": 130
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "The unchanged governed workflows and seven negative-test groups were reviewed, including synthetic merge identity, comment spoofing, missing and expanded deadlines, missing npm verification, stale staging baseline, floating actions and permission expansion.",
+        "The unchanged governed workflows and eight negative-test groups were reviewed, including synthetic merge identity, comment spoofing, missing and expanded deadlines, missing npm verification, rejected Production placeholders, secondary diagnostic failures, stale staging baseline, floating actions and permission expansion.",
         "Fixtures assert their mutation precondition before policy evaluation so a source drift cannot turn a negative test into a silent no-op."
       ],
       "findings": []
