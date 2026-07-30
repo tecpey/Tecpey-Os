@@ -30,20 +30,20 @@
   "files": [
     {
       "path": "scripts/check-runtime-bootstrap.mjs",
-      "gitObjectId": "97777bb284d0accc910b911678b1cd784b3af06d",
-      "sha256": "a2729c3ab3bb67315f7abb0dcff232ffa9fff93745daf33cd6fa2309f3b56661",
-      "lines": 233,
+      "gitObjectId": "84292b99aafe77aa805724c93afbd6de4af79795",
+      "sha256": "7c5cebd33ba8270b00472ab07851ed4462399d7fb98ecbf48f562c37f6fac3fb",
+      "lines": 256,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 233
+          "endLine": 256
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Every server and runtime-smoke source binding, Redis startup boundary, Next/HTTP identity condition, validator mode/load ordering requirement and complete-validation import order was reviewed line by line.",
         "The authority now exports deterministic findings so negative tests can mutate each new production contract rather than merely observing that the current source passes.",
-        "The Browser workflow contract binds HTTPS-only validation overrides and the exact early-failure artifact block so local loopback execution does not weaken production validation or obscure its failures."
+        "The Browser workflow contract binds job-level HTTPS public origins, a distinct loopback-only harness URL, its actual harness consumption and the exact early-failure artifact block so local transport cannot weaken Production startup validation or obscure its failures."
       ],
       "findings": []
     },

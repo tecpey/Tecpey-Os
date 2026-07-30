@@ -74,6 +74,7 @@ function productionBootstrapSources() {
     environmentValidator,
     cspValidator,
     publicBrowserWorkflow,
+    publicBrowserHarness,
   ] = [
     readFileSync(resolve(repositoryRoot, "server.ts"), "utf8"),
     readFileSync(resolve(repositoryRoot, "scripts/check-ui-runtime.mjs"), "utf8"),
@@ -90,6 +91,7 @@ function productionBootstrapSources() {
       resolve(repositoryRoot, ".github/workflows/public-browser-golden-path.yml"),
       "utf8",
     ),
+    readFileSync(resolve(repositoryRoot, "tests/e2e/run-public-e2e.mjs"), "utf8"),
   ];
   return {
     server,
@@ -98,6 +100,7 @@ function productionBootstrapSources() {
     environmentValidator,
     cspValidator,
     publicBrowserWorkflow,
+    publicBrowserHarness,
   };
 }
 
@@ -353,11 +356,31 @@ test("runtime bootstrap policy rejects weakened production validation", () => {
       {
         ...sources,
         publicBrowserWorkflow: sources.publicBrowserWorkflow.replace(
-          "          NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
-          "          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100",
+          "      NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
+          "      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100",
         ),
       },
-      /public Browser workflow must validate.*HTTPS origins/u,
+      /retain HTTPS production origins/u,
+    ],
+    [
+      {
+        ...sources,
+        publicBrowserWorkflow: sources.publicBrowserWorkflow.replace(
+          "      TECPEY_E2E_BASE_URL: http://127.0.0.1:3100",
+          "      TECPEY_E2E_BASE_URL: https://e2e.tecpey.test",
+        ),
+      },
+      /isolate its loopback harness from production origins/u,
+    ],
+    [
+      {
+        ...sources,
+        publicBrowserHarness: sources.publicBrowserHarness.replace(
+          'const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;',
+          'const baseURL = `http://${host}:${port}`;',
+        ),
+      },
+      /harness must consume the isolated loopback base URL/u,
     ],
     [
       {

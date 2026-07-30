@@ -96,20 +96,20 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "43497bf707e382e19e8bdaa8646ff83e70320066",
-      "sha256": "b8c54a3ce4b0668a85d410112d66a036c95520fef32705b3dfd85f6975a2e500",
-      "lines": 164,
+      "gitObjectId": "c2a6843ba7f0eb63d66907063bdbe1db6015590b",
+      "sha256": "d208df0ac5433216dca48c9a6587bb084eebaa3136a64e2f84f087adb13720f5",
+      "lines": 163,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 164
+          "endLine": 163
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Unconditional pull-request and main-push triggers, concurrency, read-only permissions, pinned service images and actions, exact-head verification, bounded test credentials, production environment validation, canonical migrations, exact build, governed browsers, unchanged-checkout verification and failure evidence were reviewed.",
         "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path.",
-        "The production-contract step now validates explicit HTTPS origins independently of the loopback origins required by the later local browser server, and an early failure cannot create a second missing-artifact error."
+        "The workflow now keeps its production site/application origins HTTPS through preflight, build and compiled server startup, while an explicit TECPEY_E2E_BASE_URL confines loopback access to the Browser harness; early failures cannot create a second missing-artifact error."
       ],
       "findings": [
         {
@@ -134,7 +134,7 @@
           "affectedInvariant": "The production configuration contract must be validated with production-safe origins while the later local Browser Golden Path remains free to bind its isolated loopback server.",
           "evidence": "Public Browser run 163 on exact head ba5cf346 failed in Validate production environment contract because both job-level public origins were http://127.0.0.1:3100.",
           "fixOwner": "tests-quality-evidence",
-          "verificationRequirement": "The validation step must override both public origins with explicit HTTPS test domains, while the permanent runtime-bootstrap policy rejects removal or weakening of that step-local block.",
+          "verificationRequirement": "The job must configure both public origins as explicit HTTPS test domains before preflight and retain them through build and runtime, while the permanent runtime-bootstrap policy rejects removal or downgrade.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"
@@ -149,6 +149,20 @@
           "evidence": "The same run failed its Upload browser failure evidence step with no matching server-output or test-results paths after environment validation stopped the job.",
           "fixOwner": "tests-quality-evidence",
           "verificationRequirement": "The bounded browser upload must ignore an empty path set, and the permanent policy must bind that behavior to the exact browser-artifact block.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01B-P2-006",
+          "severity": "P2",
+          "line": 55,
+          "attackPath": "The first preflight fix overrode loopback public origins only for env:check; the compiled Production server later inherited the job-level HTTP origins, failed complete startup validation and prevented every Chromium and Firefox project from reaching the application.",
+          "affectedInvariant": "Production Browser evidence must boot the same fail-closed compiled server contract while keeping the runner's loopback transport separate from public Production identity configuration.",
+          "evidence": "Public Browser run 165 on exact head 013c0031 passed preflight, migrations and build, then each isolated server exited because NEXT_PUBLIC_SITE_URL and NEXT_PUBLIC_API_URL were http://127.0.0.1:3100.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "Job-level public origins must remain HTTPS, the harness must use an explicit loopback-only TECPEY_E2E_BASE_URL for health and Playwright access, and negative policy mutations must reject either boundary being weakened.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"

@@ -9,6 +9,7 @@ export function runtimeBootstrapFindings({
   environmentValidator,
   cspValidator,
   publicBrowserWorkflow,
+  publicBrowserHarness,
 }) {
   const failures = [];
   const requireText = (source, text, message) => {
@@ -161,14 +162,33 @@ export function runtimeBootstrapFindings({
   requireText(
     publicBrowserWorkflow,
     [
+      "      NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
+      "      NEXT_PUBLIC_API_URL: https://my.e2e.tecpey.test",
+    ].join("\n"),
+    "public Browser workflow must retain HTTPS production origins",
+  );
+  requireText(
+    publicBrowserWorkflow,
+    [
+      "      TECPEY_E2E_RUNTIME_MODE: production",
+      "      TECPEY_E2E_BASE_URL: http://127.0.0.1:3100",
+    ].join("\n"),
+    "public Browser workflow must isolate its loopback harness from production origins",
+  );
+  requireText(
+    publicBrowserHarness,
+    'const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;',
+    "public Browser harness must consume the isolated loopback base URL",
+  );
+  requireText(
+    publicBrowserWorkflow,
+    [
       "      - name: Validate production environment contract",
       "        env:",
       "          NODE_ENV: production",
-      "          NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
-      "          NEXT_PUBLIC_API_URL: https://my.e2e.tecpey.test",
       "        run: npm run env:check",
     ].join("\n"),
-    "public Browser workflow must validate the production contract with HTTPS origins before its loopback build",
+    "public Browser workflow must validate the production contract before its loopback harness",
   );
   requireText(
     publicBrowserWorkflow,
@@ -190,6 +210,7 @@ async function main() {
     environmentValidator,
     cspValidator,
     publicBrowserWorkflow,
+    publicBrowserHarness,
   ] = await Promise.all([
     readFile("server.ts", "utf8"),
     readFile("scripts/check-ui-runtime.mjs", "utf8"),
@@ -197,6 +218,7 @@ async function main() {
     readFile("scripts/validate-env.mjs", "utf8"),
     readFile("scripts/validate-csp-connection-env.ts", "utf8"),
     readFile(".github/workflows/public-browser-golden-path.yml", "utf8"),
+    readFile("tests/e2e/run-public-e2e.mjs", "utf8"),
   ]);
   const failures = runtimeBootstrapFindings({
     server,
@@ -205,6 +227,7 @@ async function main() {
     environmentValidator,
     cspValidator,
     publicBrowserWorkflow,
+    publicBrowserHarness,
   });
 
   if (failures.length) {
