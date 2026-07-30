@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01f-platform-core",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of the platform feature-flag definitions, cookie/session and platform configuration, platform context types, product registry and permanent platform-core policy, including malformed environment values, production cookie transport, bounded access-session lifetime, single-timestamp JWT issuance, product-to-flag derivation, permission metadata and the distinction between availability flags and security or launch gates.",
+  "residualRisks": [
+    {
+      "id": "B01F-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews five platform-core authority paths only; the remaining Batch 1 deployment, package, changelog and script paths retain their pending status and no repository-wide completion claim is made.",
+      "owner": "platform-core",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01F-RISK-002",
+      "severity": "P2",
+      "statement": "The product registry and feature flags currently provide metadata and helper-level availability decisions but are not imported as universal route launch gates; authorization and domain-specific release gates remain independently mandatory.",
+      "owner": "platform-core",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01F-RISK-003",
+      "severity": "P2",
+      "statement": "TypeScript aliases and unions cannot validate tenant, workspace, role or product values read from PostgreSQL; the runtime adapters and tenant-principal authority retain their assigned Batch 2 and Batch 3 semantic reviews.",
+      "owner": "authentication-admin-security",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01F-RISK-004",
+      "severity": "P2",
+      "statement": "The unified-session signer is changed only to bind issued-at and expiry to one timestamp and is structurally covered by this policy; its complete authentication semantics remain pending the assigned Batch 3 review.",
+      "owner": "authentication-admin-security",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": "scripts/platform-core-policy.mjs",
+      "gitObjectId": "532ca6ad9a6bbbfd407981dccdc774d7c29f4218",
+      "sha256": "6b2a984a1f071cb1f3e51c316a99810f2d4b4cde36b6ae617347943b11638fed",
+      "lines": 150,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 150
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Input validation, exact source contracts, ordering-sensitive production cookie enforcement, single-timestamp JWT checks, platform type requirements, product identity coverage and duplicate callback rejection were reviewed line by line.",
+        "The policy deliberately consumes the pending unified-session source only for the bounded timestamp remediation and does not mark that Batch 3 file semantically reviewed."
+      ],
+      "findings": []
+    },
+    {
+      "path": "src/lib/feature-flags.ts",
+      "gitObjectId": "54215d5285b167e937e542fbaf41f9fb10d959d5",
+      "sha256": "5118245b8a8d81f3046a37875409466ea9fa00da39c31935631a9bd9476b2192",
+      "lines": 48,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 48
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "All five flag identifiers, environment mappings, absent-value defaults, exact configured values and aggregate snapshot behavior were reviewed against every repository consumer.",
+        "The module now states that availability flags are not authorization or release gates and treats every configured value other than exact true or false as disabled."
+      ],
+      "findings": [
+        {
+          "id": "B01F-P2-001",
+          "severity": "P2",
+          "line": 40,
+          "attackPath": "A malformed configured value such as FEATURE_EXCHANGE_ENABLED=TRUE or FEATURE_MENTOR_ENABLED=1 formerly fell through to defaultEnabled; for default-on products, an operator typo intended to control availability left the product reported and evaluated as enabled.",
+          "affectedInvariant": "An explicitly configured but unrecognized availability value must never inherit an enabled default.",
+          "evidence": "The former final branch returned config.defaultEnabled for every value except exact true and false; academy, exchange and mentor all have enabled defaults.",
+          "fixOwner": "platform-core",
+          "verificationRequirement": "The permanent platform-core test must prove absent values retain documented defaults while malformed configured values fail closed for a default-on flag.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/lib/platform-config.ts",
+      "gitObjectId": "e789d3f534ff2ee1eafc63b468115449746f15cc",
+      "sha256": "b371d94de43fc6e3a93e8659a6eeed096c79081082769263da90102be2b55d77",
+      "lines": 101,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 101
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Every current and legacy cookie name, Secure inference branch, duration parser, minimum and maximum access lifetime and platform metadata constant were reviewed against production validation and session consumers.",
+        "Production now returns Secure before reading any insecure override, and the relative JWT duration-string helper was removed so access-token timestamps use the numeric lifetime authority."
+      ],
+      "findings": [
+        {
+          "id": "B01F-P1-001",
+          "severity": "P1",
+          "line": 32,
+          "attackPath": "TECPEY_COOKIE_SECURE=false formerly returned before production or canonical HTTPS inference, allowing a production misconfiguration to issue session, refresh, WebAuthn, 2FA, password-rotation and Academy cookies without the Secure transport attribute.",
+          "affectedInvariant": "Authentication cookies issued by a production process must always carry Secure regardless of a weakening environment override.",
+          "evidence": "The helper is shared by all listed authentication issuers; the former explicit false branch preceded URL inference and validate-env did not reject TECPEY_COOKIE_SECURE=false.",
+          "fixOwner": "authentication-admin-security",
+          "verificationRequirement": "Runtime and structural tests must prove NODE_ENV=production returns true even with an explicit false override and an HTTP loopback site URL.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01F-P2-002",
+          "severity": "P2",
+          "line": 81,
+          "attackPath": "The former sessionMaxAge relative-duration string was applied by jose after setIssuedAt had already read the wall clock; crossing a one-second boundary between those calls produced a JWT lifetime of 14,401 seconds despite the declared 14,400-second ceiling.",
+          "affectedInvariant": "An access credential must not outlive its governed four-hour maximum or the browser cookie lifetime by even a scheduler-boundary second.",
+          "evidence": "Full Suite Diagnostics on exact head d6c406e8 observed exp minus iat equal to 14,401 while configured and cookie lifetimes were 14,400; jose resolves the two relative claims using separate Date reads.",
+          "fixOwner": "authentication-admin-security",
+          "verificationRequirement": "The signer must compute one integer issuedAt value and set exp to issuedAt plus sessionMaxAgeSeconds; focused tests and the permanent policy must reject the former relative-duration API.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/lib/platform-types.ts",
+      "gitObjectId": "756bfd98a671a0ef383e83371004758199190a34",
+      "sha256": "db016c02e7cf964eead49ba6508028d4c3bebbab71b48768a7c01662d7b6715b",
+      "lines": 90,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 90
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Identity aliases, all seven roles, six product IDs, plan names, tenant and workspace records, membership lifecycle fields and request-time PlatformContext were reviewed in full.",
+        "The declarations accurately model compile-time consumers; runtime validation of database strings is explicitly retained as cross-batch residual risk rather than implied by these types."
+      ],
+      "findings": []
+    },
+    {
+      "path": "src/lib/product-registry.ts",
+      "gitObjectId": "3e9e332da17312ca4dc3cec4eea99691ad1674bd",
+      "sha256": "d4b433c117d088e9f78832e8dc7b35ee4e3af3b8414495bd2c5538c8fd285db2",
+      "lines": 101,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 101
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Product IDs, slugs, names, descriptions, typed access permissions, flag mappings, always-available knowledge behavior and lookup/filter helpers were reviewed against platform types and feature configuration.",
+        "The registry is now immutable at its public boundary and derives each isEnabled callback from the same declared featureFlag, eliminating the former duplicate string assignment as a future drift surface."
+      ],
+      "findings": []
+    }
+  ]
+}

@@ -4,7 +4,6 @@ import { logger } from "./logger";
 import {
   COOKIES,
   shouldUseSecureCookie,
-  sessionMaxAge,
   sessionMaxAgeSeconds,
 } from "./platform-config";
 import { registerSession } from "./security/session-store";
@@ -50,6 +49,7 @@ export async function signUnifiedSession(
   const key = unifiedSecret();
   if (!key) throw new Error("unified_session_secret_missing");
   const jti = crypto.randomUUID();
+  const issuedAt = Math.floor(Date.now() / 1000);
   return new SignJWT({
     role: "unified" as const,
     v: 1 as const,
@@ -62,8 +62,8 @@ export async function signUnifiedSession(
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(data.studentId ?? data.accountId ?? "anon")
     .setJti(jti)
-    .setIssuedAt()
-    .setExpirationTime(sessionMaxAge())
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(issuedAt + sessionMaxAgeSeconds())
     .sign(key);
 }
 

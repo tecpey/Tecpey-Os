@@ -16,68 +16,79 @@ export type Product = {
   displayName: string;
   description: string;
   /** Minimum permission a session must hold to access this product. */
-  requiredPermission: string;
+  requiredPermission:
+    | "exchange.view"
+    | "academy.view"
+    | "social.view"
+    | "mentor.chat"
+    | "marketplace.access";
   featureFlag: FeatureFlag | null;
   /** Returns true if this product is currently enabled by its feature flag. */
   isEnabled: () => boolean;
 };
 
-export const PRODUCTS: Record<ProductId, Product> = {
-  exchange: {
+type ProductDefinition = Omit<Product, "isEnabled">;
+
+function defineProduct(definition: ProductDefinition): Product {
+  return Object.freeze({
+    ...definition,
+    isEnabled: () =>
+      definition.featureFlag === null
+        ? true
+        : isFeatureEnabled(definition.featureFlag),
+  });
+}
+
+export const PRODUCTS: Readonly<Record<ProductId, Product>> = Object.freeze({
+  exchange: defineProduct({
     id: "exchange",
     slug: "exchange",
     displayName: "TecPey Exchange",
     description: "Cryptocurrency trading and portfolio management.",
     requiredPermission: "exchange.view",
     featureFlag: "exchange.enabled",
-    isEnabled: () => isFeatureEnabled("exchange.enabled"),
-  },
-  academy: {
+  }),
+  academy: defineProduct({
     id: "academy",
     slug: "academy",
     displayName: "TecPey Academy",
     description: "Structured crypto education from beginner to advanced.",
     requiredPermission: "academy.view",
     featureFlag: "academy.enabled",
-    isEnabled: () => isFeatureEnabled("academy.enabled"),
-  },
-  social: {
+  }),
+  social: defineProduct({
     id: "social",
     slug: "social",
     displayName: "TecPey Social",
     description: "Community, groups, journals, and leaderboards.",
     requiredPermission: "social.view",
     featureFlag: "social.enabled",
-    isEnabled: () => isFeatureEnabled("social.enabled"),
-  },
-  mentor: {
+  }),
+  mentor: defineProduct({
     id: "mentor",
     slug: "mentor",
     displayName: "TecPey AI Mentor",
     description: "AI-powered learning coach and personalized progress tracker.",
     requiredPermission: "mentor.chat",
     featureFlag: "mentor.enabled",
-    isEnabled: () => isFeatureEnabled("mentor.enabled"),
-  },
-  knowledge: {
+  }),
+  knowledge: defineProduct({
     id: "knowledge",
     slug: "knowledge-center",
     displayName: "Knowledge Center",
     description: "Reference library, glossary, and educational resources.",
     requiredPermission: "academy.view",
     featureFlag: null,
-    isEnabled: () => true,
-  },
-  marketplace: {
+  }),
+  marketplace: defineProduct({
     id: "marketplace",
     slug: "marketplace",
     displayName: "TecPey Marketplace",
     description: "Course marketplace and digital content storefront.",
     requiredPermission: "marketplace.access",
     featureFlag: "future.marketplace.enabled",
-    isEnabled: () => isFeatureEnabled("future.marketplace.enabled"),
-  },
-};
+  }),
+});
 
 /** Returns all products that are currently enabled via their feature flag. */
 export function getEnabledProducts(): Product[] {

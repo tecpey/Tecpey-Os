@@ -1,7 +1,8 @@
 /**
  * Runtime feature flag system.
- * Flags are controlled by environment variables — no hardcoded booleans.
- * Default values represent the production-safe baseline (conservative: new features off).
+ * Flags are controlled by environment variables with explicit safe defaults.
+ * They are availability controls, not authorization or release-launch gates.
+ * A configured value must be exactly "true" or "false"; malformed values fail closed.
  */
 
 /** All supported platform feature flags. */
@@ -33,9 +34,10 @@ const FLAG_CONFIG: Record<FeatureFlag, FlagConfig> = {
 export function isFeatureEnabled(flag: FeatureFlag): boolean {
   const config = FLAG_CONFIG[flag];
   const value = process.env[config.envVar];
+  if (value === undefined) return config.defaultEnabled;
   if (value === "true") return true;
   if (value === "false") return false;
-  return config.defaultEnabled;
+  return false;
 }
 
 /** Returns a snapshot of all current flag values. Useful for health/debug endpoints. */

@@ -208,18 +208,18 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "d63d082c3b9725ce67e54770d18d8d8c0c5232a5",
-      "sha256": "95231a5020f7b8fdc6367dc0f934949cbed0c89ccf5aefd57a2beaf5d8428fae",
-      "lines": 281,
+      "gitObjectId": "59276e310fa4cae67fdfcba614623b2f6ed58cc3",
+      "sha256": "f3309020933cca579c79980f125cdb8060c4f7af4ab5ddb8be624c8802a35c11",
+      "lines": 282,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 281
+          "endLine": 282
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "Generated/vendored ownership, explicit repository-supply-chain authorities including the exact CI policy and test paths, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v13 five-slice evidence-path ownership were reviewed.",
+        "Generated/vendored ownership, explicit repository-supply-chain authorities including the exact CI policy and test paths, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v14 six-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities."
       ],
       "findings": []

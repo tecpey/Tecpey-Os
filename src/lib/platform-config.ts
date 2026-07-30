@@ -25,9 +25,11 @@ export type CookieName = (typeof COOKIES)[keyof typeof COOKIES];
 
 /**
  * Returns true if cookies should carry the Secure flag.
- * Reads TECPEY_COOKIE_SECURE env var or infers from NEXT_PUBLIC_SITE_URL.
+ * Production is unconditionally secure. Non-production may explicitly override
+ * the inferred site URL for local HTTP development.
  */
 export function shouldUseSecureCookie(): boolean {
+  if (process.env.NODE_ENV === "production") return true;
   if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
   if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
@@ -84,11 +86,6 @@ export function sessionMaxAgeSeconds(): number {
     ACCESS_SESSION_MAX_AGE_SECONDS,
     Math.max(ACCESS_SESSION_MIN_AGE_SECONDS, configured),
   );
-}
-
-/** JWT duration derived from the exact cookie lifetime authority. */
-export function sessionMaxAge(): string {
-  return `${sessionMaxAgeSeconds()}s`;
 }
 
 // ── Platform metadata ─────────────────────────────────────────────────────────

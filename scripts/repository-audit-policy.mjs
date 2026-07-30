@@ -26,6 +26,7 @@ const REVIEW_EVIDENCE_PATHS = [
   "docs/audits/evidence/batch-01c-ci-evidence.json",
   "docs/audits/evidence/batch-01d-root-configuration.json",
   "docs/audits/evidence/batch-01e-contribution-governance.json",
+  "docs/audits/evidence/batch-01f-platform-core.json",
 ];
 
 const DOMAIN_RULES = [

@@ -133,6 +133,20 @@ Policy v13 binds the fifth independently identified evidence slice. Batch 1E
 adds seven semantically reviewed paths; all other paths remain pending and
 `completionClaim` remains `false`.
 
+## Batch 1F: platform-core runtime contracts
+
+The sixth bounded slice reviews feature-flag semantics, platform identity and
+context types, cookie/session configuration, the product registry and their
+permanent structural policy. Production cookies are now unconditionally
+Secure; malformed configured feature flags fail closed; product enabled state
+derives from the single declared flag; and access JWT issuance derives `iat`
+and `exp` from one timestamp so the four-hour ceiling cannot gain a boundary
+second.
+
+Policy v14 binds the sixth independently identified evidence slice. Batch 1F
+adds five semantically reviewed paths; all other paths remain pending and
+`completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash
