@@ -18,7 +18,7 @@ function clone(value) {
 test("baseline binds exact scanner supply-chain and reviewed finding identities", () => {
   assert.equal(baseline.scanner.name, "gitleaks");
   assert.equal(baseline.scanner.version, "8.30.1");
-  assert.equal(baseline.findings.length, 53);
+  assert.equal(baseline.findings.length, 55);
   assert.equal(
     baseline.findings.every((finding) => finding.classification === "known-non-secret"),
     true,
@@ -52,7 +52,7 @@ test("baseline rejects weakened, duplicate or mismatched finding authority", () 
   const broadPath = clone(baseline);
   broadPath.findings[0].path = "../outside";
   broadPath.findings[0].findingIdentity =
-    `${broadPath.findings[0].commit}:../outside:${broadPath.findings[0].ruleId}:${broadPath.findings[0].line}`;
+    `${broadPath.findings[0].commit}:/outside:${broadPath.findings[0].ruleId}:${broadPath.findings[0].line}`.replace(":/outside", "../outside");
   assert.throws(() => validateSecretScanningBaseline(broadPath), /canonical/);
 });
 
