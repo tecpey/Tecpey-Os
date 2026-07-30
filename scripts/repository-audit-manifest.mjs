@@ -13,6 +13,7 @@ const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 const SEVERITIES = ["P0", "P1", "P2", "P3"];
 const AUDIT_AUTHORITY_PATHS = [
   ".github/workflows/repository-audit-manifest.yml",
+  "docs/audits/evidence/batch-01a-audit-authority.json",
   "package.json",
   "scripts/check-repository-audit-authority.mjs",
   "scripts/generate-repository-audit-manifest.mjs",
@@ -253,6 +254,216 @@ function summarize(files) {
   return summary;
 }
 
+function requireEvidence(condition, message) {
+  if (!condition) throw new Error(`Repository review evidence is invalid: ${message}`);
+}
+
+function validateReviewedRanges(ranges, lines, repositoryPath) {
+  requireEvidence(Array.isArray(ranges) && ranges.length > 0, `${repositoryPath} has no reviewed ranges`);
+  requireEvidence(Number.isInteger(lines) && lines > 0, `${repositoryPath} is not reviewable text`);
+  let nextLine = 1;
+  for (const range of ranges) {
+    requireEvidence(
+      range &&
+        Object.keys(range).sort().join(",") === "endLine,startLine" &&
+        Number.isInteger(range.startLine) &&
+        Number.isInteger(range.endLine),
+      `${repositoryPath} has a malformed reviewed range`,
+    );
+    requireEvidence(
+      range.startLine === nextLine && range.endLine >= range.startLine && range.endLine <= lines,
+      `${repositoryPath} reviewed ranges must be ordered, contiguous and bounded`,
+    );
+    nextLine = range.endLine + 1;
+  }
+  requireEvidence(nextLine === lines + 1, `${repositoryPath} reviewed ranges do not cover every line`);
+}
+
+function validateFinding(finding, repositoryPath, lines) {
+  requireEvidence(finding && typeof finding === "object", `${repositoryPath} has a malformed finding`);
+  requireEvidence(
+    /^B01A-P[0-3]-\d{3}$/.test(finding.id),
+    `${repositoryPath} finding id is not canonical`,
+  );
+  requireEvidence(SEVERITIES.includes(finding.severity), `${repositoryPath} finding severity is invalid`);
+  requireEvidence(
+    finding.id.split("-")[1] === finding.severity,
+    `${repositoryPath} finding ${finding.id} severity does not match its id`,
+  );
+  requireEvidence(
+    Number.isInteger(finding.line) && finding.line >= 1 && finding.line <= lines,
+    `${repositoryPath} finding line is outside the reviewed file`,
+  );
+  for (const field of [
+    "attackPath",
+    "affectedInvariant",
+    "evidence",
+    "fixOwner",
+    "verificationRequirement",
+  ]) {
+    requireEvidence(
+      typeof finding[field] === "string" && finding[field].trim().length > 0,
+      `${repositoryPath} finding ${finding.id} is missing ${field}`,
+    );
+  }
+  requireEvidence(
+    ["remediated", "tracked-debt", "release-no-go"].includes(finding.disposition),
+    `${repositoryPath} finding ${finding.id} has an invalid disposition`,
+  );
+  requireEvidence(
+    Array.isArray(finding.remediation) &&
+      finding.remediation.length > 0 &&
+      finding.remediation.every((link) => typeof link === "string" && link.length > 0),
+    `${repositoryPath} finding ${finding.id} has no remediation reference`,
+  );
+}
+
+function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
+  const filesByPath = new Map(files.map((file) => [file.path, file]));
+  const findingIds = new Set();
+  const reviewedPaths = new Set();
+  const residualRiskIds = new Set();
+  const evidenceSets = [];
+
+  for (const declarationPath of repositoryAuditPolicy.reviewEvidencePaths) {
+    const declarationFile = filesByPath.get(declarationPath);
+    requireEvidence(
+      declarationFile,
+      `${declarationPath} is missing from the exact tracked tree`,
+    );
+    requireEvidence(
+      declarationFile.contentKind === "text" && declarationFile.gitObjectType === "blob",
+      `${declarationPath} must be a textual Git blob`,
+    );
+    const declaration = JSON.parse(
+      decodeUtf8(blobs.get(declarationFile.gitObjectId), declarationPath),
+    );
+    requireEvidence(declaration.schemaVersion === 1, `${declarationPath} schemaVersion must be 1`);
+    requireEvidence(
+      /^batch-01a-[a-z0-9-]+$/.test(declaration.evidenceId),
+      `${declarationPath} evidenceId is invalid`,
+    );
+    requireEvidence(
+      declarationPath.endsWith(`/${declaration.evidenceId}.json`),
+      `${declarationPath} does not match its evidenceId`,
+    );
+    requireEvidence(declaration.reviewBatch === 1, `${declarationPath} must describe Batch 1`);
+    requireEvidence(
+      typeof declaration.reviewedAt === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(declaration.reviewedAt),
+      `${declarationPath} reviewedAt is invalid`,
+    );
+    requireEvidence(
+      typeof declaration.reviewMethod === "string" && declaration.reviewMethod.length > 0,
+      `${declarationPath} reviewMethod is required`,
+    );
+    requireEvidence(
+      Array.isArray(declaration.residualRisks) && declaration.residualRisks.length > 0,
+      `${declarationPath} must state residual risk`,
+    );
+    for (const risk of declaration.residualRisks) {
+      requireEvidence(
+        risk &&
+          /^B01A-RISK-\d{3}$/.test(risk.id) &&
+          !residualRiskIds.has(risk.id),
+        `${declarationPath} has a duplicate or invalid residual-risk id`,
+      );
+      residualRiskIds.add(risk.id);
+      requireEvidence(SEVERITIES.includes(risk.severity), `${risk.id} severity is invalid`);
+      requireEvidence(
+        typeof risk.statement === "string" && risk.statement.length > 0,
+        `${risk.id} statement is required`,
+      );
+      requireEvidence(
+        typeof risk.owner === "string" && risk.owner.length > 0,
+        `${risk.id} owner is required`,
+      );
+      requireEvidence(
+        ["tracked-debt", "release-no-go"].includes(risk.disposition),
+        `${risk.id} disposition is invalid`,
+      );
+    }
+    requireEvidence(
+      Array.isArray(declaration.files) && declaration.files.length > 0,
+      `${declarationPath} has no reviewed files`,
+    );
+
+    let previousPath = "";
+    let reviewedLines = 0;
+    let findings = 0;
+    for (const entry of declaration.files) {
+      requireEvidence(
+        typeof entry.path === "string" && entry.path > previousPath,
+        `${declarationPath} reviewed paths must be unique and sorted`,
+      );
+      previousPath = entry.path;
+      requireEvidence(!reviewedPaths.has(entry.path), `${entry.path} is reviewed more than once`);
+      const target = filesByPath.get(entry.path);
+      requireEvidence(target, `${entry.path} is not in the exact tracked tree`);
+      requireEvidence(
+        target.contentKind === "text" && target.provenance === "source",
+        `${entry.path} is not source text eligible for semantic review`,
+      );
+      requireEvidence(target.reviewBatch === declaration.reviewBatch, `${entry.path} is in the wrong batch`);
+      requireEvidence(target.gitObjectId === entry.gitObjectId, `${entry.path} Git blob changed after review`);
+      requireEvidence(target.sha256 === entry.sha256, `${entry.path} digest changed after review`);
+      requireEvidence(target.lines === entry.lines, `${entry.path} line count changed after review`);
+      validateReviewedRanges(entry.reviewedRanges, target.lines, entry.path);
+      requireEvidence(
+        Array.isArray(entry.reviewNotes) &&
+          entry.reviewNotes.length > 0 &&
+          entry.reviewNotes.every((note) => typeof note === "string" && note.length > 0),
+        `${entry.path} requires semantic review notes`,
+      );
+      requireEvidence(Array.isArray(entry.findings), `${entry.path} findings must be an array`);
+      for (const finding of entry.findings) {
+        validateFinding(finding, entry.path, target.lines);
+        requireEvidence(!findingIds.has(finding.id), `finding id ${finding.id} is duplicated`);
+        findingIds.add(finding.id);
+      }
+      requireEvidence(
+        ["no-confirmed-findings", "confirmed-findings-recorded"].includes(entry.findingDisposition),
+        `${entry.path} finding disposition is invalid`,
+      );
+      requireEvidence(
+        (entry.findings.length === 0) === (entry.findingDisposition === "no-confirmed-findings"),
+        `${entry.path} finding disposition contradicts its findings`,
+      );
+
+      target.review = {
+        status: "semantic-reviewed",
+        semanticEvidence: {
+          evidenceId: declaration.evidenceId,
+          declarationPath,
+          reviewedRanges: entry.reviewedRanges,
+          reviewNotes: entry.reviewNotes,
+          findingDisposition: entry.findingDisposition,
+          findings: entry.findings,
+        },
+        remediation: [...new Set(entry.findings.flatMap((finding) => finding.remediation))],
+        reviewedCommitSha: sourceCommitSha,
+      };
+      reviewedPaths.add(entry.path);
+      reviewedLines += target.lines;
+      findings += entry.findings.length;
+    }
+
+    evidenceSets.push({
+      evidenceId: declaration.evidenceId,
+      declarationPath,
+      reviewBatch: declaration.reviewBatch,
+      reviewedAt: declaration.reviewedAt,
+      reviewMethod: declaration.reviewMethod,
+      reviewedPaths: declaration.files.length,
+      reviewedLines,
+      findings,
+      residualRisks: declaration.residualRisks,
+      reviewedCommitSha: sourceCommitSha,
+    });
+  }
+  return evidenceSets;
+}
+
 export async function generateRepositoryAuditManifest({
   repositoryRoot = process.cwd(),
   expectedSourceSha = process.env.TECPEY_AUDIT_SOURCE_SHA,
@@ -325,14 +536,16 @@ export async function generateRepositoryAuditManifest({
       inventoryCommitSha: sourceCommitSha,
     };
   });
+  const reviewEvidenceSets = applySemanticReviewEvidence(files, blobs, sourceCommitSha);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     policyVersion: repositoryAuditPolicy.version,
     sourceCommitSha,
     sourceCommittedAt: committedAt,
     completionClaim: false,
     summary: summarize(files),
+    reviewEvidenceSets,
     reviewBatches: repositoryAuditPolicy.reviewBatches,
     files,
   };
@@ -354,10 +567,7 @@ export async function validateRepositoryAuditManifest(
     );
   }
   if (manifest.completionClaim !== false) {
-    throw new Error("Batch 0 inventory must not claim repository-wide review completion");
-  }
-  if (manifest.files.some((file) => file.review.reviewedCommitSha !== null)) {
-    throw new Error("Batch 0 cannot publish semantic review SHAs before review evidence exists");
+    throw new Error("A partial repository audit must not claim repository-wide review completion");
   }
   return manifest.summary;
 }

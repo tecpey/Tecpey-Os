@@ -65,6 +65,19 @@ Each future batch must publish the exact reviewed paths and lines, findings by
 severity, remediation links, residual risk, and unchanged-head verification.
 Large remediations belong in bounded domain pull requests.
 
+## Batch 1A: audit-authority semantic evidence
+
+The first bounded semantic slice reviews only the repository-audit authority
+itself. Its committed declaration records the exact Git blob, SHA-256 digest,
+line count, complete contiguous line ranges, review notes, confirmed findings,
+remediation references and residual risk for each reviewed file.
+
+CI applies a declaration only when every reviewed blob still matches. The
+generated manifest binds accepted evidence to the exact checkout through
+`reviewedCommitSha`; changing one reviewed byte or leaving one line outside the
+declared ranges fails closed. Files outside this bounded slice remain pending,
+and `completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash
