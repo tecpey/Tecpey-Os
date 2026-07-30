@@ -242,156 +242,166 @@ describe("PostgreSQL migration authority", () => {
     skip: !databaseConfigured,
     timeout: 60_000,
   }, async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const isolated = governedDatabaseName("contract", suffix);
+    const adminUrl = new URL(databaseUrl!);
+    adminUrl.pathname = "/postgres";
+    const admin = new Pool({ connectionString: adminUrl.toString(), max: 1 });
+    await admin.query(`CREATE DATABASE ${isolated}`);
     const pool = new Pool({
-      connectionString: databaseUrl,
+      connectionString: databaseConnectionUrl(isolated),
       max: 1,
       connectionTimeoutMillis: 5_000,
     });
-    const client = await pool.connect();
-
     try {
-      await applyDatabaseMigrationsWithLock(client);
-      const firstLedger = await client.query<{ filename: string; checksum: string }>(
-        "SELECT filename, checksum FROM _migrations ORDER BY filename",
-      );
-
-      await applyDatabaseMigrationsWithLock(client);
-      const secondLedger = await client.query<{ filename: string; checksum: string }>(
-        "SELECT filename, checksum FROM _migrations ORDER BY filename",
-      );
-
-      assert.deepEqual(secondLedger.rows, firstLedger.rows, "rerun must not mutate the migration ledger");
-      assert.equal(
-        new Set(secondLedger.rows.map((row) => row.filename)).size,
-        secondLedger.rows.length,
-        "migration filenames must remain unique",
-      );
-      assert.ok(
-        secondLedger.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum)),
-        "clean migration applications must persist full SHA-256 checksums",
-      );
-
-      const applied = new Set(secondLedger.rows.map((row) => row.filename));
-      const originalChecksums = new Map(
-        secondLedger.rows.map((row) => [row.filename, row.checksum]),
-      );
-      for (const filename of REQUIRED_MIGRATIONS) {
-        assert.ok(applied.has(filename), `required migration missing: ${filename}`);
-      }
-
-      const historicalBase = DATABASE_MIGRATION_EXPECTATIONS.find(
-        (entry) => entry.identity === "0001_initial_schema.sql",
-      );
-      assert.ok(historicalBase?.compatibleHistoricalChecksums[0]);
-      await client.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+      const client = await pool.connect();
       try {
-        await client.query(
-          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
-          [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
-        );
         await applyDatabaseMigrationsWithLock(client);
-        const historicalBaseEvidence = await client.query<{ checksum: string }>(
-          "SELECT checksum FROM _migrations WHERE filename = $1",
-          [historicalBase.identity],
-        );
-        assert.equal(
-          historicalBaseEvidence.rows[0]?.checksum,
-          historicalBase.compatibleHistoricalChecksums[0],
-          "governed historical 16-character checksums must verify without ledger rewrites",
+        const firstLedger = await client.query<{ filename: string; checksum: string }>(
+          "SELECT filename, checksum FROM _migrations ORDER BY filename",
         );
 
-        const historicalTenantChecksum =
-          "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
-        await client.query(
-          "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
-          [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
-        );
         await applyDatabaseMigrationsWithLock(client);
-        const upgradedEvidence = await client.query<{ checksum: string }>(
-          "SELECT checksum FROM _migrations WHERE filename = $1",
-          ["0046_tenant_principal_isolation_foundation.sql"],
+        const secondLedger = await client.query<{ filename: string; checksum: string }>(
+          "SELECT filename, checksum FROM _migrations ORDER BY filename",
         );
+
+        assert.deepEqual(secondLedger.rows, firstLedger.rows, "rerun must not mutate the migration ledger");
         assert.equal(
-          upgradedEvidence.rows[0]?.checksum,
-          historicalTenantChecksum,
-          "governed historical full checksums must verify without rewriting ledger history",
+          new Set(secondLedger.rows.map((row) => row.filename)).size,
+          secondLedger.rows.length,
+          "migration filenames must remain unique",
         );
-      } finally {
-        for (const identity of [
-          historicalBase.identity,
-          "0046_tenant_principal_isolation_foundation.sql",
-        ]) {
-          const originalChecksum = originalChecksums.get(identity);
-          assert.ok(originalChecksum, `original migration checksum missing: ${identity}`);
+        assert.ok(
+          secondLedger.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum)),
+          "clean migration applications must persist full SHA-256 checksums",
+        );
+
+        const applied = new Set(secondLedger.rows.map((row) => row.filename));
+        const originalChecksums = new Map(
+          secondLedger.rows.map((row) => [row.filename, row.checksum]),
+        );
+        for (const filename of REQUIRED_MIGRATIONS) {
+          assert.ok(applied.has(filename), `required migration missing: ${filename}`);
+        }
+
+        const historicalBase = DATABASE_MIGRATION_EXPECTATIONS.find(
+          (entry) => entry.identity === "0001_initial_schema.sql",
+        );
+        assert.ok(historicalBase?.compatibleHistoricalChecksums[0]);
+        await client.query("SELECT pg_advisory_lock($1, $2)", [...DATABASE_MIGRATION_LOCK_KEYS]);
+        try {
           await client.query(
             "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
-            [originalChecksum, identity],
+            [historicalBase.compatibleHistoricalChecksums[0], historicalBase.identity],
           );
+          await applyDatabaseMigrationsWithLock(client);
+          const historicalBaseEvidence = await client.query<{ checksum: string }>(
+            "SELECT checksum FROM _migrations WHERE filename = $1",
+            [historicalBase.identity],
+          );
+          assert.equal(
+            historicalBaseEvidence.rows[0]?.checksum,
+            historicalBase.compatibleHistoricalChecksums[0],
+            "governed historical 16-character checksums must verify without ledger rewrites",
+          );
+
+          const historicalTenantChecksum =
+            "0fb4eb3a3bd8deede63dc53edb211ef6bc12d7c329f48e93a918070cbd0167be";
+          await client.query(
+            "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+            [historicalTenantChecksum, "0046_tenant_principal_isolation_foundation.sql"],
+          );
+          await applyDatabaseMigrationsWithLock(client);
+          const upgradedEvidence = await client.query<{ checksum: string }>(
+            "SELECT checksum FROM _migrations WHERE filename = $1",
+            ["0046_tenant_principal_isolation_foundation.sql"],
+          );
+          assert.equal(
+            upgradedEvidence.rows[0]?.checksum,
+            historicalTenantChecksum,
+            "governed historical full checksums must verify without rewriting ledger history",
+          );
+        } finally {
+          for (const identity of [
+            historicalBase.identity,
+            "0046_tenant_principal_isolation_foundation.sql",
+          ]) {
+            const originalChecksum = originalChecksums.get(identity);
+            assert.ok(originalChecksum, `original migration checksum missing: ${identity}`);
+            await client.query(
+              "UPDATE _migrations SET checksum = $1 WHERE filename = $2",
+              [originalChecksum, identity],
+            );
+          }
+          await applyDatabaseMigrationsWithLock(client);
+          await client.query("SELECT pg_advisory_unlock($1, $2)", [
+            ...DATABASE_MIGRATION_LOCK_KEYS,
+          ]);
         }
-        await applyDatabaseMigrationsWithLock(client);
-        await client.query("SELECT pg_advisory_unlock($1, $2)", [
-          ...DATABASE_MIGRATION_LOCK_KEYS,
-        ]);
-      }
 
-      const tables = await client.query<{ table_name: string }>(
-        `SELECT table_name
-           FROM information_schema.tables
-          WHERE table_schema = 'public'
-            AND table_name = ANY($1::text[])`,
-        [REQUIRED_TABLES],
-      );
-      assert.deepEqual(
-        new Set(tables.rows.map((row) => row.table_name)),
-        new Set(REQUIRED_TABLES),
-        "critical domain tables must exist",
-      );
-
-      const columns = await client.query<{ table_name: string; column_name: string }>(
-        `SELECT table_name, column_name
-           FROM information_schema.columns
-          WHERE table_schema = 'public'`,
-      );
-      const columnSet = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}`));
-      for (const [table, column] of REQUIRED_COLUMNS) {
-        assert.ok(columnSet.has(`${table}.${column}`), `required column missing: ${table}.${column}`);
-      }
-
-      for (const indexName of REQUIRED_INDEXES) {
-        const indexResult = await client.query<{ name: string | null }>(
-          "SELECT to_regclass($1)::text AS name",
-          [`public.${indexName}`],
+        const tables = await client.query<{ table_name: string }>(
+          `SELECT table_name
+             FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = ANY($1::text[])`,
+          [REQUIRED_TABLES],
         );
-        assert.equal(indexResult.rows[0]?.name, indexName, `required index missing: ${indexName}`);
+        assert.deepEqual(
+          new Set(tables.rows.map((row) => row.table_name)),
+          new Set(REQUIRED_TABLES),
+          "critical domain tables must exist",
+        );
+
+        const columns = await client.query<{ table_name: string; column_name: string }>(
+          `SELECT table_name, column_name
+             FROM information_schema.columns
+            WHERE table_schema = 'public'`,
+        );
+        const columnSet = new Set(columns.rows.map((row) => `${row.table_name}.${row.column_name}`));
+        for (const [table, column] of REQUIRED_COLUMNS) {
+          assert.ok(columnSet.has(`${table}.${column}`), `required column missing: ${table}.${column}`);
+        }
+
+        for (const indexName of REQUIRED_INDEXES) {
+          const indexResult = await client.query<{ name: string | null }>(
+            "SELECT to_regclass($1)::text AS name",
+            [`public.${indexName}`],
+          );
+          assert.equal(indexResult.rows[0]?.name, indexName, `required index missing: ${indexName}`);
+        }
+
+        const triggerResult = await client.query<{ tgname: string }>(
+          `SELECT tgname
+             FROM pg_trigger
+            WHERE NOT tgisinternal
+              AND tgname = ANY($1::text[])`,
+          [REQUIRED_TRIGGERS],
+        );
+        assert.deepEqual(
+          new Set(triggerResult.rows.map((row) => row.tgname)),
+          new Set(REQUIRED_TRIGGERS),
+          "critical database authority triggers must exist",
+        );
+
+        const constraintResult = await client.query<{ conname: string }>(
+          `SELECT conname
+             FROM pg_constraint
+            WHERE conname = ANY($1::text[])`,
+          [REQUIRED_CONSTRAINTS],
+        );
+        assert.deepEqual(
+          new Set(constraintResult.rows.map((row) => row.conname)),
+          new Set(REQUIRED_CONSTRAINTS),
+          "critical CRM privacy constraints must exist",
+        );
+      } finally {
+        client.release();
       }
-
-      const triggerResult = await client.query<{ tgname: string }>(
-        `SELECT tgname
-           FROM pg_trigger
-          WHERE NOT tgisinternal
-            AND tgname = ANY($1::text[])`,
-        [REQUIRED_TRIGGERS],
-      );
-      assert.deepEqual(
-        new Set(triggerResult.rows.map((row) => row.tgname)),
-        new Set(REQUIRED_TRIGGERS),
-        "critical database authority triggers must exist",
-      );
-
-      const constraintResult = await client.query<{ conname: string }>(
-        `SELECT conname
-           FROM pg_constraint
-          WHERE conname = ANY($1::text[])`,
-        [REQUIRED_CONSTRAINTS],
-      );
-      assert.deepEqual(
-        new Set(constraintResult.rows.map((row) => row.conname)),
-        new Set(REQUIRED_CONSTRAINTS),
-        "critical CRM privacy constraints must exist",
-      );
     } finally {
-      client.release();
       await pool.end();
+      await admin.query(`DROP DATABASE IF EXISTS ${isolated} WITH (FORCE)`);
+      await admin.end();
     }
   });
 });

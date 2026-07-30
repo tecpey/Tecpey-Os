@@ -76,7 +76,7 @@
       "reviewNotes": [
         "Both jobs, service images, environment contract, exact-head checkout, pinned actions, migrations, type and lint authorities, domain-specific guards, service-backed tests, full test suite, production build, runtime smokes and failure diagnostics were reviewed as the primary integration gate.",
         "Hygiene and quality jobs now have explicit 10- and 60-minute bounds, all diagnostic artifacts use the exact source SHA, and the new structural CI workflow guard runs before the remaining security authorities.",
-        "Exact-head CI exposed destructive migration-concurrency tests mutating the shared service database while the notification outbox suite was reading its ledger; those tests now use per-test UUID databases and bounded session cleanup.",
+        "Exact-head CI and Full Suite exposed destructive migration authority tests mutating the shared service database while unrelated notification and session suites were reading its ledger; every checksum-mutation case now uses a UUID-scoped database with bounded cleanup.",
         "The Production environment contract now uses distinct non-placeholder CI fixtures accepted by the same fail-closed validator as runtime startup, and failure-only diagnostic uploads cannot add a second failure when an earlier step skipped their producer."
       ],
       "findings": [
@@ -112,11 +112,11 @@
           "id": "B01C-P2-003",
           "severity": "P2",
           "line": 362,
-          "attackPath": "The primary npm test step ran destructive migration-concurrency cases in parallel with other service-backed suites against one shared PostgreSQL database, allowing a temporary checksum mutation to make unrelated notification tests fail nondeterministically.",
+          "attackPath": "The primary npm test step ran destructive migration-authority cases in parallel with other service-backed suites against one shared PostgreSQL database, allowing temporary checksum mutations to make unrelated notification or session tests fail nondeterministically.",
           "affectedInvariant": "A required exact-head CI result must be determined by the tested source, not by cross-suite mutation order in a shared service fixture.",
-          "evidence": "CI run 30505060431 captured migration-concurrency tests setting the canonical ledger checksum to sixteen zeroes while notification-creation-outbox-runtime tests observed that invalid shared state; the remediated migration tests create UUID-scoped databases and assert bounded session release before forced fixture cleanup.",
+          "evidence": "CI run 30505060431 captured migration-concurrency checksum mutation racing notification outbox tests; Full Suite run 30514643759 later captured migration-integration compatibility-checksum mutation racing logout tests, which observed database_schema_not_ready:outdated. Both mutation paths now use UUID-scoped databases and bounded forced cleanup.",
           "fixOwner": "tests-quality-evidence",
-          "verificationRequirement": "The exact-head primary CI and Full Suite workflows must both pass the service-backed test suite with the destructive migration cases confined to isolated databases.",
+          "verificationRequirement": "The exact-head primary CI and Full Suite workflows must both pass the service-backed test suite with every migration checksum-mutation case confined to an isolated database.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"

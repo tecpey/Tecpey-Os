@@ -117,6 +117,21 @@ const migrationRuns = workflow.match(/npm run db:migrate/g)?.length ?? 0;
 if (migrationRuns < 2) failures.push("CI must run db:migrate twice to prove idempotent reruns");
 
 requireText(integration, "applyDatabaseMigrationsWithLock", "migration integration test must execute the canonical plan");
+requireText(
+  integration,
+  'const isolated = governedDatabaseName("contract", suffix)',
+  "migration contract checksum tests must create an isolated database",
+);
+requireText(
+  integration,
+  "connectionString: databaseConnectionUrl(isolated)",
+  "migration contract checksum tests must execute only against their isolated database",
+);
+rejectText(
+  integration,
+  "connectionString: databaseUrl,",
+  "migration integration tests must not mutate the shared service database",
+);
 for (const migration of [
   "0023_offline_sync_command_authority.sql",
   "0024_notification_domain_outbox.sql",
