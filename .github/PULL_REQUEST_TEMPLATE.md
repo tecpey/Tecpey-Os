@@ -41,12 +41,13 @@
 ## Pre-submission Checklist
 
 ### Code Quality
-- [ ] `./node_modules/.bin/tsc --noEmit` passes with 0 errors
-- [ ] `./node_modules/.bin/eslint .` introduces no new errors
+- [ ] `npm run check` passes, including lint/type and correctness-authority gates
+- [ ] Relevant focused tests pass; `npm test` and `npm run build` pass when the change can affect shared runtime behavior
 - [ ] No `any` types without explicit justification
 
 ### Security (required for all PRs touching API or auth)
-- [ ] All new `POST`/`PATCH`/`DELETE` routes call `verifyCsrfOrigin(req)`
+- [ ] `npm run api:security:check` passes for every new or changed `POST`/`PUT`/`PATCH`/`DELETE` operation
+- [ ] Each mutating operation has same-origin CSRF evidence or an explicitly reviewed manifest exception
 - [ ] No secrets or API keys committed
 - [ ] No new env var fallback chains introduced
 

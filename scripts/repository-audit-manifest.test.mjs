@@ -53,6 +53,7 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
   const secondTargetPath = "scripts/supply-chain-authority.mjs";
   const thirdTargetPath = "scripts/ci-evidence-authority.mjs";
   const fourthTargetPath = "scripts/root-configuration-authority.mjs";
+  const fifthTargetPath = "scripts/contribution-governance-authority.mjs";
   await fs.mkdir(path.join(root, "scripts"), { recursive: true });
   await fs.writeFile(path.join(root, targetPath), "export const governed = true;\n", "utf8");
   await fs.writeFile(
@@ -70,12 +71,18 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
     "export const rootConfigurationGoverned = true;\n",
     "utf8",
   );
+  await fs.writeFile(
+    path.join(root, fifthTargetPath),
+    "export const contributionGovernanceGoverned = true;\n",
+    "utf8",
+  );
   await git(root, "add", ".");
   await git(root, "commit", "--quiet", "-m", "add reviewed authorities");
   const content = await fs.readFile(path.join(root, targetPath));
   const secondContent = await fs.readFile(path.join(root, secondTargetPath));
   const thirdContent = await fs.readFile(path.join(root, thirdTargetPath));
   const fourthContent = await fs.readFile(path.join(root, fourthTargetPath));
+  const fifthContent = await fs.readFile(path.join(root, fifthTargetPath));
   const gitObjectId = (
     await execFileAsync("git", ["rev-parse", `HEAD:${targetPath}`], { cwd: root })
   ).stdout.trim();
@@ -87,6 +94,9 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
   ).stdout.trim();
   const fourthGitObjectId = (
     await execFileAsync("git", ["rev-parse", `HEAD:${fourthTargetPath}`], { cwd: root })
+  ).stdout.trim();
+  const fifthGitObjectId = (
+    await execFileAsync("git", ["rev-parse", `HEAD:${fifthTargetPath}`], { cwd: root })
   ).stdout.trim();
   const declaration = {
     schemaVersion: 1,
@@ -229,6 +239,41 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
     "evidence",
     "batch-01d-root-configuration.json",
   );
+  const fifthDeclaration = {
+    schemaVersion: 1,
+    evidenceId: "batch-01e-contribution-governance",
+    reviewBatch: 1,
+    reviewedAt: "2026-07-30",
+    reviewMethod: "Complete line-addressable semantic review of a fifth governed fixture.",
+    residualRisks: [
+      {
+        id: "B01E-RISK-001",
+        severity: "P3",
+        statement: "Fifth fixture review does not claim repository-wide completion.",
+        owner: "audit-test",
+        disposition: "tracked-debt",
+      },
+    ],
+    files: [
+      {
+        path: fifthTargetPath,
+        gitObjectId: fifthGitObjectId,
+        sha256: createHash("sha256").update(fifthContent).digest("hex"),
+        lines: 1,
+        reviewedRanges: [{ startLine: 1, endLine: 1 }],
+        findingDisposition: "no-confirmed-findings",
+        reviewNotes: ["The fifth exported authority line was reviewed."],
+        findings: [],
+      },
+    ],
+  };
+  const fifthEvidencePath = path.join(
+    root,
+    "docs",
+    "audits",
+    "evidence",
+    "batch-01e-contribution-governance.json",
+  );
   await fs.mkdir(path.dirname(evidencePath), { recursive: true });
   await fs.writeFile(evidencePath, `${JSON.stringify(declaration, null, 2)}\n`, "utf8");
   await fs.writeFile(
@@ -244,6 +289,11 @@ async function addSemanticEvidenceFixture(root, overrides = {}) {
   await fs.writeFile(
     fourthEvidencePath,
     `${JSON.stringify(fourthDeclaration, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    fifthEvidencePath,
+    `${JSON.stringify(fifthDeclaration, null, 2)}\n`,
     "utf8",
   );
   await git(root, "add", ".");
@@ -325,7 +375,7 @@ test("manifest inventories the exact committed tree with deterministic evidence"
   });
 
   assert.deepEqual(first, second);
-  assert.equal(first.summary.trackedPaths, 12);
+  assert.equal(first.summary.trackedPaths, 14);
   assert.equal(first.files.some((file) => file.path === "untracked.txt"), false);
   assert.equal(first.files.find((file) => file.path === "README.md").lines, 1);
   assert.equal(first.files.find((file) => file.path === "README.md").automatedScan.findingCounts.P3, 0);
@@ -337,10 +387,10 @@ test("manifest inventories the exact committed tree with deterministic evidence"
     0,
   );
   assert.equal(first.files.every((file) => file.inventoryCommitSha === sourceSha), true);
-  assert.equal(first.reviewEvidenceSets.length, 4);
+  assert.equal(first.reviewEvidenceSets.length, 5);
   assert.equal(
     first.files.filter((file) => file.review.reviewedCommitSha !== null).length,
-    4,
+    5,
   );
   await validateRepositoryAuditManifest(first, { repositoryRoot: root, expectedSourceSha: sourceSha });
 });
@@ -442,7 +492,7 @@ test("manifest applies line-addressable semantic evidence to the exact reviewed 
   });
   const reviewed = manifest.files.find((file) => file.path === targetPath);
   assert.equal(manifest.schemaVersion, 2);
-  assert.equal(manifest.reviewEvidenceSets.length, 4);
+  assert.equal(manifest.reviewEvidenceSets.length, 5);
   assert.equal(manifest.reviewEvidenceSets[0].reviewedPaths, 1);
   assert.equal(manifest.reviewEvidenceSets[0].reviewedLines, 1);
   assert.equal(reviewed.review.status, "semantic-reviewed");

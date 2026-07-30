@@ -21,11 +21,16 @@ If you are an authorized employee or contractor, continue reading.
 ```bash
 git clone https://github.com/tecpey/Tecpey-Os.git
 cd Tecpey-Os
-npm install
-cp .env.local.example .env.local
-# Fill in all required environment variables
+npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
 npm run dev
 ```
+
+Local development starts without copying the production environment template.
+For a production-like deployment, follow
+[`DEPLOY_UBUNTU_24_PRODUCTION.md`](./DEPLOY_UBUNTU_24_PRODUCTION.md) and copy
+`.env.production.example` only to the deployment host's untracked
+`.env.production`, replacing every placeholder through the approved secret
+manager.
 
 ---
 
@@ -54,13 +59,14 @@ npm run dev
 
 3. **Run quality checks before pushing:**
    ```bash
-   ./node_modules/.bin/tsc --noEmit
-   npm run lint
-   npm run lint:authority
-   npm run test:lint-authority
+   npm run check
+   npm test
+   npm run build
    ```
    TypeScript and ESLint must report 0 errors and 0 warnings. The reviewed
    correctness baseline must match exactly; it may shrink but must never grow.
+   Run the narrower authority commands documented in `package.json` when the
+   changed domain has an additional gate.
 
 4. **Fill in the PR template completely.** Incomplete PRs will not be reviewed.
 
@@ -104,10 +110,12 @@ npm run dev
 - Dark mode must work — test both light and dark.
 
 ### Security
-- Every state-changing API route (`POST`, `PATCH`, `DELETE`) must call `verifyCsrfOrigin(req)`.
+- Every mutating API operation (`POST`, `PUT`, `PATCH`, `DELETE`) must pass
+  `npm run api:security:check`, including same-origin CSRF evidence or an
+  explicitly reviewed manifest exception.
 - No fallback secrets. Missing env vars must fail closed in production.
 - Never log passwords, tokens, or session values.
-- Never commit `.env` files.
+- Never commit a real `.env` file; only reviewed `*.example` templates may be tracked.
 
 ### RTL/LTR Parity
 - All UI changes to Persian pages (`/`) must have an English equivalent in `/en/`.

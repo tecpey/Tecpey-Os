@@ -120,6 +120,19 @@ Policy v12 binds the fourth independently identified evidence slice. Batch 1D
 adds eleven semantically reviewed paths and 480 reviewed lines; all other paths
 remain pending and `completionClaim` remains `false`.
 
+## Batch 1E: contribution governance
+
+The fifth bounded slice reviews the two issue templates, pull-request template,
+contributor contract, Code of Conduct, proprietary license and their permanent
+policy. Contributor setup now uses the lockfile-backed install without a
+nonexistent environment template; feature requests point to the current master
+roadmap; and the PR/contributor security contract covers all four governed
+mutating methods plus API Security Manifest evidence.
+
+Policy v13 binds the fifth independently identified evidence slice. Batch 1E
+adds seven semantically reviewed paths; all other paths remain pending and
+`completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash

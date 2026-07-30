@@ -69,4 +69,4 @@ Any mockups, references, screenshots, or links that support the request.
 
 > **Note:** Feature requests are reviewed against the TecPey roadmap and product principles.
 > Features that conflict with the "education before engagement" principle may not be accepted.
-> See [docs/Roadmap.md](../../docs/Roadmap.md) for current priorities.
+> See [the current master roadmap](../../docs/MASTER_ROADMAP_v3.md) for current priorities.

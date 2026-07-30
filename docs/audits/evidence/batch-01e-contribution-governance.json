@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01e-contribution-governance",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of the two GitHub issue templates, pull-request template, contributor contract, Code of Conduct, proprietary license and permanent contribution-governance policy, including local-link resolution, current roadmap authority, deterministic setup commands, exact quality gates, all four mutating API methods, private security reporting, conduct reporting and proprietary-use boundaries.",
+  "residualRisks": [
+    {
+      "id": "B01E-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews seven contribution-governance paths only; the remaining Batch 1 deployment, package, platform-core and script paths retain their pending status and no repository-wide completion claim is made.",
+      "owner": "repository-governance",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01E-RISK-002",
+      "severity": "P2",
+      "statement": "Repository templates and documentation guide authorized contributors but cannot replace GitHub branch protection, required checks, reviewer enforcement or organization-level access controls.",
+      "owner": "repository-governance",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01E-RISK-003",
+      "severity": "P3",
+      "statement": "The policy verifies committed relative-link targets and critical contribution invariants; it does not establish delivery or response-time evidence for the listed email and Telegram channels.",
+      "owner": "repository-governance",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "gitObjectId": "f6f378559330f448e7c3e37cbb98dcccdd48449b",
+      "sha256": "26c1f5588f35268ef12004791c6e94105d3f244373355e19a6fc6541926a460e",
+      "lines": 70,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 70
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Front matter, reproduction fields, environment context, console evidence and security-reporting boundary were reviewed line by line.",
+        "The relative SECURITY.md link resolves to the tracked root policy and the template explicitly rejects public vulnerability reports."
+      ],
+      "findings": []
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "gitObjectId": "0e3d7a6d826a627643c803c1aa4500836c08c4c0",
+      "sha256": "e0197ae307427bdc5ad12ba9d984a5a00616609a333a4e2a31eaea2e1b8430bc",
+      "lines": 72,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 72
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Problem, solution, alternatives, product-area, priority and product-principle prompts were reviewed against current repository terminology.",
+        "The priorities link now resolves directly to the official Master Roadmap v3 rather than its retained historical predecessor."
+      ],
+      "findings": [
+        {
+          "id": "B01E-P3-001",
+          "severity": "P3",
+          "line": 72,
+          "attackPath": "The feature template described docs/Roadmap.md as the current priorities authority even though that document is explicitly superseded, so contributors could justify work against stale phases or omit current roadmap constraints.",
+          "affectedInvariant": "Contribution intake must link directly to the current product authority and must not describe a retained historical document as current.",
+          "evidence": "docs/Roadmap.md line 3 declares itself SUPERSEDED by docs/MASTER_ROADMAP_v3.md; the template formerly linked only to the superseded path.",
+          "fixOwner": "repository-governance",
+          "verificationRequirement": "The permanent contribution policy must require the Master Roadmap v3 target, reject the superseded target and verify the tracked local link.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "gitObjectId": "ccf67eb70fe0849aed25b32392c9f0166d067a20",
+      "sha256": "278064983398bafa4d29085aa92e4f751beb07b684358c7145139b101588d89a",
+      "lines": 98,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 98
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Change classification, affected-surface inventory, quality, security, UI, content, documentation, screenshot, test and issue-link sections were reviewed against package scripts and CI authority.",
+        "Quality guidance now uses the aggregate check command and shared-runtime test/build evidence; API guidance delegates to the exact API Security Manifest for POST, PUT, PATCH and DELETE operations."
+      ],
+      "findings": [
+        {
+          "id": "B01E-P2-001",
+          "severity": "P2",
+          "line": 49,
+          "attackPath": "The former API/auth checklist omitted PUT from its state-changing methods and required only a direct verifyCsrfOrigin call, diverging from the API Security Manifest that governs POST, PUT, PATCH and DELETE with runtime evidence and reviewed exceptions.",
+          "affectedInvariant": "Reviewer-facing security gates must cover the same mutating-operation set and evidence model as the executable API authority.",
+          "evidence": "scripts/api-security-manifest-policy.mjs defines POST, PUT, PATCH and DELETE as the exact method set; the former template listed only POST, PATCH and DELETE.",
+          "fixOwner": "repository-governance",
+          "verificationRequirement": "The permanent contribution policy must reject removal of any governed method and require both the API security check and same-origin evidence or an explicitly reviewed exception.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "gitObjectId": "f522262e417713fda6ddaf510ae3774d1e0b3bc4",
+      "sha256": "f0df30e45d80c5f750121c38a3ac45e4ec2ba46b4a1fd28873ef57536ace03be",
+      "lines": 69,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 69
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Expected and unacceptable behavior, user-data privacy, financial-content safety, enforcement levels, reporting instructions, confidentiality statement, attribution and contact were reviewed in full.",
+        "The permanent policy rejects deletion of the reporting heading, contact address or confidentiality commitment."
+      ],
+      "findings": []
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "gitObjectId": "9fd96a7c2f05ad4a316dc3463d0a3c9462dbbe02",
+      "sha256": "4be862aea52dc8497c23cce01af97b5695c75499fb8bb437b7f70714e606ce08",
+      "lines": 175,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 175
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Authorization, setup, branch, review, TypeScript, React, ESLint, styling, security, bilingual parity, commit, protected-surface, issue-reporting and contact guidance were reviewed against tracked files and executable package scripts.",
+        "Setup now uses the lockfile-backed registry-pinned install, starts local development without copying production configuration, and points production-like work to the governed deployment guide and untracked environment template."
+      ],
+      "findings": [
+        {
+          "id": "B01E-P2-002",
+          "severity": "P2",
+          "line": 24,
+          "attackPath": "The former setup used npm install despite a governed lockfile and instructed contributors to copy .env.local.example, a path that does not exist; authorized contributors could receive a non-reproducible dependency graph and stop before the first local run.",
+          "affectedInvariant": "The canonical contributor setup must be executable from the tracked repository and must preserve the lockfile as dependency authority.",
+          "evidence": "git ls-files contains .env.production.example but no .env.local.example; package-lock.json is tracked and CI installs with npm ci against the canonical npm registry.",
+          "fixOwner": "repository-governance",
+          "verificationRequirement": "The permanent contribution policy must require the exact lockfile-backed install and production template path while rejecting npm install and .env.local.example in the setup block.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "LICENSE",
+      "gitObjectId": "0c9d3061fc9a2a5fb689483d12c47ec34e04ffbe",
+      "sha256": "ae2da66bfa9699201abd2870f36e82c49557dcbe9dbc100c755a7667d6dac16a",
+      "lines": 45,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 45
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Ownership, copying, commercial-use, reverse-engineering, notice, authorized-contributor, warranty, liability and contact clauses were reviewed in full.",
+        "The repository remains explicitly proprietary and confidential; this technical review does not replace legal advice or broaden any granted permission."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/contribution-governance-policy.mjs",
+      "gitObjectId": "299cea4a7abb04703db39910f204943080497af6",
+      "sha256": "581bf4bb172db8279494d2156b6e02868425b2d72eb61411b41e91a83d1c818e",
+      "lines": 149,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 149
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Input validation, exact invariant checks, local Markdown target extraction, path normalization, repository-bound link resolution, four-method coverage and aggregated fail-closed errors were reviewed line by line.",
+        "Production-source acceptance plus negative mutations exercise broken links, superseded authority, incomplete API method sets, stale setup, missing gates and weakened reporting/license boundaries."
+      ],
+      "findings": []
+    }
+  ]
+}
