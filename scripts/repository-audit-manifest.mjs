@@ -279,10 +279,10 @@ function validateReviewedRanges(ranges, lines, repositoryPath) {
   requireEvidence(nextLine === lines + 1, `${repositoryPath} reviewed ranges do not cover every line`);
 }
 
-function validateFinding(finding, repositoryPath, lines) {
+function validateFinding(finding, repositoryPath, lines, evidencePrefix) {
   requireEvidence(finding && typeof finding === "object", `${repositoryPath} has a malformed finding`);
   requireEvidence(
-    /^B01A-P[0-3]-\d{3}$/.test(finding.id),
+    new RegExp(`^${evidencePrefix}-P[0-3]-\\d{3}$`).test(finding.id),
     `${repositoryPath} finding id is not canonical`,
   );
   requireEvidence(SEVERITIES.includes(finding.severity), `${repositoryPath} finding severity is invalid`);
@@ -339,15 +339,18 @@ function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
       decodeUtf8(blobs.get(declarationFile.gitObjectId), declarationPath),
     );
     requireEvidence(declaration.schemaVersion === 1, `${declarationPath} schemaVersion must be 1`);
-    requireEvidence(
-      /^batch-01a-[a-z0-9-]+$/.test(declaration.evidenceId),
-      `${declarationPath} evidenceId is invalid`,
-    );
+    const evidenceIdMatch =
+      /^batch-(\d{2})([a-z])-[a-z0-9-]+$/.exec(declaration.evidenceId);
+    requireEvidence(evidenceIdMatch, `${declarationPath} evidenceId is invalid`);
     requireEvidence(
       declarationPath.endsWith(`/${declaration.evidenceId}.json`),
       `${declarationPath} does not match its evidenceId`,
     );
-    requireEvidence(declaration.reviewBatch === 1, `${declarationPath} must describe Batch 1`);
+    requireEvidence(
+      declaration.reviewBatch === Number(evidenceIdMatch[1]),
+      `${declarationPath} reviewBatch does not match its evidenceId`,
+    );
+    const evidencePrefix = `B${evidenceIdMatch[1]}${evidenceIdMatch[2].toUpperCase()}`;
     requireEvidence(
       typeof declaration.reviewedAt === "string" &&
         /^\d{4}-\d{2}-\d{2}$/.test(declaration.reviewedAt),
@@ -364,7 +367,7 @@ function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
     for (const risk of declaration.residualRisks) {
       requireEvidence(
         risk &&
-          /^B01A-RISK-\d{3}$/.test(risk.id) &&
+          new RegExp(`^${evidencePrefix}-RISK-\\d{3}$`).test(risk.id) &&
           !residualRiskIds.has(risk.id),
         `${declarationPath} has a duplicate or invalid residual-risk id`,
       );
@@ -417,7 +420,7 @@ function applySemanticReviewEvidence(files, blobs, sourceCommitSha) {
       );
       requireEvidence(Array.isArray(entry.findings), `${entry.path} findings must be an array`);
       for (const finding of entry.findings) {
-        validateFinding(finding, entry.path, target.lines);
+        validateFinding(finding, entry.path, target.lines, evidencePrefix);
         requireEvidence(!findingIds.has(finding.id), `finding id ${finding.id} is duplicated`);
         findingIds.add(finding.id);
       }

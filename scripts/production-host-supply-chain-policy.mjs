@@ -61,6 +61,41 @@ function reject(findings, source, pattern, message) {
   if (pattern.test(source)) findings.push(message);
 }
 
+function yamlBlock(source, indent, key) {
+  const lines = source.split(/\r?\n/);
+  const prefix = " ".repeat(indent);
+  const start = lines.findIndex((line) => line === `${prefix}${key}:`);
+  if (start < 0) return "";
+
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    const currentIndent = line.length - line.trimStart().length;
+    if (currentIndent <= indent) {
+      end = index;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n");
+}
+
+function yamlNamedStepBlock(jobSource, stepName) {
+  const lines = jobSource.split(/\r?\n/);
+  const header = `      - name: ${stepName}`;
+  const start = lines.findIndex((line) => line === header);
+  if (start < 0) return "";
+
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^      - name: /.test(lines[index])) {
+      end = index;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n");
+}
+
 function declaredEnvironmentKeys(source, declarationName) {
   const declaration = new RegExp(
     `const\\s+${declarationName}\\s*=\\s*\\[([\\s\\S]*?)\\];`,
@@ -461,6 +496,35 @@ export function productionHostSupplyChainFindings({
       containerWorkflow,
       contract,
       `Container workflow must bind every build to an exact commit: ${contract}`,
+    );
+  }
+  const publishJob = yamlBlock(containerWorkflow, 2, "publish");
+  const publishNeeds = publishJob
+    .split(/\r?\n/)
+    .filter((line) => /^    needs:/.test(line));
+  if (
+    publishNeeds.length !== 1 ||
+    publishNeeds[0] !== "    needs: [verify, recovery]"
+  ) {
+    findings.push(
+      "Container publication must depend on both verification and rollback/recovery evidence",
+    );
+  }
+
+  const verifyJob = yamlBlock(containerWorkflow, 2, "verify");
+  const vulnerabilityStep = yamlNamedStepBlock(
+    verifyJob,
+    "Reject HIGH or CRITICAL runtime vulnerabilities",
+  );
+  const ignoreUnfixed = vulnerabilityStep
+    .split(/\r?\n/)
+    .filter((line) => /^          ignore-unfixed:/.test(line));
+  if (
+    ignoreUnfixed.length !== 1 ||
+    ignoreUnfixed[0] !== "          ignore-unfixed: false"
+  ) {
+    findings.push(
+      "Container vulnerability gate must reject unfixed HIGH or CRITICAL findings",
     );
   }
   requireText(findings, preflight, EXACT_RELEASE_CONTRACT, "Ubuntu preflight must resolve the exact candidate commit");

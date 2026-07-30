@@ -848,6 +848,32 @@ test("container workflow triggers for every build and environment authority sour
   }
 });
 
+test("container publication requires recovery and unfixed critical findings remain blocking", () => {
+  const publishWithoutRecovery = {
+    ...sources,
+    containerWorkflow: sources.containerWorkflow.replace(
+      "    needs: [verify, recovery]",
+      "    # needs: [verify, recovery]\n    needs: verify",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(publishWithoutRecovery).join("\n"),
+    /must depend on both verification and rollback\/recovery evidence/,
+  );
+
+  const ignoredUnfixed = {
+    ...sources,
+    containerWorkflow: sources.containerWorkflow.replace(
+      "          ignore-unfixed: false",
+      "          # ignore-unfixed: false\n          ignore-unfixed: true",
+    ),
+  };
+  assert.match(
+    productionHostSupplyChainFindings(ignoredUnfixed).join("\n"),
+    /must reject unfixed HIGH or CRITICAL findings/,
+  );
+});
+
 test("production template covers every validator-required and runtime-required key", () => {
   const requiredBlock = /const required = \[([\s\S]*?)\];/.exec(
     sources.environmentValidator,

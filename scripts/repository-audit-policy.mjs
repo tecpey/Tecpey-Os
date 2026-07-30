@@ -22,6 +22,7 @@ const PLATFORM_CORE_PATHS = new Set([
 
 const REVIEW_EVIDENCE_PATHS = [
   "docs/audits/evidence/batch-01a-audit-authority.json",
+  "docs/audits/evidence/batch-01b-operational-workflows.json",
 ];
 
 const DOMAIN_RULES = [
@@ -247,7 +248,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 9,
+  version: 10,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

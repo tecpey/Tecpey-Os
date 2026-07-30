@@ -157,13 +157,13 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "cd34de3c936232a5f980b60ecb0a7097e5045b44",
-      "sha256": "dbab24b45ef0bf8a264ae785dd5c438984c13116927acb428f51da1f19f70943",
-      "lines": 573,
+      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
+      "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
+      "lines": 576,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 573
+          "endLine": 576
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -171,7 +171,8 @@
         "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
         "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
         "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
-        "Every evidence declaration configured by Policy v9 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
+        "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
+        "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
         "Summary recomputation occurs after evidence application and completionClaim remains false."
       ],
       "findings": [
@@ -207,18 +208,18 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "2d784f656bfdfde6651ca1db29e71104f86ed286",
-      "sha256": "25fe38e92090a2f6227e4fe26046098066894826a8f83f6db40e61a168a3bac3",
-      "lines": 269,
+      "gitObjectId": "044645fac710409ff7e4ec03fb85859d0c5a98b0",
+      "sha256": "a270b5bf065b8881913d1956bd86c255acd4cb935a100f52e065ae715d918426",
+      "lines": 270,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 269
+          "endLine": 270
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v9 evidence-path ownership were reviewed.",
+        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities."
       ],
       "findings": []

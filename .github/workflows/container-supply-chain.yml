@@ -132,7 +132,7 @@ jobs:
           format: json
           output: artifacts/container/trivy.json
           severity: HIGH,CRITICAL
-          ignore-unfixed: true
+          ignore-unfixed: false
           exit-code: '1'
 
       - name: Upload immutable container evidence
@@ -200,7 +200,7 @@ jobs:
   publish:
     name: Publish, attest and sign immutable image
     if: ${{ github.event_name == 'push' }}
-    needs: verify
+    needs: [verify, recovery]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
