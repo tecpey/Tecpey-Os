@@ -74,6 +74,36 @@ export function runtimeBootstrapFindings({
     "const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL",
     "production runtime smoke must reuse the socket endpoint embedded at build time",
   );
+  requireText(
+    runtimeSmoke,
+    "const productionSiteUrl = process.env.NEXT_PUBLIC_SITE_URL",
+    "production runtime smoke must retain the public site origin embedded at build time",
+  );
+  requireText(
+    runtimeSmoke,
+    "const productionApiUrl = process.env.NEXT_PUBLIC_API_URL",
+    "production runtime smoke must retain the public application origin embedded at build time",
+  );
+  requireText(
+    runtimeSmoke,
+    'mode === "development" ? baseUrl : productionSiteUrl',
+    "runtime smoke must restrict its loopback site origin to development",
+  );
+  requireText(
+    runtimeSmoke,
+    'mode === "development" ? baseUrl : productionApiUrl',
+    "runtime smoke must restrict its loopback application origin to development",
+  );
+  rejectText(
+    runtimeSmoke,
+    "NEXT_PUBLIC_SITE_URL: baseUrl",
+    "production runtime smoke must not replace the public site origin with its loopback harness",
+  );
+  rejectText(
+    runtimeSmoke,
+    "NEXT_PUBLIC_API_URL: baseUrl",
+    "production runtime smoke must not replace the public application origin with its loopback harness",
+  );
   rejectText(
     runtimeSmoke,
     "runtime-smoke.tecpey.test",

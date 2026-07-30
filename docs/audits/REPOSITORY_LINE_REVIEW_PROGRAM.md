@@ -159,7 +159,9 @@ HTTPS origins; PostgreSQL and Redis schemes are checked; and the CRM encryption
 key must be canonical base64 for exactly 32 bytes. The compiled server and
 migration bootstrap now executes the complete environment validator before
 importing either runtime target, so Container and PM2 startup cannot bypass the
-same custody, session, database, Redis and secret gates used by preflight.
+same custody, session, database, Redis and secret gates used by preflight. The
+Production UI runtime smoke retains the canonical HTTPS public identities used
+by the build and reserves loopback exclusively for its local transport probe.
 
 Policy v14 binds the seventh independently identified evidence slice. Batch 1G
 adds four semantically reviewed paths; all other paths remain pending and

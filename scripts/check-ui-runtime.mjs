@@ -10,12 +10,19 @@ const npmArgs =
     : ["run", "start"];
 const productionBackendUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL;
 const productionSocketUrl = process.env.NEXT_PUBLIC_API_SOCKET_URL;
+const productionSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const productionApiUrl = process.env.NEXT_PUBLIC_API_URL;
 if (
   mode === "production" &&
-  (!productionBackendUrl || !productionSocketUrl)
+  (
+    !productionBackendUrl ||
+    !productionSocketUrl ||
+    !productionSiteUrl ||
+    !productionApiUrl
+  )
 ) {
   throw new Error(
-    "Production UI runtime smoke requires the same API and socket endpoints used by the build.",
+    "Production UI runtime smoke requires the same public and connection origins used by the build.",
   );
 }
 
@@ -27,8 +34,10 @@ const child = spawn(npmCommand, npmArgs, {
     PORT: String(port),
     NODE_ENV: mode,
     REDIS_URL: mode === "development" ? "" : (process.env.REDIS_URL ?? ""),
-    NEXT_PUBLIC_SITE_URL: baseUrl,
-    NEXT_PUBLIC_API_URL: baseUrl,
+    NEXT_PUBLIC_SITE_URL:
+      mode === "development" ? baseUrl : productionSiteUrl,
+    NEXT_PUBLIC_API_URL:
+      mode === "development" ? baseUrl : productionApiUrl,
     NEXT_PUBLIC_API_BACKEND_URL:
       mode === "development"
         ? baseUrl

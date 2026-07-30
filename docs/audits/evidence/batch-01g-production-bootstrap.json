@@ -3,7 +3,7 @@
   "evidenceId": "batch-01g-production-bootstrap",
   "reviewBatch": 1,
   "reviewedAt": "2026-07-30",
-  "reviewMethod": "Complete line-by-line semantic review of the production environment validator, standalone CSP environment validator, compiled production bootstrap and permanent runtime-bootstrap authority, including environment-file selection, process-mode ordering, required-value normalization, public origins, connection URL schemes, secret/key encoding, custody and session gates, migration/server import order, child-process behavior and negative policy mutations.",
+  "reviewMethod": "Complete line-by-line semantic review of the production environment validator, standalone CSP environment validator, compiled production bootstrap and permanent runtime-bootstrap authority, including environment-file selection, process-mode ordering, required-value normalization, public origins, connection URL schemes, secret/key encoding, custody and session gates, migration/server import order, runtime-smoke public-identity isolation, child-process behavior and negative policy mutations.",
   "residualRisks": [
     {
       "id": "B01G-RISK-001",
@@ -30,22 +30,38 @@
   "files": [
     {
       "path": "scripts/check-runtime-bootstrap.mjs",
-      "gitObjectId": "84292b99aafe77aa805724c93afbd6de4af79795",
-      "sha256": "7c5cebd33ba8270b00472ab07851ed4462399d7fb98ecbf48f562c37f6fac3fb",
-      "lines": 256,
+      "gitObjectId": "0bd3cf142fc948a65b7919fb6c7be73ae85145ab",
+      "sha256": "5e80842feffd42acad87f1e4fd08956e1038fb8cb8f9755e81a13feaadd08098",
+      "lines": 286,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 256
+          "endLine": 286
         }
       ],
-      "findingDisposition": "no-confirmed-findings",
+      "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Every server and runtime-smoke source binding, Redis startup boundary, Next/HTTP identity condition, validator mode/load ordering requirement and complete-validation import order was reviewed line by line.",
         "The authority now exports deterministic findings so negative tests can mutate each new production contract rather than merely observing that the current source passes.",
-        "The Browser workflow contract binds job-level HTTPS public origins, a distinct loopback-only harness URL, its actual harness consumption and the exact early-failure artifact block so local transport cannot weaken Production startup validation or obscure its failures."
+        "The Browser workflow contract binds job-level HTTPS public origins, a distinct loopback-only harness URL, its actual harness consumption and the exact early-failure artifact block so local transport cannot weaken Production startup validation or obscure its failures.",
+        "The UI runtime-smoke contract now independently binds Production to the public origins used by the build while retaining loopback only as the local HTTP probe address; negative mutations cover both public-origin assignments."
       ],
-      "findings": []
+      "findings": [
+        {
+          "id": "B01G-P2-008",
+          "severity": "P2",
+          "line": 77,
+          "attackPath": "After complete Production validation was added to compiled startup, the UI runtime smoke still overwrote NEXT_PUBLIC_SITE_URL and NEXT_PUBLIC_API_URL with its HTTP loopback probe address. The exact-head CI build succeeded, but the real Production server then failed closed before the style smoke could exercise any route.",
+          "affectedInvariant": "A local runtime probe may use loopback as transport, but it must not replace the canonical HTTPS public identities consumed by Production startup, CSRF and WebAuthn configuration.",
+          "evidence": "CI run 30514103277 on head 06454bc9 completed the Production build and then failed Frontend production runtime style smoke because check-ui-runtime.mjs supplied http://127.0.0.1:3182 for both governed public origins.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The runtime smoke must preserve both build-time public origins in Production, use loopback assignments only in Development, and the permanent authority plus mutation tests must reject weakening either boundary.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
     },
     {
       "path": "scripts/run-production-bootstrap.ts",

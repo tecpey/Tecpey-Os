@@ -355,6 +355,26 @@ test("runtime bootstrap policy rejects weakened production validation", () => {
     [
       {
         ...sources,
+        runtimeSmoke: sources.runtimeSmoke.replace(
+          'mode === "development" ? baseUrl : productionSiteUrl',
+          "baseUrl",
+        ),
+      },
+      /loopback site origin to development/u,
+    ],
+    [
+      {
+        ...sources,
+        runtimeSmoke: sources.runtimeSmoke.replace(
+          'mode === "development" ? baseUrl : productionApiUrl',
+          "baseUrl",
+        ),
+      },
+      /loopback application origin to development/u,
+    ],
+    [
+      {
+        ...sources,
         publicBrowserWorkflow: sources.publicBrowserWorkflow.replace(
           "      NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
           "      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100",
