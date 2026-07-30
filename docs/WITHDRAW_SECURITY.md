@@ -60,12 +60,26 @@ POST /api/auth/withdraw
 
 ## Security Gate Thresholds
 
+Enforced by `src/lib/security/withdrawal-admission-service.ts` inside the
+admission transaction. There are **no amount tiers** — every withdrawal passes
+the same gates.
+
 | Check | Threshold | Action |
 |-------|-----------|--------|
-| Velocity limit | $10,000 USD / 24h rolling | 429 velocity_limit_exceeded |
-| 2FA required | ≥ $100 USD | 403 2fa_required |
-| Device trust required | ≥ $1,000 USD | 403 untrusted_device |
-| Risk level block | any blocked state | 403 account_withdraw_restricted |
+| Velocity limit | $10,000 USD / 24h rolling, summed in PostgreSQL | 403 `withdrawal_velocity_exceeded` |
+| One-time authorization | **every** withdrawal, any amount | 403 `withdrawal_authorization_required` |
+| Risk level block | any blocked state | 403 `account_withdraw_restricted` |
+| Risk authority unavailable | dependency outage | 503 — fails closed, never allows |
+
+The authorization is issued only by `POST /api/auth/withdraw/authorize` after a
+TOTP verification, is bound to that request, and is single-use — a TOTP step may
+issue at most one authorization (`UNIQUE (user_id, verification_step)`).
+
+> **Retired:** amount-tiered 2FA (`≥ $100`) and device-trust tiering
+> (`≥ $1,000`, `403 untrusted_device`) were documented but never enforced in the
+> canonical route. Unconditional per-withdrawal authorization supersedes both.
+> The device fingerprint is still recorded on the withdrawal row as audit
+> evidence; it is not a gate.
 
 ---
 
