@@ -105,4 +105,34 @@ describe("contribution governance authority", () => {
       /Code of Conduct reporting[\s\S]*confidentiality[\s\S]*Proprietary license[\s\S]*All rights reserved/u,
     );
   });
+
+  it("rejects required governance text hidden inside Markdown comments", async () => {
+    const sources = await productionSources();
+    assert.match(
+      contributionGovernanceFindings({
+        ...sources,
+        bugReport: sources.bugReport.replace(
+          "Security vulnerabilities must NOT be reported here",
+          "<!-- Security vulnerabilities must NOT be reported here -->",
+        ),
+        pullRequestTemplate: sources.pullRequestTemplate.replace(
+          "`npm run api:security:check`",
+          "<!-- `npm run api:security:check` -->",
+        ),
+        contributing: sources.contributing.replace(
+          "Do **not** open a public issue",
+          "<!-- Do **not** open a public issue -->",
+        ),
+        codeOfConduct: sources.codeOfConduct.replace(
+          "All reports are treated with confidentiality",
+          "<!-- All reports are treated with confidentiality -->",
+        ),
+        license: sources.license.replace(
+          "All rights reserved",
+          "<!-- All rights reserved -->",
+        ),
+      }).join("\n"),
+      /Bug report security boundary[\s\S]*Pull request gate[\s\S]*Contributor contract[\s\S]*Code of Conduct reporting[\s\S]*Proprietary license/u,
+    );
+  });
 });

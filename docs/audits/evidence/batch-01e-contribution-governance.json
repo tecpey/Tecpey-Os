@@ -183,21 +183,36 @@
     },
     {
       "path": "scripts/contribution-governance-policy.mjs",
-      "gitObjectId": "299cea4a7abb04703db39910f204943080497af6",
-      "sha256": "581bf4bb172db8279494d2156b6e02868425b2d72eb61411b41e91a83d1c818e",
-      "lines": 149,
+      "gitObjectId": "3c3aa423bc04241ac457cf3d32e87bee9e429afe",
+      "sha256": "18eb757e12f2808d924193949101f793b42668431531e8bf2a3ed53f3ea4feb2",
+      "lines": 204,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 149
+          "endLine": 204
         }
       ],
-      "findingDisposition": "no-confirmed-findings",
+      "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
-        "Input validation, exact invariant checks, local Markdown target extraction, path normalization, repository-bound link resolution, four-method coverage and aggregated fail-closed errors were reviewed line by line.",
-        "Production-source acceptance plus negative mutations exercise broken links, superseded authority, incomplete API method sets, stale setup, missing gates and weakened reporting/license boundaries."
+        "Input validation, rendered-Markdown comment handling, fenced-code preservation, exact invariant checks, visible local-link extraction, path normalization, repository-bound link resolution, four-method coverage and aggregated fail-closed errors were reviewed line by line.",
+        "Production-source acceptance plus negative mutations exercise hidden required text, broken links, superseded authority, incomplete API method sets, stale setup, missing gates and weakened reporting/license boundaries."
       ],
-      "findings": []
+      "findings": [
+        {
+          "id": "B01E-P2-003",
+          "severity": "P2",
+          "line": 5,
+          "attackPath": "The original raw source.includes checks accepted required security, API, reporting or license text after it was moved into an HTML comment, so a GitHub template could render without the reviewer-facing gate while the permanent policy and tests remained green.",
+          "affectedInvariant": "Contribution governance must validate text and links visible in rendered Markdown rather than hidden source-only comments.",
+          "evidence": "GitHub issue and pull-request templates already use HTML comments for non-rendered prompts; wrapping a required invariant in the same syntax reproduced a false pass in the former policy.",
+          "fixOwner": "repository-governance",
+          "verificationRequirement": "The policy must strip HTML comments outside fenced code before all required-text, forbidden-text and local-link checks, with a negative test hiding requirements in each governed document class.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
     }
   ]
 }

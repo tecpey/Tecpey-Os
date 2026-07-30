@@ -2,15 +2,69 @@ import path from "node:path";
 
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
+function renderedMarkdownSource(source) {
+  if (typeof source !== "string") return "";
+  const rendered = [];
+  let commentOpen = false;
+  let fence = null;
+
+  for (const line of source.split(/\r?\n/u)) {
+    if (!commentOpen) {
+      const fenceMatch = /^\s{0,3}(`{3,}|~{3,})/u.exec(line);
+      if (fenceMatch) {
+        if (fence === null) fence = fenceMatch[1];
+        else if (
+          fenceMatch[1][0] === fence[0] &&
+          fenceMatch[1].length >= fence.length
+        ) {
+          fence = null;
+        }
+        rendered.push(line);
+        continue;
+      }
+      if (fence !== null) {
+        rendered.push(line);
+        continue;
+      }
+    }
+
+    let visible = "";
+    let cursor = 0;
+    while (cursor < line.length) {
+      if (commentOpen) {
+        const end = line.indexOf("-->", cursor);
+        if (end < 0) {
+          cursor = line.length;
+          continue;
+        }
+        commentOpen = false;
+        cursor = end + 3;
+        continue;
+      }
+      const start = line.indexOf("<!--", cursor);
+      if (start < 0) {
+        visible += line.slice(cursor);
+        cursor = line.length;
+        continue;
+      }
+      visible += line.slice(cursor, start);
+      commentOpen = true;
+      cursor = start + 4;
+    }
+    rendered.push(visible);
+  }
+
+  return rendered.join("\n");
+}
+
 function requireText(findings, source, required, label) {
-  if (typeof source !== "string" || !source.includes(required)) {
+  if (!renderedMarkdownSource(source).includes(required)) {
     findings.push(`${label} must retain ${required}`);
   }
 }
 
 function localMarkdownTargets(source) {
-  if (typeof source !== "string") return [];
-  return [...source.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)]
+  return [...renderedMarkdownSource(source).matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)]
     .map((match) => match[1].trim())
     .filter(
       (target) =>
@@ -67,7 +121,7 @@ export function contributionGovernanceFindings(sources) {
     "../../docs/MASTER_ROADMAP_v3.md",
     "Feature request roadmap authority",
   );
-  if (sources.featureRequest?.includes("../../docs/Roadmap.md")) {
+  if (renderedMarkdownSource(sources.featureRequest).includes("../../docs/Roadmap.md")) {
     findings.push("Feature requests must not direct contributors to the superseded roadmap");
   }
 
@@ -106,10 +160,11 @@ export function contributionGovernanceFindings(sources) {
   ]) {
     requireText(findings, sources.contributing, required, "Contributor contract");
   }
-  if (sources.contributing?.includes(".env.local.example")) {
+  const renderedContributing = renderedMarkdownSource(sources.contributing);
+  if (renderedContributing.includes(".env.local.example")) {
     findings.push("Contributor setup must not reference the nonexistent .env.local.example");
   }
-  if (sources.contributing?.includes("\nnpm install\n")) {
+  if (renderedContributing.includes("\nnpm install\n")) {
     findings.push("Contributor setup must use the lockfile-backed npm ci install");
   }
 
