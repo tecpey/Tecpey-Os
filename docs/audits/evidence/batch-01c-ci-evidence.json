@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01c-ci-evidence",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of five CI and staging-evidence workflows plus the structural CI workflow policy and its negative tests, including trigger and permission scope, exact-head checkout and artifact identity, action pinning, job time bounds, Node/npm runtime contracts, service dependencies, failure diagnostics, staging release ancestry and comment-spoof resistance.",
+  "residualRisks": [
+    {
+      "id": "B01C-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews seven CI-evidence files only; every other Batch 1 path retains its pending status and no repository-wide completion claim is made.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01C-RISK-002",
+      "severity": "P2",
+      "statement": "Diagnostic artifacts are now labeled with the exact checked-out source SHA, but most are troubleshooting logs rather than internally signed attestations and retain their bounded GitHub artifact retention periods.",
+      "owner": "tests-quality-evidence",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01C-RISK-003",
+      "severity": "P1",
+      "statement": "The staging scheduler workflow now rejects releases older than the approved authority baseline, but no staging-host activation is claimed until the protected runner, environment, alert destination and accepted evidence required by issue #229 exist.",
+      "owner": "operations-runtime",
+      "disposition": "release-no-go"
+    },
+    {
+      "id": "B01C-RISK-004",
+      "severity": "P2",
+      "statement": "Two different service-backed tests failed on separate CI attempts and then passed on the unchanged head in both the exact-head Full Suite and final CI attempt; deterministic test-isolation remediation remains quality debt rather than being hidden by the successful retry.",
+      "owner": "tests-quality-evidence",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/api-security-manifest.yml",
+      "gitObjectId": "f00527ab4ed325f60773e2481c63c40d2ca685ca",
+      "sha256": "51fda3853d14c20d0e435eae5617e67544623530e3bf23fbb46473086f366f27",
+      "lines": 79,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 79
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Main and pull-request triggers, read-only permissions, concurrency, exact-head checkout, pinned actions, npm runtime enforcement, fail-preserving manifest execution, unconditional policy tests and failure-only diagnostics were reviewed.",
+        "The diagnostic artifact name now carries the exact checked-out pull-request head or push SHA rather than the pull-request synthetic merge SHA."
+      ],
+      "findings": [
+        {
+          "id": "B01C-P1-001",
+          "severity": "P1",
+          "line": 76,
+          "attackPath": "A pull-request diagnostic artifact was labeled with github.sha even though the workflow checked out github.event.pull_request.head.sha, causing evidence for one source tree to carry the identity of GitHub's synthetic merge commit.",
+          "affectedInvariant": "Every workflow artifact must be labeled with the exact source commit that produced its contents.",
+          "evidence": "The former artifact name used github.sha while checkout and verification used the pull-request head SHA; the remediated name uses the same head-or-push expression as checkout.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The structural CI workflow policy must parse the effective upload step and reject github.sha-only or comment-spoofed artifact names.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "gitObjectId": "99f0c4acb10c6d0e19ab85c0f66c280b1908f4d4",
+      "sha256": "f9e2866ca49aa24dc2fa1906f7ed8cb3b1a57b1c521f3359a2d920b47629d8a2",
+      "lines": 392,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 392
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Both jobs, service images, environment contract, exact-head checkout, pinned actions, migrations, type and lint authorities, domain-specific guards, service-backed tests, full test suite, production build, runtime smokes and failure diagnostics were reviewed as the primary integration gate.",
+        "Hygiene and quality jobs now have explicit 10- and 60-minute bounds, all diagnostic artifacts use the exact source SHA, and the new structural CI workflow guard runs before the remaining security authorities."
+      ],
+      "findings": [
+        {
+          "id": "B01C-P1-002",
+          "severity": "P1",
+          "line": 44,
+          "attackPath": "Every pull-request artifact emitted by the primary CI workflow used the synthetic merge SHA in its name while both jobs executed the exact pull-request head.",
+          "affectedInvariant": "Repository hygiene and failure diagnostics must be attributable to the exact source tree that produced them.",
+          "evidence": "The former hygiene and fourteen diagnostic artifact names used github.sha; all remediated names use github.event.pull_request.head.sha with the push SHA fallback.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The structural policy must inspect every effective upload-artifact step and reject any name that lacks the exact governed evidence SHA.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01C-P2-001",
+          "severity": "P2",
+          "line": 22,
+          "attackPath": "A hung hygiene command, dependency install, service-backed test or production build could occupy the primary required CI job until GitHub's broad default job deadline.",
+          "affectedInvariant": "Every required CI job must fail within a deliberate bounded operational deadline.",
+          "evidence": "Neither CI job previously declared timeout-minutes; the remediated hygiene and quality jobs declare 10 and 60 minutes respectively.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The structural policy must require the exact bounded timeout for every governed CI job and reject missing or expanded values.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/full-suite-diagnostics.yml",
+      "gitObjectId": "8bf79a60ac33936e2e17bcfb59ba4dd0bdee94c5",
+      "sha256": "f13d1552bb1036679f6da3be1a67138b526550c8731970ff72326082623417ef",
+      "lines": 107,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 107
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Pull-request trigger, read-only permissions, concurrency, job and test timeouts, digest-pinned PostgreSQL and Redis services, bounded test secrets, exact-head checkout, migrations, full-suite execution and always-uploaded diagnostics were reviewed.",
+        "The workflow now verifies npm 10 before installation and labels its artifact with the exact checked-out pull-request head."
+      ],
+      "findings": [
+        {
+          "id": "B01C-P1-003",
+          "severity": "P1",
+          "line": 104,
+          "attackPath": "The always-uploaded full-suite diagnostic log was named with the synthetic pull-request merge SHA rather than the exact head used for checkout and test execution.",
+          "affectedInvariant": "Full-suite evidence must be attributable to its exact tested source commit.",
+          "evidence": "The former upload name used github.sha; the remediated name uses the pull-request head expression.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The structural CI workflow policy must reject an effective artifact name that does not include the exact evidence SHA.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01C-P2-002",
+          "severity": "P2",
+          "line": 85,
+          "attackPath": "The diagnostic workflow installed dependencies without verifying the repository's governed npm 10 engine contract, allowing runner image drift to change lockfile interpretation or install behavior.",
+          "affectedInvariant": "All governed Node CI workflows must execute with the declared npm major version.",
+          "evidence": "The workflow previously moved directly from setup-node to npm ci; it now verifies the npm major is exactly 10 before installation.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The structural policy must require an effective npm version verification step in every governed workflow.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/sensitive-mutation-audit.yml",
+      "gitObjectId": "e7e231a4d3a9a08f4e54ff677fa082f8aad229b5",
+      "sha256": "08a0487e73cda581f3c6973b73b655f520688153e7926a244294e99a7df9e215",
+      "lines": 127,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 127
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Main and pull-request triggers, read-only permissions, retry-safe concurrency, job timeout, digest-pinned services, exact-head checkout, canonical migrations, withdrawal and retired-security guards, audit tests, TypeScript and failure diagnostics were reviewed.",
+        "Failure diagnostics now carry the exact source head identity used by checkout."
+      ],
+      "findings": [
+        {
+          "id": "B01C-P1-004",
+          "severity": "P1",
+          "line": 117,
+          "attackPath": "Sensitive-mutation diagnostics for a pull request were named with the synthetic merge SHA while the security job executed the exact pull-request head.",
+          "affectedInvariant": "Security diagnostics must identify the exact source commit whose authority was evaluated.",
+          "evidence": "The former upload name used github.sha; the remediated name uses the exact head-or-push SHA expression.",
+          "fixOwner": "authentication-admin-security",
+          "verificationRequirement": "The structural CI workflow policy must reject a sensitive-audit upload name that lacks the exact evidence SHA.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/staging-community-challenge-scheduler-evidence.yml",
+      "gitObjectId": "5db083fc97ef39e9b1b532d39f5d9f1644272b9a",
+      "sha256": "67257f781d5deeeb249c7d6663f500127bb22a0203c15b02d60ce29ee22b8578",
+      "lines": 135,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 135
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Manual inputs, protected environment, non-cancelling serialization, self-hosted runner labels, exact release checkout, main ancestry, pinned actions, runtime identity, protected variables, collector, offline verifier, redacted summary and accepted artifact upload were reviewed.",
+        "The selected release must now be both an ancestor of current main and a descendant of the approved scheduler authority baseline."
+      ],
+      "findings": [
+        {
+          "id": "B01C-P1-005",
+          "severity": "P1",
+          "line": 48,
+          "attackPath": "An operator could select any historical ancestor of main, including a commit older than the approved scheduler evidence authority, and execute its collector code on the protected staging runner.",
+          "affectedInvariant": "Accepted staging evidence may only be collected by a main release at or after the approved minimum security baseline.",
+          "evidence": "The former verification checked only that release_sha was an ancestor of current main; the remediated step also proves the approved baseline is an ancestor of release_sha.",
+          "fixOwner": "operations-runtime",
+          "verificationRequirement": "The structural policy must parse the effective environment and command, bind the exact baseline SHA, and reject omission or comment-only presence of the lower-bound ancestry check.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156",
+            "https://github.com/tecpey/Tecpey-Os/issues/229"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/ci-workflow-policy.mjs",
+      "gitObjectId": "e7b6824fe5c5e9b808ffdb5d9c2c21670b9f3ab3",
+      "sha256": "eb66cd203528d382158605aa3168109691032a072d17b01b8663f1c215c5db1f",
+      "lines": 303,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 303
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Comment handling, indentation, block boundaries, direct scalar maps, job and step extraction, exact permissions, timeouts, checkout identity, credential persistence, full-SHA action pins, artifact identity, Node/npm contracts, staging ancestry and aggregate failure reporting were reviewed.",
+        "The parser validates effective YAML nodes and strips comment-only controls; its contract is deliberately limited to the five declared workflows and rejects a missing or expanded source set."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/ci-workflow-policy.test.mjs",
+      "gitObjectId": "4677c31250d3d2f8cfd652e02eab918627de1200",
+      "sha256": "65a907cd2eaa7080676b6ad168498490e883a47b84df70d5d092412a6589649a",
+      "lines": 103,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 103
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "The unchanged governed workflows and seven negative-test groups were reviewed, including synthetic merge identity, comment spoofing, missing and expanded deadlines, missing npm verification, stale staging baseline, floating actions and permission expansion.",
+        "Fixtures assert their mutation precondition before policy evaluation so a source drift cannot turn a negative test into a silent no-op."
+      ],
+      "findings": []
+    }
+  ]
+}

@@ -91,6 +91,19 @@ binding each finding and residual-risk identifier to its declaring slice.
 Batch 1B adds five semantically reviewed paths; all other paths remain pending
 and `completionClaim` remains `false`.
 
+## Batch 1C: CI evidence integrity
+
+The third bounded slice reviews the five remaining CI and staging-evidence
+workflows plus their structural policy and negative tests. Pull-request
+artifacts are now named with the exact checked-out head SHA instead of GitHub's
+synthetic merge SHA, every governed job has a bounded timeout, every Node
+workflow verifies the npm 10 runtime contract, and staging evidence rejects a
+release older than the approved scheduler-authority baseline.
+
+Policy v11 binds the third independently identified evidence slice. Batch 1C
+adds seven semantically reviewed paths; all other paths remain pending and
+`completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash

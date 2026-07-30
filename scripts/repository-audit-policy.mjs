@@ -23,9 +23,18 @@ const PLATFORM_CORE_PATHS = new Set([
 const REVIEW_EVIDENCE_PATHS = [
   "docs/audits/evidence/batch-01a-audit-authority.json",
   "docs/audits/evidence/batch-01b-operational-workflows.json",
+  "docs/audits/evidence/batch-01c-ci-evidence.json",
 ];
 
 const DOMAIN_RULES = [
+  {
+    domain: "repository-supply-chain",
+    riskTier: "P1",
+    reviewBatch: 1,
+    patterns: [
+      /^scripts\/ci-workflow-policy(?:\.test)?\.mjs$/,
+    ],
+  },
   {
     domain: "tests-quality-evidence",
     riskTier: "P2",
@@ -248,7 +257,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 10,
+  version: 11,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

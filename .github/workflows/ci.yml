@@ -19,6 +19,7 @@ jobs:
   hygiene:
     name: Repository Hygiene Inventory
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -40,7 +41,7 @@ jobs:
       - name: Upload hygiene report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: repository-hygiene-${{ github.sha }}
+          name: repository-hygiene-${{ github.event.pull_request.head.sha || github.sha }}
           path: repository-hygiene.json
           if-no-files-found: error
           retention-days: 14
@@ -48,6 +49,7 @@ jobs:
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     services:
       redis:
@@ -145,7 +147,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: typescript-diagnostics-${{ github.sha }}
+          name: typescript-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             /tmp/tecpey-typescript-diagnostics.log
             src/lib/security/session-authority.ts
@@ -166,7 +168,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: eslint-diagnostics-${{ github.sha }}
+          name: eslint-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-eslint-diagnostics.log
           if-no-files-found: error
           retention-days: 7
@@ -182,6 +184,9 @@ jobs:
 
       - name: Production supply-chain authority guard
         run: npm run supply-chain:check
+
+      - name: CI workflow evidence authority guard
+        run: node --test scripts/ci-workflow-policy.test.mjs
 
       - name: Secret-scanning authority guard
         run: npm run security:secrets:check
@@ -201,7 +206,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ui-runtime-development-${{ github.sha }}
+          name: ui-runtime-development-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-ui-runtime-dev.log
           if-no-files-found: ignore
           retention-days: 7
@@ -224,7 +229,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: auth-session-diagnostics-${{ github.sha }}
+          name: auth-session-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-auth-session-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -238,7 +243,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ai-mentor-redteam-diagnostics-${{ github.sha }}
+          name: ai-mentor-redteam-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-ai-mentor-redteam-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -255,7 +260,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: withdrawal-admission-diagnostics-${{ github.sha }}
+          name: withdrawal-admission-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-withdrawal-admission-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -273,7 +278,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: offline-sync-diagnostics-${{ github.sha }}
+          name: offline-sync-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-offline-sync-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -291,7 +296,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: crm-lead-diagnostics-${{ github.sha }}
+          name: crm-lead-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-crm-lead-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -309,7 +314,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: academy-progress-diagnostics-${{ github.sha }}
+          name: academy-progress-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-academy-progress-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -333,7 +338,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: database-migration-diagnostics-${{ github.sha }}
+          name: database-migration-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-migration-tests.log
           if-no-files-found: ignore
           retention-days: 7
@@ -362,7 +367,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: test-diagnostics-${{ github.sha }}
+          name: test-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-test-diagnostics.log
           if-no-files-found: ignore
           retention-days: 7
@@ -381,7 +386,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ui-runtime-production-${{ github.sha }}
+          name: ui-runtime-production-${{ github.event.pull_request.head.sha || github.sha }}
           path: /tmp/tecpey-ui-runtime-prod.log
           if-no-files-found: ignore
           retention-days: 7

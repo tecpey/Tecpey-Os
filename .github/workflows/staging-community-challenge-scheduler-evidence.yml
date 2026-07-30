@@ -39,11 +39,13 @@ jobs:
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
+          MINIMUM_RELEASE_SHA: 575fc904f9d87ae51994aa5e59e4c95ab29e628b
         run: |
           set -Eeuo pipefail
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
           git fetch --no-tags origin main
+          git merge-base --is-ancestor "$MINIMUM_RELEASE_SHA" "$RELEASE_SHA"
           git merge-base --is-ancestor "$RELEASE_SHA" origin/main
 
       - name: Setup governed Node runtime

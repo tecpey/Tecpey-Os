@@ -114,7 +114,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: sensitive-mutation-audit-diagnostics-${{ github.sha }}
+          name: sensitive-mutation-audit-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             /tmp/tecpey-withdrawal-read-authority.log
             /tmp/tecpey-retired-security-surface.log
