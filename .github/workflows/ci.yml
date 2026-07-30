@@ -410,6 +410,9 @@ jobs:
       - name: Release gate coverage guard
         run: npm run release:coverage:check
 
+      - name: Security marker coverage guard
+        run: npm run security:markers:check
+
       - name: Tests
         run: |
           set -o pipefail
