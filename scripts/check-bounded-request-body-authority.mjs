@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
 const directRoutes = Object.freeze([
   ["src/app/api/academy/auth/login/route.ts", "req"],
@@ -39,6 +39,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/mentor-challenge/route.ts", "req"],
   ["src/app/api/mentor-conversations/migrate/route.ts", "req"],
   ["src/app/api/mentor-memory/route.ts", "req"],
+  ["src/app/api/mentor-preferences/route.ts", "req"],
   ["src/app/api/notifications/[id]/route.ts", "req"],
   ["src/app/api/notifications/consent/route.ts", "req"],
   ["src/app/api/notifications/preferences/route.ts", "req"],
@@ -72,7 +73,11 @@ const MAX_GOVERNED_BODY_BYTES = 8 * 1024 * 1024;
 // result binding, or consuming `result.value` instead of re-parsing all used to
 // fail this gate against correct, fully bounded routes.
 for (const [path, requestVariable] of directRoutes) {
-  const source = await readFile(path, "utf8");
+  const source = await readFile(path, "utf8").catch(() => null);
+  if (source === null) {
+    failures.push(`${path}: enrolled in the bounded body inventory but cannot be read`);
+    continue;
+  }
   if (!source.includes(
     'import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";',
   )) {
@@ -139,8 +144,33 @@ if (!/POST as canonicalPost/.test(alias) || !/return canonicalPost\(req\)/.test(
   failures.push(`${aliasPath}: compatibility alias must inherit the bounded canonical handler`);
 }
 
-if (directRoutes.length !== 47) {
-  failures.push(`guard inventory drift: expected 47 direct routes, found ${directRoutes.length}`);
+// Inventory drift detection. A hardcoded count cannot notice a *new* route that
+// reads a body without enrolling here — that is how
+// `src/app/api/mentor-preferences/route.ts` came to be bounded but unguarded.
+// Every handler that touches a request body must be enrolled, or this fails.
+const inventory = new Set(directRoutes.map(([route]) => route));
+const apiFiles = (await readdir("src/app/api", { recursive: true }))
+  .filter((entry) => entry.endsWith("route.ts"))
+  .map((entry) => `src/app/api/${entry.replaceAll("\\", "/")}`)
+  .sort();
+
+for (const route of apiFiles) {
+  if (inventory.has(route) || route === aliasPath) continue;
+  const source = await readFile(route, "utf8");
+  const readsBody =
+    /\breadBoundedJson(?:Request|Body)\b/.test(source) ||
+    /\b(?:req|request)\.(?:json|text|formData|arrayBuffer|blob)\s*\(/.test(source);
+  if (readsBody) {
+    failures.push(
+      `${route}: reads a request body but is not enrolled in the bounded body inventory`,
+    );
+  }
+}
+
+for (const route of inventory) {
+  if (!apiFiles.includes(route)) {
+    failures.push(`${route}: enrolled in the bounded body inventory but no longer exists`);
+  }
 }
 
 if (failures.length) {
@@ -150,5 +180,5 @@ if (failures.length) {
 }
 
 console.log(
-  "Bounded request body authority check passed for 47 direct handlers and 1 canonical alias.",
+  `Bounded request body authority check passed for ${directRoutes.length} direct handlers and 1 canonical alias.`,
 );
