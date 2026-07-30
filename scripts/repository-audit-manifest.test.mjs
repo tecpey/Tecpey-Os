@@ -402,6 +402,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 3,
     classificationRule: "authentication-admin-security",
   });
+  assert.deepEqual(classifyDomain("config/secret-scanning-baseline.json"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
