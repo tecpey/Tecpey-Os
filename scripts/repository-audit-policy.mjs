@@ -20,6 +20,10 @@ const PLATFORM_CORE_PATHS = new Set([
   "src/lib/product-registry.ts",
 ]);
 
+const REVIEW_EVIDENCE_PATHS = [
+  "docs/audits/evidence/batch-01a-audit-authority.json",
+];
+
 const DOMAIN_RULES = [
   {
     domain: "tests-quality-evidence",
@@ -247,6 +251,7 @@ export const repositoryAuditPolicy = Object.freeze({
   version: 9,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
+  reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
   vendoredPrefixes: [...VENDORED_PREFIXES].sort(),
   reviewBatches: Object.freeze({
     1: "Root, CI, supply chain and runtime bootstrap",
