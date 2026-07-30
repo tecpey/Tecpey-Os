@@ -46,6 +46,8 @@ const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
   "REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379";
+const IMMUTABLE_ALPINE_RUNTIME =
+  "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
 const PRODUCTION_VERIFICATION_LINES = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
@@ -59,6 +61,41 @@ function requireText(findings, source, expected, message) {
 
 function reject(findings, source, pattern, message) {
   if (pattern.test(source)) findings.push(message);
+}
+
+function yamlBlock(source, indent, key) {
+  const lines = source.split(/\r?\n/);
+  const prefix = " ".repeat(indent);
+  const start = lines.findIndex((line) => line === `${prefix}${key}:`);
+  if (start < 0) return "";
+
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    const currentIndent = line.length - line.trimStart().length;
+    if (currentIndent <= indent) {
+      end = index;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n");
+}
+
+function yamlNamedStepBlock(jobSource, stepName) {
+  const lines = jobSource.split(/\r?\n/);
+  const header = `      - name: ${stepName}`;
+  const start = lines.findIndex((line) => line === header);
+  if (start < 0) return "";
+
+  let end = lines.length;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (/^      - name: /.test(lines[index])) {
+      end = index;
+      break;
+    }
+  }
+  return lines.slice(start, end).join("\n");
 }
 
 function declaredEnvironmentKeys(source, declarationName) {
@@ -397,6 +434,17 @@ export function productionHostSupplyChainFindings({
     /NEXT_PUBLIC_GIT_COMMIT/,
     "Health must not trust a runtime-overridable public Git commit",
   );
+  if (dockerfile.split(IMMUTABLE_ALPINE_RUNTIME).length - 1 !== 2) {
+    findings.push(
+      "Production dependencies and runtime must use the exact minimal Alpine image",
+    );
+  }
+  requireText(
+    findings,
+    dockerfile,
+    "USER node",
+    "Production runtime must use the image-owned non-root identity",
+  );
   for (const contract of [
     "ARG TECPEY_BUILD_COMMIT_SHA",
     "ENV TECPEY_BUILD_COMMIT_SHA=$TECPEY_BUILD_COMMIT_SHA",
@@ -461,6 +509,35 @@ export function productionHostSupplyChainFindings({
       containerWorkflow,
       contract,
       `Container workflow must bind every build to an exact commit: ${contract}`,
+    );
+  }
+  const publishJob = yamlBlock(containerWorkflow, 2, "publish");
+  const publishNeeds = publishJob
+    .split(/\r?\n/)
+    .filter((line) => /^    needs:/.test(line));
+  if (
+    publishNeeds.length !== 1 ||
+    publishNeeds[0] !== "    needs: [verify, recovery]"
+  ) {
+    findings.push(
+      "Container publication must depend on both verification and rollback/recovery evidence",
+    );
+  }
+
+  const verifyJob = yamlBlock(containerWorkflow, 2, "verify");
+  const vulnerabilityStep = yamlNamedStepBlock(
+    verifyJob,
+    "Reject HIGH or CRITICAL runtime vulnerabilities",
+  );
+  const ignoreUnfixed = vulnerabilityStep
+    .split(/\r?\n/)
+    .filter((line) => /^          ignore-unfixed:/.test(line));
+  if (
+    ignoreUnfixed.length !== 1 ||
+    ignoreUnfixed[0] !== "          ignore-unfixed: false"
+  ) {
+    findings.push(
+      "Container vulnerability gate must reject unfixed HIGH or CRITICAL findings",
     );
   }
   requireText(findings, preflight, EXACT_RELEASE_CONTRACT, "Ubuntu preflight must resolve the exact candidate commit");
