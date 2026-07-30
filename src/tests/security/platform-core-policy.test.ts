@@ -143,8 +143,14 @@ describe("platform core authority", () => {
         }
       }
       globalThis.Date = AdvancingDate;
-      const { decodeJwt } = await import("jose");
-      const { signUnifiedSession } = await import("./src/lib/unified-session.ts");
+      const joseModule = await import("jose");
+      const sessionModule = await import("./src/lib/unified-session.ts");
+      const decodeJwt = joseModule.decodeJwt ?? joseModule.default?.decodeJwt;
+      const signUnifiedSession =
+        sessionModule.signUnifiedSession ?? sessionModule.default?.signUnifiedSession;
+      if (!decodeJwt || typeof signUnifiedSession !== "function") {
+        throw new TypeError("platform core JWT test imports unavailable");
+      }
       const token = await signUnifiedSession({
         accountId: "platform-core-account",
         studentId: null,
