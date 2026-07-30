@@ -43,6 +43,20 @@ Additional defects fixed in this batch (new findings, not in FINDINGS.md):
   response headers.
 - **N-004** Structured logger persisted context values for keys like `token`,
   `secret`, `authorization` in plaintext if a caller passed them.
+- **N-005** CI red since the deployment supply-chain commit (`109c6f9`, #267):
+  the full-history Gitleaks gate flagged two `REPLACE_WITH_...` placeholder
+  lines in `.env.production.example` (lines 18–19) whose reviewed identity
+  changed when that commit re-touched the file. Added both as reviewed
+  `known-non-secret` identities in `config/secret-scanning-baseline.json`
+  (53 → 55, `reviewedAt` 2026-07-30) and updated the governed count in
+  `scripts/secret-scanning-baseline.test.mjs`. Verified locally: governed scan
+  exits 0, all secret-scanning policy tests pass.
+- **N-006** Flaky authority test: `migration-concurrency.test.ts`
+  `withIsolatedDatabase` asserted zero `pg_stat_activity` sessions with a
+  single racy read immediately after pool teardown (observed failing on
+  unmodified `main` as well as on this branch). Replaced with a bounded 10s
+  poll; the zero-session assertion itself is unchanged. Verified 4/4 green
+  locally (previously ~1/3).
 
 ---
 
@@ -96,6 +110,21 @@ Context fields whose key matches secret-like names (`secret`, `token`,
 `password`, `authorization`, `api_key`, `credential`, `cookie`, `session_id`,
 `jwt`, `private_key`, `refresh`) are emitted as `[redacted]`. Keys remain
 visible for debuggability.
+
+### N-005 — Gitleaks baseline refresh (`config/secret-scanning-baseline.json`)
+`main` has been red on the exact-head full-history Gitleaks gate since
+`109c6f9` (#267): gitleaks attributes a finding to the newest commit that
+touched the line, so the two previously-reviewed `.env.production.example`
+placeholder lines (18–19, `generic-api-key`, obvious `REPLACE_WITH_...`
+documentation placeholders) needed re-review under the new commit identity.
+Both are recorded as `known-non-secret` with auditable reasons; the ignore
+count pin moved 53 → 55. No real secret was or is present.
+
+### N-006 — Deflake migration-concurrency session-release assertion
+(`src/tests/database/migration-concurrency.test.ts`)
+`withIsolatedDatabase` now polls `pg_stat_activity` for up to 10s before
+asserting zero remaining sessions, removing a teardown-visibility race that
+made the SIGINT/SIGTERM suite fail intermittently (including on `main`).
 
 ### F-006 — Email validator (`src/lib/api-validation.ts`)
 Replaced the `\S+@\S+\.\S+` heuristic with an RFC 5322-flavoured practical
