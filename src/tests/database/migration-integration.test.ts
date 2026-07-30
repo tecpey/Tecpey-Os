@@ -25,6 +25,31 @@ function governedDatabaseName(role: string, suffix: string): string {
   return name;
 }
 
+async function waitForNoDatabaseSessions(
+  admin: Pool,
+  databaseName: string,
+  timeoutMs = 2_000,
+): Promise<number> {
+  const deadline = Date.now() + timeoutMs;
+  let activeSessions = -1;
+  do {
+    const sessions = await admin.query<{ count: number }>(
+      "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
+      [databaseName],
+    );
+    activeSessions = sessions.rows[0]?.count ?? -1;
+    if (activeSessions === 0) return activeSessions;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  } while (Date.now() < deadline);
+  return activeSessions;
+}
+
+async function dropIsolatedDatabase(admin: Pool, name: string): Promise<void> {
+  const activeSessions = await waitForNoDatabaseSessions(admin, name);
+  assert.equal(activeSessions, 0, `${name} must release every session before cleanup`);
+  await admin.query(`DROP DATABASE IF EXISTS ${name}`);
+}
+
 async function migrateAndFingerprint(name: string): Promise<string> {
   const pool = new Pool({ connectionString: databaseConnectionUrl(name), max: 1 });
   const client = await pool.connect();
@@ -232,7 +257,7 @@ describe("PostgreSQL migration authority", () => {
       assert.equal(restoredFingerprint, cleanFingerprint, "restored schema must converge with clean schema");
     } finally {
       for (const name of [restored, backup, upgraded, clean]) {
-        await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+        await dropIsolatedDatabase(admin, name);
       }
       await admin.end();
     }
@@ -400,7 +425,7 @@ describe("PostgreSQL migration authority", () => {
       }
     } finally {
       await pool.end();
-      await admin.query(`DROP DATABASE IF EXISTS ${isolated} WITH (FORCE)`);
+      await dropIsolatedDatabase(admin, isolated);
       await admin.end();
     }
   });

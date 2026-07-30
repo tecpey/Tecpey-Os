@@ -127,10 +127,25 @@ requireText(
   "connectionString: databaseConnectionUrl(isolated)",
   "migration contract checksum tests must execute only against their isolated database",
 );
+requireText(
+  integration,
+  "await dropIsolatedDatabase(admin, isolated)",
+  "migration contract cleanup must prove every isolated session was released",
+);
+requireText(
+  integration,
+  "SELECT COUNT(*)::int AS count FROM pg_stat_activity WHERE datname = $1",
+  "migration integration cleanup must observe isolated database sessions",
+);
 rejectText(
   integration,
   "connectionString: databaseUrl,",
   "migration integration tests must not mutate the shared service database",
+);
+rejectText(
+  integration,
+  "DROP DATABASE IF EXISTS ${isolated} WITH (FORCE)",
+  "migration integration cleanup must not kill live clients",
 );
 for (const migration of [
   "0023_offline_sync_command_authority.sql",
