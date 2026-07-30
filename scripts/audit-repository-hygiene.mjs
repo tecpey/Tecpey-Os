@@ -10,6 +10,7 @@ const IGNORED_DIRECTORIES = new Set([
   "coverage",
   "dist",
   "build",
+  "artifacts",
   ".turbo",
   ".cache",
 ]);

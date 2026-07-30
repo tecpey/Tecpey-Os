@@ -1,0 +1,61 @@
+name: Repository Audit Manifest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-audit-manifest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.run_attempt == 1 }}
+
+jobs:
+  manifest:
+    name: Exact-head tracked-path denominator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Verify permanent audit authority
+        run: npm run audit:manifest:check
+
+      - name: Generate exact tracked-path manifest
+        env:
+          TECPEY_AUDIT_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run audit:manifest
+
+      - name: Verify exact denominator and evidence
+        env:
+          TECPEY_AUDIT_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: npm run audit:manifest:verify
+
+      - name: Run manifest policy tests
+        run: npm run test:audit-manifest
+
+      - name: Upload immutable manifest evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: repository-audit-manifest-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/repository-audit/repository-manifest.json
+          if-no-files-found: error
+          retention-days: 30
