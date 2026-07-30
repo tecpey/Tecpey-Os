@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "batch-01h-production-ui-verification",
+  "reviewBatch": 1,
+  "reviewedAt": "2026-07-30",
+  "reviewMethod": "Complete line-by-line semantic review of the production health probe, static and route QA authorities, immutable build-identity resolver, UI runtime smoke, public UI foundation check, style authority and permanent production-UI verification policy, including URL trust, deadlines, redirects, response bounds, readiness and build contracts, App Router route shapes, test-source separation, artifact ownership, same-origin stylesheet evidence, child-process cleanup, source mutation coverage and CI gate reachability.",
+  "residualRisks": [
+    {
+      "id": "B01H-RISK-001",
+      "severity": "P2",
+      "statement": "This bounded slice reviews eight production UI verification paths only; remaining Batch 1 scripts, package metadata and release history retain their pending status and no repository-wide completion claim is made.",
+      "owner": "repository-supply-chain",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01H-RISK-002",
+      "severity": "P2",
+      "statement": "Static href extraction intentionally covers literal source links rather than runtime-computed navigation; browser Golden Path and later Batch 10 accessibility and bilingual review remain responsible for rendered dynamic navigation.",
+      "owner": "product-ui",
+      "disposition": "tracked-debt"
+    },
+    {
+      "id": "B01H-RISK-003",
+      "severity": "P2",
+      "statement": "The local UI runtime smoke proves bounded same-origin evidence and selected public markers but is not a load, browser accessibility or external network reachability test; those responsibilities remain with browser and operations evidence.",
+      "owner": "operations-reliability",
+      "disposition": "tracked-debt"
+    }
+  ],
+  "files": [
+    {
+      "path": "scripts/check-health.mjs",
+      "gitObjectId": "e2a98f1b2e12808318110a16ae468ea01866b2b1",
+      "sha256": "52a051fc4e3c9b8201bcb9b1dff0ef0a7f3813ccb8c0ff4eb7b640761cd13f61",
+      "lines": 111,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 111
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "URL parsing, loopback exception, exact readiness path, credential/query/fragment rejection, streaming byte bound, JSON parsing, complete dependency contract, optional exact build binding, CLI error reporting and import-safe entry behavior were reviewed line by line.",
+        "Behavioral tests use real loopback HTTP servers to prove complete readiness acceptance, HTTP 200 unhealthy rejection, redirect rejection and declared oversized-body rejection."
+      ],
+      "findings": [
+        {
+          "id": "B01H-P1-001",
+          "severity": "P1",
+          "line": 22,
+          "attackPath": "The former deployment health command fetched without a deadline, followed redirects, parsed an unbounded JSON body and treated every successful HTTP status as healthy, so a liveness response, redirected endpoint, unhealthy dependency payload or stalled response could be accepted as release readiness.",
+          "affectedInvariant": "Production promotion must fail closed unless the exact readiness endpoint returns a bounded, timely response proving the database, schema, Redis, runtime and required-worker contract.",
+          "evidence": "The pre-remediation script called fetch(url), checked only response.ok and printed await response.json(); it never inspected health, checks or build identity.",
+          "fixOwner": "operations-reliability",
+          "verificationRequirement": "The health command must restrict transport and endpoint shape, reject redirects, enforce a ten-second deadline and 64 KiB stream bound, validate every critical readiness field and support exact commit binding; real HTTP tests and the permanent policy must reject weakening these boundaries.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/check-public-ui-foundation.mjs",
+      "gitObjectId": "f25a2c48eb0f515792c75fedca8a77f2bd077d66",
+      "sha256": "36d9aff896fbd6b7d24cb6bc7fa059924ea81a4a980303688d2547b17d1900fc",
+      "lines": 60,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 60
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Theme hydration and accessible state, public and personalized Mentor separation, absent-profile fail-closed behavior, dialog keyboard and scroll containment, Knowledge Center menu semantics and locale-aware alignment, Footer visibility, bilingual labels and pending-trust disclosure were reviewed line by line.",
+        "No confirmed finding was identified in this bounded path; rendered accessibility and bilingual completeness remain explicitly assigned to Batch 10."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/check-ui-runtime.mjs",
+      "gitObjectId": "1f6beca08cfcfba36b9cf2bc44aca05ff0f3957e",
+      "sha256": "f25aeadc2e7f05abf21da25de5a5918348f56a36c97558bf51de67d022e38fa0",
+      "lines": 270,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 270
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Mode and port isolation, Production public-origin preservation, child environment and output bounds, process-group cleanup, request deadlines, response streaming, readiness polling, CSP source checks, stylesheet parsing and trust, rendered marker assertions, CSS token evidence and terminal cleanup were reviewed line by line.",
+        "The runtime checker now treats both response headers and streamed bytes as evidence bounds and never fetches a stylesheet outside its isolated loopback origin."
+      ],
+      "findings": [
+        {
+          "id": "B01H-P2-004",
+          "severity": "P2",
+          "line": 179,
+          "attackPath": "The former CSS collector resolved every linked stylesheet URL and fetched it without checking that the resolved origin belonged to the isolated server, so compromised or accidentally external markup could make CI contact an arbitrary stylesheet host and accept its CSS as application evidence.",
+          "affectedInvariant": "Runtime UI evidence must be derived only from the isolated application instance under test.",
+          "evidence": "collectCss constructed new URL(href, baseUrl) and immediately called fetchWithDeadline(url); no origin comparison existed.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Every stylesheet URL must have exactly the loopback base origin before retrieval and the permanent policy plus mutation test must reject removal of this comparison.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01H-P2-005",
+          "severity": "P2",
+          "line": 86,
+          "attackPath": "The former runtime probe read root, public-route HTML and stylesheets with response.text() and no byte bound, so an application regression or compromised isolated response could consume unbounded runner memory before evidence validation.",
+          "affectedInvariant": "CI evidence collection must impose a fixed byte ceiling on every response body it retains.",
+          "evidence": "All three response classes were read directly through response.text(); only child-process console output had a preexisting size bound.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Root HTML, public-route HTML and stylesheet bodies must use one streaming reader with a two-megabyte declared and observed byte bound; the permanent policy must require bounded root and stylesheet reads.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/check-ui-style-authority.mjs",
+      "gitObjectId": "99e869cd3b8bd39b1eaac2b383f3ffc17fb628a8",
+      "sha256": "9985fe80f7f35240fd672a4f84d74cc5d98d404f900fc442b4e60a9b87776dde",
+      "lines": 73,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 73
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Governed source selection, asynchronous reads, production-verification policy integration, Tailwind and PostCSS entry contracts, active landing scope, consumed and governed token declarations, light/dark coverage, focus contract, failure aggregation and CLI result were reviewed in full."
+      ],
+      "findings": [
+        {
+          "id": "B01H-P2-006",
+          "severity": "P2",
+          "line": 2,
+          "attackPath": "The route and static QA commands were not part of package or workflow gates, so both failed on the exact head while all preceding stacked PR workflows remained green; future removal of the new readiness and runtime evidence boundaries would likewise have escaped CI.",
+          "affectedInvariant": "Remediated production-verification contracts must be reachable from an existing required CI gate and protected by negative policy mutations.",
+          "evidence": "package.json exposed ui:check in release and CI authorities, while qa-route-check and qa-production-static had no package-script consumer; exact-head execution independently found the defects.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "The existing ui:check authority must execute the permanent production-UI policy, and the repository test suite must mutate health redirects, stylesheet origin, static artifact destination and known invalid links to prove fail-closed enforcement.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/production-ui-verification-policy.mjs",
+      "gitObjectId": "f5e4632b0c1f664c3aa8bfe8ca19c0a86b97d4d7",
+      "sha256": "763e656e582d7c63c4bb9664c0c6c3c45ad3e311e77effcb28cb83fab48b7b7f",
+      "lines": 181,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 181
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Governed source paths, pure deterministic finding construction, every positive and negative source contract, repository reads, CLI failure aggregation and import-safe entry behavior were reviewed line by line.",
+        "The policy is consumed by ui:check and its mutation tests prove it rejects removal of health redirect failure, runtime same-origin retrieval, ephemeral QA output and corrected community routes."
+      ],
+      "findings": []
+    },
+    {
+      "path": "scripts/qa-production-static.mjs",
+      "gitObjectId": "35b1eb1448a314016678f34d397c50f829c045be",
+      "sha256": "f4b22515fc94147b9b3279e533ac43ed7edf55232b686ebe7eaff0eed1072bb0",
+      "lines": 150,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 150
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "Source traversal, shared route findings, asset references, locale copy, placeholder copy, required public files, robots and sitemap signals, exact-source identity, deterministic collection and ephemeral report output were reviewed in full.",
+        "The collector is import-safe and separates deterministic inspection from the CLI-only artifact write."
+      ],
+      "findings": [
+        {
+          "id": "B01H-P2-003",
+          "severity": "P2",
+          "line": 36,
+          "attackPath": "The former static QA duplicated route logic, treated legitimate TODO and FIXME annotations as production-copy defects and overwrote a tracked timestamped report, allowing stale evidence to appear current while ordinary engineering debt made the command fail on the exact head.",
+          "affectedInvariant": "Production static QA must report reproducible source findings through one route authority and must not mutate tracked historical evidence as a side effect.",
+          "evidence": "The exact-head reproduction failed on five documented technical-debt annotations and two broken links, then dirtied docs/internal-qa/QA_STATIC_PRODUCTION_REPORT.json with the current timestamp; the tracked report had last claimed success on 2026-06-23.",
+          "fixOwner": "repository-supply-chain",
+          "verificationRequirement": "Static QA must consume collectRouteQa, exclude test fixtures, limit placeholder detection to user-facing placeholder copy, return deterministic findings and write CLI output only under ignored artifacts/qa; the permanent policy must reject the former tracked output path and generic debt-marker scan.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/qa-route-check.mjs",
+      "gitObjectId": "1865711dceea58ac2144363055c7b94006dd6b8d",
+      "sha256": "3062fbeb5856b834529a294e5f332b9e65899440ef70728175ea1b4b24e03b8c",
+      "lines": 114,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 114
+        }
+      ],
+      "findingDisposition": "confirmed-findings-recorded",
+      "reviewNotes": [
+        "App Router page discovery, route groups, parallel segments, ordinary dynamic segments, required and optional catch-all segments, literal internal-link extraction, test-source exclusion, normalization, stable ordering and CLI failure behavior were reviewed line by line.",
+        "A temporary filesystem fixture proves all supported route shapes and isolates one truly missing path; the exact repository scan indexes 163 pages with zero missing literal routes."
+      ],
+      "findings": [
+        {
+          "id": "B01H-P2-002",
+          "severity": "P2",
+          "line": 26,
+          "attackPath": "The former checker used duplicated regex replacement rather than an App Router route model and was not enforced by a permanent gate; exact-head execution exposed community links to singular leaderboard and plural instructors paths that had no corresponding pages.",
+          "affectedInvariant": "Literal internal navigation must resolve against the repository's actual route groups and dynamic route shapes through one reusable authority.",
+          "evidence": "The exact-head command reported /academy/community/leaderboard and /academy/community/instructors from CommunityHub.tsx; the existing pages are /academy/community/leaderboards and /academy/community/instructor.",
+          "fixOwner": "product-ui",
+          "verificationRequirement": "One exported collector must model route groups plus dynamic and catch-all segments, ignore test fixtures, report stable file/path evidence and run from the governed UI gate; both broken CommunityHub targets must use existing routes.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "scripts/resolve-build-identity.ts",
+      "gitObjectId": "39ae305b62d1ec271abb2a1b690d6b1bd934ed58",
+      "sha256": "4ff3c798089e6fa1789a7901e717080e814a7d9d7d8a3b9df76db815ee65b064",
+      "lines": 34,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 34
+        }
+      ],
+      "findingDisposition": "no-confirmed-findings",
+      "reviewNotes": [
+        "Configured identity precedence, exact lowercase 40-character SHA validation, explicit local-source-archive marker, Git HEAD resolution, subprocess output handling and fail-closed diagnostic behavior were reviewed in full.",
+        "No confirmed finding was identified in this bounded path."
+      ],
+      "findings": []
+    }
+  ]
+}

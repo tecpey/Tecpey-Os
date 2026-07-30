@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { checkProductionUiVerificationRepository } from "./production-ui-verification-policy.mjs";
 
 const files = {
   layout: "src/app/layout.tsx",
@@ -15,6 +16,7 @@ const content = Object.fromEntries(
 );
 
 const failures = [];
+failures.push(...checkProductionUiVerificationRepository());
 const requireText = (target, text, reason) => {
   if (!content[target].includes(text)) failures.push(`${files[target]}: ${reason} (${text})`);
 };

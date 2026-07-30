@@ -4,6 +4,7 @@ const mode = process.argv.includes("--dev") ? "development" : "production";
 const port = mode === "development" ? 3181 : 3182;
 const baseUrl = `http://127.0.0.1:${port}`;
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const maxRuntimeEvidenceBytes = 2_000_000;
 const npmArgs =
   mode === "development"
     ? ["run", "dev:next", "--", "-H", "127.0.0.1"]
@@ -82,6 +83,33 @@ async function fetchWithDeadline(url, timeoutMs = 15_000) {
   }
 }
 
+async function readBoundedText(response, label) {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > maxRuntimeEvidenceBytes
+  ) {
+    throw new Error(`${label} exceeds the bounded runtime probe size`);
+  }
+  if (!response.body) throw new Error(`${label} returned no response body`);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxRuntimeEvidenceBytes) {
+      await reader.cancel();
+      throw new Error(`${label} exceeds the bounded runtime probe size`);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 async function waitForRoot() {
   const deadline = Date.now() + 120_000;
   let lastError = null;
@@ -154,13 +182,16 @@ async function collectCss(html) {
   console.log(`UI runtime: discovered ${links.length} linked stylesheet(s) and ${css.length} inline CSS bytes.`);
   for (const href of links) {
     const url = new URL(href, baseUrl);
+    if (url.origin !== baseUrl) {
+      throw new Error(`stylesheet ${url} is not served by the isolated runtime`);
+    }
     const response = await fetchWithDeadline(url, 20_000);
     if (!response.ok) throw new Error(`stylesheet ${url} returned HTTP ${response.status}`);
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.toLowerCase().includes("text/css")) {
       throw new Error(`stylesheet ${url} returned invalid content-type: ${contentType}`);
     }
-    const stylesheet = await response.text();
+    const stylesheet = await readBoundedText(response, `stylesheet ${url}`);
     console.log(`UI runtime: loaded ${url.pathname} (${stylesheet.length} bytes, ${contentType}).`);
     css += `\n${stylesheet}`;
   }
@@ -175,7 +206,7 @@ async function assertPublicRoute(path, expectedText) {
   if (response.status !== 200) {
     throw new Error(`${path} returned HTTP ${response.status}`);
   }
-  const html = await response.text();
+  const html = await readBoundedText(response, path);
   if (!html.includes(expectedText)) {
     throw new Error(`${path} did not contain expected rendered content: ${expectedText}`);
   }
@@ -189,7 +220,7 @@ try {
   console.log(`UI runtime: starting isolated ${mode} server on ${baseUrl}.`);
   const response = await waitForRoot();
   assertCspPolicy(response);
-  const html = await response.text();
+  const html = await readBoundedText(response, "root HTML");
   console.log(`UI runtime: root returned ${html.length} HTML bytes.`);
 
   for (const required of [

@@ -167,6 +167,24 @@ Policy v14 binds the seventh independently identified evidence slice. Batch 1G
 adds four semantically reviewed paths; all other paths remain pending and
 `completionClaim` remains `false`.
 
+## Batch 1H: production UI and runtime verification
+
+The eighth bounded slice reviews the production health probe, UI runtime and
+public-foundation checks, static and route QA, build-identity resolver, style
+authority and their permanent verification policy. The health probe now has a
+fixed deadline, rejects redirects, bounds its response, requires the complete
+readiness contract and can bind evidence to one exact build commit. Route QA
+uses one shared route model for route groups, dynamic and catch-all segments;
+static QA no longer treats test fixtures or generic debt annotations as
+production findings and writes ephemeral output under `artifacts/qa` instead
+of overwriting tracked historical evidence. Runtime CSS evidence is restricted
+to the isolated same-origin server and a fixed size bound. Two broken community
+links discovered by the shared route authority now target existing routes.
+
+Policy v15 binds the eighth independently identified evidence slice. Batch 1H
+adds eight semantically reviewed paths; all other paths remain pending and
+`completionClaim` remains `false`.
+
 ## Local verification
 
 ```bash
