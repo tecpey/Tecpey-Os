@@ -64,6 +64,13 @@ for (const [label, pattern] of [
   if (!pattern.test(utility)) failures.push(`${utilityPath}: missing ${label}`);
 }
 
+const MAX_GOVERNED_BODY_BYTES = 8 * 1024 * 1024;
+
+// These assertions check the security property — the request body is only ever
+// read through the streaming byte authority — rather than one spelling of it.
+// Pinning an exact call shape rots silently: a generic type argument, a renamed
+// result binding, or consuming `result.value` instead of re-parsing all used to
+// fail this gate against correct, fully bounded routes.
 for (const [path, requestVariable] of directRoutes) {
   const source = await readFile(path, "utf8");
   if (!source.includes(
@@ -74,32 +81,55 @@ for (const [path, requestVariable] of directRoutes) {
   }
 
   const callPattern = new RegExp(
-    `readBoundedJsonRequest\\(\\s*${requestVariable}\\s*,\\s*\\{[\\s\\S]*?maxBytes:\\s*([0-9_]+)`,
+    `(?:const|let)\\s+(\\w+)\\s*=\\s*await\\s+readBoundedJsonRequest` +
+      `(?:\\s*<[\\s\\S]*?>)?\\s*\\(\\s*${requestVariable}\\s*,\\s*\\{[\\s\\S]*?maxBytes:\\s*([0-9_]+)`,
+    "g",
   );
-  const call = callPattern.exec(source);
-  if (!call) {
+  const calls = [...source.matchAll(callPattern)];
+  if (calls.length === 0) {
     failures.push(`${path}: explicit bounded body call/maxBytes is missing`);
     continue;
   }
 
-  const maxBytes = Number(call[1].replaceAll("_", ""));
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 8 * 1024 * 1024) {
-    failures.push(`${path}: maxBytes is outside the governed range`);
+  for (const call of calls) {
+    const maxBytes = Number(call[2].replaceAll("_", ""));
+    if (
+      !Number.isSafeInteger(maxBytes) ||
+      maxBytes < 1 ||
+      maxBytes > MAX_GOVERNED_BODY_BYTES
+    ) {
+      failures.push(`${path}: maxBytes is outside the governed range`);
+    }
   }
 
-  const parserPattern = new RegExp(`\\b${requestVariable}\\.(?:json|text)\\s*\\(`);
-  const parser = parserPattern.exec(source);
-  if (!parser) {
-    failures.push(`${path}: expected existing parser is missing`);
-  } else if (call.index > parser.index) {
-    failures.push(`${path}: body parser runs before the streaming byte authority`);
+  // Every bounded read must have its failure returned, whichever name it binds.
+  for (const resultName of new Set(calls.map((call) => call[1]))) {
+    const returnsFailure =
+      new RegExp(`!\\s*${resultName}\\.ok\\b`).test(source) ||
+      source.includes(`${resultName}.error`);
+    if (!returnsFailure) {
+      failures.push(
+        `${path}: bounded errors are not returned safely for "${resultName}"`,
+      );
+    }
   }
 
-  if (!source.includes(`${requestVariable} = boundedBodyRequest.request;`)) {
-    failures.push(`${path}: existing parser is not rebound to the bounded request`);
-  }
-  if (!source.includes("boundedBodyRequest.error")) {
-    failures.push(`${path}: bounded errors are not returned safely`);
+  // A route may consume `result.value` directly — that never touches the raw
+  // stream. If it does re-parse, it must parse the reconstructed bounded
+  // request, and only after the byte authority has run.
+  const rawParser = new RegExp(
+    `\\b${requestVariable}\\.(?:json|text|formData|arrayBuffer|blob)\\s*\\(`,
+  ).exec(source);
+  if (rawParser) {
+    const rebound = [...new Set(calls.map((call) => call[1]))].some((resultName) =>
+      source.includes(`${requestVariable} = ${resultName}.request;`),
+    );
+    if (!rebound) {
+      failures.push(`${path}: existing parser is not rebound to the bounded request`);
+    }
+    if (calls[0].index > rawParser.index) {
+      failures.push(`${path}: body parser runs before the streaming byte authority`);
+    }
   }
 }
 
