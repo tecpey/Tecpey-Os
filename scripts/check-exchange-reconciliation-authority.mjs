@@ -12,6 +12,7 @@ const files = {
   authority: "src/lib/trading/exchange-reconciliation.ts",
   cli: "scripts/reconcile-exchange-ledger.ts",
   tests: "src/tests/trading/exchange-reconciliation-postgres.test.ts",
+  wallet: "src/lib/trading/wallet-service.ts",
   package: "package.json",
 };
 
@@ -107,6 +108,30 @@ requireText(
   "tests",
   "detects a terminal order that still holds funds",
   "the residual-hold proof must remain",
+);
+
+// Silent clamping is what reconciliation exists to catch, so the balance
+// authority may not reintroduce it. The retired `wallet-balance-service.ts`
+// charged `LEAST(fee, available)` while posting a ledger row for the *full* fee,
+// and released `GREATEST(0, held - amount)` while posting the full amount — in
+// both cases the ledger and the balance silently diverge. The live authority
+// instead guards with `held_balance >= $3` and throws on mismatch.
+for (const [pattern, reason] of [
+  [
+    /LEAST\s*\([^)]*available_balance/i,
+    "fees may not be clamped to the available balance; a fee that cannot be charged in full must fail the transaction",
+  ],
+  [
+    /GREATEST\s*\(\s*0\s*,\s*held_balance/i,
+    "held balance may not be clamped to zero; an over-release must fail the transaction",
+  ],
+]) {
+  rejectPattern("wallet", pattern, reason);
+}
+requireText(
+  "wallet",
+  "order_hold_balance_mismatch",
+  "hold release must fail closed on a balance mismatch rather than clamp",
 );
 
 const packageJson = JSON.parse(source.package);

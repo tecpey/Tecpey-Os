@@ -248,8 +248,17 @@ await withDb(async (db) => {
 ### C-07: No Reconciliation Between Ledger and Balances
 **Risk:** Silent divergence between wallet_balances and wallet_ledger totals  
 **Severity:** CRITICAL  
-**Files:**
-- `src/lib/trading/wallet-balance-service.ts` (no reconciliation function)
+**Status: RESOLVED** — `src/lib/trading/exchange-reconciliation.ts` replays the
+ledger and reports every unexplained delta across balances, holds, order fills
+and trade fees. Run with `npm run exchange:reconcile`; it exits non-zero on any
+delta and is enforced in CI by `exchange:reconcile:check` plus
+`test:exchange-reconciliation`, which proves an injected one-unit discrepancy is
+detected. The `wallet-balance-service.ts` layer named below was itself retired
+once proven unreachable — it clamped (`LEAST`/`GREATEST`) while posting full
+ledger amounts, which was one concrete way this divergence could arise.
+
+**Files (historical):**
+- `src/lib/trading/wallet-balance-service.ts` (no reconciliation function — file since removed)
 - `src/lib/trading/ledger-service.ts` (no balance recompute)
 
 **Evidence:**
