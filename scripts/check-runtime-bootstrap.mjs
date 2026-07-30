@@ -8,6 +8,7 @@ export function runtimeBootstrapFindings({
   productionBootstrap,
   environmentValidator,
   cspValidator,
+  publicBrowserWorkflow,
 }) {
   const failures = [];
   const requireText = (source, text, message) => {
@@ -157,6 +158,27 @@ export function runtimeBootstrapFindings({
     requireText(environmentValidator, text, message);
   }
 
+  requireText(
+    publicBrowserWorkflow,
+    [
+      "      - name: Validate production environment contract",
+      "        env:",
+      "          NODE_ENV: production",
+      "          NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
+      "          NEXT_PUBLIC_API_URL: https://my.e2e.tecpey.test",
+      "        run: npm run env:check",
+    ].join("\n"),
+    "public Browser workflow must validate the production contract with HTTPS origins before its loopback build",
+  );
+  requireText(
+    publicBrowserWorkflow,
+    [
+      "            tests/e2e/test-results",
+      "          if-no-files-found: ignore",
+    ].join("\n"),
+    "public Browser early failures must not create a second missing-artifact failure",
+  );
+
   return failures;
 }
 
@@ -167,12 +189,14 @@ async function main() {
     productionBootstrap,
     environmentValidator,
     cspValidator,
+    publicBrowserWorkflow,
   ] = await Promise.all([
     readFile("server.ts", "utf8"),
     readFile("scripts/check-ui-runtime.mjs", "utf8"),
     readFile("scripts/run-production-bootstrap.ts", "utf8"),
     readFile("scripts/validate-env.mjs", "utf8"),
     readFile("scripts/validate-csp-connection-env.ts", "utf8"),
+    readFile(".github/workflows/public-browser-golden-path.yml", "utf8"),
   ]);
   const failures = runtimeBootstrapFindings({
     server,
@@ -180,6 +204,7 @@ async function main() {
     productionBootstrap,
     environmentValidator,
     cspValidator,
+    publicBrowserWorkflow,
   });
 
   if (failures.length) {

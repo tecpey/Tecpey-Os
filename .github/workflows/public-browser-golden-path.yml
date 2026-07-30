@@ -113,6 +113,8 @@ jobs:
       - name: Validate production environment contract
         env:
           NODE_ENV: production
+          NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test
+          NEXT_PUBLIC_API_URL: https://my.e2e.tecpey.test
         run: npm run env:check
 
       - name: Apply canonical migrations
@@ -149,7 +151,7 @@ jobs:
             tests/e2e/server-output-*.log
             tests/e2e/playwright-output-*.log
             tests/e2e/test-results
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload bounded HTML report

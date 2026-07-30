@@ -80,6 +80,7 @@ function productionBootstrapSources() {
     productionBootstrap,
     environmentValidator,
     cspValidator,
+    publicBrowserWorkflow,
   ] = [
     readFileSync(resolve(repositoryRoot, "server.ts"), "utf8"),
     readFileSync(resolve(repositoryRoot, "scripts/check-ui-runtime.mjs"), "utf8"),
@@ -92,6 +93,10 @@ function productionBootstrapSources() {
       resolve(repositoryRoot, "scripts/validate-csp-connection-env.ts"),
       "utf8",
     ),
+    readFileSync(
+      resolve(repositoryRoot, ".github/workflows/public-browser-golden-path.yml"),
+      "utf8",
+    ),
   ];
   return {
     server,
@@ -99,6 +104,7 @@ function productionBootstrapSources() {
     productionBootstrap,
     environmentValidator,
     cspValidator,
+    publicBrowserWorkflow,
   };
 }
 
@@ -349,6 +355,32 @@ test("runtime bootstrap policy rejects weakened production validation", () => {
         ),
       },
       /canonical 32-byte CRM encryption key/u,
+    ],
+    [
+      {
+        ...sources,
+        publicBrowserWorkflow: sources.publicBrowserWorkflow.replace(
+          "          NEXT_PUBLIC_SITE_URL: https://e2e.tecpey.test",
+          "          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100",
+        ),
+      },
+      /public Browser workflow must validate.*HTTPS origins/u,
+    ],
+    [
+      {
+        ...sources,
+        publicBrowserWorkflow: sources.publicBrowserWorkflow.replace(
+          [
+            "            tests/e2e/test-results",
+            "          if-no-files-found: ignore",
+          ].join("\n"),
+          [
+            "            tests/e2e/test-results",
+            "          if-no-files-found: error",
+          ].join("\n"),
+        ),
+      },
+      /missing-artifact failure/u,
     ],
   ] as const) {
     assert.match(runtimeBootstrapFindings(mutated).join("\n"), expected);

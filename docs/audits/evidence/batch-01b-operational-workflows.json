@@ -96,19 +96,20 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "07b1c0814022df8d19ee5d6ecfea0bd3ece5ff93",
-      "sha256": "bec8fa003f813a7acf87441e364a3a76eace1e0b82c963a6a318913e6898069e",
-      "lines": 162,
+      "gitObjectId": "43497bf707e382e19e8bdaa8646ff83e70320066",
+      "sha256": "b8c54a3ce4b0668a85d410112d66a036c95520fef32705b3dfd85f6975a2e500",
+      "lines": 164,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 162
+          "endLine": 164
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Unconditional pull-request and main-push triggers, concurrency, read-only permissions, pinned service images and actions, exact-head verification, bounded test credentials, production environment validation, canonical migrations, exact build, governed browsers, unchanged-checkout verification and failure evidence were reviewed.",
-        "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path."
+        "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path.",
+        "The production-contract step now validates explicit HTTPS origins independently of the loopback origins required by the later local browser server, and an early failure cannot create a second missing-artifact error."
       ],
       "findings": [
         {
@@ -120,6 +121,34 @@
           "evidence": "The former pull_request and push triggers used a partial paths list that omitted shared runtime and security sources; the remediated triggers have no paths filter.",
           "fixOwner": "tests-quality-evidence",
           "verificationRequirement": "Workflow policy and exact-head GitHub Actions evidence must demonstrate that the Browser Golden Path is not conditionally excluded by a path allowlist.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01B-P2-004",
+          "severity": "P2",
+          "line": 116,
+          "attackPath": "The browser workflow reused its HTTP loopback server origins in the production environment-contract step; once the validator correctly required HTTPS production origins, the workflow failed before migrations, build or either governed browser could execute.",
+          "affectedInvariant": "The production configuration contract must be validated with production-safe origins while the later local Browser Golden Path remains free to bind its isolated loopback server.",
+          "evidence": "Public Browser run 163 on exact head ba5cf346 failed in Validate production environment contract because both job-level public origins were http://127.0.0.1:3100.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The validation step must override both public origins with explicit HTTPS test domains, while the permanent runtime-bootstrap policy rejects removal or weakening of that step-local block.",
+          "disposition": "remediated",
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
+        },
+        {
+          "id": "B01B-P2-005",
+          "severity": "P2",
+          "line": 154,
+          "attackPath": "A failure before the browser server or Playwright started produced no browser artifacts, and the diagnostic upload's if-no-files-found:error created a second failed step that obscured the single root cause.",
+          "affectedInvariant": "Failure evidence collection must preserve the primary failure even when an earlier governed step legitimately produces no browser artifacts.",
+          "evidence": "The same run failed its Upload browser failure evidence step with no matching server-output or test-results paths after environment validation stopped the job.",
+          "fixOwner": "tests-quality-evidence",
+          "verificationRequirement": "The bounded browser upload must ignore an empty path set, and the permanent policy must bind that behavior to the exact browser-artifact block.",
           "disposition": "remediated",
           "remediation": [
             "https://github.com/tecpey/Tecpey-Os/issues/156"
