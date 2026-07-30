@@ -265,6 +265,11 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 // Apply a partial or full fill to an order.
 // VWAP avg_fill_price is computed in SQL to avoid a separate read round-trip.
 // newStatus: 'FILLED' when remaining reaches zero; 'PARTIALLY_FILLED' otherwise.
+//
+// Overfill guard (docs/audit/FINDINGS.md F-001): the WHERE clause must reject
+// any fill larger than the order's remaining_quantity, exactly like the
+// transaction-aware variant. A 0-row result means the fill was rejected and
+// the caller must treat it as a late/invalid fill rather than applied.
 export async function updateOrderFill(
   orderId: string,
   fillQty: number,
@@ -283,7 +288,7 @@ export async function updateOrderFill(
          END,
          status             = $3,
          updated_at         = NOW()
-       WHERE id = $4::uuid
+       WHERE id = $4::uuid AND remaining_quantity >= $1
        RETURNING *`,
       [fillQty, fillPrice, newStatus, orderId],
     );
