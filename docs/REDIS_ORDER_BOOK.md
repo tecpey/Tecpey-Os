@@ -1,6 +1,6 @@
 # Redis Order Book — Phase 30 Foundation
 
-> Architecture, key schema, warm-start recovery, and activation guide.
+> Architecture, key schema, PostgreSQL-authoritative recovery, and activation guide.
 
 ---
 
@@ -109,7 +109,10 @@ out of the book. If PostgreSQL is unavailable the function throws
 > failed cleanup leaves a cancelled order in the projection; a Redis-first
 > rebuild would have resurrected it as live resting liquidity.
 
-For the Redis store, warm-start should populate Redis Sorted Sets from the same query, then serve subsequent requests from Redis (not from DB).
+For the future Redis store, recovery must first clear the Redis projection and
+repopulate it exclusively from the PostgreSQL-authoritative query above. Redis
+may serve reads after that rebuild completes, but it must never be used as a
+recovery source or trusted to warm-start the authoritative book.
 
 ---
 
@@ -129,7 +132,8 @@ For the Redis store, warm-start should populate Redis Sorted Sets from the same 
 3. Implement `RedisOrderBookStore` in `src/lib/trading/order-book-store.ts`:
    - Replace the `extends InMemoryOrderBookStore` stub with full Redis commands.
    - Add `MULTI/EXEC` around compound key operations.
-   - Implement warm-start population of Redis Sorted Sets from DB.
+   - Implement projection rebuilding that clears Redis and repopulates it only from the PostgreSQL-authoritative query.
+   - Never read Redis as the source for recovery or warm-start authority.
 
 4. Call `validate()` at application startup to confirm the connection before serving orders.
 
