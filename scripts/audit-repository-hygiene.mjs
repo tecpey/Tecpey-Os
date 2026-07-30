@@ -249,7 +249,7 @@ const packageScripts = JSON.stringify(packageJson.scripts ?? {});
 for (const packageName of Object.keys(declaredDependencies)) {
   if (packageScripts.includes(packageName)) usage.get(packageName).add("package.json#scripts");
   for (const binary of PACKAGE_BINARIES[packageName] ?? []) {
-    if (new RegExp(`(?:^|[\s;&|])${binary}(?:[\s;&|]|$)`).test(packageScripts)) {
+    if (new RegExp(`(?:^|[\\s;&|])${binary}(?:[\\s;&|]|$)`).test(packageScripts)) {
       usage.get(packageName).add(`package.json#binary:${binary}`);
     }
   }
