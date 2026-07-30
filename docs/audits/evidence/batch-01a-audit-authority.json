@@ -157,13 +157,13 @@
     },
     {
       "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "cd34de3c936232a5f980b60ecb0a7097e5045b44",
-      "sha256": "dbab24b45ef0bf8a264ae785dd5c438984c13116927acb428f51da1f19f70943",
-      "lines": 573,
+      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
+      "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
+      "lines": 576,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 573
+          "endLine": 576
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -171,8 +171,10 @@
         "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
         "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
         "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
-        "Every evidence declaration configured by Policy v9 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
-        "Summary recomputation occurs after evidence application and completionClaim remains false."
+        "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
+        "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
+        "Summary recomputation occurs after evidence application and completionClaim remains false.",
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
       ],
       "findings": [
         {
@@ -207,20 +209,20 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "518b0200f075205d0af0a6a273f7e6d3a095a872",
-      "sha256": "7e360d73b1ee853898746b62dba42c5edb3c79c426a794681ab263a5ddf5afd7",
-      "lines": 270,
+      "gitObjectId": "bef7d6ebd4dc4107da34e20a68c2ba08cb442a6c",
+      "sha256": "3656ebef0a2846662e8a17b73b51aff84f0f84aea97f2abd0bd3ca5e67aacef3",
+      "lines": 271,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 270
+          "endLine": 271
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
-        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v9 evidence-path ownership were reviewed.",
+        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
-        "Re-reviewed in full after merging main 63cffc08 (PR #264): the change is limited to the secret-scanning-baseline authentication-admin-security routing line (policy) and the GOVERNED_JOB_PROPERTIES job-property guard with duplicate rejection (workflow policy); both were authored and line-reviewed in this session, negative tests cover them, and no new findings resulted."
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted."
       ],
       "findings": []
     },

@@ -110,7 +110,7 @@ jobs:
           IMAGE: tecpey-ci:${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           docker run --rm --entrypoint sh "$IMAGE" -ec '
-            test "$(id -u)" = 1001
+            test "$(id -u)" = 1000
             test ! -e /app/node_modules/.bin/tsx
             test ! -e /app/server.ts
             test ! -d /app/src
@@ -132,7 +132,7 @@ jobs:
           format: json
           output: artifacts/container/trivy.json
           severity: HIGH,CRITICAL
-          ignore-unfixed: true
+          ignore-unfixed: false
           exit-code: '1'
 
       - name: Upload immutable container evidence
@@ -200,7 +200,7 @@ jobs:
   publish:
     name: Publish, attest and sign immutable image
     if: ${{ github.event_name == 'push' }}
-    needs: verify
+    needs: [verify, recovery]
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
