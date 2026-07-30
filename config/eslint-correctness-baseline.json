@@ -3,42 +3,269 @@
   "issue": 162,
   "generatedFrom": "main@56392395f84e82c8a196338afb2d39d0999076fc",
   "entries": [
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/ThemeToggle.tsx", "line": 15, "column": 5, "domain": "shared-ui", "reason": "client hydration readiness state" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/TradingViewChart.tsx", "line": 47, "column": 5, "domain": "market-ui", "reason": "browser widget and theme observer bootstrap" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/AcademyCertificatesClient.tsx", "line": 40, "column": 21, "domain": "academy", "reason": "one-shot server certificate hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/AcademyEngagementHub.tsx", "line": 43, "column": 19, "domain": "academy", "reason": "legacy client engagement snapshot hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/AcademyMentorCoachCenter.tsx", "line": 68, "column": 5, "domain": "mentor", "reason": "legacy progress and mentor snapshot hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/AiMentorExperience.tsx", "line": 174, "column": 5, "domain": "mentor", "reason": "legacy mentor progress hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/GlobalAiMentorWidget.tsx", "line": 362, "column": 5, "domain": "mentor", "reason": "conversation request loading transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/TradingArenaProClient.tsx", "line": 142, "column": 5, "domain": "arena", "reason": "server Arena load transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/ChallengeCenter.tsx", "line": 321, "column": 10, "domain": "community", "reason": "server challenge aggregate load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/CommunityHub.tsx", "line": 199, "column": 5, "domain": "community", "reason": "legacy profile hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/InstructorDashboard.tsx", "line": 86, "column": 5, "domain": "admin", "reason": "governed Instructor snapshot load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/JournalDisciplineScorePanel.tsx", "line": 120, "column": 10, "domain": "community", "reason": "server discipline evidence load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/PeerJournals.tsx", "line": 184, "column": 10, "domain": "community", "reason": "server journal feed load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/ReputationEvidencePanel.tsx", "line": 39, "column": 10, "domain": "community", "reason": "server reputation evidence load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/ReputationScoringConsentControl.tsx", "line": 204, "column": 10, "domain": "community", "reason": "server consent state load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/community/StudyGroups.tsx", "line": 127, "column": 5, "domain": "community", "reason": "legacy study-group hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/JournalView.tsx", "line": 549, "column": 10, "domain": "arena", "reason": "authoritative execution snapshot load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/JournalView.tsx", "line": 558, "column": 5, "domain": "arena", "reason": "active-attempt reflection reset and reload" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx", "line": 190, "column": 36, "domain": "arena", "reason": "price-step state-machine projection" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx", "line": 202, "column": 7, "domain": "arena", "reason": "terminal scenario state-machine transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/ScenarioPlayer.tsx", "line": 510, "column": 5, "domain": "arena", "reason": "legacy Arena state hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/TradingArenaDashboard.tsx", "line": 423, "column": 33, "domain": "arena", "reason": "one-shot Arena dashboard hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx", "line": 680, "column": 10, "domain": "arena", "reason": "authoritative execution state load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/FlashcardDeck.tsx", "line": 259, "column": 5, "domain": "academy", "reason": "deck progress hydration" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/FlashcardsPageClient.tsx", "line": 21, "column": 5, "domain": "academy", "reason": "strict progress hydration transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LearningInsightsDashboard.tsx", "line": 375, "column": 5, "domain": "academy", "reason": "server learning-insights load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LessonPlayerV2.tsx", "line": 288, "column": 5, "domain": "academy", "reason": "lesson identity state reset" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LessonPlayerV2Client.tsx", "line": 22, "column": 5, "domain": "academy", "reason": "strict progress hydration transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/MentorV2.tsx", "line": 276, "column": 5, "domain": "mentor", "reason": "server mentor snapshot load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/admin/AdminPasskeyAccessGate.tsx", "line": 223, "column": 10, "domain": "admin-security", "reason": "server passkey status refresh" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/admin/CommandCenterDashboard.tsx", "line": 101, "column": 10, "domain": "admin", "reason": "server command-center snapshot load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/crypto/SwapPanel.tsx", "line": 115, "column": 7, "domain": "market-ui", "reason": "derived quote projection retained pending component state redesign" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/home/TecpeyHomeAI.tsx", "line": 299, "column": 5, "domain": "public-ui", "reason": "news request loading transition" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/learning-os/NotificationCenter.tsx", "line": 106, "column": 5, "domain": "notifications", "reason": "principal-scoped notification reset and load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/navbar/Navbar.tsx", "line": 229, "column": 5, "domain": "shared-ui", "reason": "route-change menu reset" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/hooks/useBaseCurrenciesPrice.ts", "line": 71, "column": 5, "domain": "market-ui", "reason": "socket ticker projection into current market rows" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/hooks/useMentorInsights.ts", "line": 90, "column": 7, "domain": "mentor", "reason": "module-cache projection into hook state" }
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/ThemeToggle.tsx",
+      "line": 15,
+      "column": 5,
+      "domain": "shared-ui",
+      "reason": "client hydration readiness state"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/TradingViewChart.tsx",
+      "line": 47,
+      "column": 5,
+      "domain": "market-ui",
+      "reason": "browser widget and theme observer bootstrap"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/AcademyCertificatesClient.tsx",
+      "line": 40,
+      "column": 21,
+      "domain": "academy",
+      "reason": "one-shot server certificate hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/AcademyEngagementHub.tsx",
+      "line": 43,
+      "column": 19,
+      "domain": "academy",
+      "reason": "legacy client engagement snapshot hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/AcademyMentorCoachCenter.tsx",
+      "line": 68,
+      "column": 5,
+      "domain": "mentor",
+      "reason": "legacy progress and mentor snapshot hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/AiMentorExperience.tsx",
+      "line": 174,
+      "column": 5,
+      "domain": "mentor",
+      "reason": "legacy mentor progress hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/GlobalAiMentorWidget.tsx",
+      "line": 362,
+      "column": 5,
+      "domain": "mentor",
+      "reason": "conversation request loading transition"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/TradingArenaProClient.tsx",
+      "line": 142,
+      "column": 5,
+      "domain": "arena",
+      "reason": "server Arena load transition"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/ChallengeCenter.tsx",
+      "line": 321,
+      "column": 10,
+      "domain": "community",
+      "reason": "server challenge aggregate load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/CommunityHub.tsx",
+      "line": 199,
+      "column": 5,
+      "domain": "community",
+      "reason": "legacy profile hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/InstructorDashboard.tsx",
+      "line": 86,
+      "column": 5,
+      "domain": "admin",
+      "reason": "governed Instructor snapshot load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/JournalDisciplineScorePanel.tsx",
+      "line": 120,
+      "column": 10,
+      "domain": "community",
+      "reason": "server discipline evidence load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/PeerJournals.tsx",
+      "line": 184,
+      "column": 10,
+      "domain": "community",
+      "reason": "server journal feed load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/ReputationEvidencePanel.tsx",
+      "line": 39,
+      "column": 10,
+      "domain": "community",
+      "reason": "server reputation evidence load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/ReputationScoringConsentControl.tsx",
+      "line": 204,
+      "column": 10,
+      "domain": "community",
+      "reason": "server consent state load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/community/StudyGroups.tsx",
+      "line": 127,
+      "column": 5,
+      "domain": "community",
+      "reason": "legacy study-group hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/trading-arena/JournalView.tsx",
+      "line": 549,
+      "column": 10,
+      "domain": "arena",
+      "reason": "authoritative execution snapshot load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/trading-arena/JournalView.tsx",
+      "line": 558,
+      "column": 5,
+      "domain": "arena",
+      "reason": "active-attempt reflection reset and reload"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/trading-arena/TradingArenaExecutionClient.tsx",
+      "line": 680,
+      "column": 10,
+      "domain": "arena",
+      "reason": "authoritative execution state load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/FlashcardDeck.tsx",
+      "line": 259,
+      "column": 5,
+      "domain": "academy",
+      "reason": "deck progress hydration"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/FlashcardsPageClient.tsx",
+      "line": 21,
+      "column": 5,
+      "domain": "academy",
+      "reason": "strict progress hydration transition"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/LearningInsightsDashboard.tsx",
+      "line": 375,
+      "column": 5,
+      "domain": "academy",
+      "reason": "server learning-insights load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/LessonPlayerV2.tsx",
+      "line": 288,
+      "column": 5,
+      "domain": "academy",
+      "reason": "lesson identity state reset"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/LessonPlayerV2Client.tsx",
+      "line": 22,
+      "column": 5,
+      "domain": "academy",
+      "reason": "strict progress hydration transition"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/academy/v2/MentorV2.tsx",
+      "line": 276,
+      "column": 5,
+      "domain": "mentor",
+      "reason": "server mentor snapshot load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/admin/AdminPasskeyAccessGate.tsx",
+      "line": 223,
+      "column": 10,
+      "domain": "admin-security",
+      "reason": "server passkey status refresh"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/admin/CommandCenterDashboard.tsx",
+      "line": 101,
+      "column": 10,
+      "domain": "admin",
+      "reason": "server command-center snapshot load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/crypto/SwapPanel.tsx",
+      "line": 115,
+      "column": 7,
+      "domain": "market-ui",
+      "reason": "derived quote projection retained pending component state redesign"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/home/TecpeyHomeAI.tsx",
+      "line": 299,
+      "column": 5,
+      "domain": "public-ui",
+      "reason": "news request loading transition"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/learning-os/NotificationCenter.tsx",
+      "line": 106,
+      "column": 5,
+      "domain": "notifications",
+      "reason": "principal-scoped notification reset and load"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/components/navbar/Navbar.tsx",
+      "line": 229,
+      "column": 5,
+      "domain": "shared-ui",
+      "reason": "route-change menu reset"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/hooks/useBaseCurrenciesPrice.ts",
+      "line": 71,
+      "column": 5,
+      "domain": "market-ui",
+      "reason": "socket ticker projection into current market rows"
+    },
+    {
+      "rule": "react-hooks/set-state-in-effect",
+      "path": "src/hooks/useMentorInsights.ts",
+      "line": 90,
+      "column": 7,
+      "domain": "mentor",
+      "reason": "module-cache projection into hook state"
+    }
   ]
 }

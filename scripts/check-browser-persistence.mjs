@@ -35,16 +35,24 @@ const persistencePolicy = new Map(
       expected: 1,
       classification: "repairable-offline-projection",
     },
-    "src/lib/trading-arena.ts": {
-      expected: 3,
-      classification: "quarantined-legacy-authority",
-    },
-    "src/lib/trading-journal.ts": {
-      expected: 2,
-      classification: "quarantined-legacy-authority",
-    },
   }),
 );
+
+// The quarantined browser-authority modules (`src/lib/trading-arena.ts`,
+// `src/lib/trading-journal.ts`) and their only consumers (`ScenarioPlayer`,
+// `TradingArenaDashboard`) were deleted once proven unreachable: the live Arena
+// route mounts TradingArenaExecutionClient and the scenarios route is a
+// migration notice. No browser-owned account, trade or journal authority
+// remains. Re-adding one must be a deliberate, reviewed act — not a quiet
+// import — so the classification itself is now refused.
+const RETIRED_CLASSIFICATIONS = new Set(["quarantined-legacy-authority"]);
+for (const [file, policy] of persistencePolicy) {
+  if (RETIRED_CLASSIFICATIONS.has(policy.classification)) {
+    throw new Error(
+      `${file}: "${policy.classification}" is retired; browser-owned authority may not be reintroduced`,
+    );
+  }
+}
 
 const serverAuthoritativeSurfaces = new Set([
   "src/app/api/community/profile/route.ts",
