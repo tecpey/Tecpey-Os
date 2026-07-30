@@ -46,6 +46,8 @@ const COMPOSE_DATABASE_URL =
   "DATABASE_URL=postgresql://tecpey:SECRET_FROM_APPROVED_MANAGER@postgres:5432/tecpey";
 const COMPOSE_REDIS_URL =
   "REDIS_URL=redis://:SECRET_FROM_APPROVED_MANAGER@redis:6379";
+const IMMUTABLE_ALPINE_RUNTIME =
+  "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32";
 const PRODUCTION_VERIFICATION_LINES = [
   "#!/usr/bin/env bash",
   "set -euo pipefail",
@@ -431,6 +433,17 @@ export function productionHostSupplyChainFindings({
     healthRoute,
     /NEXT_PUBLIC_GIT_COMMIT/,
     "Health must not trust a runtime-overridable public Git commit",
+  );
+  if (dockerfile.split(IMMUTABLE_ALPINE_RUNTIME).length - 1 !== 2) {
+    findings.push(
+      "Production dependencies and runtime must use the exact minimal Alpine image",
+    );
+  }
+  requireText(
+    findings,
+    dockerfile,
+    "USER node",
+    "Production runtime must use the image-owned non-root identity",
   );
   for (const contract of [
     "ARG TECPEY_BUILD_COMMIT_SHA",

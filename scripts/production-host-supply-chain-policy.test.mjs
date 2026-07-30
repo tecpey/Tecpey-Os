@@ -402,6 +402,27 @@ test("published images bake public configuration and Compose validates before st
   );
 });
 
+test("production runtime rejects the vulnerable Debian package surface", () => {
+  const vulnerableRuntime = sources.dockerfile.replaceAll(
+    "node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32",
+    "node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3",
+  );
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      dockerfile: vulnerableRuntime,
+    }).join("\n"),
+    /exact minimal Alpine image/,
+  );
+  assert.match(
+    productionHostSupplyChainFindings({
+      ...sources,
+      dockerfile: vulnerableRuntime.replace("USER node", "USER root"),
+    }).join("\n"),
+    /image-owned non-root identity/,
+  );
+});
+
 test("source archives require an explicit local-only unverified build identity", () => {
   const missingOptIn = {
     ...sources,
