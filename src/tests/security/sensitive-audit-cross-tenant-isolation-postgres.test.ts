@@ -151,14 +151,35 @@ describe("Sensitive mutation audit cross-tenant isolation", () => {
         resourceType: "device_token",
         requestHash: hashSensitiveAuditRequest({ tenant: "a", suffix }),
       });
-      const firstA = await inTransaction((client) => writeSensitiveMutationAuditTx(client, baseA));
+      const baseB = {
+        ...baseA,
+        tenantId: tenantB,
+        requestHash: hashSensitiveAuditRequest({ tenant: "b", suffix }),
+      };
 
-      // Re-recording tenant A's exact event is an idempotent replay: same row id.
+      // Insert BOTH tenants' rows for the same (action, correlation_id) FIRST,
+      // so the conflict read-back path below runs while both identically-keyed
+      // rows exist. This is what forces the WHERE tenant_id = $1 conflict read
+      // to be exercised: if it dropped tenant_id, the LIMIT 1 lookup could
+      // return the other tenant's row.
+      const firstA = await inTransaction((client) => writeSensitiveMutationAuditTx(client, baseA));
+      const firstB = await inTransaction((client) => writeSensitiveMutationAuditTx(client, baseB));
+      assert.notEqual(firstA, firstB);
+
+      // Replay EACH tenant with both rows present. The conflict read-back must
+      // resolve to that tenant's own row — a tenant-blind read would hand one of
+      // them the other tenant's row and either return the wrong id or throw a
+      // spurious sensitive_audit_correlation_conflict (the request hashes differ).
       const replayA = await inTransaction((client) => writeSensitiveMutationAuditTx(client, baseA));
-      assert.equal(replayA, firstA, "tenant A's identical event must replay to the same row");
+      const replayB = await inTransaction((client) => writeSensitiveMutationAuditTx(client, baseB));
+      assert.equal(replayA, firstA, "tenant A's replay must resolve to tenant A's own row");
+      assert.equal(replayB, firstB, "tenant B's replay must resolve to tenant B's own row");
+      assert.equal(await tenantOfAudit(firstA), tenantA);
+      assert.equal(await tenantOfAudit(firstB), tenantB);
 
       // A DIFFERENT request under the SAME tenant + correlation is a real
-      // within-tenant conflict and must be rejected — the guarantee stays intact.
+      // within-tenant conflict and must still be rejected — the guarantee is not
+      // weakened by the isolation, and the read-back correctly finds A's row.
       await assert.rejects(
         inTransaction((client) =>
           writeSensitiveMutationAuditTx(client, {
@@ -168,19 +189,6 @@ describe("Sensitive mutation audit cross-tenant isolation", () => {
         ),
         /sensitive_audit_correlation_conflict/,
       );
-
-      // But tenant B recording the same correlation with its own request is NOT
-      // a conflict — cross-tenant isolation holds even while within-tenant
-      // conflict detection is active.
-      const idB = await inTransaction((client) =>
-        writeSensitiveMutationAuditTx(client, {
-          ...baseA,
-          tenantId: tenantB,
-          requestHash: hashSensitiveAuditRequest({ tenant: "b", suffix }),
-        }),
-      );
-      assert.notEqual(idB, firstA);
-      assert.equal(await tenantOfAudit(idB), tenantB);
     },
   );
 });
