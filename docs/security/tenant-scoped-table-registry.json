@@ -92,7 +92,8 @@
       "domain": "exchange",
       "sourceFile": "src/lib/db-migrate-exchange-order-admission.ts",
       "isolationModel": "tenant_id in unique constraint",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/exchange-order-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
@@ -123,8 +124,9 @@
       "table": "offline_sync_commands",
       "domain": "offline-sync",
       "sourceFile": "src/lib/db-migrate-offline-sync.ts",
-      "isolationModel": "tenant_id in unique constraint; principal binding",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in unique constraint; composite principal-binding FK",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/offline-sync-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
@@ -171,7 +173,8 @@
       "table": "risk_authority_events",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id in unique constraint",
+      "isolationModel": "tenant_id DEFAULT 'tecpey'; UNIQUE (tenant_id, event_key); reads filtered WHERE tenant_id = $1",
+      "isolationNote": "Schema is correctly tenant-scoped, but recordRiskDecision() and every sibling authority pin tenantId = PLATFORM.DEFAULT_TENANT_ID (RiskDecisionInput carries no tenant). No caller supplies a second tenant, so cross-tenant behaviour is unexercised and cannot be proven through the real authority yet. Promotion is blocked on wiring a per-request tenant into the risk domain, not on writing a test.",
       "adversarialProof": "pending",
       "issue": "#109"
     },
@@ -219,7 +222,8 @@
       "table": "withdrawal_execution_intents",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
-      "isolationModel": "tenant_id column",
+      "isolationModel": "tenant_id DEFAULT 'tecpey'; isolation is per-user via withdrawal_id FK, not tenant-based",
+      "isolationNote": "The tenant_id column is dormant: the INSERT never sets it (it relies on the DEFAULT), the UNIQUE key is (withdrawal_id, generation) with no tenant_id, every read/update filters WHERE withdrawal_id/id, and the parent withdrawals table has no tenant_id column at all (only user_id). The whole withdrawal domain is effectively single-tenant today. A cross-tenant negative test cannot be written without fabricating multi-tenant behaviour the code does not implement. #109 for this domain first requires adding tenant_id to withdrawals and threading a real tenant through the external-effect authority.",
       "adversarialProof": "pending",
       "issue": "#109"
     }
