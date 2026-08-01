@@ -201,8 +201,9 @@
       "table": "sensitive_mutation_audit_events",
       "domain": "audit",
       "sourceFile": "src/lib/db-migrate-sensitive-mutation-audit.ts",
-      "isolationModel": "tenant_id in unique constraint",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in unique constraint (tenant_id, action, correlation_id); writeSensitiveMutationAuditTx conflict read filtered WHERE tenant_id = $1",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/sensitive-audit-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
