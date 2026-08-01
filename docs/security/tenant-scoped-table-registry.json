@@ -151,8 +151,9 @@
       "table": "platform_principal_bindings",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "tenant_id in primary key; principal binding; tenant in unique index",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in primary key (tenant_id, workspace_id, principal_type, principal_id); resolveBoundTenantPrincipal filters WHERE preferred tenant_id = $3",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/platform-principal-binding-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
