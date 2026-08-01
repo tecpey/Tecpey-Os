@@ -127,4 +127,39 @@ describe("Platform membership cross-tenant isolation", () => {
       assert.equal(inA?.tenantId, tenantA);
     },
   );
+
+  it(
+    "refuses to bind a membership to a workspace owned by a different tenant",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const tenantA = `tenant-a-${randomUUID()}`;
+      const tenantB = `tenant-b-${randomUUID()}`;
+      const workspaceA = `workspace-a-${randomUUID()}`;
+      const workspaceB = `workspace-b-${randomUUID()}`;
+      const userId = `user-${randomUUID()}`;
+      await seedTenant(tenantA, workspaceA);
+      await seedTenant(tenantB, workspaceB);
+
+      // The load-bearing negative: enrolling the user into tenant A while
+      // pointing at tenant B's workspace must fail closed. Without the composite
+      // (tenant_id, workspace_id) FK — and its upsertMembership guard — this
+      // would silently write a membership whose tenant_id claims tenant A but
+      // whose workspace lives in tenant B, a cross-tenant workspace confusion.
+      await assert.rejects(
+        upsertMembership(userId, tenantA, ["student"], workspaceB),
+        /membership_workspace_tenant_mismatch|foreign key/i,
+        "a membership must not bind tenant A to tenant B's workspace",
+      );
+
+      // The rejected attempt must leave no membership behind for tenant A.
+      const leaked = await getMembership(userId, tenantA);
+      assert.equal(leaked, null, "no membership may be written for a cross-tenant workspace");
+
+      // Sanity: the same user binds cleanly to tenant A's own workspace.
+      await upsertMembership(userId, tenantA, ["student"], workspaceA);
+      const clean = await getMembership(userId, tenantA);
+      assert.equal(clean?.tenantId, tenantA);
+      assert.equal(clean?.workspaceId, workspaceA);
+    },
+  );
 });

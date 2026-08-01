@@ -136,7 +136,7 @@
       "table": "platform_memberships",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate.ts",
-      "isolationModel": "tenant_id in unique constraint (user_id, tenant_id); getMembership reads WHERE user_id = $1 AND tenant_id = $2",
+      "isolationModel": "tenant_id in unique constraint (user_id, tenant_id); getMembership reads WHERE user_id = $1 AND tenant_id = $2; composite FK (tenant_id, workspace_id) -> platform_workspaces(tenant_id, id) plus upsertMembership guard forbid binding a tenant to another tenant's workspace",
       "adversarialProof": "proven",
       "testReference": "src/tests/security/platform-membership-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
