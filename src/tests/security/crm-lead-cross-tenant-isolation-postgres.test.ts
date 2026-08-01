@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { ingestAcademyLead, type AcademyLeadCommand } from "../../lib/crm/lead-authority";
+import { deleteCrmLeadData, exportCrmLeadData } from "../../lib/crm/lead-data-rights";
 import { PLATFORM } from "../../lib/platform-config";
 
 // Cross-tenant adversarial proof for crm_leads (#109).
@@ -176,6 +177,45 @@ describe("CRM lead cross-tenant isolation", () => {
       assert.equal(dedupA.result.id, firstA.result.id);
       assert.notEqual(dedupA.result.id, firstB.result.id);
       assert.equal(await tenantOfLead(dedupA.result.id), TENANT_A);
+    },
+  );
+
+  it(
+    "rejects cross-tenant read and erase by lead id: tenant B cannot export or delete tenant A's lead",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const admittedA = await ingestAcademyLead(command({ tenantId: TENANT_A }));
+      assert.equal(admittedA.status, "committed");
+      if (admittedA.status !== "committed") throw new Error("tenant A ingest failed");
+      const leadA = admittedA.result.id;
+
+      // Data-subject read (GDPR export) and erase (delete) both take a lead id.
+      // Tenant B must not be able to reach tenant A's lead by guessing/knowing
+      // its id — exportCrmLeadData and deleteCrmLeadData both filter
+      // WHERE tenant_id = $1 AND id = $2.
+      const crossRead = await exportCrmLeadData({
+        tenantId: TENANT_B,
+        leadId: leadA,
+        actorId: `admin-${randomUUID()}`,
+      });
+      assert.equal(crossRead, null, "tenant B must not read tenant A's lead PII by id");
+
+      const crossErase = await deleteCrmLeadData({
+        tenantId: TENANT_B,
+        leadId: leadA,
+        actorId: `admin-${randomUUID()}`,
+      });
+      assert.equal(crossErase, false, "tenant B must not erase tenant A's lead by id");
+
+      // Tenant A's lead survived tenant B's erase attempt and is still readable
+      // by its owner.
+      const ownerRead = await exportCrmLeadData({
+        tenantId: TENANT_A,
+        leadId: leadA,
+        actorId: `admin-${randomUUID()}`,
+      });
+      assert.notEqual(ownerRead, null, "tenant A's own lead must survive and stay readable");
+      assert.equal(await tenantOfLead(leadA), TENANT_A);
     },
   );
 });
