@@ -51,8 +51,9 @@
       "table": "api_command_receipts",
       "domain": "api",
       "sourceFile": "src/lib/db-migrate-api-command-idempotency.ts",
-      "isolationModel": "tenant_id in primary key",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in primary key (tenant_id, principal_type, principal_id, operation, idempotency_key); reads/writes filtered WHERE tenant_id = $1",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/api-command-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
