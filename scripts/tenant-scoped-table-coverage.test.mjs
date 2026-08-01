@@ -20,7 +20,7 @@ test("passes on the committed registry", () => {
   assert.equal(code, 0);
 });
 
-test("fails when a tenant-scoped table is not registered", () => {
+test("fails when a CREATE-declared tenant-scoped table is not registered", () => {
   const probe = "src/lib/db-migrate-zzz-coverage-probe.ts";
   writeFileSync(
     probe,
@@ -31,6 +31,22 @@ test("fails when a tenant-scoped table is not registered", () => {
     const { code, out } = runGate();
     assert.equal(code, 1);
     assert.match(out, /coverage_probe_table: has a tenant_id column but is not in/);
+  } finally {
+    rmSync(probe, { force: true });
+  }
+});
+
+test("fails when a table is tenant-scoped by ALTER TABLE and not registered", () => {
+  const probe = "src/lib/db-migrate-zzz-alter-probe.ts";
+  writeFileSync(
+    probe,
+    "export const x = `CREATE TABLE IF NOT EXISTS alter_probe_table (id UUID PRIMARY KEY);\n" +
+      "ALTER TABLE alter_probe_table ADD COLUMN IF NOT EXISTS tenant_id TEXT;`;\n",
+  );
+  try {
+    const { code, out } = runGate();
+    assert.equal(code, 1);
+    assert.match(out, /alter_probe_table: has a tenant_id column but is not in/);
   } finally {
     rmSync(probe, { force: true });
   }
@@ -57,16 +73,32 @@ test("fails when a registered table no longer exists", () => {
   }
 });
 
-test('rejects a "proven" claim without an existing testReference', () => {
+test('rejects a "proven" claim whose testReference is not a test file', () => {
   const original = readFileSync(REGISTRY, "utf8");
   const registry = JSON.parse(original);
   registry.tables[0].adversarialProof = "proven";
-  registry.tables[0].testReference = "src/tests/security/does-not-exist.test.ts";
+  registry.tables[0].testReference = "package.json";
   writeFileSync(REGISTRY, JSON.stringify(registry, null, 2) + "\n");
   try {
     const { code, out } = runGate();
     assert.equal(code, 1);
-    assert.match(out, /testReference .* does not exist/);
+    assert.match(out, /must be a test file under src\/tests\//);
+  } finally {
+    writeFileSync(REGISTRY, original);
+  }
+});
+
+test('rejects a "proven" claim whose testReference does not mention the table', () => {
+  const original = readFileSync(REGISTRY, "utf8");
+  const registry = JSON.parse(original);
+  registry.tables[0].adversarialProof = "proven";
+  registry.tables[0].testReference =
+    "src/tests/trading/exchange-reconciliation-postgres.test.ts";
+  writeFileSync(REGISTRY, JSON.stringify(registry, null, 2) + "\n");
+  try {
+    const { code, out } = runGate();
+    assert.equal(code, 1);
+    assert.match(out, /does not mention .* the proof must be tied to the registered table/);
   } finally {
     writeFileSync(REGISTRY, original);
   }

@@ -21,16 +21,28 @@ const VALID_PROOF_STATES = new Set(["pending", "proven"]);
 
 const failures = [];
 
-// Extract every table whose CREATE TABLE body declares a tenant_id column, exactly
-// as the registry generator does — this is the ground truth the registry tracks.
+// A table is tenant-scoped whether its `tenant_id` column is declared at CREATE
+// or added later by ALTER TABLE. Inspecting only CREATE bodies misses tables that
+// are tenant-scoped by a follow-up migration — e.g. academy_public_profiles and
+// learning_events, both created without tenant_id and given it (NOT NULL) by a
+// later ALTER. Missing them is exactly the silent gap this gate exists to close,
+// so both statement forms are parsed.
 function tenantScopedTablesIn(source) {
   const tables = new Set();
-  const pattern = /CREATE TABLE IF NOT EXISTS (\w+)\s*\(([\s\S]*?)\n\s*\)\s*;/g;
+
+  const createPattern = /CREATE TABLE IF NOT EXISTS (\w+)\s*\(([\s\S]*?)\n\s*\)\s*;/g;
   let match;
-  while ((match = pattern.exec(source)) !== null) {
+  while ((match = createPattern.exec(source)) !== null) {
     const [, name, body] = match;
     if (/\btenant_id\b/.test(body)) tables.add(name);
   }
+
+  const alterPattern = /ALTER TABLE (\w+)([\s\S]*?);/g;
+  while ((match = alterPattern.exec(source)) !== null) {
+    const [, name, body] = match;
+    if (/ADD COLUMN\s+(?:IF NOT EXISTS\s+)?tenant_id\b/.test(body)) tables.add(name);
+  }
+
   return tables;
 }
 
@@ -72,19 +84,25 @@ for (const entry of registry.tables ?? []) {
       `${entry.table}: adversarialProof must be one of ${[...VALID_PROOF_STATES].join(", ")}`,
     );
   }
-  // A "proven" claim must point at a test file that actually exists — the same
-  // ratchet the other authority guards use, so proof cannot be asserted on paper.
+  // A "proven" claim must point at a real test file that actually references the
+  // table — not merely any readable path. Accepting any readable file would let
+  // testReference: "package.json" promote pending work to proven with no evidence.
   if (entry.adversarialProof === "proven") {
     if (!entry.testReference) {
       failures.push(`${entry.table}: adversarialProof "proven" requires a testReference`);
-    } else {
-      const exists = await readFile(entry.testReference, "utf8").then(
-        () => true,
-        () => false,
+    } else if (!/^src\/tests\/.*\.(test|integration)\.[jt]s$/.test(entry.testReference)) {
+      failures.push(
+        `${entry.table}: testReference ${entry.testReference} must be a test file under src/tests/ (…​.test.ts or …​.integration.ts)`,
       );
-      if (!exists) {
+    } else {
+      const contents = await readFile(entry.testReference, "utf8").catch(() => null);
+      if (contents === null) {
         failures.push(
           `${entry.table}: testReference ${entry.testReference} does not exist`,
+        );
+      } else if (!contents.includes(entry.table)) {
+        failures.push(
+          `${entry.table}: testReference ${entry.testReference} does not mention ${entry.table} — the proof must be tied to the registered table`,
         );
       }
     }
