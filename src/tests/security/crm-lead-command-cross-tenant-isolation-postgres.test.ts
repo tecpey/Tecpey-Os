@@ -110,18 +110,21 @@ describe("CRM lead command cross-tenant idempotency isolation", () => {
     async () => {
       const sharedKey = `crm-shared-${randomUUID().replace(/-/g, "")}`;
 
-      const committedA = await ingestAcademyLead(
-        command({ tenantId: TENANT_A, idempotencyKey: sharedKey }),
-      );
+      // Byte-identical payload for both tenants — only tenant_id differs. Because
+      // hashAcademyLeadCommand omits tenant_id, inputA and inputB share the same
+      // request_hash, so this covers the dangerous equal-hash case: a tenant-blind
+      // replay would return tenant A's stored result (its lead id) to tenant B,
+      // not merely a hash conflict.
+      const base = command({ idempotencyKey: sharedKey });
+      const inputA = base;
+      const inputB: typeof base = { ...base, tenantId: TENANT_B };
+
+      const committedA = await ingestAcademyLead(inputA);
       assert.equal(committedA.status, "committed");
 
-      // Tenant B reuses tenant A's idempotency key (with its own distinct
-      // contact). The core negative assertion: B commits its own lead and is NOT
-      // replayed tenant A's stored result nor rejected as a cross-tenant hash
-      // conflict.
-      const committedB = await ingestAcademyLead(
-        command({ tenantId: TENANT_B, idempotencyKey: sharedKey }),
-      );
+      // The core negative assertion: B commits its OWN lead and is NOT replayed
+      // tenant A's stored result under the shared key + identical request hash.
+      const committedB = await ingestAcademyLead(inputB);
       assert.equal(
         committedB.status,
         "committed",
@@ -153,8 +156,10 @@ describe("CRM lead command cross-tenant idempotency isolation", () => {
     { skip: !databaseConfigured, timeout: 30_000 },
     async () => {
       const sharedKey = `crm-replay-${randomUUID().replace(/-/g, "")}`;
-      const inputA = command({ tenantId: TENANT_A, idempotencyKey: sharedKey });
-      const inputB = command({ tenantId: TENANT_B, idempotencyKey: sharedKey });
+      // Identical payload → identical request_hash; only tenant_id differs, so a
+      // tenant-blind replay would resolve one tenant to the other's receipt.
+      const inputA = command({ idempotencyKey: sharedKey });
+      const inputB: typeof inputA = { ...inputA, tenantId: TENANT_B };
 
       const firstA = await ingestAcademyLead(inputA);
       const firstB = await ingestAcademyLead(inputB);
