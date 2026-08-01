@@ -68,8 +68,9 @@
       "table": "crm_lead_commands",
       "domain": "crm",
       "sourceFile": "src/lib/db-migrate-crm-leads.ts",
-      "isolationModel": "tenant_id in unique constraint",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in unique constraint (tenant_id, idempotency_key); ingestAcademyLead replay lookup filtered WHERE tenant_id = $1",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/crm-lead-command-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
