@@ -7,6 +7,8 @@
 
 **Rule:** If it is not in this document, it is not an accepted risk — it is an unacknowledged defect.
 
+> **Reconciliation update (2026-08-01).** This is a dated Phase 39.5 record. Some risks below have since been reduced or resolved by merged code and are annotated inline with a **Reconciliation update** note citing the current authority; history is preserved rather than erased. Notably R-03 (schema-on-connect) is resolved — its detailed entry was already marked *Superseded*, and the **Summary Table** row has now been corrected to match. When a note and the original entry disagree, the note and the current code win.
+
 ---
 
 ## R-01 — Academy Progress, Trading DNA, Journals, Streaks, and Community Data Live in localStorage
@@ -21,6 +23,8 @@
 | **User Communication** | "At this stage of TecPey, your learning progress, Trading DNA, journal, and community activity are stored in your browser. Clearing your browser data or switching devices will result in loss. We recommend exporting your journal regularly. Full cloud sync is planned for a future update." |
 | **Rollback Condition** | If user complaints or churn exceed threshold defined by CPO within first 4 weeks of Soft Launch, this risk must be re-evaluated and either accelerated server persistence or restricted launch scope must be considered. |
 
+> **Reconciliation update (2026-08-01).** Reduced in scope, **not resolved.** Canonical Academy progress, assessments, and certificates are now PostgreSQL-authoritative (`src/lib/academy-progress.ts`, `src/lib/academy-assessment.ts`, `src/lib/academy-certificates.ts`, with `academy-progress-*-postgres` authority tests), so the loss premise no longer applies to that canonical state. **However, this risk remains fully in force for the Academy engagement/gamification layer:** `src/components/academy/AcademyEngagementHub.tsx` — mounted on the live `/academy` and `/academy/daily-challenge` routes — stores user-earned XP, streaks, completed missions, and unlocked badges **exclusively in `localStorage`**, with no server persistence, and clearing browser data or switching devices still loses that state. For those browser-owned features R-01's warning, export, and mitigation obligations still apply; the reduction above must not be read as removing them. See `docs/PRODUCTION_DECISIONS.md` D-02.
+
 ---
 
 ## R-02 — Price / Market Data Health Is Entirely Client-Reported
@@ -34,6 +38,8 @@
 | **Mitigation** | 1. Explicit user-facing disclaimer on markets and trading pages. 2. Rate-limited, authenticated internal endpoint to reduce abuse. 3. Monitoring of client-reported down events with manual review. |
 | **User Communication** | "Market prices are provided by third-party sources and displayed client-side. TecPey does not independently verify real-time accuracy. In case of suspected data issues, trading may be paused. Always cross-check prices before executing large trades." |
 | **Rollback Condition** | If client-reported price feed down events exceed N per week or if any material user harm is traced to stale/manipulated displayed prices, server-side price source must be accelerated or trading restricted to paper only until resolved. |
+
+> **Reconciliation update (2026-08-01).** Still accurate for *displayed* prices (TradingView + WebSocket, client-reported via `/api/internal/price-feed-status`). A server-side, multi-provider price **consensus** now exists for the gated withdrawal/financial path only (`src/lib/security/withdrawal-price-producer.ts`); it does not govern chart display. See `docs/PRODUCTION_DECISIONS.md` D-03.
 
 ---
 
@@ -155,7 +161,7 @@
 |---------|------|-------|------------|-----------------------------|----------------------|
 | R-01 | localStorage data loss | CPO + Academy Dir | Phase 43 | Yes | Yes |
 | R-02 | Client-only price feed health | CTO + Architect | Phase 45 | Yes | Yes |
-| R-03 | Schema-on-connect | CTO + Platform Eng | Phase 41 | No (internal) | Yes (if manual change fails) |
+| R-03 | Schema-on-connect | CTO + Platform Eng | Superseded (#166) | No (internal) | No — resolved by governed migrations |
 | R-04 | Fragile alerting | SRE + DevSecOps | Phase 41 | No | Yes |
 | R-05 | Redis as SPoF for withdrawals | SRE + Wallet Eng | Phase 45 | Yes | Yes |
 | R-06 | Certificate signing secret | Academy Dir + CSO | Phase 43 | Yes | Yes |
