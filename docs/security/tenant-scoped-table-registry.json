@@ -83,8 +83,9 @@
       "table": "crm_leads",
       "domain": "crm",
       "sourceFile": "src/lib/db-migrate-crm-leads.ts",
-      "isolationModel": "tenant_id column; tenant in unique index",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in unique index (tenant_id, lead_kind, contact_hash); global contact hash",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/crm-lead-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
