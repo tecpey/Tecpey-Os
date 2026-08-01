@@ -7,6 +7,8 @@
 
 **Rule:** If a decision is not recorded here, it was not consciously made.
 
+> **Reconciliation update (2026-08-01).** This is a dated Phase 39.5 governance record. Several decisions below have since been superseded by merged code and are annotated inline with a **Reconciliation update** note that cites the current authority. History is preserved, not erased: read the annotated decisions as "what was decided then, and what is true now." When a note and the original decision disagree, the note and the current code win. Superseded here: D-02 (Academy storage), D-03 (server price evidence), D-07 (migration runner), D-08 (custody default). D-01 already reflects the current contract.
+
 ---
 
 ## D-01 — Schema Management: Governed Migrations and Verify-Only Readiness
@@ -28,6 +30,8 @@
 ## D-02 — Academy State Storage: localStorage as Primary Until Phase 43
 
 **Decision:** Academy progress, Trading DNA, trading journal, spaced repetition, behavioral profiles, community challenges, and smart review will remain localStorage-backed for the launch window.
+
+> **Reconciliation update (2026-08-01).** Superseded for canonical state. Academy progress, assessments, and certificates are now PostgreSQL-authoritative — see [`src/lib/academy-progress.ts`](../src/lib/academy-progress.ts), [`src/lib/academy-assessment.ts`](../src/lib/academy-assessment.ts), [`src/lib/academy-certificates.ts`](../src/lib/academy-certificates.ts), and the authority suites under `src/tests/security/academy-progress-*-postgres.test.ts`. Some disposable presentation state and quarantined legacy simulation modules remain browser-local, but they are inventoried and classified by [`scripts/check-browser-persistence.mjs`](../scripts/check-browser-persistence.mjs) and cannot hold canonical progress, financial, or reputation state. The "localStorage as primary" decision no longer describes canonical Academy state.
 
 **Why:**
 - Server-side persistence migration is explicitly scoped to Phase 43.
@@ -51,6 +55,8 @@
 ## D-03 — Price / Market Data Source of Truth: Client-Side Only (No Independent Server Oracle at Launch)
 
 **Decision:** Market prices displayed to users are provided entirely by client-side sources (TradingView widget + WebSocket). There is no server-side price feed or independent oracle at Soft Launch.
+
+> **Reconciliation update (2026-08-01).** Partially superseded. The *displayed* market/chart prices remain client-side (TradingView + WebSocket), and `/api/internal/price-feed-status` remains the client-reported health signal — so this decision still holds for the user-facing display path. However, the "no server-side price feed at all" phrasing is no longer accurate for the financial path: a server-side, multi-provider price **consensus** now exists for the gated withdrawal domain in [`src/lib/security/withdrawal-price-producer.ts`](../src/lib/security/withdrawal-price-producer.ts) (median of provider quotes, persisted as admission evidence), tested by `src/tests/security/withdrawal-price-producer.test.ts` and `withdrawal-admission-price-evidence-postgres.test.ts`. That authority governs withdrawal valuation, not chart display.
 
 **Why:**
 - Current architecture is client-side for display and charting.
@@ -142,6 +148,8 @@
 
 **Decision:** Any database schema changes required during Phase 40 or the immediate post-launch period must be strictly additive (new tables, new columns with defaults, new indexes). No DROP COLUMN, no NOT NULL without defaults, no type changes that require rewrite.
 
+> **Reconciliation update (2026-08-01).** The stated rationale is superseded. A governed production migration runner **is** now wired — [`scripts/run-database-migrations.ts`](../scripts/run-database-migrations.ts) (`npm run db:migrate`) and the compiled `run-production-bootstrap.cjs migrate` one-shot action, with an ordered registry, SHA-256 content checksums, and advisory locking (see **D-01**). The additive-first discipline remains a sensible operational default, but it is no longer forced by the absence of a runner; forward migrations run through the canonical command, and startup/health verify the plan without executing DDL.
+
 **Why:**
 - No production migration runner is wired.
 - Manual changes carry high risk; additive changes are the only safe manual operations.
@@ -162,6 +170,8 @@
 ## D-08 — Hot Wallet Strategy: Env-Var Keys (HotWalletKeyStore) as Default; HSM/MPC Gated and Not Production-Ready
 
 **Decision:** Production withdrawals will use environment-variable private keys via `HotWalletKeyStore`. HSM and MPC providers are explicitly gated and must not be selectable in production unless `WALLET_ENABLE_HSM=true` and `WALLET_ENABLE_MPC=true` (and even then only if fully implemented).
+
+> **Reconciliation update (2026-08-01).** Superseded and inverted. Production custody is now **disabled by policy**: [`src/lib/wallet/custody-launch-policy.ts`](../src/lib/wallet/custody-launch-policy.ts) returns `mode: "disabled"`, `productionReady: false` in production and disables approval, worker, deposit-address allocation, signing, and broadcast. Environment-variable private keys are not the production default — in production they are explicitly **forbidden**, surfacing the `environment_private_keys_forbidden` reason; env-var hot-wallet keys are a development-only mode (`development_hot_wallet`). Removing environment-key production authority is tracked by Issue #106. No real custody, signing, or broadcast is authorized until an approved non-exportable signer exists.
 
 **Why:**
 - HSM/MPC scaffolding from Phase 39 is incomplete and throws at runtime (see WALLET_PHASE39_READINESS_REPORT.md).
