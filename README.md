@@ -12,6 +12,8 @@
 
 [Website](https://tecpey.ir) · [Project audit](./docs/audits/TECPEY_PROJECT_STATE_AUDIT_2026-07-26.md) · [Architecture](./docs/architecture/SERVER_SIDE_SOURCE_OF_TRUTH.md) · [Security](./SECURITY.md)
 
+**English** · [فارسی](./README.fa.md)
+
 </div>
 
 > [!IMPORTANT]
@@ -86,7 +88,9 @@ Mentor is not an autonomous financial adviser, signal provider, or prediction en
 
 The repository contains engineering for authenticated order admission, holds, matching, trades, fees, ledger records, audit evidence, idempotency, and decimal-safe arithmetic. These are important platform foundations, tested through Exchange authority suites and documented in [`docs/architecture/EXCHANGE_ORDER_ADMISSION_AUTHORITY.md`](./docs/architecture/EXCHANGE_ORDER_ADMISSION_AUTHORITY.md) and [`docs/financial/FINANCIAL_CORE_CERTIFICATION.md`](./docs/financial/FINANCIAL_CORE_CERTIFICATION.md).
 
-They do not authorize real-money operation. Reconciliation, ambiguous-result recovery, distributed ownership, provider evidence, compliance, custody, and production recovery remain independently gated. The controlled Soft Launch must not imply that a live exchange is available.
+A read-only ledger reconciliation authority ([`src/lib/trading/exchange-reconciliation.ts`](./src/lib/trading/exchange-reconciliation.ts), `npm run exchange:reconcile:check`) now re-derives wallet balance invariants from `wallet_ledger` and trades in PostgreSQL `NUMERIC` and fails closed on any divergence; the dead balance-clamping layer was removed.
+
+This does not authorize real-money operation. Full production reconciliation, ambiguous-result recovery, distributed ownership, provider evidence, compliance, custody, and production recovery remain independently gated (Issue #30). The controlled Soft Launch must not imply that a live exchange is available.
 
 ### Wallet and Ledger
 
@@ -116,7 +120,7 @@ Complete privileged-route inventory, dual control for high-impact financial acti
 
 TecPey’s long-term direction is API-first delivery through governed APIs, webhooks, SDKs, developer documentation, and reusable product modules. The platform is also intended to support independently configured tenants and white-label education, Arena, Mentor, and financial products.
 
-Today’s runtime is deliberately single tenant. Repository-wide tenant isolation, tenant configuration, billing, domain routing, tenant-specific keys, and an enterprise control plane are not complete. Developer Platform, SaaS, multi-tenant, and white-label descriptions are roadmap direction only; see [`docs/WHITE_LABEL_PLATFORM.md`](./docs/WHITE_LABEL_PLATFORM.md) and GitHub Issues [#20](https://github.com/tecpey/Tecpey-Os/issues/20) and [#109](https://github.com/tecpey/Tecpey-Os/issues/109).
+Today’s runtime is deliberately single tenant. Repository-wide tenant isolation, tenant configuration, billing, domain routing, tenant-specific keys, and an enterprise control plane are not complete. A tenant-scoped table coverage gate (`npm run tenant:isolation:check`, backed by [`docs/security/tenant-scoped-table-registry.json`](./docs/security/tenant-scoped-table-registry.json)) now enrolls every one of the 27 tenant-scoped tables and fails closed if a new one ships unregistered; two tables currently carry proven cross-tenant negative tests and the rest are tracked as pending under #109. Note that some domains (for example risk and withdrawal) still pin the default tenant at the application layer, so their `tenant_id` column is not yet driven per request. Developer Platform, SaaS, multi-tenant, and white-label descriptions are roadmap direction only; see [`docs/WHITE_LABEL_PLATFORM.md`](./docs/WHITE_LABEL_PLATFORM.md) and GitHub Issues [#20](https://github.com/tecpey/Tecpey-Os/issues/20) and [#109](https://github.com/tecpey/Tecpey-Os/issues/109).
 
 ### TecPey AI Operating System
 
@@ -148,7 +152,9 @@ This README is based on the repository audit dated **2026-07-26** at exact `main
 
 At that SHA, the GitHub `main` checks for quality, repository hygiene, API and sensitive-mutation authority, public browser Golden Path, container/SBOM/vulnerability enforcement, rollback/volume restore, and image provenance completed successfully. Deterministic migration/readiness work and production deployment hardening had been merged through PRs #258 and #259.
 
-The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence; real staging evidence; bounded CSP allowlisting; and final controlled-launch reconciliation. React/TypeScript correctness rules are enforced with a reviewed non-growing legacy `set-state-in-effect` baseline. Real-money Exchange and custody have a larger independent certification path.
+**Since that audit**, controlled-launch hardening has continued to merge into `main`. Issues **#162** (repository-wide lint/correctness authority) and **#164** (fail-closed CSP connection allowlist) are now **closed**, and issues #77, #156, and #254 have also closed — leaving 18 open issues. Subsequent security work added a read-only Exchange ledger reconciliation authority (#285), a tenant-scoped table coverage gate with a 27-table registry (#286), and the first two tables promoted to proven cross-tenant isolation (#287), alongside repaired and new structural governance gates (#284).
+
+The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence (#110) and real staging evidence (#229), followed by final controlled-launch reconciliation. React/TypeScript correctness rules are enforced with a reviewed non-growing legacy `set-state-in-effect` baseline. Real-money Exchange and custody have a larger independent certification path.
 
 ## Architecture Overview
 
@@ -209,7 +215,7 @@ TecPey uses layered controls rather than a single “secure” flag:
 - explicit backend permissions and principal/tenant context helpers;
 - request-body limits, validation, operation manifests, and idempotency/revision controls;
 - transaction-coupled audit evidence for governed sensitive mutations;
-- CSP nonces for governed scripts and security headers; `src/proxy.ts` currently permits `'unsafe-inline'` for styles, and the production connection allowlist remains Issue #164;
+- CSP nonces for governed scripts and security headers; a bounded production `connect-src` allowlist is enforced by [`src/lib/security/csp-connection-policy.ts`](./src/lib/security/csp-connection-policy.ts) (Issue #164 closed), while `style-src` still permits `'unsafe-inline'` because Next.js inlines critical CSS;
 - deterministic, checksummed database migrations executed outside request paths;
 - verify-only health/readiness and fail-closed pre-listen startup;
 - mandatory production credentials and authenticated Redis;
@@ -244,6 +250,7 @@ npm run audit:sensitive:check
 npm run custody:check
 npm run withdrawals:check
 npm run exchange:check
+npm run tenant:isolation:check
 npm run test:e2e:public
 npm run audit:hygiene
 ```
