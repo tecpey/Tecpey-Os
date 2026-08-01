@@ -119,11 +119,21 @@ describe("API command receipt cross-tenant isolation", () => {
       const responseA = { owner: "tenant-a", secret: `A-${randomUUID()}` };
       const responseB = { owner: "tenant-b", secret: `B-${randomUUID()}` };
 
-      await inTransaction((client) => claimApiCommandTx(client, tenantA));
+      // Claim BOTH tenants while both receipts are still 'processing' BEFORE
+      // completing either. This is what guards the completion *write* path: a
+      // tenant-blind completion UPDATE (WHERE ...status='processing' without
+      // tenant_id) would match both processing rows at once — rowCount = 2,
+      // which completeApiCommandTx rejects. Completing A before B is even
+      // claimed would hide that break, because the other tenant's row would be
+      // absent or already completed.
+      const claimA = await inTransaction((client) => claimApiCommandTx(client, tenantA));
+      const claimB = await inTransaction((client) => claimApiCommandTx(client, tenantB));
+      assert.equal(claimA.status, "claimed");
+      assert.equal(claimB.status, "claimed");
+
       await inTransaction((client) =>
         completeApiCommandTx(client, tenantA, { httpStatus: 200, response: responseA }),
       );
-      await inTransaction((client) => claimApiCommandTx(client, tenantB));
       await inTransaction((client) =>
         completeApiCommandTx(client, tenantB, { httpStatus: 201, response: responseB }),
       );
