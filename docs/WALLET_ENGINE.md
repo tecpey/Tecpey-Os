@@ -122,7 +122,7 @@ The `CHECK (available_balance >= 0)` constraint on `wallet_balances` is the last
 
 | Function | Description |
 |----------|-------------|
-| `getAvailableBalanceAmount(client, userId, asset)` | Exact available balance read |
+| `getAvailableBalanceAmount(userId, asset)` | Exact available balance read (acquires its own connection) |
 | `holdOrderFundsTx(client, userId, asset, amount, orderId)` | Atomic hold, ledger-coupled |
 | `getOrderHoldResidualTx(client, userId, asset, orderId)` | Residual hold replayed from the ledger |
 | `releaseOrderHoldResidualTx(...)` | Release the exact residual |
@@ -131,9 +131,10 @@ The `CHECK (available_balance >= 0)` constraint on `wallet_balances` is the last
 | `debitTradeFundsTx(...)` / `creditTradeFundsTx(...)` | Exact trade transfer |
 | `chargeTradeFeeTx(...)` | Exact fee charge |
 
-All of these take a `PoolClient` and participate in the caller's transaction. There
-are no standalone variants: a balance mutation outside the settlement transaction
-cannot be transactionally coupled to its evidence.
+The `*Tx` functions take a `PoolClient` and participate in the caller's transaction.
+There are no standalone *mutation* variants: a balance mutation outside the
+settlement transaction cannot be transactionally coupled to its evidence. The
+read (`getAvailableBalanceAmount`) acquires its own connection via `withDb`.
 
 > **Retired:** `wallet-balance-service.ts` and the `getAvailableBalance` /
 > `postHold` / `postRelease` wrappers were removed once proven unreachable. That
@@ -151,7 +152,7 @@ cannot be transactionally coupled to its evidence.
 
 ```typescript
 import { getAvailableBalanceAmount } from "@/lib/trading/wallet-service";
-const available = await getAvailableBalanceAmount(client, userId, "USDT");
+const available = await getAvailableBalanceAmount(userId, "USDT");
 ```
 
 The Phase 29 aggregate query over `wallet_ledger` is replaced by a direct lookup on `wallet_balances`. The ledger remains available for audit queries via `queryLedger`, and `exchange:reconcile` replays it to prove the two still agree.
