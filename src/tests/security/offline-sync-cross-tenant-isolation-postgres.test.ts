@@ -214,7 +214,7 @@ describe("Offline sync command cross-tenant isolation", () => {
   );
 
   it(
-    "replays within the owning tenant only: re-sending tenant A's event returns tenant A's committed event",
+    "replays each tenant to its own event: A's replay returns A's event and B's replay returns B's, never the other tenant's",
     { skip: !configured, timeout: 30_000 },
     async () => {
       const studentId = randomUUID();
@@ -222,19 +222,25 @@ describe("Offline sync command cross-tenant isolation", () => {
       await seedStudentAndTenantBBinding(studentId);
 
       try {
-        const first = await processOfflineSyncCommand({
+        // A is inserted first, then B — so a read that lost its tenant_id
+        // predicate would return A's row to *both* tenants by insertion order.
+        const firstA = await processOfflineSyncCommand({
           context: context(TENANT_A, WORKSPACE_A, studentId),
           item: item(clientEventId, { progress: 42 }),
         });
-        assert.equal(first.status === "committed" && first.replayed, false);
-        await processOfflineSyncCommand({
+        assert.equal(firstA.status === "committed" && firstA.replayed, false);
+        const firstB = await processOfflineSyncCommand({
           context: context(TENANT_B, WORKSPACE_B, studentId),
           item: item(clientEventId, { progress: 42 }),
         });
+        assert.equal(firstB.status === "committed" && firstB.replayed, false);
 
-        // Re-sending the identical tenant-A event must replay tenant A's own
-        // committed event, proving the idempotency lookup does not reach across
-        // to tenant B's identically-keyed row.
+        // Re-sending the identical event under each tenant must replay that
+        // tenant's own committed event. Replaying tenant B is the load-bearing
+        // case: because A was inserted first, a tenant-blind existing-command
+        // read would hand B tenant A's learningEventId — the exact cross-tenant
+        // read leak this table must not have. Both replays are asserted so the
+        // proof covers the read predicate, not just the unique/ON CONFLICT key.
         const replayA = await processOfflineSyncCommand({
           context: context(TENANT_A, WORKSPACE_A, studentId),
           item: item(clientEventId, { progress: 42 }),
@@ -242,8 +248,26 @@ describe("Offline sync command cross-tenant isolation", () => {
         assert.equal(replayA.status, "committed");
         assert.equal(replayA.status === "committed" && replayA.replayed, true);
 
-        if (first.status === "committed" && replayA.status === "committed") {
-          assert.equal(replayA.learningEventId, first.learningEventId);
+        const replayB = await processOfflineSyncCommand({
+          context: context(TENANT_B, WORKSPACE_B, studentId),
+          item: item(clientEventId, { progress: 42 }),
+        });
+        assert.equal(replayB.status, "committed");
+        assert.equal(replayB.status === "committed" && replayB.replayed, true);
+
+        if (
+          firstA.status === "committed" &&
+          firstB.status === "committed" &&
+          replayA.status === "committed" &&
+          replayB.status === "committed"
+        ) {
+          assert.equal(replayA.learningEventId, firstA.learningEventId);
+          assert.equal(replayB.learningEventId, firstB.learningEventId);
+          assert.notEqual(
+            replayB.learningEventId,
+            firstA.learningEventId,
+            "tenant B's replay must not return tenant A's learning event",
+          );
         }
       } finally {
         await cleanupStudent(studentId);
