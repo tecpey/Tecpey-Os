@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "ownerIssue": "#109",
+  "description": "Every table carrying a tenant_id column, its database isolation model, and its cross-tenant adversarial-proof status. tenant:isolation:check fails if a tenant-scoped table exists in the migrations but is absent here, or a registered table no longer exists \u2014 so a new tenant-owned table cannot ship unnoticed.",
+  "proofStates": {
+    "pending": "tenant_id enforced at the schema level, but no cross-tenant negative test proves A cannot reach B.",
+    "proven": "a negative test named in testReference proves cross-tenant read/write is rejected."
+  },
+  "tables": [
+    {
+      "table": "academy_community_challenge_enrollments",
+      "domain": "community",
+      "sourceFile": "src/lib/db-migrate-community-journal-challenge.ts",
+      "isolationModel": "tenant_id in unique constraint; principal binding",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_community_reputation_evidence",
+      "domain": "community",
+      "sourceFile": "src/lib/db-migrate-community-reputation-evidence.ts",
+      "isolationModel": "tenant_id column; principal binding",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_community_reputation_scoring_consents",
+      "domain": "community",
+      "sourceFile": "src/lib/db-migrate-community-reputation-scoring-consent.ts",
+      "isolationModel": "tenant_id column; principal binding; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_public_profiles",
+      "domain": "community",
+      "sourceFile": "src/lib/db-migrate-community-profile-consent.ts",
+      "isolationModel": "tenant_id added by ALTER TABLE; principal binding; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "ai_mentor_request_evidence",
+      "domain": "mentor",
+      "sourceFile": "src/lib/db-migrate-ai-mentor-trust.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "api_command_receipts",
+      "domain": "api",
+      "sourceFile": "src/lib/db-migrate-api-command-idempotency.ts",
+      "isolationModel": "tenant_id in primary key",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "crm_lead_audit_events",
+      "domain": "crm",
+      "sourceFile": "src/lib/db-migrate-crm-leads.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "crm_lead_commands",
+      "domain": "crm",
+      "sourceFile": "src/lib/db-migrate-crm-leads.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "crm_lead_delivery_outbox",
+      "domain": "crm",
+      "sourceFile": "src/lib/db-migrate-crm-leads.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "crm_leads",
+      "domain": "crm",
+      "sourceFile": "src/lib/db-migrate-crm-leads.ts",
+      "isolationModel": "tenant_id column; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "exchange_order_commands",
+      "domain": "exchange",
+      "sourceFile": "src/lib/db-migrate-exchange-order-admission.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "learning_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
+      "isolationModel": "tenant_id added by ALTER TABLE; principal binding",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "notification_domain_outbox",
+      "domain": "notifications",
+      "sourceFile": "src/lib/db-migrate-notification-domain-outbox.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "notification_intents",
+      "domain": "notifications",
+      "sourceFile": "src/lib/db-migrate-notification-runtime.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "offline_sync_commands",
+      "domain": "offline-sync",
+      "sourceFile": "src/lib/db-migrate-offline-sync.ts",
+      "isolationModel": "tenant_id in unique constraint; principal binding",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "platform_memberships",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "platform_notifications",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-notifications.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "platform_principal_bindings",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
+      "isolationModel": "tenant_id in primary key; principal binding; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "platform_principals",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-notifications.ts",
+      "isolationModel": "tenant_id in unique constraint; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "platform_workspaces",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate.ts",
+      "isolationModel": "tenant_id in unique constraint; principal binding; tenant in unique index",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "risk_authority_events",
+      "domain": "risk",
+      "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "risk_effective_enforcements",
+      "domain": "risk",
+      "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
+      "isolationModel": "tenant_id in primary key",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "risk_enforcement_outbox",
+      "domain": "risk",
+      "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
+      "isolationModel": "tenant_id in primary key",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "sensitive_mutation_audit_events",
+      "domain": "audit",
+      "sourceFile": "src/lib/db-migrate-sensitive-mutation-audit.ts",
+      "isolationModel": "tenant_id in unique constraint",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "withdrawal_broadcast_attempts",
+      "domain": "wallet",
+      "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "withdrawal_confirmation_outbox",
+      "domain": "wallet",
+      "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "withdrawal_execution_intents",
+      "domain": "wallet",
+      "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
+      "isolationModel": "tenant_id column",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    }
+  ]
+}

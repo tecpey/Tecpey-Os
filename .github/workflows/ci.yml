@@ -263,6 +263,12 @@ jobs:
       - name: Offline sync authority guard
         run: npm run offline:check
 
+      - name: Tenant isolation authority guard
+        run: npm run tenant:isolation:check
+
+      - name: Tenant-scoped table coverage tests
+        run: npm run test:tenant-isolation-coverage
+
       - name: Offline sync PostgreSQL integration tests
         timeout-minutes: 5
         run: |
