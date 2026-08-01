@@ -2,7 +2,6 @@ import Decimal from "decimal.js";
 import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
 import { D, toFixed } from "./decimal";
-import { holdFunds, releaseFunds } from "./wallet-balance-service";
 import { postLedgerEntryTx } from "./ledger-service";
 import { parsePositiveOrderDecimal, toHoldAmount } from "./order-financials";
 
@@ -22,9 +21,6 @@ export async function getAvailableBalanceAmount(userId: string, asset: string): 
 }
 
 /** Compatibility/display helper. Never use this number for financial authority. */
-export async function getAvailableBalance(userId: string, asset: string): Promise<number> {
-  return D(await getAvailableBalanceAmount(userId, asset)).toNumber();
-}
 
 async function ensureWalletBalanceRowTx(
   client: PoolClient,
@@ -382,20 +378,4 @@ export async function chargeTradeFeeTx(
   });
 }
 
-export async function postHold(
-  userId: string,
-  asset: string,
-  amount: number,
-  orderId: string,
-): Promise<boolean> {
-  return holdFunds(userId, asset, amount, orderId);
-}
 
-export async function postRelease(
-  userId: string,
-  asset: string,
-  amount: number,
-  orderId: string,
-): Promise<boolean> {
-  return releaseFunds(userId, asset, amount, orderId);
-}

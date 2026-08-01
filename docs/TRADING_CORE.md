@@ -425,7 +425,7 @@ Phase 29 known gaps (all closed in Phase 30):
 
 | File | Description |
 |------|-------------|
-| `wallet-balance-service.ts` | Atomic hold/release/debit/credit/fee via single SQL statements on `wallet_balances` |
+| `wallet-service.ts` | Atomic hold/release/debit/credit/fee on `wallet_balances`, transaction-coupled to ledger evidence and fail-closed on mismatch |
 | `order-book-store.ts` | `OrderBookStore` interface, `InMemoryOrderBookStore`, `RedisOrderBookStore` stub, warm-start `rebuildOrderBook()` |
 
 ### wallet_balances table (migration 0005)

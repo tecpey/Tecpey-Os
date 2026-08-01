@@ -60,7 +60,7 @@ POST /api/orders
            releaseFundsTx (maker+taker)
            debitFundsTx (taker)
            creditFundsTx (taker)
-           chargeFeeTx (maker+taker)
+           chargeTradeFeeTx (maker+taker)
            updateOrderFillTx (maker)
            appendOrderEventTx → "TradeExecuted"
          final status:

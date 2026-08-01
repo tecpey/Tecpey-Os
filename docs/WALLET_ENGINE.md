@@ -118,35 +118,44 @@ The `CHECK (available_balance >= 0)` constraint on `wallet_balances` is the last
 
 ## Service Layer
 
-`src/lib/trading/wallet-balance-service.ts` exports:
+`src/lib/trading/wallet-service.ts` is the balance authority:
 
 | Function | Description |
 |----------|-------------|
-| `holdFundsTx(client, userId, asset, amount, orderId)` | Atomic hold — tx-aware |
-| `holdFunds(userId, asset, amount, orderId)` | Standalone hold |
-| `releaseFundsTx(client, userId, asset, amount, refId)` | Release held funds — tx-aware |
-| `releaseFunds(...)` | Standalone release |
-| `creditFundsTx(client, userId, asset, amount, tradeId)` | Add received asset — tx-aware |
-| `debitFundsTx(client, userId, asset, amount, tradeId)` | Deduct spent asset — tx-aware |
-| `chargeFeeTx(client, userId, asset, amount, tradeId)` | Deduct fee — tx-aware |
-| `depositFundsTx(client, userId, asset, amount, refId)` | Admin deposit — tx-aware |
-| `depositFunds(...)` | Standalone admin deposit |
-| `getBalance(userId, asset)` | O(1) balance read |
+| `getAvailableBalanceAmount(userId, asset)` | Exact available balance read (acquires its own connection) |
+| `holdOrderFundsTx(client, userId, asset, amount, orderId)` | Atomic hold, ledger-coupled |
+| `getOrderHoldResidualTx(client, userId, asset, orderId)` | Residual hold replayed from the ledger |
+| `releaseOrderHoldResidualTx(...)` | Release the exact residual |
+| `assertOrderHoldClosedTx(...)` | Throws unless the residual is zero |
+| `releaseMatchedOrderFundsTx(...)` | Release the fee-covered matched amount |
+| `debitTradeFundsTx(...)` / `creditTradeFundsTx(...)` | Exact trade transfer |
+| `chargeTradeFeeTx(...)` | Exact fee charge |
 
-The `*Tx` variants accept a `PoolClient` and participate in the caller's transaction. Standalone variants acquire their own connection via `withDb`.
+The `*Tx` functions take a `PoolClient` and participate in the caller's transaction.
+There are no standalone *mutation* variants: a balance mutation outside the
+settlement transaction cannot be transactionally coupled to its evidence. The
+read (`getAvailableBalanceAmount`) acquires its own connection via `withDb`.
 
-`src/lib/trading/wallet-service.ts` provides the public surface (`getAvailableBalance`, `postHold`, `postRelease`) used by the API route layer — it delegates to `wallet-balance-service` internally.
+> **Retired:** `wallet-balance-service.ts` and the `getAvailableBalance` /
+> `postHold` / `postRelease` wrappers were removed once proven unreachable. That
+> layer clamped instead of failing — it charged `LEAST(fee, available_balance)`
+> while posting a ledger row for the *full* fee, and released
+> `GREATEST(0, held_balance - amount)` while posting the full amount. In both
+> cases the ledger and the balance silently diverge, which is precisely what
+> `exchange:reconcile` now detects. The live authority guards with
+> `held_balance >= $3` and throws `order_hold_balance_mismatch` instead, and
+> `exchange:reconcile:check` refuses to let either clamp return.
 
 ---
 
 ## Reading Balance
 
 ```typescript
-import { getAvailableBalance } from "@/lib/trading/wallet-service";
-const available = await getAvailableBalance(userId, "USDT"); // O(1)
+import { getAvailableBalanceAmount } from "@/lib/trading/wallet-service";
+const available = await getAvailableBalanceAmount(userId, "USDT");
 ```
 
-The Phase 29 aggregate query over `wallet_ledger` is replaced by a direct lookup on `wallet_balances`. The ledger remains available for audit queries via `queryLedger`.
+The Phase 29 aggregate query over `wallet_ledger` is replaced by a direct lookup on `wallet_balances`. The ledger remains available for audit queries via `queryLedger`, and `exchange:reconcile` replays it to prove the two still agree.
 
 ---
 
