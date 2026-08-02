@@ -114,7 +114,21 @@ export async function upsertMembership(
   roles: Role[],
   workspaceId?: string,
 ): Promise<Membership | null> {
+  const resolvedWorkspaceId = workspaceId ?? PLATFORM.DEFAULT_WORKSPACE_ID;
   const result = await withDb(async (client) => {
+    // A membership must never bind a tenant to a workspace owned by a different
+    // tenant. The composite FK (tenant_id, workspace_id) enforces this at the
+    // database level; this guard rejects the mismatch with a clear domain error
+    // before the write instead of surfacing a raw foreign-key violation (#109).
+    const owns = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM platform_workspaces WHERE id = $1 AND tenant_id = $2
+       ) AS exists`,
+      [resolvedWorkspaceId, tenantId],
+    );
+    if (!owns.rows[0]?.exists) {
+      throw new Error("membership_workspace_tenant_mismatch");
+    }
     const { rows } = await client.query<MembershipRow>(
       `INSERT INTO platform_memberships (user_id, tenant_id, workspace_id, roles)
        VALUES ($1, $2, $3, $4)
@@ -122,7 +136,7 @@ export async function upsertMembership(
          SET roles = EXCLUDED.roles,
              workspace_id = COALESCE(EXCLUDED.workspace_id, platform_memberships.workspace_id)
        RETURNING id, user_id, tenant_id, workspace_id, roles, joined_at, expires_at`,
-      [userId, tenantId, workspaceId ?? PLATFORM.DEFAULT_WORKSPACE_ID, roles],
+      [userId, tenantId, resolvedWorkspaceId, roles],
     );
     return rows[0] ?? null;
   });

@@ -52,6 +52,7 @@ import { COMMUNITY_REPUTATION_SCORING_CONSENT_SQL } from "./db-migrate-community
 import { SESSION_AUTHORITY_SQL } from "./db-migrate-session-authority";
 import { SESSION_LEGACY_UNBOUND_FALLBACK_SQL } from "./db-migrate-session-legacy-fallback";
 import { AI_MENTOR_TRUST_SQL } from "./db-migrate-ai-mentor-trust";
+import { PLATFORM_MEMBERSHIP_WORKSPACE_BINDING_SQL } from "./db-migrate-platform-membership-workspace-binding";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -200,4 +201,8 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   sessionAuthority: one("0035_session_authority.sql", SESSION_AUTHORITY_SQL),
   sessionFallback: one("0036_session_legacy_unbound_fallback.sql", SESSION_LEGACY_UNBOUND_FALLBACK_SQL),
   aiMentor: one("0034_ai_mentor_trust_boundary.sql", AI_MENTOR_TRUST_SQL),
+  membershipWorkspaceBinding: one(
+    "0053_platform_membership_workspace_binding.sql",
+    PLATFORM_MEMBERSHIP_WORKSPACE_BINDING_SQL,
+  ),
 });
