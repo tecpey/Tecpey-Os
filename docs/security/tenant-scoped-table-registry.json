@@ -103,8 +103,9 @@
       "table": "learning_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "tenant_id added by ALTER TABLE; principal binding",
-      "adversarialProof": "pending",
+      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings; insertLearningEventExactlyOnce writes the tenant/workspace/principal from the resolved context",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
