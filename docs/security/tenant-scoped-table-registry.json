@@ -113,8 +113,8 @@
       "domain": "notifications",
       "sourceFile": "src/lib/db-migrate-notification-domain-outbox.ts",
       "isolationModel": "tenant_id in unique constraint (tenant_id, event_type, event_id); enqueueNotificationDomainEvent inserts ON CONFLICT (tenant_id, event_type, event_id) and the conflict read-back filters WHERE tenant_id = $1",
-      "adversarialProof": "proven",
-      "testReference": "src/tests/security/notification-domain-outbox-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "The unique key and enqueueNotificationDomainEvent's conflict read-back are correctly tenant-scoped and load-bearing (an adversarial probe over a tenant-blind key rejects tenant B). But the sole production producer, enqueueAcademyAssessmentCompleted, calls resolveNotificationPrincipal without a request tenant, so principal.tenantId is pinned to DEFAULT_NOTIFICATION_TENANT_ID and no production path ever supplies a second tenant. Cross-tenant behaviour is therefore unexercised through the real producer (same class as risk_authority_events). Promotion is blocked on threading a per-request tenant into the notification producer (#20), not on writing a test.",
+      "adversarialProof": "pending",
       "issue": "#109"
     },
     {
