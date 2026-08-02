@@ -11,7 +11,7 @@ const securityHeaders = [
   // DENY aligns with CSP frame-ancestors 'none' in proxy.ts — consistent policy across legacy
   // and modern browsers. SAMEORIGIN contradicted the stricter CSP directive.
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-DNS-Prefetch-Control", value: "on" },
+  { key: "X-DNS-Prefetch-Control", value: "off" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Deny all sensor/hardware APIs not used by TecPey.
   // interest-cohort=() opts out of FLoC/Topics ad tracking.

@@ -25,13 +25,19 @@ export type CookieName = (typeof COOKIES)[keyof typeof COOKIES];
 
 /**
  * Returns true if cookies should carry the Secure flag.
- * Reads TECPEY_COOKIE_SECURE env var or infers from NEXT_PUBLIC_SITE_URL.
+ *
+ * An https deployment is the platform's production signal, and it must ALWAYS
+ * emit Secure auth cookies: a browser talking to an https origin over a Secure
+ * cookie is a hard requirement, and `TECPEY_COOKIE_SECURE=false` must never be
+ * able to downgrade it (that would let auth cookies travel in cleartext).
+ * The env override may therefore only relax Secure for a non-https (local/dev)
+ * origin; it can force Secure on, but it cannot turn Secure off for https.
  */
 export function shouldUseSecureCookie(): boolean {
-  if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
-  if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   if (siteUrl.startsWith("https://")) return true;
+  if (process.env.TECPEY_COOKIE_SECURE === "true") return true;
+  if (process.env.TECPEY_COOKIE_SECURE === "false") return false;
   if (
     siteUrl.startsWith("http://localhost") ||
     siteUrl.startsWith("http://127.0.0.1")
