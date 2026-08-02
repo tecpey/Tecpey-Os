@@ -103,9 +103,9 @@
       "table": "learning_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings; insertLearningEventExactlyOnce writes the tenant/workspace/principal from the resolved context",
-      "adversarialProof": "proven",
-      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
+      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes writes; insertLearningEventExactlyOnce sets tenant/workspace/principal from the resolved context",
+      "isolationNote": "The write boundary is real — the composite binding FK rejects a learning event for an unadmitted tenant — but production reads are not tenant-scoped: buildNotificationBrain (src/lib/phase5-achievement-engine.ts) and refreshLearningBrain (src/lib/learning-os.ts) aggregate learning_events WHERE student_id = $1 with no tenant/workspace predicate, and the legacy recordLearningEvent insert path sets no tenant columns at all. For a student admitted into two tenants, one tenant's reader would consume the other's learning evidence. Promotion is blocked on wiring a per-request tenant into the academy learning read/write paths, not on writing a test.",
+      "adversarialProof": "pending",
       "issue": "#109"
     },
     {
