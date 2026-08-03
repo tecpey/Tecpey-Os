@@ -74,8 +74,44 @@ describe("Quiz question integrity authority", () => {
     }
   });
 
-  it("rejects a single-choice answer that is not among the options", () => {
+  it("rejects a single-choice answer that is not exactly among the options", () => {
     assert.ok(codes(base({ correctAnswer: "Not an option" })).includes("answer_not_in_options"));
+    // Exact membership matches the client grader (QuizEngineV2), which compares
+    // the raw selected option to correctAnswer without trimming: a padded option
+    // that only trims-equal to the answer is graded wrong, so it must be rejected.
+    assert.ok(
+      codes(base({ options: [" Correct choice ", "Wrong A"], correctAnswer: "Correct choice" })).includes(
+        "answer_not_in_options",
+      ),
+    );
+  });
+
+  it("never throws on a structurally malformed collection; reports it as a violation", () => {
+    // The gate validates untyped model-generated JSON, so a wrong-shaped field
+    // must become a violation, not an exception.
+    const malformed: QuizQuestion[] = [
+      base({ options: "A|B" as unknown as string[] }),
+      base({ type: "ordering", correctOrder: {} as unknown as string[], correctAnswer: [] }),
+      base({ type: "matching", options: undefined, pairs: ".." as unknown as [string, string][], correctAnswer: [] }),
+      base({ type: "multi", correctAnswer: [1, 2] as unknown as string[] }),
+    ];
+    const expected = [
+      "options_not_string_array",
+      "correct_order_not_array",
+      "pairs_not_array",
+      "answer_not_string_array",
+    ];
+    malformed.forEach((question, index) => {
+      let result: string[] = [];
+      assert.doesNotThrow(() => {
+        result = codes(question);
+      }, `malformed question ${index + 1} must not throw`);
+      assert.equal(isQuizQuestionValid(question), false);
+      assert.ok(
+        result.includes(expected[index]),
+        `expected ${expected[index]} for malformed question ${index + 1}, got ${result.join(",")}`,
+      );
+    });
   });
 
   it("rejects blank, duplicate, or too-few options", () => {
@@ -114,6 +150,13 @@ describe("Quiz question integrity authority", () => {
     assert.ok(
       codes(base({ type: "fillblank", options: undefined, correctAnswer: "valid|" })).includes(
         "answer_alternative_blank",
+      ),
+    );
+    // The client grader does not trim '|' alternatives, so a padded alternative
+    // can never match a learner's trimmed input.
+    assert.ok(
+      codes(base({ type: "fillblank", options: undefined, correctAnswer: "usd| dollar " })).includes(
+        "answer_alternative_padded",
       ),
     );
   });
@@ -183,6 +226,27 @@ describe("Quiz question integrity authority", () => {
     assert.throws(
       () => assertQuizQuestionValid(base({ id: "bad-q", correctAnswer: "Not an option" })),
       /invalid_quiz_question:bad-q:answer_not_in_options/,
+    );
+  });
+
+  it("flags duplicate ids across a bank as an integrity violation", () => {
+    // Two individually valid questions that share an id collide: submissions and
+    // canonical grading key answers by id, so one response is reused for both.
+    const bank: QuizQuestion[] = [
+      base({ id: "dup", correctAnswer: "Correct choice" }),
+      base({ id: "dup", question: "A different prompt", correctAnswer: "Wrong A" }),
+      base({ id: "unique" }),
+    ];
+    const invalid = findInvalidQuizQuestions(bank);
+    const dupReports = invalid.filter((report) => report.id === "dup");
+    assert.equal(dupReports.length, 2, "both colliding questions must be reported");
+    for (const report of dupReports) {
+      assert.ok(report.violations.some((violation) => violation.code === "duplicate_id"));
+    }
+    assert.equal(
+      invalid.some((report) => report.id === "unique"),
+      false,
+      "a unique, well-formed question must not be reported",
     );
   });
 
