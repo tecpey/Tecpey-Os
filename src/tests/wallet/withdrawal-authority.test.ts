@@ -67,28 +67,51 @@ describe("Withdrawal executor consumes the queue as identity only", () => {
     "utf8",
   );
 
-  it("reads no value-bearing queue field — only job.withdrawalId selects the record", async () => {
+  it("reads no value-bearing queue field via any access form", async () => {
     const source = await executorSource;
-    const referenced = [
-      ...new Set([...source.matchAll(/\bjob\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])),
-    ].sort();
+
+    // Collect every field the executor pulls off `job`, across all access forms
+    // a regression could hide behind (per Codex review): direct dot access,
+    // bracket access, and object destructuring.
+    const dotRefs = [...source.matchAll(/\bjob\.([A-Za-z_]\w*)/g)].map((m) => m[1]);
+    const bracketRefs = [...source.matchAll(/\bjob\[\s*['"]([^'"]+)['"]\s*\]/g)].map((m) => m[1]);
+    const destructuredRefs = [...source.matchAll(/\{([^}]*)\}\s*=\s*job\b/g)].flatMap((m) =>
+      m[1]
+        .split(",")
+        .map((entry) => entry.trim().split(":")[0].trim())
+        .filter(Boolean),
+    );
+    const referenced = [...new Set([...dotRefs, ...bracketRefs, ...destructuredRefs])].sort();
+
     assert.deepEqual(
       referenced,
       ["withdrawalId"],
-      `executor must read only job.withdrawalId; found value-bearing queue reads: ${referenced.join(", ")}`,
+      `executor must read only the withdrawal id off the queue; found: ${referenced.join(", ")}`,
     );
-    for (const forbidden of [
-      "amount",
-      "amountUsd",
-      "destinationAddress",
-      "asset",
-      "chainId",
-      "feeSpeed",
-      "priority",
-    ] as const) {
+
+    // Defense in depth: forbid dynamic/computed access to the queue payload
+    // entirely — `job[expr]` could read a value-bearing field the static scan
+    // above cannot resolve.
+    assert.doesNotMatch(
+      source,
+      /\bjob\[/,
+      "computed access job[...] to the queue payload is forbidden",
+    );
+
+    // The queue object itself may only be handed to a small allowlist of
+    // callees whose contracts do not derive execution authority from it
+    // (assertQueueIdentityMatchesRecord trusts only the id; enqueueRecovery
+    // re-enqueues the hint for a later id-authoritative run). Any new function
+    // receiving `job` must be reviewed and added here deliberately, so a helper
+    // that reaches into job.destinationAddress cannot slip in unnoticed.
+    // Match `fn(job,` / `fn(job)` — the whole queue object as an argument —
+    // but not `fn(job.withdrawalId)`, where only the id crosses the boundary.
+    const jobArgCallees = [...source.matchAll(/\b([A-Za-z_]\w*)\s*\(\s*job\s*[,)]/g)].map((m) => m[1]);
+    const allowedJobConsumers = new Set(["assertQueueIdentityMatchesRecord", "enqueueRecovery"]);
+    for (const callee of jobArgCallees) {
       assert.ok(
-        !referenced.includes(forbidden),
-        `queue field job.${forbidden} must never grant execution authority`,
+        allowedJobConsumers.has(callee),
+        `queue job passed to un-vetted helper ${callee}(job, …); it could read value-bearing fields — review it and add to the allowlist`,
       );
     }
   });
