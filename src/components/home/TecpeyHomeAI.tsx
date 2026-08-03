@@ -103,7 +103,13 @@ function formatTime(value: string, locale: Locale) {
 }
 
 function fallbackItems(locale: Locale): NewsItem[] {
-  const now = new Date().toISOString();
+  // Fallback items are static placeholders with no real publish time. Their
+  // publishedAt is rendered via formatTime (minute precision) at line 385, and
+  // this list seeds the SSR initial state, so a live timestamp here would
+  // hydration-mismatch (React #418) exactly like the updatedAt field. An empty
+  // value renders the deterministic "Recently updated" placeholder on both the
+  // server and the first client render.
+  const now = "";
   if (locale === "fa") {
     return [
       { id: "fa-local-1", title: "بازار رمزارز امروز را با تمرکز روی ریسک دنبال کنید", summary: "اخبار بازار باید کنار آموزش، مدیریت سرمایه و پرهیز از تصمیم‌های هیجانی بررسی شود.", source: "اتاق خبر تک‌پی", url: "/crypto-news", publishedAt: now, category: "بازار", tone: "neutral", impact: 8 },
@@ -291,7 +297,13 @@ function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; inte
 
 export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; compact?: boolean }) {
   const isFa = locale === "fa";
-  const [state, setState] = useState<NewsResponse>({ mode: "fallback", updatedAt: new Date().toISOString(), items: fallbackItems(locale) });
+  // The initial state renders during SSR and again on the first client render.
+  // A live `new Date()` here would format to a minute-precision time (see
+  // formatTime at line 336) that differs between the two renders whenever they
+  // straddle a minute tick — an intermittent React #418 hydration mismatch. Keep
+  // the initial timestamp deterministic (empty -> "Recently updated" placeholder
+  // on both renders); the effect below fills the real time client-side.
+  const [state, setState] = useState<NewsResponse>({ mode: "fallback", updatedAt: "", items: fallbackItems(locale) });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
