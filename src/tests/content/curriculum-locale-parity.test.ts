@@ -39,6 +39,12 @@ function assertQuizIntegrity(terms: PathTerm[], lang: string): void {
         Array.isArray(question.options) && question.options.length >= 2,
         `${where}: a quiz question must offer at least two options`,
       );
+      for (const [optionIndex, option] of question.options.entries()) {
+        assert.ok(
+          typeof option === "string" && option.trim().length > 0,
+          `${where} option ${optionIndex + 1}: a quiz option must have non-blank content`,
+        );
+      }
       assert.equal(
         new Set(question.options).size,
         question.options.length,
