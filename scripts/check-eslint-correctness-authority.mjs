@@ -52,7 +52,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/admin/AdminPasskeyAccessGate.tsx:223:10",
   "react-hooks/set-state-in-effect:src/components/admin/CommandCenterDashboard.tsx:101:10",
   "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:115:7",
-  "react-hooks/set-state-in-effect:src/components/home/TecpeyHomeAI.tsx:299:5",
+  "react-hooks/set-state-in-effect:src/components/home/TecpeyHomeAI.tsx:311:5",
   "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
   "react-hooks/set-state-in-effect:src/components/navbar/Navbar.tsx:229:5",
   "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:71:5",
