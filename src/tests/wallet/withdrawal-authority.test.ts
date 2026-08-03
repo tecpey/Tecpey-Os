@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   assertQueueIdentityMatchesRecord,
   hasDurablePreparedTransaction,
@@ -49,6 +50,65 @@ describe("Withdrawal queue authority boundary", () => {
     assert.equal(
       hasDurablePreparedTransaction({ rawTx: new Uint8Array([1]), txHash: null }),
       false,
+    );
+  });
+});
+
+// #29 fund-safety invariant, enforced structurally so it cannot silently
+// regress: the withdrawal executor must treat the BullMQ job as an identity
+// trigger only. Every value that can move money — amount, destination, asset,
+// chain, fee — must come from the approved PostgreSQL record, never from the
+// (untrusted, replayable, forgeable) queue payload. A future edit that reads,
+// say, job.destinationAddress into the signing path would be a fund-redirection
+// hole; this test fails closed on any such reference.
+describe("Withdrawal executor consumes the queue as identity only", () => {
+  const executorSource = readFile(
+    new URL("../../lib/wallet/withdrawal-executor.ts", import.meta.url),
+    "utf8",
+  );
+
+  it("reads no value-bearing queue field — only job.withdrawalId selects the record", async () => {
+    const source = await executorSource;
+    const referenced = [
+      ...new Set([...source.matchAll(/\bjob\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])),
+    ].sort();
+    assert.deepEqual(
+      referenced,
+      ["withdrawalId"],
+      `executor must read only job.withdrawalId; found value-bearing queue reads: ${referenced.join(", ")}`,
+    );
+    for (const forbidden of [
+      "amount",
+      "amountUsd",
+      "destinationAddress",
+      "asset",
+      "chainId",
+      "feeSpeed",
+      "priority",
+    ] as const) {
+      assert.ok(
+        !referenced.includes(forbidden),
+        `queue field job.${forbidden} must never grant execution authority`,
+      );
+    }
+  });
+
+  it("selects the approved record by id and derives the fee from the DB record", async () => {
+    const source = await executorSource;
+    assert.match(
+      source,
+      /assertQueueIdentityMatchesRecord\(job, plan\.withdrawal\)/,
+      "the queue job must be validated against the claimed DB record before execution",
+    );
+    assert.match(
+      source,
+      /resolveAuthoritativeFeeSpeed\(withdrawal\.feeConfig\)/,
+      "the fee must be resolved from the DB record's fee_config, not job.feeSpeed",
+    );
+    assert.doesNotMatch(
+      source,
+      /job\.feeSpeed/,
+      "the executor must never read the queue-supplied fee speed",
     );
   });
 });
