@@ -210,19 +210,40 @@ async function installCspViolationObserver(page) {
 }
 
 async function waitForPendingCspViolationDeliveries(page) {
-  await page.evaluate(async () => {
-    const settle = () =>
-      Promise.allSettled([
-        ...(window.__tecpeyPendingCspViolationDeliveries ?? []),
-      ]);
+  // This drain runs in afterEach on every test. The page's execution context can
+  // be torn down between the last interaction and this drain — Firefox's Juggler
+  // disposes the connector, the test ends, or the context is destroyed — which
+  // made page.evaluate throw ("Test ended" / "is disposed" / "Target closed")
+  // and flaked otherwise-passing tests. A gone page has no further CSP
+  // deliveries to await, so treat those lifecycle races as already drained.
+  // Genuine evaluate errors still propagate.
+  if (page.isClosed()) return;
+  try {
+    await page.evaluate(async () => {
+      const settle = () =>
+        Promise.allSettled([
+          ...(window.__tecpeyPendingCspViolationDeliveries ?? []),
+        ]);
 
-    // Cross two task boundaries so a CSP event queued at the end of the
-    // preceding interaction can register its binding promise before draining.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await settle();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await settle();
-  });
+      // Cross two task boundaries so a CSP event queued at the end of the
+      // preceding interaction can register its binding promise before draining.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await settle();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await settle();
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      page.isClosed() ||
+      /Test ended|is disposed|Target (?:closed|crashed)|Execution context was destroyed|windowGlobalChild|has been closed/i.test(
+        message,
+      )
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function cspViolations(page) {
