@@ -88,6 +88,22 @@ describe("News-quiz view coercion", () => {
     assert.equal(bank[0].id, "ok");
   });
 
+  it("collapses colliding ids so the board never renders a duplicate key", () => {
+    // A tampered payload with two individually valid questions sharing an id
+    // must not surface both: the board keys cards by id and stores results by
+    // id, so a duplicate would render a duplicate React key and an answer the
+    // score could never count. The coercion keeps the first and drops the rest.
+    const collide = [
+      { id: "dup", question: "First?", options: ["A", "B"], correctAnswer: "A", explanation: "", difficulty: "easy" },
+      { id: "dup", question: "Second, same id?", options: ["C", "D"], correctAnswer: "C", explanation: "", difficulty: "hard" },
+      { id: "unique", question: "Third?", options: ["E", "F"], correctAnswer: "E", explanation: "", difficulty: "medium" },
+    ];
+    const bank = toSafeNewsQuizBank(collide);
+    assert.equal(bank.length, 2, "the duplicate id collapses to one question");
+    assert.equal(new Set(bank.map((q) => q.id)).size, bank.length, "every rendered id is unique");
+    assert.equal(bank[0].question, "First?", "the first occurrence wins");
+  });
+
   it("passes through every question the real generator emits", () => {
     // End-to-end shape contract: whatever the fail-closed generator produces,
     // the UI coercion accepts it (it never drops a genuinely valid question).

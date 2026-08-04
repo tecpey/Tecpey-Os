@@ -64,15 +64,22 @@ export function toSafeNewsQuizQuestion(raw: RawNewsQuizQuestion): SafeNewsQuizQu
 
 /**
  * Map a raw `?quiz=1` payload (of unknown shape) into the renderable questions,
- * dropping any entry that fails the answerability check. A non-array input
- * yields an empty list.
+ * dropping any entry that fails the answerability check. Ids are kept unique —
+ * a later entry colliding with an already-accepted id is skipped, mirroring the
+ * generator's bank-level invariant. That matters because the board keys cards by
+ * id and stores grading results by id, so a duplicate id would render a
+ * duplicate React key and a second answer the score could never count. A
+ * non-array input yields an empty list.
  */
 export function toSafeNewsQuizBank(payload: unknown): SafeNewsQuizQuestion[] {
   if (!Array.isArray(payload)) return [];
+  const seen = new Set<string>();
   const safe: SafeNewsQuizQuestion[] = [];
   for (const entry of payload) {
     const question = toSafeNewsQuizQuestion(entry as RawNewsQuizQuestion);
-    if (question) safe.push(question);
+    if (!question || seen.has(question.id)) continue;
+    seen.add(question.id);
+    safe.push(question);
   }
   return safe;
 }
