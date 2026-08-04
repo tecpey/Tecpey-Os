@@ -1,313 +1,314 @@
 {
-  "schemaVersion": 1,
-  "evidenceId": "batch-01a-audit-authority",
-  "reviewBatch": 1,
-  "reviewedAt": "2026-07-30",
-  "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
-  "residualRisks": [
+ "schemaVersion": 1,
+ "evidenceId": "batch-01a-audit-authority",
+ "reviewBatch": 1,
+ "reviewedAt": "2026-07-30",
+ "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
+ "residualRisks": [
+  {
+   "id": "B01A-RISK-001",
+   "severity": "P2",
+   "statement": "This bounded slice reviews nine Batch 1 audit-authority files only; test authorities remain assigned to Batch 12 and all other repository paths retain their pending status.",
+   "owner": "repository-supply-chain",
+   "disposition": "tracked-debt"
+  },
+  {
+   "id": "B01A-RISK-002",
+   "severity": "P2",
+   "statement": "The workflow guard intentionally implements only the governed repository-audit YAML shape rather than the complete YAML specification; any future workflow restructuring requires policy and negative-fixture updates.",
+   "owner": "repository-supply-chain",
+   "disposition": "tracked-debt"
+  }
+ ],
+ "files": [
+  {
+   "path": ".github/workflows/repository-audit-manifest.yml",
+   "gitObjectId": "e98fe6ba86d050f8a3f1584a0dd3e92c6605cdb5",
+   "sha256": "adff1bf5a7fed254c4875571f5820be4a7d85a14c7cbeeefe54fb6419ac9d0c4",
+   "lines": 61,
+   "reviewedRanges": [
     {
-      "id": "B01A-RISK-001",
-      "severity": "P2",
-      "statement": "This bounded slice reviews nine Batch 1 audit-authority files only; test authorities remain assigned to Batch 12 and all other repository paths retain their pending status.",
-      "owner": "repository-supply-chain",
-      "disposition": "tracked-debt"
-    },
-    {
-      "id": "B01A-RISK-002",
-      "severity": "P2",
-      "statement": "The workflow guard intentionally implements only the governed repository-audit YAML shape rather than the complete YAML specification; any future workflow restructuring requires policy and negative-fixture updates.",
-      "owner": "repository-supply-chain",
-      "disposition": "tracked-debt"
+     "startLine": 1,
+     "endLine": 61
     }
-  ],
-  "files": [
+   ],
+   "findingDisposition": "no-confirmed-findings",
+   "reviewNotes": [
+    "Triggers, read-only permissions, exact PR-head checkout, non-persistent credentials, expected-SHA propagation, authority verification, manifest regeneration, tests and immutable artifact upload were reviewed as one fail-closed sequence.",
+    "All third-party actions are pinned to full commit SHAs and the artifact name is bound to the exact reviewed head."
+   ],
+   "findings": []
+  },
+  {
+   "path": "package.json",
+   "gitObjectId": "c7ecd827b3d5d7cce3edd063bb81fc4e895fcada",
+   "sha256": "5447246c184f7b37f09af70b6900a1e702dafe26f4d2d9747a79b346dd7686b9",
+   "lines": 178,
+   "reviewedRanges": [
     {
-      "path": ".github/workflows/repository-audit-manifest.yml",
-      "gitObjectId": "e98fe6ba86d050f8a3f1584a0dd3e92c6605cdb5",
-      "sha256": "adff1bf5a7fed254c4875571f5820be4a7d85a14c7cbeeefe54fb6419ac9d0c4",
-      "lines": 61,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 61
-        }
-      ],
-      "findingDisposition": "no-confirmed-findings",
-      "reviewNotes": [
-        "Triggers, read-only permissions, exact PR-head checkout, non-persistent credentials, expected-SHA propagation, authority verification, manifest regeneration, tests and immutable artifact upload were reviewed as one fail-closed sequence.",
-        "All third-party actions are pinned to full commit SHAs and the artifact name is bound to the exact reviewed head."
-      ],
-      "findings": []
-    },
-    {
-      "path": "package.json",
-      "gitObjectId": "fda16dc24839ef42d4233cb705af2d2dc8d7de24",
-      "sha256": "78807bdfa6828fe39b0819c23b9d96a9930fb5c9080391310a6efe6f8fbfe741",
-      "lines": 178,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 178
-        }
-      ],
-      "findingDisposition": "confirmed-findings-recorded",
-      "reviewNotes": [
-        "All scripts, dependency pins, engine constraints and override declarations were reviewed; the audit commands remain exact and separated between generation, authority checking, verification and tests.",
-        "The added ESLint, secret-scanning, operational-recovery and production supply-chain commands bind their permanent guards to focused tests; supply-chain:check now executes both its source authority and 44 host-policy tests, while env:check composes the existing environment validator with the production CSP connection validator.",
-        "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority.",
-        "Re-reviewed after adding release:coverage:check and security:markers:check. Both are read-only static guards over package.json and .github/workflows; neither runs application code, touches the network, or mutates developer npm configuration. release:check gains both and stays a composition of governed checks.",
-        "Re-reviewed after adding exchange:reconcile, exchange:reconcile:check and test:exchange-reconciliation. The reconcile command is read-only and opens no transaction; the check is a static source guard; the test suite is PostgreSQL integration only. exchange:check and release:check gain the guard, and release:check gains the test, so both remain compositions of governed checks.",
-        "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks."
-      ],
-      "findings": [
-        {
-          "id": "B01A-P2-002",
-          "severity": "P2",
-          "line": 104,
-          "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
-          "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 104 and 107-108 use npm config set/delete before repository-scoped install commands.",
-          "fixOwner": "developer-experience",
-          "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
-          "disposition": "tracked-debt",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "scripts/audit-repository-hygiene.mjs",
-      "gitObjectId": "7b3a8575e28a9378a8ea8566986e0a3f89bfe78f",
-      "sha256": "4cb1cf1c90e930ef099f04352daef867b567d56b9c60a9f8e22e6be7c9257733",
-      "lines": 339,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 339
-        }
-      ],
-      "findingDisposition": "confirmed-findings-recorded",
-      "reviewNotes": [
-        "Filesystem scope, ignored runtime outputs, import extraction, local resolution, entrypoint reachability, artifact heuristics, dependency ownership, bounded reporting and non-deletion warning were reviewed line by line.",
-        "Package-binary ownership now preserves the regular-expression whitespace class at runtime instead of collapsing it inside a JavaScript template literal."
-      ],
-      "findings": [
-        {
-          "id": "B01A-P2-003",
-          "severity": "P2",
-          "line": 252,
-          "attackPath": "A package binary referenced after whitespace in package scripts was not recognized because the template literal consumed the regex backslash, producing a false unreferenced-dependency lead.",
-          "affectedInvariant": "Repository hygiene evidence must not classify an owned dependency as unreferenced because of a malformed scanner boundary.",
-          "evidence": "The former template literal used [\\s;&|] in source semantics that evaluated as [s;&|]; the final source escapes the backslash and the authority guard preserves that contract.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "The permanent authority check must reject removal of the escaped whitespace boundary and the hygiene report must continue to execute successfully.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "scripts/check-repository-audit-authority.mjs",
-      "gitObjectId": "feb7f650a7f1f3e3c3ae8e2af0a5a6016ae45cf9",
-      "sha256": "115058d51613fc82129a8a681b00d162b4434b5f073b7c9f64ae2c7c2cd2a7e8",
-      "lines": 47,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 47
-        }
-      ],
-      "findingDisposition": "confirmed-findings-recorded",
-      "reviewNotes": [
-        "The guard verifies workflow authority, committed evidence schema/batch identity, runtime-artifact hygiene exclusion, both package-binary whitespace boundaries and exact package command ownership before manifest generation."
-      ],
-      "findings": [
-        {
-          "id": "B01A-P2-006",
-          "severity": "P2",
-          "line": 25,
-          "attackPath": "A later scanner edit could regress only the leading package-binary whitespace class while leaving the trailing class intact, allowing the former single-substring guard to pass and miss package binaries after shell separators.",
-          "affectedInvariant": "Repository hygiene evidence must preserve both package-binary boundary classes so dependency ownership is not undercounted.",
-          "evidence": "The former authority check required only one escaped boundary occurrence; the remediated guard counts the source occurrences and requires at least two.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "The permanent authority check must fail if either escaped package-binary whitespace boundary is removed.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "scripts/generate-repository-audit-manifest.mjs",
-      "gitObjectId": "04240f6302ef8e38d6f8422c5155dfe7092e559b",
-      "sha256": "8969dc594a3b637caebec0cf34b4634ca08c065957da0b938e91a75adf5e5c54",
-      "lines": 18,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 18
-        }
-      ],
-      "findingDisposition": "no-confirmed-findings",
-      "reviewNotes": [
-        "Output resolution, parent creation, truncating write semantics and summary logging were reviewed; generated runtime evidence remains outside the tracked denominator."
-      ],
-      "findings": []
-    },
-    {
-      "path": "scripts/repository-audit-manifest.mjs",
-      "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
-      "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
-      "lines": 576,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 576
-        }
-      ],
-      "findingDisposition": "confirmed-findings-recorded",
-      "reviewNotes": [
-        "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
-        "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
-        "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
-        "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
-        "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
-        "Summary recomputation occurs after evidence application and completionClaim remains false.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
-      ],
-      "findings": [
-        {
-          "id": "B01A-P2-004",
-          "severity": "P2",
-          "line": 290,
-          "attackPath": "A declaration could encode P0 in its canonical finding identifier while separately declaring P3, presenting contradictory release severity to downstream consumers.",
-          "affectedInvariant": "A canonical finding identifier and its structured severity must represent one unambiguous priority.",
-          "evidence": "The former validator checked the ID shape and severity membership independently but did not compare the ID priority segment with finding.severity.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "Manifest generation must reject a B01A-P0 identifier paired with P3 severity before semantic evidence is applied.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        },
-        {
-          "id": "B01A-P2-005",
-          "severity": "P2",
-          "line": 330,
-          "attackPath": "Deleting a configured evidence declaration while leaving its policy entry intact could previously produce a schema-valid manifest with an empty reviewEvidenceSets array.",
-          "affectedInvariant": "Every semantic evidence path configured by the audit policy must exist in the exact tracked tree before generation or verification can succeed.",
-          "evidence": "The former loop continued when filesByPath did not contain a configured declaration, silently downgrading previously recorded semantic review evidence.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "A committed deletion of batch-01a-audit-authority.json must make both manifest generation and verification fail closed.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "bef7d6ebd4dc4107da34e20a68c2ba08cb442a6c",
-      "sha256": "3656ebef0a2846662e8a17b73b51aff84f0f84aea97f2abd0bd3ca5e67aacef3",
-      "lines": 271,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 271
-        }
-      ],
-      "findingDisposition": "no-confirmed-findings",
-      "reviewNotes": [
-        "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
-        "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted."
-      ],
-      "findings": []
-    },
-    {
-      "path": "scripts/repository-audit-workflow-policy.mjs",
-      "gitObjectId": "7dba3a0d92879f34e97d61078db6cea52019b99a",
-      "sha256": "8c028f08c6440ff068a073038dfdae5a1ea6fafb5a486c52d2bc6861abf00d99",
-      "lines": 369,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 369
-        }
-      ],
-      "findingDisposition": "confirmed-findings-recorded",
-      "reviewNotes": [
-        "Comment handling, scalar parsing, indentation and block boundaries, exact governed step sequence, permissions, exact-head propagation, reserved variable rejection, full-SHA action pinning and aggregate failure reporting were reviewed.",
-        "Required executable contracts are validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence; the workflow is constrained to one manifest job, exactly one top-level permissions mapping and the governed step-property set.",
-        "Step-level conditions, continue-on-error controls, scalar or job-level permission overrides, extra jobs and their actions are rejected fail closed instead of remaining outside the parsed authority.",
-        "Re-reviewed in full after merging main 63cffc08 (PR #264): the change is limited to the secret-scanning-baseline authentication-admin-security routing line (policy) and the GOVERNED_JOB_PROPERTIES job-property guard with duplicate rejection (workflow policy); both were authored and line-reviewed in this session, negative tests cover them, and no new findings resulted."
-      ],
-      "findings": [
-        {
-          "id": "B01A-P1-001",
-          "severity": "P1",
-          "line": 241,
-          "attackPath": "A required checkout, verification or artifact contract could be removed from executable YAML and preserved only as a comment while the former substring guard still returned success.",
-          "affectedInvariant": "Repository audit evidence must fail closed when an exact-head workflow control is not executable.",
-          "evidence": "The previous guard used unrestricted includes() checks; the final implementation parses the governed YAML structure and validates exact effective step nodes, keys, values and sequence.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "Negative fixtures must move each governed contract into a comment and observe a policy failure; the unchanged real workflow must pass.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        },
-        {
-          "id": "B01A-P2-007",
-          "severity": "P2",
-          "line": 183,
-          "attackPath": "A second workflow job could declare permissions: write-all and execute an unpinned action while the previous parser inspected only the governed manifest job and top-level mapping.",
-          "affectedInvariant": "Every job in the repository-audit workflow must remain inside the exact read-only and action-pinned authority.",
-          "evidence": "The parser now rejects every permissions node except the single top-level mapping and requires jobs to contain exactly the governed manifest job.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "A negative fixture must append a second job with scalar write-all permissions and an unpinned action, then observe a structural policy failure.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        },
-        {
-          "id": "B01A-P2-008",
-          "severity": "P2",
-          "line": 150,
-          "attackPath": "An if: false condition on manifest generation, verification or upload could skip required evidence while the previous parser ignored arbitrary scalar step properties.",
-          "affectedInvariant": "Every governed audit step must execute unconditionally whenever the workflow job runs.",
-          "evidence": "The parser now accepts only env, run, uses and with on governed steps, so if and other skip-capable properties fail structural validation.",
-          "fixOwner": "repository-supply-chain",
-          "verificationRequirement": "Negative fixtures must add if: false independently to generation, verification and upload and observe policy failure for each mutation.",
-          "disposition": "remediated",
-          "remediation": [
-            "https://github.com/tecpey/Tecpey-Os/issues/156"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "scripts/verify-repository-audit-manifest.mjs",
-      "gitObjectId": "14a0a8b23071d066620af5cbb2f2b27ed7076b2d",
-      "sha256": "3893a295475d6a83e36992c6d769a79eba08431965bf69410d54efda46c316f0",
-      "lines": 14,
-      "reviewedRanges": [
-        {
-          "startLine": 1,
-          "endLine": 14
-        }
-      ],
-      "findingDisposition": "no-confirmed-findings",
-      "reviewNotes": [
-        "Input resolution, strict JSON parsing, full regeneration/structural comparison and verified-denominator reporting were reviewed; malformed or stale artifacts fail before success output."
-      ],
-      "findings": []
+     "startLine": 1,
+     "endLine": 178
     }
-  ]
+   ],
+   "findingDisposition": "confirmed-findings-recorded",
+   "reviewNotes": [
+    "All scripts, dependency pins, engine constraints and override declarations were reviewed; the audit commands remain exact and separated between generation, authority checking, verification and tests.",
+    "The added ESLint, secret-scanning, operational-recovery and production supply-chain commands bind their permanent guards to focused tests; supply-chain:check now executes both its source authority and 44 host-policy tests, while env:check composes the existing environment validator with the production CSP connection validator.",
+    "The release path uses npm ci and governed checks; mutable developer convenience commands remain outside release authority.",
+    "Re-reviewed after adding release:coverage:check and security:markers:check. Both are read-only static guards over package.json and .github/workflows; neither runs application code, touches the network, or mutates developer npm configuration. release:check gains both and stays a composition of governed checks.",
+    "Re-reviewed after adding exchange:reconcile, exchange:reconcile:check and test:exchange-reconciliation. The reconcile command is read-only and opens no transaction; the check is a static source guard; the test suite is PostgreSQL integration only. exchange:check and release:check gain the guard, and release:check gains the test, so both remain compositions of governed checks.",
+    "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks.",
+    "2026-08-04: re-reviewed after wiring src/tests/security/request-tenant-resolution.test.ts into the test:offline-sync script (issue #20 P0). Test-wiring only — no audit-authority command, workflow, or exact-head binding changed; the added path is a pure unit test."
+   ],
+   "findings": [
+    {
+     "id": "B01A-P2-002",
+     "severity": "P2",
+     "line": 104,
+     "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
+     "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
+     "evidence": "package.json lines 104 and 107-108 use npm config set/delete before repository-scoped install commands.",
+     "fixOwner": "developer-experience",
+     "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
+     "disposition": "tracked-debt",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    }
+   ]
+  },
+  {
+   "path": "scripts/audit-repository-hygiene.mjs",
+   "gitObjectId": "7b3a8575e28a9378a8ea8566986e0a3f89bfe78f",
+   "sha256": "4cb1cf1c90e930ef099f04352daef867b567d56b9c60a9f8e22e6be7c9257733",
+   "lines": 339,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 339
+    }
+   ],
+   "findingDisposition": "confirmed-findings-recorded",
+   "reviewNotes": [
+    "Filesystem scope, ignored runtime outputs, import extraction, local resolution, entrypoint reachability, artifact heuristics, dependency ownership, bounded reporting and non-deletion warning were reviewed line by line.",
+    "Package-binary ownership now preserves the regular-expression whitespace class at runtime instead of collapsing it inside a JavaScript template literal."
+   ],
+   "findings": [
+    {
+     "id": "B01A-P2-003",
+     "severity": "P2",
+     "line": 252,
+     "attackPath": "A package binary referenced after whitespace in package scripts was not recognized because the template literal consumed the regex backslash, producing a false unreferenced-dependency lead.",
+     "affectedInvariant": "Repository hygiene evidence must not classify an owned dependency as unreferenced because of a malformed scanner boundary.",
+     "evidence": "The former template literal used [\\s;&|] in source semantics that evaluated as [s;&|]; the final source escapes the backslash and the authority guard preserves that contract.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "The permanent authority check must reject removal of the escaped whitespace boundary and the hygiene report must continue to execute successfully.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    }
+   ]
+  },
+  {
+   "path": "scripts/check-repository-audit-authority.mjs",
+   "gitObjectId": "feb7f650a7f1f3e3c3ae8e2af0a5a6016ae45cf9",
+   "sha256": "115058d51613fc82129a8a681b00d162b4434b5f073b7c9f64ae2c7c2cd2a7e8",
+   "lines": 47,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 47
+    }
+   ],
+   "findingDisposition": "confirmed-findings-recorded",
+   "reviewNotes": [
+    "The guard verifies workflow authority, committed evidence schema/batch identity, runtime-artifact hygiene exclusion, both package-binary whitespace boundaries and exact package command ownership before manifest generation."
+   ],
+   "findings": [
+    {
+     "id": "B01A-P2-006",
+     "severity": "P2",
+     "line": 25,
+     "attackPath": "A later scanner edit could regress only the leading package-binary whitespace class while leaving the trailing class intact, allowing the former single-substring guard to pass and miss package binaries after shell separators.",
+     "affectedInvariant": "Repository hygiene evidence must preserve both package-binary boundary classes so dependency ownership is not undercounted.",
+     "evidence": "The former authority check required only one escaped boundary occurrence; the remediated guard counts the source occurrences and requires at least two.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "The permanent authority check must fail if either escaped package-binary whitespace boundary is removed.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    }
+   ]
+  },
+  {
+   "path": "scripts/generate-repository-audit-manifest.mjs",
+   "gitObjectId": "04240f6302ef8e38d6f8422c5155dfe7092e559b",
+   "sha256": "8969dc594a3b637caebec0cf34b4634ca08c065957da0b938e91a75adf5e5c54",
+   "lines": 18,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 18
+    }
+   ],
+   "findingDisposition": "no-confirmed-findings",
+   "reviewNotes": [
+    "Output resolution, parent creation, truncating write semantics and summary logging were reviewed; generated runtime evidence remains outside the tracked denominator."
+   ],
+   "findings": []
+  },
+  {
+   "path": "scripts/repository-audit-manifest.mjs",
+   "gitObjectId": "31a8c05c44e94705c82b6294d14f29c21bae1832",
+   "sha256": "9520b31ac90d418dabe156e1579ff0a7330aa2a24e4d1b0fe07b91f84b95c8c3",
+   "lines": 576,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 576
+    }
+   ],
+   "findingDisposition": "confirmed-findings-recorded",
+   "reviewNotes": [
+    "Git subprocess environment, byte-level NUL parsing, UTF-8 fail-closed decoding, blob batching, gitlink handling, deterministic sorting, digest/line accounting and bounded automated scanning were reviewed line by line.",
+    "Semantic declarations are read from the exact Git blob set, require sorted unique paths, exact blob/digest/line identity, contiguous full-line coverage, structured findings and exact-head reviewedCommitSha binding.",
+    "Canonical finding identifiers now bind their embedded P0-P3 priority to the structured severity field before evidence can be applied.",
+    "Every evidence declaration configured by Policy v10 must exist in the exact tracked tree; generation and verification reject a committed deletion instead of silently emitting an empty evidence set.",
+    "Evidence identifiers now derive a canonical batch-and-slice prefix, bind reviewBatch to the identifier and prevent findings or residual risks from being attributed to another evidence slice.",
+    "Summary recomputation occurs after evidence application and completionClaim remains false.",
+    "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the multi-slice evidence-identifier derivation from the Batch 1B branch was union-merged with the re-attested Batch 1A authority; the change is confined to evidence-prefix parsing, reviewBatch binding and per-slice finding and residual-risk prefixes, negative tests cover them, and no new findings resulted."
+   ],
+   "findings": [
+    {
+     "id": "B01A-P2-004",
+     "severity": "P2",
+     "line": 290,
+     "attackPath": "A declaration could encode P0 in its canonical finding identifier while separately declaring P3, presenting contradictory release severity to downstream consumers.",
+     "affectedInvariant": "A canonical finding identifier and its structured severity must represent one unambiguous priority.",
+     "evidence": "The former validator checked the ID shape and severity membership independently but did not compare the ID priority segment with finding.severity.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "Manifest generation must reject a B01A-P0 identifier paired with P3 severity before semantic evidence is applied.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    },
+    {
+     "id": "B01A-P2-005",
+     "severity": "P2",
+     "line": 330,
+     "attackPath": "Deleting a configured evidence declaration while leaving its policy entry intact could previously produce a schema-valid manifest with an empty reviewEvidenceSets array.",
+     "affectedInvariant": "Every semantic evidence path configured by the audit policy must exist in the exact tracked tree before generation or verification can succeed.",
+     "evidence": "The former loop continued when filesByPath did not contain a configured declaration, silently downgrading previously recorded semantic review evidence.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "A committed deletion of batch-01a-audit-authority.json must make both manifest generation and verification fail closed.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    }
+   ]
+  },
+  {
+   "path": "scripts/repository-audit-policy.mjs",
+   "gitObjectId": "bef7d6ebd4dc4107da34e20a68c2ba08cb442a6c",
+   "sha256": "3656ebef0a2846662e8a17b73b51aff84f0f84aea97f2abd0bd3ca5e67aacef3",
+   "lines": 271,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 271
+    }
+   ],
+   "findingDisposition": "no-confirmed-findings",
+   "reviewNotes": [
+    "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
+    "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
+    "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted."
+   ],
+   "findings": []
+  },
+  {
+   "path": "scripts/repository-audit-workflow-policy.mjs",
+   "gitObjectId": "7dba3a0d92879f34e97d61078db6cea52019b99a",
+   "sha256": "8c028f08c6440ff068a073038dfdae5a1ea6fafb5a486c52d2bc6861abf00d99",
+   "lines": 369,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 369
+    }
+   ],
+   "findingDisposition": "confirmed-findings-recorded",
+   "reviewNotes": [
+    "Comment handling, scalar parsing, indentation and block boundaries, exact governed step sequence, permissions, exact-head propagation, reserved variable rejection, full-SHA action pinning and aggregate failure reporting were reviewed.",
+    "Required executable contracts are validated at their effective governed YAML nodes with exact keys and values instead of arbitrary substring presence; the workflow is constrained to one manifest job, exactly one top-level permissions mapping and the governed step-property set.",
+    "Step-level conditions, continue-on-error controls, scalar or job-level permission overrides, extra jobs and their actions are rejected fail closed instead of remaining outside the parsed authority.",
+    "Re-reviewed in full after merging main 63cffc08 (PR #264): the change is limited to the secret-scanning-baseline authentication-admin-security routing line (policy) and the GOVERNED_JOB_PROPERTIES job-property guard with duplicate rejection (workflow policy); both were authored and line-reviewed in this session, negative tests cover them, and no new findings resulted."
+   ],
+   "findings": [
+    {
+     "id": "B01A-P1-001",
+     "severity": "P1",
+     "line": 241,
+     "attackPath": "A required checkout, verification or artifact contract could be removed from executable YAML and preserved only as a comment while the former substring guard still returned success.",
+     "affectedInvariant": "Repository audit evidence must fail closed when an exact-head workflow control is not executable.",
+     "evidence": "The previous guard used unrestricted includes() checks; the final implementation parses the governed YAML structure and validates exact effective step nodes, keys, values and sequence.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "Negative fixtures must move each governed contract into a comment and observe a policy failure; the unchanged real workflow must pass.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    },
+    {
+     "id": "B01A-P2-007",
+     "severity": "P2",
+     "line": 183,
+     "attackPath": "A second workflow job could declare permissions: write-all and execute an unpinned action while the previous parser inspected only the governed manifest job and top-level mapping.",
+     "affectedInvariant": "Every job in the repository-audit workflow must remain inside the exact read-only and action-pinned authority.",
+     "evidence": "The parser now rejects every permissions node except the single top-level mapping and requires jobs to contain exactly the governed manifest job.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "A negative fixture must append a second job with scalar write-all permissions and an unpinned action, then observe a structural policy failure.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    },
+    {
+     "id": "B01A-P2-008",
+     "severity": "P2",
+     "line": 150,
+     "attackPath": "An if: false condition on manifest generation, verification or upload could skip required evidence while the previous parser ignored arbitrary scalar step properties.",
+     "affectedInvariant": "Every governed audit step must execute unconditionally whenever the workflow job runs.",
+     "evidence": "The parser now accepts only env, run, uses and with on governed steps, so if and other skip-capable properties fail structural validation.",
+     "fixOwner": "repository-supply-chain",
+     "verificationRequirement": "Negative fixtures must add if: false independently to generation, verification and upload and observe policy failure for each mutation.",
+     "disposition": "remediated",
+     "remediation": [
+      "https://github.com/tecpey/Tecpey-Os/issues/156"
+     ]
+    }
+   ]
+  },
+  {
+   "path": "scripts/verify-repository-audit-manifest.mjs",
+   "gitObjectId": "14a0a8b23071d066620af5cbb2f2b27ed7076b2d",
+   "sha256": "3893a295475d6a83e36992c6d769a79eba08431965bf69410d54efda46c316f0",
+   "lines": 14,
+   "reviewedRanges": [
+    {
+     "startLine": 1,
+     "endLine": 14
+    }
+   ],
+   "findingDisposition": "no-confirmed-findings",
+   "reviewNotes": [
+    "Input resolution, strict JSON parsing, full regeneration/structural comparison and verified-denominator reporting were reviewed; malformed or stale artifacts fail before success output."
+   ],
+   "findings": []
+  }
+ ]
 }
