@@ -111,6 +111,48 @@ async function seedIdentity(label: string): Promise<Identity> {
   return identity;
 }
 
+// Bind an ALREADY-seeded student into a second, independent tenant/workspace
+// without re-inserting the student. Used to prove that the same principal id,
+// active in two tenants, is isolated by the tenant/workspace predicate — not by
+// principal_id alone (which the different-principal cases cannot show).
+async function seedSecondTenantForStudent(
+  studentId: string,
+  label: string,
+): Promise<Identity> {
+  const identity = {
+    tenantId: `reputation-${label}-${randomUUID()}`,
+    workspaceId: `workspace-${randomUUID()}`,
+    studentId,
+  };
+  await withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+         VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+        [identity.tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_workspaces
+           (id, tenant_id, slug, display_name, products, settings)
+         VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+        [identity.workspaceId, identity.tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_principal_bindings
+           (tenant_id, workspace_id, principal_type, principal_id, source)
+         VALUES ($1, $2, 'student', $3, 'community_reputation_evidence_test')`,
+        [identity.tenantId, identity.workspaceId, identity.studentId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  });
+  return identity;
+}
+
 async function previousCycle(offset: number): Promise<OfficialJournalChallengeCycle> {
   return withClient(async (client) => {
     const clock = await client.query<{ now: Date }>("SELECT NOW() AS now");
@@ -518,4 +560,76 @@ describe("Community reputation evidence PostgreSQL authority", () => {
     assert.equal(revoked.summary.finalizedCycles, 0);
     assert.equal(revoked.summary.latest, null);
   });
+
+  it(
+    "scopes the SAME principal's reputation by tenant, not by principal id alone",
+    { skip: !configured },
+    async () => {
+      // The other isolation case uses a different student per tenant, so
+      // principal_id alone could explain it. Here ONE student id is active in
+      // two tenants: if the read predicate dropped tenant_id/workspace_id, each
+      // tenant's summary would fold in the other's evidence. It must not.
+      const tenantA = await seedIdentity("same-principal-a");
+      const tenantB = await seedSecondTenantForStudent(
+        tenantA.studentId,
+        "same-principal-b",
+      );
+
+      // Tenant A: one completed cycle (5 eligible / 4 reflected).
+      const cycleA = await previousCycle(10);
+      await finalize({
+        identity: tenantA,
+        enrollmentId: await seedActiveEnrollment(tenantA, cycleA),
+        cycle: cycleA,
+        outcome: "completed",
+        eligible: 5,
+        reflected: 4,
+        source: "interactive",
+      });
+      // Tenant B: a distinct completed cycle with different, distinguishable
+      // numbers (10 eligible / 10 reflected).
+      const cycleB = await previousCycle(11);
+      await finalize({
+        identity: tenantB,
+        enrollmentId: await seedActiveEnrollment(tenantB, cycleB),
+        cycle: cycleB,
+        outcome: "completed",
+        eligible: 10,
+        reflected: 10,
+        source: "interactive",
+      });
+
+      const aResult = await loadCommunityReputationEvidenceSummary(readContext(tenantA));
+      const bResult = await loadCommunityReputationEvidenceSummary(readContext(tenantB));
+      assert.equal(aResult.available, true);
+      assert.equal(bResult.available, true);
+      if (!aResult.available || !bResult.available) return;
+
+      // Each tenant sees exactly its own single cycle and its own totals — never
+      // the sum (2 cycles / 15 trades) a tenant-blind read would produce.
+      assert.equal(aResult.summary.finalizedCycles, 1);
+      assert.equal(aResult.summary.eligibleClosedTrades, 5);
+      assert.equal(aResult.summary.validReflections, 4);
+      assert.equal(bResult.summary.finalizedCycles, 1);
+      assert.equal(bResult.summary.eligibleClosedTrades, 10);
+      assert.equal(bResult.summary.validReflections, 10);
+      assert.notEqual(
+        aResult.summary.eligibleClosedTrades,
+        bResult.summary.eligibleClosedTrades,
+        "each tenant must read only its own evidence for the shared principal",
+      );
+
+      // Revoking tenant A's binding hides A's evidence but leaves B's intact —
+      // a per-tenant mutation, not a principal-wide one.
+      await revoke(tenantA);
+      const aAfter = await loadCommunityReputationEvidenceSummary(readContext(tenantA));
+      const bAfter = await loadCommunityReputationEvidenceSummary(readContext(tenantB));
+      assert.equal(aAfter.available && aAfter.summary.finalizedCycles, 0);
+      assert.equal(
+        bAfter.available && bAfter.summary.finalizedCycles,
+        1,
+        "revoking tenant A must not hide tenant B's evidence for the same principal",
+      );
+    },
+  );
 });
