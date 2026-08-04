@@ -15,8 +15,8 @@ type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?
 
 // The mentor's deterministic brain now lives in academy-ai-mentor-core (shared
 // with the news-quiz board). This component keeps only the browser-side pieces:
-// progress/memory in localStorage and the live /api/ai-mentor call, with the
-// core's toLocalReply as the fail-closed fallback.
+// progress/memory in the browser's local cache and the live /api/ai-mentor
+// call, with the core's toLocalReply as the fail-closed fallback.
 const quickQuestions = MENTOR_QUICK_QUESTIONS.fa;
 
 function readMentorProgress(): MentorProgress {
