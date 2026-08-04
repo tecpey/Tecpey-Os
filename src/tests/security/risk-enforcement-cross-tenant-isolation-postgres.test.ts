@@ -51,6 +51,28 @@ async function enforcementRowsFor(
   return result.value;
 }
 
+async function outboxRowsFor(
+  principalId: string,
+): Promise<Array<{ tenant_id: string; state: string; generation: number }>> {
+  const result = await withDb(async (client) => {
+    const rows = await client.query<{
+      tenant_id: string;
+      state: string;
+      generation: number;
+    }>(
+      `SELECT tenant_id, state, generation::integer AS generation
+         FROM risk_enforcement_outbox
+        WHERE principal_id = $1
+        ORDER BY tenant_id, generation`,
+      [principalId],
+    );
+    return rows.rows;
+  });
+  assert.equal(result.enabled, true, "risk test database must be reachable");
+  if (!result.enabled) throw new Error("risk_test_database_unavailable");
+  return result.value;
+}
+
 // No teardown: the risk authority tables are append-only durable evidence
 // (risk_enforcement_outbox is guarded against DELETE), so — like the other risk
 // authority integration tests — each run uses a fresh random principal id and
@@ -117,6 +139,26 @@ describe("Risk enforcement cross-tenant isolation", () => {
           detectorFacts: { observedCount: 11, threshold: 10 },
         });
         assert.equal(escalateB.effectiveLevel, "trade_blocked");
+
+        // Projection debt is published under the *acting* tenant. Redis is off,
+        // so a correctly-published outbox row lands in 'dead_letter'. If the
+        // internal publish call dropped the tenant, tenant B's row would be
+        // selected under the default tenant and B's own row would stay 'pending'
+        // — so asserting B owns terminal outbox rows catches that leak.
+        const outbox = await outboxRowsFor(principalId);
+        const tenantBOutbox = outbox.filter((r) => r.tenant_id === TENANT_B);
+        assert.ok(tenantBOutbox.length >= 1, "tenant B must own its own outbox rows");
+        for (const row of tenantBOutbox) {
+          assert.notEqual(
+            row.state,
+            "pending",
+            "tenant B's projection debt must be published under tenant B, not left pending",
+          );
+        }
+        assert.ok(
+          outbox.some((r) => r.tenant_id === TENANT_A),
+          "tenant A must own its own outbox rows",
+        );
 
         // The load-bearing read predicate: each tenant resolves only its own
         // level. A tenant-blind read would hand both tenants the same row.

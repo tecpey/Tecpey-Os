@@ -475,7 +475,7 @@ export async function recordRiskDecision(
 
   if (!transaction.enabled) throw new Error("risk_authority_unavailable");
   const projectionPublished = transaction.value.projectionRequired
-    ? await publishRiskEnforcementOutbox(principalId)
+    ? await publishRiskEnforcementOutbox(principalId, tenantId)
     : true;
   return {
     eventFingerprint,
@@ -584,7 +584,7 @@ async function transitionToNone(input: {
 
   if (!result.enabled) return { available: false };
   if (result.value.projectionRequired) {
-    await publishRiskEnforcementOutbox(input.principalId);
+    await publishRiskEnforcementOutbox(input.principalId, tenantId);
   }
   return {
     available: true,
