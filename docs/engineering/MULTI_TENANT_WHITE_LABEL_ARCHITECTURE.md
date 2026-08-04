@@ -37,9 +37,13 @@ residency. Both are noted as follow-ups but not designed in this pass.
   and `src/lib/tenant-service.ts`. Tenant comes from the authenticated
   principal's **membership/binding**, defaulting to `PLATFORM.DEFAULT_TENANT_ID`
   / `PLATFORM.DEFAULT_WORKSPACE_ID`.
-- **There is no Next.js middleware and no host/subdomain → tenant mapping.**
-  `server.ts` is a network-bootstrap custom server, not a tenant router. A
-  request's tenant is therefore only known *after* authentication.
+- The request edge is `src/proxy.ts` — this Next build's proxy convention
+  (`export async function proxy(request)`, **not** the deprecated
+  `middleware.ts`; see AGENTS.md). It already owns CSP + nonce, the trace
+  request-id header, trusted request headers, and academy auth redirects. It
+  does **no** host/subdomain → tenant mapping today, so a request's tenant is
+  only known *after* authentication (`server.ts` is a network bootstrap, not a
+  tenant router).
 
 **Isolation — proven where the write path is genuinely multi-tenant.**
 - Cross-tenant adversarial proofs exist for exchange orders, withdrawal intents,
@@ -90,12 +94,15 @@ produces a `ResolvedTenant { tenantId, workspaceId, source }`:
 4. **Default** — `PLATFORM.DEFAULT_TENANT_ID` when nothing else resolves
    (keeps `tecpey.ir` itself working unchanged).
 
-Implementation: a Next.js `middleware.ts` that resolves host→tenant and forwards
-it as a **signed** request header the server trusts, *plus* a server-side
-`resolveRequestTenant(req, session)` helper that reconciles the header with the
-session's allowed tenants (defense-in-depth — the middleware hint is never the
-sole authority). Precedence and the "hint ≤ session-allowed" rule are the
-security core and must have their own authority test.
+Implementation: **extend the existing `src/proxy.ts`** (this build's request-edge
+proxy — do NOT introduce a `middleware.ts`, which this Next version deprecates
+and which would either be ignored or split edge ownership away from the proxy
+that already holds CSP/request-id/redirects). The proxy resolves host→tenant and
+forwards it as a **signed** request header the server trusts, *plus* a
+server-side `resolveRequestTenant(req, session)` helper that reconciles the
+header with the session's allowed tenants (defense-in-depth — the proxy hint is
+never the sole authority). Precedence and the "hint ≤ session-allowed" rule are
+the security core and must have their own authority test.
 
 ### 3.2 Tenant context propagation — EXTEND
 Thread `ResolvedTenant` into the existing `AvailableTenantPrincipalContext` so
@@ -134,7 +141,7 @@ instead of hardcoded `tecpey` values. Must stay within the existing
 | Layer | Exists | Missing |
 |-------|--------|---------|
 | Tenant data model | tenants, workspaces, memberships, bindings | `platform_tenant_domains`, optional `platform_tenant_branding` |
-| Request resolution | session/membership-derived | host/subdomain + signed-header middleware; `resolveRequestTenant` reconciliation |
+| Request resolution | session/membership-derived | host/subdomain + signed-header proxy hint; `resolveRequestTenant` reconciliation |
 | Authority scoping | risk (#310) un-pinned + proven | ~remaining pinned domains among the 37 `DEFAULT_TENANT_ID` files |
 | Product gating | `products[]` column, `product-registry.ts` (global flags), `requireTenant`/`requireFeature` guards | per-tenant `isProductEnabledForTenant` + `requireProduct` guard + test |
 | White-label | none | branding doc, provider, tokenized theming, per-tenant logo/locale |
@@ -153,13 +160,14 @@ trusted.
   invariant *a resolved tenant must be one the session is allowed to act in*
   (else fall back to session/default, never escalate). Pure + unit-tested,
   including the adversarial "spoofed header for a foreign tenant is rejected"
-  case. No middleware wired yet.
+  case. No proxy change wired yet.
 
-- **P1 — `platform_tenant_domains` + middleware hint.**
-  Migration for the domain table; `middleware.ts` resolves host→tenant and sets
-  a signed hint header; `resolveRequestTenant` consumes it. `tecpey.ir` and
-  unknown hosts resolve to the default tenant (zero regression). Golden-Path
-  e2e asserts the default host is unchanged.
+- **P1 — `platform_tenant_domains` + proxy hint.**
+  Migration for the domain table; **`src/proxy.ts`** resolves host→tenant and
+  sets a signed hint header (extending the existing proxy, not a new
+  `middleware.ts`); `resolveRequestTenant` consumes it. `tecpey.ir` and unknown
+  hosts resolve to the default tenant (zero regression). Golden-Path e2e asserts
+  the default host and existing CSP/redirect behavior are unchanged.
 
 - **P2..Pn — Un-pin one domain per PR.**
   For each genuinely multi-tenant pinned authority (following the risk #310
@@ -182,7 +190,7 @@ trusted.
 
 1. **Fail-closed default.** Anything unresolved is the default tenant, never a
    guessed or escalated one.
-2. **The middleware hint is advice, not authority.** Server-side reconciliation
+2. **The proxy hint is advice, not authority.** Server-side reconciliation
    against the session's allowed tenants is the real boundary and is tested
    adversarially.
 3. **Every un-pinned domain ships with a cross-tenant proof** (the #310 method:
@@ -198,5 +206,5 @@ trusted.
 
 Implement **P0** (`resolveRequestTenant` + its adversarial unit test) as the
 next PR — it is pure, security-critical, unblocks every later phase, and needs
-no migration or middleware. It also gives reviewers the precedence/reconciliation
+no migration or proxy change. It also gives reviewers the precedence/reconciliation
 contract to sign off on before any host routing is trusted.
