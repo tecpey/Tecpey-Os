@@ -33,6 +33,20 @@ export type NewsQuizOptions = {
   conceptTag?: string;
 };
 
+/**
+ * Profit-promise and price-prediction language that must never reach a learner.
+ * The live news feed is untrusted copy, so a headline containing any of this is
+ * not reproduced in the prompt — it is replaced with a neutral subject. Exported
+ * as the single source of truth so tests assert against the same rule. Uses no
+ * global flag, so `.test()` is stateless.
+ */
+export const PROHIBITED_CLAIM_PATTERN =
+  /(guarantee|guaranteed|profit|double your|to the moon|\bmoon\b|\bx\d+\b|\d+\s*%\s*(?:gain|return|up)|\bpump\b|سود ?تضمین|حتماً? سود|قطعاً? رشد|دو ?برابر|به ?ماه|صد ?در ?صد)/i;
+
+export function containsProhibitedClaim(text: string): boolean {
+  return PROHIBITED_CLAIM_PATTERN.test(text);
+}
+
 const COPY: Record<NewsQuizLocale, {
   prompt: (subject: string) => string;
   correct: string;
@@ -92,7 +106,12 @@ export function generateNewsQuizQuestion(
   options: NewsQuizOptions,
 ): QuizQuestion {
   const copy = COPY[options.locale];
-  const subject = nonBlankOr(item.title, copy.genericSubject);
+  // The headline is untrusted feed copy. Reproduce it only when it carries no
+  // profit-promise / price-prediction language; otherwise teach the risk-first
+  // response to a neutral "market update" rather than amplify the hype.
+  const rawTitle = nonBlankOr(item.title, "");
+  const subject =
+    rawTitle.length > 0 && !containsProhibitedClaim(rawTitle) ? rawTitle : copy.genericSubject;
   // A single space keeps the four choices distinct and the correct answer an
   // exact option; the integrity authority enforces both.
   const choices = [copy.correct, ...copy.distractors];

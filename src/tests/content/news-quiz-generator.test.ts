@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   generateNewsQuizBank,
   generateNewsQuizQuestion,
+  PROHIBITED_CLAIM_PATTERN,
   type NewsQuizInput,
 } from "../../lib/academy-news-quiz-generator";
 import {
@@ -24,8 +25,8 @@ const sample: NewsQuizInput = {
   impact: 8,
 };
 
-// Any language that promises returns or predicts price must never appear.
-const PROFIT_PROMISE = /(guarantee|guaranteed|profit|double your|to the moon|\bmoon\b|\bx\d+\b|سود تضمین|حتماً? سود|قطعاً? رشد|دو ?برابر)/i;
+// Single source of truth: the same rule the generator enforces.
+const PROFIT_PROMISE = PROHIBITED_CLAIM_PATTERN;
 
 function questionText(input: NewsQuizInput, locale: "fa" | "en"): string {
   const q = generateNewsQuizQuestion(input, { locale });
@@ -74,6 +75,23 @@ describe("News-driven quiz generation", () => {
           PROFIT_PROMISE,
           `${locale} question for ${input.id} must not promise profit or predict price`,
         );
+      }
+    }
+  });
+
+  it("strips a hype headline instead of reproducing it in the prompt", () => {
+    // The live feed is untrusted copy; a headline that itself promises profit or
+    // predicts price must not reach the learner verbatim.
+    const hype: NewsQuizInput[] = [
+      { id: "h1", title: "Guaranteed profit: Bitcoin to the moon this week", impact: 7 },
+      { id: "h2", title: "این کوین قطعاً رشد می‌کند و سود تضمینی دارد", impact: 7 },
+    ];
+    for (const input of hype) {
+      for (const locale of ["en", "fa"] as const) {
+        const q = generateNewsQuizQuestion(input, { locale });
+        assert.equal(isQuizQuestionValid(q), true);
+        assert.doesNotMatch(q.question, PROHIBITED_CLAIM_PATTERN, "the hype headline must not appear in the prompt");
+        assert.doesNotMatch(questionText(input, locale), PROHIBITED_CLAIM_PATTERN);
       }
     }
   });
