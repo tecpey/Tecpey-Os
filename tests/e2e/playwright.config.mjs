@@ -17,7 +17,10 @@ export default defineConfig({
   testDir: "./specs",
   testMatch: "**/*.spec.mjs",
   outputDir: `./test-results/${evidenceProject}`,
-  timeout: 45_000,
+  // 90s per test so a slow reload on the mobile-emulated projects (firefox
+  // mobile under CI I/O contention can exceed the 30s default reload budget)
+  // has room to finish instead of tripping the per-test timeout.
+  timeout: 90_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
   forbidOnly: isCi,

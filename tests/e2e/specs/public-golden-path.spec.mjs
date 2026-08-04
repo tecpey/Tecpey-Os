@@ -591,7 +591,10 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
   await waitForPendingCspViolationDeliveries(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  // A generous reload budget: the mobile-emulated projects can exceed the 30s
+  // default under CI load, and the assertions below already auto-wait for the
+  // rehydrated content, so a slow navigation should not fail the run.
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
 
@@ -791,7 +794,7 @@ test("CSP evidence remains available after a document reload", async ({ page }, 
   ]);
 
   await waitForPendingCspViolationDeliveries(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   expect(cspViolations(page)).toEqual([
     {
       effectiveDirective: "connect-src",
