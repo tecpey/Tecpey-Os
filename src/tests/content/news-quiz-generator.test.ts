@@ -85,6 +85,10 @@ describe("News-driven quiz generation", () => {
     const hype: NewsQuizInput[] = [
       { id: "h1", title: "Guaranteed profit: Bitcoin to the moon this week", impact: 7 },
       { id: "h2", title: "این کوین قطعاً رشد می‌کند و سود تضمینی دارد", impact: 7 },
+      // Price predictions and multipliers must be caught in either word order.
+      { id: "h3", title: "Analysts say Bitcoin will 10x and reach $1 million", impact: 7 },
+      { id: "h4", title: "New price target: ETH to $10k, experts predict a rally", impact: 6 },
+      { id: "h5", title: "هدف قیمت جدید: پیش‌بینی رشد ده برابری بیت‌کوین", impact: 6 },
     ];
     for (const input of hype) {
       for (const locale of ["en", "fa"] as const) {

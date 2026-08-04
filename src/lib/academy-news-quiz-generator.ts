@@ -40,8 +40,25 @@ export type NewsQuizOptions = {
  * as the single source of truth so tests assert against the same rule. Uses no
  * global flag, so `.test()` is stateless.
  */
-export const PROHIBITED_CLAIM_PATTERN =
-  /(guarantee|guaranteed|profit|double your|to the moon|\bmoon\b|\bx\d+\b|\d+\s*%\s*(?:gain|return|up)|\bpump\b|سود ?تضمین|حتماً? سود|قطعاً? رشد|دو ?برابر|به ?ماه|صد ?در ?صد)/i;
+export const PROHIBITED_CLAIM_PATTERN = new RegExp(
+  [
+    // profit promises
+    "guarantee|guaranteed|profit|double your|to the moon|\\bmoon\\b|\\bpump\\b",
+    // multipliers, both orders: x10 / 10x / "10 x"
+    "\\bx\\s*\\d+\\b|\\b\\d+\\s*x\\b",
+    // percentage-return claims
+    "\\d+\\s*%\\s*(?:gain|return|up)",
+    // future-tense price predictions
+    "\\bwill\\s+(?:reach|hit|surge|soar|rally|rocket|explode|skyrocket|double|triple|moon|crash)\\b",
+    // explicit prediction / forecast / price-target language
+    "\\bprice\\s+(?:target|prediction)\\b|\\bpredict(?:ion|ions|ed|s)?\\b|\\bforecast(?:ed|s)?\\b",
+    // price targets pointed at a dollar figure, or large dollar figures
+    "(?:reach|hit|to|target)\\s*\\$\\s?[\\d,]+|\\$\\s?[\\d,]+\\s?(?:k|m|bn?|million|billion|trillion)\\b",
+    // Persian equivalents
+    "سود ?تضمین|حتماً? سود|قطعاً? رشد|دو ?برابر|چند ?برابر|ده ?برابر|صد ?برابر|به ?ماه|صد ?در ?صد|هدف ?قیمت|پیش[‌ ]?بینی",
+  ].join("|"),
+  "i",
+);
 
 export function containsProhibitedClaim(text: string): boolean {
   return PROHIBITED_CLAIM_PATTERN.test(text);

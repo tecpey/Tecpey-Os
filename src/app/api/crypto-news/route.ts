@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -255,6 +256,12 @@ export async function GET(request: NextRequest) {
     const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
     const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 8);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 24) : 8;
+    // Opt-in: turn the same items into validated, risk-first quiz questions.
+    // The bank is built through the fail-closed integrity gate, so it never
+    // surfaces an unanswerable question or profit-promise copy.
+    const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
+    const quizFor = (items: NewsItem[]) =>
+      includeQuiz ? { newsQuiz: buildNewsQuizBankFromFeed(items, { locale }) } : {};
     const fallback = locale === "fa" ? fallbackFa : fallbackEn;
     const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
     try {
@@ -264,9 +271,9 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, limit);
       const responseItems = unique.length ? unique : fallback;
-      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems });
+      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems, ...quizFor(responseItems) });
     } catch {
-      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback });
+      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback, ...quizFor(fallback) });
     }
   });
 }
