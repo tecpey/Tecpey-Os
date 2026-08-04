@@ -25,6 +25,13 @@ export type RiskDecisionInput = {
   detectorIdentity: string;
   market?: string | null;
   detectorFacts?: Record<string, unknown>;
+  /**
+   * Owning tenant for this decision. Optional and defaults to the platform's
+   * default tenant, so single-tenant callers are unaffected; a multi-tenant
+   * caller passes its resolved tenant so risk enforcement is scoped per tenant
+   * (the same principal under two tenants gets independent enforcement).
+   */
+  tenantId?: string;
 };
 
 export type RiskDecisionResult = {
@@ -227,10 +234,20 @@ async function replaceProjectionDebt(
   );
 }
 
+/**
+ * Resolve the owning tenant for a risk operation, defaulting to the platform's
+ * default tenant when the caller does not specify one. Keeps single-tenant
+ * callers unchanged while letting a multi-tenant caller scope enforcement.
+ */
+function normalizeRiskTenant(tenantId?: string | null): string {
+  const trimmed = typeof tenantId === "string" ? tenantId.trim() : "";
+  return trimmed.length > 0 ? trimmed : PLATFORM.DEFAULT_TENANT_ID;
+}
+
 export async function recordRiskDecision(
   input: RiskDecisionInput,
 ): Promise<RiskDecisionResult> {
-  const tenantId = PLATFORM.DEFAULT_TENANT_ID;
+  const tenantId = normalizeRiskTenant(input.tenantId);
   const principalId = input.principalId.trim();
   if (!principalId || principalId.length > 300) {
     throw new Error("invalid_risk_principal");
@@ -458,7 +475,7 @@ export async function recordRiskDecision(
 
   if (!transaction.enabled) throw new Error("risk_authority_unavailable");
   const projectionPublished = transaction.value.projectionRequired
-    ? await publishRiskEnforcementOutbox(principalId)
+    ? await publishRiskEnforcementOutbox(principalId, tenantId)
     : true;
   return {
     eventFingerprint,
@@ -472,10 +489,11 @@ export async function recordRiskDecision(
 
 async function transitionToNone(input: {
   principalId: string;
+  tenantId: string;
   action: "risk.enforcement.clear" | "risk.enforcement.expire";
   expectedExpired?: boolean;
 }): Promise<RiskAuthorityResolution> {
-  const tenantId = PLATFORM.DEFAULT_TENANT_ID;
+  const tenantId = input.tenantId;
   const result = await withTx(async (client): Promise<TransitionValue> => {
     await lockPrincipal(client, tenantId, input.principalId);
     const currentResult = await client.query<
@@ -566,7 +584,7 @@ async function transitionToNone(input: {
 
   if (!result.enabled) return { available: false };
   if (result.value.projectionRequired) {
-    await publishRiskEnforcementOutbox(input.principalId);
+    await publishRiskEnforcementOutbox(input.principalId, tenantId);
   }
   return {
     available: true,
@@ -578,17 +596,20 @@ async function transitionToNone(input: {
 
 export async function clearRiskEnforcement(
   principalId: string,
+  tenantId?: string,
 ): Promise<RiskAuthorityResolution> {
   return transitionToNone({
     principalId,
+    tenantId: normalizeRiskTenant(tenantId),
     action: "risk.enforcement.clear",
   });
 }
 
 export async function resolveRiskEnforcement(
   principalId: string,
+  tenantIdInput?: string,
 ): Promise<RiskAuthorityResolution> {
-  const tenantId = PLATFORM.DEFAULT_TENANT_ID;
+  const tenantId = normalizeRiskTenant(tenantIdInput);
   const selected = await withDb(async (client) => {
     const result = await client.query<EnforcementRow>(
       `SELECT level, generation::integer AS generation, expires_at
@@ -611,6 +632,7 @@ export async function resolveRiskEnforcement(
   ) {
     return transitionToNone({
       principalId,
+      tenantId,
       action: "risk.enforcement.expire",
       expectedExpired: true,
     });
@@ -629,8 +651,9 @@ function redisClient() {
 
 export async function publishRiskEnforcementOutbox(
   principalId?: string,
+  tenantIdInput?: string,
 ): Promise<boolean> {
-  const tenantId = PLATFORM.DEFAULT_TENANT_ID;
+  const tenantId = normalizeRiskTenant(tenantIdInput);
   const selected = await withDb(async (client) => {
     const result = await client.query<{
       principal_id: string;
