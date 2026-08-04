@@ -186,6 +186,7 @@ export default function MarketsPage() {
                 <div className="flex items-center gap-2 sm:gap-4 min-w-max">
                   <button
                     onClick={goToPrevPage}
+                    aria-label="صفحه قبل"
                     disabled={currentPage === 1 || isFetching}
                     className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
                       currentPage === 1 || isFetching
@@ -224,6 +225,7 @@ export default function MarketsPage() {
 
                   <button
                     onClick={goToNextPage}
+                    aria-label="صفحه بعد"
                     disabled={currentPage === totalPages || isFetching}
                     className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-lg text-white ${
                       currentPage === totalPages || isFetching
