@@ -63,7 +63,7 @@ const COPY: Record<Locale, {
     mentorChecklistHeading: "چک‌لیست عملی",
     mentorLessonCta: "مرور درس مرتبط",
     mentorCta: "این خبر را از مربی هوشمند بپرس",
-    mentorHref: "/academy/ai-guide",
+    mentorHref: "/academy/ai-guide#mentor-chat",
     newsHref: "/crypto-news",
     newsCta: "مشاهده مرکز خبر",
   },
@@ -85,7 +85,10 @@ const COPY: Record<Locale, {
     mentorCoachHeading: "Your AI Mentor says",
     mentorChecklistHeading: "Practical checklist",
     mentorLessonCta: "Review the related lesson",
-    mentorCta: "Ask the AI Mentor about this news",
+    // The English ai-guide is an informational page (no live chat), so the CTA
+    // describes that destination honestly; the interactive coaching above is the
+    // actionable mentor experience on this page.
+    mentorCta: "See the AI Mentor guide",
     mentorHref: "/en/academy/ai-guide",
     newsHref: "/en/crypto-news",
     newsCta: "Open the News Center",

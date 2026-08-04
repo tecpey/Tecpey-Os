@@ -21,10 +21,10 @@ const PAGE_PRIORITIES: Record<string, number> = {
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const staticPaths = [
-    "", "/academy", "/learn", "/price", "/markets", "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide", "/trading-tools", "/crypto-news", "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency", "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates", "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program", "/academy/community", "/academy/graduation", "/academy/achievements"
+    "", "/academy", "/learn", "/price", "/markets", "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide", "/trading-tools", "/crypto-news", "/academy/news-quiz", "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency", "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates", "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program", "/academy/community", "/academy/graduation", "/academy/achievements"
   ];
   const englishPaths = [
-    "/en", "/en/academy", "/en/markets", "/en/coins", "/en/glossary", "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey", "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure", "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap", "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners"
+    "/en", "/en/academy", "/en/markets", "/en/coins", "/en/glossary", "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey", "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/academy/news-quiz", "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure", "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap", "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners"
   ];
   return [
     ...staticPaths.map((path) => ({ url: `${base}${path || "/"}`, lastModified: now, changeFrequency: "weekly" as const, priority: PAGE_PRIORITIES[path] ?? 0.75 })),

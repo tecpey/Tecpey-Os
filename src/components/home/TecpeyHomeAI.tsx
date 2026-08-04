@@ -411,12 +411,18 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
               {isFa ? "هر خبر را می‌توانی از مربی هوشمند بپرسی: چرا مهم است؟ ریسک آن چیست؟ چه درس مرتبطی باید بخوانم؟" : "Ask the AI Mentor about any news: why it matters, what the risks are and which lesson explains it."}
             </p>
           </div>
-          {compact && (
-            <Link href={isFa ? "/crypto-news" : "/en/crypto-news"} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
-              {isFa ? "مشاهده همه اخبار" : "Open News Center"}
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
+            <Link href={isFa ? "/academy/news-quiz" : "/en/academy/news-quiz"} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">
+              {isFa ? "کوییز هوشمند خبری" : "Smart news quiz"}
               {isFa ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
             </Link>
-          )}
+            {compact && (
+              <Link href={isFa ? "/crypto-news" : "/en/crypto-news"} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/30 px-5 py-3 text-sm font-black text-cyan-700 transition hover:bg-cyan-500/10 dark:text-cyan-100">
+                {isFa ? "مشاهده همه اخبار" : "Open News Center"}
+                {isFa ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </section>
