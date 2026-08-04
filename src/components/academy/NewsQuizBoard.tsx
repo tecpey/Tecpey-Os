@@ -6,7 +6,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Brain,
+  BookOpenCheck,
   CheckCircle2,
+  ListChecks,
   Newspaper,
   RefreshCw,
   ShieldCheck,
@@ -14,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toSafeNewsQuizBank, type SafeNewsQuizQuestion } from "@/lib/academy-news-quiz-view";
+import { buildMentorCoaching } from "@/lib/academy-ai-mentor-core";
 
 type Locale = "fa" | "en";
 
@@ -33,6 +36,9 @@ const COPY: Record<Locale, {
   why: string;
   answered: string;
   riskNote: string;
+  mentorCoachHeading: string;
+  mentorChecklistHeading: string;
+  mentorLessonCta: string;
   mentorCta: string;
   mentorHref: string;
   newsHref: string;
@@ -53,6 +59,9 @@ const COPY: Record<Locale, {
     why: "چرا؟",
     answered: "پاسخ ثبت شد",
     riskNote: "خبر، زمینه است نه دستورِ معامله؛ قبل از هر اقدام، ریسک و امنیت را بسنج.",
+    mentorCoachHeading: "مربی هوشمند می‌گوید",
+    mentorChecklistHeading: "چک‌لیست عملی",
+    mentorLessonCta: "مرور درس مرتبط",
     mentorCta: "این خبر را از مربی هوشمند بپرس",
     mentorHref: "/academy/ai-guide",
     newsHref: "/crypto-news",
@@ -73,6 +82,9 @@ const COPY: Record<Locale, {
     why: "Why?",
     answered: "Answer recorded",
     riskNote: "News is context, not a trade instruction — weigh risk and security before acting.",
+    mentorCoachHeading: "Your AI Mentor says",
+    mentorChecklistHeading: "Practical checklist",
+    mentorLessonCta: "Review the related lesson",
     mentorCta: "Ask the AI Mentor about this news",
     mentorHref: "/en/academy/ai-guide",
     newsHref: "/en/crypto-news",
@@ -96,6 +108,8 @@ function QuestionCard({
   const [picked, setPicked] = useState<string | null>(null);
   const answered = picked !== null;
   const isCorrect = answered && picked === question.correctAnswer;
+  // Deterministic mentor coaching for this question, from the shared mentor core.
+  const coaching = useMemo(() => buildMentorCoaching(question.question, locale), [question.question, locale]);
 
   const choose = useCallback(
     (option: string) => {
@@ -171,6 +185,39 @@ function QuestionCard({
               {question.explanation}
             </p>
           )}
+
+          {/* The same deterministic, guard-railed mentor brain that powers the
+              AI Mentor page now coaches right here — keyed to the question's
+              detected mode, curated copy only (no headline text echoed), so it
+              can never surface a prediction or profit promise. */}
+          <div className="rounded-2xl border border-violet-300/20 bg-violet-500/[0.06] p-4 dark:bg-violet-500/10">
+            <div className="flex items-center gap-2 text-xs font-black text-violet-700 dark:text-violet-200">
+              <Brain className="h-4 w-4" />
+              {copy.mentorCoachHeading}
+            </div>
+            <p className="mt-2 text-sm font-black leading-7 text-slate-900 dark:text-white">{coaching.title}</p>
+            <p className="mt-1 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{coaching.summary}</p>
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+              <ListChecks className="h-3.5 w-3.5" />
+              {copy.mentorChecklistHeading}
+            </div>
+            <ul className="mt-2 grid gap-1.5">
+              {coaching.checklist.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-200">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href={coaching.lesson.href}
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 px-4 py-2.5 text-xs font-black text-cyan-700 transition hover:bg-cyan-500/20 dark:text-cyan-100"
+            >
+              <BookOpenCheck className="h-4 w-4" />
+              {copy.mentorLessonCta}
+              {isFa ? <ArrowLeft className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+            </Link>
+          </div>
         </div>
       )}
     </div>
