@@ -135,6 +135,9 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
             <Link href={isFa ? "/academy/final-assessment" : "/en/academy/final-assessment"} className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400">
               <CheckCircle2 className="h-4 w-4" /> {isFa ? "ارزیابی آمادگی" : "Readiness check"}
             </Link>
+            <Link href={isFa ? "/academy/news-quiz" : "/en/academy/news-quiz"} className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-white/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-white/15">
+              <Sparkles className="h-4 w-4" /> {isFa ? "کوییز هوشمند خبری" : "Smart news quiz"}
+            </Link>
           </aside>
         </div>
       </div>

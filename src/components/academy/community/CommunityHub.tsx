@@ -262,14 +262,14 @@ export function CommunityHub() {
           badge="Pilot"
         />
         <NavTile
-          href="/academy/community/leaderboard"
+          href="/academy/community/leaderboards"
           icon={<Trophy className="h-5 w-5 text-amber-300" />}
           title="جدول رتبه‌بندی"
           description="Evidence رسمی آماده است؛ Rank و Reward هنوز غیرفعال‌اند"
           badge="Evidence"
         />
         <NavTile
-          href="/academy/community/instructors"
+          href="/academy/community/instructor"
           icon={<Award className="h-5 w-5 text-violet-300" />}
           title="مرور با مدرس"
           description="تا Role/Grant Authority واقعی، اشتراک با مدرس فعال نیست"
