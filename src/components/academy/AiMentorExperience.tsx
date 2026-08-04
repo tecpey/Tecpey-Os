@@ -3,31 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bot, BookOpenCheck, CheckCircle2, Loader2, Send, ShieldAlert, Sparkles, BrainCircuit, Target } from "lucide-react";
+import {
+  MENTOR_QUICK_QUESTIONS,
+  detectMentorMode,
+  toLocalReply,
+  type MentorMode,
+  type MentorReply,
+} from "@/lib/academy-ai-mentor-core";
 
-type Mode = "concept" | "security" | "risk" | "trading" | "project" | "psychology";
-type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?: Mode; confidence: number };
+type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?: MentorMode; confidence: number };
 
-type MentorReply = {
-  ok?: boolean;
-  answer: string;
-  isReady?: boolean;
-  mode?: string;
-  aiError?: string;
-  relatedTerm?: { number: number; title: string; href: string };
-  checklist?: string[];
-  suggestedQuestions?: string[];
-  sourceLessons?: { title: string; href: string }[];
-  rateLimit?: { remaining: number };
-};
-
-const quickQuestions = [
-  "Seed Phrase را گم کنم چه می‌شود؟",
-  "اگر RSI روی ۸۲ باشد یعنی باید بفروشم؟",
-  "فرق Market Cap و FDV چیست؟",
-  "با ۱۰۰ میلیون چطور ریسک را کنترل کنم؟",
-  "چطور بفهمم یک پروژه کلاهبرداری نیست؟",
-  "اگر از ضرر عصبانی شدم چه کنم؟",
-];
+// The mentor's deterministic brain now lives in academy-ai-mentor-core (shared
+// with the news-quiz board). This component keeps only the browser-side pieces:
+// progress/memory in the browser's local cache and the live /api/ai-mentor
+// call, with the core's toLocalReply as the fail-closed fallback.
+const quickQuestions = MENTOR_QUICK_QUESTIONS.fa;
 
 function readMentorProgress(): MentorProgress {
   if (typeof window === "undefined") return { completedTerms: [], weakAreas: [], confidence: 0 };
@@ -53,9 +43,9 @@ function readMentorProgress(): MentorProgress {
   }
 }
 
-function updateMentorMemory(mode: Mode, question: string) {
+function updateMentorMemory(mode: MentorMode, question: string) {
   if (typeof window === "undefined") return;
-  const labels: Record<Mode, string> = {
+  const labels: Record<MentorMode, string> = {
     concept: "مبانی و مفهوم", security: "امنیت دارایی", risk: "مدیریت ریسک", trading: "تحلیل تکنیکال", project: "تحلیل پروژه", psychology: "روانشناسی بازار",
   };
   const current = readMentorProgress();
@@ -72,93 +62,6 @@ function updateMentorMemory(mode: Mode, question: string) {
   } catch {
     window.localStorage.setItem(historyKey, JSON.stringify([{ question, mode, askedAt: Date.now() }]));
   }
-}
-
-function detectMode(text: string): Mode {
-  const q = text.toLowerCase();
-  if (/seed|phrase|فیشینگ|phishing|کیف پول|wallet|رمز|2fa|هک|امن/.test(q)) return "security";
-  if (/risk|ریسک|حد ضرر|سرمایه|position|سایز|drawdown|ضرر/.test(q)) return "risk";
-  if (/rsi|macd|کندل|حمایت|مقاومت|نمودار|تحلیل تکنیکال|breakout/.test(q)) return "trading";
-  if (/fdv|market cap|توکنومیکس|tokenomics|پروژه|whitepaper|vesting|tvl/.test(q)) return "project";
-  if (/fomo|ترس|طمع|انتقامی|هیجان|روانشناسی|عصبی/.test(q)) return "psychology";
-  return "concept";
-}
-
-const localResponses: Record<Mode, { title: string; body: string[]; checklist: string[]; next: string; link: string }> = {
-  concept: {
-    title: "توضیح مفهومی، ساده و بدون هیجان",
-    body: [
-      "اول مفهوم را از تصمیم مالی جدا کنیم. دانستن یک مفهوم یعنی بتوانی آن را با مثال توضیح بدهی، ریسک‌هایش را نام ببری و بدانی در چه موقعیتی نباید عجله کنی.",
-      "در آکادمی تک‌پی، پاسخ آموزشی جایگزین تحقیق شخصی یا توصیه خرید و فروش نیست؛ هدف این است که قبل از اقدام، سؤال‌های درست‌تری بپرسی.",
-    ],
-    checklist: ["تعریف ساده را بنویس", "مثال واقعی پیدا کن", "ریسک اصلی را مشخص کن", "درس مرتبط را مرور کن"],
-    next: "برای شروع بهتر است ترم مبانی رمزارز را مرور کنی.",
-    link: "/academy/term-1",
-  },
-  security: {
-    title: "امنیت قبل از هر معامله",
-    body: [
-      "در امنیت رمزارز، خطاها گاهی برگشت‌پذیر نیستند. اگر Seed Phrase لو برود، کسی که آن را دارد می‌تواند دارایی کیف پول غیرامانی را منتقل کند. اگر گم شود، ممکن است خودت هم دیگر به دارایی دسترسی نداشته باشی.",
-      "هیچ پشتیبان، مدرس یا دستیار هوشمندی نباید Seed Phrase، کد 2FA یا رمز ورود تو را بخواهد. هر درخواستی از این جنس یک هشدار جدی است.",
-    ],
-    checklist: ["Seed را آنلاین ذخیره نکن", "دامنه رسمی را خودت تایپ کن", "2FA را فعال کن", "قبل از برداشت شبکه و آدرس را چک کن"],
-    next: "برای پاسخ کامل‌تر، ترم امنیت دارایی را ببین.",
-    link: "/academy/term-2",
-  },
-  risk: {
-    title: "اول اندازه ریسک، بعد فکر کردن به سود",
-    body: [
-      "اگر درباره مقدار سرمایه می‌پرسی، پاسخ حرفه‌ای یک عدد ثابت نیست. اول باید بدانی اگر تحلیل اشتباه شد، حداکثر چه مقدار از کل سرمایه‌ات آسیب می‌بیند و آیا این آسیب برای زندگی مالی تو قابل تحمل است یا نه.",
-      "اصل آموزشی تک‌پی این است: هیچ معامله‌ای نباید آن‌قدر بزرگ باشد که یک اشتباه، مسیر یادگیری و آرامش مالی تو را نابود کند.",
-    ],
-    checklist: ["کل سرمایه را مشخص کن", "درصد ریسک هر تصمیم را محدود کن", "حد ضرر یا نقطه ابطال بنویس", "بعد از ضرر قانون توقف داشته باش"],
-    next: "ترم مدیریت سرمایه برای همین سؤال طراحی شده است.",
-    link: "/academy/term-6",
-  },
-  trading: {
-    title: "تحلیل تکنیکال یعنی احتمال، نه دستور قطعی",
-    body: [
-      "RSI، MACD، حمایت و مقاومت ابزار تصمیم‌سازی هستند، نه دکمه خرید و فروش. مثلاً RSI بالا می‌تواند هشدار داغ شدن قیمت باشد، اما در روند قوی ممکن است مدت‌ها بالا بماند.",
-      "قبل از هر تصمیم باید روند، حجم، ناحیه قیمتی، سناریوی شکست و نقطه ابطال را کنار هم ببینی.",
-    ],
-    checklist: ["روند اصلی را مشخص کن", "حجم را بررسی کن", "سطح ابطال تحلیل را بنویس", "ریسک/ریوارد را حساب کن"],
-    next: "ترم تحلیل تکنیکال کاربردی را ادامه بده.",
-    link: "/academy/term-5",
-  },
-  project: {
-    title: "قبل از اعتماد به پروژه، پرونده بساز",
-    body: [
-      "برای بررسی پروژه فقط قیمت یا تبلیغ کافی نیست. باید کاربرد واقعی، تیم، وایت‌پیپر، اقتصاد توکن، FDV، زمان آزادسازی توکن‌ها، نقدشوندگی و Red Flagها را ببینی.",
-      "اگر پروژه سود تضمینی وعده می‌دهد، قرارداد فروش را محدود کرده، نقدشوندگی کمی دارد یا توکن‌ها در چند کیف پول متمرکزند، باید بسیار محتاط باشی.",
-    ],
-    checklist: ["کاربرد واقعی را توضیح بده", "FDV و Vesting را بررسی کن", "نقدشوندگی را ببین", "سه دلیل مخالف خرید بنویس"],
-    next: "ترم تحلیل پروژه و توکنومیکس دقیقاً برای همین ساخته شده است.",
-    link: "/academy/term-4",
-  },
-  psychology: {
-    title: "ذهن آرام بخشی از امنیت سرمایه است",
-    body: [
-      "FOMO، ترس، طمع و معامله انتقامی می‌توانند حتی با دانش خوب، تصمیم بد بسازند. بعد از ضرر، ذهن معمولاً دنبال جبران فوری است؛ این لحظه خطرناک است.",
-      "پاسخ حرفه‌ای به هیجان، معامله بیشتر نیست؛ توقف، نوشتن ژورنال و برگشتن به چک‌لیست است.",
-    ],
-    checklist: ["۱۰ دقیقه مکث کن", "احساس فعلی را بنویس", "قانون توقف را اجرا کن", "بدون چک‌لیست وارد نشو"],
-    next: "ترم روانشناسی بازار و آمادگی نهایی را مرور کن.",
-    link: "/academy/term-7",
-  },
-};
-
-function toLocalReply(question: string): MentorReply {
-  const mode = detectMode(question);
-  const answer = localResponses[mode];
-  return {
-    answer: `${answer.title}\n\n${answer.body.join("\n\n")}`,
-    isReady: false,
-    mode: "guided",
-    relatedTerm: { number: Number(answer.link.match(/term-(\d)/)?.[1] || 1), title: answer.next, href: answer.link },
-    checklist: answer.checklist,
-    suggestedQuestions: quickQuestions.slice(0, 3),
-    sourceLessons: [{ title: answer.next, href: answer.link }],
-  };
 }
 
 export function AiMentorExperience() {
@@ -185,7 +88,7 @@ export function AiMentorExperience() {
     setQuestion(clean);
     setLastQuestion(clean);
     setLoading(true);
-    const currentMode = detectMode(clean);
+    const currentMode = detectMentorMode(clean);
     updateMentorMemory(currentMode, clean);
     const progressSnapshot = readMentorProgress();
     setMentorProgress(progressSnapshot);
