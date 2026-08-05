@@ -151,6 +151,33 @@ describe("platform_tenant_domains host directory", { skip: !configured }, () => 
     );
   });
 
+  it("REJECTS at the database a non-canonical host (uppercase / trailing dot), so the PK is a normalized-uniqueness guarantee", async () => {
+    // Codex P2: a raw TEXT PRIMARY KEY only rejects byte-identical values, so
+    // 'acme.com', 'ACME.com', and 'acme.com.' — all one normalized key — could
+    // otherwise be claimed by different tenants and make routing nondeterministic.
+    // The canonical-shape CHECK makes only the normalized form storable at all.
+    const tenantId = `tenant-a-${randomUUID()}`;
+    const workspaceId = `ws-a-${randomUUID()}`;
+    const suffix = randomUUID().slice(0, 8);
+    // Seed the canonical form first so the tenant/workspace exist.
+    await seedTenantDomain({ tenantId, workspaceId, host: `canon-${suffix}.example` });
+
+    for (const badHost of [`CANON-${suffix}.EXAMPLE`, `bad-${suffix}.example.`, `bad_${suffix}.example`]) {
+      await assert.rejects(
+        () =>
+          withClient((client) =>
+            client.query(
+              `INSERT INTO platform_tenant_domains (host, tenant_id, workspace_id)
+               VALUES ($1, $2, $3)`,
+              [badHost, tenantId, workspaceId],
+            ),
+          ),
+        /platform_tenant_domains_host_canonical|check constraint/i,
+        `expected DB to reject non-canonical host ${badHost}`,
+      );
+    }
+  });
+
   it("REJECTS at the database a second row claiming a host already owned by another tenant", async () => {
     // host is the PRIMARY KEY, so a hostname belongs to exactly one tenant.
     const tenantA = `tenant-a-${randomUUID()}`;

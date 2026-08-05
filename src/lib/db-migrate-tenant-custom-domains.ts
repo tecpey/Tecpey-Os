@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS platform_tenant_domains (
   verified_at  TIMESTAMPTZ,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- host must already be in canonical form: lowercase ASCII labels
+  -- (a-z, 0-9, hyphen) separated by single dots, no port, no leading/trailing
+  -- dot, no empty labels, no uppercase, no IDN (punycode 'xn--…' is ASCII and
+  -- passes). This is what normalizeHostHeader() produces, and it is what makes
+  -- the PRIMARY KEY a normalized-uniqueness guarantee rather than a mere
+  -- byte-uniqueness one: two hosts that normalize to the same key have the same
+  -- canonical bytes, so 'acme.com', 'ACME.com', and 'acme.com.' can never be
+  -- claimed by different tenants — only the single canonical 'acme.com' is
+  -- storable at all.
+  CONSTRAINT platform_tenant_domains_host_canonical CHECK (
+    host ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'
+  ),
   CONSTRAINT platform_tenant_domains_workspace_in_tenant
     FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces (tenant_id, id) ON DELETE CASCADE
