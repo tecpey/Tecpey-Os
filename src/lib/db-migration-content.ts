@@ -53,6 +53,7 @@ import { SESSION_AUTHORITY_SQL } from "./db-migrate-session-authority";
 import { SESSION_LEGACY_UNBOUND_FALLBACK_SQL } from "./db-migrate-session-legacy-fallback";
 import { AI_MENTOR_TRUST_SQL } from "./db-migrate-ai-mentor-trust";
 import { PLATFORM_MEMBERSHIP_WORKSPACE_BINDING_SQL } from "./db-migrate-platform-membership-workspace-binding";
+import { TENANT_CUSTOM_DOMAINS_SQL } from "./db-migrate-tenant-custom-domains";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -205,4 +206,5 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
     "0053_platform_membership_workspace_binding.sql",
     PLATFORM_MEMBERSHIP_WORKSPACE_BINDING_SQL,
   ),
+  tenantDomains: one("0054_tenant_custom_domains.sql", TENANT_CUSTOM_DOMAINS_SQL),
 });

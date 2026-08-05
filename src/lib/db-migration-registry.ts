@@ -43,6 +43,7 @@ import { runSessionAuthorityMigrations } from "./db-migrate-session-authority";
 import { runSessionLegacyFallbackMigrations } from "./db-migrate-session-legacy-fallback";
 import { runAiMentorTrustMigrations } from "./db-migrate-ai-mentor-trust";
 import { runPlatformMembershipWorkspaceBindingMigrations } from "./db-migrate-platform-membership-workspace-binding";
+import { runTenantCustomDomainsMigrations } from "./db-migrate-tenant-custom-domains";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -123,6 +124,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(36, "migration-step-036", CANONICAL_MIGRATION_CONTENT.sessionFallback, "security-platform", "authentication", runSessionLegacyFallbackMigrations),
   entry(37, "migration-step-037", CANONICAL_MIGRATION_CONTENT.aiMentor, "academy-platform", "ai-mentor", runAiMentorTrustMigrations),
   entry(38, "migration-step-038", CANONICAL_MIGRATION_CONTENT.membershipWorkspaceBinding, "security-platform", "tenancy", runPlatformMembershipWorkspaceBindingMigrations),
+  entry(39, "migration-step-039", CANONICAL_MIGRATION_CONTENT.tenantDomains, "security-platform", "tenancy", runTenantCustomDomainsMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
