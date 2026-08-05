@@ -79,9 +79,10 @@
       "table": "crm_lead_delivery_outbox",
       "domain": "crm",
       "sourceFile": "src/lib/db-migrate-crm-leads.ts",
-      "isolationModel": "tenant_id column",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id NOT NULL on every outbox row, written from the ingesting command's tenantId (lead_id FK-bound to crm_leads). Each lead's academy_webhook delivery is enqueued under its own tenant, so the same idempotency key ingested under two tenants produces two distinct leads whose delivery-outbox rows never cross into the other tenant and are drained by workers strictly per tenant",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/crm-lead-command-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "crm_leads",
