@@ -181,10 +181,11 @@
       "table": "risk_authority_events",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id DEFAULT 'tecpey'; UNIQUE (tenant_id, event_key); reads filtered WHERE tenant_id = $1",
+      "isolationModel": "tenant_id on every decision row; the event identity itself binds the tenant (event_key = fingerprint(tenant_id, principal_id, event_type, detector, policy)), the dedup key is UNIQUE (tenant_id, event_key) with ON CONFLICT (tenant_id, event_key), and every read is scoped WHERE tenant_id = $1 AND event_key = $2 — so the same principal active in two tenants records independent decisions and one tenant cannot read another tenant's decision even by its event_key",
       "isolationNote": "Schema is correctly tenant-scoped, but recordRiskDecision() and every sibling authority pin tenantId = PLATFORM.DEFAULT_TENANT_ID (RiskDecisionInput carries no tenant). No caller supplies a second tenant, so cross-tenant behaviour is unexercised and cannot be proven through the real authority yet. Promotion is blocked on wiring a per-request tenant into the risk domain, not on writing a test.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "risk_effective_enforcements",
