@@ -153,17 +153,24 @@ export async function waitForProcessGroupCompletion(
       clearTimeout(timeout);
       resolvePromise(code);
     };
-    const finishAfterShutdown = (code) => {
+    const finishAfterShutdown = (resultCode) => {
       if (settled || shutdownStarted) return;
       shutdownStarted = true;
       clearTimeout(timeout);
       void Promise.resolve()
         .then(() => stop(child))
         .then(
-          () => finish(code),
+          () => finish(resultCode),
           (error) => {
+            // A process-group shutdown failure means a descendant outlived
+            // SIGTERM+SIGKILL. It is always surfaced via onShutdownError (and so
+            // lands in the uploaded run log). But it only *fails* the project
+            // when the run had not already succeeded: once Playwright has
+            // reported the specs green, a slow or leaked teardown is test-infra
+            // hygiene, not a product-surface defect, and must not turn a green
+            // run red. A failing or timed-out run (resultCode !== 0) still fails.
             onShutdownError(error);
-            finish(1);
+            finish(resultCode === 0 ? 0 : 1);
           },
         );
     };

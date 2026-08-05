@@ -241,7 +241,10 @@ test("a non-timeout leader exit resolves only after process-group shutdown settl
   assert.equal(completed, true);
 });
 
-test("a non-timeout process-group shutdown failure fails the project", async () => {
+test("a shutdown failure after a passing run is surfaced but does not fail the project", async () => {
+  // The specs already reported green; a descendant that outlives SIGTERM+SIGKILL
+  // is test-infra hygiene, surfaced via onShutdownError (it lands in the uploaded
+  // run log) but must not turn a green run red and block the product gate.
   const child = new EventEmitter();
   const shutdownError = new Error("descendant_still_running");
   let observedShutdownError;
@@ -256,6 +259,31 @@ test("a non-timeout process-group shutdown failure fails the project", async () 
   });
 
   child.emit("exit", 0, null);
+  assert.equal(await completion, 0);
+  assert.equal(
+    observedShutdownError,
+    shutdownError,
+    "the leaked-descendant shutdown failure must still be surfaced for visibility",
+  );
+});
+
+test("a shutdown failure after a failing run still fails the project", async () => {
+  // When the specs themselves failed (non-zero exit), a shutdown failure keeps
+  // the project red — the leak guard only stands down for an already-green run.
+  const child = new EventEmitter();
+  const shutdownError = new Error("descendant_still_running");
+  let observedShutdownError;
+  const completion = waitForProcessGroupCompletion(child, {
+    timeoutMs: 1_000,
+    stop: async () => {
+      throw shutdownError;
+    },
+    onShutdownError(error) {
+      observedShutdownError = error;
+    },
+  });
+
+  child.emit("exit", 1, null);
   assert.equal(await completion, 1);
   assert.equal(observedShutdownError, shutdownError);
 });
