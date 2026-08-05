@@ -206,9 +206,15 @@ async function runPlaywrightProject(project, onOutput) {
       );
     },
     onShutdownError(error) {
-      onOutput(
-        `Playwright process-group shutdown failed: ${error.stack || error.message}\n`,
-      );
+      const message = `Playwright process-group shutdown failed for ${project}: ${
+        error.stack || error.message
+      }`;
+      onOutput(`${message}\n`);
+      // Also print to the live job log. A shutdown failure no longer fails an
+      // already-green run, but the *-output.log artifacts are uploaded only on
+      // job failure (`if: failure()`), so the buffered record would otherwise be
+      // lost on exactly the passing-leak case this needs to stay visible for.
+      console.warn(message);
     },
   });
 }
