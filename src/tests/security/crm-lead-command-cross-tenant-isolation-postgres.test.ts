@@ -78,6 +78,16 @@ async function commandRow(
   });
 }
 
+async function auditTenantsForLead(leadId: string): Promise<string[]> {
+  return withClient(async (client) => {
+    const rows = await client.query<{ tenant_id: string }>(
+      "SELECT DISTINCT tenant_id FROM crm_lead_audit_events WHERE lead_id = $1::uuid ORDER BY tenant_id",
+      [leadId],
+    );
+    return rows.rows.map((r) => r.tenant_id);
+  });
+}
+
 before(async () => {
   if (!databaseConfigured || !databaseUrl) return;
   process.env.TECPEY_CRM_PII_KEY_B64 ||= Buffer.alloc(32, 11).toString("base64");
@@ -177,6 +187,43 @@ describe("CRM lead command cross-tenant idempotency isolation", () => {
       if (replayA.status !== "committed") throw new Error("expected tenant A replay");
       assert.equal(replayA.result.id, firstA.result.id);
       assert.notEqual(replayA.result.id, firstB.result.id);
+    },
+  );
+
+  it(
+    "attributes each lead's crm_lead_audit_events to that lead's own tenant, never the other's",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const sharedKey = `crm-audit-${randomUUID().replace(/-/g, "")}`;
+      const base = command({ idempotencyKey: sharedKey });
+
+      const committedA = await ingestAcademyLead(base);
+      const committedB = await ingestAcademyLead({ ...base, tenantId: TENANT_B });
+      assert.equal(committedA.status, "committed");
+      assert.equal(committedB.status, "committed");
+      if (committedA.status !== "committed" || committedB.status !== "committed") {
+        throw new Error("ingestion did not succeed for both tenants");
+      }
+
+      // Ingesting each lead writes crm_lead_audit_events under the command's own
+      // tenant (the 'created' action). Each lead's audit trail must be
+      // single-tenant and attributed to its OWN tenant: if ingestAcademyLead
+      // hardcoded or crossed the tenant on the audit write, tenant B's 'created'
+      // event would land under tenant A — a cross-tenant leak in the durable
+      // audit trail that outlives the lead. Driven entirely through the real
+      // ingest path (no test-only tenant predicate decides the outcome).
+      const auditA = await auditTenantsForLead(committedA.result.id);
+      const auditB = await auditTenantsForLead(committedB.result.id);
+      assert.deepEqual(
+        auditA,
+        [TENANT_A],
+        "tenant A's lead audit trail must be attributed to tenant A only",
+      );
+      assert.deepEqual(
+        auditB,
+        [TENANT_B],
+        "tenant B's lead audit trail must be attributed to tenant B only, not tenant A",
+      );
     },
   );
 });
