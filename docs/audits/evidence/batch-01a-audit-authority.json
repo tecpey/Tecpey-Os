@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "716466d315b55315d1e23b6b1359018df00c6ac0",
-      "sha256": "27535a09a5d2ce523b570033880a36d8081096caadc50d38f902a8bcd66cb998",
-      "lines": 178,
+      "gitObjectId": "453ddf32f16a0dae9cdb0c0957cdcab068c810b3",
+      "sha256": "52b5f5c83b6e028833dc4f882d6fb6da1c30764df71a790e0110d48758864789",
+      "lines": 179,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 178
+          "endLine": 179
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -60,7 +60,8 @@
         "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks.",
         "2026-08-04: re-reviewed after wiring src/tests/security/request-tenant-resolution.test.ts into the test:offline-sync script (issue #20 P0). Test-wiring only — no audit-authority command, workflow, or exact-head binding changed; the added path is a pure unit test.",
         "2026-08-04: re-reviewed after wiring src/tests/security/tenant-host-resolution.test.ts into the test:offline-sync script (issue #20 P1). Test-wiring only — the script gains one additional pure unit-test path alongside the existing tenant-principal-context and request-tenant-resolution tests; no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
-        "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines."
+        "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
+        "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL."
       ],
       "findings": [
         {
