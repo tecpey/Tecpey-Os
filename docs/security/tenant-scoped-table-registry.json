@@ -182,7 +182,7 @@
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
       "isolationModel": "tenant_id on every decision row; the event identity binds the tenant (event_key = fingerprint(tenant_id, principal_id, event_type, detector, policy)) and the write dedups ON CONFLICT (tenant_id, event_key) with a tenant-scoped read-back (WHERE tenant_id = $1 AND event_key = $2) — so the same principal with a byte-identical detector under a second tenant records its own independent decision through recordRiskDecision instead of replaying or collapsing into the first tenant's row",
-      "isolationNote": "Schema is correctly tenant-scoped, but recordRiskDecision() and every sibling authority pin tenantId = PLATFORM.DEFAULT_TENANT_ID (RiskDecisionInput carries no tenant). No caller supplies a second tenant, so cross-tenant behaviour is unexercised and cannot be proven through the real authority yet. Promotion is blocked on wiring a per-request tenant into the risk domain, not on writing a test.",
+      "isolationNote": "Resolved: #310 un-pinned the risk domain — recordRiskDecision (and its siblings) now accept a per-call tenantId instead of hardcoding PLATFORM.DEFAULT_TENANT_ID. risk-enforcement-cross-tenant-isolation-postgres.test.ts drives two distinct tenants through the real authority, so cross-tenant behaviour is now exercised and proven, not merely schema-scoped.",
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
