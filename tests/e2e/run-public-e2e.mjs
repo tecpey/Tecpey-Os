@@ -33,7 +33,18 @@ const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
 const outputLimit = 240_000;
-const projectTimeoutMs = 90_000;
+// Playwright's own per-test timeout is 90s (playwright.config.mjs). This value
+// is the runner's whole-project backstop for a genuinely wedged `playwright
+// test` process — it bounds an entire project run (all of its tests), so it
+// must sit comfortably ABOVE the sum of the per-test budgets for one project
+// (up to ~3 tests × 90s). When it was itself 90s, a single legitimately slow
+// test on a loaded mobile-emulated runner (e.g. firefox-en-mobile) could eat
+// the whole project budget, and this backstop SIGKILLed the entire run — losing
+// the report and failing — before Playwright's own per-test timeout could fail
+// just that test gracefully. Kept as a true last-resort backstop: 3×90s + 60s.
+const perTestTimeoutMs = 90_000;
+const maxTestsPerProject = 3;
+const projectTimeoutMs = perTestTimeoutMs * maxTestsPerProject + 60_000;
 const projects = [
   "chromium-fa-mobile",
   "chromium-en-desktop",
