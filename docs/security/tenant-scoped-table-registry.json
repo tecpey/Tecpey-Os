@@ -19,9 +19,10 @@
       "table": "academy_community_reputation_evidence",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-reputation-evidence.ts",
-      "isolationModel": "tenant_id column; principal binding",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id on every evidence row; reads/materialization filter WHERE tenant_id = $1 AND workspace_id = $2, so the same principal id active in two tenants keeps independent evidence and revoking one tenant's binding never hides the other tenant's evidence",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/community-reputation-evidence-postgres.integration.ts"
     },
     {
       "table": "academy_community_reputation_scoring_consents",
@@ -189,17 +190,19 @@
       "table": "risk_effective_enforcements",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id in primary key",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "PRIMARY KEY (tenant_id, principal_id) — one live enforcement row per (tenant, principal); tenant_id and principal_id are immutable and generation is a guarded column that must start at 1 and increment exactly once per update. Every durable decision and read is scoped WHERE tenant_id = $1, so the same principal active in two tenants owns independent enforcement rows and one tenant can neither read nor clear the other's live trading restriction",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "risk_enforcement_outbox",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id in primary key",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "PRIMARY KEY (tenant_id, principal_id, generation); every projection-debt row carries tenant_id and is forwarded by the internal publish path, and rows are append-preserved and DELETE-guarded, so tenant B's projection is published under tenant B and never collapses into or replays tenant A's",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "sensitive_mutation_audit_events",
