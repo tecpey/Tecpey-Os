@@ -88,6 +88,16 @@ async function auditTenantsForLead(leadId: string): Promise<string[]> {
   });
 }
 
+async function deliveryOutboxTenantsForLead(leadId: string): Promise<string[]> {
+  return withClient(async (client) => {
+    const rows = await client.query<{ tenant_id: string }>(
+      "SELECT DISTINCT tenant_id FROM crm_lead_delivery_outbox WHERE lead_id = $1::uuid ORDER BY tenant_id",
+      [leadId],
+    );
+    return rows.rows.map((r) => r.tenant_id);
+  });
+}
+
 before(async () => {
   if (!databaseConfigured || !databaseUrl) return;
   process.env.TECPEY_CRM_PII_KEY_B64 ||= Buffer.alloc(32, 11).toString("base64");
@@ -223,6 +233,43 @@ describe("CRM lead command cross-tenant idempotency isolation", () => {
         auditB,
         [TENANT_B],
         "tenant B's lead audit trail must be attributed to tenant B only, not tenant A",
+      );
+    },
+  );
+
+  it(
+    "attributes each lead's crm_lead_delivery_outbox to that lead's own tenant, never the other's",
+    { skip: !databaseConfigured, timeout: 30_000 },
+    async () => {
+      const sharedKey = `crm-outbox-${randomUUID().replace(/-/g, "")}`;
+      const base = command({ idempotencyKey: sharedKey });
+
+      const committedA = await ingestAcademyLead(base);
+      const committedB = await ingestAcademyLead({ ...base, tenantId: TENANT_B });
+      assert.equal(committedA.status, "committed");
+      assert.equal(committedB.status, "committed");
+      if (committedA.status !== "committed" || committedB.status !== "committed") {
+        throw new Error("ingestion did not succeed for both tenants");
+      }
+
+      // Ingesting each lead enqueues its academy_webhook delivery in
+      // crm_lead_delivery_outbox under the command's own tenant. Each lead's
+      // outbox must be single-tenant and attributed to its OWN tenant: a
+      // hardcoded or crossed tenant on the outbox write would enqueue tenant B's
+      // delivery under tenant A — a cross-tenant leak in the durable outbox that
+      // a worker would later drain as tenant A's work. Driven entirely through
+      // the real ingest path.
+      const outboxA = await deliveryOutboxTenantsForLead(committedA.result.id);
+      const outboxB = await deliveryOutboxTenantsForLead(committedB.result.id);
+      assert.deepEqual(
+        outboxA,
+        [TENANT_A],
+        "tenant A's lead delivery outbox must be attributed to tenant A only",
+      );
+      assert.deepEqual(
+        outboxB,
+        [TENANT_B],
+        "tenant B's lead delivery outbox must be attributed to tenant B only, not tenant A",
       );
     },
   );
