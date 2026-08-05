@@ -79,10 +79,11 @@
       "table": "crm_lead_delivery_outbox",
       "domain": "crm",
       "sourceFile": "src/lib/db-migrate-crm-leads.ts",
-      "isolationModel": "tenant_id NOT NULL on every outbox row, written from the ingesting command's tenantId (lead_id FK-bound to crm_leads). Each lead's academy_webhook delivery is enqueued under its own tenant, so the same idempotency key ingested under two tenants produces two distinct leads whose delivery-outbox rows never cross into the other tenant and are drained by workers strictly per tenant",
-      "adversarialProof": "proven",
+      "isolationModel": "tenant_id NOT NULL on every outbox row, written from the ingesting command's tenantId; lead_id FK-bound to crm_leads. Ingest attributes each row to its own lead's tenant.",
+      "adversarialProof": "pending",
       "issue": "#109",
-      "testReference": "src/tests/security/crm-lead-command-cross-tenant-isolation-postgres.test.ts"
+      "testReference": "src/tests/security/crm-lead-command-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "Write-side tenant attribution IS proven by the testReference (each lead's outbox row carries its own tenant; hardcoding the write tenant fails the case). But the drain path claimCrmLeadDeliveries (src/lib/crm/lead-authority.ts) selects pending/retryable rows with NO tenant predicate — a single global platform worker, not a per-tenant claim. A tenant-scoped read/drain boundary is therefore neither enforced nor proven. Promotion is blocked on either a tenant-scoped claim/drain or an explicit design decision that a global platform drain with per-row tenant routing is the intended model."
     },
     {
       "table": "crm_leads",
