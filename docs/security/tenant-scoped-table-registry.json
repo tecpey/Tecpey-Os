@@ -190,7 +190,7 @@
       "table": "risk_effective_enforcements",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id in the (tenant_id, principal_id, generation) unique key; every durable decision and read is scoped WHERE tenant_id = $1, so the same principal active in two tenants owns independent enforcement rows and one tenant can neither read nor clear the other's live trading restriction",
+      "isolationModel": "PRIMARY KEY (tenant_id, principal_id) — one live enforcement row per (tenant, principal); tenant_id and principal_id are immutable and generation is a guarded column that must start at 1 and increment exactly once per update. Every durable decision and read is scoped WHERE tenant_id = $1, so the same principal active in two tenants owns independent enforcement rows and one tenant can neither read nor clear the other's live trading restriction",
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
@@ -199,7 +199,7 @@
       "table": "risk_enforcement_outbox",
       "domain": "risk",
       "sourceFile": "src/lib/db-migrate-risk-enforcement-authority.ts",
-      "isolationModel": "tenant_id carried on every projection-debt row and forwarded by the internal publish path; outbox rows are owned per acting tenant (append-preserved, DELETE-guarded), so tenant B's projection is published under tenant B and never collapses into or replays tenant A's",
+      "isolationModel": "PRIMARY KEY (tenant_id, principal_id, generation); every projection-debt row carries tenant_id and is forwarded by the internal publish path, and rows are append-preserved and DELETE-guarded, so tenant B's projection is published under tenant B and never collapses into or replays tenant A's",
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/risk-enforcement-cross-tenant-isolation-postgres.test.ts"
