@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerIssue": "#109",
-  "description": "Every table carrying a tenant_id column, its database isolation model, and its cross-tenant adversarial-proof status. tenant:isolation:check fails if a tenant-scoped table exists in the migrations but is absent here, or a registered table no longer exists \u2014 so a new tenant-owned table cannot ship unnoticed.",
+  "description": "Every table carrying a tenant_id column, its database isolation model, and its cross-tenant adversarial-proof status. tenant:isolation:check fails if a tenant-scoped table exists in the migrations but is absent here, or a registered table no longer exists — so a new tenant-owned table cannot ship unnoticed.",
   "proofStates": {
     "pending": "tenant_id enforced at the schema level, but no cross-tenant negative test proves A cannot reach B.",
     "proven": "a negative test named in testReference proves cross-tenant read/write is rejected."
@@ -234,6 +234,15 @@
       "isolationNote": "The tenant_id column is dormant: the INSERT never sets it (it relies on the DEFAULT), the UNIQUE key is (withdrawal_id, generation) with no tenant_id, every read/update filters WHERE withdrawal_id/id, and the parent withdrawals table has no tenant_id column at all (only user_id). The whole withdrawal domain is effectively single-tenant today. A cross-tenant negative test cannot be written without fabricating multi-tenant behaviour the code does not implement. #109 for this domain first requires adding tenant_id to withdrawals and threading a real tenant through the external-effect authority.",
       "adversarialProof": "pending",
       "issue": "#109"
+    },
+    {
+      "table": "platform_tenant_domains",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-tenant-custom-domains.ts",
+      "isolationModel": "host is the PRIMARY KEY (a hostname belongs to exactly one tenant) constrained to canonical normalized form so byte-uniqueness equals normalized-uniqueness; composite FK (tenant_id, workspace_id) -> platform_workspaces(tenant_id, id) forbids binding a domain to another tenant's workspace; loadTenantHostDirectory reads all rows and resolveTenantHostHint only returns a binding for the exact normalized host",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/tenant-domain-directory-postgres.test.ts",
+      "issue": "#20"
     }
   ]
 }

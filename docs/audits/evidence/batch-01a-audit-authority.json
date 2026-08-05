@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "335ec6a2178cbe5bc98e71e0f1779b34cd837d61",
-      "sha256": "499a68393d9061e550d0653fa2184ddd80cdda356d4d22417587ffe0c691376b",
+      "gitObjectId": "716466d315b55315d1e23b6b1359018df00c6ac0",
+      "sha256": "27535a09a5d2ce523b570033880a36d8081096caadc50d38f902a8bcd66cb998",
       "lines": 178,
       "reviewedRanges": [
         {
@@ -59,7 +59,8 @@
         "Re-reviewed after adding exchange:reconcile, exchange:reconcile:check and test:exchange-reconciliation. The reconcile command is read-only and opens no transaction; the check is a static source guard; the test suite is PostgreSQL integration only. exchange:check and release:check gain the guard, and release:check gains the test, so both remain compositions of governed checks.",
         "Re-reviewed after adding tenant:isolation:check and test:tenant-isolation-coverage. The isolation check composes the existing principal-isolation guard with a read-only tenant-scoped table drift check; the test suite exercises only that guard. release:check gains the composite gate and remains a composition of governed checks.",
         "2026-08-04: re-reviewed after wiring src/tests/security/request-tenant-resolution.test.ts into the test:offline-sync script (issue #20 P0). Test-wiring only — no audit-authority command, workflow, or exact-head binding changed; the added path is a pure unit test.",
-        "2026-08-04: re-reviewed after wiring src/tests/security/tenant-host-resolution.test.ts into the test:offline-sync script (issue #20 P1). Test-wiring only — the script gains one additional pure unit-test path alongside the existing tenant-principal-context and request-tenant-resolution tests; no dependency, engine, override, or release-authority command changed, and the file stays 178 lines."
+        "2026-08-04: re-reviewed after wiring src/tests/security/tenant-host-resolution.test.ts into the test:offline-sync script (issue #20 P1). Test-wiring only — the script gains one additional pure unit-test path alongside the existing tenant-principal-context and request-tenant-resolution tests; no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
+        "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines."
       ],
       "findings": [
         {
