@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { cleanText } from "@/lib/student-cartax";
 import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
+import { PLATFORM } from "@/lib/platform-config";
 
 type Queryable = {
   query: (query: string, values?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -202,7 +203,15 @@ export async function maybeAwardAchievement(client: Queryable, studentId: string
   }
 }
 
-export async function refreshLearningBrain(client: Queryable, studentId: string) {
+export async function refreshLearningBrain(
+  client: Queryable,
+  studentId: string,
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+) {
+  // learning_events is tenant-scoped; aggregate only this tenant's events for
+  // the student so a student admitted into two tenants keeps independent brains.
+  // Defaults to the platform default tenant, so single-tenant callers are
+  // unchanged.
   const stats = await client.query(
     `SELECT
        COUNT(*) FILTER (WHERE event_type = 'lesson_completed')::int AS lessons,
@@ -210,8 +219,8 @@ export async function refreshLearningBrain(client: Queryable, studentId: string)
        COUNT(*) FILTER (WHERE event_type = 'simulator_decision_saved')::int AS simulator,
        COUNT(*) FILTER (WHERE event_type = 'quiz_attempt_recorded')::int AS quizzes
      FROM learning_events
-     WHERE student_id = $1::uuid`,
-    [studentId],
+     WHERE student_id = $1::uuid AND tenant_id = $2`,
+    [studentId, tenantId],
   );
   const attempts = await client.query(
     `SELECT
@@ -240,7 +249,7 @@ export async function refreshLearningBrain(client: Queryable, studentId: string)
   await client.query(
     `INSERT INTO learning_brain_profiles
       (student_id, learning_velocity, attention_score, decision_score, risk_appetite, emotional_stability, confidence_score, discipline_score, weak_topics, strong_topics, next_best_action)
-     VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+     VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::text[],$10::text[],$11)
      ON CONFLICT (student_id) DO UPDATE SET
        learning_velocity = EXCLUDED.learning_velocity,
        attention_score = EXCLUDED.attention_score,
@@ -253,6 +262,6 @@ export async function refreshLearningBrain(client: Queryable, studentId: string)
        strong_topics = EXCLUDED.strong_topics,
        next_best_action = EXCLUDED.next_best_action,
        updated_at = NOW()`,
-    [studentId, Math.round(learningVelocity), Math.round(attentionScore), Math.round(decisionScore), Math.round(riskAppetite), Math.round(emotionalStability), Math.round(confidenceScore), Math.round(disciplineScore), JSON.stringify(success < 70 ? ["mentor-challenge"] : []), JSON.stringify(success >= 80 ? ["decision-making"] : []), nextBestAction],
+    [studentId, Math.round(learningVelocity), Math.round(attentionScore), Math.round(decisionScore), Math.round(riskAppetite), Math.round(emotionalStability), Math.round(confidenceScore), Math.round(disciplineScore), success < 70 ? ["mentor-challenge"] : [], success >= 80 ? ["decision-making"] : [], nextBestAction],
   );
 }

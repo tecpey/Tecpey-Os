@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "453ddf32f16a0dae9cdb0c0957cdcab068c810b3",
-      "sha256": "52b5f5c83b6e028833dc4f882d6fb6da1c30764df71a790e0110d48758864789",
+      "gitObjectId": "7f21a716f51c49f75b1bcd7c75790b4c98c2c449",
+      "sha256": "b158b343c13bff0925e9399161ae8fc679e9072c1de4db7bf362c8044ee8efd4",
       "lines": 179,
       "reviewedRanges": [
         {
@@ -61,7 +61,8 @@
         "2026-08-04: re-reviewed after wiring src/tests/security/request-tenant-resolution.test.ts into the test:offline-sync script (issue #20 P0). Test-wiring only — no audit-authority command, workflow, or exact-head binding changed; the added path is a pure unit test.",
         "2026-08-04: re-reviewed after wiring src/tests/security/tenant-host-resolution.test.ts into the test:offline-sync script (issue #20 P1). Test-wiring only — the script gains one additional pure unit-test path alongside the existing tenant-principal-context and request-tenant-resolution tests; no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
         "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
-        "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL."
+        "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL.",
+        "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines."
       ],
       "findings": [
         {

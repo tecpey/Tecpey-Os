@@ -107,10 +107,11 @@
       "table": "learning_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes writes; insertLearningEventExactlyOnce sets tenant/workspace/principal from the resolved context",
-      "isolationNote": "The write boundary is real — the composite binding FK rejects a learning event for an unadmitted tenant — but production reads are not tenant-scoped: buildNotificationBrain (src/lib/phase5-achievement-engine.ts) and refreshLearningBrain (src/lib/learning-os.ts) aggregate learning_events WHERE student_id = $1 with no tenant/workspace predicate, and the legacy recordLearningEvent insert path sets no tenant columns at all. For a student admitted into two tenants, one tenant's reader would consume the other's learning evidence. Promotion is blocked on wiring a per-request tenant into the academy learning read/write paths, not on writing a test.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes writes; insertLearningEventExactlyOnce sets tenant/workspace/principal from the resolved context. Reads are now tenant-scoped too: refreshLearningBrain (src/lib/learning-os.ts) and buildNotificationBrain (src/lib/phase5-achievement-engine.ts) aggregate learning_events WHERE student_id = $1 AND tenant_id = $2, taking an explicit tenantId that defaults to PLATFORM.DEFAULT_TENANT_ID so single-tenant callers are unchanged.",
+      "isolationNote": "Resolved for the read path: the two learning-brain readers previously aggregated WHERE student_id = $1 with no tenant predicate, so a student admitted into two tenants would let one tenant's brain consume the other's learning evidence. Both now filter AND tenant_id = $2. learning-events-cross-tenant-isolation-postgres.test.ts is an adversarial real-Postgres proof: the same student is admitted into tenant A (one lesson) and tenant B (two lessons) via platform_principal_bindings, and refreshLearningBrain(client, studentId, TENANT_A) must derive discipline_score=5 (one lesson) while TENANT_B derives 10 — a tenant-blind read would give 15. The proof is load-bearing (dropping AND tenant_id = $2 makes it fail). Two honest caveats remain, out of scope here: (1) buildNotificationBrain carries the identical scope but its end-to-end runtime proof is blocked by a separate, pre-existing academy schema drift (achievement_catalog/student_achievements columns the code writes were never migrated); (2) the legacy recordLearningEvent path (used for internal events such as notification_opened) still sets no tenant columns and relies on the default tenant.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "notification_domain_outbox",
