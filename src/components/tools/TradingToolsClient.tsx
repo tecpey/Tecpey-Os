@@ -88,14 +88,38 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
     });
   }, [q, category]);
 
-  // Accessible dialog: close on Escape, move focus into the dialog on open and
-  // return it to the invoking card on close.
+  // Accessible dialog: close on Escape, move focus into the dialog on open,
+  // trap Tab/Shift+Tab inside it so keyboard focus cannot reach the obscured
+  // page behind the modal, and return focus to the invoking card on close.
   useEffect(() => {
     if (!active) return;
     const previouslyFocused = triggerRef.current;
-    dialogRef.current?.focus();
+    const dialog = dialogRef.current;
+    dialog?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setActive(null);
+      if (event.key === "Escape") {
+        setActive(null);
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (event.shiftKey && (activeEl === first || activeEl === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeEl === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -187,7 +211,7 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
                     <p className="text-xs font-black text-cyan-500">{isEn ? tool.categoryEn : tool.categoryFa}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                <p className="mt-4 line-clamp-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
                   {isEn ? tool.summaryEn : tool.summaryFa}
                 </p>
               </button>
