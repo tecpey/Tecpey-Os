@@ -388,7 +388,7 @@ function TradingArenaSectionEn() {
           <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Practice decisions with virtual capital — no real-money risk</div>
           <h2 className="mt-5 text-3xl font-black leading-tight text-slate-950 dark:text-white sm:text-4xl">Trading Arena</h2>
           <p className="mx-auto mt-4 max-w-3xl text-sm font-bold leading-8 text-slate-600 dark:text-slate-300">
-            After learning, test your decisions in a simulated environment. The Trading Arena is a fully educational simulator; no real money, real profit or real trade takes place in it.
+            After learning, test your decisions in a simulated environment. The Trading Arena is a fully educational simulator; no real money, real profit or real trade takes place in it. The interactive execution workspace is completing full English parity — this page explains the Arena in English and links you into the Academy.
           </p>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -403,9 +403,9 @@ function TradingArenaSectionEn() {
         <div className="mt-8 flex flex-col items-center gap-3">
           <Link href="/en/academy/trading-arena" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400 sm:text-base">
             <PlayCircle className="h-5 w-5" />
-            Enter the Trading Arena
+            Explore the Trading Arena
           </Link>
-          <p className="max-w-2xl text-center text-xs font-bold leading-7 text-slate-500 dark:text-slate-400">Practice uses virtual capital and produces no real profit or loss.</p>
+          <p className="max-w-2xl text-center text-xs font-bold leading-7 text-slate-500 dark:text-slate-400">The interactive workspace is completing English parity; practice uses virtual capital and produces no real profit or loss.</p>
         </div>
       </div>
     </section>
