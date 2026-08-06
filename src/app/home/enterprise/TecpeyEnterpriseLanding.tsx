@@ -980,6 +980,47 @@ function StickyMobileCta() {
   );
 }
 
+function TradingArenaSection() {
+  const features = [
+    { icon: Trophy, title: "سرمایهٔ مجازی و سه فرصت", text: "با سرمایهٔ مجازی ۱۰۰٬۰۰۰ دلاری و سه چرخهٔ کنترل‌شده، ورود و خروج مسئولانه را بدون هیچ پول واقعی تمرین می‌کنی." },
+    { icon: PlayCircle, title: "اجرا و بازپخش سروری", text: "هر تصمیم روی سرور اجرا و ثبت می‌شود؛ درخواست تکراری دوباره اجرا نمی‌شود و نتیجه قابل بازپخش است." },
+    { icon: PenLine, title: "ژورنال سروری", text: "دلیل، احساس و برنامهٔ ریسک هر معامله در ژورنال معتبر ثبت می‌شود تا رفتار معاملاتی‌ات را ببینی." },
+    { icon: GraduationCap, title: "بازخورد آموزشی منتور", text: "منتور از رفتار تمرینی تو برای تحلیل مسیر یادگیری استفاده می‌کند، نه فروش سیگنال خرید و فروش." },
+    { icon: ShieldAlert, title: "آستانهٔ ریسک آموزشی ۵٪", text: "هشدار ریسک بالای ۵٪ در هر تصمیم، برای شکل‌گیری عادت مدیریت ریسک پیش از ورود به بازار واقعی." },
+    { icon: BookMarked, title: "پل یادگیری به تصمیم", text: "آرنا حلقهٔ «یادگیری → تحلیل → تمرین → تصمیم» را کامل می‌کند و آموخته‌هایت را قابل سنجش می‌کند." },
+  ] as const;
+
+  return (
+    <section id="trading-arena" className="bg-[color:var(--tp-surface)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="text-center">
+          <SectionLabel>تمرین تصمیم با سرمایهٔ مجازی — بدون ریسک پول واقعی</SectionLabel>
+          <h2 className="mt-5 text-3xl font-black leading-tight text-[color:var(--tp-text)] sm:text-4xl">تریدینگ آرنا</h2>
+          <p className="mx-auto mt-4 max-w-3xl text-sm font-bold leading-8 text-slate-600 dark:text-[color:var(--tp-muted)]">
+            بعد از یادگیری، تصمیم‌هایت را در محیط شبیه‌سازی‌شده محک بزن. تریدینگ آرنا یک شبیه‌ساز کاملاً آموزشی است؛ هیچ پول واقعی، سود واقعی یا معاملهٔ واقعی در آن انجام نمی‌شود.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="rounded-[26px] border border-cyan-300/15 bg-white/80 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] dark:bg-white/[0.055]">
+              <Icon className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
+              <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-white">{title}</h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">{text}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Link href="/academy/trading-arena" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-2xl sm:text-base">
+            <PlayCircle className="h-5 w-5" />
+            ورود به تریدینگ آرنا
+          </Link>
+          <p className="max-w-2xl text-center text-xs font-bold leading-7 text-[color:var(--tp-muted)]">تمرین با سرمایهٔ مجازی است و نتیجهٔ آن هیچ سود یا زیان واقعی ندارد.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function TecpeyEnterpriseLanding() {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
@@ -996,6 +1037,7 @@ export default function TecpeyEnterpriseLanding() {
       <WhyUsersLoseSection />
       <ConversionJourney />
       <AcademyGrowthSystem />
+      <TradingArenaSection />
       <AcademyOfficialClarification />
       <section className="bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/15 bg-cyan-300/10 p-6 text-center"><h2 className="text-2xl font-black text-[color:var(--tp-text)]">مرکز دانش: جعبه ابزار معامله‌گر</h2><p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">برای خروج از سردرگمی، ابزارهای کاربردی تحلیل، مدیریت ریسک، اخبار، آنچین و بررسی پروژه‌ها را به زبان ساده یاد بگیرید.</p><a href="/trading-tools" className="mt-5 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">مشاهده ابزارهای ترید</a></div></section>
       <LearningExperienceSystem />

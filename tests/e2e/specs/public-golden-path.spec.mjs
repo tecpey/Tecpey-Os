@@ -58,6 +58,8 @@ function projectContract(testInfo) {
         themeToDark: "Switch to dark mode",
         academyPath: "/en/academy",
         arenaPath: "/en/academy/trading-arena",
+        arenaHeading: /Trading Arena/i,
+        arenaRiskFree: /no real money, real profit or real trade/i,
         primaryCtas: ["Enter Academy", "View trading tools"],
         forbiddenCopy: [
           /Online Market Board/i,
@@ -82,6 +84,8 @@ function projectContract(testInfo) {
         themeToDark: "تغییر به حالت تیره",
         academyPath: "/academy",
         arenaPath: "/academy/trading-arena",
+        arenaHeading: /تریدینگ آرنا/,
+        arenaRiskFree: /هیچ پول واقعی، سود واقعی یا معاملهٔ واقعی/,
         primaryCtas: ["آکادمی رایگان", "ورود به آکادمی رایگان تک‌پی", "مشاهده ابزارهای ترید"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
@@ -110,6 +114,15 @@ async function installDeterministicApi(context) {
   );
   await context.route("**/api/v1/user/currency/list**", (route) =>
     json(route, MARKET_RESPONSE),
+  );
+  // The public landing's CryptoNewsCenter fetches /api/crypto-news on mount.
+  // That route resolves live upstream news and can take ~60s in CI, which stalls
+  // the server worker and turns the theme-persistence page.reload below into a
+  // 60s navigation timeout (a recurring firefox-fa-desktop flake). Returning a
+  // response with no `items` array makes the component keep its deterministic
+  // built-in fallback, so the news surface still renders without the slow call.
+  await context.route("**/api/crypto-news**", (route) =>
+    json(route, { mode: "fallback", updatedAt: "2026-01-01T00:00:00.000Z" }),
   );
 }
 
@@ -580,6 +593,21 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
 
+  // A dedicated Trading Arena section must be part of the public landing
+  // narrative (#80 defect 3) — not merely a nav link — with the honest,
+  // fully-educational positioning and a link into the Arena journey.
+  const arenaSection = page.locator("#trading-arena");
+  await arenaSection.scrollIntoViewIfNeeded();
+  await expect(arenaSection, "public landing is missing a dedicated Trading Arena section").toBeVisible();
+  await expect(arenaSection.getByRole("heading", { name: contract.arenaHeading })).toBeVisible();
+  await expect(
+    arenaSection,
+    "Arena section must state it is fully educational with no real money",
+  ).toContainText(contract.arenaRiskFree);
+  await expect(
+    arenaSection.getByRole("link", { name: contract.arena }).first(),
+  ).toHaveAttribute("href", new RegExp(`${contract.arenaPath.replace(/[/]/g, "\\/")}$`));
+
   if (testInfo.project.name.startsWith("chromium")) {
     await expectSuccessfulLocalRoute(page, contract.academyPath);
     await expectSuccessfulLocalRoute(page, contract.arenaPath);
@@ -591,10 +619,13 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
   await waitForPendingCspViolationDeliveries(page);
-  // A generous reload budget: the mobile-emulated projects can exceed the 30s
-  // default under CI load, and the assertions below already auto-wait for the
-  // rehydrated content, so a slow navigation should not fail the run.
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  // Resolve the reload as soon as the navigation commits rather than waiting for
+  // full `domcontentloaded`: parsing/executing the large landing bundle can push
+  // DCL past 60s on firefox-fa-desktop under CI I/O contention (a recurring
+  // reload-timeout flake), and the assertions below already auto-wait for the
+  // rehydrated content — so a slow parse must not fail the run. We still assert
+  // the persisted theme after the reload, which is the point of this step.
+  await page.reload({ waitUntil: "commit", timeout: 60_000 });
   await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
 
