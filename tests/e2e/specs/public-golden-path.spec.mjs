@@ -115,6 +115,15 @@ async function installDeterministicApi(context) {
   await context.route("**/api/v1/user/currency/list**", (route) =>
     json(route, MARKET_RESPONSE),
   );
+  // The public landing's CryptoNewsCenter fetches /api/crypto-news on mount.
+  // That route resolves live upstream news and can take ~60s in CI, which stalls
+  // the server worker and turns the theme-persistence page.reload below into a
+  // 60s navigation timeout (a recurring firefox-fa-desktop flake). Returning a
+  // response with no `items` array makes the component keep its deterministic
+  // built-in fallback, so the news surface still renders without the slow call.
+  await context.route("**/api/crypto-news**", (route) =>
+    json(route, { mode: "fallback", updatedAt: "2026-01-01T00:00:00.000Z" }),
+  );
 }
 
 function trackRuntimeErrors(page, errors) {
