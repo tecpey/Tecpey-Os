@@ -5,9 +5,9 @@
     "logo": "T",
     "logoUrl": "https://icons.duckduckgo.com/ip3/tradingview.com.ico",
     "categoryFa": "تحلیل تکنیکال",
-    "categoryEn": "تحلیل تکنیکال",
+    "categoryEn": "Technical Analysis",
     "summaryFa": "نمودار حرفه‌ای، اندیکاتور، هشدار قیمت و واچ‌لیست.",
-    "summaryEn": "نمودار حرفه‌ای، اندیکاتور، هشدار قیمت و واچ‌لیست.",
+    "summaryEn": "TradingView is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.tradingview.com",
     "ios": "https://apps.apple.com/app/tradingview/id1205990992",
     "android": "https://play.google.com/store/apps/details?id=com.tradingview.tradingviewapp",
@@ -28,7 +28,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "technical"
   },
   {
     "name": "CoinMarketCap",
@@ -36,9 +37,9 @@
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/coinmarketcap.com.ico",
     "categoryFa": "داده بازار",
-    "categoryEn": "داده بازار",
+    "categoryEn": "Market Data",
     "summaryFa": "قیمت، ارزش بازار، حجم، عرضه و لینک‌های رسمی پروژه‌ها.",
-    "summaryEn": "قیمت، ارزش بازار، حجم، عرضه و لینک‌های رسمی پروژه‌ها.",
+    "summaryEn": "CoinMarketCap is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://coinmarketcap.com",
     "ios": "https://apps.apple.com/app/coinmarketcap-crypto-tracker/id1282107098",
     "android": "https://play.google.com/store/apps/details?id=com.coinmarketcap.android",
@@ -59,7 +60,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "market-data"
   },
   {
     "name": "CoinGecko",
@@ -67,9 +69,9 @@
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/coingecko.com.ico",
     "categoryFa": "داده بازار",
-    "categoryEn": "داده بازار",
+    "categoryEn": "Market Data",
     "summaryFa": "قیمت، نقدشوندگی، دسته‌بندی‌ها و صرافی‌ها.",
-    "summaryEn": "قیمت، نقدشوندگی، دسته‌بندی‌ها و صرافی‌ها.",
+    "summaryEn": "CoinGecko is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.coingecko.com",
     "ios": "https://apps.apple.com/app/coingecko-crypto-tracker/id1390323960",
     "android": "https://play.google.com/store/apps/details?id=com.coingecko.coingeckoapp",
@@ -90,17 +92,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "market-data"
   },
   {
     "name": "CoinGlass",
     "domain": "coinglass.com",
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/coinglass.com.ico",
-    "categoryFa": "فیوچرز و لیکوئیدیشن",
-    "categoryEn": "فیوچرز و لیکوئیدیشن",
+    "categoryFa": "مشتقه و فیوچرز",
+    "categoryEn": "Derivatives & Futures",
     "summaryFa": "Open Interest، Funding، لیکوئیدیشن و فشار اهرمی.",
-    "summaryEn": "Open Interest، Funding، لیکوئیدیشن و فشار اهرمی.",
+    "summaryEn": "CoinGlass is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.coinglass.com",
     "ios": "https://apps.apple.com/app/coinglass/id6444646068",
     "android": "https://play.google.com/store/apps/details?id=com.coinglass.app",
@@ -121,17 +124,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "derivatives"
   },
   {
     "name": "CryptoQuant",
     "domain": "cryptoquant.com",
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/cryptoquant.com.ico",
-    "categoryFa": "آنچین",
-    "categoryEn": "آنچین",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "جریان صرافی‌ها، SOPR، رفتار ماینرها و شاخص‌های چرخه.",
-    "summaryEn": "جریان صرافی‌ها، SOPR، رفتار ماینرها و شاخص‌های چرخه.",
+    "summaryEn": "CryptoQuant is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://cryptoquant.com",
     "ios": "",
     "android": "",
@@ -152,17 +156,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "Glassnode",
     "domain": "glassnode.com",
     "logo": "G",
     "logoUrl": "https://icons.duckduckgo.com/ip3/glassnode.com.ico",
-    "categoryFa": "آنچین حرفه‌ای",
-    "categoryEn": "آنچین حرفه‌ای",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "رفتار هولدرها، سود/ضرر تحقق‌یافته و چرخه بازار.",
-    "summaryEn": "رفتار هولدرها، سود/ضرر تحقق‌یافته و چرخه بازار.",
+    "summaryEn": "Glassnode is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://glassnode.com",
     "ios": "",
     "android": "",
@@ -183,17 +188,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "Messari",
     "domain": "messari.io",
     "logo": "M",
     "logoUrl": "https://icons.duckduckgo.com/ip3/messari.io.ico",
-    "categoryFa": "تحقیق پروژه",
-    "categoryEn": "تحقیق پروژه",
+    "categoryFa": "تحقیق و فاندامنتال",
+    "categoryEn": "Research & Fundamentals",
     "summaryFa": "پروفایل پروژه‌ها، گزارش تحقیقاتی، داده بنیادی و دسته‌بندی بازار.",
-    "summaryEn": "پروفایل پروژه‌ها، گزارش تحقیقاتی، داده بنیادی و دسته‌بندی بازار.",
+    "summaryEn": "Messari is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://messari.io",
     "ios": "",
     "android": "",
@@ -214,17 +220,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "research"
   },
   {
     "name": "Santiment",
     "domain": "santiment.net",
     "logo": "S",
     "logoUrl": "https://icons.duckduckgo.com/ip3/santiment.net.ico",
-    "categoryFa": "داده رفتاری",
-    "categoryEn": "داده رفتاری",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "داده آنچین، اجتماعی و رفتاری بازار رمزارز.",
-    "summaryEn": "داده آنچین، اجتماعی و رفتاری بازار رمزارز.",
+    "summaryEn": "Santiment is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://santiment.net",
     "ios": "",
     "android": "",
@@ -245,17 +252,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "Arkham",
     "domain": "arkhamintelligence.com",
     "logo": "A",
     "logoUrl": "https://icons.duckduckgo.com/ip3/arkhamintelligence.com.ico",
-    "categoryFa": "ردیابی کیف پول",
-    "categoryEn": "ردیابی کیف پول",
+    "categoryFa": "ردیابی کیف‌پول و نهنگ",
+    "categoryEn": "Wallet & Whale Tracking",
     "summaryFa": "ردیابی آدرس، جریان سرمایه، لیبل کیف پول و Smart Money.",
-    "summaryEn": "ردیابی آدرس، جریان سرمایه، لیبل کیف پول و Smart Money.",
+    "summaryEn": "Arkham is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://arkhamintelligence.com",
     "ios": "",
     "android": "",
@@ -276,17 +284,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "wallet-tracking"
   },
   {
     "name": "Nansen",
     "domain": "nansen.ai",
     "logo": "N",
     "logoUrl": "https://icons.duckduckgo.com/ip3/nansen.ai.ico",
-    "categoryFa": "تحلیل کیف پول",
-    "categoryEn": "تحلیل کیف پول",
+    "categoryFa": "ردیابی کیف‌پول و نهنگ",
+    "categoryEn": "Wallet & Whale Tracking",
     "summaryFa": "تحلیل کیف پول‌ها، Smart Money و جریان سرمایه در شبکه‌ها.",
-    "summaryEn": "تحلیل کیف پول‌ها، Smart Money و جریان سرمایه در شبکه‌ها.",
+    "summaryEn": "Nansen is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.nansen.ai",
     "ios": "",
     "android": "",
@@ -307,17 +316,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "wallet-tracking"
   },
   {
     "name": "Dune",
     "domain": "dune.com",
     "logo": "D",
     "logoUrl": "https://icons.duckduckgo.com/ip3/dune.com.ico",
-    "categoryFa": "داشبورد آنچین",
-    "categoryEn": "داشبورد آنچین",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "داشبوردهای جامعه‌محور برای DeFi، NFT و پروتکل‌ها.",
-    "summaryEn": "داشبوردهای جامعه‌محور برای DeFi، NFT و پروتکل‌ها.",
+    "summaryEn": "Dune is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://dune.com",
     "ios": "",
     "android": "",
@@ -338,7 +348,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "DeFiLlama",
@@ -346,9 +357,9 @@
     "logo": "D",
     "logoUrl": "https://icons.duckduckgo.com/ip3/defillama.com.ico",
     "categoryFa": "دیفای",
-    "categoryEn": "دیفای",
+    "categoryEn": "DeFi",
     "summaryFa": "TVL، درآمد پروتکل، پل‌ها، زنجیره‌ها و اکوسیستم DeFi.",
-    "summaryEn": "TVL، درآمد پروتکل، پل‌ها، زنجیره‌ها و اکوسیستم DeFi.",
+    "summaryEn": "DeFiLlama is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://defillama.com",
     "ios": "",
     "android": "",
@@ -369,17 +380,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "defi"
   },
   {
     "name": "Token Terminal",
     "domain": "tokenterminal.com",
     "logo": "TT",
     "logoUrl": "https://icons.duckduckgo.com/ip3/tokenterminal.com.ico",
-    "categoryFa": "فاندامنتال پروتکل",
-    "categoryEn": "فاندامنتال پروتکل",
+    "categoryFa": "تحقیق و فاندامنتال",
+    "categoryEn": "Research & Fundamentals",
     "summaryFa": "درآمد، کارمزد، کاربران و داده بنیادی پروتکل‌ها.",
-    "summaryEn": "درآمد، کارمزد، کاربران و داده بنیادی پروتکل‌ها.",
+    "summaryEn": "Token Terminal is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://tokenterminal.com",
     "ios": "",
     "android": "",
@@ -400,17 +412,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "research"
   },
   {
     "name": "IntoTheBlock",
     "domain": "intotheblock.com",
     "logo": "I",
     "logoUrl": "https://icons.duckduckgo.com/ip3/intotheblock.com.ico",
-    "categoryFa": "آنچین و ریسک",
-    "categoryEn": "آنچین و ریسک",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "داده آنچین، هولدرها، جریان سرمایه و شاخص‌های رفتاری.",
-    "summaryEn": "داده آنچین، هولدرها، جریان سرمایه و شاخص‌های رفتاری.",
+    "summaryEn": "IntoTheBlock is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.intotheblock.com",
     "ios": "",
     "android": "",
@@ -431,7 +444,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "Etherscan",
@@ -439,9 +453,9 @@
     "logo": "E",
     "logoUrl": "https://icons.duckduckgo.com/ip3/etherscan.io.ico",
     "categoryFa": "اکسپلورر",
-    "categoryEn": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "تراکنش، قرارداد، هولدرها و Gas شبکه اتریوم.",
-    "summaryEn": "تراکنش، قرارداد، هولدرها و Gas شبکه اتریوم.",
+    "summaryEn": "Etherscan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://etherscan.io",
     "ios": "",
     "android": "",
@@ -462,7 +476,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "BscScan",
@@ -470,9 +485,9 @@
     "logo": "B",
     "logoUrl": "https://icons.duckduckgo.com/ip3/bscscan.com.ico",
     "categoryFa": "اکسپلورر",
-    "categoryEn": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "بررسی تراکنش و قراردادهای BNB Smart Chain.",
-    "summaryEn": "بررسی تراکنش و قراردادهای BNB Smart Chain.",
+    "summaryEn": "BscScan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://bscscan.com",
     "ios": "",
     "android": "",
@@ -493,7 +508,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "Solscan",
@@ -501,9 +517,9 @@
     "logo": "S",
     "logoUrl": "https://icons.duckduckgo.com/ip3/solscan.io.ico",
     "categoryFa": "اکسپلورر",
-    "categoryEn": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "بررسی تراکنش‌ها، توکن‌ها و آدرس‌های سولانا.",
-    "summaryEn": "بررسی تراکنش‌ها، توکن‌ها و آدرس‌های سولانا.",
+    "summaryEn": "Solscan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://solscan.io",
     "ios": "",
     "android": "",
@@ -524,7 +540,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "Tronscan",
@@ -532,9 +549,9 @@
     "logo": "T",
     "logoUrl": "https://icons.duckduckgo.com/ip3/tronscan.org.ico",
     "categoryFa": "اکسپلورر",
-    "categoryEn": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "بررسی تراکنش‌ها و دارایی‌های شبکه ترون.",
-    "summaryEn": "بررسی تراکنش‌ها و دارایی‌های شبکه ترون.",
+    "summaryEn": "Tronscan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://tronscan.org",
     "ios": "",
     "android": "",
@@ -555,17 +572,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "Arbiscan",
     "domain": "arbiscan.io",
     "logo": "A",
     "logoUrl": "https://icons.duckduckgo.com/ip3/arbiscan.io.ico",
-    "categoryFa": "اکسپلورر لایه دو",
-    "categoryEn": "اکسپلورر لایه دو",
+    "categoryFa": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "اکسپلورر شبکه Arbitrum برای تراکنش و قرارداد.",
-    "summaryEn": "اکسپلورر شبکه Arbitrum برای تراکنش و قرارداد.",
+    "summaryEn": "Arbiscan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://arbiscan.io",
     "ios": "",
     "android": "",
@@ -586,17 +604,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "Basescan",
     "domain": "basescan.org",
     "logo": "B",
     "logoUrl": "https://icons.duckduckgo.com/ip3/basescan.org.ico",
-    "categoryFa": "اکسپلورر لایه دو",
-    "categoryEn": "اکسپلورر لایه دو",
+    "categoryFa": "اکسپلورر",
+    "categoryEn": "Explorers",
     "summaryFa": "اکسپلورر شبکه Base برای تراکنش و قرارداد.",
-    "summaryEn": "اکسپلورر شبکه Base برای تراکنش و قرارداد.",
+    "summaryEn": "Basescan is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://basescan.org",
     "ios": "",
     "android": "",
@@ -617,17 +636,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "explorers"
   },
   {
     "name": "Revoke.cash",
     "domain": "revoke.cash",
     "logo": "RC",
     "logoUrl": "https://icons.duckduckgo.com/ip3/revoke.cash.ico",
-    "categoryFa": "امنیت کیف پول",
-    "categoryEn": "امنیت کیف پول",
+    "categoryFa": "امنیت",
+    "categoryEn": "Security",
     "summaryFa": "بررسی و لغو دسترسی قراردادهای هوشمند به کیف پول.",
-    "summaryEn": "بررسی و لغو دسترسی قراردادهای هوشمند به کیف پول.",
+    "summaryEn": "Revoke.cash is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://revoke.cash",
     "ios": "",
     "android": "",
@@ -648,17 +668,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "security"
   },
   {
     "name": "ScamSniffer",
     "domain": "scamsniffer.io",
     "logo": "S",
     "logoUrl": "https://icons.duckduckgo.com/ip3/scamsniffer.io.ico",
-    "categoryFa": "ضدفیشینگ",
-    "categoryEn": "ضدفیشینگ",
+    "categoryFa": "امنیت",
+    "categoryEn": "Security",
     "summaryFa": "کمک به شناسایی سایت‌ها و تراکنش‌های مشکوک.",
-    "summaryEn": "کمک به شناسایی سایت‌ها و تراکنش‌های مشکوک.",
+    "summaryEn": "ScamSniffer is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.scamsniffer.io",
     "ios": "",
     "android": "",
@@ -679,17 +700,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "security"
   },
   {
     "name": "Wallet Guard",
     "domain": "walletguard.app",
     "logo": "WG",
     "logoUrl": "https://icons.duckduckgo.com/ip3/walletguard.app.ico",
-    "categoryFa": "امنیت مرورگر",
-    "categoryEn": "امنیت مرورگر",
+    "categoryFa": "امنیت",
+    "categoryEn": "Security",
     "summaryFa": "هشدار برای تراکنش‌های مشکوک و کاهش ریسک فیشینگ.",
-    "summaryEn": "هشدار برای تراکنش‌های مشکوک و کاهش ریسک فیشینگ.",
+    "summaryEn": "Wallet Guard is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.walletguard.app",
     "ios": "",
     "android": "",
@@ -710,17 +732,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "security"
   },
   {
     "name": "Pocket Universe",
     "domain": "pocketuniverse.app",
     "logo": "PU",
     "logoUrl": "https://icons.duckduckgo.com/ip3/pocketuniverse.app.ico",
-    "categoryFa": "امنیت تراکنش",
-    "categoryEn": "امنیت تراکنش",
+    "categoryFa": "امنیت",
+    "categoryEn": "Security",
     "summaryFa": "پیش‌نمایش ریسک تراکنش قبل از امضا.",
-    "summaryEn": "پیش‌نمایش ریسک تراکنش قبل از امضا.",
+    "summaryEn": "Pocket Universe is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.pocketuniverse.app",
     "ios": "",
     "android": "",
@@ -741,17 +764,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "security"
   },
   {
     "name": "CoinDesk",
     "domain": "coindesk.com",
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/coindesk.com.ico",
-    "categoryFa": "اخبار معتبر",
-    "categoryEn": "اخبار معتبر",
+    "categoryFa": "اخبار و رسانه",
+    "categoryEn": "News & Media",
     "summaryFa": "خبرهای کلان، قانون‌گذاری، ETF و بازار رمزارز.",
-    "summaryEn": "خبرهای کلان، قانون‌گذاری، ETF و بازار رمزارز.",
+    "summaryEn": "CoinDesk is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.coindesk.com",
     "ios": "",
     "android": "",
@@ -772,17 +796,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "news"
   },
   {
     "name": "Cointelegraph",
     "domain": "cointelegraph.com",
     "logo": "C",
     "logoUrl": "https://icons.duckduckgo.com/ip3/cointelegraph.com.ico",
-    "categoryFa": "اخبار رمزارز",
-    "categoryEn": "اخبار رمزارز",
+    "categoryFa": "اخبار و رسانه",
+    "categoryEn": "News & Media",
     "summaryFa": "خبرها، تحلیل‌ها و رویدادهای اصلی صنعت کریپتو.",
-    "summaryEn": "خبرها، تحلیل‌ها و رویدادهای اصلی صنعت کریپتو.",
+    "summaryEn": "Cointelegraph is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://cointelegraph.com",
     "ios": "",
     "android": "",
@@ -803,17 +828,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "news"
   },
   {
     "name": "The Block",
     "domain": "theblock.co",
     "logo": "TB",
     "logoUrl": "https://icons.duckduckgo.com/ip3/theblock.co.ico",
-    "categoryFa": "اخبار و داده",
-    "categoryEn": "اخبار و داده",
+    "categoryFa": "اخبار و رسانه",
+    "categoryEn": "News & Media",
     "summaryFa": "اخبار صنعت، سرمایه‌گذاری، داده و شرکت‌های کریپتویی.",
-    "summaryEn": "اخبار صنعت، سرمایه‌گذاری، داده و شرکت‌های کریپتویی.",
+    "summaryEn": "The Block is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.theblock.co",
     "ios": "",
     "android": "",
@@ -834,17 +860,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "news"
   },
   {
     "name": "Blockworks",
     "domain": "blockworks.co",
     "logo": "B",
     "logoUrl": "https://icons.duckduckgo.com/ip3/blockworks.co.ico",
-    "categoryFa": "اخبار و تحلیل",
-    "categoryEn": "اخبار و تحلیل",
+    "categoryFa": "اخبار و رسانه",
+    "categoryEn": "News & Media",
     "summaryFa": "خبر، پادکست و تحلیل بازار رمزارز و مالی.",
-    "summaryEn": "خبر، پادکست و تحلیل بازار رمزارز و مالی.",
+    "summaryEn": "Blockworks is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://blockworks.co",
     "ios": "",
     "android": "",
@@ -865,17 +892,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "news"
   },
   {
     "name": "Whale Alert",
     "domain": "whale-alert.io",
     "logo": "WA",
     "logoUrl": "https://icons.duckduckgo.com/ip3/whale-alert.io.ico",
-    "categoryFa": "ردیابی نهنگ",
-    "categoryEn": "ردیابی نهنگ",
+    "categoryFa": "ردیابی کیف‌پول و نهنگ",
+    "categoryEn": "Wallet & Whale Tracking",
     "summaryFa": "ردیابی انتقال‌های بزرگ روی شبکه‌های مختلف.",
-    "summaryEn": "ردیابی انتقال‌های بزرگ روی شبکه‌های مختلف.",
+    "summaryEn": "Whale Alert is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://whale-alert.io",
     "ios": "",
     "android": "",
@@ -896,17 +924,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "wallet-tracking"
   },
   {
     "name": "Lookonchain",
     "domain": "lookonchain.com",
     "logo": "L",
     "logoUrl": "https://icons.duckduckgo.com/ip3/lookonchain.com.ico",
-    "categoryFa": "ردیابی آنچین",
-    "categoryEn": "ردیابی آنچین",
+    "categoryFa": "تحلیل آنچین",
+    "categoryEn": "On-chain Analytics",
     "summaryFa": "ردیابی رفتار نهنگ‌ها و کیف پول‌های مهم.",
-    "summaryEn": "ردیابی رفتار نهنگ‌ها و کیف پول‌های مهم.",
+    "summaryEn": "Lookonchain is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.lookonchain.com",
     "ios": "",
     "android": "",
@@ -927,17 +956,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "onchain"
   },
   {
     "name": "Token Unlocks",
     "domain": "token.unlocks.app",
     "logo": "TU",
     "logoUrl": "https://icons.duckduckgo.com/ip3/token.unlocks.app.ico",
-    "categoryFa": "آزادسازی توکن",
-    "categoryEn": "آزادسازی توکن",
+    "categoryFa": "تحقیق و فاندامنتال",
+    "categoryEn": "Research & Fundamentals",
     "summaryFa": "تقویم آزادسازی توکن، Vesting و فشار فروش احتمالی.",
-    "summaryEn": "تقویم آزادسازی توکن، Vesting و فشار فروش احتمالی.",
+    "summaryEn": "Token Unlocks is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://token.unlocks.app",
     "ios": "",
     "android": "",
@@ -958,17 +988,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "research"
   },
   {
     "name": "Airdrops.io",
     "domain": "airdrops.io",
     "logo": "AI",
     "logoUrl": "https://icons.duckduckgo.com/ip3/airdrops.io.ico",
-    "categoryFa": "ایردراپ",
-    "categoryEn": "ایردراپ",
+    "categoryFa": "ایردراپ و کوئست",
+    "categoryEn": "Airdrops & Quests",
     "summaryFa": "فهرست و بررسی فرصت‌های ایردراپ.",
-    "summaryEn": "فهرست و بررسی فرصت‌های ایردراپ.",
+    "summaryEn": "Airdrops.io is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://airdrops.io",
     "ios": "",
     "android": "",
@@ -989,17 +1020,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "airdrops"
   },
   {
     "name": "Layer3",
     "domain": "layer3.xyz",
     "logo": "L",
     "logoUrl": "https://icons.duckduckgo.com/ip3/layer3.xyz.ico",
-    "categoryFa": "Quest و ایردراپ",
-    "categoryEn": "Quest و ایردراپ",
+    "categoryFa": "ایردراپ و کوئست",
+    "categoryEn": "Airdrops & Quests",
     "summaryFa": "مسیرهای آموزشی و ماموریت‌های اکوسیستم وب۳.",
-    "summaryEn": "مسیرهای آموزشی و ماموریت‌های اکوسیستم وب۳.",
+    "summaryEn": "Layer3 is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://layer3.xyz",
     "ios": "",
     "android": "",
@@ -1020,17 +1052,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "airdrops"
   },
   {
     "name": "Galxe",
     "domain": "galxe.com",
     "logo": "G",
     "logoUrl": "https://icons.duckduckgo.com/ip3/galxe.com.ico",
-    "categoryFa": "Quest و جامعه",
-    "categoryEn": "Quest و جامعه",
+    "categoryFa": "ایردراپ و کوئست",
+    "categoryEn": "Airdrops & Quests",
     "summaryFa": "کمپین‌ها، مأموریت‌ها و Credentialهای وب۳.",
-    "summaryEn": "کمپین‌ها، مأموریت‌ها و Credentialهای وب۳.",
+    "summaryEn": "Galxe is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://galxe.com",
     "ios": "",
     "android": "",
@@ -1051,17 +1084,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "airdrops"
   },
   {
     "name": "Zealy",
     "domain": "zealy.io",
     "logo": "Z",
     "logoUrl": "https://icons.duckduckgo.com/ip3/zealy.io.ico",
-    "categoryFa": "جامعه و Quest",
-    "categoryEn": "جامعه و Quest",
+    "categoryFa": "ایردراپ و کوئست",
+    "categoryEn": "Airdrops & Quests",
     "summaryFa": "مدیریت جامعه، تسک و کمپین‌های مشارکتی.",
-    "summaryEn": "مدیریت جامعه، تسک و کمپین‌های مشارکتی.",
+    "summaryEn": "Zealy is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://zealy.io",
     "ios": "",
     "android": "",
@@ -1082,17 +1116,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "airdrops"
   },
   {
     "name": "DefiSafety",
     "domain": "defisafety.com",
     "logo": "D",
     "logoUrl": "https://icons.duckduckgo.com/ip3/defisafety.com.ico",
-    "categoryFa": "ریسک پروتکل",
-    "categoryEn": "ریسک پروتکل",
+    "categoryFa": "تحقیق و فاندامنتال",
+    "categoryEn": "Research & Fundamentals",
     "summaryFa": "ارزیابی شفافیت، فرایند و ریسک عملیاتی پروتکل‌های DeFi.",
-    "summaryEn": "ارزیابی شفافیت، فرایند و ریسک عملیاتی پروتکل‌های DeFi.",
+    "summaryEn": "DefiSafety is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://www.defisafety.com",
     "ios": "",
     "android": "",
@@ -1113,17 +1148,18 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "research"
   },
   {
     "name": "LunarCrush",
     "domain": "lunarcrush.com",
     "logo": "L",
     "logoUrl": "https://icons.duckduckgo.com/ip3/lunarcrush.com.ico",
-    "categoryFa": "تحلیل اجتماعی",
-    "categoryEn": "تحلیل اجتماعی",
+    "categoryFa": "احساسات بازار",
+    "categoryEn": "Market Sentiment",
     "summaryFa": "ترندهای اجتماعی، توجه کاربران و داده شبکه‌های اجتماعی.",
-    "summaryEn": "ترندهای اجتماعی، توجه کاربران و داده شبکه‌های اجتماعی.",
+    "summaryEn": "LunarCrush is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://lunarcrush.com",
     "ios": "",
     "android": "",
@@ -1144,7 +1180,8 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "sentiment"
   },
   {
     "name": "Alternative.me Fear & Greed",
@@ -1152,9 +1189,9 @@
     "logo": "AMF",
     "logoUrl": "https://icons.duckduckgo.com/ip3/alternative.me.ico",
     "categoryFa": "احساسات بازار",
-    "categoryEn": "احساسات بازار",
+    "categoryEn": "Market Sentiment",
     "summaryFa": "شاخص ترس و طمع برای سنجش حال‌وهوای بازار.",
-    "summaryEn": "شاخص ترس و طمع برای سنجش حال‌وهوای بازار.",
+    "summaryEn": "Alternative.me Fear & Greed is a useful crypto tool. It should be combined with price, volume, liquidity, news and risk management, not used as a standalone signal.",
     "site": "https://alternative.me/crypto/fear-and-greed-index/",
     "ios": "",
     "android": "",
@@ -1175,6 +1212,7 @@
       "دارایی، شبکه یا شاخص موردنظر را جستجو کنید.",
       "داده را با قیمت، حجم، خبر و مدیریت ریسک مقایسه کنید.",
       "نتیجه را قبل از اقدام با سناریوی معاملاتی خود بسنجید."
-    ]
+    ],
+    "categoryKey": "sentiment"
   }
 ]
