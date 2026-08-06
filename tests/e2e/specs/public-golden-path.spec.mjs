@@ -619,10 +619,13 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
   await waitForPendingCspViolationDeliveries(page);
-  // A generous reload budget: the mobile-emulated projects can exceed the 30s
-  // default under CI load, and the assertions below already auto-wait for the
-  // rehydrated content, so a slow navigation should not fail the run.
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  // Resolve the reload as soon as the navigation commits rather than waiting for
+  // full `domcontentloaded`: parsing/executing the large landing bundle can push
+  // DCL past 60s on firefox-fa-desktop under CI I/O contention (a recurring
+  // reload-timeout flake), and the assertions below already auto-wait for the
+  // rehydrated content — so a slow parse must not fail the run. We still assert
+  // the persisted theme after the reload, which is the point of this step.
+  await page.reload({ waitUntil: "commit", timeout: 60_000 });
   await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
 
