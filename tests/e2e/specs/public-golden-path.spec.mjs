@@ -58,6 +58,8 @@ function projectContract(testInfo) {
         themeToDark: "Switch to dark mode",
         academyPath: "/en/academy",
         arenaPath: "/en/academy/trading-arena",
+        arenaHeading: /Trading Arena/i,
+        arenaRiskFree: /no real money, real profit or real trade/i,
         primaryCtas: ["Enter Academy", "View trading tools"],
         forbiddenCopy: [
           /Online Market Board/i,
@@ -82,6 +84,8 @@ function projectContract(testInfo) {
         themeToDark: "تغییر به حالت تیره",
         academyPath: "/academy",
         arenaPath: "/academy/trading-arena",
+        arenaHeading: /تریدینگ آرنا/,
+        arenaRiskFree: /هیچ پول واقعی، سود واقعی یا معاملهٔ واقعی/,
         primaryCtas: ["آکادمی رایگان", "ورود به آکادمی رایگان تک‌پی", "مشاهده ابزارهای ترید"],
         forbiddenCopy: [
           /پشتیبانی\s*۲۴\/۷/,
@@ -579,6 +583,21 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   for (const forbidden of contract.forbiddenCopy) {
     expect(bodyText, `unsupported public claim matched ${forbidden}`).not.toMatch(forbidden);
   }
+
+  // A dedicated Trading Arena section must be part of the public landing
+  // narrative (#80 defect 3) — not merely a nav link — with the honest,
+  // fully-educational positioning and a link into the Arena journey.
+  const arenaSection = page.locator("#trading-arena");
+  await arenaSection.scrollIntoViewIfNeeded();
+  await expect(arenaSection, "public landing is missing a dedicated Trading Arena section").toBeVisible();
+  await expect(arenaSection.getByRole("heading", { name: contract.arenaHeading })).toBeVisible();
+  await expect(
+    arenaSection,
+    "Arena section must state it is fully educational with no real money",
+  ).toContainText(contract.arenaRiskFree);
+  await expect(
+    arenaSection.getByRole("link", { name: contract.arena }).first(),
+  ).toHaveAttribute("href", new RegExp(`${contract.arenaPath.replace(/[/]/g, "\\/")}$`));
 
   if (testInfo.project.name.startsWith("chromium")) {
     await expectSuccessfulLocalRoute(page, contract.academyPath);

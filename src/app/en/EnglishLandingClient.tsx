@@ -371,6 +371,47 @@ function CorporateAcademySectionEn() {
 
 
 
+function TradingArenaSectionEn() {
+  const features = [
+    { icon: Award, title: "Virtual capital and three attempts", text: "Practice responsible entries and exits with $100,000 of virtual capital and three controlled cycles — no real money involved." },
+    { icon: PlayCircle, title: "Server-side execution and replay", text: "Every decision is executed and recorded on the server; a repeated request is never re-executed and the result is replayable." },
+    { icon: PenLine, title: "Server-side journal", text: "The reason, emotion and risk plan behind each trade are stored in an authoritative journal so you can see your trading behaviour." },
+    { icon: GraduationCap, title: "Educational mentor feedback", text: "The mentor uses your practice behaviour to analyse your learning path — it does not sell buy or sell signals." },
+    { icon: ShieldAlert, title: "5% educational risk threshold", text: "A risk warning above 5% on each decision helps build risk-management habits before entering a real market." },
+    { icon: BookMarked, title: "From learning to decision", text: "The Arena closes the learn to analyse to practise to decide loop and makes what you learned measurable." },
+  ] as const;
+
+  return (
+    <section id="trading-arena" className="px-4 pb-16 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-200 bg-white/75 p-6 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl dark:bg-white/[0.055] sm:p-8">
+        <div className="text-center">
+          <div className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-black text-cyan-700 dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">Practice decisions with virtual capital — no real-money risk</div>
+          <h2 className="mt-5 text-3xl font-black leading-tight text-slate-950 dark:text-white sm:text-4xl">Trading Arena</h2>
+          <p className="mx-auto mt-4 max-w-3xl text-sm font-bold leading-8 text-slate-600 dark:text-slate-300">
+            After learning, test your decisions in a simulated environment. The Trading Arena is a fully educational simulator; no real money, real profit or real trade takes place in it.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="rounded-[26px] border border-slate-200 bg-white/70 p-5 dark:border-white/10 dark:bg-white/[0.06]">
+              <Icon className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
+              <h3 className="mt-4 text-lg font-black text-slate-950 dark:text-white">{title}</h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{text}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Link href="/en/academy/trading-arena" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400 sm:text-base">
+            <PlayCircle className="h-5 w-5" />
+            Enter the Trading Arena
+          </Link>
+          <p className="max-w-2xl text-center text-xs font-bold leading-7 text-slate-500 dark:text-slate-400">Practice uses virtual capital and produces no real profit or loss.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AcademyOfficialClarificationEn() {
   return (
     <section className="px-4 pb-16 sm:px-6 lg:px-8">
@@ -543,6 +584,7 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
       <TecpeyEcosystemFlowEn />
       <TrustStackGlobalEn />
       <AcademyGrowthSystemEn />
+      <TradingArenaSectionEn />
       <AcademyOfficialClarificationEn />
       <section className="px-4 pb-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-200 bg-cyan-50 p-6 text-center dark:border-cyan-300/15 dark:bg-cyan-300/10"><h2 className="text-2xl font-black text-slate-950 dark:text-white">Knowledge Center: Trader Toolbox</h2><p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">Learn practical tools for analysis, risk management, news, on-chain data and project research.</p><a href="/en/trading-tools" className="mt-5 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">View trading tools</a></div></section>
       <LearningExperienceSystemEn />
