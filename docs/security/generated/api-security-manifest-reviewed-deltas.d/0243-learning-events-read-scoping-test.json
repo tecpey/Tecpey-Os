@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/learning-events",
+      "method": "POST",
+      "previousSourceHash": "a3188614d027367f728845dd",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Record that learning-events-cross-tenant-isolation-postgres.test.ts now exercises the /api/learning-events write path via refreshLearningBrain. Test-reference metadata only: the route source is unchanged (previousSourceHash == replacement.sourceHash) and every security control, requirement and finding is identical to the baseline operation.",
+      "replacement": {
+        "route": "/api/learning-events",
+        "method": "POST",
+        "sourcePath": "src/app/api/learning-events/route.ts",
+        "sourceHash": "a3188614d027367f728845dd",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getStudentSessionFromRequest",
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "learning-events-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "learning-events",
+        "testReferences": [
+          "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/learning-events/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

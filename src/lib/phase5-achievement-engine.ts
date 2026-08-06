@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification, maybeAwardAchievement, prepareLearningOsData, recordLearningEvent, type NotificationChannel } from "@/lib/learning-os";
 import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
+import { PLATFORM } from "@/lib/platform-config";
 
 export type Queryable = {
   query: (query: string, values?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -75,9 +76,19 @@ export function fallbackAchievementSnapshot(locale: "fa" | "en" = "fa"): Achieve
   return base.map(([code, title, description, icon, category, xp], index) => ({ code, title, description, icon, category, xp, earned: index < 1, earnedAt: index < 1 ? new Date().toISOString() : null }));
 }
 
-export async function buildNotificationBrain(client: Queryable, studentId: string, locale: "fa" | "en" = "fa"): Promise<NotificationBrainSnapshot> {
+export async function buildNotificationBrain(
+  client: Queryable,
+  studentId: string,
+  locale: "fa" | "en" = "fa",
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+): Promise<NotificationBrainSnapshot> {
   await assertPhase5Schema(client);
   const isFa = locale === "fa";
+  // learning_events is tenant-scoped: a student admitted into two tenants owns
+  // independent learning evidence per tenant. The aggregation MUST filter by
+  // tenant_id as well as student_id, or one tenant's notification brain would
+  // count the other tenant's events. Defaults to the platform default tenant so
+  // single-tenant callers are unchanged.
   const stats = await client.query(
     `SELECT
        COUNT(*) FILTER (WHERE event_type IN ('lesson_completed','lesson_viewed'))::int AS learning_events,
@@ -86,8 +97,8 @@ export async function buildNotificationBrain(client: Queryable, studentId: strin
        COUNT(*) FILTER (WHERE event_type = 'certificate_issued')::int AS certificates,
        MAX(created_at) AS last_event_at
      FROM learning_events
-     WHERE student_id = $1::uuid`,
-    [studentId],
+     WHERE student_id = $1::uuid AND tenant_id = $2`,
+    [studentId, tenantId],
   );
   const brain = await client.query(`SELECT * FROM learning_brain_profiles WHERE student_id = $1::uuid LIMIT 1`, [studentId]);
   const s = stats.rows[0] || {};
