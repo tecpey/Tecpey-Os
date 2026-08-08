@@ -67,7 +67,7 @@
     "academy:progress:check": "node scripts/check-academy-authority-boundary.mjs",
     "test:academy-progress": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/academy-progress*.test.ts' 'src/tests/security/learning-events*.test.ts'",
     "crm:check": "node scripts/check-crm-lead-authority.mjs",
-    "test:crm-leads": "NODE_ENV=test node --import tsx --test --test-force-exit 'src/tests/security/crm-lead*.test.ts'",
+    "test:crm-leads": "NODE_ENV=test node --import tsx --test --test-concurrency=1 --test-force-exit 'src/tests/security/crm-lead*.test.ts'",
     "crm:worker": "tsx scripts/run-crm-lead-delivery-worker.ts",
     "crm:retention": "tsx scripts/run-crm-lead-retention.ts",
     "exchange:check": "node scripts/check-exchange-order-admission.mjs && node scripts/check-exchange-order-evidence.mjs && node scripts/check-exchange-reconciliation-authority.mjs",

@@ -38,6 +38,7 @@ const rejectText = (target, text, reason) => {
 
 requireText("package", '"crm:check"', "CRM authority guard needs a governed command");
 requireText("package", '"test:crm-leads"', "focused CRM tests need a governed command");
+requireText("package", "--test-concurrency=1", "CRM PostgreSQL evidence must run serially to avoid cross-file deadlocks on shared durable fixtures");
 requireText("package", '"crm:worker"', "delivery worker needs a governed command");
 requireText("package", '"crm:retention"', "retention runner needs a governed command");
 requireText("package", "npm run crm:check", "release gate must execute CRM authority guard");
