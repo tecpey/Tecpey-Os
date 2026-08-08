@@ -8,22 +8,22 @@
       "previousSourceHash": "a3188614d027367f728845dd",
       "issue": "#109",
       "owner": "academy-platform",
-      "reason": "Record that learning-events-cross-tenant-isolation-postgres.test.ts now exercises the /api/learning-events write path via refreshLearningBrain. Test-reference metadata only: the route source is unchanged (previousSourceHash == replacement.sourceHash) and every security control, requirement and finding is identical to the baseline operation.",
+      "reason": "Bind the /api/learning-events write path to strict canonical session and platform_principal_bindings tenant context before recording client-visible Academy/Mentor events. This prevents client event writes and learning-brain refreshes from falling back to the default tenant when a student is admitted into multiple tenants.",
       "replacement": {
         "route": "/api/learning-events",
         "method": "POST",
         "sourcePath": "src/app/api/learning-events/route.ts",
-        "sourceHash": "a3188614d027367f728845dd",
+        "sourceHash": "30b0fa48973d2f8209162344",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
         "classification": "authenticated",
-        "principalSource": "getStudentSessionFromRequest",
-        "tenantSource": null,
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
         "risk": [],
         "controls": {
           "csrf": true,
-          "strictRevocation": false,
+          "strictRevocation": true,
           "rateLimit": true,
           "rateLimitNamespace": "learning-events-write",
           "expectsBody": true,
@@ -33,7 +33,7 @@
           "idempotency": false,
           "transaction": true,
           "verifiedPrincipal": true,
-          "tenantFromVerifiedContext": false,
+          "tenantFromVerifiedContext": true,
           "noStore": true,
           "audit": true,
           "redaction": true,
@@ -46,7 +46,8 @@
         },
         "domainOwner": "learning-events",
         "testReferences": [
-          "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
+          "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts"
         ],
         "requirements": {
           "csrf": true,
