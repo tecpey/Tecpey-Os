@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "baff7a5ead4b41036c7fec435e905e21aaa967d8",
-      "sha256": "6d3e130359cda7077b040c19a36110248cb56cf1d0e26e4a3fd99b30247c6143",
+      "gitObjectId": "26f4810fb2e9381115b5ff2955a5d489aa423ae0",
+      "sha256": "d1b4af0146f4f5b9f3942ebef78a439af5e505eb06b5d9769753511e90e6ec84",
       "lines": 179,
       "reviewedRanges": [
         {
@@ -63,7 +63,8 @@
         "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
         "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL.",
         "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines.",
-        "2026-08-08: re-reviewed after wiring scripts/check-brand-asset-authority.mjs into ui:public:check. The change composes a read-only static brand asset guard with the existing public UI foundation guard; it adds no dependency, engine, override, release-authority command, network access or mutation path, and the file stays 179 lines."
+        "2026-08-08: re-reviewed after wiring scripts/check-brand-asset-authority.mjs into ui:public:check. The change composes a read-only static brand asset guard with the existing public UI foundation guard; it adds no dependency, engine, override, release-authority command, network access or mutation path, and the file stays 179 lines.",
+        "2026-08-08: re-reviewed after adding --test-concurrency=1 to test:crm-leads. CRM PostgreSQL evidence now runs serially to avoid cross-file deadlocks against shared durable fixtures; no dependency, engine, override, release-authority command, network access, or runtime mutation path changed, and the file stays 179 lines."
       ],
       "findings": [
         {
