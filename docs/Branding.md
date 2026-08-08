@@ -121,6 +121,8 @@ Helper text below Academy CTA (small, not competing):
 - Usage: Always use on appropriate contrast background
 - Do not distort, recolor, or add effects to the logo
 - Favicon, Apple touch icon, Android/PWA icons and README previews must be generated from the same official icon source.
+- Uploaded source references are recorded in `/docs/assets/brand/brand-assets.json` with SHA-256 hashes.
+- The public UI gate runs `scripts/check-brand-asset-authority.mjs` to reject canonical logo, runtime icon, README preview, metadata, manifest, or source-reference drift.
 
 ---
 

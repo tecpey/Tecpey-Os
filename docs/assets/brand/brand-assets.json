@@ -27,8 +27,17 @@
   "sourceReferences": [
     "docs/assets/brand/source/tecpey-tp-icon-clean-uploaded.jpeg",
     "docs/assets/brand/source/tecpey-tp-icon-uploaded.png",
-    "docs/assets/brand/source/tecpey-lockup-uploaded.png"
+    "docs/assets/brand/source/tecpey-tp-icon-compact-uploaded.png",
+    "docs/assets/brand/source/tecpey-lockup-uploaded.png",
+    "docs/assets/brand/source/tecpey-lockup-white-uploaded.jpeg"
   ],
+  "sourceReferenceHashes": {
+    "docs/assets/brand/source/tecpey-tp-icon-clean-uploaded.jpeg": "bdba2658959bf4f2587118e009b8caa8e9fe160e8d1bc4a0d029ea59d3f583a3",
+    "docs/assets/brand/source/tecpey-tp-icon-uploaded.png": "579068c6560b1e9aecd00c46f14198edd34504072170674804f3b979c7f63169",
+    "docs/assets/brand/source/tecpey-tp-icon-compact-uploaded.png": "de8887eeb11d7cc001f8b4da2c69819f4ef91a0cda628b2c9fa2b0a3e304d7f6",
+    "docs/assets/brand/source/tecpey-lockup-uploaded.png": "3e71b5ca5aed9de1fa154c1209be5a111038077f4a7baf7f4f798bc55d88553c",
+    "docs/assets/brand/source/tecpey-lockup-white-uploaded.jpeg": "88cc9ba3e36fc1fc47060c840729ea43bf2d6599a917573458fd23ae2ffabed7"
+  },
   "policy": [
     "Use the canonical icon for runtime UI, metadata, structured data, favicons and PWA icons.",
     "Use the lockup only for brand review, decks or documentation surfaces where the full Persian/English mark is required.",
