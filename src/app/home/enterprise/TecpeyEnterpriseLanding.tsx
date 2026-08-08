@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -34,6 +33,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
 import type { MarketCurrency } from "@/types/market";
 
@@ -126,7 +126,7 @@ function DeviceFrame() {
         <div className="rounded-[28px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Image src="/images/tecpey-logo.png" alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
+              <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
               <div>
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">بازار تک‌پی</p>
                 <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">قیمت لحظه‌ای و مسیر شروع معامله</p>
@@ -488,7 +488,7 @@ function BrandContentSystem() {
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300 shadow-[0_0_28px_rgba(34,211,238,.18)]">
                     <card.icon className="h-7 w-7" />
                   </div>
-                  <Image src="/images/tecpey-logo.png" alt="TecPey" width={38} height={38} className="h-10 w-10 object-contain opacity-80" />
+                  <TecpeyMark alt="TecPey" width={38} height={38} className="h-10 w-10 object-contain opacity-80" />
                 </div>
                 <p className="mt-5 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-200">{card.tag}</p>
                 <h3 className="mt-4 text-xl font-black leading-8 text-slate-950 dark:text-white">{card.title}</h3>
@@ -951,7 +951,7 @@ function FinalCta() {
   return (
     <section className="bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
       <div className="mx-auto max-w-7xl overflow-hidden rounded-[36px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,.35),transparent_30%),linear-gradient(135deg,#07111f,#0f172a)] px-6 py-10 text-center shadow-2xl shadow-cyan-500/10 sm:px-10 lg:px-16 lg:py-16">
-        <Image src="/images/tecpey-logo.png" alt="TecPey" width={74} height={74} className="mx-auto h-16 w-16 object-contain" />
+        <TecpeyMark alt="TecPey" width={74} height={74} className="mx-auto h-16 w-16 object-contain" />
         <h2 className="mx-auto mt-6 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">تک‌پی، نقطه امن ورود به بازار رمزارز</h2>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-white/70 sm:text-base">آموزش‌های رایگان آکادمی را شروع کنید، اطلاعات آموزشی بازار را مرور کنید، در آزمون‌ها امتیاز بگیرید و اگر جزو کاربران آماده‌تر باشید، وارد مسیر حرفه‌ای تک‌پی شوید.</p>
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
