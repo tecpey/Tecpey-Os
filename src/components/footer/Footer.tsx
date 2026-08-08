@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Mail, MapPin, Phone, Smartphone } from "lucide-react";
 import { FaDiscord, FaInstagram } from "react-icons/fa6";
 import { FaTelegramPlane } from "react-icons/fa";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 
 const footerSquareGroups = [
   {
@@ -174,7 +174,7 @@ function ContactPanel({ isEnglish }: { isEnglish: boolean }) {
   return (
     <section className="rounded-[30px] border border-cyan-300/15 bg-white/[0.035] p-5">
       <Link href={isEnglish ? "/en" : "/"} className="inline-flex items-center" aria-label="TecPey Home">
-        <Image src="/images/tecpey-logo.png" alt="TecPey" width={200} height={58} className="h-[58px] w-auto object-contain" />
+        <TecpeyMark alt="TecPey" width={200} height={58} className="h-[58px] w-auto object-contain" />
       </Link>
       <p className="mt-4 text-sm font-bold leading-8 text-white/68">
         {isEnglish
