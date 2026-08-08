@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { CommandCenterDashboard } from "@/components/admin/CommandCenterDashboard";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 
 export type CommandCenterAdmin = {
   id: string;
@@ -374,8 +374,7 @@ export function AdminPasskeyAccessGate() {
           <div>
             <div className="flex items-center gap-4">
               <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-cyan-300/20 bg-white/5 p-2">
-                <Image
-                  src="/images/tecpey-logo.png"
+                <TecpeyMark
                   alt="TecPey"
                   fill
                   sizes="48px"
