@@ -36,7 +36,7 @@
     "test:readiness": "NODE_ENV=test node --import tsx --test src/tests/database/migration-contract.test.ts",
     "test:startup": "NODE_ENV=test node --import tsx --test src/tests/runtime/database-startup-authority.test.ts",
     "ui:check": "node scripts/check-ui-style-authority.mjs",
-    "ui:public:check": "node scripts/check-public-ui-foundation.mjs",
+    "ui:public:check": "node scripts/check-public-ui-foundation.mjs && node scripts/check-brand-asset-authority.mjs",
     "ui:runtime:dev": "node scripts/check-ui-runtime.mjs --dev",
     "ui:runtime:prod": "node scripts/check-ui-runtime.mjs --prod",
     "test:e2e:public": "npm --prefix tests/e2e test",
