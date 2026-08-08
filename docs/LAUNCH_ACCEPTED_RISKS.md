@@ -9,6 +9,56 @@
 
 > **Reconciliation update (2026-08-01).** This is a dated Phase 39.5 record. Some risks below have since been reduced or resolved by merged code and are annotated inline with a **Reconciliation update** note citing the current authority; history is preserved rather than erased. Notably R-03 (schema-on-connect) is resolved — its detailed entry was already marked *Superseded*, and the **Summary Table** row has now been corrected to match. When a note and the original entry disagree, the note and the current code win.
 
+> **Controlled-launch decision update (2026-08-08).** This registry is **not yet accepted as final Go evidence** for #50. The controlled Soft Launch may only use this document after a named release owner records exact thresholds, review dates, sign-off evidence and rollback triggers for every unresolved row. Placeholder thresholds such as `N`, `X`, `defined hours`, or phase-only expirations are management debt, not accepted risk. Until that reconciliation is complete, the current decision remains **NO-GO** for public Go/No-Go and **NO-GO** for every real-money Exchange, custody, deposit, withdrawal, public reward, enterprise or white-label surface.
+
+## Controlled Launch Reconciliation Addendum — 2026-08-08
+
+This addendum reconciles the dated Phase 39.5 accepted-risk register with the
+current controlled launch boundary.
+
+### Decision status
+
+| Scope | Current decision | Reason |
+|---|---|---|
+| Public FA/EN, Academy, Mentor and virtual Arena controlled launch | NO-GO until final #50 evidence is attached | Staging, recovery, rollback, alert-delivery, accepted-risk and sign-off evidence remain incomplete. |
+| Real-money Exchange | NO-GO | Reconciliation, ambiguous-result recovery, provider evidence, compliance and broader financial certification remain open. |
+| Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider certification, on-chain reconciliation and withdrawal settlement evidence remain independent gates. |
+| Public rewards, enterprise and white-label claims | NO-GO | These are outside the controlled launch scope and must not be implied by README, UI or investor/status copy. |
+
+### Required accepted-risk closure before a Go decision
+
+Every open risk must have:
+
+1. accountable owner and approval owner;
+2. exact review date or expiry date, not only a phase label;
+3. measurable threshold values replacing `N`, `X`, `[defined hours]` and similar placeholders;
+4. tested mitigation evidence or a linked issue that keeps the release NO-GO until resolved;
+5. user communication text where the risk can affect users;
+6. rollback or kill-switch condition that can be executed by an identified owner.
+
+### Current unresolved placeholders
+
+| Risk | Unresolved decision debt | Current launch effect |
+|---|---|---|
+| R-01 | Canonical Academy state is reduced, but engagement/gamification localStorage loss still needs exact user-complaint/churn thresholds and current user-facing warning evidence. | Blocks Go until product truth and warning evidence are accepted. |
+| R-02 | Client-reported market-data health still uses `N per week` and lacks an exact pause/restrict threshold. | Blocks any claim of verified live market data; virtual-only launch still needs copy truth. |
+| R-04 | Alert delivery has no accepted guaranteed-delivery evidence and no tested escalation path. | Blocks Go until alert delivery evidence is accepted or launch scope is further restricted. |
+| R-05 | Redis outage thresholds still use `N` and `X`, and withdrawals must remain disabled while custody/withdrawal flows are NO-GO. | Blocks withdrawals; controlled launch can proceed only with real withdrawals disabled and no misleading copy. |
+| R-07 | Automated financial reconciliation is absent; this cannot be accepted for real-money launch. | Blocks real-money Exchange and custody. |
+| R-08 | English/global traffic thresholds still use `X%` and `Y revenue`. | Blocks global growth claims, not Persian-first controlled education if copy remains truthful. |
+| R-09 | Support hours are still `[defined hours]`; incident response evidence is incomplete. | Blocks Go until support hours, escalation and ownership are accepted. |
+| R-10 | Hot-wallet threshold is written as a manual rule but real withdrawals remain launch-disabled. | Blocks custody/withdrawals and any hot-wallet readiness claim. |
+
+### Re-evaluation rule
+
+The final Go/No-Go packet must cite this addendum and either:
+
+- replace every placeholder with exact signed values; or
+- keep the related capability explicitly NO-GO and product-disabled.
+
+No AI agent, contributor or operator may treat this historical registry as final
+accepted-risk evidence without that reconciliation.
+
 ---
 
 ## R-01 — Academy Progress, Trading DNA, Journals, Streaks, and Community Data Live in localStorage
