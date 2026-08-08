@@ -403,7 +403,7 @@ export function AcademyAuthClient({
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute inset-y-1 end-1 inline-flex min-h-10 w-11 items-center justify-center rounded-xl text-[color:var(--tp-muted)] transition-[transform,background-color,color] duration-150 ease-out hover:bg-cyan-50 hover:text-cyan-700 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 dark:hover:bg-white/[0.10] dark:hover:text-cyan-200"
+                  className="absolute inset-y-1 right-1 inline-flex min-h-10 w-11 items-center justify-center rounded-xl text-[color:var(--tp-muted)] transition-[transform,background-color,color] duration-150 ease-out hover:bg-cyan-50 hover:text-cyan-700 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 dark:hover:bg-white/[0.10] dark:hover:text-cyan-200"
                   aria-label={
                     showPassword
                       ? isFa
