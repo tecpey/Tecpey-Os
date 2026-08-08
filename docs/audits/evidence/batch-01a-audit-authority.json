@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "26f4810fb2e9381115b5ff2955a5d489aa423ae0",
-      "sha256": "d1b4af0146f4f5b9f3942ebef78a439af5e505eb06b5d9769753511e90e6ec84",
-      "lines": 179,
+      "gitObjectId": "e0ce231e6343b082fa31eea530a308df0e02a940",
+      "sha256": "de795711a977c448b4b7ac2700a3c906d00b7d0c34f3588b46b70b08a2e7a7dd",
+      "lines": 180,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 179
+          "endLine": 180
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -64,16 +64,17 @@
         "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL.",
         "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines.",
         "2026-08-08: re-reviewed after wiring scripts/check-brand-asset-authority.mjs into ui:public:check. The change composes a read-only static brand asset guard with the existing public UI foundation guard; it adds no dependency, engine, override, release-authority command, network access or mutation path, and the file stays 179 lines.",
-        "2026-08-08: re-reviewed after adding --test-concurrency=1 to test:crm-leads. CRM PostgreSQL evidence now runs serially to avoid cross-file deadlocks against shared durable fixtures; no dependency, engine, override, release-authority command, network access, or runtime mutation path changed, and the file stays 179 lines."
+        "2026-08-08: re-reviewed after adding --test-concurrency=1 to test:crm-leads. CRM PostgreSQL evidence now runs serially to avoid cross-file deadlocks against shared durable fixtures; no dependency, engine, override, release-authority command, network access, or runtime mutation path changed, and the file stays 179 lines.",
+        "2026-08-08: re-reviewed after adding launch:decision:check and wiring it into release:check. The new command is a read-only static guard over launch decision documentation, README discovery, package wiring and CI workflow wiring; it adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed checks."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 104,
+          "line": 105,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 104 and 107-108 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 105 and 108-109 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

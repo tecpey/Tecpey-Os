@@ -413,6 +413,9 @@ jobs:
       - name: Staging scheduler evidence tests
         run: npm run test:ops-staging-evidence
 
+      - name: Controlled launch decision authority guard
+        run: npm run launch:decision:check
+
       - name: Exchange reconciliation authority guard
         run: npm run exchange:reconcile:check
 
