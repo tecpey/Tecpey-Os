@@ -6,6 +6,7 @@ const files = {
   recovery: "scripts/test-container-volume-recovery.sh",
   verifier: "scripts/verify-operational-recovery-evidence.mjs",
   runbook: "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
+  reconciliation: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   packageJson: "package.json",
   containerWorkflow: ".github/workflows/container-supply-chain.yml",
 };

@@ -19,6 +19,7 @@ on:
       - scripts/operational-recovery-authority-policy.test.mjs
       - scripts/operational-recovery-evidence.test.mjs
       - docs/operations/OPERATIONAL_RECOVERY_DRILLS.md
+      - docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
       - .github/workflows/operational-recovery.yml
       - .github/workflows/container-supply-chain.yml
