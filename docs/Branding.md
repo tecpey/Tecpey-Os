@@ -118,6 +118,7 @@ Helper text below Academy CTA (small, not competing):
 - Documentation preview: `/docs/assets/brand/tecpey-logo-official.webp`
 - Large PNG export: `/docs/assets/brand/generated/tecpey-logo-1024.png`
 - Review lockup: `/docs/assets/brand/generated/tecpey-lockup-fa-en.png`
+- Runtime UI component: `src/components/brand/TecpeyMark.tsx`
 - Usage: Always use on appropriate contrast background
 - Do not distort, recolor, or add effects to the logo
 - Favicon, Apple touch icon, Android/PWA icons and README previews must be generated from the same official icon source.

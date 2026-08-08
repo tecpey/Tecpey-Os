@@ -159,12 +159,14 @@ for (const expectedText of [
 
 const seo = readText("src/lib/seo.ts");
 const layout = readText("src/app/layout.tsx");
+const markComponent = readText("src/components/brand/TecpeyMark.tsx");
 for (const [relativePath, source] of [
   ["src/lib/seo.ts", seo],
   ["src/app/layout.tsx", layout],
+  ["src/components/brand/TecpeyMark.tsx", markComponent],
 ]) {
   if (!source.includes("/images/tecpey-logo.png")) {
-    fail(`${relativePath}: structured metadata must use the canonical runtime logo`);
+    fail(`${relativePath}: must use the canonical runtime logo`);
   }
 }
 

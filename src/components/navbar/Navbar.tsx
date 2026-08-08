@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +12,7 @@ import {
   UserIcon,
   X,
 } from "lucide-react";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export interface User {
@@ -97,7 +97,6 @@ export default function Navbar({
   const knowledgeButtonRef = useRef<HTMLButtonElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const appUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
-  const officialLogo = "/images/tecpey-logo.png";
   const appLink = (path = "") => (appUrl ? `${appUrl}${path}` : path || "/");
   const authLink = (
     path: "https://my.tecpey.ir/signin" | "https://my.tecpey.ir/signup",
@@ -244,8 +243,7 @@ export default function Navbar({
             className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="TecPey Home"
           >
-            <Image
-              src={officialLogo}
+            <TecpeyMark
               alt="TecPey"
               width={120}
               height={48}
