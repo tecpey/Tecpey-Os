@@ -15,6 +15,7 @@ const files = {
   recovery: "scripts/test-container-volume-recovery.sh",
   verifier: "scripts/verify-operational-recovery-evidence.mjs",
   runbook: "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
+  reconciliation: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   packageJson: "package.json",
   containerWorkflow: ".github/workflows/container-supply-chain.yml",
 };
@@ -107,6 +108,42 @@ test("rejects weakening the measured RTO verifier", () => {
   );
   const failures = evaluateOperationalRecoveryAuthority({ ...valid, verifier });
   assert.equal(failures.some((value) => value.includes("recoveryDurationMs")), true);
+});
+
+test("rejects removing a launch domain from the recovery reconciliation contract", () => {
+  for (const domain of [
+    "Academy",
+    "Trading Arena",
+    "Mentor AI",
+    "Exchange Ledger",
+    "Notifications and operational jobs",
+    "Tenant and principal isolation",
+  ]) {
+    const escaped = domain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const reconciliation = valid.reconciliation.replace(
+      new RegExp(`\\| ${escaped} \\|[^\\n]+\\n`),
+      "",
+    );
+    const failures = evaluateOperationalRecoveryAuthority({ ...valid, reconciliation });
+    assert.equal(
+      failures.includes(`reconciliation contract is missing ${domain}`),
+      true,
+      domain,
+    );
+  }
+});
+
+test("rejects raw-data recovery evidence or destructive restore acceptance", () => {
+  const reconciliation = valid.reconciliation
+    .replace("Do not store raw rows", "raw customer data may be stored")
+    .replace("After every protected staging restore", "production restore is accepted");
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, reconciliation });
+  assert.equal(
+    failures.includes(
+      "reconciliation contract must not allow destructive restore or raw customer data",
+    ),
+    true,
+  );
 });
 
 test("rejects an unbounded recursive evidence cleanup", () => {

@@ -14,7 +14,15 @@ export const RECOVERY_MIGRATION_TRIGGER_PATHS = [
 
 export function evaluateOperationalRecoveryAuthority(source) {
   const failures = [];
-  const { workflow, recovery, verifier, runbook, packageJson, containerWorkflow } = source;
+  const {
+    workflow,
+    recovery,
+    verifier,
+    runbook,
+    reconciliation,
+    packageJson,
+    containerWorkflow,
+  } = source;
 
   for (const token of [
     "workflow_dispatch:", "pull_request:", "permissions:", "contents: read",
@@ -82,6 +90,25 @@ export function evaluateOperationalRecoveryAuthority(source) {
   ]) {
     requireText(failures, runbook, token, `runbook is missing ${token}`);
   }
+
+  for (const token of [
+    "Recovery reconciliation contract", "issue #110", "protected staging restore",
+    "Domain reconciliation matrix", "Academy", "Trading Arena", "Mentor AI",
+    "Exchange Ledger", "Notifications and operational jobs",
+    "Tenant and principal isolation", "Financial conservation", "localStorage",
+    "sessionStorage", "queryDigest", "rowCounts", "sourceSha",
+    "migrationPlanHash", "backupBoundary", "operator", "reviewer",
+    "disposition", "Do not store raw rows",
+    "Deleting a domain row, weakening halt conditions",
+  ]) {
+    requireText(failures, reconciliation, token, `reconciliation contract is missing ${token}`);
+  }
+  reject(
+    failures,
+    reconciliation,
+    /production\s+restore\s+is\s+accepted|raw\s+customer\s+data\s+may\s+be\s+stored/i,
+    "reconciliation contract must not allow destructive restore or raw customer data",
+  );
 
   requireText(
     failures,
