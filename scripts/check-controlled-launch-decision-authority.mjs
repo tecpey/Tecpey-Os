@@ -135,6 +135,26 @@ for (const [target, label] of [
     "docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md",
     `${label} must expose the controlled launch evidence digest`,
   );
+  requireText(
+    target,
+    "Current controlled-launch decision: NO-GO",
+    `${label} must make the current controlled-launch decision explicit`,
+  );
+  requireText(
+    target,
+    "#331",
+    `${label} must cite the governed launch-evidence batch through #331-#336`,
+  );
+  requireText(
+    target,
+    "#336",
+    `${label} must cite the governed launch-evidence batch through #331-#336`,
+  );
+  requireText(
+    target,
+    "white-label",
+    `${label} must preserve the enterprise/white-label boundary`,
+  );
 }
 
 for (const invariant of [
