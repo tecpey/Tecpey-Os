@@ -33,7 +33,7 @@
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/crypto/SwapPanel.tsx", "line": 115, "column": 7, "domain": "market-ui", "reason": "derived quote projection retained pending component state redesign" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/home/TecpeyHomeAI.tsx", "line": 311, "column": 5, "domain": "public-ui", "reason": "news request loading transition" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/learning-os/NotificationCenter.tsx", "line": 106, "column": 5, "domain": "notifications", "reason": "principal-scoped notification reset and load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/navbar/Navbar.tsx", "line": 229, "column": 5, "domain": "shared-ui", "reason": "route-change menu reset" },
+    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/navbar/Navbar.tsx", "line": 228, "column": 5, "domain": "shared-ui", "reason": "route-change menu reset" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/hooks/useBaseCurrenciesPrice.ts", "line": 71, "column": 5, "domain": "market-ui", "reason": "socket ticker projection into current market rows" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/hooks/useMentorInsights.ts", "line": 90, "column": 7, "domain": "mentor", "reason": "module-cache projection into hook state" }
   ]

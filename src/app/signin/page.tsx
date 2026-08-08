@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { AuthGatewayPage } from "@/components/auth/AuthGatewayPage";
 
 export const metadata: Metadata = {
+  title: "ورود امن به تک‌پی",
   robots: { index: false, follow: false },
 };
 
-export default function AuthRedirect() {
-  redirect("https://my.tecpey.ir/signin");
+export default function SignInPage() {
+  return <AuthGatewayPage locale="fa" mode="signin" />;
 }
