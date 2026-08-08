@@ -78,19 +78,20 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "90c5d216578841095cd5655875adede701e1889b",
-      "sha256": "47bb200af0879a0a0996bc8c9e1ab6a4017451a7e7341ba7df5e9d634edb86cc",
-      "lines": 89,
+      "gitObjectId": "a699054cbe1fdd6cb0da1affc8e1f5013b56f104",
+      "sha256": "1a8c9b0cb0a5836bef2f17908fe34b28eb3c51cdbf734479cfd4a76cadc5d718",
+      "lines": 90,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 89
+          "endLine": 90
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Pull-request, weekly and manual triggers; read-only permissions; non-cancelling concurrency; exact-head checkout; pinned actions; governed recovery authority; exact migration-image identity; bounded RPO/RTO inputs; PostgreSQL and Redis restore; and always-uploaded evidence were reviewed.",
-        "No confirmed defect was found in this file; the remaining staging and production-host activation boundary is recorded as residual risk rather than represented as completed."
+        "No confirmed defect was found in this file; the remaining staging and production-host activation boundary is recorded as residual risk rather than represented as completed.",
+        "2026-08-08: re-reviewed after adding docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged."
       ],
       "findings": []
     },
