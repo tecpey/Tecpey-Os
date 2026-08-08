@@ -19,8 +19,17 @@ if (!certRoute.includes('awardMilestonesAfterCertificate')) {
   process.exit(1);
 }
 const notificationCenter = fs.readFileSync('src/components/learning-os/NotificationCenter.tsx','utf8');
-if (!notificationCenter.includes('/api/notification-brain')) {
-  console.error('Notification brain integration missing');
+const notificationBrainRoute = fs.readFileSync('src/app/api/notification-brain/route.ts','utf8');
+if (!notificationBrainRoute.includes('createBrainNotification')) {
+  console.error('Notification brain generation route missing');
+  process.exit(1);
+}
+if (!notificationCenter.includes('/api/notifications')) {
+  console.error('Durable notification inbox integration missing');
+  process.exit(1);
+}
+if (notificationCenter.includes('/api/notification-brain')) {
+  console.error('Notification Center must not expose raw notification brain output');
   process.exit(1);
 }
 console.log('✅ Phase 5 certificate + achievement + notification brain QA passed.');
