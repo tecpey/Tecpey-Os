@@ -619,15 +619,29 @@ test("public Soft Launch Golden Path is localized, interactive, truthful and acc
   await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("theme"))).toBe("light");
   await waitForPendingCspViolationDeliveries(page);
-  // Resolve the reload as soon as the navigation commits rather than waiting for
-  // full `domcontentloaded`: parsing/executing the large landing bundle can push
-  // DCL past 60s on firefox-fa-desktop under CI I/O contention (a recurring
-  // reload-timeout flake), and the assertions below already auto-wait for the
-  // rehydrated content — so a slow parse must not fail the run. We still assert
-  // the persisted theme after the reload, which is the point of this step.
-  await page.reload({ waitUntil: "commit", timeout: 60_000 });
-  await expect(page.getByRole("button", { name: contract.themeToDark })).toBeVisible();
-  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  // Prove persistence through a new document load in the same browser context.
+  // Reusing page.reload here is a known firefox-fa-desktop CI flake: the landing
+  // bundle can keep the old page busy long enough that reload never reaches the
+  // navigation commit. A fresh page still shares localStorage, which is the
+  // behavior this assertion needs to verify.
+  const persistedThemePage = await context.newPage();
+  trackRuntimeErrors(persistedThemePage, errors);
+  await installCspViolationObserver(persistedThemePage);
+  try {
+    await openPublicPage(persistedThemePage, contract);
+    await expect(
+      persistedThemePage.getByRole("button", { name: contract.themeToDark }),
+    ).toBeVisible();
+    await expect(persistedThemePage.locator("html")).not.toHaveClass(/\bdark\b/);
+    await expectNoCspViolations(
+      persistedThemePage,
+      testInfo,
+      "persisted-theme-csp-violations-sanitized",
+      "persisted-theme public page",
+    );
+  } finally {
+    await persistedThemePage.close();
+  }
 
   if (contract.formFactor === "desktop") {
     const trigger = page.getByRole("button", { name: contract.knowledge });
