@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { AuthGatewayPage } from "@/components/auth/AuthGatewayPage";
 
 export const metadata: Metadata = {
+  title: "ثبت‌نام امن در تک‌پی",
   robots: { index: false, follow: false },
 };
 
-export default function AuthRedirect() {
-  redirect("https://my.tecpey.ir/signup");
+export default function SignUpPage() {
+  return <AuthGatewayPage locale="fa" mode="signup" />;
 }
