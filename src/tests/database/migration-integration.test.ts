@@ -55,6 +55,9 @@ const REQUIRED_MIGRATIONS = [
   "0031_withdrawal_settlement_authority.sql",
   "0032_api_command_idempotency.sql",
   "0033_sensitive_mutation_audit.sql",
+  "0055_learning_brain_refresh_columns.sql",
+  "0056_achievement_contract_columns.sql",
+  "0057_learning_brain_tenant_cache.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -119,6 +122,12 @@ const REQUIRED_COLUMNS = [
   ["sensitive_mutation_audit_events", "tenant_id"],
   ["sensitive_mutation_audit_events", "correlation_id"],
   ["sensitive_mutation_audit_events", "request_hash"],
+  ["achievement_catalog", "code"],
+  ["achievement_catalog", "xp"],
+  ["student_achievements", "code"],
+  ["student_achievements", "payload"],
+  ["learning_brain_profiles", "tenant_id"],
+  ["notification_brain_snapshots", "tenant_id"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -145,6 +154,10 @@ const REQUIRED_INDEXES = [
   "sensitive_mutation_audit_actor_idx",
   "sensitive_mutation_audit_resource_idx",
   "sensitive_mutation_audit_action_idx",
+  "achievement_catalog_code_unique_idx",
+  "student_achievements_student_code_unique_idx",
+  "learning_brain_profiles_student_idx",
+  "notification_brain_snapshots_student_idx",
 ] as const;
 
 const REQUIRED_TRIGGERS = [

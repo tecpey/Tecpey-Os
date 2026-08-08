@@ -21,14 +21,9 @@ import { refreshLearningBrain } from "../../lib/learning-os";
 // lesson, disciplineScore = min(100, lessons*5 + …)), never 15 (a tenant-blind
 // read of all three). Removing `AND tenant_id = $2` makes it fail.
 //
-// NOTE — this is NOT proof of independent per-tenant persisted brains, and
-// learning_events stays `pending` in the registry: learning_brain_profiles is
-// keyed by student_id alone (no tenant_id), so the A-scoped write and the
-// B-scoped write below land in the SAME row (last-writer-wins). The assertions
-// read discipline_score back immediately after each tenant's own refresh, so
-// they exercise only the aggregation predicate, not cross-tenant persistence.
-// End-to-end isolation additionally needs a per-request tenant threaded into the
-// academy readers (#20) and a tenant dimension on the derived brain caches.
+// The derived brain cache is now tenant-keyed. These assertions read the
+// tenant-specific cache row after each refresh so the test proves both the read
+// aggregation predicate and the persisted cache key.
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -102,10 +97,16 @@ async function seedLessons(
   }
 }
 
-async function disciplineScore(client: PoolClient, studentId: string): Promise<number> {
+async function disciplineScore(
+  client: PoolClient,
+  studentId: string,
+  tenantId: string,
+): Promise<number> {
   const rows = await client.query<{ discipline_score: number }>(
-    "SELECT discipline_score FROM learning_brain_profiles WHERE student_id = $1::uuid LIMIT 1",
-    [studentId],
+    `SELECT discipline_score
+       FROM learning_brain_profiles
+      WHERE tenant_id = $1 AND student_id = $2::uuid`,
+    [tenantId, studentId],
   );
   return Number(rows.rows[0]?.discipline_score ?? -1);
 }
@@ -161,17 +162,16 @@ describe("learning_events read-aggregation tenant scoping", { skip: !configured 
         // three events a tenant-blind read would aggregate (15).
         await refreshLearningBrain(client, studentId, TENANT_A);
         assert.equal(
-          await disciplineScore(client, studentId),
+          await disciplineScore(client, studentId, TENANT_A),
           5,
           "tenant A's refresh must count only tenant A's single lesson, not tenant B's events",
         );
 
-        // Refresh under tenant B: its own TWO lessons (10). This overwrites the
-        // shared student-keyed row — see the file header; it exercises the
-        // aggregation predicate for tenant B, not independent persistence.
+        // Refresh under tenant B: its own TWO lessons (10) in a distinct
+        // tenant-keyed cache row.
         await refreshLearningBrain(client, studentId, TENANT_B);
         assert.equal(
-          await disciplineScore(client, studentId),
+          await disciplineScore(client, studentId, TENANT_B),
           10,
           "tenant B's refresh must count only tenant B's two lessons",
         );

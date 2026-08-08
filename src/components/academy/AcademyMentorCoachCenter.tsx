@@ -101,7 +101,7 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
           <div className="rounded-[40px] border border-cyan-300/15 bg-[#06111f] p-7 shadow-[0_34px_120px_rgba(34,211,238,.14)] lg:p-10">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
               <div>
-                <p className="text-sm font-black text-cyan-300">{isFa ? "مربی شخصی آکادمی" : "مربی شخصی آکادمی"}</p>
+                <p className="text-sm font-black text-cyan-300">{isFa ? "مربی شخصی آکادمی" : "Personal academy coach"}</p>
                 <h1 className="mt-4 text-balance text-4xl font-black leading-[1.15] text-white sm:text-5xl">
                   {isFa ? "مربی هوشمند شخصی‌سازی‌شده تک‌پی" : "TecPey personalized AI coach"}
                 </h1>
