@@ -3,17 +3,17 @@
   "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
   "entries": [
     {
-      "route": "/api/learning-events",
+      "route": "/api/notification-brain",
       "method": "POST",
-      "previousSourceHash": "a3188614d027367f728845dd",
+      "previousSourceHash": "b7208b2d78244301d19cdb43",
       "issue": "#109",
       "owner": "academy-platform",
-      "reason": "Bind the /api/learning-events write path to strict canonical session and platform_principal_bindings tenant context before recording client-visible Academy/Mentor events. This prevents client event writes and learning-brain refreshes from falling back to the default tenant when a student is admitted into multiple tenants.",
+      "reason": "Notification brain generation now derives the student and tenant from strict canonical session plus platform_principal_bindings, passes tenantId into createBrainNotification, returns private no-store responses, and fails closed instead of writing snapshots under the default tenant when the bound tenant context is unavailable.",
       "replacement": {
-        "route": "/api/learning-events",
+        "route": "/api/notification-brain",
         "method": "POST",
-        "sourcePath": "src/app/api/learning-events/route.ts",
-        "sourceHash": "30b0fa48973d2f8209162344",
+        "sourcePath": "src/app/api/notification-brain/route.ts",
+        "sourceHash": "f9ef598c64f3912b37669e6d",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -25,11 +25,11 @@
           "csrf": true,
           "strictRevocation": true,
           "rateLimit": true,
-          "rateLimitNamespace": "learning-events-write",
-          "expectsBody": true,
-          "bodySizeLimit": true,
+          "rateLimitNamespace": "notification-brain-generate",
+          "expectsBody": false,
+          "bodySizeLimit": false,
           "contentTypeCheck": false,
-          "inputParser": "local:text",
+          "inputParser": null,
           "idempotency": false,
           "transaction": true,
           "verifiedPrincipal": true,
@@ -42,18 +42,17 @@
           "setsCookie": false,
           "explicitPublicCachePolicy": false,
           "headerBodySizeHint": false,
-          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+          "bodySizeLimitAuthority": null
         },
-        "domainOwner": "learning-events",
+        "domainOwner": "notification-brain",
         "testReferences": [
-          "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
-          "src/tests/security/learning-events-tenant-route.test.ts"
+          "src/tests/security/notification-brain-tenant-route.test.ts"
         ],
         "requirements": {
           "csrf": true,
           "strictRevocation": false,
           "rateLimit": false,
-          "bodySizeLimit": true,
+          "bodySizeLimit": false,
           "idempotency": false,
           "verifiedPrincipal": true,
           "noStore": true,
@@ -63,7 +62,7 @@
         },
         "findings": [],
         "evidenceSource": {
-          "sourcePath": "src/app/api/learning-events/route.ts",
+          "sourcePath": "src/app/api/notification-brain/route.ts",
           "method": "POST",
           "resolved": true
         }
