@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/notification-brain",
+      "method": "POST",
+      "previousSourceHash": "b7208b2d78244301d19cdb43",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Notification brain generation now derives the student and tenant from strict canonical session plus platform_principal_bindings, passes tenantId into createBrainNotification, returns private no-store responses, and fails closed instead of writing snapshots under the default tenant when the bound tenant context is unavailable.",
+      "replacement": {
+        "route": "/api/notification-brain",
+        "method": "POST",
+        "sourcePath": "src/app/api/notification-brain/route.ts",
+        "sourceHash": "f9ef598c64f3912b37669e6d",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "notification-brain-generate",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "notification-brain",
+        "testReferences": [
+          "src/tests/security/notification-brain-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notification-brain/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
