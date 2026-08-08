@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "7f21a716f51c49f75b1bcd7c75790b4c98c2c449",
-      "sha256": "b158b343c13bff0925e9399161ae8fc679e9072c1de4db7bf362c8044ee8efd4",
+      "gitObjectId": "baff7a5ead4b41036c7fec435e905e21aaa967d8",
+      "sha256": "6d3e130359cda7077b040c19a36110248cb56cf1d0e26e4a3fd99b30247c6143",
       "lines": 179,
       "reviewedRanges": [
         {
@@ -62,7 +62,8 @@
         "2026-08-04: re-reviewed after wiring src/tests/security/tenant-host-resolution.test.ts into the test:offline-sync script (issue #20 P1). Test-wiring only — the script gains one additional pure unit-test path alongside the existing tenant-principal-context and request-tenant-resolution tests; no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
         "2026-08-05: re-reviewed after wiring src/tests/security/tenant-domain-directory-postgres.test.ts into the test:offline-sync script (issue #20 P2). Test-wiring only — the script gains one additional Postgres integration-test path (the platform_tenant_domains host directory + cross-tenant FK/PK proof); no dependency, engine, override, or release-authority command changed, and the file stays 178 lines.",
         "2026-08-05: reviewed the addition of an npm override pinning socket.io-parser to ^4.2.7. This patches HIGH CVE-2026-69185 in a transitive dependency of the production socket.io-client; it is a security upgrade to a patch release (API-compatible with socket.io-client 4.8.3), adds no new direct dependency and no new script or release-authority command. Verified the resolved tree is socket.io-parser@4.2.7 and a trivy fs scan reports 0 HIGH/CRITICAL.",
-        "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines."
+        "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines.",
+        "2026-08-08: re-reviewed after wiring scripts/check-brand-asset-authority.mjs into ui:public:check. The change composes a read-only static brand asset guard with the existing public UI foundation guard; it adds no dependency, engine, override, release-authority command, network access or mutation path, and the file stays 179 lines."
       ],
       "findings": [
         {
