@@ -45,6 +45,8 @@ import { runAiMentorTrustMigrations } from "./db-migrate-ai-mentor-trust";
 import { runPlatformMembershipWorkspaceBindingMigrations } from "./db-migrate-platform-membership-workspace-binding";
 import { runTenantCustomDomainsMigrations } from "./db-migrate-tenant-custom-domains";
 import { runLearningBrainRefreshColumnsMigrations } from "./db-migrate-learning-brain-refresh-columns";
+import { runAchievementContractMigrations } from "./db-migrate-achievement-contract";
+import { runLearningBrainTenantCacheMigrations } from "./db-migrate-learning-brain-tenant-cache";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -127,6 +129,8 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(38, "migration-step-038", CANONICAL_MIGRATION_CONTENT.membershipWorkspaceBinding, "security-platform", "tenancy", runPlatformMembershipWorkspaceBindingMigrations),
   entry(39, "migration-step-039", CANONICAL_MIGRATION_CONTENT.tenantDomains, "security-platform", "tenancy", runTenantCustomDomainsMigrations),
   entry(40, "migration-step-040", CANONICAL_MIGRATION_CONTENT.learningBrainRefreshColumns, "academy-platform", "ai-mentor", runLearningBrainRefreshColumnsMigrations),
+  entry(41, "migration-step-041", CANONICAL_MIGRATION_CONTENT.achievementContract, "academy-platform", "academy", runAchievementContractMigrations),
+  entry(42, "migration-step-042", CANONICAL_MIGRATION_CONTENT.learningBrainTenantCache, "academy-platform", "ai-mentor", runLearningBrainTenantCacheMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

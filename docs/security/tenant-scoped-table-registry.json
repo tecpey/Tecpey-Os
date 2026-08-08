@@ -108,7 +108,25 @@
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
       "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes writes; insertLearningEventExactlyOnce sets tenant/workspace/principal from the resolved context. The read aggregation is now tenant-scoped too: refreshLearningBrain (src/lib/learning-os.ts) and buildNotificationBrain (src/lib/phase5-achievement-engine.ts) count learning_events WHERE student_id = $1 AND tenant_id = $2, taking an explicit tenantId that defaults to PLATFORM.DEFAULT_TENANT_ID so single-tenant callers are unchanged.",
-      "isolationNote": "Improved but not yet end-to-end proven. The learning_events read aggregation used to filter WHERE student_id = $1 with no tenant predicate; both learning-brain readers now add AND tenant_id = $2, and learning-events-cross-tenant-isolation-postgres.test.ts is a load-bearing guard for that predicate (dropping it makes the test fail). Two gaps keep this pending, same class as notification_domain_outbox: (1) no production caller supplies a second tenant — notification-brain/route.ts, createBrainNotification and the mentor-challenge route all omit the tenantId, so production reads are pinned to the default tenant; threading a per-request tenant into the academy read paths is #20 producer work. (2) The derived brain caches learning_brain_profiles and notification_brain_snapshots are keyed by student_id alone (no tenant_id column), so a tenant-specific aggregate is written last-writer-wins into a single shared row — independent per-tenant brains cannot be persisted until those caches gain a tenant dimension in their key. Promotion is blocked on both, not on writing a test. (Separately, buildNotificationBrain's full runtime is also blocked by pre-existing academy achievement_catalog/student_achievements schema drift.)",
+      "isolationNote": "Improved but not yet end-to-end proven. The learning_events write/read path now carries tenant_id: recordLearningEvent writes tenant_id, refreshLearningBrain and buildNotificationBrain aggregate with WHERE student_id = $1 AND tenant_id = $2, and the derived brain caches are tenant-keyed in 0057_learning_brain_tenant_cache.sql. Promotion remains pending because production academy callers still default to PLATFORM.DEFAULT_TENANT_ID unless a request tenant is explicitly threaded into the route/domain call.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "learning_brain_profiles",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
+      "isolationModel": "tenant_id added to the derived learning-brain cache; primary key is migrated from student_id to (tenant_id, student_id); refreshLearningBrain UPSERTs ON CONFLICT (tenant_id, student_id)",
+      "isolationNote": "Schema and write path are tenant-keyed, but no cross-tenant negative test yet proves that two tenants can persist independent learning-brain profiles for the same student.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "notification_brain_snapshots",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
+      "isolationModel": "tenant_id added to the derived notification-brain cache; primary key is migrated from student_id to (tenant_id, student_id); buildNotificationBrain UPSERTs ON CONFLICT (tenant_id, student_id)",
+      "isolationNote": "Schema and write path are tenant-keyed, but no cross-tenant negative test yet proves that two tenants can persist independent notification-brain snapshots for the same student.",
       "adversarialProof": "pending",
       "issue": "#109"
     },

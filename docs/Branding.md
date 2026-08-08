@@ -115,8 +115,12 @@ Helper text below Academy CTA (small, not competing):
 - File: `/public/images/tecpey-logo.png`
 - Dimensions: 512×512px
 - Format: PNG with transparency
+- Documentation preview: `/docs/assets/brand/tecpey-logo-official.webp`
+- Large PNG export: `/docs/assets/brand/generated/tecpey-logo-1024.png`
+- Review lockup: `/docs/assets/brand/generated/tecpey-lockup-fa-en.png`
 - Usage: Always use on appropriate contrast background
 - Do not distort, recolor, or add effects to the logo
+- Favicon, Apple touch icon, Android/PWA icons and README previews must be generated from the same official icon source.
 
 ---
 

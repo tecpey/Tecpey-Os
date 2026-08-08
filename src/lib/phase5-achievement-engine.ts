@@ -100,7 +100,10 @@ export async function buildNotificationBrain(
      WHERE student_id = $1::uuid AND tenant_id = $2`,
     [studentId, tenantId],
   );
-  const brain = await client.query(`SELECT * FROM learning_brain_profiles WHERE student_id = $1::uuid LIMIT 1`, [studentId]);
+  const brain = await client.query(
+    `SELECT * FROM learning_brain_profiles WHERE student_id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+    [studentId, tenantId],
+  );
   const s = stats.rows[0] || {};
   const b = brain.rows[0] || {};
   const learningEvents = Number(s.learning_events || 0);
@@ -138,9 +141,9 @@ export async function buildNotificationBrain(
   const snapshot = { returnProbability, churnRisk, bestChannel, bestTimeLabel, nextHookType, nextActionUrl, messageTitle, messageBody };
   await client.query(
     `INSERT INTO notification_brain_snapshots
-      (student_id, return_probability, churn_risk, best_channel, best_time_label, next_hook_type, next_action_url, message_title, message_body)
-     VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9)
-     ON CONFLICT (student_id) DO UPDATE SET
+      (tenant_id, student_id, return_probability, churn_risk, best_channel, best_time_label, next_hook_type, next_action_url, message_title, message_body)
+     VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT (tenant_id, student_id) DO UPDATE SET
        return_probability = EXCLUDED.return_probability,
        churn_risk = EXCLUDED.churn_risk,
        best_channel = EXCLUDED.best_channel,
@@ -150,7 +153,7 @@ export async function buildNotificationBrain(
        message_title = EXCLUDED.message_title,
        message_body = EXCLUDED.message_body,
        updated_at = NOW()`,
-    [studentId, snapshot.returnProbability, snapshot.churnRisk, snapshot.bestChannel, snapshot.bestTimeLabel, snapshot.nextHookType, snapshot.nextActionUrl, snapshot.messageTitle, snapshot.messageBody],
+    [tenantId, studentId, snapshot.returnProbability, snapshot.churnRisk, snapshot.bestChannel, snapshot.bestTimeLabel, snapshot.nextHookType, snapshot.nextActionUrl, snapshot.messageTitle, snapshot.messageBody],
   );
   return snapshot;
 }
@@ -169,9 +172,14 @@ export function fallbackNotificationBrain(locale: "fa" | "en" = "fa"): Notificat
   };
 }
 
-export async function createBrainNotification(client: Queryable, studentId: string, locale: "fa" | "en" = "fa") {
-  const snapshot = await buildNotificationBrain(client, studentId, locale);
-  const fingerprint = createHash("sha256").update([studentId, snapshot.nextHookType, snapshot.nextActionUrl, new Date().toISOString().slice(0, 10)].join("|")).digest("hex").slice(0, 12);
+export async function createBrainNotification(
+  client: Queryable,
+  studentId: string,
+  locale: "fa" | "en" = "fa",
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+) {
+  const snapshot = await buildNotificationBrain(client, studentId, locale, tenantId);
+  const fingerprint = createHash("sha256").update([tenantId, studentId, snapshot.nextHookType, snapshot.nextActionUrl, new Date().toISOString().slice(0, 10)].join("|")).digest("hex").slice(0, 12);
   const existing = await client.query(
     `SELECT 1 FROM notification_center WHERE student_id = $1::uuid AND metadata->>'fingerprint' = $2 LIMIT 1`,
     [studentId, fingerprint],
@@ -187,7 +195,7 @@ export async function createBrainNotification(client: Queryable, studentId: stri
       channels: [snapshot.bestChannel, "in_app"],
       metadata: { fingerprint, brain: snapshot },
     });
-    await recordLearningEvent(client, { studentId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
+    await recordLearningEvent(client, { studentId, tenantId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
   }
   return snapshot;
 }

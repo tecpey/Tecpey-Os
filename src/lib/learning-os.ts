@@ -55,9 +55,15 @@ async function seedAchievementCatalog(client: Queryable) {
   ];
   for (const item of achievements) {
     await client.query(
-      `INSERT INTO achievement_catalog (code, title, description, icon, category, xp)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (code) DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, icon = EXCLUDED.icon, category = EXCLUDED.category, xp = EXCLUDED.xp`,
+      `INSERT INTO achievement_catalog (id, code, title, description, icon, category, xp_reward, xp)
+       VALUES ($1,$1,$2,$3,$4,$5,$6,$6)
+       ON CONFLICT (code) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         icon = EXCLUDED.icon,
+         category = EXCLUDED.category,
+         xp_reward = EXCLUDED.xp_reward,
+         xp = EXCLUDED.xp`,
       item,
     );
   }
@@ -159,15 +165,16 @@ function buildDefaultQuestions() {
   return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableId("TQ", `${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`) })));
 }
 
-export async function recordLearningEvent(client: Queryable, args: { studentId?: string | null; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {
+export async function recordLearningEvent(client: Queryable, args: { studentId?: string | null; tenantId?: string; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {
   const eventId = stableId("EVT", `${args.studentId || "anon"}:${args.eventType}:${Date.now()}:${randomUUID()}`);
+  const tenantId = cleanText(args.tenantId || PLATFORM.DEFAULT_TENANT_ID, 80) || PLATFORM.DEFAULT_TENANT_ID;
   await client.query(
-    `INSERT INTO learning_events (event_id, student_id, event_type, source, locale, payload)
-     VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
+    `INSERT INTO learning_events (event_id, tenant_id, student_id, event_type, source, locale, payload)
+     VALUES ($1, $2, $3::uuid, $4, $5, $6, $7::jsonb)
      ON CONFLICT (event_id) DO NOTHING`,
-    [eventId, args.studentId || null, args.eventType, cleanText(args.source || "web", 40), cleanText(args.locale || "fa", 10), JSON.stringify(args.payload || {})],
+    [eventId, tenantId, args.studentId || null, args.eventType, cleanText(args.source || "web", 40), cleanText(args.locale || "fa", 10), JSON.stringify(args.payload || {})],
   );
-  if (args.studentId) await refreshLearningBrain(client, args.studentId);
+  if (args.studentId) await refreshLearningBrain(client, args.studentId, tenantId);
   return eventId;
 }
 
@@ -183,8 +190,8 @@ export async function createSmartNotification(client: Queryable, args: { student
 
 export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown> = {}) {
   const inserted = await client.query(
-    `INSERT INTO student_achievements (student_id, code, payload)
-     VALUES ($1::uuid, $2, $3::jsonb)
+    `INSERT INTO student_achievements (student_id, achievement_id, code, payload)
+     VALUES ($1::uuid, $2, $2, $3::jsonb)
      ON CONFLICT (student_id, code) DO NOTHING
      RETURNING code`,
     [studentId, code, JSON.stringify(payload)],
@@ -248,9 +255,9 @@ export async function refreshLearningBrain(
   const nextBestAction = success < 70 ? "mentor-challenge" : simulator < 3 ? "simulator-journal" : "next-lesson";
   await client.query(
     `INSERT INTO learning_brain_profiles
-      (student_id, learning_velocity, attention_score, decision_score, risk_appetite, emotional_stability, confidence_score, discipline_score, weak_topics, strong_topics, next_best_action)
-     VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9::text[],$10::text[],$11)
-     ON CONFLICT (student_id) DO UPDATE SET
+      (tenant_id, student_id, learning_velocity, attention_score, decision_score, risk_appetite, emotional_stability, confidence_score, discipline_score, weak_topics, strong_topics, next_best_action)
+     VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10::text[],$11::text[],$12)
+     ON CONFLICT (tenant_id, student_id) DO UPDATE SET
        learning_velocity = EXCLUDED.learning_velocity,
        attention_score = EXCLUDED.attention_score,
        decision_score = EXCLUDED.decision_score,
@@ -262,6 +269,6 @@ export async function refreshLearningBrain(
        strong_topics = EXCLUDED.strong_topics,
        next_best_action = EXCLUDED.next_best_action,
        updated_at = NOW()`,
-    [studentId, Math.round(learningVelocity), Math.round(attentionScore), Math.round(decisionScore), Math.round(riskAppetite), Math.round(emotionalStability), Math.round(confidenceScore), Math.round(disciplineScore), success < 70 ? ["mentor-challenge"] : [], success >= 80 ? ["decision-making"] : [], nextBestAction],
+    [tenantId, studentId, Math.round(learningVelocity), Math.round(attentionScore), Math.round(decisionScore), Math.round(riskAppetite), Math.round(emotionalStability), Math.round(confidenceScore), Math.round(disciplineScore), success < 70 ? ["mentor-challenge"] : [], success >= 80 ? ["decision-making"] : [], nextBestAction],
   );
 }

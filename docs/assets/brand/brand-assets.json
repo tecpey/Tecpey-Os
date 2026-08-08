@@ -1,0 +1,37 @@
+{
+  "brand": "TecPey",
+  "persianName": "تک‌پی",
+  "canonicalIcon": {
+    "path": "public/images/tecpey-logo.png",
+    "dimensions": "512x512",
+    "format": "png",
+    "transparent": true,
+    "sha256": "67c5069a841402a6c3116a9357b1fe7e9a525f530cce5625efa014f706be0e93"
+  },
+  "runtimeIcons": [
+    "public/favicon.ico",
+    "public/favicon-16x16.png",
+    "public/favicon-32x32.png",
+    "public/favicon-48x48.png",
+    "public/apple-touch-icon.png",
+    "public/android-chrome-192x192.png",
+    "public/android-chrome-512x512.png"
+  ],
+  "documentationAssets": [
+    "docs/assets/brand/tecpey-logo-official.png",
+    "docs/assets/brand/tecpey-logo-official.webp",
+    "docs/assets/brand/generated/tecpey-logo-1024.png",
+    "docs/assets/brand/generated/tecpey-lockup-fa-en.png",
+    "docs/assets/brand/generated/tecpey-lockup-fa-en.webp"
+  ],
+  "sourceReferences": [
+    "docs/assets/brand/source/tecpey-tp-icon-clean-uploaded.jpeg",
+    "docs/assets/brand/source/tecpey-tp-icon-uploaded.png",
+    "docs/assets/brand/source/tecpey-lockup-uploaded.png"
+  ],
+  "policy": [
+    "Use the canonical icon for runtime UI, metadata, structured data, favicons and PWA icons.",
+    "Use the lockup only for brand review, decks or documentation surfaces where the full Persian/English mark is required.",
+    "Do not recolor, stretch, add shadows or regenerate the official TP mark without a separate brand review."
+  ]
+}

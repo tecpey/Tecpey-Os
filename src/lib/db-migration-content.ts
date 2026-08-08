@@ -55,6 +55,8 @@ import { AI_MENTOR_TRUST_SQL } from "./db-migrate-ai-mentor-trust";
 import { PLATFORM_MEMBERSHIP_WORKSPACE_BINDING_SQL } from "./db-migrate-platform-membership-workspace-binding";
 import { TENANT_CUSTOM_DOMAINS_SQL } from "./db-migrate-tenant-custom-domains";
 import { LEARNING_BRAIN_REFRESH_COLUMNS_SQL } from "./db-migrate-learning-brain-refresh-columns";
+import { ACHIEVEMENT_CONTRACT_COLUMNS_SQL } from "./db-migrate-achievement-contract";
+import { LEARNING_BRAIN_TENANT_CACHE_SQL } from "./db-migrate-learning-brain-tenant-cache";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -211,5 +213,13 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   learningBrainRefreshColumns: one(
     "0055_learning_brain_refresh_columns.sql",
     LEARNING_BRAIN_REFRESH_COLUMNS_SQL,
+  ),
+  achievementContract: one(
+    "0056_achievement_contract_columns.sql",
+    ACHIEVEMENT_CONTRACT_COLUMNS_SQL,
+  ),
+  learningBrainTenantCache: one(
+    "0057_learning_brain_tenant_cache.sql",
+    LEARNING_BRAIN_TENANT_CACHE_SQL,
   ),
 });
