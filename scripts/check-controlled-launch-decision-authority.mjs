@@ -6,6 +6,7 @@ const files = {
   baseline: "docs/launch/TECPEY_COMPLETION_BASELINE_20260719.md",
   productionPlan: "docs/PRODUCTION_HARDENING_MASTER_PLAN.md",
   finalGate: "docs/FINAL_IMPLEMENTATION_GATE.md",
+  acceptedRisks: "docs/LAUNCH_ACCEPTED_RISKS.md",
   readme: "README.md",
   readmeFa: "README.fa.md",
   packageJson: "package.json",
@@ -105,6 +106,19 @@ for (const invariant of [
   "Final decision before real users and real money enter the platform",
 ]) {
   requireText("finalGate", invariant, `final implementation gate is missing Gate 6 authority: ${invariant}`);
+}
+
+for (const invariant of [
+  "Controlled-launch decision update (2026-08-08)",
+  "not yet accepted as final Go evidence",
+  "Placeholder thresholds such as `N`, `X`, `defined hours`",
+  "Controlled Launch Reconciliation Addendum — 2026-08-08",
+  "Required accepted-risk closure before a Go decision",
+  "Current unresolved placeholders",
+  "replace every placeholder with exact signed values",
+  "keep the related capability explicitly NO-GO and product-disabled",
+]) {
+  requireText("acceptedRisks", invariant, `accepted-risk registry is missing controlled launch reconciliation: ${invariant}`);
 }
 
 for (const [target, label] of [
