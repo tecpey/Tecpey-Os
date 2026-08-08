@@ -8,6 +8,8 @@ Related product parent: #160
 
 This document defines how an authorized operator proves that the Community Challenge finalizer scheduler is installed and healthy on the intended **staging host**.
 
+It implements the broader [`STAGING_READINESS_EVIDENCE_CONTRACT.md`](./STAGING_READINESS_EVIDENCE_CONTRACT.md) for the current repository-owned staging evidence path.
+
 Repository code, CI success, an enabled workflow or a generated template does not prove host activation. Activation is accepted only when the protected staging workflow runs on the intended self-hosted runner and produces an evidence artifact that passes the offline verifier.
 
 This workflow cannot target production. Production activation requires a separate approved change, environment and evidence record.

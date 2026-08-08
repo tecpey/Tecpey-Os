@@ -9,6 +9,7 @@ const files = {
   verifyCli: "scripts/verify-community-challenge-scheduler-host-evidence.ts",
   schema: "docs/operations/evidence/community-challenge-host-evidence-v1.schema.json",
   runbook: "docs/operations/COMMUNITY_CHALLENGE_STAGING_ACTIVATION.md",
+  contract: "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
   package: "package.json",
 };
 
@@ -228,6 +229,7 @@ for (const required of [
 
 for (const invariant of [
   "does not prove host activation",
+  "STAGING_READINESS_EVIDENCE_CONTRACT.md",
   "cannot target production",
   "TECPEY_HOST_EVIDENCE_KEY",
   "tecpey-staging",
@@ -239,6 +241,39 @@ for (const invariant of [
   "production remains unverified",
 ]) {
   requireText("runbook", invariant, `activation runbook is missing ${invariant}`);
+}
+
+for (const invariant of [
+  "Issue: #229",
+  "GitHub Environment named `staging`",
+  "one exact `main` SHA",
+  "Required evidence pillars",
+  "Exact release identity",
+  "Protected runner identity",
+  "Immutable host layout",
+  "Runtime health",
+  "Systemd activation",
+  "Database operational evidence",
+  "Alert delivery evidence",
+  "Privacy and digest integrity",
+  "selected SHA is exact, belongs to `origin/main`, and matches the deployed app",
+  "self-hosted`, `linux`, `x64`, and `tecpey-staging",
+  "health endpoint reports the selected commit and healthy PostgreSQL/Redis",
+  "systemd units match release-rendered templates and timers are active",
+  "alert spool has zero pending and zero quarantined items",
+  "required synthetic alert probe was delivered",
+  "production host activation",
+  "production backup, restore, or disaster-recovery execution",
+  "payment-provider, custody, HSM/MPC, chain-provider, or compliance approval",
+]) {
+  requireText("contract", invariant, `staging readiness contract is missing ${invariant}`);
+}
+for (const forbidden of [
+  "authorizes production deployment",
+  "authorizes real-money",
+  "records raw secrets",
+]) {
+  rejectText("contract", forbidden, `staging readiness contract contains forbidden claim ${forbidden}`);
 }
 
 for (const command of [
@@ -263,5 +298,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Community challenge staging evidence authority passed: protected self-hosted staging execution, exact-release/unit proof, privacy-minimized host evidence, read-only PostgreSQL verification, alert probe isolation and offline digest/freshness checks remain enforced.",
+  "Community challenge staging evidence authority passed: protected self-hosted staging execution, exact-release/unit proof, privacy-minimized host evidence, read-only PostgreSQL verification, alert probe isolation, offline digest/freshness checks and staging readiness boundaries remain enforced.",
 );

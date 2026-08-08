@@ -154,7 +154,7 @@ At that SHA, the GitHub `main` checks for quality, repository hygiene, API and s
 
 **Since that audit**, controlled-launch hardening has continued to merge into `main`. Issues **#162** (repository-wide lint/correctness authority) and **#164** (fail-closed CSP connection allowlist) are now **closed**, and issues #77, #156, and #254 have also closed — leaving 18 open issues. Subsequent security work added a read-only Exchange ledger reconciliation authority (#285), a tenant-scoped table coverage gate with a 27-table registry (#286), and the first two tables promoted to proven cross-tenant isolation (#287), alongside repaired and new structural governance gates (#284).
 
-The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence (#110) and real staging evidence (#229), followed by final controlled-launch reconciliation. React/TypeScript correctness rules are enforced with a reviewed non-growing legacy `set-state-in-effect` baseline. Real-money Exchange and custody have a larger independent certification path.
+The repository is **not fully production-ready for the complete TecPey vision**. Its immediate critical path is production-like backup, restore, and recovery evidence (#110) and protected staging readiness evidence (#229), now governed by [`docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`](./docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md), followed by final controlled-launch reconciliation. React/TypeScript correctness rules are enforced with a reviewed non-growing legacy `set-state-in-effect` baseline. Real-money Exchange and custody have a larger independent certification path.
 
 ## Architecture Overview
 
