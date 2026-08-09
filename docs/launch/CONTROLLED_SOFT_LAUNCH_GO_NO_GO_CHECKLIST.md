@@ -38,15 +38,17 @@ labelled as gated.
 | Compliance activation | KYC/AML provider configuration, production-negative mock tests, jurisdiction/legal review and evidence retention plan are accepted, or compliance-dependent flows remain disabled. | NO-GO for compliance-dependent real-money flows. |
 | Product truth and UX | Public copy, README, in-app states and docs preserve the launch boundary: education, Mentor and virtual Arena only; no live exchange/custody promise. | NO-GO if any user-facing surface overclaims readiness. |
 | Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner. | NO-GO until accepted-risk register is current. |
-| Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths are tested for DB, Redis, migration, alert, provider, worker and reconciliation failures. | NO-GO until incident evidence is accepted. |
+| Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures. | NO-GO until incident evidence is accepted. |
 
 ## Required decision record
 
 The final Go/No-Go record must contain:
 
 1. exact release candidate SHA and image digest;
-2. `npm run launch:packet` JSON output for the exact candidate, with package-lock,
-   migration-plan, image and deployment artifact digests recorded;
+2. `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --secret-scanning-run-url <url>` JSON output for the exact candidate, with package-lock,
+   migration-plan, image and deployment artifact digests recorded. The command
+   fails closed in final mode; `--draft` is only for local incomplete
+   scaffolding and is not acceptable final decision evidence;
 3. linked exact-head CI and workflow results;
 4. protected staging evidence artifact and verifier summary;
 5. restore/reconciliation evidence artifact;
@@ -54,7 +56,9 @@ The final Go/No-Go record must contain:
 7. disabled-capability attestation for real-money Exchange, custody,
    deposits, withdrawals, public rewards, enterprise and white-label claims;
 8. accepted-risk register with named owners and dates;
-9. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
+9. incident readiness contract with support hours, severity targets and
+   acknowledgement evidence;
+10. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
    SRE and QA.
 
 ## Non-negotiable No-Go rules

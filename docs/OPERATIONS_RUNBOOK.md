@@ -1,6 +1,6 @@
 # TecPey Operations Runbook
 
-Last updated: Phase 26 — Production Observability & Operations Foundation
+Last updated: 2026-08-09 — Controlled Launch Incident Readiness
 
 This runbook covers the most common production incidents and how to diagnose and resolve them.
 
@@ -25,7 +25,8 @@ Before any production deployment, verify:
 | `TECPEY_BUILD_COMMIT_SHA` | **Build only** | Exact Git SHA baked into the compiled artifact; never set through runtime EnvironmentFile |
 | `NEXT_PUBLIC_BUILD_VERSION` | Recommended | Semver/build number |
 | `ERROR_TRACKING_PROVIDER` | Recommended | `betterstack` or `sentry` |
-| `ALERT_WEBHOOK_URL` | Recommended | Slack/PagerDuty webhook for critical alerts |
+| `ALERT_WEBHOOK_URL` | Recommended | Legacy application alert webhook for health alerts |
+| `TECPEY_OPS_ALERT_WEBHOOK_URL` | **Controlled launch required** | Approved ops alert webhook used by staging scheduler and alert delivery drills |
 
 Quick check command:
 ```bash
@@ -48,9 +49,22 @@ curl -s https://tecpey.ir/api/health | jq '.checks, .warnings'
 - [ ] `X-Frame-Options: DENY` in response headers
 - [ ] Error tracking configured (`ERROR_TRACKING_PROVIDER=betterstack` or `sentry`)
 - [ ] Alert webhook configured (`ALERT_WEBHOOK_URL`)
+- [ ] Ops alert webhook configured and probe-tested (`TECPEY_OPS_ALERT_WEBHOOK_URL`)
 - [ ] Immutable build commit is baked by the governed build (`TECPEY_BUILD_COMMIT_SHA`)
 - [ ] Admin panel accessible: `GET /api/admin/metrics` returns 200 with token
 - [ ] Rate limiting cross-instance: Redis mode confirmed via `"mode": "redis"` in rate-limit logs
+
+## Controlled Launch Incident Coverage
+
+Controlled-launch support is 09:00-23:00 Asia/Tehran daily. P0 incidents must
+be acknowledged within 15 minutes during support hours and within 60 minutes
+outside support hours. P1 incidents must be acknowledged within 4 hours.
+
+Before any Go decision, attach the evidence required by
+[`INCIDENT_READINESS_CONTRACT.md`](./operations/INCIDENT_READINESS_CONTRACT.md):
+two successful protected-staging critical alert probes, zero pending alerts,
+zero quarantined alerts, acknowledgement drill evidence, and named owners for
+DB, Redis, migration, alert delivery, worker and reconciliation failures.
 
 ---
 

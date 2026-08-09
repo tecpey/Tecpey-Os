@@ -7,10 +7,12 @@ const files = {
   productionPlan: "docs/PRODUCTION_HARDENING_MASTER_PLAN.md",
   finalGate: "docs/FINAL_IMPLEMENTATION_GATE.md",
   acceptedRisks: "docs/LAUNCH_ACCEPTED_RISKS.md",
+  incidentReadiness: "docs/operations/INCIDENT_READINESS_CONTRACT.md",
   readme: "README.md",
   readmeFa: "README.fa.md",
   packageJson: "package.json",
   releasePacket: "scripts/generate-controlled-launch-release-packet.mjs",
+  releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   workflow: ".github/workflows/ci.yml",
 };
 
@@ -55,6 +57,7 @@ for (const invariant of [
   "Product truth and UX",
   "Accepted risks",
   "Incident readiness",
+  "INCIDENT_READINESS_CONTRACT.md",
   "Required decision record",
   "Non-negotiable No-Go rules",
   "Completion percentage rule",
@@ -113,13 +116,35 @@ for (const invariant of [
   "Controlled-launch decision update (2026-08-08)",
   "not yet accepted as final Go evidence",
   "Placeholder thresholds such as `N`, `X`, `defined hours`",
+  "Controlled-launch closure update (2026-08-09)",
   "Controlled Launch Reconciliation Addendum — 2026-08-08",
   "Required accepted-risk closure before a Go decision",
-  "Current unresolved placeholders",
-  "replace every placeholder with exact signed values",
+  "Controlled-launch closure matrix — 2026-08-09",
+  "09:00-23:00 Asia/Tehran",
+  "Three or more support complaints about lost engagement state in seven days",
+  "Three distinct stale-price reports in 24 hours",
+  "delivery latency must be under five minutes",
+  "Zero real-money orders, deposits, withdrawals",
+  "non-Persian traffic exceeds ten percent of weekly active users",
+  "P0 acknowledgement target is fifteen minutes",
   "keep the related capability explicitly NO-GO and product-disabled",
 ]) {
   requireText("acceptedRisks", invariant, `accepted-risk registry is missing controlled launch reconciliation: ${invariant}`);
+}
+
+for (const invariant of [
+  "Incident Readiness Contract",
+  "09:00-23:00 Asia/Tehran",
+  "15 minutes during support hours",
+  "60 minutes outside support hours",
+  "4 hours",
+  "protected staging synthetic critical alert delivery succeeds twice",
+  "pending alert count is zero",
+  "quarantine count is zero",
+  "launch decision remains NO-GO",
+  "No README, landing page, in-app copy, investor update or release note may imply 24/7 production support",
+]) {
+  requireText("incidentReadiness", invariant, `incident readiness contract is missing invariant: ${invariant}`);
 }
 
 for (const [target, label] of [
@@ -140,8 +165,10 @@ for (const [target, label] of [
 
 for (const invariant of [
   '"launch:packet"',
+  '"test:launch-packet"',
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
+  "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
 ]) {
@@ -150,9 +177,19 @@ for (const invariant of [
 
 for (const invariant of [
   "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  "packetMode",
+  "final_evidence_required",
+  "draft_incomplete_evidence_allowed",
+  "unknown launch packet option",
+  "is required for a final release packet",
+  "Re-run with --draft only for local incomplete packet scaffolding",
   "imageDigest",
   "deploymentArtifactDigest",
   "migrationPlanSha256",
+  "ciRunUrl",
+  "repositoryAuditRunUrl",
+  "publicGoldenPathRunUrl",
+  "secretScanningRunUrl",
   "protectedStaging",
   "recoveryReconciliation",
   "rollbackOrForwardFix",
@@ -161,6 +198,15 @@ for (const invariant of [
   "packet must not contain raw secrets",
 ]) {
   requireText("releasePacket", invariant, `release packet generator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "final launch packet fails closed without required release evidence",
+  "launch packet rejects unknown options",
+  "draft launch packet can scaffold incomplete evidence explicitly",
+  "final launch packet emits only after artifact and workflow evidence are complete",
+]) {
+  requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }
 
 for (const invariant of [

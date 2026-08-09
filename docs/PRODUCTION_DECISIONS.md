@@ -235,7 +235,7 @@
 
 ## D-11 — No 24/7 On-Call at Soft Launch
 
-**Decision:** There will be no formal 24/7 on-call rotation or guaranteed SLA response at Soft Launch. Core team will monitor and respond during defined hours.
+**Decision:** There will be no formal 24/7 on-call rotation or guaranteed SLA response at Soft Launch. Core team will monitor and respond during the controlled-launch support window: 09:00-23:00 Asia/Tehran daily.
 
 **Why:**
 - Team size and operational maturity do not yet support full on-call.
@@ -246,6 +246,7 @@
 
 **Future Migration Path:**
 - Phase 42: Formal on-call rotation, escalation matrix, and coverage expansion.
+- Before Go: satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` with alert delivery, acknowledgement and owner evidence.
 
 **Owner:** CTO + SRE Lead  
 **Reversibility:** Low — adding on-call later is primarily process and tooling.  
