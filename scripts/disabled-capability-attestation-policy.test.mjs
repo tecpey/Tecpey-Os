@@ -11,9 +11,11 @@ const files = [
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/validate-env.mjs",
   "src/app/layout.tsx",
+  "src/app/en/page.tsx",
   "src/app/en/EnglishLandingClient.tsx",
   "src/app/api/wallet/custody-status/route.ts",
   "src/components/academy/AcademySimulationWorld.tsx",
+  "src/components/seo/StructuredData.tsx",
   "src/lib/wallet/custody-launch-policy.ts",
 ];
 
@@ -32,11 +34,40 @@ test("disabled capability attestation rejects public real-money overclaims", () 
   assert.match(evaluateDisabledCapabilityAttestation(sources).join("\n"), /forbidden launch-readiness claim/);
 });
 
+test("disabled capability attestation rejects public SEO exchange overclaims", () => {
+  const sources = loadSources();
+  sources["src/app/en/page.tsx"] = sources["src/app/en/page.tsx"].replace(
+    "Crypto Education and Launch-Gated Market Practice",
+    "Secure Persian Crypto Exchange",
+  );
+  sources["src/components/seo/StructuredData.tsx"] = sources["src/components/seo/StructuredData.tsx"].replace(
+    '"@type": ["Organization", "EducationalOrganization"]',
+    '"@type": ["Organization", "FinancialService", "LocalBusiness"]',
+  );
+
+  const failures = evaluateDisabledCapabilityAttestation(sources).join("\n");
+  assert.match(failures, /src\/app\/en\/page\.tsx: forbidden launch-readiness claim/);
+  assert.match(failures, /src\/components\/seo\/StructuredData\.tsx: forbidden launch-readiness claim/);
+});
+
 test("disabled capability attestation rejects missing custody runtime gate", () => {
   const sources = loadSources();
   sources["server.ts"] = sources["server.ts"].replaceAll("custodyStatus.workerEnabled", "true");
 
   assert.match(evaluateDisabledCapabilityAttestation(sources).join("\n"), /server\.ts/);
+});
+
+test("disabled capability attestation rejects token-preserving custody runtime bypasses", () => {
+  const sources = loadSources();
+  sources["server.ts"] = sources["server.ts"].replace(
+    "if (redisUrl && custodyStatus.workerEnabled) {",
+    "if (redisUrl) {\n    console.info(custodyStatus.workerEnabled);",
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /withdrawal workers must start only inside the redisUrl plus custodyStatus\.workerEnabled guard/,
+  );
 });
 
 test("disabled capability attestation rejects incomplete release-packet boundary", () => {

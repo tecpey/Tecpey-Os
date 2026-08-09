@@ -24,11 +24,27 @@ const REQUIRED_PUBLIC_BOUNDARIES = [
     ],
   },
   {
+    file: "src/app/en/page.tsx",
+    tokens: [
+      "Crypto Education and Launch-Gated Market Practice",
+      "real-money exchange, custody, deposits and withdrawals remain launch-gated",
+      "virtual trading practice",
+    ],
+  },
+  {
     file: "src/app/en/EnglishLandingClient.tsx",
     tokens: [
       "no real money involved",
       "no real money, real profit or real trade takes place in it",
       "it does not sell buy or sell signals",
+    ],
+  },
+  {
+    file: "src/components/seo/StructuredData.tsx",
+    tokens: [
+      '"@type": ["Organization", "EducationalOrganization"]',
+      "Real-money exchange, custody, deposits and withdrawals remain launch-gated",
+      "Virtual Trading Practice",
     ],
   },
   {
@@ -89,6 +105,15 @@ const REQUIRED_PACKAGE_SCRIPTS = [
 const FORBIDDEN_PUBLIC_CLAIMS = [
   /\breal-money exchange is live\b/i,
   /\bexchange is live\b/i,
+  /\bsecure persian crypto exchange\b/i,
+  /\bsecure crypto exchange\b/i,
+  /\bpersian crypto exchange platform\b/i,
+  /\bfirst steps of buying and selling crypto\b/i,
+  /\bstart trading\b/i,
+  /\bFinancialService\b/,
+  /\bcurrenciesAccepted\b/,
+  /\bpaymentAccepted\b/,
+  /\bBank transfer,\s*Crypto\b/i,
   /\bcustody is live\b/i,
   /\bwithdrawals are live\b/i,
   /\bwhite-label activation is approved\b/i,
@@ -96,6 +121,15 @@ const FORBIDDEN_PUBLIC_CLAIMS = [
   /صرافی(?:\s|ِ|‌)+زنده(?:\s|ِ|‌)+در(?:\s|ِ|‌)+دسترس/,
   /برداشت(?:\s|ِ|‌)+پول(?:\s|ِ|‌)+واقعی(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
   /کاستدی(?:\s|ِ|‌)+پروداکشن(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
+];
+
+const REQUIRED_RUNTIME_PATTERNS = [
+  {
+    file: "server.ts",
+    pattern:
+      /if\s*\(\s*redisUrl\s*&&\s*custodyStatus\.workerEnabled\s*\)\s*\{[\s\S]*?withdrawalWorkers\s*=\s*await\s+import\(["']\.\/src\/workers\/withdrawal-worker["']\)[\s\S]*?withdrawalWorkers\.startWithdrawalWorkers\(\)/,
+    reason: "withdrawal workers must start only inside the redisUrl plus custodyStatus.workerEnabled guard",
+  },
 ];
 
 function normalized(value) {
@@ -115,6 +149,12 @@ function requireToken(failures, sources, file, token) {
 function rejectPattern(failures, sources, file, pattern) {
   if (pattern.test(sourceFor(sources, file))) {
     failures.push(`${file}: forbidden launch-readiness claim matched ${pattern}`);
+  }
+}
+
+function requirePattern(failures, sources, file, pattern, reason) {
+  if (!pattern.test(sourceFor(sources, file))) {
+    failures.push(`${file}: missing disabled-capability runtime guard: ${reason}`);
   }
 }
 
@@ -139,6 +179,10 @@ export function evaluateDisabledCapabilityAttestation(sources) {
         failures.push(`${contract.file}: exposes forbidden custody configuration marker: ${forbidden}`);
       }
     }
+  }
+
+  for (const contract of REQUIRED_RUNTIME_PATTERNS) {
+    requirePattern(failures, sources, contract.file, contract.pattern, contract.reason);
   }
 
   const packageJson = JSON.parse(sourceFor(sources, "package.json") || "{}");

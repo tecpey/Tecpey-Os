@@ -24,8 +24,10 @@ const files = {
   workflow: ".github/workflows/ci.yml",
   server: "server.ts",
   layout: "src/app/layout.tsx",
+  englishLandingPage: "src/app/en/page.tsx",
   englishLanding: "src/app/en/EnglishLandingClient.tsx",
   arenaSimulation: "src/components/academy/AcademySimulationWorld.tsx",
+  structuredData: "src/components/seo/StructuredData.tsx",
   custodyPolicy: "src/lib/wallet/custody-launch-policy.ts",
   custodyStatusRoute: "src/app/api/wallet/custody-status/route.ts",
   envValidator: "scripts/validate-env.mjs",
@@ -270,7 +272,10 @@ for (const invariant of [
   "real-money Exchange, custody, deposits, or withdrawals are active",
   "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
   "TecPey Exchange Core — launch gated",
+  "Crypto Education and Launch-Gated Market Practice",
   "custodyStatus.workerEnabled",
+  "REQUIRED_RUNTIME_PATTERNS",
+  "withdrawal workers must start only inside the redisUrl plus custodyStatus.workerEnabled guard",
   "disabledCapabilityAttestation",
 ]) {
   requireText(
@@ -294,7 +299,9 @@ for (const invariant of [
 for (const invariant of [
   "disabled capability attestation accepts current controlled-launch boundary",
   "disabled capability attestation rejects public real-money overclaims",
+  "disabled capability attestation rejects public SEO exchange overclaims",
   "disabled capability attestation rejects missing custody runtime gate",
+  "disabled capability attestation rejects token-preserving custody runtime bypasses",
   "disabled capability attestation rejects incomplete release-packet boundary",
 ]) {
   requireText(

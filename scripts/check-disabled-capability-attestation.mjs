@@ -9,9 +9,11 @@ const files = [
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/validate-env.mjs",
   "src/app/layout.tsx",
+  "src/app/en/page.tsx",
   "src/app/en/EnglishLandingClient.tsx",
   "src/app/api/wallet/custody-status/route.ts",
   "src/components/academy/AcademySimulationWorld.tsx",
+  "src/components/seo/StructuredData.tsx",
   "src/lib/wallet/custody-launch-policy.ts",
 ];
 
