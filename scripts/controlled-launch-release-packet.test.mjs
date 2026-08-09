@@ -233,3 +233,36 @@ test("accepted-risk register authority rejects phase-only review dates", () => {
     /R-06 review date must be exact/,
   );
 });
+
+test("accepted-risk register authority rejects event-only review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "2026-08-16 before any Exchange re-scope | Disable the activating flag",
+    "Before any Exchange re-scope | Disable the activating flag",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-07 review date must be exact/,
+  );
+});
+
+test("accepted-risk register authority rejects duplicate controlled-launch risk rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    /\n\| R-06 \|[^\n]+/,
+    (row) => `${row}${row}`,
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /duplicate R-06 rows/,
+  );
+});
+
+test("accepted-risk register authority accepts escaped and inline-code pipes in closure rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "controlled education certificates",
+    "`controlled|education` certificates with operator \\| security wording",
+  );
+
+  assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
+});

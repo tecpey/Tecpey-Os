@@ -233,6 +233,8 @@ for (const invariant of [
   "REQUIRED_CONTROLLED_LAUNCH_RISKS",
   "R-06",
   "evaluateAcceptedRiskRegisterAuthority",
+  "splitMarkdownTableRow",
+  "duplicate",
   "controlled-launch closure matrix is missing",
   "threshold must be measurable",
   "review date must be exact",
@@ -279,6 +281,9 @@ for (const invariant of [
   "accepted-risk register authority rejects a missing controlled-launch risk row",
   "accepted-risk register authority rejects placeholder thresholds in closure rows",
   "accepted-risk register authority rejects phase-only review dates",
+  "accepted-risk register authority rejects event-only review dates",
+  "accepted-risk register authority rejects duplicate controlled-launch risk rows",
+  "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }

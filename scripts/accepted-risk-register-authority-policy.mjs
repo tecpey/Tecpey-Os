@@ -11,7 +11,7 @@ const REQUIRED_CONTROLLED_LAUNCH_RISKS = [
 ];
 
 const PLACEHOLDER_RE = /(^|[\s[\]`|])(?:N|X|Y|defined hours|TBD|TODO|placeholder)(?=$|[\s[\]`|,.])/i;
-const REVIEW_DATE_RE = /\b(?:20\d{2}-\d{2}-\d{2}|Before Go decision|Before any [A-Za-z -]+re-scope)\b/;
+const REVIEW_DATE_RE = /\b20\d{2}-\d{2}-\d{2}\b/;
 const MEASURABLE_RE =
   /\b(?:zero|one|two|three|four|five|ten|fifteen|sixty|percent|minutes?|hours?|days?|weekly|non-zero|hard NO-GO|NO-GO)\b/i;
 
@@ -19,13 +19,46 @@ function normalize(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function splitMarkdownTableRow(line) {
+  const cells = [];
+  let cell = "";
+  let inCode = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === "\\" && next) {
+      cell += next === "|" ? "|" : `${char}${next}`;
+      index += 1;
+      continue;
+    }
+
+    if (char === "`") {
+      inCode = !inCode;
+      cell += char;
+      continue;
+    }
+
+    if (char === "|" && !inCode) {
+      cells.push(cell);
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  cells.push(cell);
+  return cells;
+}
+
 function parseMarkdownRow(line) {
   const trimmed = line.trim();
-  if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return null;
-  return trimmed
-    .slice(1, -1)
-    .split("|")
-    .map((cell) => normalize(cell));
+  const cells = splitMarkdownTableRow(trimmed);
+  if (cells.length < 3) return null;
+  if (normalize(cells[0]) !== "" || normalize(cells[cells.length - 1]) !== "") return null;
+  return cells.slice(1, -1).map((cell) => normalize(cell));
 }
 
 function extractClosureMatrix(markdown) {
@@ -68,7 +101,15 @@ export function evaluateAcceptedRiskRegisterAuthority(markdown) {
   const { rows, failures: matrixFailures } = extractClosureMatrix(markdown);
   failures.push(...matrixFailures);
 
-  const byRisk = new Map(rows.map((row) => [row[0], row]));
+  const byRisk = new Map();
+  for (const row of rows) {
+    const risk = row[0];
+    if (byRisk.has(risk)) {
+      failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: controlled-launch closure matrix has duplicate ${risk} rows`);
+      continue;
+    }
+    byRisk.set(risk, row);
+  }
   for (const risk of REQUIRED_CONTROLLED_LAUNCH_RISKS) {
     if (!byRisk.has(risk)) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: controlled-launch closure matrix is missing ${risk}`);
