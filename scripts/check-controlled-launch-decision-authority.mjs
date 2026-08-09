@@ -10,6 +10,7 @@ const files = {
   readme: "README.md",
   readmeFa: "README.fa.md",
   packageJson: "package.json",
+  releasePacket: "scripts/generate-controlled-launch-release-packet.mjs",
   workflow: ".github/workflows/ci.yml",
 };
 
@@ -138,11 +139,28 @@ for (const [target, label] of [
 }
 
 for (const invariant of [
+  '"launch:packet"',
   '"launch:decision:check"',
+  "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
+}
+
+for (const invariant of [
+  "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  "imageDigest",
+  "deploymentArtifactDigest",
+  "migrationPlanSha256",
+  "protectedStaging",
+  "recoveryReconciliation",
+  "rollbackOrForwardFix",
+  "acceptedRisks",
+  "real-money Exchange remains NO-GO",
+  "packet must not contain raw secrets",
+]) {
+  requireText("releasePacket", invariant, `release packet generator is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [

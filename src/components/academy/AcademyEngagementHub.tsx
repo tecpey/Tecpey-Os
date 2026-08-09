@@ -73,6 +73,11 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
                 ? "برای اینکه آکادمی فقط مجموعه‌ای از صفحات نباشد، مسیر تک‌پی با XP، مأموریت روزانه، Badge، Practice Lab و Mentor Feedback کاربر را از فهم مفهوم تا تمرین و ارزیابی نهایی همراه می‌کند."
                 : "To avoid being just a set of pages, the TecPey path uses XP, daily missions, badges, Practice Lab and Mentor feedback to move users from concepts to practice and readiness."}
             </p>
+            <div className="mt-4 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold leading-7 text-amber-50">
+              {isFa
+                ? "یادآوری وضعیت لانچ: XP، Streak و Badgeهای این بخش فعلاً تمرین انگیزشی و cache مرورگر هستند؛ پاک شدن مرورگر یا تغییر دستگاه می‌تواند آن‌ها را حذف کند. پیشرفت رسمی، آزمون‌ها، گواهی‌ها و وضعیت قابل استناد آکادمی فقط از مسیرهای سرورمحور تک‌پی معتبرند."
+                : "Launch note: XP, streaks and badges here are motivational practice state stored in the browser cache for now; clearing the browser or changing devices can remove them. Official Academy progress, assessments, certificates and trusted status come only from TecPey's server-backed paths."}
+            </div>
             <div className="mt-6 grid gap-3 md:grid-cols-5">
               {method.map((item, index) => (
                 <div key={item.step} className="rounded-2xl border border-white/10 bg-white/[0.055] p-4">

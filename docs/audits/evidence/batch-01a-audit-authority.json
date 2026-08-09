@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "e0ce231e6343b082fa31eea530a308df0e02a940",
-      "sha256": "de795711a977c448b4b7ac2700a3c906d00b7d0c34f3588b46b70b08a2e7a7dd",
-      "lines": 180,
+      "gitObjectId": "9189e36624eeb0bd2b80f2da6c7ad786f6cd9e8f",
+      "sha256": "c3b11286a5c8b077355a837eee73e3c80123da994ddc89a2f72635e4b7cd9f6c",
+      "lines": 181,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 180
+          "endLine": 181
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -65,13 +65,14 @@
         "2026-08-06: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/learning-events*.test.ts (issue #109 — learning_events read-scoping proof). Test-wiring only — the script gains one additional Postgres integration-test path (the learning_events cross-tenant read-isolation proof); no dependency, engine, override, or release-authority command changed, and the file stays 179 lines.",
         "2026-08-08: re-reviewed after wiring scripts/check-brand-asset-authority.mjs into ui:public:check. The change composes a read-only static brand asset guard with the existing public UI foundation guard; it adds no dependency, engine, override, release-authority command, network access or mutation path, and the file stays 179 lines.",
         "2026-08-08: re-reviewed after adding --test-concurrency=1 to test:crm-leads. CRM PostgreSQL evidence now runs serially to avoid cross-file deadlocks against shared durable fixtures; no dependency, engine, override, release-authority command, network access, or runtime mutation path changed, and the file stays 179 lines.",
-        "2026-08-08: re-reviewed after adding launch:decision:check and wiring it into release:check. The new command is a read-only static guard over launch decision documentation, README discovery, package wiring and CI workflow wiring; it adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed checks."
+        "2026-08-08: re-reviewed after adding launch:decision:check and wiring it into release:check. The new command is a read-only static guard over launch decision documentation, README discovery, package wiring and CI workflow wiring; it adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed checks.",
+        "2026-08-09: re-reviewed after adding launch:packet. The new command is a local release-candidate evidence generator that reads Git/file metadata, validates optional sha256 artifact digests, writes only when --out is explicitly supplied, refuses dirty worktrees unless --allow-dirty is supplied, adds no dependency, engine, override, network access or runtime mutation path, and does not change release:check execution."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 105,
+          "line": 106,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
           "evidence": "package.json lines 105 and 108-109 use npm config set/delete before repository-scoped install commands.",
