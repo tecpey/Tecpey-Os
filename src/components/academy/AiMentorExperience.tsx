@@ -15,8 +15,8 @@ type MentorProgress = { completedTerms: number[]; weakAreas: string[]; lastMode?
 
 // The mentor's deterministic brain now lives in academy-ai-mentor-core (shared
 // with the news-quiz board). This component keeps only the browser-side pieces:
-// progress/memory in the browser's local cache and the live /api/ai-mentor
-// call, with the core's toLocalReply as the fail-closed fallback.
+// disposable browser-cache practice hints and the live /api/ai-mentor call,
+// with the core's toLocalReply as the fail-closed fallback.
 const quickQuestions = MENTOR_QUICK_QUESTIONS.fa;
 
 function readMentorProgress(): MentorProgress {
@@ -180,6 +180,9 @@ export function AiMentorExperience() {
           </div>
           <div className="rounded-3xl border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm font-bold leading-7 text-cyan-50">
             <div className="mb-2 flex items-center gap-2 font-black"><BrainCircuit className="h-5 w-5" />حافظه مسیر یادگیری</div>
+            <p className="mb-3 rounded-2xl border border-cyan-200/20 bg-slate-950/35 p-3 text-xs leading-6 text-cyan-100">
+              این snapshot فقط برای شخصی‌سازی آموزشی همین تجربه است و از cache مرورگر می‌آید؛ مدرک، قبولی ترم و وضعیت رسمی آکادمی فقط با داده سرور معتبر است.
+            </p>
             <p>ترم‌های کامل‌شده: <span className="font-black text-white">{mentorProgress.completedTerms.length}/7</span></p>
             <p>اعتماد به مسیر: <span className="font-black text-white">{mentorProgress.confidence}%</span></p>
             {mentorProgress.weakAreas.length ? <p>حوزه‌های نیازمند مرور: <span className="font-black text-white">{mentorProgress.weakAreas.join("، ")}</span></p> : <p>با پرسیدن سؤال، مربی نقاط نیازمند مرور را تشخیص می‌دهد.</p>}

@@ -91,6 +91,7 @@
     "ops:staging:evidence:collect": "tsx scripts/collect-community-challenge-scheduler-host-evidence.ts",
     "ops:staging:evidence:verify": "tsx scripts/verify-community-challenge-scheduler-host-evidence.ts",
     "ops:staging:evidence:check": "node scripts/check-community-challenge-staging-evidence-authority.mjs",
+    "launch:packet": "node scripts/generate-controlled-launch-release-packet.mjs",
     "launch:decision:check": "node scripts/check-controlled-launch-decision-authority.mjs",
     "test:ops-staging-evidence": "npm run ops:staging:evidence:check && NODE_ENV=test node --import tsx --test --test-force-exit src/tests/security/community-challenge-host-evidence.test.ts src/tests/security/community-challenge-host-collector.test.ts",
     "test:ops-scheduler": "npm run ops:scheduler:check && npm run ops:staging:evidence:check && NODE_PATH=src/tests/stubs NODE_ENV=test node --conditions=react-server --import tsx --test --test-force-exit src/tests/security/community-challenge-scheduler.integration.ts src/tests/security/operational-alert-spool.integration.ts src/tests/security/operational-job-evidence-postgres.integration.ts src/tests/security/community-challenge-host-evidence-postgres.integration.ts src/tests/security/community-challenge-scheduler-installer.test.ts",

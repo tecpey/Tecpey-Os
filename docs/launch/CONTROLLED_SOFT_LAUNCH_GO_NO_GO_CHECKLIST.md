@@ -45,14 +45,16 @@ labelled as gated.
 The final Go/No-Go record must contain:
 
 1. exact release candidate SHA and image digest;
-2. linked exact-head CI and workflow results;
-3. protected staging evidence artifact and verifier summary;
-4. restore/reconciliation evidence artifact;
-5. rollback evidence and migration decision notes;
-6. disabled-capability attestation for real-money Exchange, custody,
+2. `npm run launch:packet` JSON output for the exact candidate, with package-lock,
+   migration-plan, image and deployment artifact digests recorded;
+3. linked exact-head CI and workflow results;
+4. protected staging evidence artifact and verifier summary;
+5. restore/reconciliation evidence artifact;
+6. rollback evidence and migration decision notes;
+7. disabled-capability attestation for real-money Exchange, custody,
    deposits, withdrawals, public rewards, enterprise and white-label claims;
-7. accepted-risk register with named owners and dates;
-8. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
+8. accepted-risk register with named owners and dates;
+9. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
    SRE and QA.
 
 ## Non-negotiable No-Go rules

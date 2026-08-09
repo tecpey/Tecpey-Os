@@ -177,6 +177,11 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
                     ? "حافظه مربی فقط مسیر آموزشی، ضعف‌های مفهومی و سؤال‌های درسی را نگه می‌دارد؛ نه Seed Phrase، نه رمز، نه کلید خصوصی و نه اطلاعات محرمانه مالی."
                     : "Mentor memory stores only learning path, conceptual weaknesses and educational questions; never seed phrases, passwords, private keys or sensitive financial credentials."}
                 </p>
+                <p className="mt-4 rounded-2xl border border-emerald-200/20 bg-slate-950/35 p-3 text-xs font-bold leading-6 text-emerald-50">
+                  {isFa
+                    ? "تا قبل از تکمیل packet لانچ، داده‌هایی که از cache مرورگر خوانده می‌شوند فقط برای راهنمایی آموزشی‌اند؛ قبولی، گواهی، رتبه و وضعیت رسمی باید از APIها و رکوردهای سرور تأیید شوند."
+                    : "Until the launch packet is complete, browser-cache snapshots are guidance only; passed terms, certificates, ranking and official status must be verified by server APIs and records."}
+                </p>
               </section>
             </aside>
           </div>
