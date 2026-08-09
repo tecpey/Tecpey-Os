@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, BellRing, Gauge, LifeBuoy, ShieldCheck } from "lucide-react";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { ContentShell } from "@/components/content/ContentUI";
 
 export const metadata: Metadata = {
@@ -52,7 +52,7 @@ export default function Page() {
                 <p className="text-sm font-black text-cyan-200">مرجع وضعیت عمومی</p>
                 <p className="mt-2 text-xs leading-6 text-white/65">وضعیت عملیاتی باید از مسیر رسمی و قابل فهم اعلام شود.</p>
               </div>
-              <Image src="/logo.png" alt="لوگوی رسمی تک‌پی" width={54} height={54} priority />
+              <TecpeyMark alt="لوگوی رسمی تک‌پی" width={54} height={54} priority />
             </div>
             <div className="mt-5 space-y-3">
               {statusPrinciples.map((item) => (

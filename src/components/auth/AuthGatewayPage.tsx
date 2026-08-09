@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -8,6 +7,7 @@ import {
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 
 type Locale = "fa" | "en";
 type Mode = "signin" | "signup";
@@ -104,8 +104,7 @@ export function AuthGatewayPage({
         <div className="rounded-[34px] border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-6 shadow-[0_24px_90px_rgba(7,94,171,.13)] backdrop-blur md:p-8 lg:p-10">
           <div className="flex items-center gap-4">
             <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-cyan-300/20 bg-white shadow-[0_18px_50px_rgba(7,94,171,.16)] dark:bg-white/[0.08]">
-              <Image
-                src="/images/tecpey-logo.png"
+              <TecpeyMark
                 alt="TecPey"
                 width={48}
                 height={48}
