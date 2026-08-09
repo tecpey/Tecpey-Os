@@ -119,9 +119,9 @@ function requireFinalEvidence(value, label, { draftMode }) {
 const status = git(["status", "--porcelain"]);
 const allowDirty = Boolean(args.get("allow-dirty"));
 const draftMode = Boolean(args.get("draft")) || process.env.TECPEY_LAUNCH_PACKET_DRAFT === "1";
-if (status && !allowDirty) {
+if (status && (!allowDirty || !draftMode)) {
   throw new Error(
-    "release packet generation requires a clean worktree. Re-run with --allow-dirty only for local draft evidence.",
+    "release packet generation requires a clean worktree for final packets. Re-run with --draft --allow-dirty only for local incomplete packet scaffolding.",
   );
 }
 
