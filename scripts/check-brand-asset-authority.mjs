@@ -88,6 +88,8 @@ if (canonical.dimensions !== "512x512" || canonical.format !== "png" || canonica
 
 for (const required of [
   canonical.path,
+  "public/logo.png",
+  "public/images/brand/tecpey-logo-256.png",
   "docs/assets/brand/tecpey-logo-official.png",
   "docs/assets/brand/tecpey-logo-official.webp",
   "docs/assets/brand/generated/tecpey-logo-1024.png",
@@ -104,11 +106,40 @@ if (canonical.sha256 !== canonicalHash) {
 if (sha256("docs/assets/brand/tecpey-logo-official.png") !== canonicalHash) {
   fail("docs/assets/brand/tecpey-logo-official.png must match the runtime canonical icon exactly");
 }
+if (sha256("public/logo.png") !== canonicalHash) {
+  fail("public/logo.png must mirror the runtime canonical icon exactly");
+}
 
 assertPngDimensions(canonical.path, "512x512");
+assertPngDimensions("public/logo.png", "512x512");
 assertPngDimensions("docs/assets/brand/tecpey-logo-official.png", "512x512");
 assertPngDimensions("docs/assets/brand/generated/tecpey-logo-1024.png", "1024x1024");
 assertPngDimensions("docs/assets/brand/generated/tecpey-lockup-fa-en.png", "1200x548");
+
+const runtimeAliases = registry.runtimeAliases ?? [];
+const canonicalAlias = runtimeAliases.find((asset) => asset.path === "public/logo.png");
+if (!canonicalAlias || canonicalAlias.mirrors !== canonical.path) {
+  fail(`${registryPath}: runtimeAliases must declare public/logo.png as a mirror of ${canonical.path}`);
+}
+
+const derivedAssets = registry.derivedAssets ?? [];
+const compactRuntimeIcon = derivedAssets.find((asset) => asset.path === "public/images/brand/tecpey-logo-256.png");
+if (!compactRuntimeIcon) {
+  fail(`${registryPath}: derivedAssets must include public/images/brand/tecpey-logo-256.png`);
+} else {
+  if (
+    compactRuntimeIcon.source !== canonical.path ||
+    compactRuntimeIcon.dimensions !== "256x256" ||
+    compactRuntimeIcon.format !== "png" ||
+    compactRuntimeIcon.transparent !== true
+  ) {
+    fail(`${registryPath}: public/images/brand/tecpey-logo-256.png metadata must describe a transparent 256x256 PNG derived from ${canonical.path}`);
+  }
+  if (compactRuntimeIcon.sha256 !== sha256("public/images/brand/tecpey-logo-256.png")) {
+    fail(`${registryPath}: derivedAssets sha256 must match public/images/brand/tecpey-logo-256.png`);
+  }
+}
+assertPngDimensions("public/images/brand/tecpey-logo-256.png", "256x256");
 
 const runtimeIconSizes = new Map([
   ["public/favicon-16x16.png", "16x16"],

@@ -17,6 +17,22 @@
     "public/android-chrome-192x192.png",
     "public/android-chrome-512x512.png"
   ],
+  "runtimeAliases": [
+    {
+      "path": "public/logo.png",
+      "mirrors": "public/images/tecpey-logo.png"
+    }
+  ],
+  "derivedAssets": [
+    {
+      "path": "public/images/brand/tecpey-logo-256.png",
+      "source": "public/images/tecpey-logo.png",
+      "dimensions": "256x256",
+      "format": "png",
+      "transparent": true,
+      "sha256": "b560eed1a0b09336358bf702f6d373fbc8f11119bbec7e4dae62a8cfb875b227"
+    }
+  ],
   "documentationAssets": [
     "docs/assets/brand/tecpey-logo-official.png",
     "docs/assets/brand/tecpey-logo-official.webp",
