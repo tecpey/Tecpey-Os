@@ -335,6 +335,7 @@ for (const invariant of [
   "disabled capability attestation rejects missing custody runtime gate",
   "disabled capability attestation rejects token-preserving custody runtime bypasses",
   "disabled capability attestation rejects worker startup moved outside the custody guard",
+  "disabled capability attestation rejects dead worker tokens inside the custody guard",
   "disabled capability attestation rejects incomplete release-packet boundary",
 ]) {
   requireText(

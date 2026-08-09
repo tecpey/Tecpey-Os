@@ -124,6 +124,31 @@ test("disabled capability attestation rejects worker startup moved outside the c
   );
 });
 
+test("disabled capability attestation rejects dead worker tokens inside the custody guard", () => {
+  const sources = loadSources();
+  sources["server.ts"] = sources["server.ts"].replace(
+    `if (redisUrl && custodyStatus.workerEnabled) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
+  } else if (redisUrl) {`,
+    `if (redisUrl && custodyStatus.workerEnabled) {
+    if (false) {
+      withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+      withdrawalWorkers.startWithdrawalWorkers();
+    }
+  }
+  if (redisUrl) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
+  } else if (redisUrl) {`,
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /withdrawal workers must start only inside the redisUrl plus custodyStatus\.workerEnabled guard/,
+  );
+});
+
 test("disabled capability attestation rejects incomplete release-packet boundary", () => {
   const sources = loadSources();
   sources["scripts/generate-controlled-launch-release-packet.mjs"] = sources[

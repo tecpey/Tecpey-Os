@@ -131,10 +131,8 @@ const REQUIRED_RUNTIME_PATTERNS = [
   {
     file: "server.ts",
     guard: /if\s*\(\s*redisUrl\s*&&\s*custodyStatus\.workerEnabled\s*\)\s*\{/,
-    tokens: [
-      'withdrawalWorkers = await import("./src/workers/withdrawal-worker")',
-      "withdrawalWorkers.startWithdrawalWorkers()",
-    ],
+    body:
+      /^\s*withdrawalWorkers\s*=\s*await\s+import\(["']\.\/src\/workers\/withdrawal-worker["']\);\s*withdrawalWorkers\.startWithdrawalWorkers\(\);\s*$/,
     reason: "withdrawal workers must start only inside the redisUrl plus custodyStatus.workerEnabled guard",
   },
 ];
@@ -165,7 +163,12 @@ function extractBalancedBlock(source, openingBraceIndex) {
   for (let index = openingBraceIndex; index < source.length; index += 1) {
     if (source[index] === "{") depth += 1;
     if (source[index] === "}") depth -= 1;
-    if (depth === 0) return source.slice(openingBraceIndex + 1, index);
+    if (depth === 0) {
+      return {
+        body: source.slice(openingBraceIndex + 1, index),
+        closingBraceIndex: index,
+      };
+    }
   }
 
   return null;
@@ -181,16 +184,8 @@ function requireRuntimeGuard(failures, sources, contract) {
 
   const openingBraceIndex = source.indexOf("{", match.index);
   const guardedBlock = extractBalancedBlock(source, openingBraceIndex);
-  if (!guardedBlock) {
+  if (!guardedBlock || !contract.body.test(guardedBlock.body)) {
     failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
-    return;
-  }
-
-  for (const token of contract.tokens) {
-    if (!normalized(guardedBlock).includes(normalized(token))) {
-      failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
-      return;
-    }
   }
 }
 
