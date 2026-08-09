@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 
 const files = {
   checklist: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
@@ -15,6 +16,7 @@ const files = {
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
+  acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   workflow: ".github/workflows/ci.yml",
 };
 
@@ -137,6 +139,8 @@ for (const invariant of [
   requireText("acceptedRisks", invariant, `accepted-risk registry is missing controlled launch reconciliation: ${invariant}`);
 }
 
+failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks));
+
 for (const invariant of [
   "Incident Readiness Contract",
   "09:00-23:00 Asia/Tehran",
@@ -226,6 +230,17 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  "REQUIRED_CONTROLLED_LAUNCH_RISKS",
+  "R-06",
+  "evaluateAcceptedRiskRegisterAuthority",
+  "controlled-launch closure matrix is missing",
+  "threshold must be measurable",
+  "review date must be exact",
+]) {
+  requireText("acceptedRiskAuthority", invariant, `accepted-risk authority policy is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
   "controlled-soft-launch-final-evidence-manifest",
   "validateControlledLaunchEvidenceManifest",
   "readControlledLaunchEvidenceManifest",
@@ -260,6 +275,10 @@ for (const invariant of [
   "rollbackOrForwardFix.evidenceUrl",
   "incidentReadiness.artifactDigest",
   "acceptedRisks.evidenceUrl",
+  "accepted-risk register authority accepts the controlled-launch closure matrix",
+  "accepted-risk register authority rejects a missing controlled-launch risk row",
+  "accepted-risk register authority rejects placeholder thresholds in closure rows",
+  "accepted-risk register authority rejects phase-only review dates",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }

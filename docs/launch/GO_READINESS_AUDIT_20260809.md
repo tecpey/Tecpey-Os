@@ -17,7 +17,7 @@ controlled launch decision governance.
 That progress does **not** make the project GO. The narrow controlled Soft
 Launch remains **NO-GO** until the exact release candidate has accepted evidence
 for protected staging deployment, backup/restore, recovery reconciliation,
-rollback/forward-fix, alert delivery, incident ownership, accepted-risk closure
+rollback/forward-fix, alert delivery, incident ownership, accepted-risk sign-off
 and executive sign-off.
 
 Real-money Exchange, custody, deposits, withdrawals, public financial rewards,
@@ -45,7 +45,7 @@ The following commands were run on the local checkout at the audited SHA.
 
 | Command | Result | Interpretation |
 |---|---|---|
-| `npm run launch:decision:check` | PASS | Launch decision guard is wired and keeps the official decision NO-GO by default. |
+| `npm run launch:decision:check` | PASS | Launch decision guard is wired, verifies final-evidence manifest wiring and enforces the accepted-risk closure matrix while keeping the official decision NO-GO by default. |
 | `npm run ui:public:check` | PASS | Public UI foundation and official brand asset authority pass. |
 | `npm run typecheck` | PASS | TypeScript has no compile-time errors at this SHA. |
 | `npm run lint:authority && npm run test:lint-authority` | PASS | Correctness authority has 5 zero-debt rules and a non-growing 33-entry `set-state-in-effect` baseline. |
@@ -73,7 +73,7 @@ The following commands were run on the local checkout at the audited SHA.
 | Exchange core | Admission, financial evidence and reconciliation authorities pass. | Real-money activation remains blocked by provider, ambiguity, custody, compliance and operations evidence. |
 | Custody boundary | Custody launch gate passes and keeps production custody disabled by policy. | HSM/MPC, key ceremony, chain-provider certification and testnet/on-chain reconciliation remain independent gates. |
 | Tenant isolation | 30 tenant-scoped tables are registered; 14 have proven negative cross-tenant tests. | 16 tables remain pending under #109; multi-tenant and white-label claims remain blocked. |
-| Operations contracts | Recovery and staging evidence contracts pass authority checks. | Actual protected staging, restore, rollback, alert and incident acceptance evidence is still missing. |
+| Operations contracts | Recovery and staging evidence contracts pass authority checks; accepted-risk closure matrix is structurally guarded for the controlled launch scope. | Actual protected staging, restore, rollback, alert, incident and sign-off evidence is still missing. |
 
 ## Current Blockers To Controlled Soft Launch
 
@@ -83,7 +83,7 @@ The following are blockers for any credible controlled Soft Launch decision:
 2. **Protected staging evidence is missing.** The repository enforces the evidence contract, but no accepted host packet proves the exact candidate was deployed on the protected staging path.
 3. **Backup/restore and recovery reconciliation are missing.** #110 remains open; restore must prove Academy, Arena, Mentor, Exchange ledger/balances/orders, notifications, tenant/principal isolation and audit trails.
 4. **Rollback/forward-fix evidence is missing.** The release packet must prove rollback from the candidate to the previous version, or approve forward-fix-only migrations with named owners.
-5. **Accepted-risk register is not final.** Placeholder thresholds such as `N`, `X` and `[defined hours]` still block final acceptance unless the related capability remains explicitly disabled.
+5. **Accepted-risk sign-off evidence is missing.** The controlled-launch closure matrix is structurally reconciled and guarded, including the certificate-signing risk, but the final packet still needs a signed accepted-risk evidence URL for the exact candidate.
 6. **Incident readiness is not accepted.** Alert delivery, support hours, escalation, ownership and acknowledgement paths still need tested evidence.
 7. **Product truth must remain enforced.** Public surfaces must not imply live Exchange, custody, withdrawals, public rewards, enterprise or white-label readiness.
 
@@ -118,7 +118,7 @@ GitHub issue search confirms the following open gates remain material to GO:
 2. Execute protected staging activation under `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`.
 3. Execute restore/recovery drills under `docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md`.
 4. Execute rollback or forward-fix evidence for the exact candidate.
-5. Close accepted-risk placeholders with owners, dates, thresholds, mitigations, rollback triggers and sign-off owners.
+5. Attach accepted-risk sign-off evidence for the reconciled register and exact release candidate.
 6. Run the public product truth review and attach copy/UI attestation that real-money and enterprise claims are disabled or gated.
 7. Only then convene the final controlled Soft Launch Go/No-Go decision.
 
