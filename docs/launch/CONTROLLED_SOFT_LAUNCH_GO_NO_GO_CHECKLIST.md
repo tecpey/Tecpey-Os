@@ -45,9 +45,10 @@ labelled as gated.
 The final Go/No-Go record must contain:
 
 1. exact release candidate SHA and image digest;
-2. `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --secret-scanning-run-url <url>` JSON output for the exact candidate, with package-lock,
-   migration-plan, image and deployment artifact digests recorded. The command
-   fails closed in final mode; `--draft` is only for local incomplete
+2. `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url>` JSON output for the exact candidate, with package-lock,
+   migration-plan, image, deployment, protected-staging, recovery,
+   rollback/forward-fix and incident-readiness artifact digests recorded. The
+   command fails closed in final mode; `--draft` is only for local incomplete
    scaffolding and is not acceptable final decision evidence;
 3. linked exact-head CI and workflow results;
 4. protected staging evidence artifact and verifier summary;

@@ -6,10 +6,20 @@ const flagArgs = new Set(["--allow-dirty", "--draft"]);
 const valueArgs = new Set([
   "--ci-run-url",
   "--deployment-artifact-digest",
+  "--accepted-risk-signoff-url",
+  "--go-approvals-url",
   "--image-digest",
+  "--incident-readiness-artifact-digest",
+  "--incident-readiness-evidence-url",
   "--out",
+  "--protected-staging-artifact-digest",
+  "--protected-staging-evidence-url",
   "--public-golden-path-run-url",
+  "--recovery-reconciliation-artifact-digest",
+  "--recovery-reconciliation-evidence-url",
   "--repository-audit-run-url",
+  "--rollback-artifact-digest",
+  "--rollback-evidence-url",
   "--secret-scanning-run-url",
 ]);
 
@@ -143,6 +153,56 @@ const secretScanningRunUrl = optionalUrl(
   args.get("secret-scanning-run-url") || process.env.TECPEY_SECRET_SCANNING_RUN_URL,
   "secret scanning run URL",
 );
+const protectedStagingEvidenceUrl = optionalUrl(
+  args.get("protected-staging-evidence-url") || process.env.TECPEY_PROTECTED_STAGING_EVIDENCE_URL,
+  "protected staging evidence URL",
+);
+const protectedStagingArtifactDigest = optionalDigest(
+  args.get("protected-staging-artifact-digest") || process.env.TECPEY_PROTECTED_STAGING_ARTIFACT_DIGEST,
+  "protected staging artifact digest",
+);
+const recoveryReconciliationEvidenceUrl = optionalUrl(
+  args.get("recovery-reconciliation-evidence-url") || process.env.TECPEY_RECOVERY_RECONCILIATION_EVIDENCE_URL,
+  "recovery reconciliation evidence URL",
+);
+const recoveryReconciliationArtifactDigest = optionalDigest(
+  args.get("recovery-reconciliation-artifact-digest") || process.env.TECPEY_RECOVERY_RECONCILIATION_ARTIFACT_DIGEST,
+  "recovery reconciliation artifact digest",
+);
+const rollbackEvidenceUrl = optionalUrl(
+  args.get("rollback-evidence-url") || process.env.TECPEY_ROLLBACK_EVIDENCE_URL,
+  "rollback evidence URL",
+);
+const rollbackArtifactDigest = optionalDigest(
+  args.get("rollback-artifact-digest") || process.env.TECPEY_ROLLBACK_ARTIFACT_DIGEST,
+  "rollback artifact digest",
+);
+const incidentReadinessEvidenceUrl = optionalUrl(
+  args.get("incident-readiness-evidence-url") || process.env.TECPEY_INCIDENT_READINESS_EVIDENCE_URL,
+  "incident readiness evidence URL",
+);
+const incidentReadinessArtifactDigest = optionalDigest(
+  args.get("incident-readiness-artifact-digest") || process.env.TECPEY_INCIDENT_READINESS_ARTIFACT_DIGEST,
+  "incident readiness artifact digest",
+);
+const acceptedRiskSignoffUrl = optionalUrl(
+  args.get("accepted-risk-signoff-url") || process.env.TECPEY_ACCEPTED_RISK_SIGNOFF_URL,
+  "accepted risk signoff URL",
+);
+const goApprovalsUrl = optionalUrl(
+  args.get("go-approvals-url") || process.env.TECPEY_GO_APPROVALS_URL,
+  "Go approvals URL",
+);
+
+function externalEvidence({ url, digest, urlLabel, digestLabel, contract, registry, draftMode }) {
+  return {
+    status: draftMode ? "missing_until_verified_artifact_attached" : "attached_for_release_owner_acceptance",
+    ...(contract ? { contract } : {}),
+    ...(registry ? { registry } : {}),
+    evidenceUrl: requireFinalEvidence(url, urlLabel, { draftMode }),
+    ...(digestLabel ? { artifactDigest: requireFinalEvidence(digest, digestLabel, { draftMode }) } : {}),
+  };
+}
 
 const packet = {
   schemaVersion: 1,
@@ -169,22 +229,50 @@ const packet = {
     secretScanningRunUrl: requireFinalEvidence(secretScanningRunUrl, "secret scanning run URL", { draftMode }),
   },
   requiredExternalEvidence: {
-    protectedStaging: {
-      status: "missing_until_verified_artifact_attached",
+    protectedStaging: externalEvidence({
+      url: protectedStagingEvidenceUrl,
+      digest: protectedStagingArtifactDigest,
+      urlLabel: "protected staging evidence URL",
+      digestLabel: "protected staging artifact digest",
       contract: "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
-    },
-    recoveryReconciliation: {
-      status: "missing_until_restore_drill_artifact_attached",
+      draftMode,
+    }),
+    recoveryReconciliation: externalEvidence({
+      url: recoveryReconciliationEvidenceUrl,
+      digest: recoveryReconciliationArtifactDigest,
+      urlLabel: "recovery reconciliation evidence URL",
+      digestLabel: "recovery reconciliation artifact digest",
       contract: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
-    },
-    rollbackOrForwardFix: {
-      status: "missing_until_candidate_rollback_or_signed_forward_fix_evidence_attached",
+      draftMode,
+    }),
+    rollbackOrForwardFix: externalEvidence({
+      url: rollbackEvidenceUrl,
+      digest: rollbackArtifactDigest,
+      urlLabel: "rollback evidence URL",
+      digestLabel: "rollback artifact digest",
       contract: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-    },
-    acceptedRisks: {
-      status: "missing_until_named_owner_thresholds_dates_and_signoffs_are_recorded",
+      draftMode,
+    }),
+    incidentReadiness: externalEvidence({
+      url: incidentReadinessEvidenceUrl,
+      digest: incidentReadinessArtifactDigest,
+      urlLabel: "incident readiness evidence URL",
+      digestLabel: "incident readiness artifact digest",
+      contract: "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      draftMode,
+    }),
+    acceptedRisks: externalEvidence({
+      url: acceptedRiskSignoffUrl,
+      urlLabel: "accepted risk signoff URL",
       registry: "docs/LAUNCH_ACCEPTED_RISKS.md",
-    },
+      draftMode,
+    }),
+    approvals: externalEvidence({
+      url: goApprovalsUrl,
+      urlLabel: "Go approvals URL",
+      contract: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      draftMode,
+    }),
   },
   disabledCapabilityAttestation: [
     "real-money Exchange remains NO-GO unless separately certified",
