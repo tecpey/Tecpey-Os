@@ -143,6 +143,11 @@ const originMain = optionalGit(["rev-parse", "origin/main"]);
 const isOriginMainAncestor = originMain
   ? spawnSync("git", ["merge-base", "--is-ancestor", headSha, "origin/main"]).status === 0
   : false;
+if (!draftMode && !isOriginMainAncestor) {
+  throw new Error(
+    "final release packet requires the release candidate SHA to be contained in origin/main. Re-run with --draft only for local or unmerged release-candidate scaffolding.",
+  );
+}
 const trackedFiles = git(["ls-files"]).split("\n").filter(Boolean);
 const migrationFiles = trackedFiles.filter((file) =>
   /^(migrations\/|src\/lib\/db-migration|src\/lib\/db-migrate|scripts\/run-database-migrations\.ts)/.test(file),

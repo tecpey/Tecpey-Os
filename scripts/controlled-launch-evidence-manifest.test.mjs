@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -22,17 +22,18 @@ function currentHead() {
   return result.stdout.trim();
 }
 
-function isWorktreeClean() {
-  const result = spawnSync("git", ["status", "--porcelain"], { encoding: "utf8" });
-  return result.status === 0 && result.stdout.trim().length === 0;
+function gitIn(cwd, args) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 1024 * 1024 });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout.trim();
 }
 
-function completeManifest(overrides = {}) {
+function completeManifest(overrides = {}, releaseCandidateSha = currentHead()) {
   return {
     schemaVersion: 1,
     evidenceClass: "controlled-soft-launch-final-evidence-manifest",
     releaseCandidate: {
-      sha: currentHead(),
+      sha: releaseCandidateSha,
     },
     artifactIdentity: {
       imageDigest: digest,
@@ -77,6 +78,36 @@ function writeManifest(manifest) {
   const file = path.join(root, "manifest.json");
   writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
   return { root, file };
+}
+
+function createPacketFixtureRepo() {
+  const root = mkdtempSync(path.join(os.tmpdir(), "tecpey-launch-manifest-packet-"));
+  mkdirSync(path.join(root, "scripts"), { recursive: true });
+  cpSync(
+    "scripts/generate-controlled-launch-release-packet.mjs",
+    path.join(root, "scripts/generate-controlled-launch-release-packet.mjs"),
+  );
+  cpSync(
+    "scripts/controlled-launch-evidence-manifest.mjs",
+    path.join(root, "scripts/controlled-launch-evidence-manifest.mjs"),
+  );
+  writeFileSync(path.join(root, "package-lock.json"), "{}\n");
+
+  gitIn(root, ["init", "-b", "main"]);
+  gitIn(root, ["add", "."]);
+  gitIn(root, [
+    "-c",
+    "user.name=TecPey Test",
+    "-c",
+    "user.email=tecpey-test@example.invalid",
+    "commit",
+    "-m",
+    "base release candidate",
+  ]);
+  const headSha = gitIn(root, ["rev-parse", "HEAD"]);
+  gitIn(root, ["update-ref", "refs/remotes/origin/main", headSha]);
+
+  return { root, headSha };
 }
 
 test("controlled launch evidence manifest validates the complete final packet input set", () => {
@@ -135,19 +166,16 @@ test("controlled launch evidence manifest rejects a release candidate SHA mismat
   );
 });
 
-test("release packet generator accepts a complete governed manifest", (t) => {
-  if (!isWorktreeClean()) {
-    t.skip("final packet manifest validation requires a clean release-candidate worktree");
-    return;
-  }
-
-  const { root, file } = writeManifest(completeManifest());
+test("release packet generator accepts a complete governed manifest", () => {
+  const fixture = createPacketFixtureRepo();
+  const manifest = writeManifest(completeManifest({}, fixture.headSha));
   try {
     const result = spawnSync(process.execPath, [
       "scripts/generate-controlled-launch-release-packet.mjs",
       "--manifest",
-      file,
+      manifest.file,
     ], {
+      cwd: fixture.root,
       encoding: "utf8",
       maxBuffer: 1024 * 1024,
     });
@@ -159,6 +187,7 @@ test("release packet generator accepts a complete governed manifest", (t) => {
     assert.equal(packet.workflowEvidence.ciRunUrl, runUrl);
     assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(manifest.root, { recursive: true, force: true });
+    rmSync(fixture.root, { recursive: true, force: true });
   }
 });
