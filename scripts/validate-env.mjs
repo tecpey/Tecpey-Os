@@ -1,6 +1,43 @@
-import nextEnvironment from '@next/env';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const { loadEnvConfig } = nextEnvironment;
+function parseEnvFile(source) {
+  const parsed = {};
+  for (const rawLine of source.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line);
+    if (!match) continue;
+    let value = match[2].trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    parsed[match[1]] = value;
+  }
+  return parsed;
+}
+
+async function loadProjectEnvironment() {
+  try {
+    const nextEnvironment = await import('@next/env');
+    nextEnvironment.default.loadEnvConfig(process.cwd(), false);
+    return;
+  } catch (error) {
+    if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+
+  for (const fileName of ['.env.production', '.env.local', '.env']) {
+    const filePath = path.join(process.cwd(), fileName);
+    if (!fs.existsSync(filePath)) continue;
+    const parsed = parseEnvFile(fs.readFileSync(filePath, 'utf8'));
+    for (const [key, value] of Object.entries(parsed)) {
+      process.env[key] ??= value;
+    }
+  }
+}
 
 function parseDurationSeconds(value) {
   const raw = value?.trim();
@@ -19,7 +56,7 @@ function parseDurationSeconds(value) {
   return Number.isSafeInteger(amount) ? amount * multiplier : Number.NaN;
 }
 
-loadEnvConfig(process.cwd(), false);
+await loadProjectEnvironment();
 
 const required = [
   'NEXT_PUBLIC_SITE_URL',

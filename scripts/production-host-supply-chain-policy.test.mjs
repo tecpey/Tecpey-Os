@@ -57,6 +57,7 @@ function runPreflight(t, {
   bakedReleaseSha = expectedReleaseSha,
   curlExitCode = 22,
   curlSuccessAfter = 0,
+  gitInsideWorktree = true,
   gitStatusOutput = "",
   migrationExitCode = 0,
   systemdNodeMajor = "22",
@@ -71,6 +72,12 @@ function runPreflight(t, {
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(root, "package.json"), "{}\n");
   fs.writeFileSync(path.join(root, ".env.production"), "NODE_ENV=production\n");
+  if (!gitInsideWorktree) {
+    fs.writeFileSync(
+      path.join(root, "SUPPORT_BUNDLE_MANIFEST.txt"),
+      `TecPey support deployment bundle\n\nRelease SHA: ${expectedReleaseSha}\n`,
+    );
+  }
   if (phase !== "candidate") {
     fs.mkdirSync(path.join(root, ".next"));
     fs.writeFileSync(
@@ -130,6 +137,9 @@ exit 0
   writeExecutable(
     path.join(bin, "git"),
     `#!/usr/bin/env bash
+if [ "\${1:-}" = "rev-parse" ] && [ "\${2:-}" = "--is-inside-work-tree" ]; then
+  exit "$FAKE_GIT_INSIDE_WORKTREE"
+fi
 if [ "\${1:-}" = "rev-parse" ] && [ "\${2:-}" = "HEAD" ]; then
   printf "%s\\n" "$FAKE_RELEASE_SHA"
   exit 0
@@ -187,6 +197,7 @@ exit "$FAKE_CURL_EXIT_CODE"
       FAKE_CURL_STATE: curlState,
       FAKE_CURL_SUCCESS_AFTER: String(curlSuccessAfter),
       FAKE_HEALTH_PAYLOAD: JSON.stringify(healthPayload),
+      FAKE_GIT_INSIDE_WORKTREE: gitInsideWorktree ? "0" : "1",
       FAKE_GIT_STATUS: gitStatusOutput,
       FAKE_MIGRATION_EXIT_CODE: String(migrationExitCode),
       FAKE_SYSTEMD_NODE_MAJOR: systemdNodeMajor,
@@ -635,6 +646,13 @@ test("real preflight rejects untracked candidate source before install or build"
   assert.equal(result.status, 1);
   assert.match(result.stderr, /tracked or untracked changes/);
   assert.doesNotMatch(result.commandLog, /^npm /m);
+});
+
+test("real preflight can verify a checksum-gated support bundle without Git metadata", (t) => {
+  const result = runPreflight(t, { phase: "candidate", gitInsideWorktree: false });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /using release SHA from SUPPORT_BUNDLE_MANIFEST\.txt/);
+  assert.match(result.commandLog, /^npm run build$/m);
 });
 
 test("real runtime verification rejects artifact metadata from another commit before probing", (t) => {

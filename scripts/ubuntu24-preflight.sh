@@ -51,12 +51,37 @@ if [ "$VERIFICATION_PHASE" != "runtime" ] &&
   echo "Refusing to build or migrate inside the live systemd working tree; use an isolated candidate checkout." >&2
   exit 1
 fi
-expected_release_sha=$(git rev-parse HEAD)
+
+inside_git_worktree=0
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  inside_git_worktree=1
+fi
+
+read_bundle_release_sha() {
+  "$SYSTEMD_NODE_BIN" -e '
+    const fs = require("node:fs");
+    const manifestPath = "SUPPORT_BUNDLE_MANIFEST.txt";
+    if (!fs.existsSync(manifestPath)) process.exit(1);
+    const manifest = fs.readFileSync(manifestPath, "utf8");
+    const match = manifest.match(/^Release SHA:\s*([0-9a-f]{40})$/m);
+    if (!match) process.exit(1);
+    process.stdout.write(match[1]);
+  '
+}
+
+if [ "$inside_git_worktree" -eq 1 ]; then
+  expected_release_sha=$(git rev-parse HEAD)
+else
+  expected_release_sha=$(read_bundle_release_sha)
+  echo "No Git metadata found; using release SHA from SUPPORT_BUNDLE_MANIFEST.txt."
+  echo "The support bundle checksum must be verified before this preflight is trusted."
+fi
 if [[ ! "$expected_release_sha" =~ ^[0-9a-f]{40}$ ]]; then
   echo "Unable to resolve an exact lowercase release SHA." >&2
   exit 1
 fi
-if [ -n "$(git status --short --untracked-files=all)" ]; then
+if [ "$inside_git_worktree" -eq 1 ] &&
+  [ -n "$(git status --short --untracked-files=all)" ]; then
   echo "Candidate checkout has tracked or untracked changes; production verification is refused." >&2
   exit 1
 fi

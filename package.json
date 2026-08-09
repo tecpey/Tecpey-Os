@@ -21,6 +21,7 @@
     "check": "npm run lint && npm run lint:authority && npm run test:lint-authority && npx tsc --noEmit",
     "prod:build": "npm ci --no-audit --no-fund && npm run env:check && npm run build",
     "prod:start": "NODE_ENV=production node dist/run-production-bootstrap.cjs server",
+    "support:bundle": "bash scripts/create-support-deployment-bundle.sh",
     "container:migrate": "node dist/run-production-bootstrap.cjs migrate",
     "supply-chain:check": "node scripts/check-production-supply-chain.mjs && node --test scripts/production-host-supply-chain-policy.test.mjs",
     "security:secrets:check": "node scripts/check-secret-scanning-authority.mjs",
