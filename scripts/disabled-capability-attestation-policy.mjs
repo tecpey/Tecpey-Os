@@ -105,6 +105,17 @@ const REQUIRED_PACKAGE_SCRIPTS = [
 const FORBIDDEN_PUBLIC_CLAIMS = [
   /\breal-money exchange is live\b/i,
   /\bexchange is live\b/i,
+  /\bcustody is live\b/i,
+  /\bwithdrawals are live\b/i,
+  /\bwhite-label activation is approved\b/i,
+  /\bready for real-money\b/i,
+  /صرافی(?:\s|ِ|‌)+زنده(?:\s|ِ|‌)+در(?:\s|ِ|‌)+دسترس/,
+  /برداشت(?:\s|ِ|‌)+پول(?:\s|ِ|‌)+واقعی(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
+  /کاستدی(?:\s|ِ|‌)+پروداکشن(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
+];
+
+const FORBIDDEN_BOUNDARY_CLAIMS = [
+  ...FORBIDDEN_PUBLIC_CLAIMS,
   /\bsecure persian crypto exchange\b/i,
   /\bsecure crypto exchange\b/i,
   /\bpersian crypto exchange platform\b/i,
@@ -114,13 +125,6 @@ const FORBIDDEN_PUBLIC_CLAIMS = [
   /\bcurrenciesAccepted\b/,
   /\bpaymentAccepted\b/,
   /\bBank transfer,\s*Crypto\b/i,
-  /\bcustody is live\b/i,
-  /\bwithdrawals are live\b/i,
-  /\bwhite-label activation is approved\b/i,
-  /\bready for real-money\b/i,
-  /صرافی(?:\s|ِ|‌)+زنده(?:\s|ِ|‌)+در(?:\s|ِ|‌)+دسترس/,
-  /برداشت(?:\s|ِ|‌)+پول(?:\s|ِ|‌)+واقعی(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
-  /کاستدی(?:\s|ِ|‌)+پروداکشن(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
 ];
 
 const REQUIRED_RUNTIME_PATTERNS = [
@@ -165,8 +169,17 @@ export function evaluateDisabledCapabilityAttestation(sources) {
     for (const token of contract.tokens) {
       requireToken(failures, sources, contract.file, token);
     }
-    for (const pattern of FORBIDDEN_PUBLIC_CLAIMS) {
+    for (const pattern of FORBIDDEN_BOUNDARY_CLAIMS) {
       rejectPattern(failures, sources, contract.file, pattern);
+    }
+  }
+
+  for (const file of Object.keys(sources)) {
+    if (!/^(README(?:\.fa)?\.md|src\/app\/(?!api\/).+\.(?:ts|tsx|mdx)|src\/components\/.+\.(?:ts|tsx|mdx))$/.test(file)) {
+      continue;
+    }
+    for (const pattern of FORBIDDEN_PUBLIC_CLAIMS) {
+      rejectPattern(failures, sources, file, pattern);
     }
   }
 

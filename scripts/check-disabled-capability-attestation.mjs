@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
-const files = [
+const REQUIRED_FILES = [
   "README.md",
   "README.fa.md",
   "package.json",
@@ -16,6 +17,31 @@ const files = [
   "src/components/seo/StructuredData.tsx",
   "src/lib/wallet/custody-launch-policy.ts",
 ];
+
+async function collectPublicSourceFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const file = `${root}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (file === "src/app/api") continue;
+      files.push(...(await collectPublicSourceFiles(file)));
+    } else if (/\.(?:ts|tsx|mdx)$/.test(file)) {
+      files.push(file);
+    }
+  }
+
+  return files;
+}
+
+const files = [
+  ...new Set([
+    ...REQUIRED_FILES,
+    ...(await collectPublicSourceFiles("src/app")),
+    ...(await collectPublicSourceFiles("src/components")),
+  ]),
+].sort();
 
 const sources = Object.fromEntries(
   await Promise.all(files.map(async (file) => [file, await readFile(file, "utf8")])),

@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
@@ -33,12 +33,39 @@ const files = {
   envValidator: "scripts/validate-env.mjs",
 };
 
+async function collectPublicSourceFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const file = `${root}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (file === "src/app/api") continue;
+      files.push(...(await collectPublicSourceFiles(file)));
+    } else if (/\.(?:ts|tsx|mdx)$/.test(file)) {
+      files.push(file);
+    }
+  }
+
+  return files;
+}
+
+const fileEntries = [
+  ...Object.entries(files),
+  ...[
+    ...(await collectPublicSourceFiles("src/app")),
+    ...(await collectPublicSourceFiles("src/components")),
+  ]
+    .filter((file) => !Object.values(files).includes(file))
+    .map((file) => [`public:${file}`, file]),
+];
+
 const source = Object.fromEntries(
   await Promise.all(
-    Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")]),
+    fileEntries.map(async ([key, file]) => [key, await readFile(file, "utf8")]),
   ),
 );
-const sourceByPath = Object.fromEntries(Object.entries(files).map(([key, file]) => [file, source[key]]));
+const sourceByPath = Object.fromEntries(fileEntries.map(([key, file]) => [file, source[key]]));
 const normalized = Object.fromEntries(
   Object.entries(source).map(([key, value]) => [key, value.replace(/\s+/g, " ")]),
 );
@@ -268,6 +295,7 @@ for (const invariant of [
   "REQUIRED_PUBLIC_BOUNDARIES",
   "REQUIRED_ACTIVATION_BOUNDARIES",
   "FORBIDDEN_PUBLIC_CLAIMS",
+  "FORBIDDEN_BOUNDARY_CLAIMS",
   "evaluateDisabledCapabilityAttestation",
   "real-money Exchange, custody, deposits, or withdrawals are active",
   "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
@@ -287,6 +315,7 @@ for (const invariant of [
 
 for (const invariant of [
   "Disabled capability attestation passed",
+  "collectPublicSourceFiles",
   "evaluateDisabledCapabilityAttestation",
 ]) {
   requireText(
@@ -300,6 +329,7 @@ for (const invariant of [
   "disabled capability attestation accepts current controlled-launch boundary",
   "disabled capability attestation rejects public real-money overclaims",
   "disabled capability attestation rejects public SEO exchange overclaims",
+  "disabled capability attestation scans discovered public copy surfaces",
   "disabled capability attestation rejects missing custody runtime gate",
   "disabled capability attestation rejects token-preserving custody runtime bypasses",
   "disabled capability attestation rejects incomplete release-packet boundary",
