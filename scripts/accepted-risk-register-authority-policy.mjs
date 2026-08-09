@@ -19,6 +19,19 @@ function normalize(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function hasValidIsoReviewDate(value) {
+  const match = value.match(REVIEW_DATE_RE);
+  if (!match) return false;
+  const [year, month, day] = match[0].split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function splitMarkdownTableRow(line) {
   const cells = [];
   let cell = "";
@@ -136,7 +149,7 @@ export function evaluateAcceptedRiskRegisterAuthority(markdown) {
     if (!owner.includes("+")) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} must have joint accountable owners`);
     }
-    if (!REVIEW_DATE_RE.test(reviewDate)) {
+    if (!hasValidIsoReviewDate(reviewDate)) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} review date must be exact, not phase-only`);
     }
     if (!/\b(?:NO-GO|halts?|pauses?|Disable|Remove|block|revert|incident|stays NO-GO)\b/i.test(rollback)) {

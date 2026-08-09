@@ -246,6 +246,18 @@ test("accepted-risk register authority rejects event-only review dates", () => {
   );
 });
 
+test("accepted-risk register authority rejects impossible calendar review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "2026-08-16, then weekly | Disable certificate issuance",
+    "2026-02-30, then weekly | Disable certificate issuance",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-06 review date must be exact/,
+  );
+});
+
 test("accepted-risk register authority rejects duplicate controlled-launch risk rows", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
     /\n\| R-06 \|[^\n]+/,

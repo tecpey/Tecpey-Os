@@ -233,6 +233,7 @@ for (const invariant of [
   "REQUIRED_CONTROLLED_LAUNCH_RISKS",
   "R-06",
   "evaluateAcceptedRiskRegisterAuthority",
+  "hasValidIsoReviewDate",
   "splitMarkdownTableRow",
   "duplicate",
   "controlled-launch closure matrix is missing",
@@ -282,6 +283,7 @@ for (const invariant of [
   "accepted-risk register authority rejects placeholder thresholds in closure rows",
   "accepted-risk register authority rejects phase-only review dates",
   "accepted-risk register authority rejects event-only review dates",
+  "accepted-risk register authority rejects impossible calendar review dates",
   "accepted-risk register authority rejects duplicate controlled-launch risk rows",
   "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
 ]) {
