@@ -193,6 +193,12 @@ test("final launch packet emits only after all release evidence is complete", (t
   assert.equal(packet.requiredExternalEvidence.incidentReadiness.artifactDigest, externalDigest);
   assert.equal(packet.requiredExternalEvidence.acceptedRisks.evidenceUrl, acceptedRiskUrl);
   assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
+  assert.deepEqual(packet.disabledCapabilityAttestation, [
+    "real-money Exchange remains NO-GO unless separately certified",
+    "custody, deposits and withdrawals remain NO-GO unless separately certified",
+    "public financial rewards remain NO-GO unless separately certified",
+    "enterprise and white-label activation remain NO-GO unless separately certified",
+  ]);
 });
 
 test("accepted-risk register authority accepts the controlled-launch closure matrix", () => {

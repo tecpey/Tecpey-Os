@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
+import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
   checklist: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
@@ -17,7 +18,17 @@ const files = {
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
+  disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
+  disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
+  disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
   workflow: ".github/workflows/ci.yml",
+  server: "server.ts",
+  layout: "src/app/layout.tsx",
+  englishLanding: "src/app/en/EnglishLandingClient.tsx",
+  arenaSimulation: "src/components/academy/AcademySimulationWorld.tsx",
+  custodyPolicy: "src/lib/wallet/custody-launch-policy.ts",
+  custodyStatusRoute: "src/app/api/wallet/custody-status/route.ts",
+  envValidator: "scripts/validate-env.mjs",
 };
 
 const source = Object.fromEntries(
@@ -25,6 +36,7 @@ const source = Object.fromEntries(
     Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")]),
   ),
 );
+const sourceByPath = Object.fromEntries(Object.entries(files).map(([key, file]) => [file, source[key]]));
 const normalized = Object.fromEntries(
   Object.entries(source).map(([key, value]) => [key, value.replace(/\s+/g, " ")]),
 );
@@ -140,6 +152,7 @@ for (const invariant of [
 }
 
 failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks));
+failures.push(...evaluateDisabledCapabilityAttestation(sourceByPath));
 
 for (const invariant of [
   "Incident Readiness Contract",
@@ -174,14 +187,20 @@ for (const [target, label] of [
 
 for (const invariant of [
   '"launch:packet"',
+  '"launch:disabled-capabilities:check"',
   '"test:launch-packet"',
+  '"test:disabled-capability-attestation"',
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
+  "scripts/check-disabled-capability-attestation.mjs",
+  "scripts/disabled-capability-attestation-policy.test.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/controlled-launch-evidence-manifest.mjs",
   "scripts/controlled-launch-evidence-manifest.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
+  "npm run launch:disabled-capabilities:check",
+  "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
@@ -241,6 +260,48 @@ for (const invariant of [
   "review date must be exact",
 ]) {
   requireText("acceptedRiskAuthority", invariant, `accepted-risk authority policy is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "REQUIRED_PUBLIC_BOUNDARIES",
+  "REQUIRED_ACTIVATION_BOUNDARIES",
+  "FORBIDDEN_PUBLIC_CLAIMS",
+  "evaluateDisabledCapabilityAttestation",
+  "real-money Exchange, custody, deposits, or withdrawals are active",
+  "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
+  "TecPey Exchange Core — launch gated",
+  "custodyStatus.workerEnabled",
+  "disabledCapabilityAttestation",
+]) {
+  requireText(
+    "disabledCapabilityPolicy",
+    invariant,
+    `disabled-capability attestation policy is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "Disabled capability attestation passed",
+  "evaluateDisabledCapabilityAttestation",
+]) {
+  requireText(
+    "disabledCapabilityCheck",
+    invariant,
+    `disabled-capability attestation check is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "disabled capability attestation accepts current controlled-launch boundary",
+  "disabled capability attestation rejects public real-money overclaims",
+  "disabled capability attestation rejects missing custody runtime gate",
+  "disabled capability attestation rejects incomplete release-packet boundary",
+]) {
+  requireText(
+    "disabledCapabilityTest",
+    invariant,
+    `disabled-capability attestation tests are missing invariant: ${invariant}`,
+  );
 }
 
 for (const invariant of [
