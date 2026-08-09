@@ -45,21 +45,29 @@ labelled as gated.
 The final Go/No-Go record must contain:
 
 1. exact release candidate SHA and image digest;
-2. `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url>` JSON output for the exact candidate, with package-lock,
+2. a governed controlled-launch evidence manifest with `schemaVersion: 1`,
+   `evidenceClass: controlled-soft-launch-final-evidence-manifest`, the exact
+   release candidate SHA, image digest, deployment artifact digest, workflow
+   evidence URLs, protected staging evidence, recovery reconciliation evidence,
+   rollback or forward-fix evidence, incident readiness evidence, accepted-risk
+   sign-off URL and Go approval URL; the manifest must contain only HTTPS URLs,
+   SHA-256 digests and release identifiers, never secrets, raw logs, host IPs,
+   connection strings or user data;
+3. `npm run launch:packet -- --manifest <controlled-launch-evidence-manifest.json>` JSON output for the exact candidate, or equivalently `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url>` JSON output for the exact candidate, with package-lock,
    migration-plan, image, deployment, protected-staging, recovery,
    rollback/forward-fix and incident-readiness artifact digests recorded. The
    command fails closed in final mode; `--draft` is only for local incomplete
    scaffolding and is not acceptable final decision evidence;
-3. linked exact-head CI and workflow results;
-4. protected staging evidence artifact and verifier summary;
-5. restore/reconciliation evidence artifact;
-6. rollback evidence and migration decision notes;
-7. disabled-capability attestation for real-money Exchange, custody,
+4. linked exact-head CI and workflow results;
+5. protected staging evidence artifact and verifier summary;
+6. restore/reconciliation evidence artifact;
+7. rollback evidence and migration decision notes;
+8. disabled-capability attestation for real-money Exchange, custody,
    deposits, withdrawals, public rewards, enterprise and white-label claims;
-8. accepted-risk register with named owners and dates;
-9. incident readiness contract with support hours, severity targets and
+9. accepted-risk register with named owners and dates;
+10. incident readiness contract with support hours, severity targets and
    acknowledgement evidence;
-10. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
+11. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
    SRE and QA.
 
 ## Non-negotiable No-Go rules

@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "2a80e1ab08a6f5e8bf8b7e4b176d91e1434a6e61",
-      "sha256": "491e1f4784762ce127db8afe01d2f2890aab3d33ab623810f56ab6336f199c9b",
-      "lines": 182,
+      "gitObjectId": "fc955b402fb11ce4f85ec989353fda5b29fca0fd",
+      "sha256": "66c977c9450e354c19a0ac1696ce3742c5d35851bd6650ef25d6825ce680ceaf",
+      "lines": 184,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 182
+          "endLine": 184
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -67,7 +67,8 @@
         "2026-08-08: re-reviewed after adding --test-concurrency=1 to test:crm-leads. CRM PostgreSQL evidence now runs serially to avoid cross-file deadlocks against shared durable fixtures; no dependency, engine, override, release-authority command, network access, or runtime mutation path changed, and the file stays 179 lines.",
         "2026-08-08: re-reviewed after adding launch:decision:check and wiring it into release:check. The new command is a read-only static guard over launch decision documentation, README discovery, package wiring and CI workflow wiring; it adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed checks.",
         "2026-08-09: re-reviewed after adding launch:packet. The new command is a local release-candidate evidence generator that reads Git/file metadata, validates optional sha256 artifact digests, writes only when --out is explicitly supplied, refuses dirty worktrees unless --allow-dirty is supplied, adds no dependency, engine, override, network access or runtime mutation path, and does not change release:check execution.",
-        "2026-08-09: re-reviewed after adding test:launch-packet and composing it into launch:decision:check. The new test command runs one local node:test suite against the release-packet generator, adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed read-only gates plus tests."
+        "2026-08-09: re-reviewed after adding test:launch-packet and composing it into launch:decision:check. The new test command runs one local node:test suite against the release-packet generator, adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed read-only gates plus tests.",
+        "2026-08-09: re-reviewed after adding launch:evidence:manifest:check, test:launch-evidence-manifest and composing the manifest test into launch:decision:check. The new commands validate governed final launch evidence manifests and packet manifest wiring with local node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and keep release authority fail-closed."
       ],
       "findings": [
         {

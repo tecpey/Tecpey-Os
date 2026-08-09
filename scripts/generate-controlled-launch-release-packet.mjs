@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import {
+  manifestValue,
+  readControlledLaunchEvidenceManifest,
+} from "./controlled-launch-evidence-manifest.mjs";
 
 const flagArgs = new Set(["--allow-dirty", "--draft"]);
 const valueArgs = new Set([
@@ -11,6 +15,7 @@ const valueArgs = new Set([
   "--image-digest",
   "--incident-readiness-artifact-digest",
   "--incident-readiness-evidence-url",
+  "--manifest",
   "--out",
   "--protected-staging-artifact-digest",
   "--protected-staging-evidence-url",
@@ -42,6 +47,10 @@ for (let index = 2; index < process.argv.length; index += 1) {
     index += 1;
   }
 }
+
+const manifest = args.get("manifest")
+  ? await readControlledLaunchEvidenceManifest(args.get("manifest"))
+  : null;
 
 function git(args, options = {}) {
   const result = spawnSync("git", args, {
@@ -126,6 +135,9 @@ if (status && (!allowDirty || !draftMode)) {
 }
 
 const headSha = validateSha(git(["rev-parse", "HEAD"]), "HEAD");
+if (manifest?.releaseCandidate?.sha && manifest.releaseCandidate.sha !== headSha) {
+  throw new Error("manifest release candidate SHA must match the checked-out release candidate HEAD");
+}
 const branch = optionalGit(["branch", "--show-current"]) || "detached";
 const originMain = optionalGit(["rev-parse", "origin/main"]);
 const isOriginMainAncestor = originMain
@@ -135,62 +147,66 @@ const trackedFiles = git(["ls-files"]).split("\n").filter(Boolean);
 const migrationFiles = trackedFiles.filter((file) =>
   /^(migrations\/|src\/lib\/db-migration|src\/lib\/db-migrate|scripts\/run-database-migrations\.ts)/.test(file),
 );
-const imageDigest = optionalDigest(args.get("image-digest") || process.env.TECPEY_RELEASE_IMAGE_DIGEST, "image digest");
+function evidenceArg(name, envName) {
+  return args.get(name) || (manifest ? manifestValue(manifest, name) : undefined) || process.env[envName];
+}
+
+const imageDigest = optionalDigest(evidenceArg("image-digest", "TECPEY_RELEASE_IMAGE_DIGEST"), "image digest");
 const deploymentArtifactDigest = optionalDigest(
-  args.get("deployment-artifact-digest") || process.env.TECPEY_DEPLOYMENT_ARTIFACT_DIGEST,
+  evidenceArg("deployment-artifact-digest", "TECPEY_DEPLOYMENT_ARTIFACT_DIGEST"),
   "deployment artifact digest",
 );
-const ciRunUrl = optionalUrl(args.get("ci-run-url") || process.env.TECPEY_CI_RUN_URL, "CI run URL");
+const ciRunUrl = optionalUrl(evidenceArg("ci-run-url", "TECPEY_CI_RUN_URL"), "CI run URL");
 const repositoryAuditRunUrl = optionalUrl(
-  args.get("repository-audit-run-url") || process.env.TECPEY_REPOSITORY_AUDIT_RUN_URL,
+  evidenceArg("repository-audit-run-url", "TECPEY_REPOSITORY_AUDIT_RUN_URL"),
   "repository audit run URL",
 );
 const publicGoldenPathRunUrl = optionalUrl(
-  args.get("public-golden-path-run-url") || process.env.TECPEY_PUBLIC_GOLDEN_PATH_RUN_URL,
+  evidenceArg("public-golden-path-run-url", "TECPEY_PUBLIC_GOLDEN_PATH_RUN_URL"),
   "public Golden Path run URL",
 );
 const secretScanningRunUrl = optionalUrl(
-  args.get("secret-scanning-run-url") || process.env.TECPEY_SECRET_SCANNING_RUN_URL,
+  evidenceArg("secret-scanning-run-url", "TECPEY_SECRET_SCANNING_RUN_URL"),
   "secret scanning run URL",
 );
 const protectedStagingEvidenceUrl = optionalUrl(
-  args.get("protected-staging-evidence-url") || process.env.TECPEY_PROTECTED_STAGING_EVIDENCE_URL,
+  evidenceArg("protected-staging-evidence-url", "TECPEY_PROTECTED_STAGING_EVIDENCE_URL"),
   "protected staging evidence URL",
 );
 const protectedStagingArtifactDigest = optionalDigest(
-  args.get("protected-staging-artifact-digest") || process.env.TECPEY_PROTECTED_STAGING_ARTIFACT_DIGEST,
+  evidenceArg("protected-staging-artifact-digest", "TECPEY_PROTECTED_STAGING_ARTIFACT_DIGEST"),
   "protected staging artifact digest",
 );
 const recoveryReconciliationEvidenceUrl = optionalUrl(
-  args.get("recovery-reconciliation-evidence-url") || process.env.TECPEY_RECOVERY_RECONCILIATION_EVIDENCE_URL,
+  evidenceArg("recovery-reconciliation-evidence-url", "TECPEY_RECOVERY_RECONCILIATION_EVIDENCE_URL"),
   "recovery reconciliation evidence URL",
 );
 const recoveryReconciliationArtifactDigest = optionalDigest(
-  args.get("recovery-reconciliation-artifact-digest") || process.env.TECPEY_RECOVERY_RECONCILIATION_ARTIFACT_DIGEST,
+  evidenceArg("recovery-reconciliation-artifact-digest", "TECPEY_RECOVERY_RECONCILIATION_ARTIFACT_DIGEST"),
   "recovery reconciliation artifact digest",
 );
 const rollbackEvidenceUrl = optionalUrl(
-  args.get("rollback-evidence-url") || process.env.TECPEY_ROLLBACK_EVIDENCE_URL,
+  evidenceArg("rollback-evidence-url", "TECPEY_ROLLBACK_EVIDENCE_URL"),
   "rollback evidence URL",
 );
 const rollbackArtifactDigest = optionalDigest(
-  args.get("rollback-artifact-digest") || process.env.TECPEY_ROLLBACK_ARTIFACT_DIGEST,
+  evidenceArg("rollback-artifact-digest", "TECPEY_ROLLBACK_ARTIFACT_DIGEST"),
   "rollback artifact digest",
 );
 const incidentReadinessEvidenceUrl = optionalUrl(
-  args.get("incident-readiness-evidence-url") || process.env.TECPEY_INCIDENT_READINESS_EVIDENCE_URL,
+  evidenceArg("incident-readiness-evidence-url", "TECPEY_INCIDENT_READINESS_EVIDENCE_URL"),
   "incident readiness evidence URL",
 );
 const incidentReadinessArtifactDigest = optionalDigest(
-  args.get("incident-readiness-artifact-digest") || process.env.TECPEY_INCIDENT_READINESS_ARTIFACT_DIGEST,
+  evidenceArg("incident-readiness-artifact-digest", "TECPEY_INCIDENT_READINESS_ARTIFACT_DIGEST"),
   "incident readiness artifact digest",
 );
 const acceptedRiskSignoffUrl = optionalUrl(
-  args.get("accepted-risk-signoff-url") || process.env.TECPEY_ACCEPTED_RISK_SIGNOFF_URL,
+  evidenceArg("accepted-risk-signoff-url", "TECPEY_ACCEPTED_RISK_SIGNOFF_URL"),
   "accepted risk signoff URL",
 );
 const goApprovalsUrl = optionalUrl(
-  args.get("go-approvals-url") || process.env.TECPEY_GO_APPROVALS_URL,
+  evidenceArg("go-approvals-url", "TECPEY_GO_APPROVALS_URL"),
   "Go approvals URL",
 );
 
