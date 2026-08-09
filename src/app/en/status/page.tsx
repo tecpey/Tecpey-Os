@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BellRing, Gauge, LifeBuoy, ShieldCheck } from "lucide-react";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { EnglishShell } from "../components/EnglishUI";
 
 export const metadata: Metadata = {
@@ -52,7 +52,7 @@ export default function Page() {
                 <p className="text-sm font-black text-cyan-200">Public status reference</p>
                 <p className="mt-2 text-xs leading-6 text-white/65">Operational updates should be official, clear and actionable.</p>
               </div>
-              <Image src="/logo.png" alt="Official TecPey logo" width={54} height={54} priority />
+              <TecpeyMark alt="Official TecPey logo" width={54} height={54} priority />
             </div>
             <div className="mt-5 space-y-3">
               {principles.map((item) => (

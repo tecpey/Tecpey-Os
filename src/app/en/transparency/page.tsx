@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeInfo, ReceiptText, Scale, ShieldQuestion } from "lucide-react";
+import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { EnglishShell } from "../components/EnglishUI";
 
 export const metadata: Metadata = {
@@ -76,7 +76,7 @@ export default function Page() {
           <aside className="rounded-[28px] border border-cyan-400/20 bg-[linear-gradient(145deg,#07111f,#0f172a)] p-6 text-white shadow-2xl shadow-cyan-500/10">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-white/8">
-                <Image src="/logo.png" alt="Official TecPey logo" width={44} height={44} priority />
+                <TecpeyMark alt="Official TecPey logo" width={44} height={44} priority />
               </div>
               <div>
                 <p className="text-sm font-black text-cyan-200">Before confirmation</p>

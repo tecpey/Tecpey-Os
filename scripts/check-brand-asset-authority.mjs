@@ -21,6 +21,23 @@ function readBuffer(relativePath) {
   return fs.readFileSync(path.join(root, relativePath));
 }
 
+function walkFiles(relativePath, predicate) {
+  const absolutePath = path.join(root, relativePath);
+  const entries = fs.readdirSync(absolutePath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const child = path.join(relativePath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...walkFiles(child, predicate));
+      continue;
+    }
+    if (predicate(child)) files.push(child);
+  }
+
+  return files;
+}
+
 function sha256(relativePath) {
   return crypto.createHash("sha256").update(readBuffer(relativePath)).digest("hex");
 }
@@ -167,6 +184,17 @@ for (const [relativePath, source] of [
 ]) {
   if (!source.includes("/images/tecpey-logo.png")) {
     fail(`${relativePath}: must use the canonical runtime logo`);
+  }
+}
+
+const runtimeUiFiles = walkFiles("src", (relativePath) => /\.(ts|tsx)$/.test(relativePath));
+for (const relativePath of runtimeUiFiles) {
+  if (relativePath === "src/components/brand/TecpeyMark.tsx") continue;
+  const source = readText(relativePath);
+  for (const forbidden of ['src="/logo.png"', 'src="/images/tecpey-logo.png"']) {
+    if (source.includes(forbidden)) {
+      fail(`${relativePath}: render runtime TecPey marks through TecpeyMark instead of ${forbidden}`);
+    }
   }
 }
 
