@@ -137,6 +137,9 @@ const REQUIRED_RUNTIME_PATTERNS = [
   },
 ];
 
+const WITHDRAWAL_WORKER_STARTUP_RE =
+  /withdrawalWorkers\s*=\s*await\s+import\(["']\.\/src\/workers\/withdrawal-worker["']\)|withdrawalWorkers\.startWithdrawalWorkers\(\)/;
+
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
 }
@@ -186,6 +189,40 @@ function requireRuntimeGuard(failures, sources, contract) {
   const guardedBlock = extractBalancedBlock(source, openingBraceIndex);
   if (!guardedBlock || !contract.body.test(guardedBlock.body)) {
     failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
+    return;
+  }
+
+  const outsideGuard = `${source.slice(0, match.index)}\n${source.slice(guardedBlock.closingBraceIndex + 1)}`;
+  if (WITHDRAWAL_WORKER_STARTUP_RE.test(outsideGuard)) {
+    failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
+  }
+}
+
+function validateExchangeCompareData(failures, sources) {
+  const file = "src/data/exchangeCompare.json";
+  const source = sourceFor(sources, file);
+  if (!source) {
+    failures.push(`${file}: missing rendered capability data for disabled-capability attestation`);
+    return;
+  }
+
+  let rows;
+  try {
+    rows = JSON.parse(source);
+  } catch {
+    failures.push(`${file}: rendered capability data must be valid JSON`);
+    return;
+  }
+
+  const tecpey = Array.isArray(rows) ? rows.find((row) => row?.name === "TecPey") : null;
+  if (!tecpey) {
+    failures.push(`${file}: rendered capability data must include TecPey launch status`);
+    return;
+  }
+
+  const spot = normalized(tecpey.spot ?? "");
+  if (!/launch-gated|گیت/.test(spot) || /\b(?:yes|available|active|live)\b/i.test(spot) || /بله/.test(spot)) {
+    failures.push(`${file}: TecPey spot-trading status must remain launch-gated`);
   }
 }
 
@@ -224,6 +261,7 @@ export function evaluateDisabledCapabilityAttestation(sources) {
   for (const contract of REQUIRED_RUNTIME_PATTERNS) {
     requireRuntimeGuard(failures, sources, contract);
   }
+  validateExchangeCompareData(failures, sources);
 
   const packageJson = JSON.parse(sourceFor(sources, "package.json") || "{}");
   for (const [name, command] of REQUIRED_PACKAGE_SCRIPTS) {

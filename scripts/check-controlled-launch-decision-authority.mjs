@@ -31,6 +31,7 @@ const files = {
   custodyPolicy: "src/lib/wallet/custody-launch-policy.ts",
   custodyStatusRoute: "src/app/api/wallet/custody-status/route.ts",
   envValidator: "scripts/validate-env.mjs",
+  exchangeCompareData: "src/data/exchangeCompare.json",
 };
 
 async function collectPublicSourceFiles(root) {
@@ -299,6 +300,8 @@ for (const invariant of [
   "evaluateDisabledCapabilityAttestation",
   "extractBalancedBlock",
   "requireRuntimeGuard",
+  "validateExchangeCompareData",
+  "WITHDRAWAL_WORKER_STARTUP_RE",
   "real-money Exchange, custody, deposits, or withdrawals are active",
   "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
   "TecPey Exchange Core — launch gated",
@@ -332,10 +335,12 @@ for (const invariant of [
   "disabled capability attestation rejects public real-money overclaims",
   "disabled capability attestation rejects public SEO exchange overclaims",
   "disabled capability attestation scans discovered public copy surfaces",
+  "disabled capability attestation rejects rendered exchange comparison capability drift",
   "disabled capability attestation rejects missing custody runtime gate",
   "disabled capability attestation rejects token-preserving custody runtime bypasses",
   "disabled capability attestation rejects worker startup moved outside the custody guard",
   "disabled capability attestation rejects dead worker tokens inside the custody guard",
+  "disabled capability attestation rejects duplicate worker startup outside the custody guard",
   "disabled capability attestation rejects incomplete release-packet boundary",
 ]) {
   requireText(

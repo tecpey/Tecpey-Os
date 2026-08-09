@@ -9,6 +9,7 @@ const REQUIRED_FILES = [
   "server.ts",
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/validate-env.mjs",
+  "src/data/exchangeCompare.json",
   "src/app/layout.tsx",
   "src/app/en/page.tsx",
   "src/app/en/EnglishLandingClient.tsx",

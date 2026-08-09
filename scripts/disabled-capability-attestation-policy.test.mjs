@@ -10,6 +10,7 @@ const requiredFiles = [
   "server.ts",
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/validate-env.mjs",
+  "src/data/exchangeCompare.json",
   "src/app/layout.tsx",
   "src/app/en/page.tsx",
   "src/app/en/EnglishLandingClient.tsx",
@@ -82,6 +83,18 @@ test("disabled capability attestation scans discovered public copy surfaces", ()
   );
 });
 
+test("disabled capability attestation rejects rendered exchange comparison capability drift", () => {
+  const sources = loadSources();
+  const rows = JSON.parse(sources["src/data/exchangeCompare.json"]);
+  rows.find((row) => row.name === "TecPey").spot = "بله";
+  sources["src/data/exchangeCompare.json"] = JSON.stringify(rows, null, 2);
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /src\/data\/exchangeCompare\.json: TecPey spot-trading status must remain launch-gated/,
+  );
+});
+
 test("disabled capability attestation rejects missing custody runtime gate", () => {
   const sources = loadSources();
   sources["server.ts"] = sources["server.ts"].replaceAll("custodyStatus.workerEnabled", "true");
@@ -141,6 +154,28 @@ test("disabled capability attestation rejects dead worker tokens inside the cust
     withdrawalWorkers = await import("./src/workers/withdrawal-worker");
     withdrawalWorkers.startWithdrawalWorkers();
   } else if (redisUrl) {`,
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /withdrawal workers must start only inside the redisUrl plus custodyStatus\.workerEnabled guard/,
+  );
+});
+
+test("disabled capability attestation rejects duplicate worker startup outside the custody guard", () => {
+  const sources = loadSources();
+  sources["server.ts"] = sources["server.ts"].replace(
+    `  assertBootstrapActive();
+
+  // ── HTTP and WebSocket traffic`,
+    `  if (redisUrl) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
+  }
+
+  assertBootstrapActive();
+
+  // ── HTTP and WebSocket traffic`,
   );
 
   assert.match(
