@@ -182,7 +182,8 @@ for (const invariant of [
   "draft_incomplete_evidence_allowed",
   "unknown launch packet option",
   "is required for a final release packet",
-  "Re-run with --draft only for local incomplete packet scaffolding",
+  "requires a clean worktree for final packets",
+  "Re-run with --draft --allow-dirty only for local incomplete packet scaffolding",
   "imageDigest",
   "deploymentArtifactDigest",
   "migrationPlanSha256",
@@ -215,10 +216,14 @@ for (const invariant of [
 
 for (const invariant of [
   "final launch packet fails closed without required release evidence",
+  "final launch packet rejects dirty worktrees even when allow-dirty is supplied",
   "final launch packet fails closed without external operational evidence",
   "launch packet rejects unknown options",
   "draft launch packet can scaffold incomplete evidence explicitly",
   "final launch packet emits only after all release evidence is complete",
+  "rollbackOrForwardFix.evidenceUrl",
+  "incidentReadiness.artifactDigest",
+  "acceptedRisks.evidenceUrl",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }
