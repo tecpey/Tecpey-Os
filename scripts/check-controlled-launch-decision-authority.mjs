@@ -286,6 +286,7 @@ for (const invariant of [
   "accepted-risk register authority rejects impossible calendar review dates",
   "accepted-risk register authority rejects duplicate controlled-launch risk rows",
   "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
+  "accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }

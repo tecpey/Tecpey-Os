@@ -35,7 +35,7 @@ function hasValidIsoReviewDate(value) {
 function splitMarkdownTableRow(line) {
   const cells = [];
   let cell = "";
-  let inCode = false;
+  let codeSpanTicks = 0;
 
   for (let index = 0; index < line.length; index += 1) {
     const char = line[index];
@@ -48,12 +48,21 @@ function splitMarkdownTableRow(line) {
     }
 
     if (char === "`") {
-      inCode = !inCode;
-      cell += char;
+      let tickCount = 1;
+      while (line[index + tickCount] === "`") tickCount += 1;
+
+      if (codeSpanTicks === 0) {
+        codeSpanTicks = tickCount;
+      } else if (tickCount === codeSpanTicks) {
+        codeSpanTicks = 0;
+      }
+
+      cell += "`".repeat(tickCount);
+      index += tickCount - 1;
       continue;
     }
 
-    if (char === "|" && !inCode) {
+    if (char === "|" && codeSpanTicks === 0) {
       cells.push(cell);
       cell = "";
       continue;

@@ -278,3 +278,12 @@ test("accepted-risk register authority accepts escaped and inline-code pipes in 
 
   assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
 });
+
+test("accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "controlled education certificates",
+    "``controlled `education|certificate` drill`` certificates",
+  );
+
+  assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
+});
