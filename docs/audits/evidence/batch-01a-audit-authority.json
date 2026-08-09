@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "55ed7fea308a51e72a91d22519d0da636852914a",
-      "sha256": "4690c13905209fcd30203012d86f830ff3833c5d3d60542deede06d2c1131cb0",
-      "lines": 186,
+      "gitObjectId": "1e1cc2d051c7cd1bd183d51acd53a3c6ca0ecded",
+      "sha256": "973a2864b8bd243458cb2582f5ad6956080db3238f902eb266d34e56449e4e44",
+      "lines": 187,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 186
+          "endLine": 187
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -69,7 +69,8 @@
         "2026-08-09: re-reviewed after adding launch:packet. The new command is a local release-candidate evidence generator that reads Git/file metadata, validates optional sha256 artifact digests, writes only when --out is explicitly supplied, refuses dirty worktrees unless --allow-dirty is supplied, adds no dependency, engine, override, network access or runtime mutation path, and does not change release:check execution.",
         "2026-08-09: re-reviewed after adding test:launch-packet and composing it into launch:decision:check. The new test command runs one local node:test suite against the release-packet generator, adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed read-only gates plus tests.",
         "2026-08-09: re-reviewed after adding launch:evidence:manifest:check, test:launch-evidence-manifest and composing the manifest test into launch:decision:check. The new commands validate governed final launch evidence manifests and packet manifest wiring with local node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and keep release authority fail-closed.",
-        "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate."
+        "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate.",
+        "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check."
       ],
       "findings": [
         {
