@@ -13,6 +13,8 @@ const files = {
   packageJson: "package.json",
   releasePacket: "scripts/generate-controlled-launch-release-packet.mjs",
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
+  evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
+  evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
   workflow: ".github/workflows/ci.yml",
 };
 
@@ -59,6 +61,9 @@ for (const invariant of [
   "Incident readiness",
   "INCIDENT_READINESS_CONTRACT.md",
   "Required decision record",
+  "controlled-soft-launch-final-evidence-manifest",
+  "must contain only HTTPS URLs",
+  "npm run launch:packet -- --manifest",
   "Non-negotiable No-Go rules",
   "Completion percentage rule",
   "This checklist does not increase the completion percentage by itself",
@@ -169,8 +174,11 @@ for (const invariant of [
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
+  "scripts/controlled-launch-evidence-manifest.mjs",
+  "scripts/controlled-launch-evidence-manifest.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
+  '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
 }
@@ -181,6 +189,9 @@ for (const invariant of [
   "final_evidence_required",
   "draft_incomplete_evidence_allowed",
   "unknown launch packet option",
+  "--manifest",
+  "controlled-launch-evidence-manifest.mjs",
+  "manifest release candidate SHA must match the checked-out release candidate HEAD",
   "is required for a final release packet",
   "requires a clean worktree for final packets",
   "Re-run with --draft --allow-dirty only for local incomplete packet scaffolding",
@@ -212,6 +223,31 @@ for (const invariant of [
   "packet must not contain raw secrets",
 ]) {
   requireText("releasePacket", invariant, `release packet generator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "controlled-soft-launch-final-evidence-manifest",
+  "validateControlledLaunchEvidenceManifest",
+  "readControlledLaunchEvidenceManifest",
+  "manifestValue",
+  "manifest.releaseCandidate.sha must be a 40-character git SHA",
+  "must contain only URLs, digests and release identifiers",
+  "must match the checked-out release candidate HEAD",
+  "must be an absolute https URL",
+  "must be a sha256 digest",
+]) {
+  requireText("evidenceManifest", invariant, `controlled launch evidence manifest validator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "controlled launch evidence manifest validates the complete final packet input set",
+  "controlled launch evidence manifest rejects unknown fields",
+  "controlled launch evidence manifest rejects non-https evidence URLs",
+  "controlled launch evidence manifest rejects raw secrets and connection strings",
+  "controlled launch evidence manifest rejects a release candidate SHA mismatch",
+  "release packet generator accepts a complete governed manifest",
+]) {
+  requireText("evidenceManifestTest", invariant, `controlled launch evidence manifest tests are missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
