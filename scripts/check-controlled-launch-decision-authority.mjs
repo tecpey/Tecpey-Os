@@ -190,10 +190,23 @@ for (const invariant of [
   "repositoryAuditRunUrl",
   "publicGoldenPathRunUrl",
   "secretScanningRunUrl",
+  "protected-staging-evidence-url",
+  "protected-staging-artifact-digest",
+  "recovery-reconciliation-evidence-url",
+  "recovery-reconciliation-artifact-digest",
+  "rollback-evidence-url",
+  "rollback-artifact-digest",
+  "incident-readiness-evidence-url",
+  "incident-readiness-artifact-digest",
+  "accepted-risk-signoff-url",
+  "go-approvals-url",
+  "attached_for_release_owner_acceptance",
   "protectedStaging",
   "recoveryReconciliation",
   "rollbackOrForwardFix",
+  "incidentReadiness",
   "acceptedRisks",
+  "approvals",
   "real-money Exchange remains NO-GO",
   "packet must not contain raw secrets",
 ]) {
@@ -202,9 +215,10 @@ for (const invariant of [
 
 for (const invariant of [
   "final launch packet fails closed without required release evidence",
+  "final launch packet fails closed without external operational evidence",
   "launch packet rejects unknown options",
   "draft launch packet can scaffold incomplete evidence explicitly",
-  "final launch packet emits only after artifact and workflow evidence are complete",
+  "final launch packet emits only after all release evidence is complete",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }
