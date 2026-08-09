@@ -130,8 +130,11 @@ const FORBIDDEN_BOUNDARY_CLAIMS = [
 const REQUIRED_RUNTIME_PATTERNS = [
   {
     file: "server.ts",
-    pattern:
-      /if\s*\(\s*redisUrl\s*&&\s*custodyStatus\.workerEnabled\s*\)\s*\{[\s\S]*?withdrawalWorkers\s*=\s*await\s+import\(["']\.\/src\/workers\/withdrawal-worker["']\)[\s\S]*?withdrawalWorkers\.startWithdrawalWorkers\(\)/,
+    guard: /if\s*\(\s*redisUrl\s*&&\s*custodyStatus\.workerEnabled\s*\)\s*\{/,
+    tokens: [
+      'withdrawalWorkers = await import("./src/workers/withdrawal-worker")',
+      "withdrawalWorkers.startWithdrawalWorkers()",
+    ],
     reason: "withdrawal workers must start only inside the redisUrl plus custodyStatus.workerEnabled guard",
   },
 ];
@@ -156,9 +159,38 @@ function rejectPattern(failures, sources, file, pattern) {
   }
 }
 
-function requirePattern(failures, sources, file, pattern, reason) {
-  if (!pattern.test(sourceFor(sources, file))) {
-    failures.push(`${file}: missing disabled-capability runtime guard: ${reason}`);
+function extractBalancedBlock(source, openingBraceIndex) {
+  let depth = 0;
+
+  for (let index = openingBraceIndex; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(openingBraceIndex + 1, index);
+  }
+
+  return null;
+}
+
+function requireRuntimeGuard(failures, sources, contract) {
+  const source = sourceFor(sources, contract.file);
+  const match = contract.guard.exec(source);
+  if (!match) {
+    failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
+    return;
+  }
+
+  const openingBraceIndex = source.indexOf("{", match.index);
+  const guardedBlock = extractBalancedBlock(source, openingBraceIndex);
+  if (!guardedBlock) {
+    failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
+    return;
+  }
+
+  for (const token of contract.tokens) {
+    if (!normalized(guardedBlock).includes(normalized(token))) {
+      failures.push(`${contract.file}: missing disabled-capability runtime guard: ${contract.reason}`);
+      return;
+    }
   }
 }
 
@@ -195,7 +227,7 @@ export function evaluateDisabledCapabilityAttestation(sources) {
   }
 
   for (const contract of REQUIRED_RUNTIME_PATTERNS) {
-    requirePattern(failures, sources, contract.file, contract.pattern, contract.reason);
+    requireRuntimeGuard(failures, sources, contract);
   }
 
   const packageJson = JSON.parse(sourceFor(sources, "package.json") || "{}");

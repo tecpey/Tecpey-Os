@@ -102,6 +102,28 @@ test("disabled capability attestation rejects token-preserving custody runtime b
   );
 });
 
+test("disabled capability attestation rejects worker startup moved outside the custody guard", () => {
+  const sources = loadSources();
+  sources["server.ts"] = sources["server.ts"].replace(
+    `if (redisUrl && custodyStatus.workerEnabled) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
+  } else if (redisUrl) {`,
+    `if (redisUrl && custodyStatus.workerEnabled) {
+    console.info("custody gate remains visible");
+  }
+  if (redisUrl) {
+    withdrawalWorkers = await import("./src/workers/withdrawal-worker");
+    withdrawalWorkers.startWithdrawalWorkers();
+  } else if (redisUrl) {`,
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /withdrawal workers must start only inside the redisUrl plus custodyStatus\.workerEnabled guard/,
+  );
+});
+
 test("disabled capability attestation rejects incomplete release-packet boundary", () => {
   const sources = loadSources();
   sources["scripts/generate-controlled-launch-release-packet.mjs"] = sources[

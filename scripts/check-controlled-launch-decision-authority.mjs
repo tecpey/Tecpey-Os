@@ -297,6 +297,8 @@ for (const invariant of [
   "FORBIDDEN_PUBLIC_CLAIMS",
   "FORBIDDEN_BOUNDARY_CLAIMS",
   "evaluateDisabledCapabilityAttestation",
+  "extractBalancedBlock",
+  "requireRuntimeGuard",
   "real-money Exchange, custody, deposits, or withdrawals are active",
   "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
   "TecPey Exchange Core — launch gated",
@@ -332,6 +334,7 @@ for (const invariant of [
   "disabled capability attestation scans discovered public copy surfaces",
   "disabled capability attestation rejects missing custody runtime gate",
   "disabled capability attestation rejects token-preserving custody runtime bypasses",
+  "disabled capability attestation rejects worker startup moved outside the custody guard",
   "disabled capability attestation rejects incomplete release-packet boundary",
 ]) {
   requireText(
