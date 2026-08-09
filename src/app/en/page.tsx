@@ -3,18 +3,17 @@ import EnglishLandingClient from "./EnglishLandingClient";
 import { StructuredData, organizationSchema, webSiteSchema, breadcrumbSchema } from "@/components/seo/StructuredData";
 
 export const metadata: Metadata = {
-  title: "TecPey | Secure Persian Crypto Exchange",
+  title: "TecPey | Crypto Education and Launch-Gated Market Practice",
   description:
-    "TecPey helps users review live crypto prices, account security, transparent fees, local support and the first steps of buying and selling crypto.",
+    "TecPey helps users learn crypto concepts, review market data and practice decisions while real-money exchange, custody, deposits and withdrawals remain launch-gated.",
   keywords: [
-    "crypto exchange",
-    "persian crypto exchange",
-    "buy bitcoin",
-    "buy usdt",
-    "cryptocurrency prices",
+    "crypto education",
+    "Persian crypto education",
+    "virtual trading practice",
+    "cryptocurrency market learning",
     "crypto academy",
-    "AI trading mentor",
-    "secure crypto exchange",
+    "AI learning mentor",
+    "crypto security education",
     "crypto education platform",
   ],
   alternates: {
@@ -26,9 +25,9 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "TecPey | Secure Persian Crypto Exchange",
+    title: "TecPey | Crypto Education and Launch-Gated Market Practice",
     description:
-      "Live crypto prices, secure onboarding, transparent fees, local support and education for safer market access.",
+      "Crypto education, market-data review and virtual practice while real-money exchange and custody remain launch-gated.",
     url: "https://tecpey.ir/en",
     siteName: "TecPey",
     locale: "en_US",
@@ -38,8 +37,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TecPey | Secure Persian Crypto Exchange",
-    description: "A clearer, safer way to review crypto markets and start trading.",
+    title: "TecPey | Crypto Education and Launch-Gated Market Practice",
+    description: "A clearer, safer way to learn crypto markets and practice decisions before any launch-gated financial activation.",
     images: ["/images/tecpey-logo.png"],
   },
 };

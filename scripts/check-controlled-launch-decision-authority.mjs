@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
+import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
   checklist: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
@@ -17,14 +18,55 @@ const files = {
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
+  disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
+  disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
+  disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
   workflow: ".github/workflows/ci.yml",
+  server: "server.ts",
+  layout: "src/app/layout.tsx",
+  englishLandingPage: "src/app/en/page.tsx",
+  englishLanding: "src/app/en/EnglishLandingClient.tsx",
+  arenaSimulation: "src/components/academy/AcademySimulationWorld.tsx",
+  structuredData: "src/components/seo/StructuredData.tsx",
+  custodyPolicy: "src/lib/wallet/custody-launch-policy.ts",
+  custodyStatusRoute: "src/app/api/wallet/custody-status/route.ts",
+  envValidator: "scripts/validate-env.mjs",
+  exchangeCompareData: "src/data/exchangeCompare.json",
 };
+
+async function collectPublicSourceFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const file = `${root}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (file === "src/app/api") continue;
+      files.push(...(await collectPublicSourceFiles(file)));
+    } else if (/\.(?:ts|tsx|mdx)$/.test(file)) {
+      files.push(file);
+    }
+  }
+
+  return files;
+}
+
+const fileEntries = [
+  ...Object.entries(files),
+  ...[
+    ...(await collectPublicSourceFiles("src/app")),
+    ...(await collectPublicSourceFiles("src/components")),
+  ]
+    .filter((file) => !Object.values(files).includes(file))
+    .map((file) => [`public:${file}`, file]),
+];
 
 const source = Object.fromEntries(
   await Promise.all(
-    Object.entries(files).map(async ([key, file]) => [key, await readFile(file, "utf8")]),
+    fileEntries.map(async ([key, file]) => [key, await readFile(file, "utf8")]),
   ),
 );
+const sourceByPath = Object.fromEntries(fileEntries.map(([key, file]) => [file, source[key]]));
 const normalized = Object.fromEntries(
   Object.entries(source).map(([key, value]) => [key, value.replace(/\s+/g, " ")]),
 );
@@ -140,6 +182,7 @@ for (const invariant of [
 }
 
 failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks));
+failures.push(...evaluateDisabledCapabilityAttestation(sourceByPath));
 
 for (const invariant of [
   "Incident Readiness Contract",
@@ -174,14 +217,20 @@ for (const [target, label] of [
 
 for (const invariant of [
   '"launch:packet"',
+  '"launch:disabled-capabilities:check"',
   '"test:launch-packet"',
+  '"test:disabled-capability-attestation"',
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
+  "scripts/check-disabled-capability-attestation.mjs",
+  "scripts/disabled-capability-attestation-policy.test.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/controlled-launch-evidence-manifest.mjs",
   "scripts/controlled-launch-evidence-manifest.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
+  "npm run launch:disabled-capabilities:check",
+  "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
@@ -241,6 +290,64 @@ for (const invariant of [
   "review date must be exact",
 ]) {
   requireText("acceptedRiskAuthority", invariant, `accepted-risk authority policy is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "REQUIRED_PUBLIC_BOUNDARIES",
+  "REQUIRED_ACTIVATION_BOUNDARIES",
+  "FORBIDDEN_PUBLIC_CLAIMS",
+  "FORBIDDEN_BOUNDARY_CLAIMS",
+  "evaluateDisabledCapabilityAttestation",
+  "extractBalancedBlock",
+  "requireRuntimeGuard",
+  "validateExchangeCompareData",
+  "WITHDRAWAL_WORKER_STARTUP_RE",
+  "real-money Exchange, custody, deposits, or withdrawals are active",
+  "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
+  "TecPey Exchange Core — launch gated",
+  "Crypto Education and Launch-Gated Market Practice",
+  "custodyStatus.workerEnabled",
+  "REQUIRED_RUNTIME_PATTERNS",
+  "withdrawal workers must start only inside the redisUrl plus custodyStatus.workerEnabled guard",
+  "disabledCapabilityAttestation",
+]) {
+  requireText(
+    "disabledCapabilityPolicy",
+    invariant,
+    `disabled-capability attestation policy is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "Disabled capability attestation passed",
+  "collectPublicSourceFiles",
+  "evaluateDisabledCapabilityAttestation",
+]) {
+  requireText(
+    "disabledCapabilityCheck",
+    invariant,
+    `disabled-capability attestation check is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "disabled capability attestation accepts current controlled-launch boundary",
+  "disabled capability attestation rejects public real-money overclaims",
+  "disabled capability attestation rejects public SEO exchange overclaims",
+  "disabled capability attestation scans discovered public copy surfaces",
+  "disabled capability attestation rejects rendered exchange comparison capability drift",
+  "disabled capability attestation rejects missing custody runtime gate",
+  "disabled capability attestation rejects token-preserving custody runtime bypasses",
+  "disabled capability attestation rejects worker startup moved outside the custody guard",
+  "disabled capability attestation rejects dead worker tokens inside the custody guard",
+  "disabled capability attestation rejects duplicate worker startup outside the custody guard",
+  "disabled capability attestation rejects incomplete release-packet boundary",
+]) {
+  requireText(
+    "disabledCapabilityTest",
+    invariant,
+    `disabled-capability attestation tests are missing invariant: ${invariant}`,
+  );
 }
 
 for (const invariant of [

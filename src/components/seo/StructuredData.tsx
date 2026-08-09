@@ -9,7 +9,7 @@ export function StructuredData({ data }: { data: Record<string, unknown> | Recor
 
 export const organizationSchema = {
   "@context": "https://schema.org",
-  "@type": ["Organization", "FinancialService", "LocalBusiness"],
+  "@type": ["Organization", "EducationalOrganization"],
   "@id": "https://tecpey.ir/#organization",
   name: "TecPey",
   alternateName: "تک‌پی",
@@ -17,10 +17,8 @@ export const organizationSchema = {
   logo: "https://tecpey.ir/images/tecpey-logo.png",
   image: "https://tecpey.ir/images/tecpey-logo.png",
   description:
-    "TecPey is a Persian crypto exchange platform focused on live crypto prices, security, transparent fees, education and safer onboarding.",
+    "TecPey is a Persian crypto education and virtual market-practice platform. Real-money exchange, custody, deposits and withdrawals remain launch-gated until separate operational, compliance and security evidence is approved.",
   areaServed: ["IR"],
-  currenciesAccepted: "IRR, USDT",
-  paymentAccepted: "Bank transfer, Crypto",
   telephone: "+98-11-32338026",
   email: "info@tecpey.ir",
   address: {
@@ -50,10 +48,10 @@ export const organizationSchema = {
     "Tether",
     "USDT",
     "Ethereum",
-    "Crypto Exchange",
-    "Crypto Prices",
-    "Crypto Security",
     "Crypto Education",
+    "Virtual Trading Practice",
+    "Crypto Market Data",
+    "Crypto Security",
   ],
 };
 
