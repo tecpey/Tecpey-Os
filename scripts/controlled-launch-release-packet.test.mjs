@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { writeFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import { test } from "node:test";
+import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 
 const script = "scripts/generate-controlled-launch-release-packet.mjs";
 const digest = `sha256:${"a".repeat(64)}`;
@@ -13,6 +14,7 @@ const rollbackUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/323456789"
 const incidentUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/423456789";
 const acceptedRiskUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/523456789";
 const approvalsUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/623456789";
+const acceptedRiskRegister = "docs/LAUNCH_ACCEPTED_RISKS.md";
 
 function runPacket(args = [], env = {}) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -191,4 +193,97 @@ test("final launch packet emits only after all release evidence is complete", (t
   assert.equal(packet.requiredExternalEvidence.incidentReadiness.artifactDigest, externalDigest);
   assert.equal(packet.requiredExternalEvidence.acceptedRisks.evidenceUrl, acceptedRiskUrl);
   assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
+});
+
+test("accepted-risk register authority accepts the controlled-launch closure matrix", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8");
+
+  assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
+});
+
+test("accepted-risk register authority rejects a missing controlled-launch risk row", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(/\n\| R-06 \|[^\n]+/, "");
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /controlled-launch closure matrix is missing R-06/,
+  );
+});
+
+test("accepted-risk register authority rejects placeholder thresholds in closure rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    /One suspected signing-secret compromise[^|]+/,
+    "If N certificates fail or X users complain",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-06 closure row contains placeholder text/,
+  );
+});
+
+test("accepted-risk register authority rejects phase-only review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "2026-08-16, then weekly | Disable certificate issuance",
+    "Phase 43 | Disable certificate issuance",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-06 review date must be exact/,
+  );
+});
+
+test("accepted-risk register authority rejects event-only review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "2026-08-16 before any Exchange re-scope | Disable the activating flag",
+    "Before any Exchange re-scope | Disable the activating flag",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-07 review date must be exact/,
+  );
+});
+
+test("accepted-risk register authority rejects impossible calendar review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "2026-08-16, then weekly | Disable certificate issuance",
+    "2026-02-30, then weekly | Disable certificate issuance",
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /R-06 review date must be exact/,
+  );
+});
+
+test("accepted-risk register authority rejects duplicate controlled-launch risk rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    /\n\| R-06 \|[^\n]+/,
+    (row) => `${row}${row}`,
+  );
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown).join("\n"),
+    /duplicate R-06 rows/,
+  );
+});
+
+test("accepted-risk register authority accepts escaped and inline-code pipes in closure rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "controlled education certificates",
+    "`controlled|education` certificates with operator \\| security wording",
+  );
+
+  assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
+});
+
+test("accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    "controlled education certificates",
+    "``controlled `education|certificate` drill`` certificates",
+  );
+
+  assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
 });
