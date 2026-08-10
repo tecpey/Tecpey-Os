@@ -100,7 +100,13 @@ production-like environment check with an accepted protected environment source:
 either the protected host env file loaded or the service-manager preloaded
 environment verified. The raw environment and raw logs must not be uploaded.
 
-Minimum command shape:
+Use exactly one of the following two modes and record that selected mode in the
+manifest. Do not record a combined source value.
+
+### Mode A: protected host env file
+
+Use this mode only when `TECPEY_STAGING_ENV_FILE` points to the governed
+protected host env file.
 
 ```bash
 cd "$TECPEY_STAGING_APP_DIR"
@@ -116,11 +122,37 @@ export NODE_ENV=production
 npm run env:check
 ```
 
-If the protected environment is delivered by the service manager instead of a
-host env file, the operator must first prove that the required variables are
-already present in the process environment without printing their values. A run
-that exports only `NODE_ENV` is not acceptable for NOG-02 because it does not
-validate the private production-like staging configuration.
+### Mode B: service-manager preloaded environment
+
+Use this mode only when the service manager provides the protected environment to
+the running staging application and a governed validation unit or equivalent
+service-managed command runs `npm run env:check` inside that same environment.
+The operator shell must not execute `npm run env:check` directly for this mode,
+because it does not inherit the application service environment.
+
+Minimum service-manager bridge shape:
+
+```bash
+cd "$TECPEY_STAGING_APP_DIR"
+
+# TECPEY_STAGING_ENV_CHECK_UNIT is the governed validation unit that uses
+# the same service-manager environment source as the staging application.
+# Record only the redacted unit class and pass/fail disposition.
+sudo systemctl start "$TECPEY_STAGING_ENV_CHECK_UNIT"
+sudo systemctl show "$TECPEY_STAGING_ENV_CHECK_UNIT" \
+  --property=Result \
+  --property=ExecMainStatus \
+  --property=ExecMainCode \
+  --value
+```
+
+If the host does not provide a governed service-manager validation unit or
+equivalent service-managed command using the same environment source as the
+staging application, do not use `service_manager_preloaded_environment`. Fall
+back to `protected_host_env_file` or reject NOG-02 until an executable bridge is
+installed and reviewed. A run that exports only `NODE_ENV` is not acceptable for
+NOG-02 because it does not validate the private production-like staging
+configuration.
 
 The accepted redacted result must prove that the following checks passed without
 printing values:
@@ -161,7 +193,7 @@ fields are known:
   "nog02": {
     "status": "accepted_or_rejected",
     "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
-    "environmentSource": "protected_host_env_file_or_service_manager_preloaded_environment",
+    "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",
     "redactedSummarySha256": "sha256:<64-hex>",
@@ -185,7 +217,7 @@ Reject the slice and keep `NOG-01` and `NOG-02` open if any of these occur:
 - detached digest or verifier summary is missing;
 - `env:check` fails or cannot run with production-like staging configuration from an accepted environment source;
 - selected environment source is `protected_host_env_file` and the protected env file is not loaded, cannot be loaded, or is replaced by an unverified shell environment;
-- selected environment source is `service_manager_preloaded_environment` and the required variables are not already present in the service-managed process environment, cannot be proven without printing values, or are replaced by ad hoc shell exports other than `NODE_ENV`;
+- selected environment source is `service_manager_preloaded_environment` and `env:check` is not run through a governed service-manager validation unit or equivalent service-managed command that uses the same environment source as the staging application, cannot be proven without printing values, or is replaced by direct operator-shell execution/ad hoc exports;
 - evidence contains raw secrets, raw URLs with credentials, host IPs, raw logs, customer rows, provider payloads, prompt transcripts or private keys.
 
 ## Resulting Decision
