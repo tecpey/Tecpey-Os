@@ -2,8 +2,9 @@
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
 **Decision:** NO-GO until protected staging, recovery, rollback, incident, risk and approval evidence is accepted  
-**Staging evidence target SHA:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`  
-**Runtime candidate baseline:** `03e77790630dac737a2d4cc4636b97e80de48ab3`  
+**Staging evidence target SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Runtime candidate baseline:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Evidence branch:** `agent/protected-staging-no-go-evidence-packet`  
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
@@ -12,11 +13,11 @@ This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
 register that can be closed one blocker at a time.
 
-The staging evidence target is the current `main` SHA after PR #358. The
-runtime candidate baseline remains `03e77790630dac737a2d4cc4636b97e80de48ab3`; PR #358 only added
-documentation evidence and did not intentionally change runtime behavior. Any
-staging deployment must record which SHA was deployed, and health/runtime
-evidence must match that same SHA.
+The staging evidence target is the current candidate selected in
+`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #367 hardened the
+support bundle boundary. Older PR #358 and first RC-packet SHAs remain historical
+draft baselines only. Any staging deployment must record which SHA was deployed,
+and health/runtime evidence must match that same SHA.
 
 ## Current Decision
 
