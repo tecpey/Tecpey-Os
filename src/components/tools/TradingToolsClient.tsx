@@ -80,6 +80,11 @@ function formatRankScore(score: number): string {
   return `${Math.round(score * 100)}`;
 }
 
+function categoryButtonLabel(category: { key: string; label: string }, isEn: boolean): string {
+  if (category.key === "security") return isEn ? "Security" : "امنیت";
+  return category.label;
+}
+
 export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale }) {
   const isEn = locale === "en";
   const t = STR[isEn ? "en" : "fa"];
@@ -201,6 +206,7 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
                 key={c.key}
                 type="button"
                 onClick={() => setCategory(c.key)}
+                aria-label={categoryButtonLabel(c, isEn)}
                 aria-pressed={category === c.key}
                 className={`rounded-full border px-3 py-1.5 text-xs font-black transition ${category === c.key ? "border-cyan-400 bg-cyan-500/15 text-cyan-600 dark:text-cyan-200" : "border-cyan-300/20 text-[color:var(--tp-muted)] hover:border-cyan-300/45"}`}
               >
