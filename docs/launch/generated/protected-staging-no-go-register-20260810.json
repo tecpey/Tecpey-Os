@@ -17,8 +17,10 @@
       "id": "NOG-01",
       "title": "Protected staging activation evidence is missing",
       "status": "open",
+      "executionState": "ready_for_protected_staging_collection",
       "closureAction": "Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary.",
       "authority": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
+      "executionRequest": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
       "launchImpact": "Blocks controlled soft launch Go"
     },
     {
@@ -26,8 +28,10 @@
       "id": "NOG-02",
       "title": "Production-like environment configuration is not proven",
       "status": "open",
+      "executionState": "ready_for_redacted_env_collection",
       "closureAction": "Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md",
+      "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "launchImpact": "Blocks final packet"
     },
     {
@@ -121,12 +125,27 @@
       "launchImpact": "Blocks expanded launch scope"
     }
   ],
+  "executionRequests": [
+    {
+      "ids": [
+        "NOG-01",
+        "NOG-02"
+      ],
+      "status": "ready_for_protected_staging_operator_execution",
+      "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+      "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
+      "requiredEnvironment": "staging",
+      "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+      "privacyBoundary": "redacted evidence only"
+    }
+  ],
   "recommendedNextSlice": {
     "ids": [
       "NOG-01",
       "NOG-02"
     ],
     "description": "Collect protected staging activation evidence and redacted env:check evidence for the exact staging target SHA.",
+    "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
     "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_EVIDENCE_IS_ACCEPTED"
   }
 }

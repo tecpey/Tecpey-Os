@@ -5,7 +5,8 @@
 **Staging evidence target SHA:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`  
 **Runtime candidate baseline:** `03e77790630dac737a2d4cc4636b97e80de48ab3`  
 **Evidence branch:** `agent/protected-staging-no-go-evidence-packet`  
-**Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`
+**Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
+**NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -58,6 +59,16 @@ together:
    summary;
 5. update the final launch manifest only with HTTPS URLs, SHA-256 digests and
    release identifiers.
+
+The executable request for this slice is now captured in:
+
+| Artifact | Purpose |
+|---|---|
+| `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md` | Operator-facing runbook for protected staging activation and redacted `env:check` evidence. |
+| `docs/launch/generated/protected-staging-env-evidence-request-20260810.json` | Machine-readable request for manifest automation and release review. |
+
+These artifacts do not close NOG-01 or NOG-02. They make the evidence collection
+ready to execute on the protected staging host without exposing secrets.
 
 ## Evidence Privacy Boundary
 

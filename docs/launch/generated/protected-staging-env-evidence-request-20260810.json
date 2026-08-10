@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-staging-env-evidence-request",
+  "generatedAt": "2026-08-10T18:10:00.000Z",
+  "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
+  "relatedBlockers": [
+    "NOG-01",
+    "NOG-02"
+  ],
+  "releaseLineage": {
+    "protectedStagingEvidenceTargetSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+    "runtimeCandidateBaselineSha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
+    "evidenceControlBaselineSha": "372c4192dabf8dc1ce2528d0272349cb8937a747",
+    "targetPromotionPolicy": "Do not silently move the protected staging evidence target after documentation-only PRs. Any new selected SHA must be explicitly promoted by the release owner and recorded in the launch packet."
+  },
+  "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+  "requiredContext": {
+    "githubEnvironment": "staging",
+    "runnerLabels": [
+      "self-hosted",
+      "linux",
+      "x64",
+      "tecpey-staging"
+    ],
+    "workflowName": "Staging Community Challenge Scheduler Evidence",
+    "workflowInputs": {
+      "release_sha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+      "run_alert_probe": true
+    }
+  },
+  "privacyBoundary": {
+    "allowed": [
+      "release identifiers",
+      "workflow and artifact HTTPS URLs",
+      "artifact names",
+      "SHA-256 digests",
+      "redacted pass/fail summaries",
+      "operator and reviewer roles or names",
+      "UTC timestamps",
+      "residual risk summaries"
+    ],
+    "forbidden": [
+      "raw secrets",
+      "database URLs",
+      "host IPs",
+      "raw hostnames",
+      "raw logs",
+      "customer rows",
+      "private keys",
+      "provider payloads",
+      "prompt transcripts",
+      "credential-bearing URLs"
+    ]
+  },
+  "nog01": {
+    "title": "Protected staging activation evidence",
+    "status": "awaiting_protected_execution",
+    "requiredArtifacts": [
+      "tecpey-staging-scheduler-evidence.json",
+      "tecpey-staging-scheduler-evidence.json.sha256",
+      "tecpey-staging-evidence-verification.json"
+    ],
+    "acceptanceCriteria": [
+      "workflow environment is exactly staging",
+      "selected SHA is exact and belongs to main",
+      "workflow checkout, deployed app checkout and health commit all match the selected SHA",
+      "runner labels include self-hosted, linux, x64 and tecpey-staging",
+      "runtime user and group match the governed non-root staging identity",
+      "application checkout is clean",
+      "health endpoint reports HTTP 200, health ok, production runtime mode, PostgreSQL ok and Redis ok",
+      "required systemd units and timers match release-rendered templates and are active",
+      "latest governed scheduler run is recent and succeeded",
+      "operational alert pending and quarantine counts are zero",
+      "requested synthetic alert probe is delivered",
+      "canonical and detached SHA-256 digests verify the accepted bytes"
+    ]
+  },
+  "nog02": {
+    "title": "Redacted protected env evidence",
+    "status": "awaiting_protected_execution",
+    "command": "NODE_ENV=production npm run env:check",
+    "acceptanceCriteria": [
+      "required public URLs are present and non-placeholder",
+      "required TecPey signing secrets are present, length-valid and distinct",
+      "TECPEY_CRM_PII_KEY_B64 decodes to exactly 32 bytes",
+      "trusted proxy header and hop count pass policy",
+      "DATABASE_URL is present and accepted without exposing its value",
+      "optional webhooks are HTTPS in production and paired with the required secret when enabled",
+      "legacy auth policy is disabled or within immutable sunset rules",
+      "AI Mentor models are in the approved allowlist when configured",
+      "CSP connection environment validation passes"
+    ],
+    "redactedResultShape": {
+      "envCheckDisposition": "passed_or_failed",
+      "cspConnectionDisposition": "passed_or_failed",
+      "failingKeyNamesOnly": [],
+      "redactedSummarySha256": "sha256:<64-hex>"
+    }
+  },
+  "rejectionConditions": [
+    "selected SHA is not exact or does not match deployed app and health commit",
+    "workflow did not run in protected environment staging",
+    "runner labels or runtime user/group do not match governed staging host",
+    "required paths are symlinks where the contract forbids symlinks",
+    "health endpoint is not healthy for PostgreSQL or Redis",
+    "alert pending or quarantine count is non-zero",
+    "detached digest or verifier summary is missing",
+    "env:check fails or cannot run with production-like staging configuration",
+    "evidence contains forbidden sensitive material"
+  ],
+  "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
+}
