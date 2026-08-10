@@ -78,8 +78,19 @@
   "nog02": {
     "title": "Redacted protected env evidence",
     "status": "awaiting_protected_execution",
+    "environmentSourcePolicy": {
+      "acceptedModes": [
+        "protected_host_env_file",
+        "service_manager_preloaded_environment"
+      ],
+      "defaultMode": "protected_host_env_file",
+      "modeSelectionEvidence": "Record only the selected mode and redacted proof disposition; never print raw values, host paths containing secrets, service manager output, or process environment dumps.",
+      "serviceManagerPrecondition": "If the protected environment is delivered by the service manager, the operator must prove required variables are already present in the process environment without printing values before running env:check. Exporting only NODE_ENV is rejected."
+    },
     "command": "cd \"$TECPEY_STAGING_APP_DIR\" && set -a && . \"$TECPEY_STAGING_ENV_FILE\" && set +a && NODE_ENV=production npm run env:check",
+    "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && NODE_ENV=production npm run env:check",
     "acceptanceCriteria": [
+      "environment source is recorded as protected_host_env_file or service_manager_preloaded_environment with redacted proof disposition",
       "required public URLs are present and non-placeholder",
       "required TecPey signing secrets are present, length-valid and distinct",
       "TECPEY_CRM_PII_KEY_B64 decodes to exactly 32 bytes",
@@ -91,6 +102,8 @@
       "CSP connection environment validation passes"
     ],
     "redactedResultShape": {
+      "environmentSource": "protected_host_env_file_or_service_manager_preloaded_environment",
+      "environmentSourceProofDisposition": "passed_or_failed",
       "envCheckDisposition": "passed_or_failed",
       "cspConnectionDisposition": "passed_or_failed",
       "failingKeyNamesOnly": [],
@@ -105,7 +118,7 @@
     "health endpoint is not healthy for PostgreSQL or Redis",
     "alert pending or quarantine count is non-zero",
     "detached digest or verifier summary is missing",
-    "env:check fails or cannot run with the protected staging env file loaded",
+    "env:check fails or cannot run with either the protected staging env file loaded or the service-manager preloaded environment verified",
     "evidence contains forbidden sensitive material"
   ],
   "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
