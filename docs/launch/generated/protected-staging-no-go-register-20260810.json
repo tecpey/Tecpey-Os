@@ -3,9 +3,10 @@
   "evidenceClass": "protected-staging-no-go-register",
   "generatedAt": "2026-08-10T00:00:00.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
-  "stagingEvidenceTargetSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
-  "runtimeCandidateBaselineSha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
-  "currentMainShaAfterRcPacketMerge": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+  "stagingEvidenceTargetSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+  "runtimeCandidateBaselineSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+  "currentMainShaAfterRcPacketMerge": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+  "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "evidenceBranch": "agent/protected-staging-no-go-evidence-packet",
   "privacyBoundary": [
     "register contains release identifiers, paths, closure actions and authority references only",
@@ -135,7 +136,8 @@
       "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
       "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "requiredEnvironment": "staging",
-      "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+      "selectedSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+      "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
       "privacyBoundary": "redacted evidence only"
     }
   ],
@@ -144,8 +146,9 @@
       "NOG-01",
       "NOG-02"
     ],
-    "description": "Collect protected staging activation evidence and redacted env:check evidence for the exact staging target SHA, with either the protected host env file loaded or the service-manager preloaded environment verified for NOG-02.",
+    "description": "Collect protected staging activation evidence and redacted env:check evidence for the current candidate SHA, with either the protected host env file loaded or the service-manager preloaded environment verified for NOG-02.",
     "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
   }
 }
