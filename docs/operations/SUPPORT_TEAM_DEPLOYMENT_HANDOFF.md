@@ -65,12 +65,13 @@ Required workflow inputs:
 
 | Input | Value |
 | --- | --- |
-| `release_ref` | Prefer the exact reviewed release SHA. Use `main` only for a fresh candidate from the current default branch. |
+| `release_ref` | Exact reviewed 40-character lowercase release commit SHA only. Branch names, tags, short SHAs, and mutable refs such as `main` are rejected. |
 | `source_bundle_exception_approval` | `I_APPROVE_SOURCE_BUNDLE_EXCEPTION` |
 
-The workflow checks out the requested ref, resolves the exact release SHA,
-creates the exception-approved source bundle with
-`TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1`, runs
+The workflow checks out exactly that immutable release SHA, asserts the checked
+out `HEAD` matches the requested SHA, creates the exception-approved source
+bundle with `TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1`, verifies the portable
+detached checksum with `sha256sum -c`, runs
 `npm run support:bundle:verify`, and uploads an artifact named:
 
 ```text
@@ -78,8 +79,10 @@ tecpey-support-deployment-EXACT_RELEASE_SHA
 ```
 
 The artifact must contain exactly the support zip, its detached `.sha256` file,
-and `SUPPORT_ARTIFACT_README.md`. Before sending anything to support, the
-release owner must download the artifact and verify the detached digest locally:
+and `SUPPORT_ARTIFACT_README.md`. The `.sha256` file must reference only the zip
+basename, not a runner-local absolute path. Before sending anything to support,
+the release owner must download the artifact and verify the detached digest
+locally from the artifact directory:
 
 ```bash
 sha256sum -c tecpey-deployment-EXACT_RELEASE_SHA.zip.sha256
