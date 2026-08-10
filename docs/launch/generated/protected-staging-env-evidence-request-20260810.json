@@ -85,10 +85,10 @@
       ],
       "defaultMode": "protected_host_env_file",
       "modeSelectionEvidence": "Record only the selected mode and redacted proof disposition; never print raw values, host paths containing secrets, service manager output, or process environment dumps.",
-      "serviceManagerPrecondition": "If the protected environment is delivered by the service manager, the operator must prove required variables are already present in the process environment without printing values before running env:check. Exporting only NODE_ENV is rejected."
+      "serviceManagerPrecondition": "If the protected environment is delivered by the service manager, env:check must run through a governed validation unit or equivalent service-managed command that uses the same environment source as the staging application. Direct operator-shell execution is rejected because it does not inherit the application service environment."
     },
     "command": "cd \"$TECPEY_STAGING_APP_DIR\" && set -a && . \"$TECPEY_STAGING_ENV_FILE\" && set +a && NODE_ENV=production npm run env:check",
-    "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && NODE_ENV=production npm run env:check",
+    "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "acceptanceCriteria": [
       "environment source is recorded as protected_host_env_file or service_manager_preloaded_environment with redacted proof disposition",
       "required public URLs are present and non-placeholder",
@@ -102,12 +102,16 @@
       "CSP connection environment validation passes"
     ],
     "redactedResultShape": {
-      "environmentSource": "protected_host_env_file_or_service_manager_preloaded_environment",
+      "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
       "environmentSourceProofDisposition": "passed_or_failed",
       "envCheckDisposition": "passed_or_failed",
       "cspConnectionDisposition": "passed_or_failed",
       "failingKeyNamesOnly": [],
-      "redactedSummarySha256": "sha256:<64-hex>"
+      "redactedSummarySha256": "sha256:<64-hex>",
+      "environmentSourceAllowedValues": [
+        "protected_host_env_file",
+        "service_manager_preloaded_environment"
+      ]
     }
   },
   "rejectionConditions": [
@@ -118,7 +122,7 @@
     "health endpoint is not healthy for PostgreSQL or Redis",
     "alert pending or quarantine count is non-zero",
     "detached digest or verifier summary is missing",
-    "env:check fails or cannot run with either the protected staging env file loaded or the service-manager preloaded environment verified",
+    "env:check fails, cannot run with the protected staging env file loaded, or cannot run through a governed service-manager validation unit/equivalent command that uses the same environment source as the staging application",
     "evidence contains forbidden sensitive material"
   ],
   "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
