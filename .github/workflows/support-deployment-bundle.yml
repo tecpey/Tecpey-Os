@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       release_ref:
-        description: 'Branch, tag, or exact commit SHA to package'
+        description: 'Exact reviewed 40-character commit SHA to package'
         required: true
-        default: 'main'
+        default: 'DENIED'
       source_bundle_exception_approval:
         description: 'Type I_APPROVE_SOURCE_BUNDLE_EXCEPTION to create a proprietary source bundle'
         required: true
@@ -30,17 +30,36 @@ jobs:
           APPROVAL: ${{ inputs.source_bundle_exception_approval }}
         run: test "$APPROVAL" = "I_APPROVE_SOURCE_BUNDLE_EXCEPTION"
 
+      - name: Validate immutable release SHA input
+        id: requested_release
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          if ! printf '%s' "$RELEASE_REF" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "release_ref must be an exact reviewed 40-character lowercase commit SHA." >&2
+            echo "Branch names, tags, short SHAs, and mutable refs such as main are not accepted." >&2
+            exit 1
+          fi
+          echo "sha=$RELEASE_REF" >> "$GITHUB_OUTPUT"
+
       - name: Checkout requested source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.release_ref }}
+          ref: ${{ steps.requested_release.outputs.sha }}
           persist-credentials: false
 
       - name: Resolve exact release SHA
         id: release
+        env:
+          REQUESTED_SHA: ${{ steps.requested_release.outputs.sha }}
         run: |
           release_sha="$(git rev-parse HEAD)"
           test "$(printf '%s' "$release_sha" | wc -c)" -eq 40
+          if [ "$release_sha" != "$REQUESTED_SHA" ]; then
+            echo "Checked-out SHA does not match the requested immutable release SHA." >&2
+            echo "requested=$REQUESTED_SHA actual=$release_sha" >&2
+            exit 1
+          fi
           echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
           printf 'Support bundle release SHA: %s\n' "$release_sha"
 
@@ -62,6 +81,17 @@ jobs:
           test -f "$zip_path.sha256"
           echo "zip_path=$zip_path" >> "$GITHUB_OUTPUT"
           echo "sha_path=$zip_path.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Verify portable detached checksum
+        env:
+          ZIP_PATH: ${{ steps.create_bundle.outputs.zip_path }}
+          SHA_PATH: ${{ steps.create_bundle.outputs.sha_path }}
+        run: |
+          zip_name="$(basename "$ZIP_PATH")"
+          sha_name="$(basename "$SHA_PATH")"
+          test "$sha_name" = "$zip_name.sha256"
+          cd "$(dirname "$ZIP_PATH")"
+          sha256sum -c "$sha_name"
 
       - name: Verify support deployment bundle
         run: npm run support:bundle:verify -- "${{ steps.create_bundle.outputs.zip_path }}" "${{ steps.create_bundle.outputs.sha_path }}"
