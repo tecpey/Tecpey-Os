@@ -21,6 +21,15 @@ function readBuffer(relativePath) {
   return fs.readFileSync(path.join(root, relativePath));
 }
 
+function readBufferOrNull(relativePath) {
+  try {
+    return readBuffer(relativePath);
+  } catch (error) {
+    fail(`${relativePath}: unable to read governed brand asset (${error.code ?? error.message})`);
+    return null;
+  }
+}
+
 function walkFiles(relativePath, predicate) {
   const absolutePath = path.join(root, relativePath);
   const entries = fs.readdirSync(absolutePath, { withFileTypes: true });
@@ -39,7 +48,9 @@ function walkFiles(relativePath, predicate) {
 }
 
 function sha256(relativePath) {
-  return crypto.createHash("sha256").update(readBuffer(relativePath)).digest("hex");
+  const source = readBufferOrNull(relativePath);
+  if (!source) return null;
+  return crypto.createHash("sha256").update(source).digest("hex");
 }
 
 function assertFile(relativePath) {
@@ -51,7 +62,8 @@ function assertFile(relativePath) {
 }
 
 function pngDimensions(relativePath) {
-  const source = readBuffer(relativePath);
+  const source = readBufferOrNull(relativePath);
+  if (!source) return null;
   if (source.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") {
     fail(`${relativePath}: expected PNG signature`);
     return null;
@@ -68,6 +80,48 @@ function assertPngDimensions(relativePath, expected) {
   const actualValue = `${actual.width}x${actual.height}`;
   if (actualValue !== expected) {
     fail(`${relativePath}: expected ${expected}, got ${actualValue}`);
+  }
+}
+
+function webpFormat(relativePath) {
+  const source = readBufferOrNull(relativePath);
+  if (!source) return null;
+  if (source.length < 30 || source.subarray(0, 4).toString("ascii") !== "RIFF" || source.subarray(8, 12).toString("ascii") !== "WEBP") {
+    fail(`${relativePath}: expected WebP RIFF signature`);
+    return null;
+  }
+
+  const chunkType = source.subarray(12, 16).toString("ascii");
+  if (chunkType !== "VP8X") {
+    fail(`${relativePath}: expected extended WebP VP8X container for transparent lockup metadata, got ${chunkType}`);
+    return null;
+  }
+
+  const payloadSize = source.readUInt32LE(16);
+  if (payloadSize < 10 || source.length < 30) {
+    fail(`${relativePath}: invalid VP8X payload`);
+    return null;
+  }
+
+  const flags = source[20];
+  const width = 1 + source.readUIntLE(24, 3);
+  const height = 1 + source.readUIntLE(27, 3);
+  return {
+    width,
+    height,
+    hasAlpha: (flags & 0x10) === 0x10,
+  };
+}
+
+function assertWebpFormat(relativePath, expected) {
+  const actual = webpFormat(relativePath);
+  if (!actual) return;
+  const actualValue = `${actual.width}x${actual.height}`;
+  if (actualValue !== expected) {
+    fail(`${relativePath}: expected ${expected}, got ${actualValue}`);
+  }
+  if (!actual.hasAlpha) {
+    fail(`${relativePath}: expected transparent WebP alpha channel`);
   }
 }
 
@@ -180,6 +234,7 @@ for (const runtimeLockupPath of [
   }
 }
 assertPngDimensions("public/images/brand/tecpey-lockup-fa-en.png", "1200x548");
+assertWebpFormat("public/images/brand/tecpey-lockup-fa-en.webp", "1200x548");
 
 const runtimeIconSizes = new Map([
   ["public/favicon-16x16.png", "16x16"],
