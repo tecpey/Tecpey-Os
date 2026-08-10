@@ -2,9 +2,9 @@
 
 **Status:** execution request for NOG-01 and NOG-02, not accepted evidence  
 **Decision after this runbook:** NO-GO until the protected staging run is executed and accepted  
-**Protected staging evidence target SHA:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`  
-**Runtime candidate baseline SHA:** `03e77790630dac737a2d4cc4636b97e80de48ab3`  
-**Evidence control baseline SHA:** `372c4192dabf8dc1ce2528d0272349cb8937a747`  
+**Protected staging evidence target SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Runtime candidate baseline SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
 **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 
@@ -15,17 +15,16 @@ redacted production-like environment evidence without exposing secrets.
 
 ## Release Lineage Rule
 
-Do not silently move the staging target because documentation-only evidence PRs
-were merged after the runtime candidate. The selected staging evidence target
-remains `a8d494f12618cc6b36c0eeae40a7b7b212754fbf` unless the release owner
-explicitly promotes another 40-character `main` SHA and records the promotion in
-the launch packet.
+Do not silently move the staging target because documentation-only or
+launch-control PRs were merged after earlier draft packets. The selected staging
+evidence target is the current candidate in
+`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
+`3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`.
 
-The deployed application checkout, workflow checkout and `/api/health` commit
-must all report the same selected SHA. If the deployment uses the runtime
-candidate baseline `03e77790630dac737a2d4cc4636b97e80de48ab3` instead, the run is
-not accepted for this request until the launch packet is updated to make that
-choice explicit.
+The deployed application checkout, workflow checkout, bundle manifest and
+`/api/health` commit must all report the same selected SHA. If staging uses any
+older draft baseline instead, the run is not accepted for this request until a
+release-owner candidate-promotion PR makes that choice explicit.
 
 ## Required Protected Context
 
@@ -70,7 +69,7 @@ Run the protected staging evidence workflow for the selected SHA:
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: a8d494f12618cc6b36c0eeae40a7b7b212754fbf
+release_sha: 3ef67b816a4d3a0ab6c1f369aceb0063c641aedc
 run_alert_probe: true
 ```
 
@@ -183,7 +182,7 @@ fields are known:
   "nog01": {
     "status": "accepted_or_rejected",
     "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/<id>",
-    "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+    "selectedSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
     "artifactName": "tecpey-staging-scheduler-evidence.json",
     "artifactSha256": "sha256:<64-hex>",
     "verifierDisposition": "passed_or_failed",
@@ -192,7 +191,7 @@ fields are known:
   },
   "nog02": {
     "status": "accepted_or_rejected",
-    "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+    "selectedSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
     "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",
