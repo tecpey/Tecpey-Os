@@ -89,6 +89,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:database|postgres|redis|bullmq|migration|persistence|outbox)(?:[./_-]|$)/i,
       /^src\/(?:.+\/)?(?:repository|repositories)(?:[./_-]|$)/i,
       /^src\/lib\/db(?:[./_-]|$)/i,
+      /^src\/lib\/news-materialization-persistence\.ts$/,
       /^src\/lib\/offline-sync(?:[./_-]|$)/i,
     ],
   },
@@ -132,6 +133,14 @@ const DOMAIN_RULES = [
     ],
   },
   {
+    domain: "product-ui",
+    riskTier: "P2",
+    reviewBatch: 10,
+    patterns: [
+      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-materialization|tool-growth-automation|trading-tools-growth)\.ts$/,
+    ],
+  },
+  {
     domain: "operations-runtime",
     riskTier: "P1",
     reviewBatch: 11,
@@ -143,6 +152,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:operations|deployment|runtime|bootstrap|readiness|health|recovery|backup|restore|observability)(?:[./_-]|$)/i,
       /^src\/lib\/ops\//,
       /^src\/lib\/(?:alerts|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
+      /^src\/lib\/news-materialization-worker\.ts$/,
       /^src\/lib\/ws\//,
       /^server\.ts$/,
       /^VERIFY_PRODUCTION\.sh$/,
@@ -249,7 +259,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 10,
+  version: 11,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
