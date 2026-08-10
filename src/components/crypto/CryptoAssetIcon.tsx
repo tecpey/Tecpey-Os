@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { SVGProps } from "react";
 import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 
@@ -252,11 +253,13 @@ export function CryptoAssetIcon({
   const gradientId = `tp-coin-${normalized.toLowerCase()}-face`;
   const rimId = `tp-coin-${normalized.toLowerCase()}-rim`;
   const title = `${name ?? normalized} (${normalized})`;
-  const hasPackAsset = Boolean(resolvedAsset.src);
+  const packAssetSrc = resolvedAsset.src;
+  const hasPackAsset = typeof packAssetSrc === "string" && packAssetSrc.length > 0;
 
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center ${sizeClass[size]} ${className}`}
+      role="img"
       aria-label={title}
       title={title}
     >
@@ -267,12 +270,15 @@ export function CryptoAssetIcon({
         />
       )}
       {hasPackAsset ? (
-        <img
-          src={resolvedAsset.src}
+        <Image
+          src={packAssetSrc}
           alt=""
+          width={96}
+          height={96}
           aria-hidden="true"
           draggable={false}
           data-coin-asset-source={resolvedAsset.source}
+          unoptimized
           className="relative h-full w-full object-contain drop-shadow-[0_14px_20px_rgba(15,23,42,.20)]"
         />
       ) : (
