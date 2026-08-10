@@ -50,6 +50,52 @@ Recommended launch capacity:
 | `POSTGRES_PASSWORD` / `REDIS_PASSWORD` | Yes | Must be set outside Git and outside chat. |
 | Domain/DNS values | Yes | `tecpey.ir`, `my.tecpey.ir`, API/socket origins as approved. |
 
+## Release Owner Artifact Path
+
+Use this path when TecPey does not have direct server access and the support
+team will receive only a zip package for installation.
+
+Create the bundle through the manual GitHub Actions workflow:
+
+```text
+Support Deployment Bundle
+```
+
+Required workflow inputs:
+
+| Input | Value |
+| --- | --- |
+| `release_ref` | Prefer the exact reviewed release SHA. Use `main` only for a fresh candidate from the current default branch. |
+| `source_bundle_exception_approval` | `I_APPROVE_SOURCE_BUNDLE_EXCEPTION` |
+
+The workflow checks out the requested ref, resolves the exact release SHA,
+creates the exception-approved source bundle with
+`TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1`, runs
+`npm run support:bundle:verify`, and uploads an artifact named:
+
+```text
+tecpey-support-deployment-EXACT_RELEASE_SHA
+```
+
+The artifact must contain exactly the support zip, its detached `.sha256` file,
+and `SUPPORT_ARTIFACT_README.md`. Before sending anything to support, the
+release owner must download the artifact and verify the detached digest locally:
+
+```bash
+sha256sum -c tecpey-deployment-EXACT_RELEASE_SHA.zip.sha256
+```
+
+Send support only:
+
+- `tecpey-deployment-EXACT_RELEASE_SHA.zip`
+- `tecpey-deployment-EXACT_RELEASE_SHA.zip.sha256`
+- this handoff, or the path to this handoff inside the bundle
+
+Do not send GitHub artifact links in public issues, public PR comments, chat
+threads, or any channel that is not approved for proprietary TecPey source
+delivery. The workflow artifact retention is intentionally short; if the support
+window expires, regenerate the artifact from the same exact release SHA.
+
 ## Preflight Before Unpack
 
 Before sending the bundle to support, the release owner should verify the local
