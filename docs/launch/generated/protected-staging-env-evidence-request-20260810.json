@@ -8,10 +8,10 @@
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
-    "runtimeCandidateBaselineSha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
-    "evidenceControlBaselineSha": "372c4192dabf8dc1ce2528d0272349cb8937a747",
-    "targetPromotionPolicy": "Do not silently move the protected staging evidence target after documentation-only PRs. Any new selected SHA must be explicitly promoted by the release owner and recorded in the launch packet."
+    "protectedStagingEvidenceTargetSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "runtimeCandidateBaselineSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
+    "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
   "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
   "requiredContext": {
@@ -24,7 +24,7 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+      "release_sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
       "run_alert_probe": true
     }
   },
