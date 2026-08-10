@@ -144,14 +144,33 @@ if (manifest) {
 
 if (shaPath && existsSync(shaPath)) {
   const shaText = await readFile(shaPath, "utf8");
-  const expectedSha256 = shaText.trim().split(/\s+/)[0];
-  const actualSha256 = createHash("sha256")
-    .update(await readFile(zipPath))
-    .digest("hex");
-  if (!/^[0-9a-f]{64}$/.test(expectedSha256)) {
-    fail(`sha256 file does not start with a valid digest: ${shaPath}`);
-  } else if (expectedSha256 !== actualSha256) {
-    fail("zip sha256 does not match the detached sha256 file");
+  const shaLines = shaText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (shaLines.length !== 1) {
+    fail(`sha256 file must contain exactly one checksum line: ${shaPath}`);
+  }
+
+  const checksumMatch = /^([0-9a-f]{64})\s+\*?(.+)$/.exec(shaLines[0] ?? "");
+  const expectedSha256 = checksumMatch?.[1];
+  const checksumFilename = checksumMatch?.[2];
+  const expectedFilename = path.basename(zipPath);
+
+  if (!checksumMatch || !expectedSha256) {
+    fail(`sha256 file does not contain a valid '<digest> <filename>' line: ${shaPath}`);
+  } else if (checksumFilename !== expectedFilename) {
+    fail(
+      `sha256 file must reference the portable zip basename '${expectedFilename}', found '${checksumFilename}'`,
+    );
+  } else {
+    const actualSha256 = createHash("sha256")
+      .update(await readFile(zipPath))
+      .digest("hex");
+    if (expectedSha256 !== actualSha256) {
+      fail("zip sha256 does not match the detached sha256 file");
+    }
   }
 } else {
   fail(`detached sha256 file is missing: ${shaPath ?? "<not provided>"}`);
