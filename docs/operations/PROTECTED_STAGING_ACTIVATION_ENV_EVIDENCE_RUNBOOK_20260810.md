@@ -59,9 +59,9 @@ manifest.
 | `TECPEY_STAGING_RUN_USER` | GitHub Environment variable | Match/mismatch only |
 | `TECPEY_STAGING_RUN_GROUP` | GitHub Environment variable | Match/mismatch only |
 | `TECPEY_STAGING_HEALTH_URL` | GitHub Environment variable | Scheme and endpoint class only |
-| `DATABASE_URL` | Private host env file | Present/valid only, never value |
-| TecPey signing and CRM secrets | Private host env file | Present/distinct/length-policy only |
-| Trusted proxy settings | Private host env file | Header allowlist and hop count only |
+| `DATABASE_URL` | Private host env file or service-manager preloaded environment | Present/valid only, never value |
+| TecPey signing and CRM secrets | Private host env file or service-manager preloaded environment | Present/distinct/length-policy only |
+| Trusted proxy settings | Private host env file or service-manager preloaded environment | Header allowlist and hop count only |
 
 ## NOG-01 Execution
 
@@ -96,8 +96,9 @@ The accepted record must include only:
 ## NOG-02 Execution
 
 From the immutable deployed release directory on protected staging, run the
-production-like environment check with the private staging environment loaded.
-The raw environment and raw logs must not be uploaded.
+production-like environment check with an accepted protected environment source:
+either the protected host env file loaded or the service-manager preloaded
+environment verified. The raw environment and raw logs must not be uploaded.
 
 Minimum command shape:
 
@@ -160,6 +161,8 @@ fields are known:
   "nog02": {
     "status": "accepted_or_rejected",
     "selectedSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+    "environmentSource": "protected_host_env_file_or_service_manager_preloaded_environment",
+    "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",
     "redactedSummarySha256": "sha256:<64-hex>",
     "cspConnectionDisposition": "passed_or_failed",
@@ -180,8 +183,9 @@ Reject the slice and keep `NOG-01` and `NOG-02` open if any of these occur:
 - `/api/health` does not report healthy PostgreSQL and Redis;
 - alert pending or quarantine count is non-zero after the probe;
 - detached digest or verifier summary is missing;
-- `env:check` fails or cannot run with production-like staging configuration;
-- protected env file is not loaded, cannot be loaded, or is replaced by an unverified shell environment;
+- `env:check` fails or cannot run with production-like staging configuration from an accepted environment source;
+- selected environment source is `protected_host_env_file` and the protected env file is not loaded, cannot be loaded, or is replaced by an unverified shell environment;
+- selected environment source is `service_manager_preloaded_environment` and the required variables are not already present in the service-managed process environment, cannot be proven without printing values, or are replaced by ad hoc shell exports other than `NODE_ENV`;
 - evidence contains raw secrets, raw URLs with credentials, host IPs, raw logs, customer rows, provider payloads, prompt transcripts or private keys.
 
 ## Resulting Decision
