@@ -7,6 +7,7 @@ import { getCoinKnowledge } from "@/data/coinKnowledge";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
 import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import {
   buildNewsImpactItemListSchema,
   getHighPriorityNewsForCoin,
@@ -51,6 +52,9 @@ export default async function CoinPage({ params }: Props) {
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.faName);
   const impactNews = getHighPriorityNewsForCoin(coin.symbol, "fa", 4);
   const pageUrl = `https://tecpey.ir/coins/${coin.slug}`;
+  const officialWebsite = profile.website || coin.automation?.officialWebsite || "";
+  const officialWhitepaper = profile.whitepaper || coin.automation?.docs || coin.automation?.officialWebsite || "";
+  const officialDocs = profile.docs || coin.automation?.docs || coin.automation?.officialWebsite || "";
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -108,6 +112,9 @@ export default async function CoinPage({ params }: Props) {
               {coin.faName} ({coin.symbol})؛ قیمت، کاربردها و ریسک‌ها
             </h1>
             <p className="mt-5 text-lg leading-9 text-slate-600 dark:text-slate-300">{coin.intro}</p>
+            <div className="mt-7">
+              <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} priority />
+            </div>
 
             <section className="mt-8 rounded-[32px] border border-cyan-300/15 bg-white/80 p-6 shadow-sm dark:bg-white/[0.04]">
               <h2 className="text-2xl font-black text-slate-950 dark:text-white">پرونده کامل {coin.faName}</h2>
@@ -157,9 +164,9 @@ export default async function CoinPage({ params }: Props) {
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {[
-                  ["وب‌سایت رسمی", profile.website],
-                  ["وایت‌پیپر / مستند اصلی", profile.whitepaper],
-                  ["مستندات فنی", profile.docs],
+                  ["وب‌سایت رسمی", officialWebsite],
+                  ["وایت‌پیپر / مستند اصلی", officialWhitepaper],
+                  ["مستندات فنی", officialDocs],
                 ].map(([label, href]) => (
                   <a key={label} href={href || "#"} target="_blank" rel="noreferrer" className={`rounded-2xl border border-cyan-300/20 bg-cyan-500/10 p-4 text-sm font-black ${href ? "text-cyan-600 dark:text-cyan-300" : "pointer-events-none text-slate-400"}`}>
                     {label}

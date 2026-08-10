@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { PoolClient } from "pg";
 import {
+  isAnswerEngineReadyContent,
   isPublishableContent,
   rankCoinPriorities,
   rankTools,
@@ -224,6 +225,41 @@ describe("Content growth entity contract", () => {
           hreflang: { fa: "https://tecpey.ir/coins/bitcoin" },
           schemaTypes: ["Article", "FAQPage"],
           aeoAnswer: "بیت کوین یک دارایی دیجیتال غیرمتمرکز است.",
+        },
+      }),
+      true,
+    );
+  });
+
+  it("requires direct answers and LLM summaries for answer-engine readiness", () => {
+    const base: ContentItem = {
+      id: "page-home-fa",
+      type: "page",
+      locale: "fa",
+      slug: "home",
+      title: "تک‌پی چیست؟",
+      status: "ready",
+      canonicalUrl: "https://tecpey.ir",
+      updatedAt: "2026-08-10T00:00:00.000Z",
+      seo: {
+        title: "تک‌پی چیست؟",
+        description: "معرفی تک‌پی برای آموزش رمزارز، تمرین مجازی و ورود آگاهانه.",
+        canonical: "https://tecpey.ir",
+        hreflang: { fa: "https://tecpey.ir", en: "https://tecpey.ir/en" },
+        schemaTypes: ["WebPage", "FAQPage", "HowTo"],
+        aeoAnswer: "تک‌پی یک اکوسیستم فارسی برای آموزش رمزارز و تمرین معاملاتی بدون ریسک است.",
+      },
+    };
+
+    assert.equal(isPublishableContent(base), true);
+    assert.equal(isAnswerEngineReadyContent(base), false);
+    assert.equal(
+      isAnswerEngineReadyContent({
+        ...base,
+        seo: {
+          ...base.seo!,
+          llmSummary:
+            "TecPey is a Persian-first crypto education and virtual market-practice platform with launch-gated real-money capabilities.",
         },
       }),
       true,

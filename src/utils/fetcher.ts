@@ -3,7 +3,10 @@ export async function fetcher<T>(
   options?: RequestInit
 ): Promise<T> {
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_API_BACKEND_URL?.trim().replace(/\/$/, "");
+  if (!baseUrl || baseUrl === "undefined") {
+    throw new Error("API backend URL is not configured");
+  }
 
   const isFormData = options?.body instanceof FormData;
 

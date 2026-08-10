@@ -35,6 +35,10 @@ export type UseMentorInsightsReturn = {
   retry: () => void;
 };
 
+type UseMentorInsightsOptions = {
+  enabled?: boolean;
+};
+
 // ── Module-level stale-while-revalidate cache ──────────────────────────────────
 // Shared across all mounted instances of useMentorInsights in the page.
 
@@ -75,14 +79,24 @@ async function doFetch(signal: AbortSignal): Promise<MentorInsightsData | null> 
  * - `retry()` bypasses the cache and triggers a fresh fetch.
  * - Returns null data (not an error) for 401/429 — widget handles gracefully.
  */
-export function useMentorInsights(): UseMentorInsightsReturn {
+export function useMentorInsights(
+  options: UseMentorInsightsOptions = {},
+): UseMentorInsightsReturn {
+  const enabled = options.enabled ?? true;
   const [data, setData] = useState<MentorInsightsData | null>(() => _cachedData);
-  const [loading, setLoading] = useState(_cachedData === null);
+  const [loading, setLoading] = useState(enabled && _cachedData === null);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      abortRef.current?.abort();
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     const forced = retryKey > 0;
 
     // Fresh cache and not a forced retry — serve immediately, nothing to do.
@@ -124,7 +138,7 @@ export function useMentorInsights(): UseMentorInsightsReturn {
       });
 
     return () => ctrl.abort();
-  }, [retryKey]);
+  }, [retryKey, enabled]);
 
   const retry = useCallback(() => setRetryKey((k) => k + 1), []);
 

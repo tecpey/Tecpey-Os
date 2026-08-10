@@ -148,6 +148,7 @@ const runtimeIconSizes = new Map([
   ["public/apple-touch-icon.png", "180x180"],
   ["public/android-chrome-192x192.png", "192x192"],
   ["public/android-chrome-512x512.png", "512x512"],
+  ["public/maskable-icon-512x512.png", "512x512"],
 ]);
 
 for (const [runtimeIcon, size] of runtimeIconSizes) {

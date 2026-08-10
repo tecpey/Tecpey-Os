@@ -7,6 +7,7 @@ import {
 } from "../src/lib/news-materialization-worker";
 import {
   hashOperationalEvidence,
+  type OperationalJobRunEvidence,
   validateOperationalJobRunEvidence,
 } from "../src/lib/ops/operational-job-evidence";
 
@@ -91,6 +92,12 @@ function assertObject(value: unknown): asserts value is Record<string, unknown> 
   }
 }
 
+function assertOperationalJobRunEvidenceCandidate(
+  value: unknown,
+): asserts value is OperationalJobRunEvidence {
+  assertObject(value);
+}
+
 function verifyDigest(run: NewsMaterializationLastRun["run"], resultHash: unknown): void {
   if (typeof resultHash !== "string" || !/^[0-9a-f]{64}$/.test(resultHash)) {
     throw new Error("news_materialization_last_run_hash_invalid");
@@ -119,6 +126,7 @@ function verifyLastRun(
   assertObject(raw);
   if (raw.schemaVersion !== 1) throw new Error("news_materialization_last_run_version_invalid");
   assertObject(raw.freshness);
+  assertOperationalJobRunEvidenceCandidate(raw.run);
   const run = validateOperationalJobRunEvidence(raw.run);
   if (run.jobName !== NEWS_MATERIALIZATION_JOB) {
     throw new Error("news_materialization_last_run_job_invalid");

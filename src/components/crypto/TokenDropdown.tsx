@@ -2,11 +2,12 @@
 
 import { ArrowDown } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
 
 type Coin = {
   symbol: string;
   name?: string;
-  icon: string;
+  icon?: string;
 };
 
 type Props = {
@@ -57,8 +58,7 @@ export default function TokenDropdown({
         }}
         className="flex items-center gap-2 bg-[#1e293b] text-white px-4 py-2 rounded-full"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- #162: market-provider token icons are runtime URLs outside the static Next image allowlist. */}
-        <img src={selectedCoin.icon} className="w-5 h-5" alt="coin" />
+        <CoinVisual symbol={selectedCoin.symbol} name={selectedCoin.name} remoteIcon={selectedCoin.icon} variant="icon" />
         {selectedCoin.symbol}
 
         <ArrowDown
@@ -136,12 +136,7 @@ export default function TokenDropdown({
               ${hoverClass}
             `}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- #162: market-provider token icons are runtime URLs outside the static Next image allowlist. */}
-                  <img
-                    src={coin.icon}
-                    className="w-5 h-5 rounded-full"
-                    alt="coin"
-                  />
+                  <CoinVisual symbol={coin.symbol} name={coin.name} remoteIcon={coin.icon} variant="icon" />
 
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-sm font-semibold truncate">

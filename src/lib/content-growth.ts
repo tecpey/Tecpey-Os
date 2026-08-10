@@ -159,3 +159,10 @@ export function isPublishableContent(item: ContentItem): boolean {
   if (!item.seo.title.trim() || !item.seo.description.trim() || !item.seo.canonical.trim()) return false;
   return item.seo.schemaTypes.length > 0;
 }
+
+export function isAnswerEngineReadyContent(item: ContentItem): boolean {
+  if (!isPublishableContent(item)) return false;
+  const aeoAnswer = item.seo?.aeoAnswer?.trim() ?? "";
+  const llmSummary = item.seo?.llmSummary?.trim() ?? "";
+  return aeoAnswer.length >= 24 && llmSummary.length >= 48;
+}

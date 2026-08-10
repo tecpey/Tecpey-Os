@@ -31,15 +31,20 @@ import {
   PenLine,
   ShieldAlert,
   PlayCircle,
+  Coins,
+  Wrench,
 } from "lucide-react";
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
 import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import type { MarketCurrency } from "@/types/market";
 
-const freeAcademyHref = "https://my.tecpey.ir/signup";
+const exchangeHref = "https://my.tecpey.ir";
+const exchangeSignupHref = "https://my.tecpey.ir/signup";
+const academyHref = "/academy";
 
 const marketRows = [
   { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین", price: "۶,۸۹۲,۰۰۰,۰۰۰", change: "+۲.۴٪", tone: "up" },
@@ -131,7 +136,7 @@ function DeviceFrame() {
               <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
               <div>
                 <p className="text-sm font-extrabold text-[color:var(--tp-text)]">بازار تک‌پی</p>
-                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">قیمت لحظه‌ای و مسیر شروع معامله</p>
+                <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">بازار، آموزش و مسیر ورود آگاهانه</p>
               </div>
             </div>
             <div className="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-500 sm:block">آموزشی</div>
@@ -159,7 +164,8 @@ function DeviceFrame() {
               const price = resolveIrtPrice(row, symbol, USDT_IRT);
               const change = Number(row?.priceData?.changePercent ?? row?.changePercent ?? 0);
               return (
-                <div key={`${symbol}-${index}`} className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0 sm:grid-cols-[1.1fr_1fr_auto]">
+                <div key={`${symbol}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1.1fr_1fr_auto]">
+                  <CoinVisual symbol={symbol} name={name} faName={faName} variant="avatar" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-extrabold text-[color:var(--tp-text)]">{faName}</p>
                     <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / IRT</p>
@@ -187,38 +193,144 @@ function Hero() {
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(11,217,222,.20),transparent_30%),radial-gradient(circle_at_10%_30%,rgba(30,64,175,.16),transparent_28%)]" />
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[.95fr_1.05fr] lg:px-8 lg:pb-24">
         <div className="text-center lg:text-right">
-          <SectionLabel>آموزش، اطلاعات آموزشی بازار و تمرین مجازی در یک مسیر شفاف</SectionLabel>
+          <SectionLabel>مسیر امن آموزش و تمرین رمزارز</SectionLabel>
           <h1 className="mt-6 text-balance text-4xl font-black leading-[1.18] tracking-tight text-[color:var(--tp-text)] sm:text-5xl lg:text-6xl">
             تک‌پی، نقطه امن ورود به بازار رمزارز
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-8 text-[color:var(--tp-muted)] sm:text-lg lg:mx-0">
-            از نخستین آشنایی با بیت‌کوین تا تمرین معامله مجازی، آموزش، تحلیل، ابزار و اطلاعات آموزشی بازار را در یک مسیر شفاف تجربه کنید؛ بدون عجله، بدون سیگنال‌فروشی و با تمرکز بر امنیت و مدیریت ریسک.
+          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-8 text-[color:var(--tp-muted)] sm:text-lg lg:mx-0">
+            آموزش، قیمت‌های مرجع، تمرین مجازی و منتور آموزشی برای شروع آرام، امن و بدون سیگنال‌فروشی.
           </p>
-          <div className="mt-5 inline-flex rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-700 shadow-sm dark:text-cyan-200">
-            آموزش رایگان برای همه؛ مسیر رسمی آکادمی یک برنامه جداگانه آنلاین یا حضوری است
-          </div>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-            <Link href="https://my.tecpey.ir" className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-2xl sm:text-base">
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
+            <Link href={exchangeHref} className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-2xl sm:text-base">
               ورود به صرافی
               <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-1" />
             </Link>
-            <div className="flex flex-col items-center gap-1.5 sm:items-start">
-              <Link href="/academy" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white/70 px-6 py-4 text-sm font-black text-[color:var(--tp-text)] backdrop-blur transition hover:bg-white dark:bg-white/5 dark:hover:bg-white/10 sm:text-base">
-                آکادمی رایگان
-                <LineChart className="h-5 w-5 text-[color:var(--tp-primary)]" />
-              </Link>
-              <p className="text-[11px] font-bold text-[color:var(--tp-muted)]">برای شروع مطمئن، آکادمی کنار توست.</p>
-            </div>
+            <Link href={academyHref} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white/70 px-6 py-4 text-sm font-black text-[color:var(--tp-text)] backdrop-blur transition hover:bg-white dark:bg-white/5 dark:hover:bg-white/10 sm:text-base">
+              آکادمی رایگان
+              <LineChart className="h-5 w-5 text-[color:var(--tp-primary)]" />
+            </Link>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs font-bold text-[color:var(--tp-muted)] lg:justify-start">
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-violet-500/10 px-3 py-2 text-violet-500"><LineChart className="h-4 w-4" />اطلاعات آموزشی بازار</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-amber-500"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
           </div>
         </div>
         <DeviceFrame />
+      </div>
+    </section>
+  );
+}
+
+function TopDiscoveryGateway({
+  radar,
+}: {
+  radar?: LandingGrowthRadarModel;
+}) {
+  const tools = radar?.tools.slice(0, 5) ?? [];
+  const coins = radar?.coins.slice(0, 5) ?? [];
+  if (tools.length === 0 && coins.length === 0) return null;
+
+  return (
+    <section
+      aria-labelledby="top-discovery-gateway-title"
+      className="relative z-10 bg-[color:var(--tp-bg)] px-4 pt-5 sm:px-6 lg:px-8"
+    >
+      <div className="mx-auto max-w-7xl overflow-hidden rounded-[30px] border border-cyan-300/15 bg-white/80 p-4 shadow-[0_20px_70px_rgba(15,23,42,.10)] backdrop-blur-xl dark:bg-white/[0.055] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              ورودی سریع بازار و ابزار
+            </div>
+            <h2 id="top-discovery-gateway-title" className="mt-3 text-xl font-black leading-8 text-[color:var(--tp-text)] sm:text-2xl">
+              ۵ کوین مهم و ۵ ابزار ترند برای شروع هوشمند
+            </h2>
+            <p className="mt-1 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+              قبل از ورود جدی، اول دارایی‌های مهم و ابزارهای معتبر را ببین؛ تصمیم آگاهانه از همین‌جا شروع می‌شود.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/coins" className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-black text-cyan-700 transition hover:border-cyan-300/55 hover:bg-cyan-400/15 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:text-cyan-100">
+              <Coins className="h-4 w-4" aria-hidden="true" />
+              همه رمزارزها
+            </Link>
+            <Link href="/trading-tools" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-4 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-cyan-300/60">
+              <Wrench className="h-4 w-4" aria-hidden="true" />
+              تب ابزارها
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-black text-[color:var(--tp-muted)]">
+              <Coins className="h-4 w-4 text-cyan-600 dark:text-cyan-300" aria-hidden="true" />
+              کوین‌های مهم ابتدای مسیر
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
+              {coins.map((coin, index) => (
+                <Link
+                  key={coin.symbol}
+                  href={`/coins/${coin.slug}`}
+                  className="group min-w-[178px] overflow-hidden rounded-2xl border border-cyan-300/15 bg-[color:var(--tp-card)] p-2.5 transition hover:-translate-y-0.5 hover:border-cyan-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
+                >
+                  <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} variant="cover" />
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="-mt-5 ms-2 grid h-8 min-w-8 shrink-0 place-items-center rounded-xl border border-white/20 bg-slate-950/70 px-2 text-[10px] font-black text-cyan-100 shadow-lg backdrop-blur">
+                      رتبه {index + 1}
+                    </span>
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                      ترند
+                    </span>
+                  </div>
+                  <p className="mt-3 truncate text-sm font-black text-[color:var(--tp-text)]">{coin.faName}</p>
+                  <p className="mt-0.5 text-xs font-black text-cyan-700 dark:text-cyan-200">{coin.symbol}</p>
+                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
+                    {coin.category}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-black text-[color:var(--tp-muted)]">
+              <Wrench className="h-4 w-4 text-cyan-600 dark:text-cyan-300" aria-hidden="true" />
+              ابزارهای ترند و کاربردی
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
+              {tools.map((tool, index) => (
+                <Link
+                  key={tool.slug}
+                  href={`/trading-tools/${tool.slug}`}
+                  className="group min-w-[152px] rounded-2xl border border-blue-300/15 bg-[color:var(--tp-card)] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-2xl border border-cyan-300/20 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.36),transparent_28%),linear-gradient(145deg,#0f172a,#0e7490)] text-sm font-black text-white shadow-[0_12px_26px_rgba(8,145,178,.18)]"
+                    >
+                      <span className="absolute inset-x-1 top-1 h-3 rounded-full bg-white/18" />
+                      {tool.logo || tool.name.slice(0, 1)}
+                    </span>
+                    <span className="rounded-full bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-700 dark:text-cyan-200">
+                      {Math.round(tool.growthRank.rankScore * 100)}
+                    </span>
+                  </div>
+                  <p dir="ltr" className="mt-3 truncate text-left text-[10px] font-black leading-4 text-[color:var(--tp-text)] sm:text-[11px]">
+                    {tool.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs font-black text-cyan-700 dark:text-cyan-200">{tool.categoryFa}</p>
+                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
+                    {tool.summaryFa}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -244,6 +356,80 @@ function GlobalUxMetrics() {
             <span className="mt-3 inline-flex text-[11px] font-black text-cyan-300 opacity-0 transition group-hover:opacity-100">مشاهده مسیر</span>
           </Link>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function SoftLaunchProductFocus() {
+  const paths = [
+    {
+      icon: MousePointerClick,
+      title: "ورود به صرافی",
+      desc: "مسیر دسترسی به بازار، حساب کاربری و تجربه اصلی تک‌پی برای کاربران آماده ورود.",
+      href: exchangeHref,
+      cta: "باز کردن صرافی",
+    },
+    {
+      icon: GraduationCap,
+      title: "آکادمی رایگان",
+      desc: "مسیر فارسی و مرحله‌ای برای یادگیری مفاهیم، امنیت، ریسک و کار با بازار رمزارز.",
+      href: academyHref,
+      cta: "شروع یادگیری",
+    },
+    {
+      icon: LineChart,
+      title: "مارکت برد آنلاین",
+      desc: "قیمت‌ها، رمزارزها و داده‌های مرجع بازار برای بررسی اولیه پیش از تصمیم.",
+      href: "/markets",
+      cta: "مشاهده بازار",
+    },
+    {
+      icon: Trophy,
+      title: "تریدینگ آرنا",
+      desc: "محیط تمرین آموزشی با سرمایه مجازی برای ساختن عادت مدیریت ریسک.",
+      href: "/academy/trading-arena",
+      cta: "تمرین بدون ریسک",
+    },
+  ];
+
+  return (
+    <section className="bg-[color:var(--tp-bg)] px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/15 bg-white/80 p-5 shadow-[0_18px_55px_rgba(15,85,170,.10)] dark:bg-white/[0.055] lg:p-7">
+        <div className="grid gap-6 lg:grid-cols-[.72fr_1.28fr] lg:items-center">
+          <div>
+            <p className="text-sm font-black text-[color:var(--tp-primary)]">تمرکز نسخه فعلی تک‌پی</p>
+            <h2 className="mt-3 text-2xl font-black leading-10 text-[color:var(--tp-text)] sm:text-3xl">
+              چهار مسیر اصلی برای soft launch سالم
+            </h2>
+            <p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">
+              در این مرحله، تجربه کاربر باید سریع بفهمد از کجا وارد صرافی شود، از کجا یادگیری را شروع کند و پیش از تصمیم، بازار و تمرین آموزشی را ببیند.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {paths.map((item) => (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="group rounded-[24px] border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/60 hover:shadow-[0_18px_48px_rgba(34,211,238,.14)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-[color:var(--tp-primary)]">
+                    <item.icon className="h-6 w-6" />
+                  </span>
+                  <span>
+                    <span className="block text-base font-black text-[color:var(--tp-text)]">{item.title}</span>
+                    <span className="mt-1 block text-xs font-bold leading-6 text-[color:var(--tp-muted)]">{item.desc}</span>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-black text-[color:var(--tp-primary)]">
+                      {item.cta}
+                      <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-1" />
+                    </span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -350,7 +536,7 @@ function WhyTecpeyTrust() {
 
 function ProofRail() {
   const items = [
-    { icon: GraduationCap, title: "آموزش رایگان برای همه", desc: "سطوح آموزشی آکادمی تک‌پی برای یادگیری مبانی رمزارز، کار با صرافی، تحلیل تکنیکال، تحلیل فاندامنتال و مدیریت ریسک به‌صورت رایگان در اختیار کاربران قرار می‌گیرد.", href: "https://my.tecpey.ir/signup" },
+    { icon: GraduationCap, title: "آموزش رایگان برای همه", desc: "سطوح آموزشی آکادمی تک‌پی برای یادگیری مبانی رمزارز، کار با صرافی، تحلیل تکنیکال، تحلیل فاندامنتال و مدیریت ریسک به‌صورت رایگان در اختیار کاربران قرار می‌گیرد.", href: academyHref },
     { icon: ClipboardCheck, title: "ارزیابی مرحله‌ای و امتیازدهی", desc: "در پایان هر سطح، آزمون‌های کوتاه و کاربردی برگزار می‌شود تا کاربر بداند چقدر آماده ورود به مرحله بعد و تصمیم‌گیری در بازار است.", href: "/academy/evaluation" },
     { icon: Trophy, title: "آمادگی واقعی پیش از ورود", desc: "کاربر پس از یادگیری، آزمون و مرور چک‌لیست‌ها بهتر می‌فهمد چه می‌خرد، چه ریسکی می‌کند و چگونه مسئولانه وارد بازار شود.", href: "/academy/term-7" },
   ];
@@ -666,8 +852,8 @@ function AcademyGrowthSystem() {
               </div>
               <p className="mt-3 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">{item.result}</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <TermGateLink href={`/academy/term-${index + 1}#term-quiz`} termNumber={index + 1} className="rounded-2xl bg-cyan-700 px-3 py-2 text-center text-xs font-black text-white shadow-[0_10px_25px_rgba(6,182,212,.22)] transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa">آزمون ترم</TermGateLink>
-                <TermGateLink href={`/academy/term-${index + 1}`} termNumber={index + 1} className="rounded-2xl border border-cyan-300/35 bg-white/70 px-3 py-2 text-center text-xs font-black text-slate-800 transition hover:border-cyan-400 dark:bg-white/10 dark:text-white" lockedClassName="border-slate-500 bg-slate-600/70 text-white" locale="fa">شروع آموزش</TermGateLink>
+                <TermGateLink href={`/academy/term-${index + 1}#term-quiz`} termNumber={index + 1} className="rounded-2xl bg-cyan-700 px-3 py-2 text-center text-xs font-black text-white shadow-[0_10px_25px_rgba(6,182,212,.22)] transition hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa" checkProgress={false}>آزمون ترم</TermGateLink>
+                <TermGateLink href={`/academy/term-${index + 1}`} termNumber={index + 1} className="rounded-2xl border border-cyan-300/35 bg-white/70 px-3 py-2 text-center text-xs font-black text-slate-800 transition hover:border-cyan-400 dark:bg-white/10 dark:text-white" lockedClassName="border-slate-500 bg-slate-600/70 text-white" locale="fa" checkProgress={false}>شروع آموزش</TermGateLink>
               </div>
             </article>
           ))}
@@ -846,17 +1032,36 @@ function LearningExperienceSystem() {
 }
 function SeoGeoSection() {
   const cards = [
-    { icon: BookOpen, title: "آکادمی تک‌پی", desc: "مقالات آموزشی درباره خرید تتر، بیت‌کوین، امنیت حساب، کارمزد و شروع معامله برای تصمیم‌گیری بهتر." },
-    { icon: LineChart, title: "صفحات قیمت رمزارز", desc: "صفحات آموزشی و قیمتی برای رمزارزهای پرجست‌وجو مثل بیت‌کوین، تتر، اتریوم و تون‌کوین." },
-    { icon: Globe2, title: "پاسخ‌گویی هوشمند", desc: "پرسش‌وپاسخ‌های کوتاه و روشن برای سوالاتی که قبل از ثبت‌نام در ذهن کاربر شکل می‌گیرد." },
+    { icon: BookOpen, title: "SEO محتوایی", desc: "صفحات آکادمی، قیمت، واژه‌نامه، ریسک و ابزارها با canonical، sitemap و لینک داخلی روشن ساخته شده‌اند." },
+    { icon: Globe2, title: "GEO برای موتورهای AI", desc: "خلاصه‌های رسمی، entity profile و فایل‌های llms کمک می‌کنند مدل‌های هوش مصنوعی تک‌پی را دقیق و محتاط معرفی کنند." },
+    { icon: ClipboardCheck, title: "AEO و پاسخ مستقیم", desc: "پرسش‌های پرتکرار، HowTo و جواب‌های کوتاه به کاربر تازه‌وارد کمک می‌کنند سریع بفهمد تک‌پی چیست و چه نیست." },
+  ];
+  const directAnswers = [
+    {
+      question: "تک‌پی چیست؟",
+      answer:
+        "تک‌پی یک مسیر فارسی‌محور برای آموزش رمزارز، مشاهده داده‌های بازار، تمرین معاملاتی بدون ریسک و ورود آگاهانه به بازار دارایی‌های دیجیتال است.",
+    },
+    {
+      question: "آیا تک‌پی مشاور مالی یا سیگنال‌دهنده است؟",
+      answer:
+        "خیر. تک‌پی سیگنال خرید و فروش، وعده سود یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد؛ محتوا و منتور آن آموزشی و ریسک‌محور هستند.",
+    },
+    {
+      question: "نسخه فعلی روی چه چیزی تمرکز دارد؟",
+      answer:
+        "تمرکز فعلی روی آکادمی رایگان، مارکت برد آنلاین، تریدینگ آرنای مجازی، امنیت کاربر و آماده‌سازی مسئولانه برای soft launch است.",
+    },
   ];
   return (
     <section id="seo-geo" className="bg-[color:var(--tp-bg)] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-3xl text-center">
-          <SectionLabel>راهنمای شروع و تصمیم‌گیری</SectionLabel>
-          <h2 className="mt-5 text-3xl font-black leading-tight text-[color:var(--tp-text)] sm:text-4xl lg:text-5xl">در تک‌پی، قیمت‌ها، آموزش و مسیر شروع باید روشن و قابل اعتماد باشند</h2>
-          <p className="mt-4 text-base leading-8 text-slate-600 dark:text-[color:var(--tp-muted)]">قبل از معامله، با مفاهیم پایه، ریسک‌ها، امنیت حساب، کارمزدها و روش شروع آشنا شوید تا تصمیم آگاهانه‌تری بگیرید.</p>
+          <SectionLabel>SEO + GEO + AEO</SectionLabel>
+          <h2 className="mt-5 text-3xl font-black leading-tight text-[color:var(--tp-text)] sm:text-4xl lg:text-5xl">تک‌پی باید برای انسان، گوگل و موتورهای پاسخ‌گوی AI یکسان و دقیق فهمیده شود</h2>
+          <p className="mt-4 text-base leading-8 text-slate-600 dark:text-[color:var(--tp-muted)]">
+            هدف فقط رتبه گرفتن نیست؛ هدف این است که هر کاربر یا مدل هوش مصنوعی، تک‌پی را با همان تعریف درست ببیند: آموزش، تمرین، داده بازار و ورود مسئولانه، بدون وعده سود یا سیگنال‌فروشی.
+          </p>
         </div>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
           {cards.map((card) => (
@@ -865,6 +1070,14 @@ function SeoGeoSection() {
               <h3 className="mt-4 text-xl font-black text-[color:var(--tp-text)]">{card.title}</h3>
               <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-[color:var(--tp-muted)]">{card.desc}</p>
             </div>
+          ))}
+        </div>
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          {directAnswers.map((item) => (
+            <article key={item.question} className="rounded-[26px] border border-cyan-300/15 bg-white/82 p-5 shadow-sm dark:bg-white/[0.055]">
+              <h3 className="text-lg font-black leading-8 text-[color:var(--tp-text)]">{item.question}</h3>
+              <p className="mt-2 text-sm font-bold leading-7 text-slate-600 dark:text-[color:var(--tp-muted)]">{item.answer}</p>
+            </article>
           ))}
         </div>
         <div className="mt-8 flex justify-center">
@@ -957,12 +1170,12 @@ function FinalCta() {
         <h2 className="mx-auto mt-6 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-5xl">تک‌پی، نقطه امن ورود به بازار رمزارز</h2>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-white/70 sm:text-base">آموزش‌های رایگان آکادمی را شروع کنید، اطلاعات آموزشی بازار را مرور کنید، در آزمون‌ها امتیاز بگیرید و اگر جزو کاربران آماده‌تر باشید، وارد مسیر حرفه‌ای تک‌پی شوید.</p>
         <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link href="https://my.tecpey.ir/signup" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
-            شروع معامله
+          <Link href={exchangeSignupHref} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
+            ورود به صرافی
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <Link href="https://my.tecpey.ir/signin" className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
-            ورود کاربران
+          <Link href={academyHref} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur transition hover:bg-white/15">
+            شروع آکادمی رایگان
           </Link>
         </div>
       </div>
@@ -973,9 +1186,12 @@ function FinalCta() {
 function StickyMobileCta() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/92 px-4 py-3 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl sm:hidden">
-      <div className="mx-auto flex max-w-md items-center gap-2">
-        <Link href={freeAcademyHref} className="flex-1 rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
-          ورود به آکادمی رایگان
+      <div className="mx-auto grid max-w-md grid-cols-2 items-center gap-2">
+        <Link href={exchangeHref} className="rounded-2xl bg-[color:var(--tp-primary)] px-4 py-3.5 text-center text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:brightness-110">
+          ورود به صرافی
+        </Link>
+        <Link href={academyHref} className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-center text-xs font-black text-white transition hover:bg-white/15">
+          آکادمی رایگان
         </Link>
       </div>
     </div>
@@ -1030,12 +1246,14 @@ export default function TecpeyEnterpriseLanding({
 }) {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
+      <TopDiscoveryGateway radar={growthRadar} />
       <Hero />
       <CryptoNewsCenter locale="fa" compact />
       <HomeAiMentorSpotlight locale="fa" />
       <HomeLearningJourney locale="fa" />
       <LandingGrowthRadar locale="fa" radar={growthRadar} />
       <GlobalUxMetrics />
+      <SoftLaunchProductFocus />
       <ProofRail />
       <WhyTecpeyTrust />
       <TecpeyEcosystemFlow />

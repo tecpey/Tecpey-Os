@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { coinPages } from "@/data/coins";
 import { ContentShell, FaqList } from "@/components/content/ContentUI";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft, BarChart3, BookOpen, ShieldAlert, TrendingUp } from "lucide-react";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -80,7 +81,10 @@ export default async function PriceSeoPage({ params }: Props) {
           <Link href="/markets" className="inline-flex items-center gap-2 text-sm font-black text-cyan-600 dark:text-cyan-300"><ArrowLeft className="h-4 w-4 rotate-180" /> بازگشت به مارکت‌برد آنلاین</Link>
           <section className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-[38px] border border-cyan-300/20 bg-white/85 p-8 dark:bg-white/[0.045] lg:p-10">
-              <p className="inline-flex rounded-full bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-600 dark:text-cyan-300">قیمت، آموزش و ریسک</p>
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} variant="thumb" priority />
+                <p className="inline-flex w-fit rounded-full bg-cyan-500/10 px-4 py-2 text-xs font-black text-cyan-600 dark:text-cyan-300">قیمت، آموزش و ریسک</p>
+              </div>
               <h1 className="mt-5 text-4xl font-black leading-tight text-slate-950 dark:text-white lg:text-5xl">قیمت {coin.faName} ({coin.symbol})؛ نرخ لحظه‌ای، آموزش و ریسک‌ها</h1>
               <p className="mt-5 text-lg font-bold leading-9 text-slate-600 dark:text-slate-300">{coin.intro}</p>
               <div className="mt-7 grid gap-4 md:grid-cols-3">

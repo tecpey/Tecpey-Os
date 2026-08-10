@@ -1,8 +1,11 @@
 
 import { ArticleSchema } from "@/components/seo/ArticleSchema";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { coinPages } from "@/data/coins";
-import { ArticleCard, ContentHero, ContentShell, TrustStrip } from "@/components/content/ContentUI";
+import { ContentHero, ContentShell, TrustStrip } from "@/components/content/ContentUI";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "خرید و راهنمای رمزارزها | تک‌پی",
@@ -58,13 +61,31 @@ export default function CoinsPage() {
       <section className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
           {coinPages.map((coin) => (
-            <ArticleCard
+            <Link
               key={coin.slug}
               href={`/coins/${coin.slug}`}
-              title={`${coin.faName} (${coin.symbol})`}
-              description={coin.description}
-              meta={displayMeta(coin.category)}
-            />
+              className="group overflow-hidden rounded-[30px] border border-cyan-300/15 bg-white/86 p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:bg-white/[0.055]"
+            >
+              <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} />
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-black text-slate-950 dark:text-white">
+                      {coin.faName} ({coin.symbol})
+                    </h2>
+                    <p className="mt-1 text-xs font-black text-cyan-600 dark:text-cyan-300">
+                      {displayMeta(coin.category)}
+                    </p>
+                  </div>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-500/10 text-cyan-600 transition group-hover:bg-cyan-500 group-hover:text-white dark:text-cyan-200">
+                    <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <p className="mt-3 line-clamp-3 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">
+                  {coin.description}
+                </p>
+              </div>
+            </Link>
           ))}
         </div>
       </section>

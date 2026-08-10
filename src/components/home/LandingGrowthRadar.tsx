@@ -15,6 +15,7 @@ import {
   type LandingGrowthTool,
 } from "@/lib/landing-growth";
 import type { ContentLocale } from "@/lib/content-growth";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
 
 function percent(value: number, locale: ContentLocale) {
   return new Intl.NumberFormat(locale === "fa" ? "fa-IR" : "en-US", {
@@ -57,9 +58,10 @@ function FeaturedCoinCard({
   return (
     <Link
       href={href}
-      className="group min-h-[176px] rounded-[26px] border border-cyan-300/15 bg-white/85 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:bg-white/[0.055]"
+      className="group min-h-[176px] overflow-hidden rounded-[26px] border border-cyan-300/15 bg-white/85 p-3 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:bg-white/[0.055]"
     >
-      <div className="flex items-start justify-between gap-3">
+      <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} locale={locale} variant="cover" />
+      <div className="mt-4 flex items-start justify-between gap-3 px-2">
         <div className="min-w-0">
           <p className="text-xs font-black text-cyan-700 dark:text-cyan-200">
             {isFa ? `ارز منتخب ${index + 1}` : `Coin ${index + 1}`}
@@ -72,15 +74,15 @@ function FeaturedCoinCard({
           {percent(coin.impactRankScore, locale)}
         </span>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+      <p className="mt-3 line-clamp-2 px-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
         {coinCategory(coin, locale)}
       </p>
       {coin.latestImpactTitle ? (
-        <p className="mt-3 line-clamp-2 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
+        <p className="mt-3 line-clamp-2 px-2 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
           {coin.latestImpactTitle}
         </p>
       ) : null}
-      <span className="mt-4 inline-flex min-h-11 items-center gap-2 text-xs font-black text-cyan-700 transition group-hover:text-cyan-500 dark:text-cyan-200">
+      <span className="mx-2 mt-4 inline-flex min-h-11 items-center gap-2 text-xs font-black text-cyan-700 transition group-hover:text-cyan-500 dark:text-cyan-200">
         {isFa ? "پرونده آموزشی" : "Open coin guide"}
         <Arrow className="h-4 w-4 transition group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
       </span>

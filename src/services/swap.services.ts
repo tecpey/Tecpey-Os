@@ -90,7 +90,14 @@ export const getCurrencyInfo = async ({
   try {
 
     const chartBaseUrl =
-      process.env.NEXT_PUBLIC_API_BACKEND_URL;
+      process.env.NEXT_PUBLIC_API_BACKEND_URL?.trim().replace(/\/$/, "");
+
+    if (!chartBaseUrl || chartBaseUrl === "undefined") {
+      return {
+        labels: [],
+        prices: [],
+      };
+    }
 
     // BTCUSDT -> BTC
     const formattedSymbol =

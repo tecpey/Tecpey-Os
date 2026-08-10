@@ -1,4 +1,5 @@
 import rawTools from "../data/traderTools.json";
+import toolGrowthSnapshot from "../data/generated/toolGrowthSnapshot.json";
 import {
   rankTools,
   type ContentLocale,
@@ -6,14 +7,24 @@ import {
   type ToolRankingResult,
 } from "./content-growth";
 import { getNewsImpactScoreForTool } from "./news-impact-history";
+import {
+  readPublishedToolGrowthRecords,
+  slugifyToolName,
+  type ToolGrowthSnapshot,
+  type TraderToolRecord,
+} from "./tool-growth-automation";
 
-export type TraderTool = (typeof rawTools)[number];
+export type TraderTool = TraderToolRecord;
 
 export type RankedTraderTool = TraderTool & {
   slug: string;
   growthRank: ToolRankingResult;
   categoryImportance: number;
 };
+
+const coreTraderTools = rawTools as TraderTool[];
+const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
+const traderTools = [...coreTraderTools, ...automatedTraderTools];
 
 const FEATURED_WEIGHTS: Record<string, number> = {
   tradingview: 1,
@@ -34,6 +45,13 @@ const CATEGORY_IMPORTANCE: Record<string, number> = {
   security: 0.92,
   portfolio: 0.72,
   news: 0.82,
+  "wallet-tracking": 0.78,
+  explorers: 0.86,
+  defi: 0.82,
+  airdrops: 0.64,
+  sentiment: 0.76,
+  "dex-data": 0.84,
+  tax: 0.6,
 };
 
 const BEGINNER_USEFULNESS: Record<string, number> = {
@@ -42,6 +60,13 @@ const BEGINNER_USEFULNESS: Record<string, number> = {
   security: 0.94,
   news: 0.82,
   portfolio: 0.78,
+  "wallet-tracking": 0.48,
+  explorers: 0.82,
+  defi: 0.54,
+  airdrops: 0.42,
+  sentiment: 0.74,
+  "dex-data": 0.58,
+  tax: 0.64,
   research: 0.68,
   onchain: 0.58,
   derivatives: 0.44,
@@ -56,14 +81,17 @@ const PRO_USEFULNESS: Record<string, number> = {
   security: 0.82,
   news: 0.82,
   portfolio: 0.76,
+  "wallet-tracking": 0.86,
+  explorers: 0.82,
+  defi: 0.86,
+  airdrops: 0.54,
+  sentiment: 0.82,
+  "dex-data": 0.92,
+  tax: 0.72,
 };
 
 function toolSlug(tool: TraderTool): string {
-  return tool.name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return slugifyToolName(tool.name);
 }
 
 function officialLinkCompleteness(tool: TraderTool): number {
@@ -76,6 +104,7 @@ function officialLinkCompleteness(tool: TraderTool): number {
 }
 
 function toolPopularitySignal(tool: TraderTool): number {
+  if (tool.automation) return tool.automation.score;
   const name = tool.name.toLowerCase();
   if (["tradingview", "coinmarketcap", "coingecko"].includes(name)) return 1;
   if (["coinglass", "glassnode", "cryptoquant", "messari"].includes(name)) return 0.78;
@@ -89,7 +118,7 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
   return {
     slug,
     name: tool.name,
-    featuredWeight: FEATURED_WEIGHTS[slug] ?? 0.32,
+    featuredWeight: FEATURED_WEIGHTS[slug] ?? (tool.automation ? Math.min(0.5, tool.automation.score) : 0.32),
     newsImpactScore: getNewsImpactScoreForTool(slug),
     safetyScore: officialLinkCompleteness(tool),
     beginnerUsefulness: BEGINNER_USEFULNESS[categoryKey] ?? 0.62,
@@ -97,16 +126,16 @@ function buildToolRankingInput(tool: TraderTool): ToolRankingInput {
     categoryImportance: CATEGORY_IMPORTANCE[categoryKey] ?? 0.62,
     popularitySignal: toolPopularitySignal(tool),
     officialLinkCompleteness: officialLinkCompleteness(tool),
-    editorialWeight: FEATURED_WEIGHTS[slug] ? 0.72 : 0.42,
+    editorialWeight: FEATURED_WEIGHTS[slug] ? 0.72 : tool.automation ? Math.min(0.56, tool.automation.score) : 0.42,
   };
 }
 
-const rankedTools = rankTools(rawTools.map(buildToolRankingInput), rawTools.length);
+const rankedTools = rankTools(traderTools.map(buildToolRankingInput), traderTools.length);
 
 const rankBySlug = new Map(rankedTools.map((rank) => [rank.slug, rank]));
 
 export function getRankedTraderTools(): RankedTraderTool[] {
-  return rawTools
+  return traderTools
     .map((tool) => {
       const slug = toolSlug(tool);
       const growthRank = rankBySlug.get(slug) ?? rankTools([buildToolRankingInput(tool)], 1)[0];

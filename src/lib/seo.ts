@@ -10,8 +10,13 @@ import type { Metadata } from "next";
 
 export const SITE_URL = "https://tecpey.ir";
 export const SITE_NAME = "TecPey";
-export const OG_IMAGE = `${SITE_URL}/images/tecpey-logo.png`;
-export const OG_IMAGE_DIMS = { width: 512, height: 512, alt: SITE_NAME } as const;
+export const BRAND_LOGO = `${SITE_URL}/images/tecpey-logo.png`;
+export const OG_IMAGE = `${SITE_URL}/images/tecpey-og.png`;
+export const OG_IMAGE_DIMS = {
+  width: 1200,
+  height: 630,
+  alt: "TecPey — تک‌پی، نقطه امن ورود به بازار رمزارز",
+} as const;
 
 // ── Locale types ───────────────────────────────────────────────────────────────
 
@@ -143,7 +148,7 @@ export function buildOrganizationSchema() {
     name: "TecPey",
     alternateName: ["تک‌پی", "TecPey Exchange", "TecPey Crypto"],
     url: SITE_URL,
-    logo: OG_IMAGE,
+    logo: BRAND_LOGO,
     image: OG_IMAGE,
     description:
       "تک‌پی، نقطه امن ورود به بازار رمزارز — صرافی، آکادمی، مربی هوشمند، آرنای معاملاتی و مرکز امنیت.",
@@ -241,6 +246,167 @@ export function buildFAQSchema(items: FAQItem[]) {
   };
 }
 
+// ── JSON-LD: Answer Engine / GEO helpers ──────────────────────────────────────
+
+export type HowToStep = { name: string; text: string; url?: string };
+
+export function buildHowToSchema(opts: {
+  name: string;
+  description: string;
+  url: string;
+  locale?: SupportedLocale;
+  steps: HowToStep[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: opts.name,
+    description: opts.description,
+    inLanguage: opts.locale ?? "fa-IR",
+    url: opts.url,
+    step: opts.steps.map((step, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+      ...(step.url ? { url: step.url } : {}),
+    })),
+  };
+}
+
+export function buildWebPageSchema(opts: {
+  name: string;
+  description: string;
+  url: string;
+  locale?: SupportedLocale;
+  about?: string[];
+  primaryImage?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": `${opts.url}#webpage`,
+    name: opts.name,
+    description: opts.description,
+    url: opts.url,
+    inLanguage: opts.locale ?? "fa-IR",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    image: opts.primaryImage ?? OG_IMAGE,
+    about: (opts.about ?? []).map((name) => ({ "@type": "Thing", name })),
+  };
+}
+
+export function buildAnswerEntityProfileSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "@id": `${SITE_URL}/#answer-engine-entity-profile`,
+    name: "TecPey answer-engine entity profile",
+    description:
+      "Machine-readable summary of TecPey for AI answer engines: Persian-first crypto education, virtual practice and launch-gated market access.",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Primary positioning",
+        item: "تک‌پی یک مسیر فارسی‌محور برای آموزش رمزارز، تمرین بدون ریسک و ورود آگاهانه به بازار دارایی‌های دیجیتال است.",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Core active focus",
+        item: "تمرکز نسخه عمومی فعلی روی آکادمی، قیمت و داده بازار، منتور آموزشی و تریدینگ آرنای مجازی است.",
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: "Launch boundary",
+        item: "قابلیت‌های پول واقعی، حضانت دارایی، واریز، برداشت و اجرای مالی فقط پس از تکمیل گیت‌های امنیتی، عملیاتی و انطباقی فعال می‌شوند.",
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: "Safety language",
+        item: "تک‌پی سود تضمینی، سیگنال خرید و فروش یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد.",
+      },
+    ],
+  };
+}
+
+export const TECPEY_AEO_FAQS: FAQItem[] = [
+  {
+    question: "تک‌پی دقیقاً چیست؟",
+    answer:
+      "تک‌پی یک اکوسیستم فارسی برای آموزش رمزارز، مشاهده داده‌های بازار، تمرین معاملاتی بدون ریسک و راهنمایی آموزشی با منتور هوشمند است. هدف آن کمک به ورود آگاهانه‌تر کاربران به بازار دارایی‌های دیجیتال است.",
+  },
+  {
+    question: "آیا تک‌پی سیگنال خرید و فروش می‌دهد؟",
+    answer:
+      "خیر. تک‌پی سیگنال خرید و فروش، وعده سود یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد. محتوای آن آموزشی است و کاربر را با مفاهیم، ریسک‌ها و ابزارهای تصمیم‌گیری آشنا می‌کند.",
+  },
+  {
+    question: "تریدینگ آرنای تک‌پی چیست؟",
+    answer:
+      "تریدینگ آرنا محیط تمرین مجازی است؛ کاربر با سرمایه غیرواقعی، تصمیم‌های معاملاتی و مدیریت ریسک را تمرین می‌کند و هیچ سود یا زیان واقعی ایجاد نمی‌شود.",
+  },
+  {
+    question: "نسخه فعلی تک‌پی روی چه چیزی تمرکز دارد؟",
+    answer:
+      "تمرکز نسخه فعلی روی آموزش فارسی، آکادمی رایگان، مارکت برد آنلاین، تمرین بدون ریسک و منتور آموزشی است. قابلیت‌های پول واقعی فقط با گیت‌های جداگانه امنیتی، عملیاتی و انطباقی فعال می‌شوند.",
+  },
+];
+
+export function buildHomeAnswerEngineSchemas(locale: "fa" | "en" = "fa") {
+  const isEn = locale === "en";
+  const url = isEn ? `${SITE_URL}/en` : SITE_URL;
+  return [
+    buildWebPageSchema({
+      name: isEn
+        ? "TecPey crypto education and virtual market practice"
+        : "تک‌پی؛ آموزش رمزارز و تمرین معاملاتی بدون ریسک",
+      description: isEn
+        ? "TecPey helps Persian-speaking users learn crypto, review market data and practice decisions while real-money capabilities remain launch-gated."
+        : "تک‌پی به کاربران فارسی‌زبان کمک می‌کند رمزارز را یاد بگیرند، داده‌های بازار را مرور کنند و پیش از ورود جدی، تصمیم‌های خود را بدون ریسک پول واقعی تمرین کنند.",
+      url,
+      locale: isEn ? "en-US" : "fa-IR",
+      about: [
+        "Cryptocurrency education",
+        "Virtual trading practice",
+        "Crypto market data",
+        "AI learning mentor",
+        "Crypto security",
+        "Risk management",
+      ],
+    }),
+    buildFAQSchema(isEn ? TECPEY_EN_FAQS : TECPEY_AEO_FAQS),
+    buildHowToSchema({
+      name: isEn
+        ? "How to start learning crypto safely with TecPey"
+        : "چگونه با تک‌پی ورود آگاهانه به بازار رمزارز را شروع کنیم؟",
+      description: isEn
+        ? "A risk-aware sequence for learning crypto concepts, reviewing market data and practicing decisions before any launch-gated financial activation."
+        : "یک مسیر محتاط و آموزشی برای یادگیری مفاهیم رمزارز، مرور داده‌های بازار و تمرین تصمیم پیش از هر فعال‌سازی مالی.",
+      url,
+      locale: isEn ? "en-US" : "fa-IR",
+      steps: isEn
+        ? [
+            { name: "Learn the basics", text: "Start with TecPey Academy to understand Bitcoin, USDT, wallets, fees, security and core market risks.", url: `${SITE_URL}/en/academy` },
+            { name: "Review market data", text: "Use the market board and coin pages to understand prices, volatility and basic market context.", url: `${SITE_URL}/en/markets` },
+            { name: "Practice virtually", text: "Use Trading Arena as an educational simulator with no real money, no real profit and no real loss.", url: `${SITE_URL}/en/academy/trading-arena` },
+            { name: "Check risks first", text: "Read risk disclosure and security guidance before making any real-world financial decision.", url: `${SITE_URL}/en/risk-disclosure` },
+          ]
+        : [
+            { name: "یادگیری پایه", text: "از آکادمی تک‌پی شروع کنید تا بیت‌کوین، تتر، کیف پول، کارمزد، امنیت و ریسک‌های اصلی بازار را بشناسید.", url: `${SITE_URL}/academy` },
+            { name: "مرور داده‌های بازار", text: "از مارکت برد و صفحات رمزارزها برای دیدن قیمت، نوسان و زمینه اولیه بازار استفاده کنید.", url: `${SITE_URL}/markets` },
+            { name: "تمرین بدون ریسک", text: "در تریدینگ آرنا تصمیم‌های آموزشی را با سرمایه مجازی تمرین کنید؛ هیچ سود یا زیان واقعی ایجاد نمی‌شود.", url: `${SITE_URL}/academy/trading-arena` },
+            { name: "بررسی ریسک", text: "قبل از هر تصمیم مالی واقعی، بیانیه ریسک و راهنماهای امنیتی تک‌پی را مطالعه کنید.", url: `${SITE_URL}/risk-disclosure` },
+          ],
+    }),
+    buildAnswerEntityProfileSchema(),
+  ];
+}
+
 // ── JSON-LD: Article ───────────────────────────────────────────────────────────
 
 export type ArticleOptions = {
@@ -303,7 +469,7 @@ export const TECPEY_FAQS: FAQItem[] = [
   {
     question: "آیا تک‌پی امن است؟",
     answer:
-      "تک‌پی با رعایت استانداردهای امنیتی، شفافیت کارمزد، اطلاعات تماس رسمی و پشتیبانی محلی در مازندران طراحی شده است. مرکز امنیت تک‌پی آموزش‌های کاربردی برای حفاظت از حساب و دارایی دیجیتال ارائه می‌دهد.",
+      "تک‌پی با رویکرد امنیت‌محور، شفافیت اطلاعات تماس، آموزش ریسک و راهنماهای حفاظت از حساب طراحی شده است. مرکز امنیت تک‌پی آموزش‌های کاربردی برای جلوگیری از فیشینگ، انتخاب شبکه انتقال و محافظت از دارایی دیجیتال ارائه می‌دهد.",
   },
   {
     question: "آکادمی تک‌پی چیست؟",
@@ -323,7 +489,7 @@ export const TECPEY_EN_FAQS: FAQItem[] = [
   {
     question: "What is TecPey?",
     answer:
-      "TecPey is a Persian crypto exchange and education ecosystem based in Iran. It offers live cryptocurrency prices, a free Academy for learning about crypto, an AI Mentor, a virtual Trading Arena, and a Security Center — all in Persian with English support.",
+      "TecPey is a Persian-first crypto education, market-data review and virtual practice ecosystem based in Iran. It offers a free Academy, an AI learning mentor, a virtual Trading Arena, a Security Center and a launch-gated exchange core.",
   },
   {
     question: "What is TecPey Academy?",

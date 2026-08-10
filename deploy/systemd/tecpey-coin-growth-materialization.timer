@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TecPey coin growth materialization daily
+
+[Timer]
+OnCalendar=*-*-* 05:25:00
+Persistent=true
+RandomizedDelaySec=20m
+Unit=tecpey-coin-growth-materialization.service
+
+[Install]
+WantedBy=timers.target

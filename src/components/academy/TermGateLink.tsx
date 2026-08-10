@@ -10,6 +10,7 @@ export function TermGateLink({
   className = "",
   lockedClassName = "",
   locale = "fa",
+  checkProgress = true,
 }: {
   href: string;
   termNumber: number;
@@ -17,12 +18,17 @@ export function TermGateLink({
   className?: string;
   lockedClassName?: string;
   locale?: "fa" | "en";
+  checkProgress?: boolean;
 }) {
-  const [unlocked, setUnlocked] = useState(termNumber <= 1);
+  const [unlocked, setUnlocked] = useState(!checkProgress || termNumber <= 1);
 
   useEffect(() => {
     let active = true;
     const checkUnlock = async () => {
+      if (!checkProgress) {
+        setUnlocked(true);
+        return;
+      }
       if (termNumber <= 1) {
         setUnlocked(true);
         return;
@@ -49,7 +55,7 @@ export function TermGateLink({
       window.removeEventListener("tecpey-academy-progress-updated", checkUnlock);
       window.removeEventListener("focus", checkUnlock);
     };
-  }, [termNumber, locale]);
+  }, [termNumber, locale, checkProgress]);
 
   if (!unlocked) {
     return (

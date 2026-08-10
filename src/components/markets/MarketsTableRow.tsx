@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Chart from "@/components/charts/chart";
+import { CryptoAssetIcon } from "@/components/crypto/CryptoAssetIcon";
 import { handleDecimal } from "@/utils/handleDecimal";
 import type { MarketCurrency } from "@/types/market";
 
@@ -56,14 +56,7 @@ export default function MarketsTableRow({
     >
       {/* coin */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-        <Image
-          src={coin.icon || "/default-coin.svg"}
-          alt={coin.symbol || "coin"}
-          width={28}
-          height={28}
-          className="h-7 w-7 rounded-full shrink-0 border border-primary/20 sm:h-8 sm:w-8"
-          unoptimized
-        />
+        <CryptoAssetIcon symbol={coin.symbol || ""} name={coin.name} size="sm" />
         <div className="min-w-0">
           <p className="truncate text-[11px] sm:text-[13px] font-bold text-fg/80">
             {coin.symbol}

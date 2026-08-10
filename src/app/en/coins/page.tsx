@@ -1,47 +1,17 @@
 import { ArticleSchema } from "@/components/seo/ArticleSchema";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
+import { coinPages } from "@/data/coins";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import { ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Crypto coin guides | TecPey",
   description: "English guides for Bitcoin, Tether, Ethereum, Toncoin, Solana and other crypto assets: use cases, risks and key considerations.",
   alternates: { canonical: "https://tecpey.ir/en/coins" },
 };
-
-const coins = [
-  { slug: "bitcoin", symbol: "BTC", name: "Bitcoin" },
-  { slug: "tether", symbol: "USDT", name: "Tether" },
-  { slug: "ethereum", symbol: "ETH", name: "Ethereum" },
-  { slug: "toncoin", symbol: "TON", name: "Toncoin" },
-  { slug: "solana", symbol: "SOL", name: "Solana" },
-  { slug: "xrp", symbol: "XRP", name: "XRP" },
-  { slug: "dogecoin", symbol: "DOGE", name: "Dogecoin" },
-  { slug: "bnb", symbol: "BNB", name: "BNB" },
-  { slug: "cardano", symbol: "ADA", name: "Cardano" },
-  { slug: "tron", symbol: "TRX", name: "TRON" },
-  { slug: "avalanche", symbol: "AVAX", name: "Avalanche" },
-  { slug: "chainlink", symbol: "LINK", name: "Chainlink" },
-  { slug: "polkadot", symbol: "DOT", name: "Polkadot" },
-  { slug: "litecoin", symbol: "LTC", name: "Litecoin" },
-  { slug: "bitcoin-cash", symbol: "BCH", name: "Bitcoin Cash" },
-  { slug: "near", symbol: "NEAR", name: "NEAR Protocol" },
-  { slug: "aptos", symbol: "APT", name: "Aptos" },
-  { slug: "sui", symbol: "SUI", name: "Sui" },
-  { slug: "arbitrum", symbol: "ARB", name: "Arbitrum" },
-  { slug: "optimism", symbol: "OP", name: "Optimism" },
-  { slug: "cosmos", symbol: "ATOM", name: "Cosmos" },
-  { slug: "pepe", symbol: "PEPE", name: "Pepe" },
-  { slug: "shiba-inu", symbol: "SHIB", name: "Shiba Inu" },
-  { slug: "filecoin", symbol: "FIL", name: "Filecoin" },
-  { slug: "internet-computer", symbol: "ICP", name: "Internet Computer" },
-  { slug: "injective", symbol: "INJ", name: "Injective" },
-  { slug: "sei", symbol: "SEI", name: "Sei" },
-  { slug: "stellar", symbol: "XLM", name: "Stellar" },
-  { slug: "uniswap", symbol: "UNI", name: "Uniswap" },
-  { slug: "maker", symbol: "MKR", name: "Maker" }
-];
-
 
 const schema = {
   "@context": "https://schema.org",
@@ -71,7 +41,31 @@ export default function CoinsPage() {
       </section>
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {coins.map((coin) => <EnglishCard key={coin.slug} title={`${coin.name} (${coin.symbol})`} text={`Learn what ${coin.name} is, how it is commonly used and which risks to check before trading or transferring ${coin.symbol}.`} href={`/en/coins/${coin.slug}`} />)}
+          {coinPages.map((coin) => (
+            <Link
+              key={coin.slug}
+              href={`/en/coins/${coin.slug}`}
+              className="group overflow-hidden rounded-[30px] border border-cyan-300/15 bg-[#06111f] p-3 shadow-[0_18px_55px_rgba(34,211,238,.10)] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60"
+            >
+              <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} locale="en" />
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-black text-white">
+                      {coin.name} ({coin.symbol})
+                    </h2>
+                    <p className="mt-1 text-xs font-black text-cyan-300">Risk-aware crypto guide</p>
+                  </div>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-cyan-500/10 text-cyan-200 transition group-hover:bg-cyan-500 group-hover:text-white">
+                    <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <p className="mt-3 line-clamp-3 text-sm font-bold leading-7 text-slate-300">
+                  Learn what {coin.name} is, how it is commonly used and which risks to check before trading or transferring {coin.symbol}.
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
     </EnglishShell>
