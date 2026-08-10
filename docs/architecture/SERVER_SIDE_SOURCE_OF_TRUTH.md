@@ -37,6 +37,6 @@ Security session cookies remain permitted when they are `HttpOnly`, `Secure` and
 2. Flashcard and reflection state
 3. Trading Arena state and event history
 4. Remaining preferences and offline-sync paths
-5. Repository guard preventing new authoritative browser persistence
+5. Repository guard preventing new authoritative browser persistence: `npm run browser:persistence:check`
 
 Each migration requires database schema, authenticated API, client hydration, mutation reconciliation, tests and CI evidence before merge.

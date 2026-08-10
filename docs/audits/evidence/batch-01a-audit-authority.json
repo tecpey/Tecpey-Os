@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "189ea0105224cc1eb554467f0eb1ebc14f77fd31",
-      "sha256": "158989a5b98004d87446499067129114ef28d59e533eb613b5c2f7844c73819a",
-      "lines": 198,
+      "gitObjectId": "b9f0565263a94e82b589836f377c76ba018e284f",
+      "sha256": "baf8cd955d961e978e2867915f936aebb0218a11edc9d80d27518e01cf4d143c",
+      "lines": 199,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 198
+          "endLine": 199
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -72,7 +72,8 @@
         "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate.",
         "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check.",
         "2026-08-10: re-reviewed after wiring governed news materialization, coin growth and tool growth commands into package scripts and release:check. The commands remain local repository scripts/tests, add no dependency, engine or override, do not enable exchange execution, wallet connection, API-key access, signal publishing or external trade automation, and the file now has 198 lines.",
-        "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change."
+        "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change.",
+        "2026-08-10: re-reviewed after exposing scripts/check-browser-persistence.mjs as browser:persistence:check and wiring it into release:check. The command is an existing read-only static source guard over classified browser persistence; it adds no dependency, engine, override, network access, runtime mutation path or activation surface."
       ],
       "findings": [
         {

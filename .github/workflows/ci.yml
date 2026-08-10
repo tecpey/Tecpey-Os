@@ -210,7 +210,7 @@ jobs:
           retention-days: 7
 
       - name: Browser persistence guard
-        run: node scripts/check-browser-persistence.mjs
+        run: npm run browser:persistence:check
 
       - name: Admin authentication boundary guard
         run: node scripts/check-admin-auth-boundary.mjs

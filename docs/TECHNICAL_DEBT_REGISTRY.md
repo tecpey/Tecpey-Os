@@ -27,7 +27,7 @@ Exact-head CI evidence overrides stale file-location assumptions.
 
 - **Status:** Authority portion closed — residual is disposable cache only
 - **Location:** `scripts/check-browser-persistence.mjs` is the authoritative
-  inventory. It reports 25 classified lines across 7 production files, and
+  inventory, exposed through `npm run browser:persistence:check`. It reports 25 classified lines across 7 production files, and
   **zero** browser-owned authority: 23 `disposable-ui-cache`, 1
   `one-shot-legacy-migration`, 1 `repairable-offline-projection`.
 - **Impact:** None for durable state. Clearing browser storage now loses only
