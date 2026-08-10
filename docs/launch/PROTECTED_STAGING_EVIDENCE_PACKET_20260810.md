@@ -1,0 +1,75 @@
+# Protected Staging Evidence Packet - 2026-08-10
+
+**Packet status:** DRAFT operational evidence scaffold, not final Go approval  
+**Decision:** NO-GO until protected staging, recovery, rollback, incident, risk and approval evidence is accepted  
+**Staging evidence target SHA:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`  
+**Runtime candidate baseline:** `03e77790630dac737a2d4cc4636b97e80de48ab3`  
+**Evidence branch:** `agent/protected-staging-no-go-evidence-packet`  
+**Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`
+
+This packet is the next release-control surface after the controlled soft launch
+RC evidence packet. It converts the remaining NO-GO decision into an execution
+register that can be closed one blocker at a time.
+
+The staging evidence target is the current `main` SHA after PR #358. The
+runtime candidate baseline remains `03e77790630dac737a2d4cc4636b97e80de48ab3`; PR #358 only added
+documentation evidence and did not intentionally change runtime behavior. Any
+staging deployment must record which SHA was deployed, and health/runtime
+evidence must match that same SHA.
+
+## Current Decision
+
+| Scope | Decision | Reason |
+|---|---|---|
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery, rollback, incident readiness and approvals are not yet accepted. |
+| Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
+| Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
+| Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
+
+## NO-GO Register
+
+| ID | Blocker | Closure action | Authority | Launch impact |
+|---|---|---|---|---|
+| NOG-01 | Protected staging activation evidence is missing | Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary. | docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md | Blocks controlled soft launch Go |
+| NOG-02 | Production-like environment configuration is not proven | Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values. | docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md | Blocks final packet |
+| NOG-03 | Immutable runtime image digest is missing | Build or identify the exact container/runtime image for the staging target SHA and record a SHA-256 image digest. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks exact release identity |
+| NOG-04 | Exact-head workflow URLs are not attached to a final manifest | Attach exact-head CI, repository audit, Public Browser Golden Path and secret scanning workflow URLs for the staging target SHA. | docs/launch/generated/controlled-soft-launch-rc-evidence-packet-20260810.json | Blocks final manifest |
+| NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
+| NOG-06 | Rollback or forward-fix evidence is missing | Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks deployment safety |
+| NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
+| NOG-08 | Accepted-risk sign-off is not final evidence | Attach owner-approved accepted-risk sign-off for this exact candidate, including review dates, thresholds, user communication and rollback triggers. | docs/LAUNCH_ACCEPTED_RISKS.md | Blocks executive decision |
+| NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
+| NOG-10 | Real-money Exchange remains uncertified | Keep Exchange launch-disabled until decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence are accepted. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks real-money Exchange only |
+| NOG-11 | Custody, deposits and withdrawals remain uncertified | Keep custody/deposit/withdrawal paths product-disabled until HSM/MPC, chain-provider certification, on-chain reconciliation and settlement evidence are accepted. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks custody and withdrawals only |
+| NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Preserve route/env/UI/copy guards so these surfaces cannot be advertised or activated by accident. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks expanded launch scope |
+
+## First Execution Slice
+
+The next engineering/operations slice should close **NOG-01** and **NOG-02**
+together:
+
+1. run the protected `staging` environment workflow for the exact staging target
+   SHA;
+2. collect the host evidence required by
+   `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`;
+3. run `env:check` only in the protected staging/prod-like environment and
+   preserve redacted pass/fail evidence;
+4. upload the canonical evidence artifact, detached SHA-256 digest and verifier
+   summary;
+5. update the final launch manifest only with HTTPS URLs, SHA-256 digests and
+   release identifiers.
+
+## Evidence Privacy Boundary
+
+Evidence must contain only hashes, release identifiers, redacted pass/fail
+summaries and HTTPS artifact URLs. It must not contain secrets, database URLs,
+host IPs, raw logs, raw customer rows, private keys, provider payloads or prompt
+transcripts.
+
+## Decision Rule
+
+This packet may be merged as a planning/evidence-control artifact, but it does
+not change launch readiness. The final decision remains:
+
+**NO-GO until every blocker in the register has accepted evidence or the related
+capability remains explicitly launch-disabled.**
