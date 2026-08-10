@@ -194,10 +194,10 @@
       "table": "platform_workspaces",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate.ts",
-      "isolationModel": "tenant_id in unique constraint; workspace ownership is load-bearing through the composite membership FK and upsertMembership guard. A membership for tenant A cannot point at tenant B's workspace, and a user enrolled in one tenant cannot resolve roles through another tenant's workspace.",
+      "isolationModel": "tenant_id in unique constraint; getWorkspace reads WHERE id = $1 AND tenant_id = $2; workspace ownership is also load-bearing through the composite membership FK and upsertMembership guard. A membership for tenant A cannot point at tenant B's workspace, and a user enrolled in one tenant cannot resolve roles through another tenant's workspace.",
       "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Proven by platform-membership-cross-tenant-isolation-postgres.test.ts: it seeds two tenants/workspaces, rejects binding tenant A to tenant B's workspace, verifies no leaked membership remains after the rejected write, and confirms same-user memberships resolve only under their own tenant/workspace.",
+      "isolationNote": "Proven by platform-membership-cross-tenant-isolation-postgres.test.ts: it seeds two tenants/workspaces, verifies getWorkspace cannot read tenant A's workspace under tenant B, rejects binding tenant A to tenant B's workspace, verifies no leaked membership remains after the rejected write, and confirms same-user memberships resolve only under their own tenant/workspace.",
       "testReference": "src/tests/security/platform-membership-cross-tenant-isolation-postgres.test.ts"
     },
     {
