@@ -1,0 +1,106 @@
+name: Support Deployment Bundle
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: 'Branch, tag, or exact commit SHA to package'
+        required: true
+        default: 'main'
+      source_bundle_exception_approval:
+        description: 'Type I_APPROVE_SOURCE_BUNDLE_EXCEPTION to create a proprietary source bundle'
+        required: true
+        default: 'DENIED'
+
+concurrency:
+  group: support-deployment-bundle-${{ inputs.release_ref }}
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Exception-approved support source bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate explicit exception approval
+        env:
+          APPROVAL: ${{ inputs.source_bundle_exception_approval }}
+        run: test "$APPROVAL" = "I_APPROVE_SOURCE_BUNDLE_EXCEPTION"
+
+      - name: Checkout requested source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_ref }}
+          persist-credentials: false
+
+      - name: Resolve exact release SHA
+        id: release
+        run: |
+          release_sha="$(git rev-parse HEAD)"
+          test "$(printf '%s' "$release_sha" | wc -c)" -eq 40
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+          printf 'Support bundle release SHA: %s\n' "$release_sha"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Create support deployment bundle
+        id: create_bundle
+        env:
+          TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED: '1'
+          TECPEY_BUNDLE_OUTPUT_DIR: ${{ runner.temp }}/tecpey-support-bundle
+        run: |
+          mkdir -p "$TECPEY_BUNDLE_OUTPUT_DIR"
+          npm run support:bundle
+          zip_path="$(find "$TECPEY_BUNDLE_OUTPUT_DIR" -maxdepth 1 -type f -name 'tecpey-deployment-*.zip' -print -quit)"
+          test -n "$zip_path"
+          test -f "$zip_path.sha256"
+          echo "zip_path=$zip_path" >> "$GITHUB_OUTPUT"
+          echo "sha_path=$zip_path.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Verify support deployment bundle
+        run: npm run support:bundle:verify -- "${{ steps.create_bundle.outputs.zip_path }}" "${{ steps.create_bundle.outputs.sha_path }}"
+
+      - name: Write support artifact notice
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          ZIP_PATH: ${{ steps.create_bundle.outputs.zip_path }}
+        run: |
+          notice_path="$(dirname "$ZIP_PATH")/SUPPORT_ARTIFACT_README.md"
+          cat > "$notice_path" <<NOTICE
+          # TecPey Support Deployment Artifact
+
+          Release SHA: $RELEASE_SHA
+
+          This artifact contains an exception-approved proprietary TecPey source deployment bundle and its detached SHA-256 file.
+
+          Send only the zip, the .sha256 file, and the support handoff instructions to the approved infrastructure/support recipient. Do not send .env.production, production credentials, database dumps, private keys, tokens, or raw logs.
+
+          Required recipient verification:
+
+          \`\`\`bash
+          sha256sum -c tecpey-deployment-$RELEASE_SHA.zip.sha256
+          \`\`\`
+
+          Primary handoff inside the bundle:
+
+          \`\`\`text
+          docs/operations/SUPPORT_TEAM_DEPLOYMENT_HANDOFF.md
+          \`\`\`
+          NOTICE
+
+      - name: Upload support deployment artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tecpey-support-deployment-${{ steps.release.outputs.sha }}
+          path: |
+            ${{ steps.create_bundle.outputs.zip_path }}
+            ${{ steps.create_bundle.outputs.sha_path }}
+            ${{ runner.temp }}/tecpey-support-bundle/SUPPORT_ARTIFACT_README.md
+          if-no-files-found: error
+          retention-days: 7
