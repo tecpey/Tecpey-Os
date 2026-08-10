@@ -78,7 +78,7 @@
   "nog02": {
     "title": "Redacted protected env evidence",
     "status": "awaiting_protected_execution",
-    "command": "NODE_ENV=production npm run env:check",
+    "command": "cd \"$TECPEY_STAGING_APP_DIR\" && set -a && . \"$TECPEY_STAGING_ENV_FILE\" && set +a && NODE_ENV=production npm run env:check",
     "acceptanceCriteria": [
       "required public URLs are present and non-placeholder",
       "required TecPey signing secrets are present, length-valid and distinct",
@@ -105,7 +105,7 @@
     "health endpoint is not healthy for PostgreSQL or Redis",
     "alert pending or quarantine count is non-zero",
     "detached digest or verifier summary is missing",
-    "env:check fails or cannot run with production-like staging configuration",
+    "env:check fails or cannot run with the protected staging env file loaded",
     "evidence contains forbidden sensitive material"
   ],
   "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
