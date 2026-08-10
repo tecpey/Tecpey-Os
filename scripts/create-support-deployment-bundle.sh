@@ -130,15 +130,21 @@ do
 done
 
 OUTPUT_ZIP="$OUTPUT_DIR/${BUNDLE_ROOT}.zip"
-rm -f "$OUTPUT_ZIP" "$OUTPUT_ZIP.sha256"
+OUTPUT_SHA="$OUTPUT_ZIP.sha256"
+OUTPUT_ZIP_NAME="$(basename "$OUTPUT_ZIP")"
+OUTPUT_SHA_NAME="$(basename "$OUTPUT_SHA")"
+rm -f "$OUTPUT_ZIP" "$OUTPUT_SHA"
 (
   cd "$TMP_DIR"
   zip -qr "$OUTPUT_ZIP" "$BUNDLE_ROOT"
 )
-sha256sum "$OUTPUT_ZIP" > "$OUTPUT_ZIP.sha256"
+(
+  cd "$OUTPUT_DIR"
+  sha256sum "$OUTPUT_ZIP_NAME" > "$OUTPUT_SHA_NAME"
+)
 
 echo "Created support deployment bundle:"
 echo "$OUTPUT_ZIP"
-echo "$OUTPUT_ZIP.sha256"
+echo "$OUTPUT_SHA"
 echo "Verify before sending:"
-echo "npm run support:bundle:verify -- \"$OUTPUT_ZIP\" \"$OUTPUT_ZIP.sha256\""
+echo "npm run support:bundle:verify -- \"$OUTPUT_ZIP\" \"$OUTPUT_SHA\""
