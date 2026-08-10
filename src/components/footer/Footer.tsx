@@ -174,7 +174,13 @@ function ContactPanel({ isEnglish }: { isEnglish: boolean }) {
   return (
     <section className="rounded-[30px] border border-cyan-300/15 bg-white/[0.035] p-5">
       <Link href={isEnglish ? "/en" : "/"} className="inline-flex items-center" aria-label="TecPey Home">
-        <TecpeyMark alt="TecPey" width={200} height={58} className="h-[58px] w-auto object-contain" />
+        <TecpeyMark
+          alt={isEnglish ? "Official TecPey lockup" : "لوگوی رسمی تک‌پی"}
+          variant="lockup"
+          width={220}
+          height={101}
+          className="h-[64px] w-auto max-w-full object-contain"
+        />
       </Link>
       <p className="mt-4 text-sm font-bold leading-8 text-white/68">
         {isEnglish

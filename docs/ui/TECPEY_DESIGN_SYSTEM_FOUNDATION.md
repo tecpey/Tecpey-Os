@@ -23,6 +23,7 @@ TecPey is a Persian-first financial education and trading operating system for b
 | Canonical runtime icon | `public/images/tecpey-logo.png` |
 | Runtime alias | `public/logo.png` |
 | Compact runtime mark | `public/images/brand/tecpey-logo-256.png` |
+| Runtime lockup | `public/images/brand/tecpey-lockup-fa-en.png` |
 | Official documentation preview | `docs/assets/brand/tecpey-logo-official.webp` |
 | Uploaded TP source references | `docs/assets/brand/source/*` |
 | Brand registry | `docs/assets/brand/brand-assets.json` |
