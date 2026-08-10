@@ -1,10 +1,12 @@
 # Controlled Soft Launch Go/No-Go Checklist
 
 **Status:** NO-GO until every blocking row below has accepted evidence  
-**Baseline main SHA before this checklist:** `046b85a7281805e0a633ff268734d3052e3cc3bf`  
-**Current draft RC evidence packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`
-**Current protected staging NO-GO register:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`, `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`
-**Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
+**Current candidate SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
+**Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`  
+**Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`  
+**Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`  
+**Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
 
 This checklist is the release-decision surface for the narrow controlled Soft
 Launch. It is not a marketing readiness claim, and it does not authorize
@@ -23,7 +25,9 @@ The only launch scope this checklist can approve is:
   restored, rolled back, monitored, and truthfully represented.
 
 Everything outside that scope must remain disabled, hidden, or explicitly
-labelled as gated.
+labelled as gated. All new evidence collection must use the current candidate
+ledger above; older packet SHAs are historical draft baselines only unless a
+release-owner promotion PR explicitly reselects them.
 
 ## Blocking checklist
 
