@@ -301,7 +301,7 @@ function TopDiscoveryGateway({
               ابزارهای ترند و کاربردی
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] md:grid md:grid-cols-5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
-              {tools.map((tool, index) => (
+              {tools.map((tool) => (
                 <Link
                   key={tool.slug}
                   href={`/trading-tools/${tool.slug}`}
