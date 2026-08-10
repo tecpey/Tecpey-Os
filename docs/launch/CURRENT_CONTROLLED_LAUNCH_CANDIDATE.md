@@ -2,14 +2,21 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
+**Runtime candidate SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
 **Candidate source:** `main` after PR #367  
 **Candidate selected at:** `2026-08-10T20:04:26Z`  
+**Candidate control-plane commit:** `4be0ce6a8fa309d02f754cd476c9a3b28516e65f` introduced this ledger in PR #368  
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
 this ledger explicitly lists them as active inputs.
+
+This ledger is a control-plane document. Its own documentation commits are not
+automatic runtime promotions. The deployed app checkout, workflow checkout,
+bundle manifest and `/api/health` commit for new evidence must continue to match
+the runtime candidate SHA above unless a later candidate-promotion PR explicitly
+changes that SHA.
 
 ## Why This Candidate Exists
 
@@ -34,12 +41,16 @@ ambiguity this ledger is designed to remove.
 
 ## Candidate Identity Rules
 
-- Every new launch evidence artifact must record this exact 40-character SHA.
+- Every new launch evidence artifact must record the exact 40-character runtime
+  candidate SHA above.
 - The deployed app checkout, workflow checkout, bundle manifest, `/api/health`
-  commit and generated evidence JSON must all match this SHA.
+  commit and generated evidence JSON must all match the runtime candidate SHA.
 - If a later PR changes runtime, deployment, security, bundle, evidence or
   launch-control behavior, this file and its generated JSON must be updated in a
   separate candidate-promotion PR before evidence collection continues.
+- Documentation-only clarifications to this ledger may record a new control-plane
+  commit, but they must not advance the runtime candidate unless the runtime
+  candidate SHA field changes through that promotion process.
 - Historical evidence packets may stay in the repository, but they must not be
   presented as current final evidence unless regenerated and accepted for this
   SHA.
@@ -59,8 +70,8 @@ ambiguity this ledger is designed to remove.
 
 ## Decision
 
-This ledger narrows the launch-control line to one candidate. It does not move
-TecPey to Go.
+This ledger narrows the launch-control line to one runtime candidate. It does not
+move TecPey to Go.
 
 **Current decision: NO-GO until this exact candidate has complete accepted
 operational evidence and every out-of-scope financial/enterprise capability
