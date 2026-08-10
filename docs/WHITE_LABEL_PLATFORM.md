@@ -13,6 +13,13 @@ White-Label is TecPey's Enterprise B2B product. It allows universities, prop fir
 
 این محصول استراتژیک تک‌پی برای ورود به بازار سازمانی است.
 
+White-label delivery is a licensed platform use right, not a source-code or IP
+transfer. The controlled delivery boundary is governed by
+`docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md`: customers may
+receive hosted access, tenant configuration, immutable artifact evidence, and
+contracted support, but they do not receive permission to resell, sublicense,
+redistribute, reverse-engineer, or operate an unlicensed TecPey derivative.
+
 ---
 
 ## 2. Business Model

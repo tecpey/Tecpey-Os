@@ -62,6 +62,7 @@ for (const required of [
   "package.json",
   ".env.production.example",
   "DEPLOY_UBUNTU_24_PRODUCTION.md",
+  "docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md",
   "docs/operations/SUPPORT_TEAM_DEPLOYMENT_HANDOFF.md",
   "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
   "docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md",
@@ -114,21 +115,30 @@ try {
 }
 
 if (manifest) {
-  if (!manifest.includes("TecPey support deployment bundle")) {
+  const normalizedManifest = manifest.replace(/\s+/g, " ");
+  const hasManifestToken = (token) =>
+    manifest.includes(token) || normalizedManifest.includes(token.replace(/\s+/g, " "));
+
+  if (!hasManifestToken("TecPey support deployment bundle")) {
     fail("manifest is missing the TecPey support deployment bundle title");
   }
-  if (expectedReleaseSha && !manifest.includes(`Release SHA: ${expectedReleaseSha}`)) {
+  if (expectedReleaseSha && !hasManifestToken(`Release SHA: ${expectedReleaseSha}`)) {
     fail("manifest release SHA does not match the bundle top-level directory");
   }
   for (const token of [
+    "Proprietary source bundle exception",
+    "Source bundle exception approved: 1",
+    "No ownership, resale, sublicensing, redistribution, reverse-engineering, or competing use is granted.",
+    "docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md",
     "docs/operations/SUPPORT_TEAM_DEPLOYMENT_HANDOFF.md",
     "deploy/systemd/tecpey-news-materialization.service.in",
     "deploy/systemd/tecpey-news-materialization.timer",
     "scripts/install-news-materialization-scheduler.sh",
     "docs/assets/brand/brand-assets.json",
+    "TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1",
     "Never add .env.production",
   ]) {
-    if (!manifest.includes(token)) fail(`manifest is missing required token: ${token}`);
+    if (!hasManifestToken(token)) fail(`manifest is missing required token: ${token}`);
   }
 }
 

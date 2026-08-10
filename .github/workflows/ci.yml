@@ -186,6 +186,9 @@ jobs:
       - name: Secret-scanning authority guard
         run: npm run security:secrets:check
 
+      - name: Source ownership authority guard
+        run: npm run ip:ownership:check
+
       - name: Operational recovery authority and negative tests
         run: npm run test:ops-recovery-authority
 

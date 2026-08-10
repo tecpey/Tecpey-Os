@@ -14,6 +14,14 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ "${TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED:-0}" != "1" ]; then
+  echo "Refusing to create a source deployment bundle without explicit exception approval." >&2
+  echo "TecPey support/customer delivery is artifact-first; full source bundles are staging/support exceptions only." >&2
+  echo "Set TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1 only after executive approval, recipient accountability, and policy review." >&2
+  echo "Policy: docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md" >&2
+  exit 1
+fi
+
 RELEASE_SHA="$(git rev-parse --verify HEAD)"
 if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "Unable to resolve an exact 40-character release SHA." >&2
@@ -57,13 +65,25 @@ tar \
 
 cat > "$STAGING_DIR/SUPPORT_BUNDLE_MANIFEST.txt" <<MANIFEST
 TecPey support deployment bundle
+Proprietary source bundle exception
 
 Release SHA: $RELEASE_SHA
 Created UTC: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 Dirty working tree allowed: ${TECPEY_ALLOW_DIRTY_BUNDLE:-0}
+Source bundle exception approved: ${TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED:-0}
+Source bundle exception variable: TECPEY_SOURCE_BUNDLE_EXCEPTION_APPROVED=1
+
+Ownership notice:
+This TecPey package is proprietary and confidential. Access is granted only
+for the approved installation or verification task. No ownership, resale,
+sublicensing, redistribution, reverse-engineering, or competing use is granted.
+All rights remain with TechnoPardakht.
 
 Primary handoff:
 docs/operations/SUPPORT_TEAM_DEPLOYMENT_HANDOFF.md
+
+Source ownership policy:
+docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md
 
 Deployment contracts:
 DEPLOY_UBUNTU_24_PRODUCTION.md
