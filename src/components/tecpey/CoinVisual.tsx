@@ -40,6 +40,7 @@ export function CoinVisual({
       data-coin-visual={asset.symbol}
       data-coin-asset-source={asset.source}
       className={`relative block shrink-0 overflow-hidden border border-cyan-300/20 bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,.18),transparent_24%),radial-gradient(circle_at_72%_72%,rgba(34,211,238,.24),transparent_34%),linear-gradient(145deg,#06111f,#0f172a)] shadow-[0_18px_48px_rgba(8,145,178,.16)] ${variantClass[variant]} ${className}`}
+      role="img"
       aria-label={`${label} (${asset.symbol})`}
       title={`${label} (${asset.symbol})`}
     >
