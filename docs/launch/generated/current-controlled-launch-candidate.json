@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "current-controlled-launch-candidate",
+  "generatedAt": "2026-08-10T20:05:30.000Z",
+  "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
+  "currentCandidate": {
+    "sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "sourceBranch": "main",
+    "sourcePullRequest": 367,
+    "selectedAt": "2026-08-10T20:04:26Z",
+    "reason": "Includes support bundle hardening for immutable release refs and portable detached checksums."
+  },
+  "supersedes": [
+    {
+      "sha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
+      "previousRole": "runtime baseline in first draft RC evidence packet",
+      "currentStatus": "historical_draft_baseline_only"
+    },
+    {
+      "sha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+      "previousRole": "protected staging evidence target after PR 358",
+      "currentStatus": "superseded_for_new_protected_staging_collection"
+    },
+    {
+      "sha": "f64593e773642e33f5afc1c7baf9351de9e43500",
+      "previousRole": "support bundle workflow before hardening",
+      "currentStatus": "historical_handoff_baseline_only"
+    }
+  ],
+  "activeInputs": {
+    "humanLedger": "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
+    "protectedStagingRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+    "protectedStagingRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
+    "noGoRegister": "docs/launch/generated/protected-staging-no-go-register-20260810.json",
+    "goNoGoChecklist": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md"
+  },
+  "candidateIdentityRules": [
+    "all new launch evidence must record this exact 40-character SHA",
+    "workflow checkout, deployed app checkout, bundle manifest, health commit and generated evidence JSON must match this SHA",
+    "later runtime, deployment, security, bundle, evidence or launch-control changes require a candidate-promotion PR before evidence collection continues",
+    "historical draft packets are not current final evidence unless regenerated and accepted for this SHA",
+    "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
+  ],
+  "requiredNextEvidence": [
+    "exact-head workflow URLs and dispositions for the current candidate",
+    "immutable runtime image digest and deployment artifact digest",
+    "protected staging NOG-01/NOG-02 evidence for the current candidate",
+    "recovery reconciliation evidence",
+    "rollback or approved forward-fix evidence",
+    "incident readiness evidence",
+    "accepted-risk sign-off and Go approval matrix for the current candidate"
+  ],
+  "privacyBoundary": [
+    "candidate ledgers contain release identifiers, paths, status and authority references only",
+    "final evidence must not contain raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ]
+}
