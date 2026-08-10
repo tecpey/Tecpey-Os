@@ -121,10 +121,13 @@ Helper text below Academy CTA (small, not competing):
 - Runtime lockup copy: `/public/images/brand/tecpey-lockup-fa-en.png`
 - Maskable PWA icon: `/public/maskable-icon-512x512.png`
 - Runtime UI component: `src/components/brand/TecpeyMark.tsx`
+- Runtime lockup component usage: `TecpeyMark variant="lockup"` on spacious brand surfaces only
 - Runtime mirror: `/public/logo.png` must remain byte-identical to the canonical icon
 - Derived runtime asset: `/public/images/brand/tecpey-logo-256.png` must remain a governed 256×256 PNG recorded in the brand asset registry
+- Official selected sources: icon source `/docs/assets/brand/source/tecpey-tp-icon-uploaded.png`, compact icon reference `/docs/assets/brand/source/tecpey-tp-icon-compact-uploaded.png`, and lockup source `/docs/assets/brand/source/tecpey-lockup-uploaded.png`
 - Usage: Always use on appropriate contrast background
 - Do not distort, recolor, or add effects to the logo
+- The white/checker lockup reference is not approved for runtime UI because it loses contrast on light backgrounds.
 - Favicon, Apple touch icon, Android/PWA icons and README previews must be generated from the same official icon source.
 - PWA maskable icons must use a brand background and safe-zone padding so the TP mark is not clipped by Android launchers.
 - Uploaded source references are recorded in `/docs/assets/brand/brand-assets.json` with SHA-256 hashes.
