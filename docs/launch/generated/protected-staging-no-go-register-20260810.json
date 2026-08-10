@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-staging-no-go-register",
+  "generatedAt": "2026-08-10T00:00:00.000Z",
+  "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  "stagingEvidenceTargetSha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+  "runtimeCandidateBaselineSha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
+  "currentMainShaAfterRcPacketMerge": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
+  "evidenceBranch": "agent/protected-staging-no-go-evidence-packet",
+  "privacyBoundary": [
+    "register contains release identifiers, paths, closure actions and authority references only",
+    "final evidence must not contain raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ],
+  "blockers": [
+    {
+      "order": 1,
+      "id": "NOG-01",
+      "title": "Protected staging activation evidence is missing",
+      "status": "open",
+      "closureAction": "Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary.",
+      "authority": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
+      "launchImpact": "Blocks controlled soft launch Go"
+    },
+    {
+      "order": 2,
+      "id": "NOG-02",
+      "title": "Production-like environment configuration is not proven",
+      "status": "open",
+      "closureAction": "Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md",
+      "launchImpact": "Blocks final packet"
+    },
+    {
+      "order": 3,
+      "id": "NOG-03",
+      "title": "Immutable runtime image digest is missing",
+      "status": "open",
+      "closureAction": "Build or identify the exact container/runtime image for the staging target SHA and record a SHA-256 image digest.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "launchImpact": "Blocks exact release identity"
+    },
+    {
+      "order": 4,
+      "id": "NOG-04",
+      "title": "Exact-head workflow URLs are not attached to a final manifest",
+      "status": "open",
+      "closureAction": "Attach exact-head CI, repository audit, Public Browser Golden Path and secret scanning workflow URLs for the staging target SHA.",
+      "authority": "docs/launch/generated/controlled-soft-launch-rc-evidence-packet-20260810.json",
+      "launchImpact": "Blocks final manifest"
+    },
+    {
+      "order": 5,
+      "id": "NOG-05",
+      "title": "Backup, restore and recovery reconciliation evidence is missing",
+      "status": "open",
+      "closureAction": "Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation.",
+      "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
+      "launchImpact": "Blocks restore trust"
+    },
+    {
+      "order": 6,
+      "id": "NOG-06",
+      "title": "Rollback or forward-fix evidence is missing",
+      "status": "open",
+      "closureAction": "Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "launchImpact": "Blocks deployment safety"
+    },
+    {
+      "order": 7,
+      "id": "NOG-07",
+      "title": "Incident readiness evidence is missing",
+      "status": "open",
+      "closureAction": "Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill.",
+      "authority": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "launchImpact": "Blocks support readiness"
+    },
+    {
+      "order": 8,
+      "id": "NOG-08",
+      "title": "Accepted-risk sign-off is not final evidence",
+      "status": "open",
+      "closureAction": "Attach owner-approved accepted-risk sign-off for this exact candidate, including review dates, thresholds, user communication and rollback triggers.",
+      "authority": "docs/LAUNCH_ACCEPTED_RISKS.md",
+      "launchImpact": "Blocks executive decision"
+    },
+    {
+      "order": 9,
+      "id": "NOG-09",
+      "title": "Go approval matrix is missing",
+      "status": "open",
+      "closureAction": "Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "launchImpact": "Blocks Go record"
+    },
+    {
+      "order": 10,
+      "id": "NOG-10",
+      "title": "Real-money Exchange remains uncertified",
+      "status": "open",
+      "closureAction": "Keep Exchange launch-disabled until decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence are accepted.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "launchImpact": "Blocks real-money Exchange only"
+    },
+    {
+      "order": 11,
+      "id": "NOG-11",
+      "title": "Custody, deposits and withdrawals remain uncertified",
+      "status": "open",
+      "closureAction": "Keep custody/deposit/withdrawal paths product-disabled until HSM/MPC, chain-provider certification, on-chain reconciliation and settlement evidence are accepted.",
+      "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
+      "launchImpact": "Blocks custody and withdrawals only"
+    },
+    {
+      "order": 12,
+      "id": "NOG-12",
+      "title": "Enterprise, white-label and public rewards remain outside launch scope",
+      "status": "open",
+      "closureAction": "Preserve route/env/UI/copy guards so these surfaces cannot be advertised or activated by accident.",
+      "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "launchImpact": "Blocks expanded launch scope"
+    }
+  ],
+  "recommendedNextSlice": {
+    "ids": [
+      "NOG-01",
+      "NOG-02"
+    ],
+    "description": "Collect protected staging activation evidence and redacted env:check evidence for the exact staging target SHA.",
+    "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_EVIDENCE_IS_ACCEPTED"
+  }
+}

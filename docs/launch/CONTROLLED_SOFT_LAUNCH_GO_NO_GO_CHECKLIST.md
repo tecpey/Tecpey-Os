@@ -3,6 +3,7 @@
 **Status:** NO-GO until every blocking row below has accepted evidence  
 **Baseline main SHA before this checklist:** `046b85a7281805e0a633ff268734d3052e3cc3bf`  
 **Current draft RC evidence packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`
+**Current protected staging NO-GO register:** `a8d494f12618cc6b36c0eeae40a7b7b212754fbf`, `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`
 **Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
 
 This checklist is the release-decision surface for the narrow controlled Soft
