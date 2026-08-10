@@ -5,10 +5,27 @@
   --tp-text: #0f172a;
   --tp-muted: #526176;
   --tp-primary: #0b74e5;
+  --tp-primary-strong: #075fc7;
+  --tp-primary-soft: rgba(11, 116, 229, 0.12);
+  --tp-cyan: #08b8d8;
+  --tp-cyan-soft: rgba(8, 184, 216, 0.14);
+  --tp-info: #2563eb;
+  --tp-warning: #d97706;
   --tp-border: rgba(15, 85, 170, 0.18);
+  --tp-border-strong: rgba(15, 85, 170, 0.34);
   --tp-focus: rgba(14, 165, 233, 0.58);
   --tp-success: #059669;
   --tp-danger: #dc2626;
+  --tp-shadow-soft: 0 18px 48px rgba(15, 85, 170, 0.12);
+  --tp-shadow-panel: 0 22px 70px rgba(15, 23, 42, 0.10);
+  --tp-radius-control: 14px;
+  --tp-radius-panel: 22px;
+  --tp-radius-hero: 32px;
+  --tp-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --tp-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --tp-duration-fast: 140ms;
+  --tp-duration-base: 200ms;
+  --tp-duration-panel: 260ms;
 }
 
 .dark {
@@ -18,10 +35,19 @@
   --tp-text: #f8fafc;
   --tp-muted: #94a3b8;
   --tp-primary: #1688f0;
+  --tp-primary-strong: #38bdf8;
+  --tp-primary-soft: rgba(22, 136, 240, 0.18);
+  --tp-cyan: #22d3ee;
+  --tp-cyan-soft: rgba(34, 211, 238, 0.14);
+  --tp-info: #60a5fa;
+  --tp-warning: #f59e0b;
   --tp-border: rgba(103, 232, 249, 0.18);
+  --tp-border-strong: rgba(103, 232, 249, 0.32);
   --tp-focus: rgba(34, 211, 238, 0.72);
   --tp-success: #34d399;
   --tp-danger: #fb7185;
+  --tp-shadow-soft: 0 18px 54px rgba(8, 47, 73, 0.34);
+  --tp-shadow-panel: 0 22px 70px rgba(0, 0, 0, 0.34);
 }
 
 .tecpey-enterprise {
@@ -32,4 +58,42 @@
 .tecpey-enterprise :focus-visible {
   outline: 3px solid var(--tp-focus);
   outline-offset: 3px;
+}
+
+.tecpey-surface {
+  background: var(--tp-surface);
+  color: var(--tp-text);
+}
+
+.tecpey-panel {
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-panel);
+  background: var(--tp-card);
+  box-shadow: var(--tp-shadow-panel);
+}
+
+.tecpey-pressable {
+  transition:
+    transform var(--tp-duration-fast) var(--tp-ease-out),
+    border-color var(--tp-duration-base) var(--tp-ease-out),
+    background-color var(--tp-duration-base) var(--tp-ease-out),
+    color var(--tp-duration-base) var(--tp-ease-out);
+}
+
+.tecpey-pressable:active {
+  transform: scale(0.98);
+}
+
+.tecpey-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tecpey-pressable {
+    transition: none;
+  }
+
+  .tecpey-pressable:active {
+    transform: none;
+  }
 }

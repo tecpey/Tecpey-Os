@@ -1,0 +1,13 @@
+[Unit]
+Description=Run TecPey Crypto News Materialization Every 10 Minutes
+Documentation=https://github.com/tecpey/Tecpey-Os/blob/main/docs/architecture/TECPEY_CONTENT_GROWTH_AUTOMATION_CONTRACT.md
+
+[Timer]
+OnCalendar=*-*-* *:0/10:00 UTC
+Persistent=true
+RandomizedDelaySec=60
+AccuracySec=30s
+Unit=tecpey-news-materialization.service
+
+[Install]
+WantedBy=timers.target

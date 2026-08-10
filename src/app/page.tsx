@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import TecpeyEnterpriseLanding from "@/app/home/enterprise/TecpeyEnterpriseLanding";
+import { getLandingGrowthRadarFromAuthority } from "@/lib/landing-growth-authority";
+import { buildLandingGrowthSchemasFromRadar } from "@/lib/landing-growth";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tecpey.ir"),
@@ -156,6 +158,8 @@ const articleSchema = {
 
 export default async function Home() {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const growthRadar = await getLandingGrowthRadarFromAuthority("fa");
+  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
 
   return (
     <>
@@ -179,7 +183,15 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
       />
-      <TecpeyEnterpriseLanding />
+      {landingGrowthSchemas.map((schema, index) => (
+        <script
+          key={`landing-growth-${index}`}
+          nonce={nonce}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <TecpeyEnterpriseLanding growthRadar={growthRadar} />
     </>
   );
 }

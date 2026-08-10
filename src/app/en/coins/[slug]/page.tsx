@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnglishShell, EnglishHero } from "../../components/EnglishUI";
+import { StructuredData } from "@/components/seo/StructuredData";
+import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
+import {
+  buildNewsImpactItemListSchema,
+  getHighPriorityNewsForCoin,
+} from "@/lib/news-impact-history";
 import { BookOpen } from "lucide-react";
 
 const coins = [
@@ -60,8 +66,18 @@ export default async function CoinPage({ params }: { params: Promise<{ slug: str
   const coin = coinMap.get(slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.name);
+  const impactNews = getHighPriorityNewsForCoin(coin.symbol, "en", 4);
+  const pageUrl = `https://tecpey.ir/en/coins/${slug}`;
   return (
     <EnglishShell>
+      <StructuredData
+        data={buildNewsImpactItemListSchema({
+          items: impactNews,
+          locale: "en",
+          pageUrl,
+          name: `${coin.name} (${coin.symbol}) high-priority news impact history`,
+        })}
+      />
       <EnglishHero eyebrow="Crypto guide" title={`${coin.name} (${coin.symbol})`} description={`Understand common use cases, key risks and practical checks before buying, selling or transferring ${coin.symbol}.`} ctaHref="/en/markets" ctaLabel="View markets" secondaryHref="/en/security" secondaryLabel="Security guide" />
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_.95fr]">
@@ -83,6 +99,7 @@ export default async function CoinPage({ params }: { params: Promise<{ slug: str
                 <a key={label} href={href || "#"} target="_blank" rel="noreferrer" className={`rounded-2xl border border-cyan-300/15 bg-cyan-500/10 p-3 text-sm font-black ${href ? "text-cyan-300" : "pointer-events-none text-slate-500"}`}>{label}</a>
               ))}
             </div>
+            <NewsImpactTimeline items={impactNews} locale="en" subject={`${coin.name} (${coin.symbol})`} />
           </article>
           <div className="space-y-3">
             {[

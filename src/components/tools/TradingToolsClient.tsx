@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, ExternalLink, Search, Globe } from "lucide-react";
-import tools from "@/data/traderTools.json";
+import { X, ExternalLink, Search, Globe, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  getFeaturedTraderTools,
+  getRankedTraderTools,
+  type RankedTraderTool,
+} from "@/lib/trading-tools-growth";
 
 type Locale = "fa" | "en";
-type Tool = (typeof tools)[number];
+type Tool = RankedTraderTool;
 
 function hostOf(url: string): string {
   try {
@@ -18,7 +22,13 @@ const STR = {
   fa: {
     badge: "جعبه ابزار حرفه‌ای تک‌پی",
     title: "ابزارهای حرفه‌ای برای تحلیل، امنیت و تحقیق رمزارز",
-    subtitle: "هر ابزار با توضیح فارسی، کاربرد، پلتفرم‌ها و لینک رسمی معرفی شده است.",
+    subtitle: "هر ابزار با توضیح فارسی، کاربرد، پلتفرم‌ها، لینک رسمی و امتیاز رشد کنترل‌شده معرفی شده است.",
+    featuredTitle: "۵ ابزار منتخب برای شروع امن‌تر",
+    featuredSubtitle:
+      "مرتب‌سازی بر اساس امنیت، کاربرد آموزشی، اهمیت دسته و کامل بودن لینک رسمی انجام می‌شود؛ نه صرفاً محبوبیت.",
+    rankingLabel: "امتیاز تک‌پی",
+    governedLabel: "رتبه‌بندی کنترل‌شده",
+    safeUseLabel: "استفاده آموزشی و ریسک‌محور",
     searchPlaceholder: "جستجوی ابزار...",
     searchLabel: "جستجوی ابزار",
     all: "همه",
@@ -38,7 +48,13 @@ const STR = {
   en: {
     badge: "TecPey Trader Toolbox",
     title: "Professional tools for crypto analysis, security and research",
-    subtitle: "Each tool includes a description, use case, platforms and its official link.",
+    subtitle: "Each tool includes a description, use case, platforms, official links and a governed growth score.",
+    featuredTitle: "Five featured tools for safer onboarding",
+    featuredSubtitle:
+      "Ordering prioritizes safety, educational usefulness, category importance and official-link completeness ahead of raw popularity.",
+    rankingLabel: "TecPey score",
+    governedLabel: "Governed ranking",
+    safeUseLabel: "Educational, risk-aware use",
     searchPlaceholder: "Search tools...",
     searchLabel: "Search tools",
     all: "All",
@@ -57,6 +73,13 @@ const STR = {
   },
 } as const;
 
+const TRADER_TOOLS = getRankedTraderTools();
+const FEATURED_TOOLS = getFeaturedTraderTools(5);
+
+function formatRankScore(score: number): string {
+  return `${Math.round(score * 100)}`;
+}
+
 export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale }) {
   const isEn = locale === "en";
   const t = STR[isEn ? "en" : "fa"];
@@ -68,7 +91,7 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
 
   const categories = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const tool of tools) {
+    for (const tool of TRADER_TOOLS) {
       if (!seen.has(tool.categoryKey)) {
         seen.set(tool.categoryKey, isEn ? tool.categoryEn : tool.categoryFa);
       }
@@ -78,7 +101,7 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return tools.filter((tool) => {
+    return TRADER_TOOLS.filter((tool) => {
       if (category !== "all" && tool.categoryKey !== category) return false;
       if (!s) return true;
       return [tool.name, tool.categoryFa, tool.categoryEn, tool.summaryFa, tool.summaryEn]
@@ -144,6 +167,16 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
           </div>
           <h1 className="mt-5 text-4xl font-black leading-tight sm:text-5xl">{t.title}</h1>
           <p className="mt-4 max-w-4xl text-base font-bold leading-8 text-[color:var(--tp-muted)]">{t.subtitle}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="flex items-center gap-3 rounded-2xl border border-cyan-300/15 bg-cyan-400/10 px-4 py-3">
+              <ShieldCheck className="h-5 w-5 text-cyan-500" aria-hidden="true" />
+              <span className="text-sm font-black text-[color:var(--tp-text)]">{t.safeUseLabel}</span>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-cyan-300/15 bg-white/55 px-4 py-3 dark:bg-white/[0.05]">
+              <Sparkles className="h-5 w-5 text-cyan-500" aria-hidden="true" />
+              <span className="text-sm font-black text-[color:var(--tp-text)]">{t.governedLabel}</span>
+            </div>
+          </div>
           <div className="mt-6 flex max-w-xl items-center gap-3 rounded-2xl border border-cyan-300/15 bg-white/70 px-4 py-3 dark:bg-white/[0.06]">
             <Search className="h-5 w-5 text-cyan-500" aria-hidden="true" />
             <input
@@ -176,6 +209,45 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
             ))}
           </div>
           <p className="mt-4 text-xs font-black text-[color:var(--tp-muted)]" aria-live="polite">{t.count(list.length)}</p>
+        </section>
+
+        <section className="mt-8 rounded-[30px] border border-cyan-300/15 bg-white/70 p-5 shadow-xl shadow-cyan-500/5 dark:bg-white/[0.045]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-[color:var(--tp-text)]">{t.featuredTitle}</h2>
+              <p className="mt-2 max-w-3xl text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{t.featuredSubtitle}</p>
+            </div>
+            <span className="inline-flex w-fit rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-xs font-black text-cyan-600 dark:text-cyan-200">
+              {t.rankingLabel}
+            </span>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            {FEATURED_TOOLS.map((tool, index) => (
+              <button
+                key={tool.name}
+                type="button"
+                onClick={(e) => {
+                  triggerRef.current = e.currentTarget;
+                  setActive(tool);
+                }}
+                aria-haspopup="dialog"
+                className="group rounded-2xl border border-cyan-300/15 bg-[color:var(--tp-surface)] p-4 text-start transition hover:-translate-y-0.5 hover:border-cyan-300/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-cyan-500 text-xs font-black text-white">
+                    {index + 1}
+                  </span>
+                  <span className="text-xs font-black text-cyan-600 dark:text-cyan-200">
+                    {formatRankScore(tool.growthRank.rankScore)}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-base font-black text-[color:var(--tp-text)]">{tool.name}</h3>
+                <p className="mt-1 text-xs font-black text-cyan-600 dark:text-cyan-200">
+                  {isEn ? tool.categoryEn : tool.categoryFa}
+                </p>
+              </button>
+            ))}
+          </div>
         </section>
 
         {list.length === 0 ? (
@@ -214,6 +286,12 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
                 <p className="mt-4 line-clamp-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
                   {isEn ? tool.summaryEn : tool.summaryFa}
                 </p>
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-cyan-300/15 pt-3">
+                  <span className="text-[11px] font-black text-[color:var(--tp-muted)]">{t.rankingLabel}</span>
+                  <span className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-[11px] font-black text-cyan-600 dark:text-cyan-200">
+                    {formatRankScore(tool.growthRank.rankScore)}
+                  </span>
+                </div>
               </button>
             ))}
           </section>
@@ -239,6 +317,9 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
               <div>
                 <h3 id="tp-tool-title" className="text-2xl font-black">{active.name}</h3>
                 <p className="text-xs font-bold text-cyan-200">{isEn ? active.categoryEn : active.categoryFa}</p>
+                <p className="mt-1 text-[11px] font-black text-slate-400">
+                  {t.rankingLabel}: {formatRankScore(active.growthRank.rankScore)}
+                </p>
               </div>
               <button
                 onClick={() => setActive(null)}

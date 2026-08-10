@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { buildNewsQuizBankFromFeed } from "@/lib/academy-news-quiz-source";
+import { buildNewsAutomationBatch, type RawNewsInput } from "@/lib/news-automation";
+import { materializeNewsAutomationDecisions } from "@/lib/news-materialization";
 
 type NewsTone = "bullish" | "bearish" | "neutral";
 
@@ -251,6 +253,59 @@ function marketIntelligence(locale: string, items: NewsItem[]) {
   };
 }
 
+function sourceUrlFor(item: NewsItem) {
+  if (/^https?:\/\//i.test(item.url)) return item.url;
+  return item.url.startsWith("/en")
+    ? `https://tecpey.ir${item.url}`
+    : `https://tecpey.ir${item.url || "/crypto-news"}`;
+}
+
+function toAutomationInput(item: NewsItem, locale: "fa" | "en", fetchedAt: string): RawNewsInput {
+  return {
+    id: item.id,
+    locale,
+    title: item.title,
+    summary: item.summary,
+    sourceName: item.source,
+    sourceUrl: sourceUrlFor(item),
+    url: sourceUrlFor(item),
+    publishedAt: item.publishedAt || fetchedAt,
+    fetchedAt,
+  };
+}
+
+function automationFor(items: NewsItem[], locale: "fa" | "en", fetchedAt: string) {
+  const decisions = buildNewsAutomationBatch(items.map((item) => toAutomationInput(item, locale, fetchedAt)));
+  const materialized = materializeNewsAutomationDecisions(decisions, {
+    locale,
+    generatedAt: fetchedAt,
+    historyLimit: 8,
+    topCoinLimit: 5,
+  });
+  return {
+    publishable: decisions.filter((decision) => decision.status === "publishable").length,
+    needsReview: decisions.filter((decision) => decision.status === "needs_review").length,
+    rejected: decisions.filter((decision) => decision.status === "rejected").length,
+    topCoinImpacts: decisions
+      .flatMap((decision) => decision.coinImpacts)
+      .sort((a, b) => b.priorityScore - a.priorityScore || a.symbol.localeCompare(b.symbol))
+      .slice(0, 5),
+    historyItems: materialized.historyItems,
+    materialized,
+    decisions: decisions.map((decision) => ({
+      id: decision.article.id,
+      slug: decision.article.slug,
+      status: decision.status,
+      reasons: decision.reasons,
+      priority: decision.article.priority,
+      detectedCoins: decision.article.detectedCoins,
+      detectedTools: decision.article.detectedTools,
+      relatedLessonHref: decision.article.relatedLessonHref,
+      idempotencyKey: decision.article.idempotencyKey,
+    })),
+  };
+}
+
 export async function GET(request: NextRequest) {
   return withObservability(request, { route: "/api/crypto-news" }, async () => {
     const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
@@ -260,20 +315,41 @@ export async function GET(request: NextRequest) {
     // The bank is built through the fail-closed integrity gate, so it never
     // surfaces an unanswerable question or profit-promise copy.
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
+    const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
     const quizFor = (items: NewsItem[]) =>
       includeQuiz ? { newsQuiz: buildNewsQuizBankFromFeed(items, { locale }) } : {};
+    const automationPayloadFor = (items: NewsItem[], fetchedAt: string) =>
+      includeAutomation ? { automation: automationFor(items, locale, fetchedAt) } : {};
     const fallback = locale === "fa" ? fallbackFa : fallbackEn;
     const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
     try {
+      const updatedAt = new Date().toISOString();
       const settled = await Promise.allSettled(sourceList.map((source) => readSource(source, locale)));
       const items = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
       const unique = Array.from(new Map(items.map((item) => [item.title.toLowerCase(), item])).values())
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, limit);
       const responseItems = unique.length ? unique : fallback;
-      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: unique.length ? "live" : "fallback" as const, marketIntelligence: marketIntelligence(locale, responseItems), items: responseItems, ...quizFor(responseItems) });
+      return apiOk({
+        locale,
+        updatedAt,
+        mode: unique.length ? "live" : "fallback" as const,
+        marketIntelligence: marketIntelligence(locale, responseItems),
+        items: responseItems,
+        ...quizFor(responseItems),
+        ...automationPayloadFor(responseItems, updatedAt),
+      });
     } catch {
-      return apiOk({ locale, updatedAt: new Date().toISOString(), mode: "fallback" as const, marketIntelligence: marketIntelligence(locale, fallback), items: fallback, ...quizFor(fallback) });
+      const updatedAt = new Date().toISOString();
+      return apiOk({
+        locale,
+        updatedAt,
+        mode: "fallback" as const,
+        marketIntelligence: marketIntelligence(locale, fallback),
+        items: fallback,
+        ...quizFor(fallback),
+        ...automationPayloadFor(fallback, updatedAt),
+      });
     }
   });
 }

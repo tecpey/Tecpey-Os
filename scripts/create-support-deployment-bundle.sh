@@ -71,6 +71,17 @@ docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
 docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md
 docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
 
+Operational workers included:
+deploy/systemd/tecpey-news-materialization.service.in
+deploy/systemd/tecpey-news-materialization.timer
+scripts/install-news-materialization-scheduler.sh
+scripts/check-news-materialization-env.ts
+
+Governed brand assets included:
+public/images/tecpey-logo.png
+public/logo.png
+docs/assets/brand/brand-assets.json
+
 Required local secret template:
 .env.production.example
 
@@ -109,3 +120,5 @@ sha256sum "$OUTPUT_ZIP" > "$OUTPUT_ZIP.sha256"
 echo "Created support deployment bundle:"
 echo "$OUTPUT_ZIP"
 echo "$OUTPUT_ZIP.sha256"
+echo "Verify before sending:"
+echo "npm run support:bundle:verify -- \"$OUTPUT_ZIP\" \"$OUTPUT_ZIP.sha256\""

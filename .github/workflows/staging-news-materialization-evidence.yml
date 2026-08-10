@@ -1,0 +1,157 @@
+name: Staging News Materialization Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character main-branch commit deployed to staging
+        required: true
+        type: string
+      expected_locales:
+        description: Comma-separated locales expected in the last-run evidence
+        required: true
+        default: fa,en
+        type: string
+      max_age_minutes:
+        description: Maximum accepted age for the generated last-run evidence
+        required: true
+        default: '30'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-news-materialization-evidence
+  cancel-in-progress: false
+
+jobs:
+  collect-and-verify:
+    name: Collect and verify staging news materialization evidence
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact selected release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify selected commit belongs to main
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+
+      - name: Setup governed Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify staging runner and deployed checkout
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          APP_DIR: ${{ vars.TECPEY_STAGING_APP_DIR }}
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$APP_DIR"
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+          test -d "$APP_DIR/.git"
+          test "$(git -C "$APP_DIR" rev-parse HEAD)" = "$RELEASE_SHA"
+          test -z "$(git -C "$APP_DIR" status --porcelain)"
+
+      - name: Verify news materialization unit installation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          systemctl is-enabled tecpey-news-materialization.timer
+          systemctl is-active tecpey-news-materialization.timer
+          systemctl cat tecpey-news-materialization.service > "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
+          systemctl cat tecpey-news-materialization.timer > "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+          grep -F "news:materialization:env-check" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
+          grep -F "news:materialization:worker" "$RUNNER_TEMP/tecpey-news-materialization.service.txt"
+          grep -F "OnCalendar=*-*-* *:0/10:00 UTC" "$RUNNER_TEMP/tecpey-news-materialization.timer.txt"
+
+      - name: Run one governed news materialization pass
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo systemctl start tecpey-news-materialization.service
+          systemctl show tecpey-news-materialization.service \
+            --property=Result,ExecMainStatus,ExecMainCode,NRestarts \
+            --no-pager > "$RUNNER_TEMP/tecpey-news-materialization-status.txt"
+          grep -F "Result=success" "$RUNNER_TEMP/tecpey-news-materialization-status.txt"
+          grep -F "ExecMainStatus=0" "$RUNNER_TEMP/tecpey-news-materialization-status.txt"
+
+      - name: Collect and verify freshness evidence
+        shell: bash
+        env:
+          OPS_STATE_DIR: ${{ vars.TECPEY_STAGING_OPS_STATE_DIR }}
+          RUN_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_LOCALES: ${{ inputs.expected_locales }}
+          MAX_AGE_MINUTES: ${{ inputs.max_age_minutes }}
+          OUTPUT_FILE: ${{ runner.temp }}/news-materialization-last-run.json
+          VERIFY_OUTPUT_FILE: ${{ runner.temp }}/news-materialization-last-run-verification.json
+        run: |
+          set -Eeuo pipefail
+          test -n "$OPS_STATE_DIR"
+          test -n "$RUN_USER"
+          LAST_RUN="$OPS_STATE_DIR/news-materialization-last-run.json"
+          sudo -u "$RUN_USER" test -r "$LAST_RUN"
+          sudo -u "$RUN_USER" cat "$LAST_RUN" > "$OUTPUT_FILE"
+          chmod 0600 "$OUTPUT_FILE"
+          TECPEY_NEWS_MATERIALIZATION_LAST_RUN_FILE="$OUTPUT_FILE" \
+          TECPEY_NEWS_MATERIALIZATION_EXPECTED_LOCALES="$EXPECTED_LOCALES" \
+          TECPEY_NEWS_MATERIALIZATION_MAX_AGE_MS="$((MAX_AGE_MINUTES * 60 * 1000))" \
+            npm run news:materialization:last-run:verify | tee "$VERIFY_OUTPUT_FILE"
+          sha256sum "$OUTPUT_FILE" > "$OUTPUT_FILE.sha256"
+
+      - name: Publish redacted evidence summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          EXPECTED_LOCALES: ${{ inputs.expected_locales }}
+        run: |
+          {
+            echo "## Staging news materialization evidence"
+            echo ""
+            echo "- Release: \`$RELEASE_SHA\`"
+            echo "- Protected environment: \`staging\`"
+            echo "- Service: \`tecpey-news-materialization.service\`"
+            echo "- Timer: \`tecpey-news-materialization.timer\`"
+            echo "- Expected locales: \`$EXPECTED_LOCALES\`"
+            echo "- Last-run verifier: passed"
+            echo "- Artifact: \`tecpey-staging-news-materialization-$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted evidence artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tecpey-staging-news-materialization-${{ inputs.release_sha }}
+          path: |
+            ${{ runner.temp }}/news-materialization-last-run.json
+            ${{ runner.temp }}/news-materialization-last-run.json.sha256
+            ${{ runner.temp }}/news-materialization-last-run-verification.json
+            ${{ runner.temp }}/tecpey-news-materialization-status.txt
+            ${{ runner.temp }}/tecpey-news-materialization.service.txt
+            ${{ runner.temp }}/tecpey-news-materialization.timer.txt
+          if-no-files-found: error
+          retention-days: 7

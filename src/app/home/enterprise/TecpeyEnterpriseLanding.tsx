@@ -35,6 +35,8 @@ import {
 import { TermGateLink } from "@/components/academy/TermGateLink";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
+import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import type { MarketCurrency } from "@/types/market";
 
 const freeAcademyHref = "https://my.tecpey.ir/signup";
@@ -1021,13 +1023,18 @@ function TradingArenaSection() {
   );
 }
 
-export default function TecpeyEnterpriseLanding() {
+export default function TecpeyEnterpriseLanding({
+  growthRadar,
+}: {
+  growthRadar?: LandingGrowthRadarModel;
+}) {
   return (
     <main className="tecpey-enterprise min-h-screen bg-[color:var(--tp-bg)] pb-24 sm:pb-0">
       <Hero />
       <CryptoNewsCenter locale="fa" compact />
       <HomeAiMentorSpotlight locale="fa" />
       <HomeLearningJourney locale="fa" />
+      <LandingGrowthRadar locale="fa" radar={growthRadar} />
       <GlobalUxMetrics />
       <ProofRail />
       <WhyTecpeyTrust />

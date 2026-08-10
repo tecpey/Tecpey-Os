@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import EnglishLandingClient from "./EnglishLandingClient";
 import { StructuredData, organizationSchema, webSiteSchema, breadcrumbSchema } from "@/components/seo/StructuredData";
+import { getLandingGrowthRadarFromAuthority } from "@/lib/landing-growth-authority";
+import { buildLandingGrowthSchemasFromRadar } from "@/lib/landing-growth";
 
 export const metadata: Metadata = {
   title: "TecPey | Crypto Education and Launch-Gated Market Practice",
@@ -43,7 +45,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function EnglishLanding() {
-  const schema = <StructuredData data={[organizationSchema, webSiteSchema, breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }])]} />;
-  return <EnglishLandingClient schema={schema} />;
+export default async function EnglishLanding() {
+  const growthRadar = await getLandingGrowthRadarFromAuthority("en");
+  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
+  const schema = (
+    <StructuredData
+      data={[
+        organizationSchema,
+        webSiteSchema,
+        breadcrumbSchema([{ name: "Home", url: "https://tecpey.ir/en" }]),
+        ...landingGrowthSchemas,
+      ]}
+    />
+  );
+  return <EnglishLandingClient schema={schema} growthRadar={growthRadar} />;
 }

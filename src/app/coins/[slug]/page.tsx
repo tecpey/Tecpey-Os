@@ -4,7 +4,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { coinPages } from "@/data/coins";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
+import { StructuredData } from "@/components/seo/StructuredData";
 import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
+import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
+import {
+  buildNewsImpactItemListSchema,
+  getHighPriorityNewsForCoin,
+} from "@/lib/news-impact-history";
 import { ArrowLeft, CheckCircle2, AlertTriangle, BookOpen } from "lucide-react";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
 
@@ -43,6 +49,8 @@ export default async function CoinPage({ params }: Props) {
   const coin = getCoin(slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.faName);
+  const impactNews = getHighPriorityNewsForCoin(coin.symbol, "fa", 4);
+  const pageUrl = `https://tecpey.ir/coins/${coin.slug}`;
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -78,6 +86,14 @@ export default async function CoinPage({ params }: Props) {
     <ContentShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(financialProductSchema) }} />
+      <StructuredData
+        data={buildNewsImpactItemListSchema({
+          items: impactNews,
+          locale: "fa",
+          pageUrl,
+          name: `خبرهای اثرگذار مرتبط با ${coin.faName} (${coin.symbol})`,
+        })}
+      />
       <section className="px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div>
@@ -173,6 +189,8 @@ export default async function CoinPage({ params }: Props) {
                 مشاهده بازارها
               </Link>
             </div>
+
+            <NewsImpactTimeline items={impactNews} locale="fa" subject={`${coin.faName} (${coin.symbol})`} />
 
             <section className="mt-10">
               <h2 className="text-2xl font-black">کاربردهای اصلی {coin.faName}</h2>

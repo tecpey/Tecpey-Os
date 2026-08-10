@@ -57,6 +57,7 @@ import { TENANT_CUSTOM_DOMAINS_SQL } from "./db-migrate-tenant-custom-domains";
 import { LEARNING_BRAIN_REFRESH_COLUMNS_SQL } from "./db-migrate-learning-brain-refresh-columns";
 import { ACHIEVEMENT_CONTRACT_COLUMNS_SQL } from "./db-migrate-achievement-contract";
 import { LEARNING_BRAIN_TENANT_CACHE_SQL } from "./db-migrate-learning-brain-tenant-cache";
+import { NEWS_MATERIALIZATION_AUTHORITY_SQL } from "./db-migrate-news-materialization";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -221,5 +222,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   learningBrainTenantCache: one(
     "0057_learning_brain_tenant_cache.sql",
     LEARNING_BRAIN_TENANT_CACHE_SQL,
+  ),
+  newsMaterialization: one(
+    "0058_news_materialization_authority.sql",
+    NEWS_MATERIALIZATION_AUTHORITY_SQL,
   ),
 });
