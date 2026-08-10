@@ -16,7 +16,8 @@ This ledger is a control-plane document. Its own documentation commits are not
 automatic runtime promotions. The deployed app checkout, workflow checkout,
 bundle manifest and `/api/health` commit for new evidence must continue to match
 the runtime candidate SHA above unless a later candidate-promotion PR explicitly
-changes that SHA.
+changes that SHA. PRs that only clarify this ledger are launch-control evidence
+hygiene, not a new runtime selection.
 
 ## Why This Candidate Exists
 
