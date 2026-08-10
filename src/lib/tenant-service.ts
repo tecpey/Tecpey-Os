@@ -73,12 +73,12 @@ export async function getDefaultTenant(): Promise<Tenant | null> {
   return getTenant(PLATFORM.DEFAULT_TENANT_ID);
 }
 
-export async function getWorkspace(workspaceId: string): Promise<Workspace | null> {
+export async function getWorkspace(workspaceId: string, tenantId: TenantId): Promise<Workspace | null> {
   const result = await withDb(async (client) => {
     const { rows } = await client.query<WorkspaceRow>(
       `SELECT id, tenant_id, slug, display_name, products, settings
-       FROM platform_workspaces WHERE id = $1 LIMIT 1`,
-      [workspaceId],
+       FROM platform_workspaces WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+      [workspaceId, tenantId],
     );
     return rows[0] ?? null;
   });

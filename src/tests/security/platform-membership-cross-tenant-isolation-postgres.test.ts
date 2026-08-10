@@ -3,16 +3,19 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
-import { getMembership, upsertMembership } from "../../lib/tenant-service";
+import { getMembership, getWorkspace, upsertMembership } from "../../lib/tenant-service";
 
-// Cross-tenant adversarial proof for platform_memberships (#109).
+// Cross-tenant adversarial proof for platform_memberships and
+// platform_workspaces (#109).
 //
 // platform_memberships records which tenant a user belongs to and with what
 // roles. Its tenant boundary is UNIQUE (user_id, tenant_id): upsertMembership
 // writes ON CONFLICT (user_id, tenant_id), and getMembership reads
 // `WHERE user_id = $1 AND tenant_id = $2`. Roles read from a membership drive
 // authorization, so leaking one tenant's membership into another's request is a
-// privilege-confusion bug.
+// privilege-confusion bug. platform_workspaces is tenant-owned authority used by
+// membership binding, so workspace reads must also include tenant_id; resolving
+// a workspace by id alone would let one tenant read another tenant's workspace.
 //
 // The threat proven closed: the same user enrolled in two tenants must resolve
 // to each tenant's own membership (and roles); and a user enrolled in only one
@@ -72,6 +75,33 @@ after(async () => {
 });
 
 describe("Platform membership cross-tenant isolation", () => {
+  it(
+    "scopes workspace reads by tenant id",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const tenantA = `tenant-a-${randomUUID()}`;
+      const tenantB = `tenant-b-${randomUUID()}`;
+      const workspaceA = `workspace-a-${randomUUID()}`;
+      const workspaceB = `workspace-b-${randomUUID()}`;
+      await seedTenant(tenantA, workspaceA);
+      await seedTenant(tenantB, workspaceB);
+
+      const own = await getWorkspace(workspaceA, tenantA);
+      assert.equal(own?.id, workspaceA);
+      assert.equal(own?.tenantId, tenantA);
+
+      // Load-bearing negative: a tenant-blind workspace read would return
+      // tenant A's workspace here even though the caller is scoped to tenant B.
+      const cross = await getWorkspace(workspaceA, tenantB);
+      assert.equal(cross, null, "tenant B must not resolve tenant A's workspace by id");
+
+      // Sanity: tenant B's own workspace remains readable under tenant B.
+      const other = await getWorkspace(workspaceB, tenantB);
+      assert.equal(other?.id, workspaceB);
+      assert.equal(other?.tenantId, tenantB);
+    },
+  );
+
   it(
     "resolves each tenant's own membership and roles for a user enrolled in two tenants",
     { skip: !configured, timeout: 20_000 },
