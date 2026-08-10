@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "d70561c7cf97441c7264ee8ece7477825c175f14",
-      "sha256": "682c897b6c5ba78fa0cfebaf9ab5a3e52667da4434f39b2dae778b0229830b5c",
+      "gitObjectId": "b9f0565263a94e82b589836f377c76ba018e284f",
+      "sha256": "baf8cd955d961e978e2867915f936aebb0218a11edc9d80d27518e01cf4d143c",
       "lines": 199,
       "reviewedRanges": [
         {
