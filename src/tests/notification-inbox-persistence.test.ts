@@ -317,6 +317,94 @@ test(
 );
 
 test(
+  "notification principal resolution remains tenant scoped for shared account identities",
+  { skip: !databaseUrl },
+  async () => {
+    const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+    const client = await pool.connect();
+    try {
+      await applyDatabaseMigrationsWithLock(client);
+      await client.query("BEGIN");
+
+      const accountId = `academy:shared-principal-${crypto.randomUUID()}@test.local`;
+      const tenantA = `principal-tenant-a-${crypto.randomUUID()}`;
+      const tenantB = `principal-tenant-b-${crypto.randomUUID()}`;
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan)
+         VALUES ($1, $1, 'Principal Isolation Test A', 'enterprise'),
+                ($2, $2, 'Principal Isolation Test B', 'enterprise')`,
+        [tenantA, tenantB],
+      );
+
+      const asA = await resolveNotificationPrincipal(
+        client,
+        {
+          accountId,
+          studentId: null,
+          email: `${accountId}.a@example.test`,
+          locale: "fa",
+        },
+        tenantA,
+      );
+      const asB = await resolveNotificationPrincipal(
+        client,
+        {
+          accountId,
+          studentId: null,
+          email: `${accountId}.b@example.test`,
+          locale: "en",
+        },
+        tenantB,
+      );
+
+      assert.equal(asA.tenantId, tenantA);
+      assert.equal(asB.tenantId, tenantB);
+      assert.notEqual(asA.id, asB.id);
+
+      // Load-bearing negative: a tenant-blind resolver would replay tenant A's
+      // principal for tenant B here instead of returning tenant B's own row.
+      const replayB = await resolveNotificationPrincipal(
+        client,
+        {
+          accountId,
+          studentId: null,
+          email: `${accountId}.replay@example.test`,
+          locale: "en",
+        },
+        tenantB,
+      );
+      assert.equal(replayB.id, asB.id);
+      assert.equal(replayB.tenantId, tenantB);
+      assert.notEqual(replayB.id, asA.id);
+
+      const rows = await client.query<{ tenant_id: string }>(
+        `SELECT tenant_id
+           FROM platform_principals
+          WHERE account_id = $1
+          ORDER BY tenant_id`,
+        [accountId],
+      );
+      assert.deepEqual(
+        rows.rows.map((row) => row.tenant_id),
+        [tenantA, tenantB].sort(),
+      );
+
+      await client.query("ROLLBACK");
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // Preserve the original failure.
+      }
+      throw error;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+  },
+);
+
+test(
   "database rejects a notification whose principal belongs to another tenant",
   { skip: !databaseUrl },
   async () => {
