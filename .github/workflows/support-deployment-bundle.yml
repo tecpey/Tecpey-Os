@@ -39,7 +39,7 @@ jobs:
       - name: Resolve exact release SHA
         id: release
         run: |
-          release_sha="$(git rev-parse --verify HEAD)"
+          release_sha="$(git rev-parse HEAD)"
           test "$(printf '%s' "$release_sha" | wc -c)" -eq 40
           echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
           printf 'Support bundle release SHA: %s\n' "$release_sha"
