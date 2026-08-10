@@ -186,9 +186,11 @@
       "table": "platform_principals",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate-notifications.ts",
-      "isolationModel": "tenant_id in unique constraint; tenant in unique index",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id in unique constraint; tenant in unique indexes for account_id and student_id; resolveNotificationPrincipal locks and reads identities within the requested tenant_id before inserting a tenant-owned principal row",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "isolationNote": "Proven by notification-inbox-persistence.test.ts: it resolves the same account identity under two tenants, verifies two distinct platform_principals rows are created, and confirms a replay for tenant B returns tenant B's row instead of tenant A's principal.",
+      "testReference": "src/tests/notification-inbox-persistence.test.ts"
     },
     {
       "table": "platform_workspaces",
