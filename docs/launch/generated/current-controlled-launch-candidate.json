@@ -5,10 +5,16 @@
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
     "sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "shaRole": "runtime_deployment_evidence_target",
     "sourceBranch": "main",
     "sourcePullRequest": 367,
     "selectedAt": "2026-08-10T20:04:26Z",
     "reason": "Includes support bundle hardening for immutable release refs and portable detached checksums."
+  },
+  "candidateControlPlane": {
+    "ledgerIntroducedByPullRequest": 368,
+    "ledgerIntroducedByCommit": "4be0ce6a8fa309d02f754cd476c9a3b28516e65f",
+    "semantics": "Documentation commits that clarify this ledger are not runtime candidate promotions unless currentCandidate.sha changes through an explicit candidate-promotion PR."
   },
   "supersedes": [
     {
@@ -35,20 +41,21 @@
     "goNoGoChecklist": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md"
   },
   "candidateIdentityRules": [
-    "all new launch evidence must record this exact 40-character SHA",
-    "workflow checkout, deployed app checkout, bundle manifest, health commit and generated evidence JSON must match this SHA",
-    "later runtime, deployment, security, bundle, evidence or launch-control changes require a candidate-promotion PR before evidence collection continues",
-    "historical draft packets are not current final evidence unless regenerated and accepted for this SHA",
+    "all new launch evidence must record currentCandidate.sha as the exact 40-character runtime candidate SHA",
+    "workflow checkout, deployed app checkout, bundle manifest, health commit and generated evidence JSON must match currentCandidate.sha",
+    "later runtime, deployment, security, bundle, evidence or launch-control behavior changes require a candidate-promotion PR before evidence collection continues",
+    "documentation-only ledger clarifications may record control-plane commits but do not promote the runtime candidate unless currentCandidate.sha changes",
+    "historical draft packets are not current final evidence unless regenerated and accepted for currentCandidate.sha",
     "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
   ],
   "requiredNextEvidence": [
-    "exact-head workflow URLs and dispositions for the current candidate",
+    "exact-head workflow URLs and dispositions for currentCandidate.sha",
     "immutable runtime image digest and deployment artifact digest",
-    "protected staging NOG-01/NOG-02 evidence for the current candidate",
+    "protected staging NOG-01/NOG-02 evidence for currentCandidate.sha",
     "recovery reconciliation evidence",
     "rollback or approved forward-fix evidence",
     "incident readiness evidence",
-    "accepted-risk sign-off and Go approval matrix for the current candidate"
+    "accepted-risk sign-off and Go approval matrix for currentCandidate.sha"
   ],
   "privacyBoundary": [
     "candidate ledgers contain release identifiers, paths, status and authority references only",
