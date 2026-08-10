@@ -29,7 +29,7 @@
       "title": "Production-like environment configuration is not proven",
       "status": "open",
       "executionState": "ready_for_redacted_env_collection",
-      "closureAction": "Run `env:check` in protected staging with the protected host env file loaded, then preserve redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
+      "closureAction": "Run `env:check` in protected staging with either the protected host env file loaded or the service-manager preloaded environment verified, then preserve redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md",
       "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "launchImpact": "Blocks final packet"
@@ -144,7 +144,7 @@
       "NOG-01",
       "NOG-02"
     ],
-    "description": "Collect protected staging activation evidence and redacted env:check evidence for the exact staging target SHA, with the protected host env file loaded for NOG-02.",
+    "description": "Collect protected staging activation evidence and redacted env:check evidence for the exact staging target SHA, with either the protected host env file loaded or the service-manager preloaded environment verified for NOG-02.",
     "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
     "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
   }
