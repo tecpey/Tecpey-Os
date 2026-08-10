@@ -160,6 +160,27 @@ if (!compactRuntimeIcon) {
 }
 assertPngDimensions("public/images/brand/tecpey-logo-256.png", "256x256");
 
+for (const runtimeLockupPath of [
+  "public/images/brand/tecpey-lockup-fa-en.png",
+  "public/images/brand/tecpey-lockup-fa-en.webp",
+]) {
+  const runtimeLockup = derivedAssets.find((asset) => asset.path === runtimeLockupPath);
+  if (!runtimeLockup) {
+    fail(`${registryPath}: derivedAssets must include ${runtimeLockupPath}`);
+    continue;
+  }
+  if (runtimeLockup.purpose !== "runtime-brand-lockup") {
+    fail(`${registryPath}: ${runtimeLockupPath} must be classified as runtime-brand-lockup`);
+  }
+  if (runtimeLockup.dimensions !== "1200x548" || runtimeLockup.transparent !== true) {
+    fail(`${registryPath}: ${runtimeLockupPath} metadata must describe a transparent 1200x548 lockup`);
+  }
+  if (runtimeLockup.sha256 !== sha256(runtimeLockupPath)) {
+    fail(`${registryPath}: derivedAssets sha256 must match ${runtimeLockupPath}`);
+  }
+}
+assertPngDimensions("public/images/brand/tecpey-lockup-fa-en.png", "1200x548");
+
 const runtimeIconSizes = new Map([
   ["public/favicon-16x16.png", "16x16"],
   ["public/favicon-32x32.png", "32x32"],
