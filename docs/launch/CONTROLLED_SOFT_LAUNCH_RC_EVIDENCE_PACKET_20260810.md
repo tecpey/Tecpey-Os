@@ -1,15 +1,18 @@
 # Controlled Soft Launch RC Evidence Packet - 2026-08-10
 
-**Packet status:** DRAFT evidence packet, not final Go approval
+**Packet status:** HISTORICAL DRAFT evidence packet, not current candidate and not final Go approval
 **Decision:** NO-GO until accepted operational evidence is attached
-**Release candidate SHA:** `03e77790630dac737a2d4cc4636b97e80de48ab3`
+**Historical release candidate SHA:** `03e77790630dac737a2d4cc4636b97e80de48ab3`
+**Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`
 **Candidate source:** `origin/main` after PRs #353, #354, #355, #356 and #357
 **Evidence packet JSON:** `docs/launch/generated/controlled-soft-launch-rc-evidence-packet-20260810.json`
 
-This packet locks the next candidate around release evidence, not brand
-iteration. It records the exact SHA, generated packet output, deployment bundle
-digest, focused local gate results and the remaining evidence that must be
-accepted before any controlled Soft Launch Go decision.
+This packet originally locked a draft candidate around release evidence, not brand
+iteration. It has since been superseded for new evidence collection by
+`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`. It records the exact SHA,
+generated packet output, deployment bundle digest, focused local gate results and
+the remaining evidence that must be accepted before any controlled Soft Launch Go
+decision.
 
 ## Candidate Identity
 
@@ -20,12 +23,14 @@ accepted before any controlled Soft Launch Go decision.
 | Local evidence branch | `agent/controlled-soft-launch-rc-evidence-packet` |
 | Main sync status | Local `main` fast-forwarded from `138a1396e2a7810812549678d66c923693e2d276` to `03e77790630dac737a2d4cc4636b97e80de48ab3`. |
 | Included upstream PRs | #353 growth governance, #354 brand asset lock, #355 browser persistence guard, #356 runtime lockup hash guard, #357 runtime WebP lockup bytes guard. |
-| Candidate packet mode | `draft_incomplete_evidence_allowed` |
+| Candidate packet mode | `historical_draft_incomplete_evidence_superseded` |
 | Candidate decision | `NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE` |
+| Superseded by | `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` |
 
-The release candidate remains the upstream main SHA above. This evidence PR
-adds documentation and generated packet artifacts only; it must not be treated
-as a new runtime candidate unless it is intentionally promoted after review.
+The release candidate in this packet is a historical draft baseline. It must not
+be used for new protected staging, support bundle, runtime image or final launch
+evidence unless a release-owner candidate-promotion PR intentionally reselects
+it and regenerates the active launch packet.
 
 ## Artifact Identity
 
@@ -100,10 +105,10 @@ The draft packet intentionally leaves these final evidence fields empty:
 
 ## Decision
 
-This packet is useful because it narrows the next launch conversation to one
-candidate SHA and one evidence checklist. It is not a release approval. The
-correct decision remains:
+This packet is useful because it narrows a historical launch conversation to one
+draft SHA and one evidence checklist. It is not a release approval and is not the
+current evidence target. The correct decision remains:
 
-**NO-GO until the exact candidate has complete accepted operational evidence,
-protected staging evidence, recovery and rollback proof, incident readiness,
-accepted-risk sign-off and executive approval.**
+**NO-GO until the exact current candidate has complete accepted operational
+evidence, protected staging evidence, recovery and rollback proof, incident
+readiness, accepted-risk sign-off and executive approval.**
