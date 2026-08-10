@@ -103,9 +103,23 @@ Minimum command shape:
 
 ```bash
 cd "$TECPEY_STAGING_APP_DIR"
+
+set -a
+# TECPEY_STAGING_ENV_FILE points to the protected host env file. The
+# file must contain shell-compatible KEY=VALUE entries and must never be
+# printed, uploaded or copied into PR/issue evidence.
+. "$TECPEY_STAGING_ENV_FILE"
+set +a
+
 export NODE_ENV=production
 npm run env:check
 ```
+
+If the protected environment is delivered by the service manager instead of a
+host env file, the operator must first prove that the required variables are
+already present in the process environment without printing their values. A run
+that exports only `NODE_ENV` is not acceptable for NOG-02 because it does not
+validate the private production-like staging configuration.
 
 The accepted redacted result must prove that the following checks passed without
 printing values:
@@ -167,6 +181,7 @@ Reject the slice and keep `NOG-01` and `NOG-02` open if any of these occur:
 - alert pending or quarantine count is non-zero after the probe;
 - detached digest or verifier summary is missing;
 - `env:check` fails or cannot run with production-like staging configuration;
+- protected env file is not loaded, cannot be loaded, or is replaced by an unverified shell environment;
 - evidence contains raw secrets, raw URLs with credentials, host IPs, raw logs, customer rows, provider payloads, prompt transcripts or private keys.
 
 ## Resulting Decision
