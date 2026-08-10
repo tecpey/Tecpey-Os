@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packetMode": "draft_incomplete_evidence_allowed",
+  "packetMode": "historical_draft_incomplete_evidence_superseded",
   "generatedAt": "2026-08-10T17:05:29.779Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "releaseCandidate": {
@@ -9,6 +9,12 @@
     "cleanWorktree": true,
     "originMainContainsSha": true,
     "localDirtyFiles": []
+  },
+  "supersededBy": {
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
+    "currentCandidateSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "supersededAt": "2026-08-10T20:05:30.000Z",
+    "reason": "New evidence collection must use the candidate that includes support bundle hardening from PR 367."
   },
   "artifactIdentity": {
     "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",
@@ -62,7 +68,7 @@
     "real-money Exchange remains NO-GO unless separately certified",
     "custody, deposits and withdrawals remain NO-GO unless separately certified",
     "public financial rewards remain NO-GO unless separately certified",
-    "enterprise and white-label activation remain NO-GO unless separately certified"
+    "enterprise and white-label activation remains NO-GO unless separately certified"
   ],
   "privacyBoundary": [
     "packet contains hashes, URLs and release identifiers only",
