@@ -68,7 +68,7 @@
     "real-money Exchange remains NO-GO unless separately certified",
     "custody, deposits and withdrawals remain NO-GO unless separately certified",
     "public financial rewards remain NO-GO unless separately certified",
-    "enterprise and white-label activation remains NO-GO unless separately certified"
+    "enterprise and white-label activation remain NO-GO unless separately certified"
   ],
   "privacyBoundary": [
     "packet contains hashes, URLs and release identifiers only",
