@@ -8,6 +8,16 @@
     "transparent": true,
     "sha256": "67c5069a841402a6c3116a9357b1fe7e9a525f530cce5625efa014f706be0e93"
   },
+  "officialSelections": {
+    "canonicalIconSource": "docs/assets/brand/source/tecpey-tp-icon-uploaded.png",
+    "compactIconReference": "docs/assets/brand/source/tecpey-tp-icon-compact-uploaded.png",
+    "runtimeLockupSource": "docs/assets/brand/source/tecpey-lockup-uploaded.png",
+    "nonRuntimeReference": "docs/assets/brand/source/tecpey-lockup-white-uploaded.jpeg",
+    "runtimeRejectedReference": {
+      "path": "docs/assets/brand/source/tecpey-lockup-white-uploaded.jpeg",
+      "reason": "White lockup text is not approved for runtime UI because it loses contrast on light/checker backgrounds."
+    }
+  },
   "runtimeIcons": [
     "public/favicon.ico",
     "public/favicon-16x16.png",
@@ -84,7 +94,7 @@
   },
   "policy": [
     "Use the canonical icon for runtime UI, metadata, structured data, favicons and PWA icons.",
-    "Use the lockup only for brand review, decks or documentation surfaces where the full Persian/English mark is required.",
+    "Use the runtime lockup through TecpeyMark variant=lockup only on spacious brand surfaces such as the footer, brand review, decks or documentation surfaces.",
     "Do not recolor, stretch, add shadows or regenerate the official TP mark without a separate brand review."
   ]
 }

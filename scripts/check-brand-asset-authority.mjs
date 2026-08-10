@@ -86,6 +86,25 @@ if (canonical.dimensions !== "512x512" || canonical.format !== "png" || canonica
   fail(`${registryPath}: canonical icon metadata must describe a transparent 512x512 PNG`);
 }
 
+const officialSelections = registry.officialSelections ?? {};
+const expectedOfficialSelections = {
+  canonicalIconSource: "docs/assets/brand/source/tecpey-tp-icon-uploaded.png",
+  compactIconReference: "docs/assets/brand/source/tecpey-tp-icon-compact-uploaded.png",
+  runtimeLockupSource: "docs/assets/brand/source/tecpey-lockup-uploaded.png",
+  nonRuntimeReference: "docs/assets/brand/source/tecpey-lockup-white-uploaded.jpeg",
+};
+for (const [key, expectedPath] of Object.entries(expectedOfficialSelections)) {
+  if (officialSelections[key] !== expectedPath) {
+    fail(`${registryPath}: officialSelections.${key} must remain ${expectedPath}`);
+  }
+}
+if (
+  officialSelections.runtimeRejectedReference?.path !== expectedOfficialSelections.nonRuntimeReference ||
+  !String(officialSelections.runtimeRejectedReference?.reason ?? "").includes("not approved for runtime UI")
+) {
+  fail(`${registryPath}: white/checker lockup reference must be explicitly rejected for runtime UI`);
+}
+
 for (const required of [
   canonical.path,
   "public/logo.png",
@@ -217,6 +236,17 @@ for (const [relativePath, source] of [
   if (!source.includes("/images/tecpey-logo.png")) {
     fail(`${relativePath}: must use the canonical runtime logo`);
   }
+}
+if (!markComponent.includes("/images/brand/tecpey-lockup-fa-en.png")) {
+  fail("src/components/brand/TecpeyMark.tsx: must expose the governed runtime lockup asset");
+}
+if (!markComponent.includes('variant = "icon"')) {
+  fail("src/components/brand/TecpeyMark.tsx: icon must remain the default mark variant");
+}
+
+const footer = readText("src/components/footer/Footer.tsx");
+if (!footer.includes('variant="lockup"')) {
+  fail("src/components/footer/Footer.tsx: footer brand panel must use the governed lockup variant");
 }
 
 const runtimeUiFiles = walkFiles("src", (relativePath) => /\.(ts|tsx)$/.test(relativePath));
