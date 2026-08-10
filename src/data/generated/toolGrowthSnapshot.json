@@ -1,0 +1,1340 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "tecpey-tool-growth-policy-v1",
+  "generatedAt": "2026-08-10T12:29:21.498Z",
+  "sourceMode": "curated_seed",
+  "publishThreshold": 0.36,
+  "stats": {
+    "evaluated": 29,
+    "publishedContent": 28,
+    "rejected": 1,
+    "externalEnabled": 0
+  },
+  "tools": [
+    {
+      "name": "L2Beat",
+      "domain": "l2beat.com",
+      "logo": "L2",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/l2beat.com.ico",
+      "categoryFa": "تحقیق و فاندامنتال",
+      "categoryEn": "Research & Fundamentals",
+      "summaryFa": "بررسی ریسک، TVL، مرحله بلوغ و وضعیت امنیتی لایه‌دوهای اتریوم. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review risk, TVL, maturity stage and security state of Ethereum layer twos. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://l2beat.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "L2Beat در دسته تحقیق و فاندامنتال قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی ریسک، TVL، مرحله بلوغ و وضعیت امنیتی لایه‌دوهای اتریوم. است. روایت‌های مرتبط با این ابزار شامل layer2، ethereum، risk-research است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "L2Beat belongs to Research & Fundamentals. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review risk, TVL, maturity stage and security state of Ethereum layer twos. Related narratives include layer2, ethereum, risk-research. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "تمرکز جدی روی ریسک لایه دو",
+        "مناسب برای آموزش تفاوت rollupها",
+        "بدون نیاز به اتصال کیف‌پول"
+      ],
+      "consFa": [
+        "برای تازه‌کارها نیاز به توضیح مفاهیم فنی دارد",
+        "همه شبکه‌ها را از زاویه معامله پوشش نمی‌دهد",
+        "عدد TVL به‌تنهایی معیار کافی نیست"
+      ],
+      "tutorialFa": [
+        "شبکه موردنظر را پیدا کن.",
+        "Stage، ریسک‌ها و TVL را با هم بخوان.",
+        "برای تصمیم، داده را کنار کارمزد، نقدینگی و امنیت پل بگذار."
+      ],
+      "categoryKey": "research",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.9416,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "low",
+        "importance": "core",
+        "narratives": [
+          "layer2",
+          "ethereum",
+          "risk-research"
+        ]
+      }
+    },
+    {
+      "name": "Token Sniffer",
+      "domain": "tokensniffer.com",
+      "logo": "TS",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/tokensniffer.com.ico",
+      "categoryFa": "امنیت و ضداسکم",
+      "categoryEn": "Security & Anti-scam",
+      "summaryFa": "بررسی اولیه ریسک قرارداد و نشانه‌های اسکم قبل از تعامل با توکن. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Run an initial token-contract risk check before interacting with a token. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://tokensniffer.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "Token Sniffer در دسته امنیت و ضداسکم قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی اولیه ریسک قرارداد و نشانه‌های اسکم قبل از تعامل با توکن. است. روایت‌های مرتبط با این ابزار شامل security، contract-risk، anti-scam است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Token Sniffer belongs to Security & Anti-scam. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to run an initial token-contract risk check before interacting with a token. Related narratives include security, contract-risk, anti-scam. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "کمک به دیدن ریسک‌های اولیه قرارداد",
+        "مفید برای آموزش ضداسکم",
+        "بدون نیاز به معامله یا اتصال حساب"
+      ],
+      "consFa": [
+        "نتیجه ابزار تضمین امنیت نیست",
+        "ممکن است false positive یا false negative داشته باشد",
+        "برای تصمیم نهایی باید چند منبع بررسی شود"
+      ],
+      "tutorialFa": [
+        "آدرس قرارداد را وارد کن.",
+        "امتیاز و هشدارها را جداگانه بخوان.",
+        "اگر ابهام وجود دارد از تعامل با قرارداد صرف‌نظر کن."
+      ],
+      "categoryKey": "security",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.8404,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "security",
+          "contract-risk",
+          "anti-scam"
+        ]
+      }
+    },
+    {
+      "name": "GeckoTerminal",
+      "domain": "geckoterminal.com",
+      "logo": "GT",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/geckoterminal.com.ico",
+      "categoryFa": "داده DEX و نقدینگی",
+      "categoryEn": "DEX Data & Liquidity",
+      "summaryFa": "بررسی داده DEX با پشتوانه اکوسیستم CoinGecko و مقایسه جفت‌ها در چند شبکه. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review DEX data backed by the CoinGecko ecosystem and compare pairs across networks. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.geckoterminal.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "GeckoTerminal در دسته داده DEX و نقدینگی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی داده DEX با پشتوانه اکوسیستم CoinGecko و مقایسه جفت‌ها در چند شبکه. است. روایت‌های مرتبط با این ابزار شامل dex، coingecko، liquidity است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "GeckoTerminal belongs to DEX Data & Liquidity. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review DEX data backed by the CoinGecko ecosystem and compare pairs across networks. Related narratives include dex, coingecko, liquidity. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "مناسب برای مقایسه شبکه‌ها",
+        "کاربرد آموزشی خوب برای فهم نقدینگی DEX",
+        "لینک رسمی شفاف"
+      ],
+      "consFa": [
+        "داده DEX همچنان نیاز به بررسی قرارداد دارد",
+        "توکن‌های تازه پرریسک‌اند",
+        "نباید جایگزین مدیریت ریسک شود"
+      ],
+      "tutorialFa": [
+        "شبکه و جفت معاملاتی را مشخص کن.",
+        "حجم، نقدینگی و تغییر قیمت را جداگانه بخوان.",
+        "برای تصمیم نهایی از ابزار امنیتی هم استفاده کن."
+      ],
+      "categoryKey": "dex-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.8212,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "dex",
+          "coingecko",
+          "liquidity"
+        ]
+      }
+    },
+    {
+      "name": "DEX Screener",
+      "domain": "dexscreener.com",
+      "logo": "DS",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/dexscreener.com.ico",
+      "categoryFa": "داده DEX و نقدینگی",
+      "categoryEn": "DEX Data & Liquidity",
+      "summaryFa": "رصد جفت‌های معاملاتی DEX، نقدینگی، حجم و رفتار توکن‌های تازه قبل از تصمیم‌گیری. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Track DEX pairs, liquidity, volume and fresh-token behavior before making decisions. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://dexscreener.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "DEX Screener در دسته داده DEX و نقدینگی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن رصد جفت‌های معاملاتی DEX، نقدینگی، حجم و رفتار توکن‌های تازه قبل از تصمیم‌گیری. است. روایت‌های مرتبط با این ابزار شامل dex، liquidity، memecoin-risk است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "DEX Screener belongs to DEX Data & Liquidity. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to track DEX pairs, liquidity, volume and fresh-token behavior before making decisions. Related narratives include dex, liquidity, memecoin-risk. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "دید سریع روی نقدینگی و حجم DEX",
+        "مناسب برای بررسی توکن‌های ترند",
+        "کمک به تشخیص جفت‌های کم‌عمق"
+      ],
+      "consFa": [
+        "برای توکن‌های تازه ریسک پامپ و دامپ بسیار بالاست",
+        "داده DEX جایگزین بررسی قرارداد نیست",
+        "ممکن است کاربر را به رفتار هیجانی نزدیک کند"
+      ],
+      "tutorialFa": [
+        "نام توکن یا آدرس قرارداد را جستجو کن.",
+        "نقدینگی، حجم و عمر جفت را کنار هم ببین.",
+        "قبل از اقدام، قرارداد و ریسک اسکم را جداگانه بررسی کن."
+      ],
+      "categoryKey": "dex-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.81,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "high",
+        "importance": "major",
+        "narratives": [
+          "dex",
+          "liquidity",
+          "memecoin-risk"
+        ]
+      }
+    },
+    {
+      "name": "Honeypot.is",
+      "domain": "honeypot.is",
+      "logo": "HP",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/honeypot.is.ico",
+      "categoryFa": "امنیت و ضداسکم",
+      "categoryEn": "Security & Anti-scam",
+      "summaryFa": "بررسی ریسک honeypot و امکان فروش توکن قبل از ورود به معاملات پرریسک. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Check honeypot risk and sellability before entering high-risk token trades. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://honeypot.is",
+      "ios": "",
+      "android": "",
+      "articleFa": "Honeypot.is در دسته امنیت و ضداسکم قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی ریسک honeypot و امکان فروش توکن قبل از ورود به معاملات پرریسک. است. روایت‌های مرتبط با این ابزار شامل security، honeypot، anti-scam است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Honeypot.is belongs to Security & Anti-scam. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to check honeypot risk and sellability before entering high-risk token trades. Related narratives include security, honeypot, anti-scam. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "تمرکز مستقیم روی ریسک honeypot",
+        "مفید برای آموزش پرهیز از اسکم",
+        "استفاده سریع و ساده"
+      ],
+      "consFa": [
+        "برای همه شبکه‌ها یا قراردادها کامل نیست",
+        "نتیجه تضمین فروش‌پذیری آینده نیست",
+        "باید با نقدینگی و owner risk ترکیب شود"
+      ],
+      "tutorialFa": [
+        "آدرس قرارداد را وارد کن.",
+        "هشدار فروش‌پذیری و tax را بررسی کن.",
+        "اگر نتیجه نامطمئن بود معامله را کنار بگذار."
+      ],
+      "categoryKey": "security",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.796,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "security",
+          "honeypot",
+          "anti-scam"
+        ]
+      }
+    },
+    {
+      "name": "CryptoPanic",
+      "domain": "cryptopanic.com",
+      "logo": "CP",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/cryptopanic.com.ico",
+      "categoryFa": "اخبار و مانیتورینگ",
+      "categoryEn": "News & Monitoring",
+      "summaryFa": "تجمیع خبرهای رمزارز و بررسی اثر خبر روی تصمیم، بدون تبدیل خبر به سیگنال. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Aggregate crypto news and review market impact without treating news as a signal. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://cryptopanic.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "CryptoPanic در دسته اخبار و مانیتورینگ قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن تجمیع خبرهای رمزارز و بررسی اثر خبر روی تصمیم، بدون تبدیل خبر به سیگنال. است. روایت‌های مرتبط با این ابزار شامل news، market-impact، monitoring است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CryptoPanic belongs to News & Monitoring. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to aggregate crypto news and review market impact without treating news as a signal. Related narratives include news, market-impact, monitoring. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای رصد سریع خبر مفید است",
+        "کمک به فهم اثر خبر بر نوسان",
+        "مناسب برای ساخت روتین روزانه"
+      ],
+      "consFa": [
+        "خبر زیاد می‌تواند اضطراب تصمیم‌گیری بسازد",
+        "کیفیت منابع یکسان نیست",
+        "تیتر خبر نباید جایگزین تحلیل شود"
+      ],
+      "tutorialFa": [
+        "خبر را از چند منبع تأیید کن.",
+        "زمان انتشار و منبع را بررسی کن.",
+        "اثر خبر را کنار حجم و قیمت بسنج."
+      ],
+      "categoryKey": "news",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.7688,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "news",
+          "market-impact",
+          "monitoring"
+        ]
+      }
+    },
+    {
+      "name": "DEXTools",
+      "domain": "dextools.io",
+      "logo": "DT",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/dextools.io.ico",
+      "categoryFa": "داده DEX و نقدینگی",
+      "categoryEn": "DEX Data & Liquidity",
+      "summaryFa": "تحلیل جفت‌های DEX، ترندها و رفتار نقدینگی با نگاه احتیاطی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Analyze DEX pairs, trends and liquidity behavior with a risk-aware workflow. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.dextools.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "DEXTools در دسته داده DEX و نقدینگی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن تحلیل جفت‌های DEX، ترندها و رفتار نقدینگی با نگاه احتیاطی. است. روایت‌های مرتبط با این ابزار شامل dex، trend-watch، liquidity است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "DEXTools belongs to DEX Data & Liquidity. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to analyze DEX pairs, trends and liquidity behavior with a risk-aware workflow. Related narratives include dex, trend-watch, liquidity. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "پوشش گسترده جفت‌های DEX",
+        "مناسب برای رصد ترندهای زودهنگام",
+        "کمک به مقایسه حجم و نقدینگی"
+      ],
+      "consFa": [
+        "برای تازه‌کارها می‌تواند وسوسه معامله هیجانی بسازد",
+        "برخی امکانات پشت حساب یا پلن پولی است",
+        "اسکم بودن قرارداد را تضمینی تشخیص نمی‌دهد"
+      ],
+      "tutorialFa": [
+        "توکن را فقط از دامنه رسمی جستجو کن.",
+        "حجم، نقدینگی و holders را با هم مقایسه کن.",
+        "خروجی را سیگنال خرید تلقی نکن."
+      ],
+      "categoryKey": "dex-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.7348,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "high",
+        "importance": "major",
+        "narratives": [
+          "dex",
+          "trend-watch",
+          "liquidity"
+        ]
+      }
+    },
+    {
+      "name": "GoPlus Security",
+      "domain": "gopluslabs.io",
+      "logo": "GP",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/gopluslabs.io.ico",
+      "categoryFa": "امنیت و ضداسکم",
+      "categoryEn": "Security & Anti-scam",
+      "summaryFa": "ارزیابی امنیت قرارداد، آدرس و ریسک‌های وب۳ برای تصمیم محتاطانه‌تر. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Assess contract, address and web3 risk signals for safer decisions. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://gopluslabs.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "GoPlus Security در دسته امنیت و ضداسکم قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن ارزیابی امنیت قرارداد، آدرس و ریسک‌های وب۳ برای تصمیم محتاطانه‌تر. است. روایت‌های مرتبط با این ابزار شامل security، api، web3-risk است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "GoPlus Security belongs to Security & Anti-scam. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to assess contract, address and web3 risk signals for safer decisions. Related narratives include security, api, web3-risk. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "مناسب برای چک امنیتی چندلایه",
+        "کاربرد API برای آینده محصول دارد",
+        "تمرکز روی ریسک‌های وب۳"
+      ],
+      "consFa": [
+        "اتصال API باید جداگانه ممیزی شود",
+        "نتیجه امنیتی جایگزین ممیزی کامل نیست",
+        "ممکن است داده برخی شبکه‌ها کامل نباشد"
+      ],
+      "tutorialFa": [
+        "فعلاً فقط صفحه رسمی و مستندات را بررسی کن.",
+        "برای استفاده API، کلید و دسترسی باید در فاز امنیتی جدا بررسی شود.",
+        "نتیجه را با چند ابزار دیگر تطبیق بده."
+      ],
+      "categoryKey": "security",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.7256,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "api_key",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "security",
+          "api",
+          "web3-risk"
+        ]
+      }
+    },
+    {
+      "name": "Bubblemaps",
+      "domain": "bubblemaps.io",
+      "logo": "BM",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/bubblemaps.io.ico",
+      "categoryFa": "تحلیل آنچین",
+      "categoryEn": "On-chain Analytics",
+      "summaryFa": "نمایش بصری تمرکز هولدرها و ارتباط آدرس‌ها برای تشخیص ریسک توزیع. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Visualize holder concentration and wallet links to assess distribution risk. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://bubblemaps.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "Bubblemaps در دسته تحلیل آنچین قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن نمایش بصری تمرکز هولدرها و ارتباط آدرس‌ها برای تشخیص ریسک توزیع. است. روایت‌های مرتبط با این ابزار شامل onchain، holder-concentration، visual-analysis است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Bubblemaps belongs to On-chain Analytics. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to visualize holder concentration and wallet links to assess distribution risk. Related narratives include onchain, holder-concentration, visual-analysis. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای آموزش تمرکز هولدرها عالی است",
+        "داده پیچیده را بصری می‌کند",
+        "به بررسی ریسک توزیع کمک می‌کند"
+      ],
+      "consFa": [
+        "تفسیر نمودار نیاز به آموزش دارد",
+        "ارتباط آدرس‌ها همیشه به معنی کنترل واحد نیست",
+        "نباید تنها معیار ورود باشد"
+      ],
+      "tutorialFa": [
+        "توکن را جستجو کن.",
+        "تمرکز هولدرها و ارتباط walletها را بررسی کن.",
+        "نتیجه را با نقدینگی و امنیت قرارداد ترکیب کن."
+      ],
+      "categoryKey": "onchain",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.7212,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "medium",
+        "importance": "trend_watch",
+        "narratives": [
+          "onchain",
+          "holder-concentration",
+          "visual-analysis"
+        ]
+      }
+    },
+    {
+      "name": "RootData",
+      "domain": "rootdata.com",
+      "logo": "RD",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/rootdata.com.ico",
+      "categoryFa": "تحقیق و فاندامنتال",
+      "categoryEn": "Research & Fundamentals",
+      "summaryFa": "بررسی پروژه‌های وب۳، سرمایه‌گذاران، جذب سرمایه و اکوسیستم‌ها برای تحلیل فاندامنتال. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Research web3 projects, investors, funding and ecosystems for fundamental analysis. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.rootdata.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "RootData در دسته تحقیق و فاندامنتال قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی پروژه‌های وب۳، سرمایه‌گذاران، جذب سرمایه و اکوسیستم‌ها برای تحلیل فاندامنتال. است. روایت‌های مرتبط با این ابزار شامل research، fundraising، web3-projects است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "RootData belongs to Research & Fundamentals. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to research web3 projects, investors, funding and ecosystems for fundamental analysis. Related narratives include research, fundraising, web3-projects. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای تحقیق پروژه‌های جدید مفید است",
+        "اطلاعات سرمایه‌گذار و اکوسیستم می‌دهد",
+        "به تحلیل فاندامنتال کمک می‌کند"
+      ],
+      "consFa": [
+        "کیفیت داده باید cross-check شود",
+        "جذب سرمایه تضمین موفقیت نیست",
+        "برای تازه‌کارها نیاز به راهنما دارد"
+      ],
+      "tutorialFa": [
+        "پروژه را جستجو کن.",
+        "سرمایه‌گذاران و سابقه جذب سرمایه را بررسی کن.",
+        "اطلاعات را با سایت رسمی پروژه تطبیق بده."
+      ],
+      "categoryKey": "research",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6964,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "medium",
+        "importance": "trend_watch",
+        "narratives": [
+          "research",
+          "fundraising",
+          "web3-projects"
+        ]
+      }
+    },
+    {
+      "name": "Rabby Wallet",
+      "domain": "rabby.io",
+      "logo": "RW",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/rabby.io.ico",
+      "categoryFa": "امنیت و ضداسکم",
+      "categoryEn": "Security & Anti-scam",
+      "summaryFa": "مطالعه کیف‌پول وب۳ با نمایش پیش‌نمایش تراکنش و هشدارهای امنیتی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Study a web3 wallet with transaction previews and security warnings. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://rabby.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "Rabby Wallet در دسته امنیت و ضداسکم قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن مطالعه کیف‌پول وب۳ با نمایش پیش‌نمایش تراکنش و هشدارهای امنیتی. است. روایت‌های مرتبط با این ابزار شامل wallet، security، transaction-preview است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Rabby Wallet belongs to Security & Anti-scam. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to study a web3 wallet with transaction previews and security warnings. Related narratives include wallet, security, transaction-preview. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای آموزش امضای تراکنش مفید است",
+        "پیش‌نمایش تعاملات وب۳ دارد",
+        "به امنیت کاربر کمک می‌کند"
+      ],
+      "consFa": [
+        "اتصال کیف‌پول همیشه ریسک عملی دارد",
+        "نصب افزونه باید فقط از منبع رسمی باشد",
+        "فعال‌سازی داخل تک‌پی نیازمند ممیزی جداست"
+      ],
+      "tutorialFa": [
+        "فقط دامنه رسمی را باز کن.",
+        "قبل از نصب، منبع افزونه را بررسی کن.",
+        "هیچ seed phrase یا امضای نامفهومی را تأیید نکن."
+      ],
+      "categoryKey": "security",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6684,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "wallet_connection",
+        "riskLevel": "high",
+        "importance": "major",
+        "narratives": [
+          "wallet",
+          "security",
+          "transaction-preview"
+        ]
+      }
+    },
+    {
+      "name": "DeBank",
+      "domain": "debank.com",
+      "logo": "DB",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/debank.com.ico",
+      "categoryFa": "پورتفوی و دارایی",
+      "categoryEn": "Portfolio & Assets",
+      "summaryFa": "مشاهده فعالیت و پورتفوی آدرس‌های وب۳ برای تحلیل رفتار و مدیریت ریسک. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "View web3 address activity and portfolios for behavior analysis and risk management. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://debank.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "DeBank در دسته پورتفوی و دارایی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن مشاهده فعالیت و پورتفوی آدرس‌های وب۳ برای تحلیل رفتار و مدیریت ریسک. است. روایت‌های مرتبط با این ابزار شامل portfolio، wallet-tracking، defi است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "DeBank belongs to Portfolio & Assets. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to view web3 address activity and portfolios for behavior analysis and risk management. Related narratives include portfolio, wallet-tracking, defi. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای ردیابی آدرس‌ها مفید است",
+        "چندزنجیره‌ای و کاربردی برای DeFi",
+        "کمک به آموزش شفافیت آنچین"
+      ],
+      "consFa": [
+        "اتصال کیف‌پول یا ورود حساب حساس است",
+        "حریم خصوصی آدرس باید رعایت شود",
+        "داده آنچین به‌تنهایی سیگنال معامله نیست"
+      ],
+      "tutorialFa": [
+        "آدرس عمومی را بدون اتصال کیف‌پول بررسی کن.",
+        "تعاملات و پروتکل‌ها را با زمینه بازار مقایسه کن.",
+        "برای اتصال حساب عجله نکن."
+      ],
+      "categoryKey": "portfolio",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.66,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "wallet_connection",
+        "riskLevel": "high",
+        "importance": "major",
+        "narratives": [
+          "portfolio",
+          "wallet-tracking",
+          "defi"
+        ]
+      }
+    },
+    {
+      "name": "CoinStats",
+      "domain": "coinstats.app",
+      "logo": "CS",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/coinstats.app.ico",
+      "categoryFa": "پورتفوی و دارایی",
+      "categoryEn": "Portfolio & Assets",
+      "summaryFa": "پیگیری پورتفوی، واچ‌لیست و تغییرات دارایی با نگاه آموزشی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Track portfolio, watchlists and asset changes with an educational lens. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://coinstats.app",
+      "ios": "https://apps.apple.com/app/coinstats-crypto-portfolio/id1247849330",
+      "android": "https://play.google.com/store/apps/details?id=com.coinstats.crypto.portfolio",
+      "articleFa": "CoinStats در دسته پورتفوی و دارایی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن پیگیری پورتفوی، واچ‌لیست و تغییرات دارایی با نگاه آموزشی. است. روایت‌های مرتبط با این ابزار شامل portfolio، watchlist، mobile است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CoinStats belongs to Portfolio & Assets. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to track portfolio, watchlists and asset changes with an educational lens. Related narratives include portfolio, watchlist, mobile. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای مدیریت واچ‌لیست مفید است",
+        "اپ موبایل دارد",
+        "به کاربر دید کلی پورتفوی می‌دهد"
+      ],
+      "consFa": [
+        "اتصال API صرافی حساس است",
+        "داده پورتفوی باید محرمانه تلقی شود",
+        "اتصال داخل تک‌پی نیازمند فاز امنیتی جداست"
+      ],
+      "tutorialFa": [
+        "ابتدا فقط واچ‌لیست بساز.",
+        "API key یا اتصال حساب را بدون بررسی فعال نکن.",
+        "دارایی‌ها را کنار ژورنال معاملاتی تحلیل کن."
+      ],
+      "categoryKey": "portfolio",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6524,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "api_key",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "portfolio",
+          "watchlist",
+          "mobile"
+        ]
+      }
+    },
+    {
+      "name": "Birdeye",
+      "domain": "birdeye.so",
+      "logo": "BE",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/birdeye.so.ico",
+      "categoryFa": "داده DEX و نقدینگی",
+      "categoryEn": "DEX Data & Liquidity",
+      "summaryFa": "رصد توکن‌ها و بازارهای سریع به‌خصوص در اکوسیستم‌های DEXمحور. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Monitor fast-moving tokens and DEX-heavy ecosystems. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://birdeye.so",
+      "ios": "",
+      "android": "",
+      "articleFa": "Birdeye در دسته داده DEX و نقدینگی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن رصد توکن‌ها و بازارهای سریع به‌خصوص در اکوسیستم‌های DEXمحور. است. روایت‌های مرتبط با این ابزار شامل dex، solana، trend-watch است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Birdeye belongs to DEX Data & Liquidity. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to monitor fast-moving tokens and DEX-heavy ecosystems. Related narratives include dex, solana, trend-watch. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "پوشش خوب برای بازارهای پرتحرک",
+        "مناسب برای رصد حجم و قیمت",
+        "کمک به دیدن موج‌های جدید"
+      ],
+      "consFa": [
+        "ریسک ترندهای کوتاه‌عمر بالاست",
+        "برای تازه‌کارها پرریسک است",
+        "اتصال حساب یا امکانات پیشرفته نیازمند احتیاط است"
+      ],
+      "tutorialFa": [
+        "از جستجوی آدرس قرارداد شروع کن.",
+        "فقط قیمت را نبین؛ نقدینگی و حجم را هم بررسی کن.",
+        "نتیجه را با چک امنیتی مستقل ترکیب کن."
+      ],
+      "categoryKey": "dex-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6476,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "high",
+        "importance": "trend_watch",
+        "narratives": [
+          "dex",
+          "solana",
+          "trend-watch"
+        ]
+      }
+    },
+    {
+      "name": "MetaMask Portfolio",
+      "domain": "portfolio.metamask.io",
+      "logo": "MP",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/portfolio.metamask.io.ico",
+      "categoryFa": "پورتفوی و دارایی",
+      "categoryEn": "Portfolio & Assets",
+      "summaryFa": "مشاهده پورتفوی وب۳ و آموزش مدیریت دارایی بدون تبدیل آن به توصیه خرید. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review a web3 portfolio workflow without turning it into a buy recommendation. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://portfolio.metamask.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "MetaMask Portfolio در دسته پورتفوی و دارایی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن مشاهده پورتفوی وب۳ و آموزش مدیریت دارایی بدون تبدیل آن به توصیه خرید. است. روایت‌های مرتبط با این ابزار شامل portfolio، wallet، web3 است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "MetaMask Portfolio belongs to Portfolio & Assets. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review a web3 portfolio workflow without turning it into a buy recommendation. Related narratives include portfolio, wallet, web3. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای فهم ترکیب دارایی مفید است",
+        "با اکوسیستم شناخته‌شده MetaMask مرتبط است",
+        "مناسب برای آموزش ریسک اتصال کیف‌پول"
+      ],
+      "consFa": [
+        "اتصال کیف‌پول حساس است",
+        "نمایش پورتفوی جایگزین دفترچه معامله نیست",
+        "داخل تک‌پی نباید خودکار فعال شود"
+      ],
+      "tutorialFa": [
+        "دامنه را با دقت بررسی کن.",
+        "کیف‌پول اصلی را برای تست ابزارهای ناشناس وصل نکن.",
+        "هر اجازه دسترسی را قبل از تأیید بخوان."
+      ],
+      "categoryKey": "portfolio",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6472,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "wallet_connection",
+        "riskLevel": "high",
+        "importance": "major",
+        "narratives": [
+          "portfolio",
+          "wallet",
+          "web3"
+        ]
+      }
+    },
+    {
+      "name": "Koinly",
+      "domain": "koinly.io",
+      "logo": "K",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/koinly.io.ico",
+      "categoryFa": "گزارش مالیاتی و حسابداری",
+      "categoryEn": "Tax & Accounting",
+      "summaryFa": "آشنایی با ثبت تراکنش‌ها، گزارش مالیاتی و نظم حسابداری برای کاربران بین‌المللی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Learn transaction tracking, tax reporting and accounting discipline for international users. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://koinly.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "Koinly در دسته گزارش مالیاتی و حسابداری قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن آشنایی با ثبت تراکنش‌ها، گزارش مالیاتی و نظم حسابداری برای کاربران بین‌المللی. است. روایت‌های مرتبط با این ابزار شامل tax، accounting، portfolio است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Koinly belongs to Tax & Accounting. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to learn transaction tracking, tax reporting and accounting discipline for international users. Related narratives include tax, accounting, portfolio. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای نظم مالی و گزارش‌گیری مفید است",
+        "به فهم هزینه تمام‌شده کمک می‌کند",
+        "چند منبع داده را پوشش می‌دهد"
+      ],
+      "consFa": [
+        "قوانین مالیاتی کشورها متفاوت است",
+        "اتصال API یا فایل تراکنش حساس است",
+        "برای ایران باید با مشاور حقوقی/مالی تطبیق شود"
+      ],
+      "tutorialFa": [
+        "در تک‌پی فعلاً فقط مفهوم گزارش‌گیری را یاد بگیر.",
+        "هیچ API key واقعی را بدون ممیزی وارد نکن.",
+        "گزارش را با قوانین محل اقامت تطبیق بده."
+      ],
+      "categoryKey": "tax",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6452,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "api_key",
+        "riskLevel": "medium",
+        "importance": "major",
+        "narratives": [
+          "tax",
+          "accounting",
+          "portfolio"
+        ]
+      }
+    },
+    {
+      "name": "CoinPaprika",
+      "domain": "coinpaprika.com",
+      "logo": "CPR",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/coinpaprika.com.ico",
+      "categoryFa": "داده بازار",
+      "categoryEn": "Market Data",
+      "summaryFa": "منبع مکمل برای قیمت، مارکت‌کپ، حجم و داده‌های پروژه. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "A complementary source for price, market cap, volume and project data. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://coinpaprika.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "CoinPaprika در دسته داده بازار قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن منبع مکمل برای قیمت، مارکت‌کپ، حجم و داده‌های پروژه. است. روایت‌های مرتبط با این ابزار شامل market-data، cross-check، research است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CoinPaprika belongs to Market Data. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to a complementary source for price, market cap, volume and project data. Related narratives include market-data, cross-check, research. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "منبع داده مکمل است",
+        "برای cross-check قیمت و حجم مفید است",
+        "بدون اتصال حساب استفاده می‌شود"
+      ],
+      "consFa": [
+        "پوشش و عمق آن برای همه دارایی‌ها یکسان نیست",
+        "نیاز به مقایسه با منابع دیگر دارد",
+        "برای سیگنال‌دهی طراحی نشده است"
+      ],
+      "tutorialFa": [
+        "دارایی را جستجو کن.",
+        "داده را با CoinGecko یا CoinMarketCap مقایسه کن.",
+        "برای تصمیم از چک‌لیست ریسک تک‌پی استفاده کن."
+      ],
+      "categoryKey": "market-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6412,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "low",
+        "importance": "education_watch",
+        "narratives": [
+          "market-data",
+          "cross-check",
+          "research"
+        ]
+      }
+    },
+    {
+      "name": "CryptoFees.info",
+      "domain": "cryptofees.info",
+      "logo": "CFI",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/cryptofees.info.ico",
+      "categoryFa": "تحقیق و فاندامنتال",
+      "categoryEn": "Research & Fundamentals",
+      "summaryFa": "مقایسه درآمد کارمزدی پروتکل‌ها برای فهم کاربرد واقعی و تقاضای شبکه. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Compare protocol fee revenue to understand real usage and network demand. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://cryptofees.info",
+      "ios": "",
+      "android": "",
+      "articleFa": "CryptoFees.info در دسته تحقیق و فاندامنتال قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن مقایسه درآمد کارمزدی پروتکل‌ها برای فهم کاربرد واقعی و تقاضای شبکه. است. روایت‌های مرتبط با این ابزار شامل fees، fundamental، protocol-revenue است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CryptoFees.info belongs to Research & Fundamentals. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to compare protocol fee revenue to understand real usage and network demand. Related narratives include fees, fundamental, protocol-revenue. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "شاخص ساده‌ای از استفاده پروتکل می‌دهد",
+        "بدون اتصال حساب است",
+        "برای آموزش فاندامنتال مفید است"
+      ],
+      "consFa": [
+        "کارمزد تنها معیار ارزش‌گذاری نیست",
+        "داده باید با TVL و کاربران ترکیب شود",
+        "برای همه پروتکل‌ها کامل نیست"
+      ],
+      "tutorialFa": [
+        "پروتکل را در لیست پیدا کن.",
+        "کارمزد را با TVL و حجم مقایسه کن.",
+        "از یک عدد نتیجه قطعی نگیر."
+      ],
+      "categoryKey": "research",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6324,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "low",
+        "importance": "education_watch",
+        "narratives": [
+          "fees",
+          "fundamental",
+          "protocol-revenue"
+        ]
+      }
+    },
+    {
+      "name": "CoinCodex",
+      "domain": "coincodex.com",
+      "logo": "CC",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/coincodex.com.ico",
+      "categoryFa": "داده بازار",
+      "categoryEn": "Market Data",
+      "summaryFa": "بررسی قیمت، تقویم، داده بازار و مقایسه پروژه‌ها به عنوان منبع مکمل. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review price, calendar, market data and project comparison as a complementary source. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://coincodex.com",
+      "ios": "https://apps.apple.com/app/coincodex/id1454482106",
+      "android": "https://play.google.com/store/apps/details?id=com.coincodex.coincodexapp",
+      "articleFa": "CoinCodex در دسته داده بازار قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی قیمت، تقویم، داده بازار و مقایسه پروژه‌ها به عنوان منبع مکمل. است. روایت‌های مرتبط با این ابزار شامل market-data، calendar، watchlist است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CoinCodex belongs to Market Data. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review price, calendar, market data and project comparison as a complementary source. Related narratives include market-data, calendar, watchlist. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای مقایسه سریع مناسب است",
+        "اپ موبایل دارد",
+        "منبع مکمل برای داده بازار است"
+      ],
+      "consFa": [
+        "نباید منبع واحد تصمیم باشد",
+        "پیش‌بینی‌ها تضمینی نیستند",
+        "نیاز به تطبیق با منابع رسمی پروژه دارد"
+      ],
+      "tutorialFa": [
+        "دارایی را جستجو کن.",
+        "قیمت، حجم و لینک‌ها را با منابع دیگر تطبیق بده.",
+        "پیش‌بینی‌ها را سیگنال قطعی ندان."
+      ],
+      "categoryKey": "market-data",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.6252,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "medium",
+        "importance": "education_watch",
+        "narratives": [
+          "market-data",
+          "calendar",
+          "watchlist"
+        ]
+      }
+    },
+    {
+      "name": "Hyblock Capital",
+      "domain": "hyblockcapital.com",
+      "logo": "HB",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/hyblockcapital.com.ico",
+      "categoryFa": "مشتقه و فیوچرز",
+      "categoryEn": "Derivatives & Futures",
+      "summaryFa": "بررسی نقدینگی، لیکوئیدیشن و داده مشتقه برای کاربران حرفه‌ای‌تر. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review liquidity, liquidation and derivatives data for more advanced users. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.hyblockcapital.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "Hyblock Capital در دسته مشتقه و فیوچرز قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی نقدینگی، لیکوئیدیشن و داده مشتقه برای کاربران حرفه‌ای‌تر. است. روایت‌های مرتبط با این ابزار شامل derivatives، liquidation، liquidity است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Hyblock Capital belongs to Derivatives & Futures. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review liquidity, liquidation and derivatives data for more advanced users. Related narratives include derivatives, liquidation, liquidity. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای تحلیل مشتقه پیشرفته مفید است",
+        "به دیدن نواحی لیکوئیدیشن کمک می‌کند",
+        "مکمل CoinGlass است"
+      ],
+      "consFa": [
+        "برای مبتدی‌ها پرریسک و پیچیده است",
+        "داده مشتقه می‌تواند وسوسه اهرم بسازد",
+        "نباید به سیگنال ورود تبدیل شود"
+      ],
+      "tutorialFa": [
+        "ابتدا بدون معامله فقط داده را مشاهده کن.",
+        "نواحی نقدینگی را با ساختار بازار مقایسه کن.",
+        "اهرم را بدون پلن ریسک استفاده نکن."
+      ],
+      "categoryKey": "derivatives",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.616,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "high",
+        "importance": "trend_watch",
+        "narratives": [
+          "derivatives",
+          "liquidation",
+          "liquidity"
+        ]
+      }
+    },
+    {
+      "name": "Cielo Finance",
+      "domain": "cielo.finance",
+      "logo": "CF",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/cielo.finance.ico",
+      "categoryFa": "ردیابی کیف‌پول",
+      "categoryEn": "Wallet Tracking",
+      "summaryFa": "رصد فعالیت کیف‌پول‌ها و smart money با احتیاط و بدون کپی‌ترید کورکورانه. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Monitor wallets and smart-money activity carefully without blind copy-trading. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://cielo.finance",
+      "ios": "",
+      "android": "",
+      "articleFa": "Cielo Finance در دسته ردیابی کیف‌پول قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن رصد فعالیت کیف‌پول‌ها و smart money با احتیاط و بدون کپی‌ترید کورکورانه. است. روایت‌های مرتبط با این ابزار شامل wallet-tracking، smart-money، copytrade-risk است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Cielo Finance belongs to Wallet Tracking. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to monitor wallets and smart-money activity carefully without blind copy-trading. Related narratives include wallet-tracking, smart-money, copytrade-risk. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای آموزش رفتار آدرس‌ها مفید است",
+        "کمک به رصد جریان سرمایه",
+        "مناسب برای کاربران حرفه‌ای‌تر"
+      ],
+      "consFa": [
+        "کپی‌ترید کورکورانه بسیار خطرناک است",
+        "آدرس موفق همیشه آینده موفق ندارد",
+        "حریم خصوصی و خطای تفسیر مهم است"
+      ],
+      "tutorialFa": [
+        "آدرس‌ها را فقط برای یادگیری رفتار بررسی کن.",
+        "هر ورود و خروج را با زمینه بازار مقایسه کن.",
+        "هیچ wallet را سیگنال قطعی ندان."
+      ],
+      "categoryKey": "wallet-tracking",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.594,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "high",
+        "importance": "trend_watch",
+        "narratives": [
+          "wallet-tracking",
+          "smart-money",
+          "copytrade-risk"
+        ]
+      }
+    },
+    {
+      "name": "DropsTab",
+      "domain": "dropstab.com",
+      "logo": "DTB",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/dropstab.com.ico",
+      "categoryFa": "تحقیق و فاندامنتال",
+      "categoryEn": "Research & Fundamentals",
+      "summaryFa": "بررسی داده پروژه، unlock و اطلاعات تکمیلی برای تحقیق قبل از تصمیم. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review project data, unlocks and complementary research signals before deciding. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://dropstab.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "DropsTab در دسته تحقیق و فاندامنتال قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی داده پروژه، unlock و اطلاعات تکمیلی برای تحقیق قبل از تصمیم. است. روایت‌های مرتبط با این ابزار شامل research، unlocks، watchlist است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "DropsTab belongs to Research & Fundamentals. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review project data, unlocks and complementary research signals before deciding. Related narratives include research, unlocks, watchlist. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "منبع مکمل برای تحقیق است",
+        "به بررسی زمان‌بندی عرضه کمک می‌کند",
+        "برای watchlist کاربرد دارد"
+      ],
+      "consFa": [
+        "نباید تنها منبع تصمیم باشد",
+        "داده‌ها نیاز به تطبیق دارند",
+        "برای ابزارهای پیشرفته ممکن است حساب لازم شود"
+      ],
+      "tutorialFa": [
+        "پروژه را جستجو کن.",
+        "unlock، مارکت‌کپ و لینک‌ها را جداگانه بررسی کن.",
+        "منابع رسمی پروژه را هم بخوان."
+      ],
+      "categoryKey": "research",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.5804,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "medium",
+        "importance": "education_watch",
+        "narratives": [
+          "research",
+          "unlocks",
+          "watchlist"
+        ]
+      }
+    },
+    {
+      "name": "TradingLite",
+      "domain": "tradinglite.com",
+      "logo": "TL",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/tradinglite.com.ico",
+      "categoryFa": "تحلیل تکنیکال",
+      "categoryEn": "Technical Analysis",
+      "summaryFa": "تحلیل order flow و heatmap برای کاربران حرفه‌ای‌تر در کنار مدیریت ریسک. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Analyze order flow and heatmaps for advanced users alongside risk management. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.tradinglite.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "TradingLite در دسته تحلیل تکنیکال قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن تحلیل order flow و heatmap برای کاربران حرفه‌ای‌تر در کنار مدیریت ریسک. است. روایت‌های مرتبط با این ابزار شامل technical، order-flow، heatmap است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "TradingLite belongs to Technical Analysis. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to analyze order flow and heatmaps for advanced users alongside risk management. Related narratives include technical, order-flow, heatmap. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای دیدن نقدینگی و order flow مفید است",
+        "به کاربران حرفه‌ای دید عمیق‌تر می‌دهد",
+        "مکمل نمودار کلاسیک است"
+      ],
+      "consFa": [
+        "برای مبتدی‌ها پیچیده است",
+        "داده heatmap سیگنال قطعی نیست",
+        "ممکن است پلن پولی لازم داشته باشد"
+      ],
+      "tutorialFa": [
+        "ابتدا مفهوم liquidity heatmap را یاد بگیر.",
+        "آن را کنار price action و حجم بررسی کن.",
+        "بدون حد ضرر وارد معامله نشو."
+      ],
+      "categoryKey": "technical",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.5712,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "medium",
+        "importance": "education_watch",
+        "narratives": [
+          "technical",
+          "order-flow",
+          "heatmap"
+        ]
+      }
+    },
+    {
+      "name": "CoinAnk",
+      "domain": "coinank.com",
+      "logo": "CA",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/coinank.com.ico",
+      "categoryFa": "مشتقه و فیوچرز",
+      "categoryEn": "Derivatives & Futures",
+      "summaryFa": "بررسی داده فیوچرز، funding، long/short و لیکوئیدیشن به عنوان منبع مکمل. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review futures, funding, long-short and liquidation data as a complementary source. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://coinank.com",
+      "ios": "",
+      "android": "",
+      "articleFa": "CoinAnk در دسته مشتقه و فیوچرز قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی داده فیوچرز، funding، long/short و لیکوئیدیشن به عنوان منبع مکمل. است. روایت‌های مرتبط با این ابزار شامل derivatives، funding، liquidation است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CoinAnk belongs to Derivatives & Futures. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review futures, funding, long-short and liquidation data as a complementary source. Related narratives include derivatives, funding, liquidation. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "منبع مکمل برای داده مشتقه",
+        "مناسب برای مقایسه با CoinGlass",
+        "کمک به دیدن فشار اهرمی"
+      ],
+      "consFa": [
+        "برای مبتدی‌ها می‌تواند خطرناک باشد",
+        "کیفیت داده باید cross-check شود",
+        "نباید باعث افزایش اهرم شود"
+      ],
+      "tutorialFa": [
+        "Funding و open interest را جداگانه بخوان.",
+        "داده را با CoinGlass مقایسه کن.",
+        "قبل از معامله سناریوی ضرر را بنویس."
+      ],
+      "categoryKey": "derivatives",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.534,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "none",
+        "riskLevel": "high",
+        "importance": "education_watch",
+        "narratives": [
+          "derivatives",
+          "funding",
+          "liquidation"
+        ]
+      }
+    },
+    {
+      "name": "Laevitas",
+      "domain": "laevitas.ch",
+      "logo": "LV",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/laevitas.ch.ico",
+      "categoryFa": "مشتقه و فیوچرز",
+      "categoryEn": "Derivatives & Futures",
+      "summaryFa": "داده مشتقه، آپشن و ساختار بازار برای تحلیل حرفه‌ای و آموزشی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Derivatives, options and market-structure data for advanced research. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://laevitas.ch",
+      "ios": "",
+      "android": "",
+      "articleFa": "Laevitas در دسته مشتقه و فیوچرز قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن داده مشتقه، آپشن و ساختار بازار برای تحلیل حرفه‌ای و آموزشی. است. روایت‌های مرتبط با این ابزار شامل derivatives، options، market-structure است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Laevitas belongs to Derivatives & Futures. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to derivatives, options and market-structure data for advanced research. Related narratives include derivatives, options, market-structure. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای کاربران حرفه‌ای ارزش تحلیلی دارد",
+        "به فهم بازار آپشن کمک می‌کند",
+        "منبع مکمل برای مشتقه است"
+      ],
+      "consFa": [
+        "برای تازه‌کارها مناسب شروع نیست",
+        "داده مشتقه نیاز به آموزش جدی دارد",
+        "ممکن است پلن پولی لازم داشته باشد"
+      ],
+      "tutorialFa": [
+        "از مفاهیم ساده مشتقه شروع کن.",
+        "داده آپشن را کنار نقدینگی و حجم ببین.",
+        "هیچ خروجی را سیگنال قطعی ندان."
+      ],
+      "categoryKey": "derivatives",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.5172,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "account_optional",
+        "riskLevel": "high",
+        "importance": "education_watch",
+        "narratives": [
+          "derivatives",
+          "options",
+          "market-structure"
+        ]
+      }
+    },
+    {
+      "name": "CoinTracker",
+      "domain": "cointracker.io",
+      "logo": "CT",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/cointracker.io.ico",
+      "categoryFa": "گزارش مالیاتی و حسابداری",
+      "categoryEn": "Tax & Accounting",
+      "summaryFa": "پیگیری تراکنش و گزارش مالیاتی برای فهم اهمیت تاریخچه معاملات. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Track transactions and tax reports to understand trade-history discipline. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://www.cointracker.io",
+      "ios": "",
+      "android": "",
+      "articleFa": "CoinTracker در دسته گزارش مالیاتی و حسابداری قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن پیگیری تراکنش و گزارش مالیاتی برای فهم اهمیت تاریخچه معاملات. است. روایت‌های مرتبط با این ابزار شامل tax، history، accounting است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "CoinTracker belongs to Tax & Accounting. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to track transactions and tax reports to understand trade-history discipline. Related narratives include tax, history, accounting. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "برای آموزش ثبت تاریخچه مفید است",
+        "دید حسابداری به کاربر می‌دهد",
+        "برای کاربران بین‌المللی کاربرد دارد"
+      ],
+      "consFa": [
+        "اتصال صرافی یا wallet حساس است",
+        "قانون مالیاتی عمومی نیست",
+        "در تک‌پی نباید خودکار فعال شود"
+      ],
+      "tutorialFa": [
+        "ابتدا مفهوم ثبت تراکنش را یاد بگیر.",
+        "برای اتصال API از حساب تست یا read-only استفاده کن.",
+        "گزارش را مشاوره مالی تلقی نکن."
+      ],
+      "categoryKey": "tax",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.5164,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "api_key",
+        "riskLevel": "medium",
+        "importance": "education_watch",
+        "narratives": [
+          "tax",
+          "history",
+          "accounting"
+        ]
+      }
+    },
+    {
+      "name": "Zerion",
+      "domain": "zerion.io",
+      "logo": "ZR",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/zerion.io.ico",
+      "categoryFa": "پورتفوی و دارایی",
+      "categoryEn": "Portfolio & Assets",
+      "summaryFa": "مشاهده پورتفوی و فعالیت وب۳ با تمرکز بر تجربه کاربری و مدیریت دارایی. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "View web3 portfolio and activity with a user-experience focused asset workflow. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://zerion.io",
+      "ios": "https://apps.apple.com/app/zerion-wallet-defi-nft/id1456732565",
+      "android": "https://play.google.com/store/apps/details?id=io.zerion.android",
+      "articleFa": "Zerion در دسته پورتفوی و دارایی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن مشاهده پورتفوی و فعالیت وب۳ با تمرکز بر تجربه کاربری و مدیریت دارایی. است. روایت‌های مرتبط با این ابزار شامل portfolio، wallet، mobile است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Zerion belongs to Portfolio & Assets. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to view web3 portfolio and activity with a user-experience focused asset workflow. Related narratives include portfolio, wallet, mobile. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "اپ موبایل و وب دارد",
+        "برای آموزش پورتفوی وب۳ مفید است",
+        "تجربه کاربری قابل فهم‌تر برای کاربر دارد"
+      ],
+      "consFa": [
+        "کیف‌پول و دارایی واقعی حساس‌اند",
+        "اتصال داخل تک‌پی باید جداگانه بررسی شود",
+        "نمایش دارایی جایگزین تحلیل ریسک نیست"
+      ],
+      "tutorialFa": [
+        "منبع اپ را از لینک رسمی بررسی کن.",
+        "برای آموزش از آدرس عمومی شروع کن.",
+        "قبل از امضا یا اتصال، پیام را کامل بخوان."
+      ],
+      "categoryKey": "portfolio",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.492,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "wallet_connection",
+        "riskLevel": "high",
+        "importance": "education_watch",
+        "narratives": [
+          "portfolio",
+          "wallet",
+          "mobile"
+        ]
+      }
+    },
+    {
+      "name": "Zapper",
+      "domain": "zapper.xyz",
+      "logo": "ZP",
+      "logoUrl": "https://icons.duckduckgo.com/ip3/zapper.xyz.ico",
+      "categoryFa": "پورتفوی و دارایی",
+      "categoryEn": "Portfolio & Assets",
+      "summaryFa": "بررسی تجربه مدیریت پورتفوی DeFi و فعالیت‌های چندزنجیره‌ای. این معرفی آموزشی است و نباید به عنوان سیگنال معامله یا تأیید مالی استفاده شود.",
+      "summaryEn": "Review DeFi portfolio management and multichain activity workflows. TecPey lists it for education only, not as a trading signal or endorsement.",
+      "site": "https://zapper.xyz",
+      "ios": "",
+      "android": "",
+      "articleFa": "Zapper در دسته پورتفوی و دارایی قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن بررسی تجربه مدیریت پورتفوی DeFi و فعالیت‌های چندزنجیره‌ای. است. روایت‌های مرتبط با این ابزار شامل portfolio، defi، multichain است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.",
+      "articleEn": "Zapper belongs to Portfolio & Assets. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to review DeFi portfolio management and multichain activity workflows. Related narratives include portfolio, defi, multichain. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.",
+      "prosFa": [
+        "دید کلی روی فعالیت DeFi",
+        "مناسب برای آموزش پورتفوی چندزنجیره‌ای",
+        "کمک به کشف تعاملات آدرس"
+      ],
+      "consFa": [
+        "اتصال کیف‌پول ریسک دارد",
+        "برخی داده‌ها ممکن است دیر به‌روز شود",
+        "کاربر باید privacy آدرس را جدی بگیرد"
+      ],
+      "tutorialFa": [
+        "ابتدا با آدرس عمومی و بدون اتصال شروع کن.",
+        "دارایی‌ها و بدهی‌ها را جداگانه بررسی کن.",
+        "برای هر اتصال کیف‌پول سناریوی ریسک بنویس."
+      ],
+      "categoryKey": "portfolio",
+      "automation": {
+        "policyVersion": "tecpey-tool-growth-policy-v1",
+        "score": 0.4904,
+        "status": "published_content",
+        "sourceMode": "curated_seed",
+        "publishCapability": "educational_directory",
+        "externalCapability": "manual_review_required",
+        "integrationRisk": "wallet_connection",
+        "riskLevel": "high",
+        "importance": "education_watch",
+        "narratives": [
+          "portfolio",
+          "defi",
+          "multichain"
+        ]
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "Token Unlocks",
+      "slug": "token-unlocks",
+      "domain": "token.unlocks.app",
+      "reason": "already_curated",
+      "score": 0.8344
+    }
+  ]
+}

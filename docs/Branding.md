@@ -118,12 +118,15 @@ Helper text below Academy CTA (small, not competing):
 - Documentation preview: `/docs/assets/brand/tecpey-logo-official.webp`
 - Large PNG export: `/docs/assets/brand/generated/tecpey-logo-1024.png`
 - Review lockup: `/docs/assets/brand/generated/tecpey-lockup-fa-en.png`
+- Runtime lockup copy: `/public/images/brand/tecpey-lockup-fa-en.png`
+- Maskable PWA icon: `/public/maskable-icon-512x512.png`
 - Runtime UI component: `src/components/brand/TecpeyMark.tsx`
 - Runtime mirror: `/public/logo.png` must remain byte-identical to the canonical icon
 - Derived runtime asset: `/public/images/brand/tecpey-logo-256.png` must remain a governed 256×256 PNG recorded in the brand asset registry
 - Usage: Always use on appropriate contrast background
 - Do not distort, recolor, or add effects to the logo
 - Favicon, Apple touch icon, Android/PWA icons and README previews must be generated from the same official icon source.
+- PWA maskable icons must use a brand background and safe-zone padding so the TP mark is not clipped by Android launchers.
 - Uploaded source references are recorded in `/docs/assets/brand/brand-assets.json` with SHA-256 hashes.
 - The public UI gate runs `scripts/check-brand-asset-authority.mjs` to reject canonical logo, runtime icon, README preview, metadata, manifest, or source-reference drift.
 

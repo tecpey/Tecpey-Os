@@ -58,6 +58,7 @@ const REQUIRED_MIGRATIONS = [
   "0055_learning_brain_refresh_columns.sql",
   "0056_achievement_contract_columns.sql",
   "0057_learning_brain_tenant_cache.sql",
+  "0058_news_materialization_authority.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -84,6 +85,9 @@ const REQUIRED_TABLES = [
   "admin_audit_events",
   "api_command_receipts",
   "sensitive_mutation_audit_events",
+  "platform_news_materialization_snapshots",
+  "platform_news_impact_history_items",
+  "platform_news_materialization_snapshot_items",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -128,6 +132,9 @@ const REQUIRED_COLUMNS = [
   ["student_achievements", "payload"],
   ["learning_brain_profiles", "tenant_id"],
   ["notification_brain_snapshots", "tenant_id"],
+  ["platform_news_materialization_snapshots", "snapshot_hash"],
+  ["platform_news_impact_history_items", "related_coin_symbols"],
+  ["platform_news_materialization_snapshot_items", "position"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -158,6 +165,10 @@ const REQUIRED_INDEXES = [
   "student_achievements_student_code_unique_idx",
   "learning_brain_profiles_student_idx",
   "notification_brain_snapshots_student_idx",
+  "platform_news_materialization_lookup_idx",
+  "platform_news_impact_history_priority_idx",
+  "platform_news_impact_history_coin_idx",
+  "platform_news_impact_history_tool_idx",
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -189,6 +200,9 @@ const REQUIRED_TRIGGERS = [
   "sensitive_mutation_audit_validate",
   "sensitive_mutation_audit_no_update",
   "sensitive_mutation_audit_no_delete",
+  "platform_news_materialization_snapshots_immutable",
+  "platform_news_impact_history_items_immutable",
+  "platform_news_materialization_snapshot_items_immutable",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [

@@ -186,6 +186,9 @@ jobs:
       - name: Secret-scanning authority guard
         run: npm run security:secrets:check
 
+      - name: Source ownership authority guard
+        run: npm run ip:ownership:check
+
       - name: Operational recovery authority and negative tests
         run: npm run test:ops-recovery-authority
 
@@ -412,6 +415,15 @@ jobs:
 
       - name: Staging scheduler evidence tests
         run: npm run test:ops-staging-evidence
+
+      - name: News materialization staging evidence guard
+        run: npm run news:materialization:staging-evidence:check
+
+      - name: Coin growth automation guard
+        run: npm run coins:growth:check
+
+      - name: Tool growth automation guard
+        run: npm run tools:growth:check
 
       - name: Controlled launch decision authority guard
         run: npm run launch:decision:check

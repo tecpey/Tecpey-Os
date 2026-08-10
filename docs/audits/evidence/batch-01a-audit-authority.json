@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "1e1cc2d051c7cd1bd183d51acd53a3c6ca0ecded",
-      "sha256": "973a2864b8bd243458cb2582f5ad6956080db3238f902eb266d34e56449e4e44",
-      "lines": 187,
+      "gitObjectId": "189ea0105224cc1eb554467f0eb1ebc14f77fd31",
+      "sha256": "158989a5b98004d87446499067129114ef28d59e533eb613b5c2f7844c73819a",
+      "lines": 198,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 187
+          "endLine": 198
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -70,16 +70,18 @@
         "2026-08-09: re-reviewed after adding test:launch-packet and composing it into launch:decision:check. The new test command runs one local node:test suite against the release-packet generator, adds no dependency, engine, override, network access or runtime mutation path, and release:check remains a composition of governed read-only gates plus tests.",
         "2026-08-09: re-reviewed after adding launch:evidence:manifest:check, test:launch-evidence-manifest and composing the manifest test into launch:decision:check. The new commands validate governed final launch evidence manifests and packet manifest wiring with local node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and keep release authority fail-closed.",
         "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate.",
-        "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check."
+        "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check.",
+        "2026-08-10: re-reviewed after wiring governed news materialization, coin growth and tool growth commands into package scripts and release:check. The commands remain local repository scripts/tests, add no dependency, engine or override, do not enable exchange execution, wallet connection, API-key access, signal publishing or external trade automation, and the file now has 198 lines.",
+        "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 111,
+          "line": 123,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 111 and 114-115 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 123 and 126-127 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -225,20 +227,21 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "bef7d6ebd4dc4107da34e20a68c2ba08cb442a6c",
-      "sha256": "3656ebef0a2846662e8a17b73b51aff84f0f84aea97f2abd0bd3ca5e67aacef3",
-      "lines": 271,
+      "gitObjectId": "6fd2c67c86502fc494fd352f246b67dfbb38749d",
+      "sha256": "1c3c743cfb8cd745511ceca8c0d193d36e3acd38123418ff8daecb02c96a1e66",
+      "lines": 281,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 271
+          "endLine": 281
         }
       ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
-        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted."
+        "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted.",
+        "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications."
       ],
       "findings": []
     },

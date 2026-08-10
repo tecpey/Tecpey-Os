@@ -26,7 +26,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/academy/AcademyEngagementHub.tsx:43:19",
   "react-hooks/set-state-in-effect:src/components/academy/AcademyMentorCoachCenter.tsx:68:5",
   "react-hooks/set-state-in-effect:src/components/academy/AiMentorExperience.tsx:77:5",
-  "react-hooks/set-state-in-effect:src/components/academy/GlobalAiMentorWidget.tsx:362:5",
+  "react-hooks/set-state-in-effect:src/components/academy/GlobalAiMentorWidget.tsx:377:5",
   "react-hooks/set-state-in-effect:src/components/academy/TradingArenaProClient.tsx:142:5",
   "react-hooks/set-state-in-effect:src/components/academy/community/ChallengeCenter.tsx:321:10",
   "react-hooks/set-state-in-effect:src/components/academy/community/CommunityHub.tsx:199:5",
@@ -51,12 +51,12 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/academy/v2/MentorV2.tsx:276:5",
   "react-hooks/set-state-in-effect:src/components/admin/AdminPasskeyAccessGate.tsx:223:10",
   "react-hooks/set-state-in-effect:src/components/admin/CommandCenterDashboard.tsx:101:10",
-  "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:115:7",
+  "react-hooks/set-state-in-effect:src/components/crypto/SwapPanel.tsx:120:7",
   "react-hooks/set-state-in-effect:src/components/home/TecpeyHomeAI.tsx:311:5",
   "react-hooks/set-state-in-effect:src/components/learning-os/NotificationCenter.tsx:106:5",
-  "react-hooks/set-state-in-effect:src/components/navbar/Navbar.tsx:228:5",
+  "react-hooks/set-state-in-effect:src/components/navbar/Navbar.tsx:237:5",
   "react-hooks/set-state-in-effect:src/hooks/useBaseCurrenciesPrice.ts:71:5",
-  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:90:7",
+  "react-hooks/set-state-in-effect:src/hooks/useMentorInsights.ts:95:7",
 ]);
 
 function findingKey(finding) {

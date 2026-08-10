@@ -9,6 +9,11 @@ does not contain `tsx`, TypeScript, source migration modules, or builder
 dependencies. `/app/storage`, `/app/.next/cache`, and `/tmp` are the only
 governed writable paths.
 
+Production delivery is artifact-first. Full source archives are not production
+supply-chain artifacts and are allowed only as exception-approved support or
+staging candidates under
+`docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md`.
+
 Every external GitHub Action and CI service image is pinned to an immutable
 commit or digest. Updating a pin requires reviewing the upstream release,
 updating the authority test, and retaining a green exact-head workflow run.

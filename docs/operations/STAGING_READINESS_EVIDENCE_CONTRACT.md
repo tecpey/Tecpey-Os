@@ -31,6 +31,7 @@ commit and one collection window:
 | Runtime health | `/api/health` returns HTTP 200 with `health=ok`, production runtime mode, PostgreSQL `ok`, Redis `ok`, tracked migrations, and the selected commit. |
 | Systemd activation | Required service and timer unit files byte-match release-rendered templates; timers are enabled and active. |
 | Database operational evidence | The operational job evidence migration exists and the latest governed scheduler run is recent and `succeeded`. |
+| News materialization evidence | `tecpey-news-materialization.service` executes on the protected staging host, `tecpey-news-materialization.timer` is active, and `news-materialization-last-run.json` is recent, successful, hash-verified and free of sensitive material. |
 | Alert delivery evidence | Operational alert pending and quarantine counts are zero; a requested synthetic staging probe is delivered through the approved alert path. |
 | Privacy and digest integrity | Evidence excludes raw secrets, hostnames, IPs, user identifiers, and raw logs; canonical and detached SHA-256 digests verify the accepted bytes. |
 
@@ -49,6 +50,7 @@ are true:
 - required migration evidence is present;
 - systemd units match release-rendered templates and timers are active;
 - latest operational scheduler run is fresh and successful;
+- latest news materialization run is fresh and successful when the release includes `.github/workflows/staging-news-materialization-evidence.yml`;
 - alert spool has zero pending and zero quarantined items;
 - required synthetic alert probe was delivered;
 - evidence artifact, detached digest, and verifier summary were uploaded;

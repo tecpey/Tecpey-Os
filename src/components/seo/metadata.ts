@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const base = "https://tecpey.ir";
-const ogImage = `${base}/images/tecpey-logo.png`;
+const ogImage = `${base}/images/tecpey-og.png`;
 
 export function pageMetadata({
   title,
@@ -40,7 +40,14 @@ export function pageMetadata({
       siteName: "TecPey",
       locale,
       type: "website",
-      images: [{ url: ogImage, width: 512, height: 512, alt: "TecPey" }],
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: "TecPey — تک‌پی، نقطه امن ورود به بازار رمزارز",
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",

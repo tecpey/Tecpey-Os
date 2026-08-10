@@ -193,10 +193,10 @@ export async function generateMetadata() {
       alternateLocale: ["en_US"],
       images: [
         {
-          url: "https://tecpey.ir/images/tecpey-logo.png",
-          width: 512,
-          height: 512,
-          alt: "TecPey",
+          url: "https://tecpey.ir/images/tecpey-og.png",
+          width: 1200,
+          height: 630,
+          alt: "TecPey — تک‌پی، نقطه امن ورود به بازار رمزارز",
         },
       ],
     },
@@ -205,7 +205,7 @@ export async function generateMetadata() {
       title: "تک‌پی | آموزش مالی و تمرین معاملاتی بدون ریسک",
       description:
         "آموزش، مدیریت ریسک، تمرین مجازی و راهنمایی هوشمند برای ورود آگاهانه به بازار.",
-      images: ["https://tecpey.ir/images/tecpey-logo.png"],
+      images: ["https://tecpey.ir/images/tecpey-og.png"],
     },
   };
 }
@@ -236,6 +236,7 @@ export default async function RootLayout({
       <body>
         <script
           nonce={nonce}
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(globalSeoSchemas) }}
         />

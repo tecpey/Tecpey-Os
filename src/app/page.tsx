@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import TecpeyEnterpriseLanding from "@/app/home/enterprise/TecpeyEnterpriseLanding";
+import { getLandingGrowthRadarFromAuthority } from "@/lib/landing-growth-authority";
+import { buildLandingGrowthSchemasFromRadar } from "@/lib/landing-growth";
+import {
+  SITE_URL,
+  buildAnswerEntityProfileSchema,
+  buildHowToSchema,
+  buildWebPageSchema,
+} from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tecpey.ir"),
@@ -20,6 +28,9 @@ export const metadata: Metadata = {
     "امنیت رمزارز",
     "منتور هوشمند آموزشی",
     "آموزش ارز دیجیتال",
+    "پاسخ مستقیم ارز دیجیتال",
+    "تمرین بدون ریسک ارز دیجیتال",
+    "راهنمای ورود امن به رمزارز",
   ],
   alternates: {
     canonical: "https://tecpey.ir",
@@ -34,10 +45,10 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/images/tecpey-logo.png",
-        width: 512,
-        height: 512,
-        alt: "TecPey",
+        url: "/images/tecpey-og.png",
+        width: 1200,
+        height: 630,
+        alt: "تک‌پی، نقطه امن ورود به بازار رمزارز",
       },
     ],
   },
@@ -46,7 +57,7 @@ export const metadata: Metadata = {
     title: "تک‌پی، نقطه امن ورود آگاهانه به بازار رمزارز",
     description:
       "آموزش، مدیریت ریسک، تمرین مجازی و راهنمایی هوشمند برای شروع آگاهانه.",
-    images: ["/images/tecpey-logo.png"],
+    images: ["/images/tecpey-og.png"],
   },
 };
 
@@ -156,30 +167,100 @@ const articleSchema = {
 
 export default async function Home() {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const growthRadar = await getLandingGrowthRadarFromAuthority("fa");
+  const landingGrowthSchemas = buildLandingGrowthSchemasFromRadar(growthRadar);
+  const answerEngineSchemas = [
+    buildWebPageSchema({
+      name: "تک‌پی؛ آموزش رمزارز و تمرین معاملاتی بدون ریسک",
+      description:
+        "تک‌پی به کاربران فارسی‌زبان کمک می‌کند رمزارز را یاد بگیرند، داده‌های بازار را مرور کنند و پیش از ورود جدی، تصمیم‌های خود را بدون ریسک پول واقعی تمرین کنند.",
+      url: SITE_URL,
+      locale: "fa-IR",
+      about: [
+        "آموزش ارز دیجیتال",
+        "تمرین معامله مجازی",
+        "مدیریت ریسک",
+        "امنیت رمزارز",
+        "منتور هوشمند آموزشی",
+      ],
+    }),
+    buildHowToSchema({
+      name: "چگونه با تک‌پی ورود آگاهانه به بازار رمزارز را شروع کنیم؟",
+      description:
+        "یک مسیر محتاط و آموزشی برای یادگیری مفاهیم رمزارز، مرور داده‌های بازار و تمرین تصمیم پیش از هر فعال‌سازی مالی.",
+      url: SITE_URL,
+      locale: "fa-IR",
+      steps: [
+        {
+          name: "یادگیری پایه",
+          text: "از آکادمی تک‌پی شروع کنید تا بیت‌کوین، تتر، کیف پول، کارمزد، امنیت و ریسک‌های اصلی بازار را بشناسید.",
+          url: `${SITE_URL}/academy`,
+        },
+        {
+          name: "مرور داده‌های بازار",
+          text: "از مارکت برد و صفحات رمزارزها برای دیدن قیمت، نوسان و زمینه اولیه بازار استفاده کنید.",
+          url: `${SITE_URL}/markets`,
+        },
+        {
+          name: "تمرین بدون ریسک",
+          text: "در تریدینگ آرنا تصمیم‌های آموزشی را با سرمایه مجازی تمرین کنید؛ هیچ سود یا زیان واقعی ایجاد نمی‌شود.",
+          url: `${SITE_URL}/academy/trading-arena`,
+        },
+        {
+          name: "بررسی ریسک",
+          text: "قبل از هر تصمیم مالی واقعی، بیانیه ریسک و راهنماهای امنیتی تک‌پی را مطالعه کنید.",
+          url: `${SITE_URL}/risk-disclosure`,
+        },
+      ],
+    }),
+    buildAnswerEntityProfileSchema(),
+  ];
 
   return (
     <>
       <script
         nonce={nonce}
+        suppressHydrationWarning
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <script
         nonce={nonce}
+        suppressHydrationWarning
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
       <script
         nonce={nonce}
+        suppressHydrationWarning
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
       <script
         nonce={nonce}
+        suppressHydrationWarning
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
       />
-      <TecpeyEnterpriseLanding />
+      {landingGrowthSchemas.map((schema, index) => (
+        <script
+          key={`landing-growth-${index}`}
+          nonce={nonce}
+          suppressHydrationWarning
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      {answerEngineSchemas.map((schema, index) => (
+        <script
+          key={`answer-engine-${index}`}
+          nonce={nonce}
+          suppressHydrationWarning
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+      <TecpeyEnterpriseLanding growthRadar={growthRadar} />
     </>
   );
 }

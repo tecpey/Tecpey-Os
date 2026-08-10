@@ -50,6 +50,11 @@
 - [ ] No secrets or API keys committed
 - [ ] No new env var fallback chains introduced
 
+### Source/IP ownership
+- [ ] This PR does not introduce an unapproved source-code delivery path
+- [ ] Any support/source bundle change follows `docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md`
+- [ ] No proprietary notice, license boundary, brand authority, or white-label ownership boundary is weakened
+
 ### UI / UX
 - [ ] Light mode tested
 - [ ] Dark mode tested

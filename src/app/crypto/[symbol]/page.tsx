@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import SwapPanel from "@/components/crypto/SwapPanel";
 import MarketTabs from "@/components/crypto/MarketTabs";
 import MarketStats from "@/components/crypto/MarketStats";
 import AboutCoin from "@/components/crypto/AboutCoin";
 import OtherCoins from "@/components/crypto/OtherCoins";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 import { useState, useRef} from "react";
 import { useTranslations } from "next-intl";
 import TradingViewChart from "@/components/TradingViewChart";
@@ -24,10 +25,17 @@ export default function CryptoPage() {
 
   const liveCoin = currencies?.find((c) => c.symbol === symbol);
 
+  const currentVisual = getCoinVisualAsset({
+    symbol,
+    name: liveCoin?.name || symbol,
+    faName: liveCoin?.faName,
+    remoteIcon: liveCoin?.icon,
+  });
+
   const currentCoin = {
     symbol,
     name: liveCoin?.name || symbol,
-    icon: liveCoin?.icon || "/default-coin.svg",
+    icon: currentVisual.src,
     description: "",
   };
 
@@ -77,13 +85,7 @@ export default function CryptoPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8">
           <div ref={chartRef} className="scroll-mt-24">
             <div className="flex items-center gap-4 mb-4">
-              <Image
-                src={currentCoin.icon}
-                alt={symbol}
-                width={40}
-                height={40}
-                unoptimized
-              />
+              <CoinVisual symbol={symbol} name={currentCoin.name} remoteIcon={liveCoin?.icon} variant="avatar" priority />
 
               <div>
                 <h1 className="text-2xl font-bold">{symbol}/USDT</h1>

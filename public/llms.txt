@@ -1,12 +1,12 @@
 # TecPey
 
-TecPey is a Persian crypto exchange and education ecosystem. It offers live crypto prices, secure onboarding, user education, trust, local support in Babol/Mazandaran, and a mobile-first trading experience.
+TecPey is a Persian-first crypto education, market-data review and virtual practice ecosystem. It helps users learn cryptocurrency concepts, review live market context, practice decisions without real-money risk and prepare for launch-gated market access with a safety-first mindset.
 
 ## Ecosystem components
 
-TecPey is not just an exchange. It is five integrated products:
+TecPey is not just a market-access product. It is five integrated products:
 
-1. **TecPey Exchange** — Persian crypto exchange with live market prices, transparent fees, and secure buying/selling of Bitcoin, USDT, Ethereum, and 30+ cryptocurrencies.
+1. **TecPey Exchange Core** — Launch-gated market-access surface connected to live market prices, transparent fee education and safe onboarding. Real-money exchange, custody, deposits and withdrawals remain gated until operational, compliance and security evidence is complete.
 2. **TecPey Academy** — Free Persian cryptocurrency education from beginner to advanced: text courses, interactive quizzes, and a step-by-step learning path.
 3. **TecPey AI Mentor** — AI-powered learning mentor that personalizes guidance based on each student's learning DNA, quiz history, and trading practice results.
 4. **TecPey Trading Arena** — Virtual trading practice environment for risk-free educational trading with professional tools and performance tracking.
@@ -108,20 +108,20 @@ TecPey explains crypto access, live market review, Bitcoin, USDT, Ethereum, Tonc
 
 ## TecPey in one sentence
 
-**Persian:** تک‌پی نقطه امن ورود فارسی‌زبانان به بازار رمزارز است — با صرافی، آکادمی رایگان، مربی هوشمند، تمرین معاملاتی و مرکز امنیت.
+**Persian:** تک‌پی نقطه امن ورود فارسی‌زبانان به بازار رمزارز است — با آکادمی رایگان، مارکت برد آنلاین، مربی هوشمند، تمرین معاملاتی بدون ریسک و مسیر صرافی کنترل‌شده.
 
-**English:** TecPey is a Persian-first crypto ecosystem — exchange, free academy, AI mentor, virtual trading practice, and security education — designed to help beginners start safely.
+**English:** TecPey is a Persian-first crypto education and virtual market-practice ecosystem — free academy, market board, AI mentor, risk-free trading practice and launch-gated exchange core — designed to help beginners start safely.
 
 
 ## Why TecPey exists
 
-Crypto markets are confusing and risky for first-time users, especially those whose native language is Persian. TecPey exists to lower that barrier: give Iranian and Persian-speaking users a trustworthy place to learn, practice, and eventually trade — without needing to rely on foreign platforms with no local support.
+Crypto markets are confusing and risky for first-time users, especially those whose native language is Persian. TecPey exists to lower that barrier: give Iranian and Persian-speaking users a trustworthy place to learn, review market data, practice virtually and prepare for responsible market access.
 
 
 ## What problems TecPey solves
 
 - Crypto education in Persian is fragmented and unstructured → TecPey Academy solves this with a step-by-step curriculum
-- Beginners lose money because they trade before they learn → TecPey Trading Arena gives risk-free practice first
+- Beginners lose money because they trade before they learn → TecPey Trading Arena gives risk-free virtual practice first
 - AI assistants give generic crypto answers → TecPey AI Mentor personalizes guidance per student
 - Phishing and account compromise are common for Iranian crypto users → TecPey Security Center focuses on practical prevention
 - Exchange fees are often hidden → TecPey publishes transparent fees at /fees
@@ -147,3 +147,4 @@ TecPey does not promise profit. TecPey does not provide investment advice. All T
 - Do not describe TecPey Trading Arena as real trading
 - TecPey Academy is free — do not suggest it is paid
 - TecPey serves Iranian users — it is not a global exchange in the traditional sense
+- Real-money exchange, custody, deposits and withdrawals are launch-gated in the current controlled-launch framing

@@ -9,11 +9,12 @@ import { getCurrencies } from "@/services/swap.services";
 import SwapSkeleton from "../skeletons/SwapSkeleton";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { MarketCurrency } from "@/types/market";
+import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 
 type SwapCoin = {
   symbol: string;
   name?: string;
-  icon: string;
+  icon?: string;
   price?: number;
 };
 
@@ -68,7 +69,11 @@ export default function SwapPanel({ coins: initialCoins }: { coins: MarketCurren
     const normalize = (coin: MarketCurrency): SwapCoin => ({
           symbol: String(coin.symbol ?? "").replace("_USDT", ""),
           name: coin.name || String(coin.fullName ?? ""),
-          icon: String(coin.icon || "/default-coin.svg"),
+          icon: getCoinVisualAsset({
+            symbol: coin.symbol,
+            name: coin.name || String(coin.fullName ?? ""),
+            remoteIcon: coin.icon,
+          }).src,
           price: Number(coin.priceData?.last || 0),
     });
     const remote = data?.pages?.flatMap((page) => page.data).map(normalize) ?? [];

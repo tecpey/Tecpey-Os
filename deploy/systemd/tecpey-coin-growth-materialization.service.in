@@ -1,0 +1,18 @@
+[Unit]
+Description=TecPey coin growth content materialization
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@@RUN_USER@@
+Group=@@RUN_GROUP@@
+WorkingDirectory=@@APP_DIR@@
+EnvironmentFile=@@ENV_FILE@@
+Environment=NODE_ENV=production
+ExecStart=@@NPM_BIN@@ run coins:growth:materialize
+ExecStart=@@NPM_BIN@@ run coins:growth:check
+SyslogIdentifier=tecpey-coin-growth-materialization
+
+[Install]
+WantedBy=multi-user.target

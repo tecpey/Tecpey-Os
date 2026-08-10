@@ -13,6 +13,11 @@ content. CI pins the complete plan fingerprint and rejects missing, duplicate,
 reordered, changed, or unregistered identities. Runtime readiness compares the
 release expectations with immutable ledger and execution-sequence evidence.
 
+Content-growth persistence follows the same contract. News automation
+materialization is governed by step 043 / `0058_news_materialization_authority.sql`;
+public workers may persist append-only snapshots only after `npm run db:migrate`
+has applied that canonical plan and runtime readiness reports `current`.
+
 ## Lock and execution state
 
 The explicit runner uses a fixed two-key PostgreSQL advisory lock and bounded

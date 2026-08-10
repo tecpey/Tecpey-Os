@@ -6,6 +6,8 @@ import { TermGateLink } from "@/components/academy/TermGateLink";
 import { EnglishShell } from "./components/EnglishUI";
 import { useBaseCurrenciesPrice } from "@/hooks/useBaseCurrenciesPrice";
 import { HomeAiMentorSpotlight, HomeLearningJourney, CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import { LandingGrowthRadar } from "@/components/home/LandingGrowthRadar";
+import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
 import type { MarketCurrency } from "@/types/market";
 
 const features = [
@@ -482,7 +484,13 @@ function LearningExperienceSystemEn() {
     </section>
   );
 }
-export default function EnglishLandingClient({ schema }: { schema: React.ReactNode }) {
+export default function EnglishLandingClient({
+  schema,
+  growthRadar,
+}: {
+  schema: React.ReactNode;
+  growthRadar?: LandingGrowthRadarModel;
+}) {
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
   const fallback: MarketCurrency[] = [
     { symbol: "BTC", name: "Bitcoin", priceData: { last: 0 } },
@@ -545,6 +553,7 @@ export default function EnglishLandingClient({ schema }: { schema: React.ReactNo
       <CryptoNewsCenter locale="en" compact />
       <HomeAiMentorSpotlight locale="en" />
       <HomeLearningJourney locale="en" />
+      <LandingGrowthRadar locale="en" radar={growthRadar} />
 
 
       <section className="px-4 pb-16 sm:px-6 lg:px-8">

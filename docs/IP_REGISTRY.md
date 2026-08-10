@@ -174,6 +174,17 @@ All rights reserved. The codebase, content, brand assets, and proprietary techno
 | Brand Assets | Copyright | Ensure reproduction guidelines |
 | Content | Copyright | No current license grants |
 
+## Controlled Source Delivery
+
+TecPey source code, deployment scripts, AI logic, Academy/Arena content, brand
+assets, and white-label platform implementation are governed by
+`docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md`.
+
+The default customer and support delivery model is controlled artifact delivery,
+not full source transfer. Any source bundle is an explicit support/staging
+exception requiring executive approval, release SHA traceability, detached
+SHA-256 evidence, proprietary notice, and recipient accountability.
+
 ---
 
 *IP registry for Phase 39.5. Reflects known IP assets as of 2026-07-05.*

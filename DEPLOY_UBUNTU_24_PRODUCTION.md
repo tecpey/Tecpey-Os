@@ -165,3 +165,7 @@ variables cannot override this build identity.
 - Back up PostgreSQL daily.
 - Retain the exact image digest and deployment evidence.
 - Keep Redis authenticated and private; never expose its port publicly.
+- If systemd workers are enabled, install `tecpey-news-materialization.timer`
+  only through `npm run news:materialization:install` from an exact candidate
+  checkout and verify `news-materialization-last-run.json` before accepting the
+  scheduler as active.

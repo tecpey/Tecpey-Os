@@ -1,0 +1,161 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowRight, BookOpen, Clock3, ExternalLink, Newspaper, ShieldAlert, Sparkles } from "lucide-react";
+import { EnglishShell } from "../../components/EnglishUI";
+import { StructuredData } from "@/components/seo/StructuredData";
+import {
+  buildNewsDetailSchemas,
+  getNewsDetailDisplayMeta,
+  getNewsDetailMetadata,
+  getNewsDetailPageModelFromAuthority,
+  getNewsDetailStaticParams,
+} from "@/lib/news-detail-pages";
+
+type Props = { params: Promise<{ slug: string }> };
+
+export function generateStaticParams() {
+  return getNewsDetailStaticParams("en");
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const model = await getNewsDetailPageModelFromAuthority(slug, "en");
+  if (!model) return { title: "TecPey Crypto News" };
+  return getNewsDetailMetadata(model, "en");
+}
+
+export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
+  const { slug } = await params;
+  const model = await getNewsDetailPageModelFromAuthority(slug, "en");
+  if (!model) return notFound();
+
+  const { item, relatedCoins, relatedTools } = model;
+  const meta = getNewsDetailDisplayMeta(item, "en");
+
+  return (
+    <EnglishShell>
+      <StructuredData data={buildNewsDetailSchemas(model, "en")} />
+      <main className="min-h-screen bg-[color:var(--tp-bg)] px-4 py-14 pt-28 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <Link href="/en/crypto-news" className="inline-flex items-center gap-2 text-sm font-black text-cyan-700 dark:text-cyan-300">
+            Back to news center
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+
+          <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <article className="min-w-0 rounded-[34px] border border-cyan-300/15 bg-[color:var(--tp-card)] p-6 shadow-xl shadow-cyan-500/5 lg:p-8">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-black text-cyan-700 dark:text-cyan-100">
+                  <Newspaper className="h-4 w-4" aria-hidden="true" />
+                  TecPey educational news
+                </span>
+                <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-black text-amber-700 dark:text-amber-200">
+                  {meta.toneLabel}
+                </span>
+              </div>
+
+              <h1 className="mt-6 text-4xl font-black leading-tight text-[color:var(--tp-text)] sm:text-5xl">
+                {item.title}
+              </h1>
+              <p className="mt-5 text-base font-bold leading-8 text-[color:var(--tp-muted)]">{item.summary}</p>
+
+              <div className="mt-6 grid gap-3 text-sm font-black text-slate-700 dark:text-slate-200 md:grid-cols-3">
+                <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                  <span className="flex items-center gap-2 text-cyan-700 dark:text-cyan-100">
+                    <Clock3 className="h-4 w-4" aria-hidden="true" />
+                    Published
+                  </span>
+                  <time className="mt-2 block" dateTime={item.publishedAt}>{meta.publishedLabel}</time>
+                </div>
+                <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                  <span className="flex items-center gap-2 text-cyan-700 dark:text-cyan-100">
+                    <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+                    Recorded by TecPey
+                  </span>
+                  <time className="mt-2 block" dateTime={item.recordedAt}>{meta.recordedLabel}</time>
+                </div>
+                <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                  <span className="block text-cyan-700 dark:text-cyan-100">Priority and impact</span>
+                  <span className="mt-2 block">Priority {item.priority}/100 · impact {item.impactScore}/10</span>
+                </div>
+              </div>
+
+              <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-cyan-500/[0.065] p-5">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-2 text-xs font-black text-cyan-700 dark:bg-white/5 dark:text-cyan-100">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  Why this entered the history
+                </div>
+                <p className="mt-4 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{item.reasonEn}</p>
+              </section>
+
+              <section className="mt-8">
+                <h2 className="text-2xl font-black text-[color:var(--tp-text)]">Related entities</h2>
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-[26px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                    <h3 className="font-black text-[color:var(--tp-text)]">Related coins</h3>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {relatedCoins.map((coin) => (
+                        <Link key={coin.symbol} href={`/en/coins/${coin.slug}`} className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-700 dark:text-cyan-100">
+                          {coin.name} · {coin.symbol}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-[26px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                    <h3 className="font-black text-[color:var(--tp-text)]">Related tools</h3>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {relatedTools.map((tool) => (
+                        <Link key={tool.slug} href={`/en/trading-tools/${tool.slug}`} className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-700 dark:text-cyan-100">
+                          {tool.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="mt-8 rounded-[28px] border border-amber-300/25 bg-amber-400/10 p-5">
+                <h2 className="text-xl font-black text-[color:var(--tp-text)]">TecPey rule for this news</h2>
+                <p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">
+                  This page is for education, transparency and market context. It is not financial advice, a buy/sell signal or a profit promise.
+                </p>
+              </section>
+            </article>
+
+            <aside className="space-y-4 lg:sticky lg:top-28 lg:self-start">
+              <section className="rounded-[30px] border border-cyan-300/15 bg-slate-950 p-5 text-white shadow-2xl shadow-cyan-500/10">
+                <p className="text-xs font-black text-cyan-200">Source and review path</p>
+                <h2 className="mt-2 text-xl font-black">{item.sourceName}</h2>
+                <a
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                >
+                  Open source
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </section>
+
+              <section className="rounded-[30px] border border-cyan-300/15 bg-[color:var(--tp-card)] p-5">
+                <h2 className="text-lg font-black text-[color:var(--tp-text)]">Next learning step</h2>
+                <Link href={item.relatedLessonHref} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 px-5 py-3 text-sm font-black text-cyan-700 dark:text-cyan-100">
+                  <BookOpen className="h-4 w-4" aria-hidden="true" />
+                  Open related learning path
+                </Link>
+              </section>
+
+              <section className="rounded-[30px] border border-cyan-300/15 bg-[color:var(--tp-card)] p-5">
+                <h2 className="text-lg font-black text-[color:var(--tp-text)]">Risk note</h2>
+                <p className="mt-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                  Crypto markets are volatile. Use this page as context alongside your own risk plan, not as a trading instruction.
+                </p>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </EnglishShell>
+  );
+}

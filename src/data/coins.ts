@@ -1,4 +1,7 @@
 
+import coinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
+import { readPublishedCoinGrowthPages, type CoinGrowthSnapshot } from "@/lib/coin-growth-automation";
+
 export type CoinPage = {
   slug: string;
   symbol: string;
@@ -11,9 +14,20 @@ export type CoinPage = {
   risks: string[];
   seoKeywords: string[];
   faqs: { q: string; a: string }[];
+  automation?: {
+    policyVersion: string;
+    score: number;
+    status: "published_content";
+    sourceMode: "curated_seed" | "provider_snapshot";
+    exchangeCapability: "manual_review_required";
+    officialWebsite: string;
+    docs?: string;
+    narratives: string[];
+    riskLevel: "low" | "medium" | "high" | "very_high";
+  };
 };
 
-export const coinPages: CoinPage[] = [
+export const coreCoinPages: CoinPage[] = [
   {
     slug: "bitcoin",
     symbol: "BTC",
@@ -499,3 +513,9 @@ export const coinPages: CoinPage[] = [
   },
 
 ];
+
+export const automatedCoinPages: CoinPage[] = readPublishedCoinGrowthPages(
+  coinGrowthSnapshot as CoinGrowthSnapshot,
+);
+
+export const coinPages: CoinPage[] = [...coreCoinPages, ...automatedCoinPages];

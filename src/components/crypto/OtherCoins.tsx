@@ -1,11 +1,12 @@
 "use client";
 
 import { forwardRef, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { getCurrencies } from "@/services/swap.services";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import { getCoinVisualAsset } from "@/lib/coin-visual-assets";
 
 type TabKey = "trending" | "gainers" | "newest";
 
@@ -33,7 +34,11 @@ const OtherCoins = forwardRef<HTMLDivElement>((props, ref) => {
           id: String(coin.id ?? coin.symbol ?? ""),
           symbol: String(coin.symbol ?? ""),
           name: String(coin.name ?? coin.symbol ?? ""),
-          icon: String(coin.icon || "/default-coin.svg"),
+          icon: getCoinVisualAsset({
+            symbol: coin.symbol,
+            name: String(coin.name ?? coin.symbol ?? ""),
+            remoteIcon: coin.icon,
+          }).src,
           rank: Number(coin.rank || 999999),
           price: Number(coin.priceData?.last || 0),
           change: Number(coin.priceData?.changePercent || 0),
@@ -112,14 +117,7 @@ const OtherCoins = forwardRef<HTMLDivElement>((props, ref) => {
                 className="flex items-center justify-between oc-row px-2 py-1 hover:bg-bg rounded-lg transition-all"
               >
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <Image
-                    src={coin.icon}
-                    alt={coin.symbol}
-                    width={28}
-                    height={28}
-                    className="rounded-full object-contain shrink-0"
-                    unoptimized
-                  />
+                  <CoinVisual symbol={coin.symbol} name={coin.name} remoteIcon={coin.icon} variant="avatar" />
 
                   <div className="min-w-0">
                     <p className="oc-coin-name font-semibold text-xs sm:text-sm uppercase truncate">

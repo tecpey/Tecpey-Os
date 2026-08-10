@@ -29,6 +29,7 @@ const primaryLinks = [
   { label: "خانه", href: "/" },
   { label: "بازارها", href: "/markets" },
   { label: "رمزارزها", href: "/coins" },
+  { label: "ابزارها", href: "/trading-tools" },
   { label: "اخبار", href: "/crypto-news" },
   { label: "آکادمی", href: "/academy" },
   { label: "امنیت", href: "/security" },
@@ -39,6 +40,7 @@ const primaryLinksEn = [
   { label: "Home", href: "/en" },
   { label: "Markets", href: "/en/markets" },
   { label: "Coins", href: "/en/coins" },
+  { label: "Tools", href: "/en/trading-tools" },
   { label: "News", href: "/en/crypto-news" },
   { label: "Academy", href: "/en/academy" },
   { label: "Security", href: "/en/security" },
@@ -152,6 +154,13 @@ export default function Navbar({
   useEffect(() => {
     let active = true;
     const checkAcademyProfile = async () => {
+      if (!isAcademyArea) {
+        setAcademyAuthReady(false);
+        setAcademyProfileReady(false);
+        setAcademyProfileChecked(true);
+        return;
+      }
+
       try {
         const [authResponse, profileResponse] = await Promise.all([
           fetch("/api/academy-auth", { cache: "no-store", credentials: "include" }),
@@ -192,7 +201,7 @@ export default function Navbar({
       );
       window.removeEventListener("focus", checkAcademyProfile);
     };
-  }, []);
+  }, [isAcademyArea]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -251,7 +260,7 @@ export default function Navbar({
             />
           </Link>
 
-          <ul className="hidden items-center gap-4 text-[14px] font-bold lg:flex xl:gap-5">
+          <ul className="hidden items-center gap-3 text-[13px] font-bold lg:flex xl:gap-4">
             {activePrimaryLinks.map((item) => (
               <li key={item.href}>
                 <Link

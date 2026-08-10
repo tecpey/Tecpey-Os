@@ -490,6 +490,18 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
   assert.equal(classifyDomain("src/lib/notifications/policy.ts").reviewBatch, 9);
+  assert.deepEqual(classifyDomain("src/lib/coin-growth-automation.ts"), {
+    domain: "product-ui",
+    riskTier: "P2",
+    reviewBatch: 10,
+    classificationRule: "product-ui",
+  });
+  assert.deepEqual(classifyDomain("src/lib/news-materialization.ts"), {
+    domain: "product-ui",
+    riskTier: "P2",
+    reviewBatch: 10,
+    classificationRule: "product-ui",
+  });
   assert.equal(classifyDomain("src/components/Button.tsx").reviewBatch, 10);
   assert.equal(classifyDomain("src/hooks/useLiveTicker.ts").reviewBatch, 10);
   assert.equal(classifyDomain("src/i18n/messages/fa.json").reviewBatch, 10);
@@ -500,6 +512,18 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     classificationRule: "product-ui-prefix",
   });
   assert.equal(classifyDomain("src/lib/ops/operational-job-evidence.ts").reviewBatch, 11);
+  assert.deepEqual(classifyDomain("src/lib/news-materialization-persistence.ts"), {
+    domain: "database-persistence",
+    riskTier: "P1",
+    reviewBatch: 2,
+    classificationRule: "database-persistence",
+  });
+  assert.deepEqual(classifyDomain("src/lib/news-materialization-worker.ts"), {
+    domain: "operations-runtime",
+    riskTier: "P1",
+    reviewBatch: 11,
+    classificationRule: "operations-runtime",
+  });
   assert.deepEqual(classifyDomain("server.ts"), {
     domain: "operations-runtime",
     riskTier: "P1",

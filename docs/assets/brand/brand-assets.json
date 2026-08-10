@@ -15,7 +15,8 @@
     "public/favicon-48x48.png",
     "public/apple-touch-icon.png",
     "public/android-chrome-192x192.png",
-    "public/android-chrome-512x512.png"
+    "public/android-chrome-512x512.png",
+    "public/maskable-icon-512x512.png"
   ],
   "runtimeAliases": [
     {
@@ -31,6 +32,33 @@
       "format": "png",
       "transparent": true,
       "sha256": "b560eed1a0b09336358bf702f6d373fbc8f11119bbec7e4dae62a8cfb875b227"
+    },
+    {
+      "path": "public/maskable-icon-512x512.png",
+      "source": "public/images/tecpey-logo.png",
+      "dimensions": "512x512",
+      "format": "png",
+      "transparent": false,
+      "purpose": "pwa-maskable",
+      "sha256": "81c73693752ebaed19eb74b441c207bc7e2e2c465fa3f66a14565acb1e24cd8c"
+    },
+    {
+      "path": "public/images/brand/tecpey-lockup-fa-en.png",
+      "source": "docs/assets/brand/generated/tecpey-lockup-fa-en.png",
+      "dimensions": "1200x548",
+      "format": "png",
+      "transparent": true,
+      "purpose": "runtime-brand-lockup",
+      "sha256": "f0f729ebc0c399a346324eac9c8a02a3a6ff863a0f8a8fa7f91c779dcbad8d7d"
+    },
+    {
+      "path": "public/images/brand/tecpey-lockup-fa-en.webp",
+      "source": "docs/assets/brand/generated/tecpey-lockup-fa-en.webp",
+      "dimensions": "1200x548",
+      "format": "webp",
+      "transparent": true,
+      "purpose": "runtime-brand-lockup",
+      "sha256": "019856853edd65cac8263708259ad06adcd729707a83904e9e845019b872c3d4"
     }
   ],
   "documentationAssets": [

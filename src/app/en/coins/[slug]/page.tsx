@@ -2,42 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnglishShell, EnglishHero } from "../../components/EnglishUI";
+import { StructuredData } from "@/components/seo/StructuredData";
+import { NewsImpactTimeline } from "@/components/content/NewsImpactTimeline";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
+import { CoinVisual } from "@/components/tecpey/CoinVisual";
+import { coinPages } from "@/data/coins";
 import { getCoinKnowledge } from "@/data/coinKnowledge";
+import {
+  buildNewsImpactItemListSchema,
+  getHighPriorityNewsForCoin,
+} from "@/lib/news-impact-history";
 import { BookOpen } from "lucide-react";
 
-const coins = [
-  { slug: "bitcoin", symbol: "BTC", name: "Bitcoin" },
-  { slug: "tether", symbol: "USDT", name: "Tether" },
-  { slug: "ethereum", symbol: "ETH", name: "Ethereum" },
-  { slug: "toncoin", symbol: "TON", name: "Toncoin" },
-  { slug: "solana", symbol: "SOL", name: "Solana" },
-  { slug: "xrp", symbol: "XRP", name: "XRP" },
-  { slug: "dogecoin", symbol: "DOGE", name: "Dogecoin" },
-  { slug: "bnb", symbol: "BNB", name: "BNB" },
-  { slug: "cardano", symbol: "ADA", name: "Cardano" },
-  { slug: "tron", symbol: "TRX", name: "TRON" },
-  { slug: "avalanche", symbol: "AVAX", name: "Avalanche" },
-  { slug: "chainlink", symbol: "LINK", name: "Chainlink" },
-  { slug: "polkadot", symbol: "DOT", name: "Polkadot" },
-  { slug: "litecoin", symbol: "LTC", name: "Litecoin" },
-  { slug: "bitcoin-cash", symbol: "BCH", name: "Bitcoin Cash" },
-  { slug: "near", symbol: "NEAR", name: "NEAR Protocol" },
-  { slug: "aptos", symbol: "APT", name: "Aptos" },
-  { slug: "sui", symbol: "SUI", name: "Sui" },
-  { slug: "arbitrum", symbol: "ARB", name: "Arbitrum" },
-  { slug: "optimism", symbol: "OP", name: "Optimism" },
-  { slug: "cosmos", symbol: "ATOM", name: "Cosmos" },
-  { slug: "pepe", symbol: "PEPE", name: "Pepe" },
-  { slug: "shiba-inu", symbol: "SHIB", name: "Shiba Inu" },
-  { slug: "filecoin", symbol: "FIL", name: "Filecoin" },
-  { slug: "internet-computer", symbol: "ICP", name: "Internet Computer" },
-  { slug: "injective", symbol: "INJ", name: "Injective" },
-  { slug: "sei", symbol: "SEI", name: "Sei" },
-  { slug: "stellar", symbol: "XLM", name: "Stellar" },
-  { slug: "uniswap", symbol: "UNI", name: "Uniswap" },
-  { slug: "maker", symbol: "MKR", name: "Maker" }
-];
+const coins = coinPages.map((coin) => ({
+  slug: coin.slug,
+  symbol: coin.symbol,
+  name: coin.name,
+  faName: coin.faName,
+  automation: coin.automation,
+}));
 const coinMap = new Map(coins.map((coin) => [coin.slug, coin]));
 
 export function generateStaticParams() {
@@ -60,12 +43,28 @@ export default async function CoinPage({ params }: { params: Promise<{ slug: str
   const coin = coinMap.get(slug);
   if (!coin) return notFound();
   const profile = getCoinKnowledge(coin.symbol, coin.name, coin.name);
+  const impactNews = getHighPriorityNewsForCoin(coin.symbol, "en", 4);
+  const pageUrl = `https://tecpey.ir/en/coins/${slug}`;
+  const officialWebsite = profile.website || coin.automation?.officialWebsite || "";
+  const officialWhitepaper = profile.whitepaper || coin.automation?.docs || coin.automation?.officialWebsite || "";
+  const officialDocs = profile.docs || coin.automation?.docs || coin.automation?.officialWebsite || "";
   return (
     <EnglishShell>
+      <StructuredData
+        data={buildNewsImpactItemListSchema({
+          items: impactNews,
+          locale: "en",
+          pageUrl,
+          name: `${coin.name} (${coin.symbol}) high-priority news impact history`,
+        })}
+      />
       <EnglishHero eyebrow="Crypto guide" title={`${coin.name} (${coin.symbol})`} description={`Understand common use cases, key risks and practical checks before buying, selling or transferring ${coin.symbol}.`} ctaHref="/en/markets" ctaLabel="View markets" secondaryHref="/en/security" secondaryLabel="Security guide" />
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_.95fr]">
           <article className="rounded-[34px] border border-cyan-300/15 bg-[#06111f] p-7 shadow-[0_24px_70px_rgba(34,211,238,.12)]">
+            <div className="mb-6">
+              <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} locale="en" priority />
+            </div>
             <div className="mb-5"><NeonIcon icon={BookOpen} size="md" /></div><h2 className="text-2xl font-black text-white">Before you trade</h2>
             <div className="mt-5 space-y-4 text-base font-bold leading-9 text-slate-300">
               <p>Review live prices, market capitalization, 24-hour volume, trading fees, withdrawal fees and the network you plan to use. A good decision starts with understanding both the asset and the risk.</p>
@@ -79,10 +78,11 @@ export default async function CoinPage({ params }: { params: Promise<{ slug: str
               <p>TecPey’s goal is to make the first steps clearer: learn, secure your account, review markets and then decide with a risk-aware plan.</p>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[["Official website", profile.website], ["Whitepaper / docs", profile.whitepaper], ["Technical docs", profile.docs]].map(([label, href]) => (
+              {[["Official website", officialWebsite], ["Whitepaper / docs", officialWhitepaper], ["Technical docs", officialDocs]].map(([label, href]) => (
                 <a key={label} href={href || "#"} target="_blank" rel="noreferrer" className={`rounded-2xl border border-cyan-300/15 bg-cyan-500/10 p-3 text-sm font-black ${href ? "text-cyan-300" : "pointer-events-none text-slate-500"}`}>{label}</a>
               ))}
             </div>
+            <NewsImpactTimeline items={impactNews} locale="en" subject={`${coin.name} (${coin.symbol})`} />
           </article>
           <div className="space-y-3">
             {[

@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
+import { CanonicalNewsImpactHub } from "@/components/content/CanonicalNewsImpactHub";
 import { CryptoNewsCenter } from "@/components/home/TecpeyHomeAI";
+import { StructuredData } from "@/components/seo/StructuredData";
+import { buildNewsHubSchemas, getNewsHubMetadata, getNewsHubPageModelFromAuthority } from "@/lib/news-detail-pages";
 
-export const metadata: Metadata = {
-  title: "اخبار رمزارز | مرکز خبر هوشمند تک‌پی",
-  description: "آخرین اخبار بازار رمزارز با خلاصه آموزشی، تحلیل اثر بازار و اتصال به آکادمی و مربی هوشمند تک‌پی.",
-  alternates: { canonical: "https://tecpey.ir/crypto-news" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return getNewsHubMetadata(await getNewsHubPageModelFromAuthority("fa"));
+}
 
-export default function CryptoNewsPage() {
+export default async function CryptoNewsPage() {
+  const newsHub = await getNewsHubPageModelFromAuthority("fa");
   return (
     <main className="min-h-screen bg-[color:var(--tp-bg)] pt-28">
+      <StructuredData data={buildNewsHubSchemas(newsHub)} />
+      <CanonicalNewsImpactHub model={newsHub} />
       <CryptoNewsCenter locale="fa" />
     </main>
   );

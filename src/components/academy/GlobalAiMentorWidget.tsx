@@ -260,12 +260,20 @@ export function GlobalAiMentorWidget() {
   const isEn = locale === "en";
   const pageContext = useMemo(() => getPageContext(pathname, locale), [pathname, locale]);
   const suggestions = isEn ? enQuestions : faQuestions;
+  const isAcademyArea =
+    pathname === "/academy" ||
+    pathname.startsWith("/academy/") ||
+    pathname === "/en/academy" ||
+    pathname.startsWith("/en/academy/");
+  const [open, setOpen] = useState(false);
 
   // Server-driven mentor profile and insights (Phase 7).
-  const { data: mentorData, error: insightsError } = useMentorInsights();
+  const shouldLoadMentorSession = open || isAcademyArea;
+  const { data: mentorData, error: insightsError } = useMentorInsights({
+    enabled: shouldLoadMentorSession,
+  });
   const serverProfile = mentorData?.profile ?? null;
 
-  const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -288,6 +296,13 @@ export function GlobalAiMentorWidget() {
   useEffect(() => {
     let active = true;
     const checkProfile = async () => {
+      if (!shouldLoadMentorSession) {
+        setAcademyProfileReady(false);
+        setAcademyDisplayName("");
+        setAcademyChecked(true);
+        return;
+      }
+
       try {
         const response = await fetch("/api/academy-student-profile", { cache: "no-store" });
         const data = await response.json();
@@ -310,7 +325,7 @@ export function GlobalAiMentorWidget() {
       window.removeEventListener("tecpey-academy-profile-ready", checkProfile);
       window.removeEventListener("focus", checkProfile);
     };
-  }, []);
+  }, [shouldLoadMentorSession]);
 
   // One-shot migration: import old localStorage chat history into server DB (Phase 8).
   // Runs once when the academy profile is confirmed ready. After migration the local
