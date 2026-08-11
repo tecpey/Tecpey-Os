@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-11T09:45:55.000Z",
+  "generatedAt": "2026-08-11T11:08:00.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+    "sha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
     "sourceBranch": "main",
-    "sourcePullRequest": 373,
-    "selectedAt": "2026-08-11T09:45:55Z",
-    "reason": "Includes tenant-isolation proof coverage and controlled-launch capability-boundary hardening after the support bundle hardening baseline."
+    "sourcePullRequest": 376,
+    "selectedAt": "2026-08-11T11:08:00Z",
+    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding and protected staging environment evidence automation after the support bundle hardening baseline."
   },
   "supersedes": [
     {
@@ -30,6 +30,11 @@
       "sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
       "previousRole": "current controlled-launch candidate after PR 367 support bundle hardening",
       "currentStatus": "superseded_by_pr_373_for_new_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+      "previousRole": "current controlled-launch candidate after PR 373 tenant-isolation proof coverage",
+      "currentStatus": "superseded_by_pr_376_for_new_protected_staging_and_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {

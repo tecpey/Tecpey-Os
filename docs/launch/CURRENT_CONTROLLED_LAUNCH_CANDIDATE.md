@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `7390afa2ba8509d0f46733b98d966928cb07b231`
-**Candidate source:** `main` after PR #373
-**Candidate selected at:** `2026-08-11T09:45:55Z`
+**Current candidate SHA:** `2ab89cb920b2087aa83de23aaef9745ca6b873c9`
+**Candidate source:** `main` after PR #376
+**Candidate selected at:** `2026-08-11T11:08:00Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
@@ -15,12 +15,14 @@ this ledger explicitly lists them as active inputs.
 
 PR #373 completed the tenant-isolation proof package and hardened the
 controlled-launch capability boundary after PR #367's support deployment bundle
-hardening. Because tenant isolation, launch-gated financial surfaces and support
-handoff are all part of the launch decision boundary, the next evidence
-collection must use the SHA that contains those fixes:
+hardening. PR #375 then guarded the controlled candidate lineage, and PR #376
+added protected staging environment evidence automation for NOG-02. Because
+tenant isolation, launch-gated financial surfaces, support handoff and staging
+evidence collection are all part of the launch decision boundary, the next
+evidence collection must use the SHA that contains those fixes:
 
 ```text
-7390afa2ba8509d0f46733b98d966928cb07b231
+2ab89cb920b2087aa83de23aaef9745ca6b873c9
 ```
 
 Using older draft baselines for new staging/support evidence would recreate the
@@ -34,6 +36,7 @@ ambiguity this ledger is designed to remove.
 | `a8d494f12618cc6b36c0eeae40a7b7b212754fbf` | Protected staging evidence target after PR #358 | Superseded by this ledger for all new protected staging collection. |
 | `f64593e773642e33f5afc1c7baf9351de9e43500` | Support bundle workflow before hardening | Historical handoff baseline only; do not generate support bundles from it. |
 | `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc` | Current controlled-launch candidate after PR #367 support bundle hardening | Superseded by PR #373 for all new exact-candidate evidence collection. |
+| `7390afa2ba8509d0f46733b98d966928cb07b231` | Current controlled-launch candidate after PR #373 tenant-isolation proof coverage | Superseded by PR #376 for all new protected staging and exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
