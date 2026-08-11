@@ -63,6 +63,7 @@ import { COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL } from "./db-migrate-community
 import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-evidence-tenant-key";
 import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-bank-locale";
 import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL } from "./db-migrate-notification-brain-snapshot-contract";
+import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_REPAIR_SQL } from "./db-migrate-notification-brain-snapshot-contract-repair";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -251,5 +252,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   notificationBrainSnapshotContract: one(
     "0063_notification_brain_snapshot_contract.sql",
     NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL,
+  ),
+  notificationBrainSnapshotContractRepair: one(
+    "0064_notification_brain_snapshot_contract_repair.sql",
+    NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_REPAIR_SQL,
   ),
 });
