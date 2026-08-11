@@ -125,6 +125,38 @@
       "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
+      "table": "academy_student_mastery_profiles",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are part of the primary key with student_id and locale, so a student principal bound in two tenants owns separate Mastery Season profile, consent and tag rows. The read model filters by resolved tenant/workspace before reading this profile; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_mastery_weakness_signals",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every weakness signal and lead both student and concept indexes. The read model filters by resolved tenant/workspace before turning signals into recommendations; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_mastery_season_assignments",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id participate in the open-assignment uniqueness boundary with student_id, locale and season_id. Activation updates/inserts filter by resolved tenant/workspace, preventing tenant B from activating or replaying tenant A assignments; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_mastery_season_progress_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every progress event and indexed with student_id/locale. Activation inserts the resolved tenant/workspace and uses a durable event idempotency key to prevent duplicate started events on retry; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
       "table": "academy_mastery_season_generation_drafts",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
