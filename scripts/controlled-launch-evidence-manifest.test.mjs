@@ -41,8 +41,13 @@ function completeManifest(overrides = {}, releaseCandidateSha = currentHead()) {
     },
     workflowEvidence: {
       ciRunUrl: runUrl,
+      fullSuiteRunUrl: runUrl,
+      apiSecurityRunUrl: runUrl,
+      sensitiveMutationRunUrl: runUrl,
       repositoryAuditRunUrl: runUrl,
       publicGoldenPathRunUrl: runUrl,
+      operationalRecoveryRunUrl: runUrl,
+      containerSupplyChainRunUrl: runUrl,
       secretScanningRunUrl: runUrl,
     },
     requiredExternalEvidence: {
@@ -128,15 +133,32 @@ test("controlled launch evidence manifest rejects unknown fields", () => {
 
 test("controlled launch evidence manifest rejects non-https evidence URLs", () => {
   const manifest = completeManifest({
-    workflowEvidence: {
-      ...completeManifest().workflowEvidence,
-      ciRunUrl: "http://example.invalid/actions/runs/1",
+    requiredExternalEvidence: {
+      ...completeManifest().requiredExternalEvidence,
+      protectedStaging: {
+        ...completeManifest().requiredExternalEvidence.protectedStaging,
+        evidenceUrl: "http://example.invalid/actions/runs/1",
+      },
     },
   });
 
   assert.throws(
     () => validateControlledLaunchEvidenceManifest(manifest),
-    /manifest.workflowEvidence.ciRunUrl must be an absolute https URL/,
+    /manifest.requiredExternalEvidence.protectedStaging.evidenceUrl must be an absolute https URL/,
+  );
+});
+
+test("controlled launch evidence manifest rejects workflow URLs outside governed GitHub Actions", () => {
+  const manifest = completeManifest({
+    workflowEvidence: {
+      ...completeManifest().workflowEvidence,
+      ciRunUrl: "https://example.invalid/tecpey/Tecpey-Os/actions/runs/123456789",
+    },
+  });
+
+  assert.throws(
+    () => validateControlledLaunchEvidenceManifest(manifest),
+    /manifest.workflowEvidence.ciRunUrl must be an absolute https GitHub Actions run URL for tecpey\/Tecpey-Os/,
   );
 });
 
@@ -185,6 +207,11 @@ test("release packet generator accepts a complete governed manifest", () => {
     assert.equal(packet.packetMode, "final_evidence_required");
     assert.equal(packet.artifactIdentity.imageDigest, digest);
     assert.equal(packet.workflowEvidence.ciRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.fullSuiteRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.apiSecurityRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.sensitiveMutationRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, runUrl);
     assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
   } finally {
     rmSync(manifest.root, { recursive: true, force: true });

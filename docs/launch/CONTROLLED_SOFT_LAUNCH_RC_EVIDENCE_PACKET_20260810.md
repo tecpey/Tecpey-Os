@@ -93,8 +93,13 @@ The draft packet intentionally leaves these final evidence fields empty:
 |---|---|
 | Image digest | Immutable container or runtime image digest for the exact candidate. |
 | CI run URL | Exact-head CI evidence for the candidate. |
+| Full Suite run URL | Exact-head Full Suite Diagnostics evidence for the candidate. |
+| API Security run URL | Exact-head API Security Manifest evidence for the candidate. |
+| Sensitive Mutation run URL | Exact-head Sensitive Mutation Audit evidence for the candidate. |
 | Repository audit run URL | Exact-head repository audit evidence. |
 | Public Golden Path run URL | Browser Golden Path evidence for public FA/EN and controlled Academy/Arena paths. |
+| Operational Recovery run URL | Exact-head Scheduled Operational Recovery evidence for the candidate. |
+| Container Supply Chain run URL | Exact-head Container Supply Chain evidence for image digest, SBOM and rollback/volume recovery jobs. |
 | Secret scanning run URL | Exact-head secret scanning workflow evidence. |
 | Protected staging evidence URL and digest | Accepted artifact satisfying `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`. |
 | Recovery reconciliation evidence URL and digest | Accepted artifact satisfying `docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md`. |
