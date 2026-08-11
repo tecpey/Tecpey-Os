@@ -44,6 +44,11 @@ type Queryable = Pick<PoolClient, "query">;
 
 const MAX_TAGS = 80;
 
+export type AcademyMasteryTenantScope = {
+  tenantId: string;
+  workspaceId: string;
+};
+
 export function parseAcademyMasteryLocale(value: unknown): AcademyMasteryLocale {
   return value === "en" ? "en" : "fa";
 }
@@ -81,6 +86,12 @@ function assignmentFromRow(row: Record<string, unknown>): AcademyMasteryAssignme
 
 function scoreCap(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function normalizeIdempotencyKey(value: string | null | undefined): string | null {
+  const key = String(value ?? "").trim();
+  if (key.length < 8) return null;
+  return key.slice(0, 160);
 }
 
 function progressCoreLevel(completedTerms: number, assignments: AcademyMasteryAssignment[]): number {
@@ -146,28 +157,43 @@ async function readCompletedTerms(client: Queryable, studentId: string, locale: 
   return Number(result.rows[0]?.completed_terms || 0);
 }
 
-async function readProfile(client: Queryable, studentId: string, locale: AcademyMasteryLocale) {
+async function readProfile(
+  client: Queryable,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  locale: AcademyMasteryLocale,
+) {
   const result = await client.query<Record<string, unknown>>(
     `SELECT completed_terms, weak_concept_tags, arena_risk_flags, mentor_topic_tags,
             market_interest_tags, ranking_consent, progress_core_level
        FROM academy_student_mastery_profiles
-      WHERE student_id = $1::uuid AND locale = $2
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND locale = $4
       LIMIT 1`,
-    [studentId, locale],
+    [scope.tenantId, scope.workspaceId, studentId, locale],
   );
   return result.rows[0] ?? null;
 }
 
-async function readWeaknessSignalTags(client: Queryable, studentId: string, locale: AcademyMasteryLocale) {
+async function readWeaknessSignalTags(
+  client: Queryable,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  locale: AcademyMasteryLocale,
+) {
   const result = await client.query<{ source_type: string; concept_tag: string; strength: number }>(
     `SELECT source_type, concept_tag, strength
        FROM academy_mastery_weakness_signals
-      WHERE student_id = $1::uuid
-        AND locale = $2
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND locale = $4
         AND observed_at >= NOW() - INTERVAL '120 days'
       ORDER BY ABS(strength) DESC, observed_at DESC, id DESC
       LIMIT 80`,
-    [studentId, locale],
+    [scope.tenantId, scope.workspaceId, studentId, locale],
   );
   const weakConceptTags: string[] = [];
   const arenaRiskFlags: string[] = [];
@@ -188,29 +214,38 @@ async function readWeaknessSignalTags(client: Queryable, studentId: string, loca
   };
 }
 
-async function readAssignments(client: Queryable, studentId: string, locale: AcademyMasteryLocale) {
+async function readAssignments(
+  client: Queryable,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  locale: AcademyMasteryLocale,
+) {
   const result = await client.query<Record<string, unknown>>(
     `SELECT id::text, season_id, status, recommendation_score, source_signals,
             assigned_by, assigned_at, started_at, completed_at, updated_at
        FROM academy_mastery_season_assignments
-      WHERE student_id = $1::uuid AND locale = $2
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND locale = $4
       ORDER BY updated_at DESC, assigned_at DESC
       LIMIT 30`,
-    [studentId, locale],
+    [scope.tenantId, scope.workspaceId, studentId, locale],
   );
   return result.rows.map(assignmentFromRow);
 }
 
 export async function readAcademyMasterySeasonState(
   client: PoolClient,
+  scope: AcademyMasteryTenantScope,
   studentId: string,
   locale: AcademyMasteryLocale,
 ): Promise<AcademyMasterySeasonState> {
   const [completedTermsFromTerms, profile, signalTags, assignments] = await Promise.all([
     readCompletedTerms(client, studentId, locale),
-    readProfile(client, studentId, locale),
-    readWeaknessSignalTags(client, studentId, locale),
-    readAssignments(client, studentId, locale),
+    readProfile(client, scope, studentId, locale),
+    readWeaknessSignalTags(client, scope, studentId, locale),
+    readAssignments(client, scope, studentId, locale),
   ]);
   const completedTerms = Math.max(
     completedTermsFromTerms,
@@ -244,6 +279,7 @@ export async function readAcademyMasterySeasonState(
 
 export async function activateAcademyMasterySeason(input: {
   client: PoolClient;
+  scope: AcademyMasteryTenantScope;
   studentId: string;
   locale: AcademyMasteryLocale;
   seasonId: string;
@@ -253,26 +289,31 @@ export async function activateAcademyMasterySeason(input: {
   if (!seasonId || !academyMasterySeasons.some((season) => season.id === seasonId)) {
     throw new Error("mastery_season_unknown");
   }
-  const state = await readAcademyMasterySeasonState(input.client, input.studentId, input.locale);
+  const state = await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale);
   const recommendation = state.recommendations.find((item) => item.season.id === seasonId);
   if (!recommendation || !recommendation.eligible) {
     throw new Error("mastery_season_not_eligible");
   }
+  const idempotencyKey = normalizeIdempotencyKey(input.idempotencyKey);
   const open = await input.client.query<Record<string, unknown>>(
     `UPDATE academy_mastery_season_assignments
         SET status = 'active',
-            recommendation_score = GREATEST(recommendation_score, $4),
-            source_signals = $5::jsonb,
+            recommendation_score = GREATEST(recommendation_score, $6),
+            source_signals = $7::jsonb,
             assigned_by = 'student',
             started_at = COALESCE(started_at, NOW()),
             updated_at = NOW()
-      WHERE student_id = $1::uuid
-        AND locale = $2
-        AND season_id = $3
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND locale = $4
+        AND season_id = $5
         AND status IN ('recommended', 'active')
       RETURNING id::text, season_id, status, recommendation_score, source_signals,
                 assigned_by, assigned_at, started_at, completed_at, updated_at`,
     [
+      input.scope.tenantId,
+      input.scope.workspaceId,
       input.studentId,
       input.locale,
       seasonId,
@@ -282,12 +323,14 @@ export async function activateAcademyMasterySeason(input: {
   );
   const assignmentRow = open.rows[0] ?? (await input.client.query<Record<string, unknown>>(
     `INSERT INTO academy_mastery_season_assignments
-       (student_id, locale, season_id, status, recommendation_score, source_signals,
+       (tenant_id, workspace_id, student_id, locale, season_id, status, recommendation_score, source_signals,
         assigned_by, started_at)
-     VALUES ($1::uuid, $2, $3, 'active', $4, $5::jsonb, 'student', NOW())
+     VALUES ($1, $2, $3::uuid, $4, $5, 'active', $6, $7::jsonb, 'student', NOW())
      RETURNING id::text, season_id, status, recommendation_score, source_signals,
                assigned_by, assigned_at, started_at, completed_at, updated_at`,
     [
+      input.scope.tenantId,
+      input.scope.workspaceId,
       input.studentId,
       input.locale,
       seasonId,
@@ -298,14 +341,20 @@ export async function activateAcademyMasterySeason(input: {
 
   await input.client.query(
     `INSERT INTO academy_mastery_season_progress_events
-       (assignment_id, student_id, locale, event_type, payload)
-     VALUES ($1::uuid, $2::uuid, $3, 'started', $4::jsonb)`,
+       (assignment_id, tenant_id, workspace_id, student_id, locale, event_type, idempotency_key, payload)
+     VALUES ($1::uuid, $2, $3, $4::uuid, $5, 'started', $6, $7::jsonb)
+     ON CONFLICT (assignment_id, event_type, idempotency_key)
+       WHERE idempotency_key IS NOT NULL
+     DO NOTHING`,
     [
       assignmentRow.id,
+      input.scope.tenantId,
+      input.scope.workspaceId,
       input.studentId,
       input.locale,
+      idempotencyKey,
       JSON.stringify({
-        idempotencyKey: input.idempotencyKey || null,
+        idempotencyKey,
         authority: "server_mastery_v1",
       }),
     ],
@@ -313,6 +362,6 @@ export async function activateAcademyMasterySeason(input: {
 
   return {
     assignment: assignmentFromRow(assignmentRow),
-    state: await readAcademyMasterySeasonState(input.client, input.studentId, input.locale),
+    state: await readAcademyMasterySeasonState(input.client, input.scope, input.studentId, input.locale),
   };
 }
