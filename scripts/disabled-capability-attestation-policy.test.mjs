@@ -93,6 +93,31 @@ test("disabled capability attestation scans discovered public copy surfaces", ()
   );
 });
 
+test("disabled capability attestation rejects ungated disabled capability routes", () => {
+  const sources = loadSources();
+  sources["src/app/en/enterprise/page.tsx"] =
+    "export default function EnterprisePage() { return <main>Contact us for enterprise readiness.</main>; }";
+  sources["src/app/rewards/page.tsx"] =
+    "export default function RewardsPage() { return <main>Community awards center.</main>; }";
+
+  const failures = evaluateDisabledCapabilityAttestation(sources).join("\n");
+  assert.match(failures, /src\/app\/en\/enterprise\/page\.tsx: disabled capability route must remain absent/);
+  assert.match(failures, /src\/app\/rewards\/page\.tsx: disabled capability route must remain absent/);
+});
+
+test("disabled capability attestation rejects swap copy drifting into live trading", () => {
+  const sources = loadSources();
+  sources["src/app/swap/page.tsx"] = sources["src/app/swap/page.tsx"].replace(
+    "بازارها را بررسی کنید و قبل از هر تصمیم، مسیر تبدیل را در فضای آموزشی بفهمید.",
+    "بازارها را بررسی کنید و با مسیر ساده وارد معامله شوید.",
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /src\/app\/swap\/page\.tsx: forbidden launch-readiness claim/,
+  );
+});
+
 test("disabled capability attestation scans i18n message product-truth surfaces", () => {
   const sources = loadSources();
   const enMessages = JSON.parse(sources["src/i18n/messages/en.json"]);
