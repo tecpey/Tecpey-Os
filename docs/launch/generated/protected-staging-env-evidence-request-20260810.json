@@ -26,6 +26,11 @@
     "workflowInputs": {
       "release_sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
       "run_alert_probe": true
+    },
+    "envEvidenceWorkflowName": "Protected Staging Env Evidence",
+    "envEvidenceWorkflowInputs": {
+      "release_sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+      "environment_source": "protected_host_env_file"
     }
   },
   "privacyBoundary": {
@@ -89,6 +94,16 @@
     },
     "command": "cd \"$TECPEY_STAGING_APP_DIR\" && set -a && . \"$TECPEY_STAGING_ENV_FILE\" && set +a && NODE_ENV=production npm run env:check",
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
+    "workflowName": "Protected Staging Env Evidence",
+    "workflowInputs": {
+      "release_sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+      "environment_source": "protected_host_env_file"
+    },
+    "requiredArtifacts": [
+      "tecpey-staging-env-evidence.json",
+      "tecpey-staging-env-evidence.json.sha256",
+      "tecpey-staging-env-evidence-verification.json"
+    ],
     "acceptanceCriteria": [
       "environment source is recorded as protected_host_env_file or service_manager_preloaded_environment with redacted proof disposition",
       "required public URLs are present and non-placeholder",

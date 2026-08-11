@@ -1,0 +1,126 @@
+name: Protected Staging Env Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character main-branch commit deployed to staging
+        required: true
+        type: string
+      environment_source:
+        description: Protected source used for production-like env validation
+        required: true
+        default: protected_host_env_file
+        type: choice
+        options:
+          - protected_host_env_file
+          - service_manager_preloaded_environment
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-staging-env-evidence
+  cancel-in-progress: false
+
+jobs:
+  collect-and-verify:
+    name: Collect and verify protected staging env evidence
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact selected release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify selected commit belongs to main
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+
+      - name: Setup governed Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify npm major version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(npm --version | cut -d. -f1)" = "10"
+
+      - name: Install exact dependencies
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Verify staging runner identity
+        shell: bash
+        env:
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+
+      - name: Collect redacted env evidence
+        shell: bash
+        env:
+          TECPEY_STAGING_ENV_EVIDENCE_EXPECTED_SHA: ${{ inputs.release_sha }}
+          TECPEY_STAGING_ENV_EVIDENCE_SOURCE: ${{ inputs.environment_source }}
+          TECPEY_STAGING_ENV_EVIDENCE_OUTPUT: ${{ runner.temp }}/tecpey-staging-env-evidence.json
+          TECPEY_STAGING_APP_DIR: ${{ vars.TECPEY_STAGING_APP_DIR }}
+          TECPEY_STAGING_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_STAGING_ENV_CHECK_UNIT: ${{ vars.TECPEY_STAGING_ENV_CHECK_UNIT }}
+          TECPEY_STAGING_NPM_BIN: ${{ vars.TECPEY_STAGING_NPM_BIN }}
+        run: npm run ops:staging:env-evidence:collect
+
+      - name: Verify redacted env evidence offline
+        shell: bash
+        env:
+          TECPEY_STAGING_ENV_EVIDENCE_FILE: ${{ runner.temp }}/tecpey-staging-env-evidence.json
+          TECPEY_STAGING_ENV_EVIDENCE_EXPECTED_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -o pipefail
+          npm run ops:staging:env-evidence:verify | tee "$RUNNER_TEMP/tecpey-staging-env-evidence-verification.json"
+
+      - name: Publish redacted env evidence summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          ENVIRONMENT_SOURCE: ${{ inputs.environment_source }}
+        run: |
+          {
+            echo "## Protected staging env evidence"
+            echo ""
+            echo "- Release: \`$RELEASE_SHA\`"
+            echo "- Protected environment: \`staging\`"
+            echo "- Environment source: \`$ENVIRONMENT_SOURCE\`"
+            echo "- env:check: passed"
+            echo "- Offline verifier: passed"
+            echo "- Artifact: \`tecpey-staging-env-evidence-$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted env evidence artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tecpey-staging-env-evidence-${{ inputs.release_sha }}
+          path: |
+            ${{ runner.temp }}/tecpey-staging-env-evidence.json
+            ${{ runner.temp }}/tecpey-staging-env-evidence.json.sha256
+            ${{ runner.temp }}/tecpey-staging-env-evidence-verification.json
+          if-no-files-found: error
+          retention-days: 7

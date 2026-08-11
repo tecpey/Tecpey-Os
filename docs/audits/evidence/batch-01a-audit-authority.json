@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "b89ea999ee76195f8e2774ad620b566d1a1c8b9e",
-      "sha256": "4a28830a91fadbe923af318881a3c0fa31efd1e8312053f9f02bb1c6cf8e7405",
-      "lines": 200,
+      "gitObjectId": "cb1ab7a3a1430409a7da60a68b6c7ed156c5d4de",
+      "sha256": "d5933db69af3c1747672a4ac8df12a09a70f743e0ea2b0fbf4729e9d3b4f38f2",
+      "lines": 203,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 200
+          "endLine": 203
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -74,7 +74,8 @@
         "2026-08-10: re-reviewed after wiring governed news materialization, coin growth and tool growth commands into package scripts and release:check. The commands remain local repository scripts/tests, add no dependency, engine or override, do not enable exchange execution, wallet connection, API-key access, signal publishing or external trade automation, and the file now has 198 lines.",
         "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change.",
         "2026-08-10: re-reviewed after exposing scripts/check-browser-persistence.mjs as browser:persistence:check and wiring it into release:check. The command is an existing read-only static source guard over classified browser persistence; it adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
-        "2026-08-11: re-reviewed after adding launch:candidate:check and composing it into launch:decision:check. The new command runs a local read-only candidate-lineage guard over controlled-launch ledger, protected-staging runbook, generated staging request and generated no-go register; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and prevents protected-staging execution from drifting across candidate SHA references."
+        "2026-08-11: re-reviewed after adding launch:candidate:check and composing it into launch:decision:check. The new command runs a local read-only candidate-lineage guard over controlled-launch ledger, protected-staging runbook, generated staging request and generated no-go register; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and prevents protected-staging execution from drifting across candidate SHA references.",
+        "2026-08-11: re-reviewed after adding ops:staging:env-evidence collect/verify/check commands and composing the env evidence authority into ops:staging:evidence:check. The new scripts run only in the protected staging evidence path, upload redacted pass/fail/digest artifacts, add no dependency, engine, override, product runtime activation surface or secret-printing path, and make NOG-02 evidence collection machine-verifiable."
       ],
       "findings": [
         {
