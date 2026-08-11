@@ -47,6 +47,54 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS academy_public_profiles_student_idx
   ON academy_public_profiles(student_id);
+
+CREATE OR REPLACE FUNCTION tecpey_create_default_community_profile()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO academy_public_profiles
+    (student_id,
+     tenant_id,
+     workspace_id,
+     principal_type,
+     public_profile_id,
+     visibility,
+     leaderboard_visible,
+     journal_sharing_enabled,
+     instructor_review_consent,
+     challenge_participation,
+     study_group_discovery,
+     revision,
+     consent_version,
+     consented_at,
+     created_at,
+     updated_at)
+  SELECT
+    NEW.id,
+    binding.tenant_id,
+    binding.workspace_id,
+    'student',
+    gen_random_uuid(),
+    'private',
+    FALSE,
+    FALSE,
+    FALSE,
+    FALSE,
+    FALSE,
+    0,
+    'community-profile-consent-v1',
+    NULL,
+    NOW(),
+    NOW()
+  FROM platform_principal_bindings binding
+  WHERE binding.principal_type = 'student'
+    AND binding.principal_id = NEW.id::text
+    AND binding.status = 'active'
+  ORDER BY binding.created_at ASC
+  LIMIT 1
+  ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 `;
 
 function checksum(sql: string): string {
