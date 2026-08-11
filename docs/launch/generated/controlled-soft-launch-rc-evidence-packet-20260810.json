@@ -12,7 +12,7 @@
   },
   "supersededBy": {
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "currentCandidateSha": "db1f761d8fb543d1a3619ace901434b4636eeb4d",
+    "currentCandidateSha": "866ff092828b15ef0e64c3508bf4904c6d22ba52",
     "supersededAt": "2026-08-11T12:11:40.000Z",
     "reason": "New evidence collection must use the candidate that includes tenant-isolation proof coverage, controlled-launch lineage guarding, protected staging environment evidence automation and exact-head Full Suite Diagnostics evidence collection through PR 378."
   },
