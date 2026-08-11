@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-env-evidence-request",
-  "generatedAt": "2026-08-10T18:10:00.000Z",
+  "generatedAt": "2026-08-11T09:45:55.000Z",
   "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
-    "runtimeCandidateBaselineSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+    "protectedStagingEvidenceTargetSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+    "runtimeCandidateBaselineSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
@@ -24,7 +24,7 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
+      "release_sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
       "run_alert_probe": true
     }
   },

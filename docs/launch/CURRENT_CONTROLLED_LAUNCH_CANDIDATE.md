@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc`  
-**Candidate source:** `main` after PR #367  
-**Candidate selected at:** `2026-08-10T20:04:26Z`  
+**Current candidate SHA:** `7390afa2ba8509d0f46733b98d966928cb07b231`
+**Candidate source:** `main` after PR #373
+**Candidate selected at:** `2026-08-11T09:45:55Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
@@ -13,12 +13,14 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #367 hardened the support deployment bundle path after post-merge review of
-PR #366. Because the support ZIP path is part of the launch handoff boundary, the
-next evidence collection must use the SHA that contains the hardening fix:
+PR #373 completed the tenant-isolation proof package and hardened the
+controlled-launch capability boundary after PR #367's support deployment bundle
+hardening. Because tenant isolation, launch-gated financial surfaces and support
+handoff are all part of the launch decision boundary, the next evidence
+collection must use the SHA that contains those fixes:
 
 ```text
-3ef67b816a4d3a0ab6c1f369aceb0063c641aedc
+7390afa2ba8509d0f46733b98d966928cb07b231
 ```
 
 Using older draft baselines for new staging/support evidence would recreate the
@@ -31,6 +33,7 @@ ambiguity this ledger is designed to remove.
 | `03e77790630dac737a2d4cc4636b97e80de48ab3` | Runtime baseline in the first draft RC packet | Historical draft baseline only; not the current evidence target. |
 | `a8d494f12618cc6b36c0eeae40a7b7b212754fbf` | Protected staging evidence target after PR #358 | Superseded by this ledger for all new protected staging collection. |
 | `f64593e773642e33f5afc1c7baf9351de9e43500` | Support bundle workflow before hardening | Historical handoff baseline only; do not generate support bundles from it. |
+| `3ef67b816a4d3a0ab6c1f369aceb0063c641aedc` | Current controlled-launch candidate after PR #367 support bundle hardening | Superseded by PR #373 for all new exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
