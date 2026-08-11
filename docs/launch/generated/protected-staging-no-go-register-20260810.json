@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-no-go-register",
-  "generatedAt": "2026-08-11T09:45:55.000Z",
+  "generatedAt": "2026-08-11T11:08:00.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
-  "stagingEvidenceTargetSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
-  "runtimeCandidateBaselineSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
-  "currentMainShaAfterRcPacketMerge": "7390afa2ba8509d0f46733b98d966928cb07b231",
+  "stagingEvidenceTargetSha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
+  "runtimeCandidateBaselineSha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
+  "currentMainShaAfterRcPacketMerge": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
   "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "evidenceBranch": "agent/protected-staging-no-go-evidence-packet",
   "privacyBoundary": [
@@ -136,7 +136,7 @@
       "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
       "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "requiredEnvironment": "staging",
-      "selectedSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+      "selectedSha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
       "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
       "privacyBoundary": "redacted evidence only"
     }
