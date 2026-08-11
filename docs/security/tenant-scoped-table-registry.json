@@ -125,6 +125,22 @@
       "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
+      "table": "academy_mastery_season_generation_drafts",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every Mentor-generated season draft and indexed with locale/status and season_id, so the review queue can be scoped per tenant/workspace before any draft becomes official catalog content. Publish remains blocked by validation and manual review; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
+      "table": "academy_mastery_season_generation_reviews",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every generation review decision and indexed for tenant/workspace review history. The table references the draft ledger and records reviewer identity, decision, reason and policy version; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
+      "adversarialProof": "pending",
+      "issue": "#109"
+    },
+    {
       "table": "notification_brain_snapshots",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
