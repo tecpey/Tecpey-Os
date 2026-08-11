@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
       }
       const result = await withDb((client) =>
         Promise.all([
-          readAcademyMasterySeasonState(client, tenantContext.principalId, "fa"),
-          readAcademyMasterySeasonState(client, tenantContext.principalId, "en"),
+          readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "fa"),
+          readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "en"),
         ]),
       );
       if (!result.enabled) return apiError("mastery_seasons_service_not_configured", 503);
