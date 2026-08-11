@@ -12,9 +12,9 @@
   },
   "supersededBy": {
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "currentCandidateSha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
-    "supersededAt": "2026-08-11T11:08:00.000Z",
-    "reason": "New evidence collection must use the candidate that includes tenant-isolation proof coverage, controlled-launch lineage guarding and protected staging environment evidence automation through PR 376."
+    "currentCandidateSha": "db1f761d8fb543d1a3619ace901434b4636eeb4d",
+    "supersededAt": "2026-08-11T12:11:40.000Z",
+    "reason": "New evidence collection must use the candidate that includes tenant-isolation proof coverage, controlled-launch lineage guarding, protected staging environment evidence automation and exact-head Full Suite Diagnostics evidence collection through PR 378."
   },
   "artifactIdentity": {
     "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",
