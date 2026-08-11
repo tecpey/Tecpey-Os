@@ -290,6 +290,12 @@ describe("Content growth entity contract", () => {
     assert.ok(faRadar.coins.every((coin) => coin.impactNews.priority >= 75));
     assert.ok(faRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/crypto-news/")));
     assert.ok(enRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/en/crypto-news/")));
+    assert.equal(faRadar.evidence.status, "ready");
+    assert.equal(faRadar.evidence.sourceAuthority, "news-impact-history");
+    assert.equal(faRadar.evidence.coinCount, 5);
+    assert.equal(faRadar.evidence.toolCount, 5);
+    assert.ok(faRadar.evidence.highPriorityNewsCount >= 5);
+    assert.equal(faRadar.updatedAt, faRadar.evidence.updatedAt);
     assert.deepEqual(
       enRadar.tools.map((tool) => tool.slug),
       ["coinmarketcap", "tradingview", "coingecko", "coinglass", "cryptoquant"],
@@ -525,6 +531,11 @@ describe("Content growth entity contract", () => {
     assert.equal(radar.coins[0].latestImpactTitle, "Persisted Bitcoin ETF flows update");
     assert.equal(radar.coins[0].newsDetailPath, "/en/crypto-news/btc-etf-flows-tradingview-cmc");
     assert.equal(radar.coins[0].impactRankScore, 0.98);
+    assert.equal(radar.evidence.status, "degraded");
+    assert.equal(radar.evidence.coinCount, 1);
+    assert.equal(radar.evidence.toolCount, 5);
+    assert.equal(radar.evidence.highPriorityNewsCount, 1);
+    assert.equal(radar.evidence.updatedAt, "2026-08-09T07:10:00.000Z");
   });
 
   it("normalizes trusted news into entity-linked automation evidence", () => {

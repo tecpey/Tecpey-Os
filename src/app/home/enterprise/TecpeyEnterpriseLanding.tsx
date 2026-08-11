@@ -230,6 +230,14 @@ function TopDiscoveryGateway({
 }) {
   const tools = radar?.tools.slice(0, 5) ?? [];
   const coins = radar?.coins.slice(0, 5) ?? [];
+  const evidence = radar?.evidence;
+  const evidenceUpdatedAt = evidence
+    ? new Intl.DateTimeFormat("fa-IR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "Asia/Tehran",
+      }).format(new Date(evidence.updatedAt))
+    : null;
   if (tools.length === 0 && coins.length === 0) return null;
 
   return (
@@ -252,6 +260,21 @@ function TopDiscoveryGateway({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {evidence && evidenceUpdatedAt && (
+              <div
+                aria-label="وضعیت شواهد ورودی سریع بازار و ابزار"
+                className="inline-flex min-h-11 flex-wrap items-center gap-2 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-[11px] font-black text-emerald-800 dark:text-emerald-100"
+              >
+                <Clock3 className="h-4 w-4" aria-hidden="true" />
+                <span>آخرین شواهد: {evidenceUpdatedAt}</span>
+                <span className="rounded-full bg-white/55 px-2 py-1 text-[10px] dark:bg-white/10">
+                  گیت: {evidence.status === "ready" ? "آماده" : "ناقص"}
+                </span>
+                <span className="rounded-full bg-white/55 px-2 py-1 text-[10px] dark:bg-white/10">
+                  {evidence.coinCount} کوین + {evidence.toolCount} ابزار
+                </span>
+              </div>
+            )}
             <Link href="/coins" className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-black text-cyan-700 transition hover:border-cyan-300/55 hover:bg-cyan-400/15 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:text-cyan-100">
               <Coins className="h-4 w-4" aria-hidden="true" />
               همه رمزارزها

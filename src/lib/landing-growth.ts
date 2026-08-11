@@ -10,6 +10,65 @@ export type LandingGrowthCoin = CoinPage & {
   newsDetailPath: string;
 };
 
+export type LandingGrowthEvidenceStatus = "ready" | "degraded";
+
+export type LandingGrowthEvidence = Readonly<{
+  updatedAt: string;
+  sourceAuthority: "news-impact-history";
+  requiredCoinCount: number;
+  requiredToolCount: number;
+  coinCount: number;
+  toolCount: number;
+  highPriorityNewsCount: number;
+  status: LandingGrowthEvidenceStatus;
+}>;
+
+const REQUIRED_LANDING_COIN_COUNT = 5;
+const REQUIRED_LANDING_TOOL_COUNT = 5;
+const HIGH_PRIORITY_NEWS_THRESHOLD = 75;
+const LANDING_GROWTH_FALLBACK_UPDATED_AT = "2026-08-09T08:00:00.000Z";
+
+function resolveLandingGrowthUpdatedAt(newsItems: NewsImpactHistoryItem[]) {
+  const latest = newsItems
+    .flatMap((item) => [item.recordedAt, item.publishedAt])
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => b - a)[0];
+
+  return latest ? new Date(latest).toISOString() : LANDING_GROWTH_FALLBACK_UPDATED_AT;
+}
+
+function buildLandingGrowthEvidence({
+  coins,
+  tools,
+  newsItems,
+}: {
+  coins: LandingGrowthCoin[];
+  tools: RankedTraderTool[];
+  newsItems: NewsImpactHistoryItem[];
+}): LandingGrowthEvidence {
+  const highPriorityNewsCount = newsItems.filter(
+    (item) => item.priority >= HIGH_PRIORITY_NEWS_THRESHOLD,
+  ).length;
+  const status =
+    coins.length >= REQUIRED_LANDING_COIN_COUNT &&
+    tools.length >= REQUIRED_LANDING_TOOL_COUNT &&
+    highPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT
+      ? "ready"
+      : "degraded";
+
+  return {
+    updatedAt: resolveLandingGrowthUpdatedAt(newsItems),
+    sourceAuthority: "news-impact-history",
+    requiredCoinCount: REQUIRED_LANDING_COIN_COUNT,
+    requiredToolCount: REQUIRED_LANDING_TOOL_COUNT,
+    coinCount: coins.length,
+    toolCount: tools.length,
+    highPriorityNewsCount,
+    status,
+  };
+}
+
 export function getFeaturedLandingCoins(
   locale: ContentLocale,
   limit = 5,
@@ -57,11 +116,20 @@ export function getLandingGrowthRadarFromNewsItems(
   locale: ContentLocale,
   newsItems: NewsImpactHistoryItem[],
 ) {
+  const tools = getFeaturedTraderTools(REQUIRED_LANDING_TOOL_COUNT);
+  const coins = getFeaturedLandingCoinsFromNewsItems(
+    locale,
+    newsItems,
+    REQUIRED_LANDING_COIN_COUNT,
+  );
+  const evidence = buildLandingGrowthEvidence({ coins, tools, newsItems });
+
   return {
     locale,
-    tools: getFeaturedTraderTools(5),
-    coins: getFeaturedLandingCoinsFromNewsItems(locale, newsItems, 5),
-    updatedAt: "2026-08-09T08:00:00.000Z",
+    tools,
+    coins,
+    updatedAt: evidence.updatedAt,
+    evidence,
   };
 }
 
