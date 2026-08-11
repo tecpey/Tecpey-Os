@@ -424,6 +424,7 @@ for (const invariant of [
   "accepted-risk register authority rejects duplicate controlled-launch risk rows",
   "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
   "accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows",
+  "Full Suite Diagnostics workflow produces exact-head main evidence for NOG-04",
 ]) {
   requireText("releasePacketTest", invariant, `release packet tests are missing invariant: ${invariant}`);
 }
