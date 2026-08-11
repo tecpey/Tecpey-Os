@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_catalog (
 );
 
 CREATE TABLE IF NOT EXISTS academy_student_mastery_profiles (
+  tenant_id TEXT NOT NULL DEFAULT 'tecpey',
+  workspace_id TEXT NOT NULL DEFAULT 'main',
   student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
   locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
   completed_terms SMALLINT NOT NULL DEFAULT 0 CHECK (completed_terms BETWEEN 0 AND 7),
@@ -44,7 +46,9 @@ CREATE TABLE IF NOT EXISTS academy_student_mastery_profiles (
   profile_authority TEXT NOT NULL DEFAULT 'server_mastery_v1',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (student_id, locale),
+  PRIMARY KEY (tenant_id, workspace_id, student_id, locale),
+  CHECK (tenant_id ~ '^[a-z][a-z0-9-]{2,63}$'),
+  CHECK (workspace_id ~ '^[a-z][a-z0-9-]{2,63}$'),
   CHECK (jsonb_typeof(weak_concept_tags) = 'array'),
   CHECK (jsonb_array_length(weak_concept_tags) <= 80),
   CHECK (jsonb_typeof(arena_risk_flags) = 'array'),
@@ -58,6 +62,8 @@ CREATE TABLE IF NOT EXISTS academy_student_mastery_profiles (
 
 CREATE TABLE IF NOT EXISTS academy_mastery_weakness_signals (
   id BIGSERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL DEFAULT 'tecpey',
+  workspace_id TEXT NOT NULL DEFAULT 'main',
   student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
   locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
   source_type TEXT NOT NULL
@@ -69,18 +75,22 @@ CREATE TABLE IF NOT EXISTS academy_mastery_weakness_signals (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (tenant_id ~ '^[a-z][a-z0-9-]{2,63}$'),
+  CHECK (workspace_id ~ '^[a-z][a-z0-9-]{2,63}$'),
   CHECK (char_length(source_id) BETWEEN 1 AND 180),
   CHECK (concept_tag ~ '^[a-z0-9][a-z0-9._-]{1,79}$'),
   CHECK (jsonb_typeof(metadata) = 'object')
 );
 
 CREATE INDEX IF NOT EXISTS academy_mastery_weakness_signals_student_idx
-  ON academy_mastery_weakness_signals(student_id, locale, observed_at DESC, id DESC);
+  ON academy_mastery_weakness_signals(tenant_id, workspace_id, student_id, locale, observed_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS academy_mastery_weakness_signals_concept_idx
-  ON academy_mastery_weakness_signals(locale, concept_tag, observed_at DESC);
+  ON academy_mastery_weakness_signals(tenant_id, workspace_id, locale, concept_tag, observed_at DESC);
 
 CREATE TABLE IF NOT EXISTS academy_mastery_season_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id TEXT NOT NULL DEFAULT 'tecpey',
+  workspace_id TEXT NOT NULL DEFAULT 'main',
   student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
   locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
   season_id TEXT NOT NULL,
@@ -93,6 +103,8 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_assignments (
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (tenant_id ~ '^[a-z][a-z0-9-]{2,63}$'),
+  CHECK (workspace_id ~ '^[a-z][a-z0-9-]{2,63}$'),
   CHECK (season_id ~ '^[a-z0-9][a-z0-9-]{2,80}$'),
   CHECK (jsonb_typeof(source_signals) = 'array'),
   CHECK (assigned_by IN ('server_mastery_v1', 'mentor_ai', 'student')),
@@ -100,10 +112,10 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_assignments (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS academy_mastery_season_open_assignment_idx
-  ON academy_mastery_season_assignments(student_id, locale, season_id)
+  ON academy_mastery_season_assignments(tenant_id, workspace_id, student_id, locale, season_id)
   WHERE status IN ('recommended', 'active');
 CREATE INDEX IF NOT EXISTS academy_mastery_season_assignments_student_idx
-  ON academy_mastery_season_assignments(student_id, locale, updated_at DESC);
+  ON academy_mastery_season_assignments(tenant_id, workspace_id, student_id, locale, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS academy_mastery_season_generation_drafts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -178,21 +190,30 @@ CREATE INDEX IF NOT EXISTS academy_mastery_generation_reviews_tenant_idx
 CREATE TABLE IF NOT EXISTS academy_mastery_season_progress_events (
   id BIGSERIAL PRIMARY KEY,
   assignment_id UUID NOT NULL REFERENCES academy_mastery_season_assignments(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL DEFAULT 'tecpey',
+  workspace_id TEXT NOT NULL DEFAULT 'main',
   student_id UUID NOT NULL REFERENCES academy_students(id) ON DELETE CASCADE,
   locale TEXT NOT NULL CHECK (locale IN ('fa', 'en')),
   event_type TEXT NOT NULL
     CHECK (event_type IN ('assigned', 'started', 'mission_completed', 'reflection_added', 'mentor_reviewed', 'completed', 'dismissed')),
   mission_key TEXT,
+  idempotency_key TEXT,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (tenant_id ~ '^[a-z][a-z0-9-]{2,63}$'),
+  CHECK (workspace_id ~ '^[a-z][a-z0-9-]{2,63}$'),
   CHECK (mission_key IS NULL OR char_length(mission_key) BETWEEN 1 AND 120),
+  CHECK (idempotency_key IS NULL OR char_length(idempotency_key) BETWEEN 8 AND 160),
   CHECK (jsonb_typeof(payload) = 'object')
 );
 
 CREATE INDEX IF NOT EXISTS academy_mastery_season_progress_events_assignment_idx
   ON academy_mastery_season_progress_events(assignment_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS academy_mastery_season_progress_events_student_idx
-  ON academy_mastery_season_progress_events(student_id, locale, created_at DESC);
+  ON academy_mastery_season_progress_events(tenant_id, workspace_id, student_id, locale, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS academy_mastery_season_progress_event_idempotency_idx
+  ON academy_mastery_season_progress_events(assignment_id, event_type, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 `;
 
 function checksum(sql: string): string {
