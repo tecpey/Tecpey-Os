@@ -94,10 +94,30 @@ The accepted record must include only:
 
 ## NOG-02 Execution
 
-From the immutable deployed release directory on protected staging, run the
-production-like environment check with an accepted protected environment source:
-either the protected host env file loaded or the service-manager preloaded
-environment verified. The raw environment and raw logs must not be uploaded.
+Run the protected env evidence workflow for the selected SHA:
+
+```text
+Workflow: Protected Staging Env Evidence
+Environment: staging
+release_sha: 7390afa2ba8509d0f46733b98d966928cb07b231
+environment_source: protected_host_env_file
+```
+
+Use `environment_source: service_manager_preloaded_environment` only when the
+governed service-manager validation unit described below is installed and
+reviewed. The workflow must upload all of these artifacts:
+
+```text
+tecpey-staging-env-evidence.json
+tecpey-staging-env-evidence.json.sha256
+tecpey-staging-env-evidence-verification.json
+```
+
+The workflow executes the production-like environment check from the immutable
+deployed release directory on protected staging with an accepted protected
+environment source: either the protected host env file loaded or the
+service-manager preloaded environment verified. The raw environment and raw logs
+must not be uploaded.
 
 Use exactly one of the following two modes and record that selected mode in the
 manifest. Do not record a combined source value.
@@ -167,6 +187,19 @@ printing values:
 | Legacy auth | Disabled or within the immutable sunset policy |
 | AI Mentor models | Approved allowlist only when configured |
 | CSP connection policy | `scripts/validate-csp-connection-env.ts` reports pass |
+
+The accepted NOG-02 artifact must record only:
+
+- workflow run HTTPS URL;
+- artifact name and retention window;
+- selected release SHA;
+- selected `environment_source`;
+- detached SHA-256 digest;
+- `env:check` disposition;
+- CSP connection validation disposition;
+- operator and reviewer names or roles;
+- UTC collection window;
+- residual risk summary.
 
 If `env:check` fails, record only the failing key names and policy class. Do not
 record raw values, URLs, database DSNs, bearer tokens, private keys or stack
