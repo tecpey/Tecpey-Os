@@ -1,12 +1,12 @@
 # Controlled Soft Launch Go/No-Go Checklist
 
 **Status:** NO-GO until every blocking row below has accepted evidence  
-**Current candidate SHA:** `2ab89cb920b2087aa83de23aaef9745ca6b873c9`
+**Current candidate SHA:** `db1f761d8fb543d1a3619ace901434b4636eeb4d`
 **Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`  
 **Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`  
 **Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`  
-**Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
+**Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
 
 This checklist is the release-decision surface for the narrow controlled Soft
 Launch. It is not a marketing readiness claim, and it does not authorize

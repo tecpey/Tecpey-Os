@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-11T11:08:00.000Z",
+  "generatedAt": "2026-08-11T12:11:40.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
+    "sha": "db1f761d8fb543d1a3619ace901434b4636eeb4d",
     "sourceBranch": "main",
-    "sourcePullRequest": 376,
-    "selectedAt": "2026-08-11T11:08:00Z",
-    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding and protected staging environment evidence automation after the support bundle hardening baseline."
+    "sourcePullRequest": 378,
+    "selectedAt": "2026-08-11T12:11:40Z",
+    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation and exact-head Full Suite Diagnostics evidence collection after the support bundle hardening baseline."
   },
   "supersedes": [
     {
@@ -35,6 +35,16 @@
       "sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
       "previousRole": "current controlled-launch candidate after PR 373 tenant-isolation proof coverage",
       "currentStatus": "superseded_by_pr_376_for_new_protected_staging_and_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
+      "previousRole": "current controlled-launch candidate after PR 376 protected staging env evidence automation",
+      "currentStatus": "superseded_by_pr_378_for_new_exact_head_workflow_and_protected_staging_evidence_collection"
+    },
+    {
+      "sha": "8a569aaa1ce7c99215a27acf86c078f4db0b494e",
+      "previousRole": "main after PR 377 staging evidence ledger promotion",
+      "currentStatus": "superseded_by_pr_378_for_exact_head_full_suite_evidence_collection"
     }
   ],
   "activeInputs": {
