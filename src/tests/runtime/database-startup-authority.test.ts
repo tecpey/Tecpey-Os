@@ -76,4 +76,12 @@ describe("production database startup authority", () => {
     assert.match(database, /query_timeout: DATABASE_READINESS_QUERY_TIMEOUT_MS/);
     assert.match(database, /application_name: "tecpey-runtime-readiness"/);
   });
+
+  it("retries only transient migration-running readiness within a bounded window", async () => {
+    const database = await readFile("src/lib/db.ts", "utf8");
+    assert.match(database, /DATABASE_SCHEMA_RUNNING_RETRY_MS = 5_000/);
+    assert.match(database, /readiness\.status !== "migration_running"/);
+    assert.match(database, /DATABASE_SCHEMA_RUNNING_RETRY_INTERVAL_MS/);
+    assert.doesNotMatch(database, /applyDatabaseMigrations/);
+  });
 });

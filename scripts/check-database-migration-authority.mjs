@@ -24,6 +24,8 @@ const rejectText = (source, text, message) => {
 
 rejectText(db, "applyDatabaseMigrations", "application database access must never execute migrations");
 requireText(db, "checkMigrationReadiness(client)", "application database access must verify schema readiness");
+requireText(db, "DATABASE_SCHEMA_RUNNING_RETRY_MS = 5_000", "runtime schema readiness may only wait within a bounded migration-running window");
+requireText(db, 'readiness.status !== "migration_running"', "runtime schema readiness must retry only transient migration-running states");
 requireText(server, "assertDatabaseReadyForRuntime()", "production startup must verify schema before listening");
 requireText(server, "if (!dev)", "production schema verification must be a startup gate");
 for (const directImport of [
