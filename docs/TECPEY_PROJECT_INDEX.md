@@ -106,6 +106,7 @@
 | `TRADING_SIMULATOR_SPECIFICATION.md` | 🟢 Current | 14 |
 | `REWARD_SYSTEM.md` | 🟢 Current | 14 |
 | `COMMUNITY_LEARNING_LAYER.md` | 🟢 Current | 18 |
+| `academy/TECPEY_INFINITE_ACADEMY_MASTERY_SEASONS_BLUEPRINT.md` | 🟢 Current | 39.5+ |
 
 ---
 

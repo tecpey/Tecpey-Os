@@ -11,6 +11,7 @@ const directStrictFiles = [
   "src/app/api/academy-flashcards/route.ts",
   "src/app/api/academy-lesson-assessment/route.ts",
   "src/app/api/academy-lesson-progress/route.ts",
+  "src/app/api/academy-mastery-seasons/route.ts",
   "src/app/api/academy-reflections/route.ts",
   "src/app/api/academy-simulator-decision/route.ts",
   "src/app/api/academy-state/route.ts",

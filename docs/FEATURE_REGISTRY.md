@@ -82,6 +82,7 @@
 | Career/Community | 🚧 Scaffold | `src/app/academy/career/` | Partial |
 | Graduation | ✅ Production | `src/app/academy/graduation/` | Final assessment |
 | Term 1–7 Pages | ✅ Production | `src/app/academy/term-*` | All 7 terms |
+| Infinite Academy / Mastery Seasons | 🔧 In Progress | `src/app/academy/mastery-seasons/`, `src/data/academyMasterySeasons.ts` | Server-backed read model + generated Season draft validator; activation/publishing mutations still gated |
 | Specialized Program | 🚧 Scaffold | `src/app/academy/specialized-program/` | Route exists |
 | Education-First Path | ✅ Production | `src/app/academy/education-first/` | — |
 | Security-First Path | ✅ Production | `src/app/academy/security-first/` | — |
