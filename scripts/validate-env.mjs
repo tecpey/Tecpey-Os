@@ -92,6 +92,11 @@ const optional = [
   'TECPEY_CUSTODY_ENABLED_CHAINS',
   'TECPEY_CUSTODY_KILL_SWITCH',
   'TECPEY_CUSTODY_SIMULATION_ENABLED',
+  'FEATURE_EXCHANGE_ENABLED',
+  'FEATURE_MARKETPLACE_ENABLED',
+  'TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED',
+  'TECPEY_ENTERPRISE_ACTIVATION_ENABLED',
+  'TECPEY_WHITE_LABEL_ACTIVATION_ENABLED',
   'TECPEY_NOTIFICATION_DEFAULT_CHANNELS',
   'TECPEY_PUSH_PROVIDER',
   'TECPEY_ANDROID_PACKAGE',
@@ -300,6 +305,36 @@ if (process.env.NODE_ENV === 'production') {
     errors.push(
       'TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden until the custody launch gate in issue #106 is independently closed.'
     );
+  }
+
+  const forbiddenControlledLaunchActivations = [
+    [
+      'FEATURE_EXCHANGE_ENABLED',
+      'FEATURE_EXCHANGE_ENABLED=true is forbidden in production until real-money Exchange certification, provider evidence, reconciliation and ambiguous-result recovery are independently accepted.',
+    ],
+    [
+      'FEATURE_MARKETPLACE_ENABLED',
+      'FEATURE_MARKETPLACE_ENABLED=true is forbidden in production during the controlled launch because marketplace/expanded commercial surfaces are outside the accepted launch scope.',
+    ],
+    [
+      'TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED',
+      'TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED=1 is forbidden in production until legal, compliance, accounting, fraud and operational reward controls are independently accepted.',
+    ],
+    [
+      'TECPEY_ENTERPRISE_ACTIVATION_ENABLED',
+      'TECPEY_ENTERPRISE_ACTIVATION_ENABLED=1 is forbidden in production until enterprise activation, admin control-plane and tenant-isolation gates are independently accepted.',
+    ],
+    [
+      'TECPEY_WHITE_LABEL_ACTIVATION_ENABLED',
+      'TECPEY_WHITE_LABEL_ACTIVATION_ENABLED=1 is forbidden in production until white-label activation, tenant isolation, branding and operations gates are independently accepted.',
+    ],
+  ];
+
+  for (const [name, message] of forbiddenControlledLaunchActivations) {
+    const value = process.env[name]?.trim().toLowerCase();
+    if (value === '1' || value === 'true') {
+      errors.push(message);
+    }
   }
 
   if (process.env.TECPEY_ALLOW_MEMORY_RATE_LIMIT !== '1') {

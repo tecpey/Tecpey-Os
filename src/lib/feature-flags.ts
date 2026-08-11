@@ -20,7 +20,7 @@ type FlagConfig = {
 
 const FLAG_CONFIG: Record<FeatureFlag, FlagConfig> = {
   "academy.enabled": { envVar: "FEATURE_ACADEMY_ENABLED", defaultEnabled: true },
-  "exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: true },
+  "exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },
   "social.enabled": { envVar: "FEATURE_SOCIAL_ENABLED", defaultEnabled: false },
   "mentor.enabled": { envVar: "FEATURE_MENTOR_ENABLED", defaultEnabled: true },
   "future.marketplace.enabled": { envVar: "FEATURE_MARKETPLACE_ENABLED", defaultEnabled: false },

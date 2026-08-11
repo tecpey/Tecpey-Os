@@ -16,6 +16,7 @@ const REQUIRED_FILES = [
   "src/app/api/wallet/custody-status/route.ts",
   "src/components/academy/AcademySimulationWorld.tsx",
   "src/components/seo/StructuredData.tsx",
+  "src/lib/feature-flags.ts",
   "src/lib/wallet/custody-launch-policy.ts",
 ];
 
@@ -36,11 +37,19 @@ async function collectPublicSourceFiles(root) {
   return files;
 }
 
+async function collectI18nMessageFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && /\.json$/.test(entry.name))
+    .map((entry) => `${root}/${entry.name}`);
+}
+
 const files = [
   ...new Set([
     ...REQUIRED_FILES,
     ...(await collectPublicSourceFiles("src/app")),
     ...(await collectPublicSourceFiles("src/components")),
+    ...(await collectI18nMessageFiles("src/i18n/messages")),
   ]),
 ].sort();
 
@@ -55,5 +64,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Disabled capability attestation passed: public copy, release packets, runtime boot and custody/withdrawal activation surfaces preserve the controlled-launch boundary.",
+  "Disabled capability attestation passed: public copy, i18n messages, release packets, runtime boot and custody/withdrawal activation surfaces preserve the controlled-launch boundary.",
 );
