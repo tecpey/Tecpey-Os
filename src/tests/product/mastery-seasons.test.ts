@@ -237,6 +237,14 @@ describe("Academy Mastery Seasons authority", () => {
       assert.match(ACADEMY_MASTERY_SEASONS_SQL, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
     }
     assert.match(ACADEMY_MASTERY_SEASONS_SQL, /academy_mastery_season_open_assignment_idx/);
+    assert.match(
+      ACADEMY_MASTERY_SEASONS_SQL,
+      /PRIMARY KEY \(tenant_id, workspace_id, student_id, locale\)/,
+    );
+    assert.match(
+      ACADEMY_MASTERY_SEASONS_SQL,
+      /academy_mastery_season_assignments\(tenant_id, workspace_id, student_id, locale, updated_at DESC\)/,
+    );
     assert.match(ACADEMY_MASTERY_SEASONS_SQL, /publishCapability', 'manual_review_required'/);
     assert.match(ACADEMY_MASTERY_SEASONS_SQL, /decision IN \('reject', 'request_changes'\) OR reviewer_type = 'human'/);
     assert.equal(
@@ -281,6 +289,26 @@ describe("Academy Mastery Seasons authority", () => {
     assert.ok(codes.includes("quiz_question_invalid"));
   });
 
+  it("rejects malformed untrusted draft shapes without throwing", () => {
+    const malformed = {
+      ...validGeneratedDraft(),
+      sources: undefined,
+      objectives: "not-an-array",
+      missions: [{ id: "bad-mission", questions: undefined }],
+      riskControls: null,
+    } as unknown as AcademyGeneratedMasterySeasonDraft;
+
+    assert.doesNotThrow(() => reviewGeneratedAcademyMasterySeasonDraft(malformed));
+    const review = reviewGeneratedAcademyMasterySeasonDraft(malformed);
+    const codes = review.violations.map((violation) => violation.code);
+
+    assert.equal(review.status, "rejected");
+    assert.ok(codes.includes("sources_insufficient"));
+    assert.ok(codes.includes("objectives_insufficient"));
+    assert.ok(codes.includes("missions_insufficient"));
+    assert.ok(codes.includes("risk_controls_insufficient"));
+  });
+
   it("blocks AI-generated trade signals and forbidden ranking inputs", () => {
     const badDraft = validGeneratedDraft();
     badDraft.riskControls = [
@@ -312,5 +340,17 @@ describe("Academy Mastery Seasons authority", () => {
     assert.match(instructions, /Allowed kind values: repair, market-update, arena-discipline/);
     assert.doesNotMatch(instructions, /"paid_plan_status"/);
     assert.doesNotMatch(instructions, /"real_exchange_pnl"/);
+  });
+
+  it("deduplicates repeated season activation events with durable idempotency", () => {
+    assert.match(ACADEMY_MASTERY_SEASONS_SQL, /idempotency_key TEXT/);
+    assert.match(
+      ACADEMY_MASTERY_SEASONS_SQL,
+      /academy_mastery_season_progress_event_idempotency_idx/,
+    );
+    assert.match(
+      ACADEMY_MASTERY_SEASONS_SQL,
+      /ON academy_mastery_season_progress_events\(assignment_id, event_type, idempotency_key\)/,
+    );
   });
 });
