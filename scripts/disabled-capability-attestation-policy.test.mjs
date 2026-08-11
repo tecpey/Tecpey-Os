@@ -17,6 +17,9 @@ const requiredFiles = [
   "src/app/api/wallet/custody-status/route.ts",
   "src/components/academy/AcademySimulationWorld.tsx",
   "src/components/seo/StructuredData.tsx",
+  "src/i18n/messages/en.json",
+  "src/i18n/messages/fa.json",
+  "src/lib/feature-flags.ts",
   "src/lib/wallet/custody-launch-policy.ts",
 ];
 
@@ -34,11 +37,18 @@ function collectPublicSourceFiles(root) {
   return files;
 }
 
+function collectI18nMessageFiles(root) {
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.json$/.test(entry.name))
+    .map((entry) => `${root}/${entry.name}`);
+}
+
 const files = [
   ...new Set([
     ...requiredFiles,
     ...collectPublicSourceFiles("src/app"),
     ...collectPublicSourceFiles("src/components"),
+    ...collectI18nMessageFiles("src/i18n/messages"),
   ]),
 ].sort();
 
@@ -81,6 +91,25 @@ test("disabled capability attestation scans discovered public copy surfaces", ()
     evaluateDisabledCapabilityAttestation(sources).join("\n"),
     /src\/app\/en\/business\/page\.tsx: forbidden launch-readiness claim/,
   );
+});
+
+test("disabled capability attestation scans i18n message product-truth surfaces", () => {
+  const sources = loadSources();
+  const enMessages = JSON.parse(sources["src/i18n/messages/en.json"]);
+  enMessages.Fees.cryptoDesc =
+    "TecPey offers a wide range of cryptocurrencies for deposit and withdrawal.";
+  enMessages.Fees.irtDesc =
+    "TecPey provides convenient options for depositing and withdrawing IRT.";
+  sources["src/i18n/messages/en.json"] = JSON.stringify(enMessages, null, 2);
+
+  const faMessages = JSON.parse(sources["src/i18n/messages/fa.json"]);
+  faMessages.Fees.cryptoDesc =
+    "TecPey طیف گسترده‌ای از ارزهای دیجیتال را برای واریز و برداشت ارائه می‌دهد.";
+  sources["src/i18n/messages/fa.json"] = JSON.stringify(faMessages, null, 2);
+
+  const failures = evaluateDisabledCapabilityAttestation(sources).join("\n");
+  assert.match(failures, /src\/i18n\/messages\/en\.json: forbidden launch-readiness claim/);
+  assert.match(failures, /src\/i18n\/messages\/fa\.json: forbidden launch-readiness claim/);
 });
 
 test("disabled capability attestation rejects rendered exchange comparison capability drift", () => {
@@ -194,4 +223,20 @@ test("disabled capability attestation rejects incomplete release-packet boundary
   );
 
   assert.match(evaluateDisabledCapabilityAttestation(sources).join("\n"), /enterprise and white-label/);
+});
+
+test("disabled capability attestation rejects launch-disabled feature flag drift", () => {
+  const sources = loadSources();
+  sources["src/lib/feature-flags.ts"] = sources["src/lib/feature-flags.ts"].replace(
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false }',
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: true }',
+  );
+  sources["scripts/validate-env.mjs"] = sources["scripts/validate-env.mjs"].replace(
+    "FEATURE_EXCHANGE_ENABLED=true is forbidden in production",
+    "FEATURE_EXCHANGE_ENABLED is reviewed in production",
+  );
+
+  const failures = evaluateDisabledCapabilityAttestation(sources).join("\n");
+  assert.match(failures, /src\/lib\/feature-flags\.ts: missing disabled-capability boundary/);
+  assert.match(failures, /scripts\/validate-env\.mjs: missing disabled-capability boundary/);
 });

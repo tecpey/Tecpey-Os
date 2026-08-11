@@ -3,6 +3,7 @@ import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { storeLearningCommand } from "../lib/academy-authority";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
+import { enqueueAcademyAssessmentCompleted } from "../lib/notifications/academy-domain-events";
 import {
   claimNotificationDomainOutbox,
   enqueueNotificationDomainEvent,
@@ -54,6 +55,15 @@ async function createPrincipal(client: PoolClient, prefix: string) {
     locale: "fa",
   });
   return { studentId, principal };
+}
+
+async function seedTenant(client: PoolClient, tenantId: string): Promise<void> {
+  await client.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+     VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId],
+  );
 }
 
 async function count(
@@ -140,6 +150,77 @@ test(
           [studentId],
         ),
         1,
+      );
+    });
+  },
+);
+
+test(
+  "academy assessment producer keeps the same student and event id isolated by tenant",
+  { skip: !databaseUrl },
+  async () => {
+    await withRolledBackTest(async (client) => {
+      const studentId = crypto.randomUUID();
+      const tenantA = "tecpey";
+      const tenantB = `notification-domain-${crypto.randomUUID()}`;
+      const requestHash = "d".repeat(64);
+      const occurredAt = new Date().toISOString();
+
+      await seedTenant(client, tenantB);
+      await client.query(
+        `INSERT INTO academy_students (id, locale)
+         VALUES ($1::uuid, 'fa')
+         ON CONFLICT (id) DO NOTHING`,
+        [studentId],
+      );
+
+      const first = await enqueueAcademyAssessmentCompleted(client, {
+        tenantId: tenantA,
+        studentId,
+        locale: "fa",
+        termNumber: 1,
+        percent: 88,
+        passed: true,
+        requestHash,
+        occurredAt,
+      });
+      const replayA = await enqueueAcademyAssessmentCompleted(client, {
+        tenantId: tenantA,
+        studentId,
+        locale: "fa",
+        termNumber: 1,
+        percent: 88,
+        passed: true,
+        requestHash,
+        occurredAt,
+      });
+      const second = await enqueueAcademyAssessmentCompleted(client, {
+        tenantId: tenantB,
+        studentId,
+        locale: "fa",
+        termNumber: 1,
+        percent: 88,
+        passed: true,
+        requestHash,
+        occurredAt,
+      });
+
+      assert.equal(replayA.replayed, true);
+      assert.equal(replayA.outboxId, first.outboxId);
+      assert.notEqual(second.outboxId, first.outboxId);
+
+      const rows = await client.query<{ tenant_id: string; count: string }>(
+        `SELECT tenant_id, COUNT(*)::text AS count
+           FROM notification_domain_outbox
+          WHERE event_type = 'academy.assessment_completed'
+            AND event_id = $1
+          GROUP BY tenant_id
+          ORDER BY tenant_id`,
+        [`academy-assessment:${studentId}:fa:1:${requestHash}`],
+      );
+      assert.deepEqual(
+        new Map(rows.rows.map((row) => [row.tenant_id, Number(row.count)])),
+        new Map([[tenantA, 1], [tenantB, 1]]),
       );
     });
   },

@@ -121,6 +121,59 @@ async function seedTenantStudent(label: string, consent = true): Promise<{
   return { tenantId, workspaceId, studentId };
 }
 
+async function seedSecondTenantForStudent(input: {
+  label: string;
+  studentId: string;
+  consent?: boolean;
+}): Promise<{
+  tenantId: string;
+  workspaceId: string;
+  studentId: string;
+}> {
+  const tenantId = `challenge-${input.label}-${randomUUID()}`;
+  const workspaceId = `workspace-${randomUUID()}`;
+  await withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+         VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+        [tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_workspaces
+           (id, tenant_id, slug, display_name, products, settings)
+         VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+        [workspaceId, tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_principal_bindings
+           (tenant_id, workspace_id, principal_type, principal_id, source)
+         VALUES ($1, $2, 'student', $3, 'community_challenge_test')`,
+        [tenantId, workspaceId, input.studentId],
+      );
+      await client.query(
+        `INSERT INTO academy_public_profiles
+           (student_id, tenant_id, workspace_id, principal_type,
+            public_profile_id, visibility, leaderboard_visible,
+            journal_sharing_enabled, instructor_review_consent,
+            challenge_participation, study_group_discovery,
+            revision, consent_version, consented_at, created_at, updated_at)
+         VALUES
+           ($1::uuid, $2, $3, 'student', gen_random_uuid(), 'private', FALSE,
+            FALSE, FALSE, $4, FALSE, 1,
+            'community-profile-consent-v1', NOW(), NOW(), NOW())`,
+        [input.studentId, tenantId, workspaceId, input.consent ?? true],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  });
+  return { tenantId, workspaceId, studentId: input.studentId };
+}
+
 function trade(index: number, closedAt: string): ArenaClosedTradeV2 {
   const entryPrice = new Decimal("100");
   const exitPrice = new Decimal("110");
@@ -462,6 +515,75 @@ describe("Official journal challenge PostgreSQL authority", () => {
     assert.equal(loaded.state.status, "not_joined");
     assert.equal(loaded.state.consentEnabled, false);
     assert.equal(loaded.state.enrollmentId, null);
+  });
+
+  it("keeps enrollments and join replay tenant-keyed for the same student in two tenants", {
+    skip: !configured,
+    timeout: 30_000,
+  }, async () => {
+    const tenantA = await seedTenantStudent("shared-student-a");
+    const tenantB = await seedSecondTenantForStudent({
+      label: "shared-student-b",
+      studentId: tenantA.studentId,
+    });
+    const cycle = deriveOfficialJournalChallengeCycle(await databaseNow());
+    const idempotencyKey = `challenge-shared-student-${randomUUID()}`;
+
+    const joinedA = await processOfficialJournalChallengeCommand(context(tenantA), {
+      action: "join",
+      cycleKey: cycle.key,
+      idempotencyKey,
+    });
+    const joinedB = await processOfficialJournalChallengeCommand(context(tenantB), {
+      action: "join",
+      cycleKey: cycle.key,
+      idempotencyKey,
+    });
+    assert.equal(joinedA.ok, true);
+    assert.equal(joinedB.ok, true);
+    if (!joinedA.ok || !joinedB.ok) return;
+    assert.equal(joinedA.replayed, false);
+    assert.equal(joinedB.replayed, false);
+    assert.notEqual(joinedA.state.enrollmentId, joinedB.state.enrollmentId);
+
+    const replayB = await processOfficialJournalChallengeCommand(context(tenantB), {
+      action: "join",
+      cycleKey: cycle.key,
+      idempotencyKey,
+    });
+    assert.equal(replayB.ok, true);
+    if (!replayB.ok) return;
+    assert.equal(replayB.replayed, true);
+    assert.equal(replayB.state.enrollmentId, joinedB.state.enrollmentId);
+    assert.notEqual(replayB.state.enrollmentId, joinedA.state.enrollmentId);
+
+    const rows = await withClient((client) => client.query<{
+      tenant_id: string;
+      workspace_id: string;
+      id: string;
+    }>(
+      `SELECT tenant_id, workspace_id, id::text
+         FROM academy_community_challenge_enrollments
+        WHERE student_id = $1::uuid
+          AND challenge_id = 'journal-reflection-week'
+          AND challenge_version = 'journal-reflection-v1'
+          AND cycle_key = $2
+        ORDER BY tenant_id ASC`,
+      [tenantA.studentId, cycle.key],
+    ));
+    const expectedRows = [
+      {
+        tenant_id: tenantA.tenantId,
+        workspace_id: tenantA.workspaceId,
+        id: joinedA.state.enrollmentId!,
+      },
+      {
+        tenant_id: tenantB.tenantId,
+        workspace_id: tenantB.workspaceId,
+        id: joinedB.state.enrollmentId!,
+      },
+    ].sort((left, right) => left.tenant_id.localeCompare(right.tenant_id));
+    assert.deepEqual(rows.rows, expectedRows);
   });
 
   it("returns an explicit idempotency conflict for a mismatched stored request hash", {

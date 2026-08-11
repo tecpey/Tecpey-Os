@@ -48,6 +48,12 @@ import { runLearningBrainRefreshColumnsMigrations } from "./db-migrate-learning-
 import { runAchievementContractMigrations } from "./db-migrate-achievement-contract";
 import { runLearningBrainTenantCacheMigrations } from "./db-migrate-learning-brain-tenant-cache";
 import { runNewsMaterializationMigrations } from "./db-migrate-news-materialization";
+import { runCommunityProfileTenantPrimaryKeyMigrations } from "./db-migrate-community-profile-tenant-primary-key";
+import { runAiMentorEvidenceTenantKeyMigrations } from "./db-migrate-ai-mentor-evidence-tenant-key";
+import { runWithdrawalTenantBindingMigrations } from "./db-migrate-withdrawal-tenant-binding";
+import { runAcademyQuestionBankLocaleMigrations } from "./db-migrate-academy-question-bank-locale";
+import { runNotificationBrainSnapshotContractMigrations } from "./db-migrate-notification-brain-snapshot-contract";
+import { runNotificationBrainSnapshotContractRepairMigrations } from "./db-migrate-notification-brain-snapshot-contract-repair";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -133,6 +139,12 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(41, "migration-step-041", CANONICAL_MIGRATION_CONTENT.achievementContract, "academy-platform", "academy", runAchievementContractMigrations),
   entry(42, "migration-step-042", CANONICAL_MIGRATION_CONTENT.learningBrainTenantCache, "academy-platform", "ai-mentor", runLearningBrainTenantCacheMigrations),
   entry(43, "migration-step-043", CANONICAL_MIGRATION_CONTENT.newsMaterialization, "growth-platform", "content-growth", runNewsMaterializationMigrations),
+  entry(44, "migration-step-044", CANONICAL_MIGRATION_CONTENT.communityProfileTenantPrimaryKey, "academy-platform", "community", runCommunityProfileTenantPrimaryKeyMigrations),
+  entry(45, "migration-step-045", CANONICAL_MIGRATION_CONTENT.aiMentorEvidenceTenantKey, "academy-platform", "ai-mentor", runAiMentorEvidenceTenantKeyMigrations),
+  entry(46, "migration-step-046", CANONICAL_MIGRATION_CONTENT.withdrawalTenantBinding, "custody-platform", "withdrawals", runWithdrawalTenantBindingMigrations),
+  entry(47, "migration-step-047", CANONICAL_MIGRATION_CONTENT.academyQuestionBankLocale, "academy-platform", "academy", runAcademyQuestionBankLocaleMigrations),
+  entry(48, "migration-step-048", CANONICAL_MIGRATION_CONTENT.notificationBrainSnapshotContract, "engagement-platform", "notifications", runNotificationBrainSnapshotContractMigrations),
+  entry(49, "migration-step-049", CANONICAL_MIGRATION_CONTENT.notificationBrainSnapshotContractRepair, "engagement-platform", "notifications", runNotificationBrainSnapshotContractRepairMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

@@ -1,10 +1,22 @@
 import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync, readFileSync } from "node:fs";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
 
 const GATE = "scripts/check-tenant-scoped-table-coverage.mjs";
 const REGISTRY = "docs/security/tenant-scoped-table-registry.json";
+const PROBE_FILES = [
+  "src/lib/db-migrate-zzz-coverage-probe.ts",
+  "src/lib/db-migrate-zzz-alter-probe.ts",
+];
+
+function cleanupProbes() {
+  for (const probe of PROBE_FILES) {
+    rmSync(probe, { force: true });
+  }
+}
+
+afterEach(cleanupProbes);
 
 function runGate() {
   try {
@@ -16,6 +28,7 @@ function runGate() {
 }
 
 test("passes on the committed registry", () => {
+  cleanupProbes();
   const { code } = runGate();
   assert.equal(code, 0);
 });

@@ -19,6 +19,8 @@ import {
   type ArenaDecision,
 } from "@/lib/trading-arena-account";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -301,6 +303,14 @@ export async function POST(request: NextRequest) {
 
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const studentId = tenantContext.principalId;
 
     let body: Record<string, unknown>;
     try {
@@ -316,14 +326,14 @@ export async function POST(request: NextRequest) {
       return apiError("invalid_json", 400);
     }
 
-    const decision = normalizeDecision(body, session.studentId);
+    const decision = normalizeDecision(body, studentId);
     if (decision.entryReason.length < 8 || decision.plan.length < 8) {
       return apiError("journal_required", 400);
     }
 
     try {
       const result = await withTx(async (client) => {
-        const accountState = await ensureArenaAccount(client, session.studentId as string);
+        const accountState = await ensureArenaAccount(client, studentId);
         if (accountState.account.status !== "active" || !accountState.activeAttempt) {
           return { blocked: "arena_cycle_not_active" as const };
         }
@@ -339,7 +349,7 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (id) DO NOTHING`,
           [
             decision.id,
-            session.studentId,
+            studentId,
             decision.symbol,
             decision.side,
             decision.orderType,
@@ -358,11 +368,12 @@ export async function POST(request: NextRequest) {
           `UPDATE academy_trading_arena_accounts
            SET revision = revision + 1, updated_at = NOW()
            WHERE student_id = $1::uuid`,
-          [session.studentId],
+          [studentId],
         );
 
         await recordLearningEvent(client, {
-          studentId: session.studentId as string,
+          studentId,
+          tenantId: tenantContext.tenantId,
           eventType: "simulator_decision_saved",
           payload: {
             symbol: decision.symbol,
@@ -374,13 +385,13 @@ export async function POST(request: NextRequest) {
             ip: getClientIp(request),
           },
         });
-        await maybeAwardAchievement(client, session.studentId as string, "simulator-journalist", {
+        await maybeAwardAchievement(client, studentId, "simulator-journalist", {
           tradeId: decision.id,
           symbol: decision.symbol,
-        });
+        }, tenantContext.tenantId);
 
-        const refreshedAccount = await ensureArenaAccount(client, session.studentId as string);
-        const decisions = await getDecisions(client, session.studentId as string);
+        const refreshedAccount = await ensureArenaAccount(client, studentId);
+        const decisions = await getDecisions(client, studentId);
         return {
           blocked: null,
           trade: decision,
@@ -395,7 +406,7 @@ export async function POST(request: NextRequest) {
       if (result.value.blocked === "arena_cycle_not_active") return apiError("arena_cycle_not_active", 409);
       if (result.value.blocked === "insufficient_virtual_balance") return apiError("insufficient_virtual_balance", 409);
 
-      scheduleMentorProfileUpdate(session.studentId, "trading_trade_created");
+      scheduleMentorProfileUpdate(studentId, "trading_trade_created");
       return apiOk(result.value, 200, { "Cache-Control": "no-store, max-age=0" });
     } catch {
       return apiError("trading_arena_unavailable", 503);

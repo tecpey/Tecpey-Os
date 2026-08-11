@@ -28,6 +28,8 @@ import {
 } from "@/lib/trading-arena-execution-v2";
 import { validateArenaExecutionStateV2 } from "@/lib/trading-arena-execution-state-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -407,6 +409,14 @@ export async function POST(request: NextRequest) {
 
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const studentId = tenantContext.principalId;
 
     let body: Record<string, unknown>;
     try {
@@ -447,7 +457,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const result = await withTx(async (client) => {
-        const context = await ensureArenaContext(client, session.studentId as string);
+        const context = await ensureArenaContext(client, studentId);
         if (context.account.status !== "active" || !context.activeRow || !context.activeAttempt) {
           return { error: "arena_no_active_attempt" as const };
         }
@@ -526,7 +536,7 @@ export async function POST(request: NextRequest) {
                revision = revision + 1,
                updated_at = NOW()
            WHERE student_id = $1::uuid`,
-          [session.studentId, applied.state.cashBalance],
+          [studentId, applied.state.cashBalance],
         );
 
         await client.query(
@@ -535,16 +545,17 @@ export async function POST(request: NextRequest) {
            VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb)`,
           [
             context.activeRow.id,
-            session.studentId,
+            studentId,
             nextRevision,
             applied.eventType,
             JSON.stringify(applied.event),
           ],
         );
 
-        await saveDecision(client, session.studentId as string, execution.state, action);
+        await saveDecision(client, studentId, execution.state, action);
         await recordLearningEvent(client, {
-          studentId: session.studentId as string,
+          studentId,
+          tenantId: tenantContext.tenantId,
           eventType: "simulator_decision_saved",
           payload: {
             actionType: action.type,

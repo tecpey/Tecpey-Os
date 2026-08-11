@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
+import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const integrationConfigured = Boolean(
@@ -48,14 +49,22 @@ async function seedWithdrawal(
   client: PoolClient,
   withdrawalId: string,
   userId: string,
+  tenantId = "tecpey",
+  idempotencyKey?: string,
 ): Promise<void> {
   await client.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+     VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId],
+  );
+  await client.query(
     `INSERT INTO withdrawals (
-       id, user_id, asset, amount, amount_usd, destination_address,
-       network, state, security_gate_passed, two_fa_verified
-     ) VALUES ($1, $2, 'USDT', '1', 1, $3, 'ethereum',
-               'compliance_review', TRUE, TRUE)`,
-    [withdrawalId, userId, `0x${"a".repeat(40)}`],
+       id, tenant_id, user_id, asset, amount, amount_usd, destination_address,
+       network, state, security_gate_passed, two_fa_verified, idempotency_key
+     ) VALUES ($1, $2, $3, 'USDT', '1', 1, $4, 'ethereum',
+               'compliance_review', TRUE, TRUE, $5)`,
+    [withdrawalId, tenantId, userId, `0x${"a".repeat(40)}`, idempotencyKey ?? null],
   );
 }
 
@@ -67,6 +76,12 @@ before(async () => {
     idleTimeoutMillis: 1_000,
     allowExitOnIdle: true,
   });
+  const client = await pool.connect();
+  try {
+    await applyDatabaseMigrationsWithLock(client);
+  } finally {
+    client.release();
+  }
 });
 
 after(async () => {
@@ -75,6 +90,104 @@ after(async () => {
 });
 
 describe("Withdrawal external-effect evidence schema", () => {
+  it(
+    "binds withdrawals and all external-effect evidence rows to the parent tenant",
+    { skip: !integrationConfigured, timeout: 30_000 },
+    async () => {
+      await withRollback(async (client) => {
+        const tenantA = `wallet-tenant-a-${randomUUID()}`;
+        const tenantB = `wallet-tenant-b-${randomUUID()}`;
+        const userId = `wallet-user-${randomUUID()}`;
+        const idempotencyKey = `wallet-idem-${randomUUID()}`;
+        const withdrawalA = randomUUID().replaceAll("-", "").slice(0, 32);
+        const withdrawalB = randomUUID().replaceAll("-", "").slice(0, 32);
+
+        await seedWithdrawal(client, withdrawalA, userId, tenantA, idempotencyKey);
+        await seedWithdrawal(client, withdrawalB, userId, tenantB, idempotencyKey);
+
+        const sameUserSameKey = await client.query<{ tenant_id: string; id: string }>(
+          `SELECT tenant_id, id
+             FROM withdrawals
+            WHERE user_id = $1 AND idempotency_key = $2
+            ORDER BY tenant_id`,
+          [userId, idempotencyKey],
+        );
+        const expectedWithdrawals = [
+          [tenantA, withdrawalA],
+          [tenantB, withdrawalB],
+        ].sort(([leftTenant], [rightTenant]) => leftTenant.localeCompare(rightTenant));
+        assert.deepEqual(
+          sameUserSameKey.rows.map((row) => [row.tenant_id, row.id]),
+          expectedWithdrawals,
+        );
+
+        await client.query(
+          `INSERT INTO withdrawal_execution_intents
+             (withdrawal_id, generation, state, lease_owner_fingerprint,
+              lease_expires_at, request_hash)
+           VALUES ($1, 1, 'claimed', $2, NOW() + INTERVAL '5 minutes', $3),
+                  ($4, 1, 'claimed', $5, NOW() + INTERVAL '5 minutes', $6)`,
+          [
+            withdrawalA,
+            "1".repeat(64),
+            "2".repeat(64),
+            withdrawalB,
+            "3".repeat(64),
+            "4".repeat(64),
+          ],
+        );
+        await client.query(
+          `INSERT INTO withdrawal_broadcast_attempts
+             (withdrawal_id, execution_generation, attempt_number, state,
+              prepared_tx_fingerprint, expected_tx_hash_fingerprint,
+              chain_id, provider_fingerprint, lease_owner_fingerprint,
+              lease_expires_at, request_hash)
+           VALUES ($1, 1, 1, 'prepared', $2, $3, 'ethereum', $4, $5,
+                   NOW() + INTERVAL '2 minutes', $6),
+                  ($7, 1, 1, 'prepared', $8, $9, 'ethereum', $10, $11,
+                   NOW() + INTERVAL '2 minutes', $12)`,
+          [
+            withdrawalA,
+            "5".repeat(64),
+            "6".repeat(64),
+            "7".repeat(64),
+            "8".repeat(64),
+            "9".repeat(64),
+            withdrawalB,
+            "a".repeat(64),
+            "b".repeat(64),
+            "c".repeat(64),
+            "d".repeat(64),
+            "e".repeat(64),
+          ],
+        );
+        await client.query(
+          `INSERT INTO withdrawal_confirmation_outbox
+             (withdrawal_id, expected_tx_hash_fingerprint, required_confirmations)
+           VALUES ($1, $2, 12), ($3, $4, 12)`,
+          [withdrawalA, "f".repeat(64), withdrawalB, "0".repeat(64)],
+        );
+
+        for (const table of [
+          "withdrawal_execution_intents",
+          "withdrawal_broadcast_attempts",
+          "withdrawal_confirmation_outbox",
+        ]) {
+          const rows = await client.query<{ withdrawal_id: string; tenant_id: string }>(
+            `SELECT withdrawal_id, tenant_id FROM ${table}
+              WHERE withdrawal_id IN ($1, $2)
+              ORDER BY tenant_id`,
+            [withdrawalA, withdrawalB],
+          );
+          assert.deepEqual(
+            rows.rows.map((row) => [row.tenant_id, row.withdrawal_id]),
+            expectedWithdrawals,
+          );
+        }
+      });
+    },
+  );
+
   it(
     "enforces one active execution generation and immutable finalized preparation facts",
     { skip: !integrationConfigured, timeout: 30_000 },
@@ -328,6 +441,105 @@ describe("Withdrawal external-effect evidence schema", () => {
               [withdrawalId],
             ),
           /cannot be deleted/,
+        );
+      });
+    },
+  );
+
+  it(
+    "binds withdrawal external-effect evidence tables to the parent withdrawal tenant",
+    { skip: !integrationConfigured, timeout: 30_000 },
+    async () => {
+      await withRollback(async (client) => {
+        const userId = `external-tenant-${randomUUID()}`;
+        const tenantA = "tecpey";
+        const tenantB = `wallet-tenant-${randomUUID()}`;
+        const withdrawalA = randomUUID().replaceAll("-", "").slice(0, 32);
+        const withdrawalB = randomUUID().replaceAll("-", "").slice(0, 32);
+        await seedWithdrawal(client, withdrawalA, userId, tenantA);
+        await seedWithdrawal(client, withdrawalB, userId, tenantB);
+
+        await client.query(
+          `INSERT INTO withdrawal_execution_intents
+             (withdrawal_id, generation, state, lease_owner_fingerprint,
+              lease_expires_at, request_hash)
+           VALUES ($1, 1, 'claimed', $2, NOW() + INTERVAL '5 minutes', $3)`,
+          [withdrawalA, "1".repeat(64), "2".repeat(64)],
+        );
+        await client.query(
+          `INSERT INTO withdrawal_execution_intents
+             (withdrawal_id, generation, state, lease_owner_fingerprint,
+              lease_expires_at, request_hash)
+           VALUES ($1, 1, 'claimed', $2, NOW() + INTERVAL '5 minutes', $3)`,
+          [withdrawalB, "3".repeat(64), "4".repeat(64)],
+        );
+        await client.query(
+          `INSERT INTO withdrawal_broadcast_attempts
+             (withdrawal_id, execution_generation, attempt_number, state,
+              prepared_tx_fingerprint, expected_tx_hash_fingerprint,
+              chain_id, provider_fingerprint, lease_owner_fingerprint,
+              lease_expires_at, request_hash)
+           VALUES ($1, 1, 1, 'prepared', $2, $3, 'ethereum', $4, $5,
+                   NOW() + INTERVAL '2 minutes', $6)`,
+          [
+            withdrawalB,
+            "5".repeat(64),
+            "6".repeat(64),
+            "7".repeat(64),
+            "8".repeat(64),
+            "9".repeat(64),
+          ],
+        );
+        await client.query(
+          `INSERT INTO withdrawal_confirmation_outbox
+             (withdrawal_id, expected_tx_hash_fingerprint, required_confirmations)
+           VALUES ($1, $2, 12)`,
+          [withdrawalB, "a".repeat(64)],
+        );
+
+        const evidence = await client.query<{
+          source: string;
+          withdrawal_id: string;
+          tenant_id: string;
+        }>(
+          `SELECT 'intent' AS source, withdrawal_id, tenant_id
+             FROM withdrawal_execution_intents
+            WHERE withdrawal_id IN ($1, $2)
+           UNION ALL
+           SELECT 'broadcast' AS source, withdrawal_id, tenant_id
+             FROM withdrawal_broadcast_attempts
+            WHERE withdrawal_id = $2
+           UNION ALL
+           SELECT 'confirmation' AS source, withdrawal_id, tenant_id
+             FROM withdrawal_confirmation_outbox
+            WHERE withdrawal_id = $2
+            ORDER BY source, withdrawal_id`,
+          [withdrawalA, withdrawalB],
+        );
+        const expectedEvidence = [
+          ["broadcast", withdrawalB, tenantB],
+          ["confirmation", withdrawalB, tenantB],
+          ["intent", withdrawalA, tenantA],
+          ["intent", withdrawalB, tenantB],
+        ].sort(([leftSource, leftWithdrawal], [rightSource, rightWithdrawal]) =>
+          leftSource.localeCompare(rightSource) ||
+          leftWithdrawal.localeCompare(rightWithdrawal),
+        );
+        assert.deepEqual(
+          evidence.rows.map((row) => [row.source, row.withdrawal_id, row.tenant_id]),
+          expectedEvidence,
+        );
+
+        await expectSqlRejection(
+          client,
+          () =>
+            client.query(
+              `UPDATE withdrawal_execution_intents
+                  SET tenant_id = $2
+                WHERE withdrawal_id = $1`,
+              [withdrawalB, tenantA],
+            ),
+          /immutable/,
         );
       });
     },

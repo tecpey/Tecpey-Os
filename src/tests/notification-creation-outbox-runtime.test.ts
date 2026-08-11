@@ -14,6 +14,7 @@ import {
 import { resolveNotificationPrincipal } from "../lib/notifications/principal";
 import {
   listInboxNotifications,
+  mutateInboxNotification,
 } from "../lib/notifications/repository";
 import {
   updateNotificationSettings,
@@ -45,6 +46,29 @@ async function createPrincipal(client: PoolClient, prefix: string) {
     email: `${prefix}-${studentId}@notification.test`,
     locale: "fa",
   });
+}
+
+async function createTenantAccountPrincipal(
+  client: PoolClient,
+  tenantId: string,
+  accountId: string,
+  locale: "fa" | "en",
+) {
+  await client.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan)
+     VALUES ($1, $1, $1, 'enterprise')`,
+    [tenantId],
+  );
+  return resolveNotificationPrincipal(
+    client,
+    {
+      accountId,
+      studentId: null,
+      email: `${tenantId}@notification.test`,
+      locale,
+    },
+    tenantId,
+  );
 }
 
 function academyRequest(correlationKey: string, overrides: Record<string, unknown> = {}) {
@@ -209,6 +233,160 @@ test(
             created.notificationId,
           ]),
         "23503",
+      );
+    });
+  },
+);
+
+test(
+  "notification intents and inbox rows remain isolated for the same account across tenants",
+  { skip: !databaseUrl },
+  async () => {
+    await withRolledBackTest(async (client) => {
+      const tenantA = `notification-tenant-a-${crypto.randomUUID()}`;
+      const tenantB = `notification-tenant-b-${crypto.randomUUID()}`;
+      const accountId = `academy:shared-notification-${crypto.randomUUID()}@test.local`;
+      const principalA = await createTenantAccountPrincipal(
+        client,
+        tenantA,
+        accountId,
+        "fa",
+      );
+      const principalB = await createTenantAccountPrincipal(
+        client,
+        tenantB,
+        accountId,
+        "en",
+      );
+      assert.notEqual(principalA.id, principalB.id);
+
+      const correlationKey = `academy:tenant-runtime:${crypto.randomUUID()}`;
+      const request = academyRequest(correlationKey, {
+        sourceId: "shared-source-id",
+        title: "Tenant-scoped runtime proof",
+        body: "The same account and correlation key must produce tenant-owned rows.",
+        locale: "en",
+      });
+
+      const createdA = await createInAppNotification(
+        client,
+        principalA,
+        request,
+      );
+      const createdB = await createInAppNotification(
+        client,
+        principalB,
+        request,
+      );
+      assert.equal(createdA.status, "created");
+      assert.equal(createdB.status, "created");
+      assert.notEqual(createdA.intentId, createdB.intentId);
+      assert.notEqual(createdA.notificationId, createdB.notificationId);
+
+      const intentRows = await client.query<{
+        tenant_id: string;
+        principal_id: string;
+      }>(
+        `SELECT tenant_id, principal_id
+           FROM notification_intents
+          WHERE correlation_key = $1
+          ORDER BY tenant_id`,
+        [correlationKey],
+      );
+      assert.deepEqual(intentRows.rows, [
+        { tenant_id: tenantA, principal_id: principalA.id },
+        { tenant_id: tenantB, principal_id: principalB.id },
+      ]);
+
+      const notificationRows = await client.query<{
+        tenant_id: string;
+        principal_id: string;
+      }>(
+        `SELECT tenant_id, principal_id
+           FROM platform_notifications
+          WHERE correlation_key = $1
+          ORDER BY tenant_id`,
+        [correlationKey],
+      );
+      assert.deepEqual(notificationRows.rows, [
+        { tenant_id: tenantA, principal_id: principalA.id },
+        { tenant_id: tenantB, principal_id: principalB.id },
+      ]);
+
+      await assert.rejects(
+        createInAppNotification(
+          client,
+          { ...principalA, tenantId: tenantB },
+          academyRequest(`academy:forged-tenant:${crypto.randomUUID()}`),
+        ),
+        /notification_principal_policy_missing/,
+      );
+
+      const claims = await claimNotificationOutbox(client, {
+        workerId: "tenant-isolation-worker",
+        limit: 10,
+        leaseSeconds: 60,
+      });
+      const claimA = claims.find(
+        (item) => item.outboxId === createdA.outboxId,
+      );
+      assert.ok(claimA);
+      await acceptInAppNotificationDelivery(
+        client,
+        claimA,
+        "tenant-isolation-worker",
+      );
+
+      const visibleToA = await listInboxNotifications(client, principalA, {
+        limit: 20,
+        cursor: null,
+      });
+      assert.equal(
+        visibleToA.notifications.some(
+          (item) => item.id === createdA.notificationId,
+        ),
+        true,
+      );
+
+      const visibleToB = await listInboxNotifications(client, principalB, {
+        limit: 20,
+        cursor: null,
+      });
+      assert.equal(
+        visibleToB.notifications.some(
+          (item) => item.id === createdA.notificationId,
+        ),
+        false,
+      );
+
+      assert.equal(
+        await mutateInboxNotification(
+          client,
+          principalB,
+          createdA.notificationId ?? "",
+          "read",
+        ),
+        null,
+      );
+
+      const claimB = claims.find(
+        (item) => item.outboxId === createdB.outboxId,
+      );
+      assert.ok(claimB);
+      await acceptInAppNotificationDelivery(
+        client,
+        claimB,
+        "tenant-isolation-worker",
+      );
+      const bOwnInbox = await listInboxNotifications(client, principalB, {
+        limit: 20,
+        cursor: null,
+      });
+      assert.equal(
+        bOwnInbox.notifications.some(
+          (item) => item.id === createdB.notificationId,
+        ),
+        true,
       );
     });
   },

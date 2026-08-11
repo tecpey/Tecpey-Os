@@ -11,9 +11,10 @@
       "table": "academy_community_challenge_enrollments",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-journal-challenge.ts",
-      "isolationModel": "tenant_id in unique constraint; principal binding",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id + principal binding in the enrollment identity; joins and replays filter api_command_receipts and academy_community_challenge_enrollments by tenant_id, workspace_id, principal_type and principal_id. The same student using the same idempotency key in two tenants creates two independent challenge enrollments, and tenant B replay returns tenant B's enrollment instead of tenant A's.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/community-journal-challenge-postgres.integration.ts"
     },
     {
       "table": "academy_community_reputation_evidence",
@@ -28,25 +29,28 @@
       "table": "academy_community_reputation_scoring_consents",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-reputation-scoring-consent.ts",
-      "isolationModel": "tenant_id column; principal binding; tenant in unique index",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id + principal binding; public_profile_id primary key references tenant-owned academy_public_profiles(public_profile_id); load/update paths filter by tenant_id, workspace_id, principal_type and principal_id, so the same student in two tenants gets independent scoring consent rows and independent revision/audit lifecycles",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
     },
     {
       "table": "academy_public_profiles",
       "domain": "community",
-      "sourceFile": "src/lib/db-migrate-community-profile-consent.ts",
-      "isolationModel": "tenant_id added by ALTER TABLE; principal binding; tenant in unique index",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "sourceFile": "src/lib/db-migrate-community-profile-consent.ts; src/lib/db-migrate-community-profile-tenant-primary-key.ts",
+      "isolationModel": "tenant_id + workspace_id + principal binding; legacy student_id-only primary key is replaced by public_profile_id, while (tenant_id, workspace_id, principal_type, principal_id) remains unique. Owned/public reads and consent updates filter by tenant_id + workspace_id, so one student/principal can hold independent public profiles across tenants.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
     },
     {
       "table": "ai_mentor_request_evidence",
       "domain": "mentor",
-      "sourceFile": "src/lib/db-migrate-ai-mentor-trust.ts",
-      "isolationModel": "tenant_id column",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "sourceFile": "src/lib/db-migrate-ai-mentor-trust.ts; src/lib/db-migrate-ai-mentor-evidence-tenant-key.ts",
+      "isolationModel": "tenant_id in the request/phase uniqueness boundary (tenant_id, request_id, phase); appendAiMentorEvidence writes the caller tenant when supplied and preserves the default TecPey tenant for legacy callers. The same request_id and phase can be appended independently under two tenants without conflict or row collapse.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/ai-mentor-trust-store-postgres.test.ts"
     },
     {
       "table": "api_command_receipts",
@@ -79,11 +83,10 @@
       "table": "crm_lead_delivery_outbox",
       "domain": "crm",
       "sourceFile": "src/lib/db-migrate-crm-leads.ts",
-      "isolationModel": "tenant_id NOT NULL on every outbox row, written from the ingesting command's tenantId; lead_id FK-bound to crm_leads. Ingest attributes each row to its own lead's tenant.",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id NOT NULL on every outbox row, written from the ingesting command's tenantId; lead_id FK-bound to crm_leads. claimCrmLeadDeliveries accepts a tenantId option and filters pending/retryable candidates and expired lease recovery by tenant_id before leasing rows.",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "testReference": "src/tests/security/crm-lead-command-cross-tenant-isolation-postgres.test.ts",
-      "isolationNote": "Write-side tenant attribution IS proven by the testReference (each lead's outbox row carries its own tenant; hardcoding the write tenant fails the case). But the drain path claimCrmLeadDeliveries (src/lib/crm/lead-authority.ts) selects pending/retryable rows with NO tenant predicate — a single global platform worker, not a per-tenant claim. A tenant-scoped read/drain boundary is therefore neither enforced nor proven. Promotion is blocked on either a tenant-scoped claim/drain or an explicit design decision that a global platform drain with per-row tenant routing is the intended model."
+      "testReference": "src/tests/security/crm-lead-authority-postgres.test.ts"
     },
     {
       "table": "crm_leads",
@@ -107,45 +110,46 @@
       "table": "learning_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes writes; insertLearningEventExactlyOnce sets tenant/workspace/principal from the resolved context. The read aggregation is now tenant-scoped too: refreshLearningBrain (src/lib/learning-os.ts) and buildNotificationBrain (src/lib/phase5-achievement-engine.ts) count learning_events WHERE student_id = $1 AND tenant_id = $2, taking an explicit tenantId that defaults to PLATFORM.DEFAULT_TENANT_ID so single-tenant callers are unchanged.",
-      "isolationNote": "Improved but not yet end-to-end proven. The learning_events write/read path now carries tenant_id: recordLearningEvent writes tenant_id, refreshLearningBrain and buildNotificationBrain aggregate with WHERE student_id = $1 AND tenant_id = $2, and the derived brain caches are tenant-keyed in 0057_learning_brain_tenant_cache.sql. Promotion remains pending because production academy callers still default to PLATFORM.DEFAULT_TENANT_ID unless a request tenant is explicitly threaded into the route/domain call.",
-      "adversarialProof": "pending",
+      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes offline writes; direct recordLearningEvent producers now resolve a student tenant principal context and pass tenantContext.tenantId into the insert, guarded by src/tests/security/learning-events-tenant-route.test.ts. Derived readers are tenant-scoped too: refreshLearningBrain and buildNotificationBrain count learning_events WHERE student_id = $1 AND tenant_id = $2.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
       "issue": "#109"
     },
     {
       "table": "learning_brain_profiles",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
-      "isolationModel": "tenant_id added to the derived learning-brain cache; primary key is migrated from student_id to (tenant_id, student_id); refreshLearningBrain UPSERTs ON CONFLICT (tenant_id, student_id)",
-      "isolationNote": "Schema and write path are tenant-keyed, but no cross-tenant negative test yet proves that two tenants can persist independent learning-brain profiles for the same student.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id added to the derived learning-brain cache; primary key is migrated from student_id to (tenant_id, student_id); refreshLearningBrain aggregates learning_events WHERE student_id = $1 AND tenant_id = $2 and UPSERTs ON CONFLICT (tenant_id, student_id), so the same student active in two tenants keeps independent learning-brain rows",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "notification_brain_snapshots",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
-      "isolationModel": "tenant_id added to the derived notification-brain cache; primary key is migrated from student_id to (tenant_id, student_id); buildNotificationBrain UPSERTs ON CONFLICT (tenant_id, student_id)",
-      "isolationNote": "Schema and write path are tenant-keyed, but no cross-tenant negative test yet proves that two tenants can persist independent notification-brain snapshots for the same student.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id added to the derived notification-brain cache; primary key is migrated from student_id to (tenant_id, student_id); buildNotificationBrain reads learning_events and learning_brain_profiles with tenant_id predicates and UPSERTs ON CONFLICT (tenant_id, student_id), so a second tenant cannot overwrite or read the first tenant's derived notification snapshot",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "notification_domain_outbox",
       "domain": "notifications",
       "sourceFile": "src/lib/db-migrate-notification-domain-outbox.ts",
-      "isolationModel": "tenant_id in unique constraint (tenant_id, event_type, event_id); enqueueNotificationDomainEvent inserts ON CONFLICT (tenant_id, event_type, event_id) and the conflict read-back filters WHERE tenant_id = $1",
-      "isolationNote": "The unique key and enqueueNotificationDomainEvent's conflict read-back are correctly tenant-scoped and load-bearing (an adversarial probe over a tenant-blind key rejects tenant B). But the sole production producer, enqueueAcademyAssessmentCompleted, calls resolveNotificationPrincipal without a request tenant, so principal.tenantId is pinned to DEFAULT_NOTIFICATION_TENANT_ID and no production path ever supplies a second tenant. Cross-tenant behaviour is therefore unexercised through the real producer (same class as risk_authority_events). Promotion is blocked on threading a per-request tenant into the notification producer (#20), not on writing a test.",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id in unique constraint (tenant_id, event_type, event_id); enqueueNotificationDomainEvent inserts ON CONFLICT (tenant_id, event_type, event_id) and the conflict read-back filters WHERE tenant_id = $1. The academy assessment producer now accepts tenantId from the authoritative request path, resolves the notification principal inside that tenant, and the domain processor reloads rows by outbox id while joining platform_principals on (tenant_id, principal_id).",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/notification-domain-outbox.test.ts",
       "issue": "#109"
     },
     {
       "table": "notification_intents",
       "domain": "notifications",
       "sourceFile": "src/lib/db-migrate-notification-runtime.ts",
-      "isolationModel": "tenant_id in unique constraint",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id in unique constraint (tenant_id, principal_id, channel, correlation_key); createInAppNotification locks and replays by tenant_id + principal_id + channel + correlation_key, inserts the caller principal's tenant_id, and rejects a forged tenant/principal pair because recipient policy lookup requires platform_principals.tenant_id = principal.tenantId AND platform_principals.id = principal.id",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/notification-creation-outbox-runtime.test.ts"
     },
     {
       "table": "offline_sync_commands",
@@ -167,11 +171,12 @@
     },
     {
       "table": "platform_notifications",
-      "domain": "platform",
+      "domain": "notifications",
       "sourceFile": "src/lib/db-migrate-notifications.ts",
-      "isolationModel": "tenant_id in unique constraint",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id in unique constraint (tenant_id, principal_id, correlation_key) and composite FK (tenant_id, principal_id) -> platform_principals(tenant_id, id); createInAppNotification writes tenant-owned inbox rows, listInboxNotifications reads WHERE tenant_id = principal.tenantId AND principal_id = principal.id, and mutateInboxNotification updates only the same tenant/principal pair",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/notification-creation-outbox-runtime.test.ts"
     },
     {
       "table": "platform_principal_bindings",
@@ -240,28 +245,39 @@
       "issue": "#109"
     },
     {
+      "table": "withdrawals",
+      "domain": "wallet",
+      "sourceFile": "src/lib/db-migrate-withdrawal-tenant-binding.ts",
+      "isolationModel": "tenant_id is now a first-class parent attribute with a platform_tenants FK. Existing rows backfill to the default tenant; new tenant-specific withdrawal rows can be created directly, and external-effect evidence tables bind their tenant_id from this parent value.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
+      "issue": "#109"
+    },
+    {
       "table": "withdrawal_broadcast_attempts",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
-      "isolationModel": "tenant_id column",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id is bound from withdrawals.tenant_id by the 0061 withdrawal tenant binding migration; INSERTs that omit tenant_id are rewritten to the parent tenant and tenant_id is immutable afterward.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
       "issue": "#109"
     },
     {
       "table": "withdrawal_confirmation_outbox",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
-      "isolationModel": "tenant_id column",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id is bound from withdrawals.tenant_id by the 0061 withdrawal tenant binding migration; INSERTs that omit tenant_id are rewritten to the parent tenant and tenant_id is immutable afterward.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
       "issue": "#109"
     },
     {
       "table": "withdrawal_execution_intents",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
-      "isolationModel": "tenant_id DEFAULT 'tecpey'; isolation is per-user via withdrawal_id FK, not tenant-based",
-      "isolationNote": "The tenant_id column is dormant: the INSERT never sets it (it relies on the DEFAULT), the UNIQUE key is (withdrawal_id, generation) with no tenant_id, every read/update filters WHERE withdrawal_id/id, and the parent withdrawals table has no tenant_id column at all (only user_id). The whole withdrawal domain is effectively single-tenant today. A cross-tenant negative test cannot be written without fabricating multi-tenant behaviour the code does not implement. #109 for this domain first requires adding tenant_id to withdrawals and threading a real tenant through the external-effect authority.",
-      "adversarialProof": "pending",
+      "isolationModel": "withdrawals now has tenant_id; withdrawal_execution_intents.tenant_id is bound from the parent withdrawal by the 0061 withdrawal tenant binding migration. Existing executor inserts can omit tenant_id, but the BEFORE INSERT trigger sets it from withdrawals.tenant_id and later tenant changes are rejected.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
       "issue": "#109"
     },
     {

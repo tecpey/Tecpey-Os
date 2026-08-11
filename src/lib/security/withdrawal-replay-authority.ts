@@ -1,4 +1,5 @@
 import { withDb } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   readWithdrawal,
   type WithdrawalRecord,
@@ -17,10 +18,12 @@ export type WithdrawalReplayResolution =
  * hash may match the existing idempotency key.
  */
 export async function resolveWithdrawalReplay(input: {
+  tenantId?: string;
   userId: string;
   idempotencyKey: string;
   requestHash: string;
 }): Promise<WithdrawalReplayResolution> {
+  const tenantId = input.tenantId?.trim() || PLATFORM.DEFAULT_TENANT_ID;
   const result = await withDb(async (client) => {
     const rows = await client.query<{
       id: string;
@@ -28,10 +31,11 @@ export async function resolveWithdrawalReplay(input: {
     }>(
       `SELECT id, request_hash
          FROM withdrawals
-        WHERE user_id = $1
-          AND idempotency_key = $2
+        WHERE tenant_id = $1
+          AND user_id = $2
+          AND idempotency_key = $3
         LIMIT 1`,
-      [input.userId, input.idempotencyKey],
+      [tenantId, input.userId, input.idempotencyKey],
     );
     return rows.rows[0] ?? null;
   });
@@ -41,7 +45,7 @@ export async function resolveWithdrawalReplay(input: {
     return { status: "conflict" };
   }
 
-  const read = await readWithdrawal(result.value.id, input.userId);
+  const read = await readWithdrawal(result.value.id, input.userId, tenantId);
   if (!read.ok) return { status: "unavailable" };
   return read.withdrawal
     ? { status: "replay", withdrawal: read.withdrawal }

@@ -32,6 +32,9 @@ const files = {
   custodyStatusRoute: "src/app/api/wallet/custody-status/route.ts",
   envValidator: "scripts/validate-env.mjs",
   exchangeCompareData: "src/data/exchangeCompare.json",
+  featureFlags: "src/lib/feature-flags.ts",
+  i18nMessagesEn: "src/i18n/messages/en.json",
+  i18nMessagesFa: "src/i18n/messages/fa.json",
 };
 
 async function collectPublicSourceFiles(root) {
@@ -51,11 +54,19 @@ async function collectPublicSourceFiles(root) {
   return files;
 }
 
+async function collectI18nMessageFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && /\.json$/.test(entry.name))
+    .map((entry) => `${root}/${entry.name}`);
+}
+
 const fileEntries = [
   ...Object.entries(files),
   ...[
     ...(await collectPublicSourceFiles("src/app")),
     ...(await collectPublicSourceFiles("src/components")),
+    ...(await collectI18nMessageFiles("src/i18n/messages")),
   ]
     .filter((file) => !Object.values(files).includes(file))
     .map((file) => [`public:${file}`, file]),
@@ -108,6 +119,11 @@ for (const invariant of [
   "controlled-soft-launch-final-evidence-manifest",
   "must contain only HTTPS URLs",
   "npm run launch:packet -- --manifest",
+  "--full-suite-run-url",
+  "--api-security-run-url",
+  "--sensitive-mutation-run-url",
+  "--operational-recovery-run-url",
+  "--container-supply-chain-run-url",
   "Non-negotiable No-Go rules",
   "Completion percentage rule",
   "This checklist does not increase the completion percentage by itself",
@@ -253,8 +269,13 @@ for (const invariant of [
   "deploymentArtifactDigest",
   "migrationPlanSha256",
   "ciRunUrl",
+  "fullSuiteRunUrl",
+  "apiSecurityRunUrl",
+  "sensitiveMutationRunUrl",
   "repositoryAuditRunUrl",
   "publicGoldenPathRunUrl",
+  "operationalRecoveryRunUrl",
+  "containerSupplyChainRunUrl",
   "secretScanningRunUrl",
   "protected-staging-evidence-url",
   "protected-staging-artifact-digest",
@@ -302,6 +323,8 @@ for (const invariant of [
   "extractBalancedBlock",
   "requireRuntimeGuard",
   "validateExchangeCompareData",
+  "src/i18n/messages/en.json",
+  "src/i18n/messages/fa.json",
   "WITHDRAWAL_WORKER_STARTUP_RE",
   "real-money Exchange, custody, deposits, or withdrawals are active",
   "Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise and white-label activation remain outside the current launch scope",
@@ -322,6 +345,7 @@ for (const invariant of [
 for (const invariant of [
   "Disabled capability attestation passed",
   "collectPublicSourceFiles",
+  "collectI18nMessageFiles",
   "evaluateDisabledCapabilityAttestation",
 ]) {
   requireText(
@@ -336,6 +360,7 @@ for (const invariant of [
   "disabled capability attestation rejects public real-money overclaims",
   "disabled capability attestation rejects public SEO exchange overclaims",
   "disabled capability attestation scans discovered public copy surfaces",
+  "disabled capability attestation scans i18n message product-truth surfaces",
   "disabled capability attestation rejects rendered exchange comparison capability drift",
   "disabled capability attestation rejects missing custody runtime gate",
   "disabled capability attestation rejects token-preserving custody runtime bypasses",
@@ -360,6 +385,7 @@ for (const invariant of [
   "must contain only URLs, digests and release identifiers",
   "must match the checked-out release candidate HEAD",
   "must be an absolute https URL",
+  "must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os",
   "must be a sha256 digest",
 ]) {
   requireText("evidenceManifest", invariant, `controlled launch evidence manifest validator is missing invariant: ${invariant}`);
@@ -369,6 +395,7 @@ for (const invariant of [
   "controlled launch evidence manifest validates the complete final packet input set",
   "controlled launch evidence manifest rejects unknown fields",
   "controlled launch evidence manifest rejects non-https evidence URLs",
+  "controlled launch evidence manifest rejects workflow URLs outside governed GitHub Actions",
   "controlled launch evidence manifest rejects raw secrets and connection strings",
   "controlled launch evidence manifest rejects a release candidate SHA mismatch",
   "release packet generator accepts a complete governed manifest",
@@ -382,6 +409,7 @@ for (const invariant of [
   "final launch packet fails closed without external operational evidence",
   "final launch packet rejects unmerged release candidates",
   "launch packet rejects unknown options",
+  "launch packet rejects workflow URLs outside governed GitHub Actions",
   "draft launch packet can scaffold incomplete evidence explicitly",
   "final launch packet emits only after all release evidence is complete",
   "rollbackOrForwardFix.evidenceUrl",

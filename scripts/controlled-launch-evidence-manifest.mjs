@@ -14,10 +14,15 @@ const manifestShape = Object.freeze({
     deploymentArtifactDigest: "digest",
   },
   workflowEvidence: {
-    ciRunUrl: "url",
-    repositoryAuditRunUrl: "url",
-    publicGoldenPathRunUrl: "url",
-    secretScanningRunUrl: "url",
+    ciRunUrl: "workflowRunUrl",
+    fullSuiteRunUrl: "workflowRunUrl",
+    apiSecurityRunUrl: "workflowRunUrl",
+    sensitiveMutationRunUrl: "workflowRunUrl",
+    repositoryAuditRunUrl: "workflowRunUrl",
+    publicGoldenPathRunUrl: "workflowRunUrl",
+    operationalRecoveryRunUrl: "workflowRunUrl",
+    containerSupplyChainRunUrl: "workflowRunUrl",
+    secretScanningRunUrl: "workflowRunUrl",
   },
   requiredExternalEvidence: {
     protectedStaging: {
@@ -49,8 +54,13 @@ const manifestFlagPaths = Object.freeze({
   "image-digest": ["artifactIdentity", "imageDigest"],
   "deployment-artifact-digest": ["artifactIdentity", "deploymentArtifactDigest"],
   "ci-run-url": ["workflowEvidence", "ciRunUrl"],
+  "full-suite-run-url": ["workflowEvidence", "fullSuiteRunUrl"],
+  "api-security-run-url": ["workflowEvidence", "apiSecurityRunUrl"],
+  "sensitive-mutation-run-url": ["workflowEvidence", "sensitiveMutationRunUrl"],
   "repository-audit-run-url": ["workflowEvidence", "repositoryAuditRunUrl"],
   "public-golden-path-run-url": ["workflowEvidence", "publicGoldenPathRunUrl"],
+  "operational-recovery-run-url": ["workflowEvidence", "operationalRecoveryRunUrl"],
+  "container-supply-chain-run-url": ["workflowEvidence", "containerSupplyChainRunUrl"],
   "secret-scanning-run-url": ["workflowEvidence", "secretScanningRunUrl"],
   "protected-staging-evidence-url": ["requiredExternalEvidence", "protectedStaging", "evidenceUrl"],
   "protected-staging-artifact-digest": ["requiredExternalEvidence", "protectedStaging", "artifactDigest"],
@@ -100,6 +110,28 @@ function validateUrl(value, label) {
   return parsed.toString();
 }
 
+function validateGithubActionsRunUrl(value, label) {
+  if (typeof value !== "string") {
+    fail(`${label} must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    fail(`${label} must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os`);
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname !== "github.com" ||
+    parsed.search ||
+    parsed.hash ||
+    !/^\/tecpey\/Tecpey-Os\/actions\/runs\/[1-9][0-9]*\/?$/.test(parsed.pathname)
+  ) {
+    fail(`${label} must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os`);
+  }
+  return `https://github.com${parsed.pathname.replace(/\/$/, "")}`;
+}
+
 function valueAt(object, path) {
   return path.reduce((current, key) => current?.[key], object);
 }
@@ -127,6 +159,12 @@ function validateKnownShape(value, shape, label, failures) {
       } else if (expected === "digest") {
         try {
           normalizeDigest(nextValue, nextLabel);
+        } catch (error) {
+          failures.push(error.message);
+        }
+      } else if (expected === "workflowRunUrl") {
+        try {
+          validateGithubActionsRunUrl(nextValue, nextLabel);
         } catch (error) {
           failures.push(error.message);
         }
@@ -179,7 +217,7 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
     workflowEvidence: Object.fromEntries(
       Object.entries(manifest.workflowEvidence).map(([key, value]) => [
         key,
-        validateUrl(value, `manifest.workflowEvidence.${key}`),
+        validateGithubActionsRunUrl(value, `manifest.workflowEvidence.${key}`),
       ]),
     ),
     requiredExternalEvidence: {

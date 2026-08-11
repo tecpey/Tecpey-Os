@@ -43,9 +43,19 @@ function completeFinalPacketArgs() {
     deploymentDigest,
     "--ci-run-url",
     runUrl,
+    "--full-suite-run-url",
+    runUrl,
+    "--api-security-run-url",
+    runUrl,
+    "--sensitive-mutation-run-url",
+    runUrl,
     "--repository-audit-run-url",
     runUrl,
     "--public-golden-path-run-url",
+    runUrl,
+    "--operational-recovery-run-url",
+    runUrl,
+    "--container-supply-chain-run-url",
     runUrl,
     "--secret-scanning-run-url",
     runUrl,
@@ -138,6 +148,18 @@ test("launch packet rejects unknown options instead of silently omitting evidenc
   assert.match(result.stderr, /unknown launch packet option: --image-digset/);
 });
 
+test("launch packet rejects workflow URLs outside governed GitHub Actions", () => {
+  const result = runPacket([
+    "--draft",
+    "--allow-dirty",
+    "--ci-run-url",
+    "https://example.invalid/tecpey/Tecpey-Os/actions/runs/123456789",
+  ]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /CI run URL must be an absolute https GitHub Actions run URL for tecpey\/Tecpey-Os/);
+});
+
 test("draft launch packet can scaffold incomplete evidence explicitly", () => {
   const result = runPacket(["--draft", "--allow-dirty"]);
 
@@ -146,6 +168,11 @@ test("draft launch packet can scaffold incomplete evidence explicitly", () => {
   assert.equal(packet.packetMode, "draft_incomplete_evidence_allowed");
   assert.equal(packet.artifactIdentity.imageDigest, null);
   assert.equal(packet.workflowEvidence.ciRunUrl, null);
+  assert.equal(packet.workflowEvidence.fullSuiteRunUrl, null);
+  assert.equal(packet.workflowEvidence.apiSecurityRunUrl, null);
+  assert.equal(packet.workflowEvidence.sensitiveMutationRunUrl, null);
+  assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, null);
+  assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, null);
   assert.equal(packet.requiredExternalEvidence.protectedStaging.evidenceUrl, null);
 });
 
@@ -174,9 +201,19 @@ test("final launch packet fails closed without external operational evidence", (
       deploymentDigest,
       "--ci-run-url",
       runUrl,
+      "--full-suite-run-url",
+      runUrl,
+      "--api-security-run-url",
+      runUrl,
+      "--sensitive-mutation-run-url",
+      runUrl,
       "--repository-audit-run-url",
       runUrl,
       "--public-golden-path-run-url",
+      runUrl,
+      "--operational-recovery-run-url",
+      runUrl,
+      "--container-supply-chain-run-url",
       runUrl,
       "--secret-scanning-run-url",
       runUrl,
@@ -212,7 +249,12 @@ test("final launch packet emits only after all release evidence is complete", ()
     assert.equal(packet.artifactIdentity.imageDigest, digest);
     assert.equal(packet.artifactIdentity.deploymentArtifactDigest, deploymentDigest);
     assert.equal(packet.workflowEvidence.ciRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.fullSuiteRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.apiSecurityRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.sensitiveMutationRunUrl, runUrl);
     assert.equal(packet.workflowEvidence.publicGoldenPathRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, runUrl);
     assert.equal(packet.requiredExternalEvidence.protectedStaging.evidenceUrl, runUrl);
     assert.equal(packet.requiredExternalEvidence.protectedStaging.artifactDigest, externalDigest);
     assert.equal(packet.requiredExternalEvidence.recoveryReconciliation.status, "attached_for_release_owner_acceptance");

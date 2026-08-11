@@ -27,6 +27,7 @@ const paths = {
   behavioral: "src/lib/behavioral-engine.ts",
   coaching: "src/lib/coaching-engine.ts",
   communityMigration: "src/lib/db-migrate-community-profile-consent.ts",
+  communityTenantMigration: "src/lib/db-migrate-community-profile-tenant-primary-key.ts",
   migrationPlan: "src/lib/db-migration-registry.ts",
   communityAuthority: "src/lib/community-profile-authority.ts",
   communityRoute: "src/app/api/community/profile/route.ts",
@@ -353,7 +354,16 @@ for (const invariant of [
 ]) {
   requireText("communityMigration", invariant, `Community consent migration is missing ${invariant}`);
 }
+for (const invariant of [
+  'FILENAME = "0059_community_profile_tenant_primary_key.sql"',
+  "PRIMARY KEY (public_profile_id)",
+  "CREATE OR REPLACE FUNCTION tecpey_create_default_community_profile()",
+  "ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING",
+]) {
+  requireText("communityTenantMigration", invariant, `Community tenant migration is missing ${invariant}`);
+}
 requireText("migrationPlan", "runCommunityProfileConsentMigrations", "canonical migration plan must execute Community consent migration");
+requireText("migrationPlan", "runCommunityProfileTenantPrimaryKeyMigrations", "canonical migration plan must execute Community tenant primary key migration");
 
 for (const invariant of [
   'import "server-only"', "AvailableTenantPrincipalContext", "context.scopes.includes(requiredScope)",

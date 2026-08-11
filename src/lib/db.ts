@@ -13,6 +13,8 @@ let schemaVerification: Promise<void> | null = null;
 
 export const DATABASE_READINESS_STATEMENT_TIMEOUT_MS = 5_000;
 export const DATABASE_READINESS_QUERY_TIMEOUT_MS = 6_000;
+export const DATABASE_SCHEMA_RUNNING_RETRY_MS = 5_000;
+export const DATABASE_SCHEMA_RUNNING_RETRY_INTERVAL_MS = 100;
 
 // Runtime pool statement/query timeouts. The main pool previously had no
 // server-side timeout at all: a hung or pathologically slow query could hold
@@ -130,7 +132,15 @@ async function ensureSchemaCurrent(): Promise<void> {
         const p = getReadinessPool();
         if (!p) throw new Error("database_not_configured");
         client = await p.connect();
-        assertMigrationReady(await checkMigrationReadiness(client));
+        const deadline = Date.now() + DATABASE_SCHEMA_RUNNING_RETRY_MS;
+        for (;;) {
+          const readiness = await checkMigrationReadiness(client);
+          if (readiness.status === "current") return;
+          if (readiness.status !== "migration_running" || Date.now() >= deadline) {
+            assertMigrationReady(readiness);
+          }
+          await new Promise((resolve) => setTimeout(resolve, DATABASE_SCHEMA_RUNNING_RETRY_INTERVAL_MS));
+        }
       } finally {
         client?.release();
       }

@@ -32,6 +32,7 @@ export type MentorPreferenceUpdateResult =
   | { ok: false };
 
 export type MentorEvidenceInput = {
+  tenantId?: string;
   requestId: string;
   studentId: string | null;
   phase: "blocked" | "local" | "admitted" | "completed";
@@ -286,7 +287,7 @@ export async function appendAiMentorEvidence(
         ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::text[],
          $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb)`,
       [
-        PLATFORM.DEFAULT_TENANT_ID,
+        input.tenantId ?? PLATFORM.DEFAULT_TENANT_ID,
         input.requestId,
         input.studentId,
         input.phase,

@@ -11,11 +11,15 @@ const valueArgs = new Set([
   "--ci-run-url",
   "--deployment-artifact-digest",
   "--accepted-risk-signoff-url",
+  "--api-security-run-url",
+  "--container-supply-chain-run-url",
+  "--full-suite-run-url",
   "--go-approvals-url",
   "--image-digest",
   "--incident-readiness-artifact-digest",
   "--incident-readiness-evidence-url",
   "--manifest",
+  "--operational-recovery-run-url",
   "--out",
   "--protected-staging-artifact-digest",
   "--protected-staging-evidence-url",
@@ -26,6 +30,7 @@ const valueArgs = new Set([
   "--rollback-artifact-digest",
   "--rollback-evidence-url",
   "--secret-scanning-run-url",
+  "--sensitive-mutation-run-url",
 ]);
 
 const args = new Map();
@@ -117,6 +122,26 @@ function optionalUrl(value, label) {
   return parsed.toString();
 }
 
+function optionalGithubActionsRunUrl(value, label) {
+  if (!value) return null;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os`);
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname !== "github.com" ||
+    parsed.search ||
+    parsed.hash ||
+    !/^\/tecpey\/Tecpey-Os\/actions\/runs\/[1-9][0-9]*\/?$/.test(parsed.pathname)
+  ) {
+    throw new Error(`${label} must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os`);
+  }
+  return `https://github.com${parsed.pathname.replace(/\/$/, "")}`;
+}
+
 function requireFinalEvidence(value, label, { draftMode }) {
   if (value) return value;
   if (draftMode) return null;
@@ -161,16 +186,36 @@ const deploymentArtifactDigest = optionalDigest(
   evidenceArg("deployment-artifact-digest", "TECPEY_DEPLOYMENT_ARTIFACT_DIGEST"),
   "deployment artifact digest",
 );
-const ciRunUrl = optionalUrl(evidenceArg("ci-run-url", "TECPEY_CI_RUN_URL"), "CI run URL");
-const repositoryAuditRunUrl = optionalUrl(
+const ciRunUrl = optionalGithubActionsRunUrl(evidenceArg("ci-run-url", "TECPEY_CI_RUN_URL"), "CI run URL");
+const fullSuiteRunUrl = optionalGithubActionsRunUrl(
+  evidenceArg("full-suite-run-url", "TECPEY_FULL_SUITE_RUN_URL"),
+  "Full Suite run URL",
+);
+const apiSecurityRunUrl = optionalGithubActionsRunUrl(
+  evidenceArg("api-security-run-url", "TECPEY_API_SECURITY_RUN_URL"),
+  "API Security run URL",
+);
+const sensitiveMutationRunUrl = optionalGithubActionsRunUrl(
+  evidenceArg("sensitive-mutation-run-url", "TECPEY_SENSITIVE_MUTATION_RUN_URL"),
+  "Sensitive Mutation run URL",
+);
+const repositoryAuditRunUrl = optionalGithubActionsRunUrl(
   evidenceArg("repository-audit-run-url", "TECPEY_REPOSITORY_AUDIT_RUN_URL"),
   "repository audit run URL",
 );
-const publicGoldenPathRunUrl = optionalUrl(
+const publicGoldenPathRunUrl = optionalGithubActionsRunUrl(
   evidenceArg("public-golden-path-run-url", "TECPEY_PUBLIC_GOLDEN_PATH_RUN_URL"),
   "public Golden Path run URL",
 );
-const secretScanningRunUrl = optionalUrl(
+const operationalRecoveryRunUrl = optionalGithubActionsRunUrl(
+  evidenceArg("operational-recovery-run-url", "TECPEY_OPERATIONAL_RECOVERY_RUN_URL"),
+  "Operational Recovery run URL",
+);
+const containerSupplyChainRunUrl = optionalGithubActionsRunUrl(
+  evidenceArg("container-supply-chain-run-url", "TECPEY_CONTAINER_SUPPLY_CHAIN_RUN_URL"),
+  "Container Supply Chain run URL",
+);
+const secretScanningRunUrl = optionalGithubActionsRunUrl(
   evidenceArg("secret-scanning-run-url", "TECPEY_SECRET_SCANNING_RUN_URL"),
   "secret scanning run URL",
 );
@@ -245,8 +290,17 @@ const packet = {
   },
   workflowEvidence: {
     ciRunUrl: requireFinalEvidence(ciRunUrl, "CI run URL", { draftMode }),
+    fullSuiteRunUrl: requireFinalEvidence(fullSuiteRunUrl, "Full Suite run URL", { draftMode }),
+    apiSecurityRunUrl: requireFinalEvidence(apiSecurityRunUrl, "API Security run URL", { draftMode }),
+    sensitiveMutationRunUrl: requireFinalEvidence(sensitiveMutationRunUrl, "Sensitive Mutation run URL", { draftMode }),
     repositoryAuditRunUrl: requireFinalEvidence(repositoryAuditRunUrl, "repository audit run URL", { draftMode }),
     publicGoldenPathRunUrl: requireFinalEvidence(publicGoldenPathRunUrl, "public Golden Path run URL", { draftMode }),
+    operationalRecoveryRunUrl: requireFinalEvidence(operationalRecoveryRunUrl, "Operational Recovery run URL", {
+      draftMode,
+    }),
+    containerSupplyChainRunUrl: requireFinalEvidence(containerSupplyChainRunUrl, "Container Supply Chain run URL", {
+      draftMode,
+    }),
     secretScanningRunUrl: requireFinalEvidence(secretScanningRunUrl, "secret scanning run URL", { draftMode }),
   },
   requiredExternalEvidence: {

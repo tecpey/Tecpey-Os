@@ -51,6 +51,22 @@ const REQUIRED_PUBLIC_BOUNDARIES = [
     file: "src/components/academy/AcademySimulationWorld.tsx",
     tokens: ["Practice wallet", "Virtual balance for practice, not real money"],
   },
+  {
+    file: "src/i18n/messages/en.json",
+    tokens: [
+      "Transparent fee education for launch-gated trading, deposit and withdrawal surfaces on TecPey.",
+      "Real-money crypto deposits and withdrawals remain launch-gated",
+      "Real-money deposits and withdrawals remain launch-gated",
+    ],
+  },
+  {
+    file: "src/i18n/messages/fa.json",
+    tokens: [
+      "آموزش شفاف کارمزدها برای سطوح معاملاتی، واریز و برداشت که تا تکمیل گیت‌های راه‌اندازی فعال نیستند.",
+      "واریز و برداشت پول‌واقعی تا پذیرش شواهد کاستدی، ارائه‌دهنده، آشتی مالی و انطباقی launch-gated باقی می‌ماند.",
+      "واریز و برداشت پول‌واقعی تا پذیرش شواهد عملیاتی، انطباقی و آشتی مالی launch-gated باقی می‌ماند.",
+    ],
+  },
 ];
 
 const REQUIRED_ACTIVATION_BOUNDARIES = [
@@ -70,6 +86,18 @@ const REQUIRED_ACTIVATION_BOUNDARIES = [
       "Environment-backed wallet private keys are forbidden in production",
       "HSM/MPC custody configuration is forbidden until an approved signer is implemented",
       "TECPEY_REAL_WITHDRAWALS_ENABLED=1 is forbidden",
+      "FEATURE_EXCHANGE_ENABLED=true is forbidden in production",
+      "FEATURE_MARKETPLACE_ENABLED=true is forbidden in production",
+      "TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED=1 is forbidden in production",
+      "TECPEY_ENTERPRISE_ACTIVATION_ENABLED=1 is forbidden in production",
+      "TECPEY_WHITE_LABEL_ACTIVATION_ENABLED=1 is forbidden in production",
+    ],
+  },
+  {
+    file: "src/lib/feature-flags.ts",
+    tokens: [
+      '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false }',
+      '"future.marketplace.enabled": { envVar: "FEATURE_MARKETPLACE_ENABLED", defaultEnabled: false }',
     ],
   },
   {
@@ -109,9 +137,14 @@ const FORBIDDEN_PUBLIC_CLAIMS = [
   /\bwithdrawals are live\b/i,
   /\bwhite-label activation is approved\b/i,
   /\bready for real-money\b/i,
+  /\boffers\b.{0,120}\bfor deposit and withdrawal\b/i,
+  /\bprovides\b.{0,120}\boptions for depositing and withdrawing\b/i,
+  /\bdepositing and withdrawing\b.{0,120}\bis active\b/i,
   /صرافی(?:\s|ِ|‌)+زنده(?:\s|ِ|‌)+در(?:\s|ِ|‌)+دسترس/,
   /برداشت(?:\s|ِ|‌)+پول(?:\s|ِ|‌)+واقعی(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
   /کاستدی(?:\s|ِ|‌)+پروداکشن(?:\s|ِ|‌)+فعال(?:\s|ِ|‌)+است/,
+  /برای(?:\s|ِ|‌)+واریز(?:\s|ِ|‌)+و(?:\s|ِ|‌)+برداشت(?:\s|ِ|‌)+ارائه(?:\s|ِ|‌)+می(?:‌|-)?دهد/,
+  /کارمزدهای(?:\s|ِ|‌)+واریز(?:\s|ِ|‌)+و(?:\s|ِ|‌)+برداشت(?:\s|ِ|‌)+IRT(?:\s|ِ|‌)+در(?:\s|ِ|‌)+TecPey(?:.|\n){0,120}محاسبه(?:\s|ِ|‌)+می(?:‌|-)?شوند/,
 ];
 
 const FORBIDDEN_BOUNDARY_CLAIMS = [
@@ -239,7 +272,11 @@ export function evaluateDisabledCapabilityAttestation(sources) {
   }
 
   for (const file of Object.keys(sources)) {
-    if (!/^(README(?:\.fa)?\.md|src\/app\/(?!api\/).+\.(?:ts|tsx|mdx)|src\/components\/.+\.(?:ts|tsx|mdx))$/.test(file)) {
+    if (
+      !/^(README(?:\.fa)?\.md|src\/app\/(?!api\/).+\.(?:ts|tsx|mdx)|src\/components\/.+\.(?:ts|tsx|mdx)|src\/i18n\/messages\/[^/]+\.json)$/.test(
+        file,
+      )
+    ) {
       continue;
     }
     for (const pattern of FORBIDDEN_PUBLIC_CLAIMS) {

@@ -200,9 +200,15 @@ export async function createBrainNotification(
   return snapshot;
 }
 
-export async function awardMilestonesAfterCertificate(client: Queryable, studentId: string, termNumber: number, certificateId: string) {
-  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId });
-  await recordLearningEvent(client, { studentId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
+export async function awardMilestonesAfterCertificate(
+  client: Queryable,
+  studentId: string,
+  termNumber: number,
+  certificateId: string,
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+) {
+  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId }, tenantId);
+  await recordLearningEvent(client, { studentId, tenantId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
   await createSmartNotification(client, {
     studentId,
     type: "achievement",

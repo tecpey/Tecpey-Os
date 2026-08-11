@@ -25,6 +25,8 @@ import {
   type ArenaReflectionRow,
 } from "@/lib/trading-arena-reflections";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -220,6 +222,13 @@ export async function POST(request: NextRequest) {
 
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.studentId) return fail("academy_profile_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return fail("learning_events_unavailable", 503);
 
     let raw: unknown;
     try {
@@ -241,7 +250,7 @@ export async function POST(request: NextRequest) {
     if (!key) return fail("idempotency_key_required", 400);
 
     const hash = createArenaReflectionRequestHash(input);
-    const studentId = session.studentId as string;
+    const studentId = tenantContext.principalId;
 
     try {
       const result = await withTx(async (client) => {
@@ -407,6 +416,7 @@ export async function POST(request: NextRequest) {
         );
         await recordLearningEvent(client, {
           studentId,
+          tenantId: tenantContext.tenantId,
           eventType: "simulator_decision_saved",
           source: "trading-arena-reflection",
           payload: { kind: "post_trade_reflection", ...eventPayload },

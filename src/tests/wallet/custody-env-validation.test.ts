@@ -51,6 +51,22 @@ describe("production custody environment validation", () => {
     assert.match(result.stderr, /forbidden until the custody launch gate/);
   });
 
+  it("rejects controlled-launch disabled product activation flags", () => {
+    const cases: Array<[string, string, RegExp]> = [
+      ["FEATURE_EXCHANGE_ENABLED", "true", /FEATURE_EXCHANGE_ENABLED=true is forbidden/],
+      ["FEATURE_MARKETPLACE_ENABLED", "true", /FEATURE_MARKETPLACE_ENABLED=true is forbidden/],
+      ["TECPEY_PUBLIC_FINANCIAL_REWARDS_ENABLED", "1", /PUBLIC_FINANCIAL_REWARDS_ENABLED=1 is forbidden/],
+      ["TECPEY_ENTERPRISE_ACTIVATION_ENABLED", "1", /ENTERPRISE_ACTIVATION_ENABLED=1 is forbidden/],
+      ["TECPEY_WHITE_LABEL_ACTIVATION_ENABLED", "1", /WHITE_LABEL_ACTIVATION_ENABLED=1 is forbidden/],
+    ];
+
+    for (const [name, value, pattern] of cases) {
+      const result = validate({ [name]: value });
+      assert.notEqual(result.status, 0, `${name} must fail production env validation`);
+      assert.match(result.stderr, pattern);
+    }
+  });
+
   it("rejects raw environment private keys without printing secret material", () => {
     const privateKey = "private-key-material-must-never-appear";
     const result = validate({ WALLET_ETHEREUM_PRIVATE_KEY: privateKey });

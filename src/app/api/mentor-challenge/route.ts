@@ -1,6 +1,7 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { createSmartNotification, maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
@@ -8,6 +9,8 @@ import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 type QuestionRow = {
   id: string;
@@ -92,8 +95,16 @@ export async function POST(req: NextRequest) {
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-challenge-submit", limit: 80, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getStudentSessionFromRequest(req);
-  if (!session?.studentId) return apiError("complete_account_required", 401);
+  const session = await getCanonicalSession(req, { strictRevocation: true });
+  if (!session.studentId) return apiError("complete_account_required", 401);
+  const tenantContext = await resolveTenantPrincipalContext({
+    session,
+    requiredPrincipalType: "student",
+    scopes: ["academy:learning-events:write"],
+    requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+  });
+  if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+  const studentId = tenantContext.principalId;
   try {
     const boundedBodyRequest = await readBoundedJsonRequest(req, {
       maxBytes: 40_000,
@@ -115,23 +126,23 @@ export async function POST(req: NextRequest) {
       const question = await client.query(`SELECT id, term_number, lesson_slug, topic, difficulty, correct_option, explanation FROM academy_question_bank WHERE id = $1 AND approved = TRUE LIMIT 1`, [questionId]);
       const row = question.rows[0];
       if (!row) return { accepted: false, error: "question_not_found" };
-      const count = await client.query(`SELECT COUNT(*)::int AS attempts FROM mentor_challenge_attempts WHERE student_id = $1::uuid AND question_id = $2`, [session.studentId, questionId]);
+      const count = await client.query(`SELECT COUNT(*)::int AS attempts FROM mentor_challenge_attempts WHERE student_id = $1::uuid AND question_id = $2`, [studentId, questionId]);
       const attemptNumber = Number(count.rows[0]?.attempts || 0) + 1;
-      const first = await client.query(`SELECT selected_option FROM mentor_challenge_attempts WHERE student_id = $1::uuid AND question_id = $2 ORDER BY id ASC LIMIT 1`, [session.studentId, questionId]);
+      const first = await client.query(`SELECT selected_option FROM mentor_challenge_attempts WHERE student_id = $1::uuid AND question_id = $2 ORDER BY id ASC LIMIT 1`, [studentId, questionId]);
       const firstAnswer = first.rows[0]?.selected_option || selectedOption;
       const isCorrect = selectedOption === row.correct_option;
       await client.query(
         `INSERT INTO mentor_challenge_attempts
          (student_id, question_id, term_number, lesson_slug, locale, selected_option, is_correct, attempt_number, first_answer, response_time_ms, confidence)
          VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [session.studentId, questionId, row.term_number, row.lesson_slug, cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa", selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
+        [studentId, questionId, row.term_number, row.lesson_slug, cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa", selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
       );
       if (isCorrect) await client.query(`UPDATE academy_question_bank SET success_count = success_count + 1 WHERE id = $1`, [questionId]);
-      await recordLearningEvent(client, { studentId: session.studentId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
-      if (attemptNumber === 1) await maybeAwardAchievement(client, session.studentId, "first-quiz", { questionId });
-      if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, session.studentId, "risk-master", { questionId });
+      await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
+      if (attemptNumber === 1) await maybeAwardAchievement(client, studentId, "first-quiz", { questionId }, tenantContext.tenantId);
+      if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, tenantContext.tenantId);
       await createSmartNotification(client, {
-        studentId: session.studentId,
+        studentId,
         type: isCorrect ? "achievement" : "mentor",
         title: isCorrect ? "چالش منتور ثبت شد" : "منتور یک تمرین بهتر پیشنهاد می‌کند",
         body: isCorrect ? "پاسخ تو در پروفایل یادگیری ثبت شد." : "پاسخ اشتباه هم ارزشمند است؛ منتور از همین رفتار برای تحلیل مسیر یادگیری استفاده می‌کند.",
