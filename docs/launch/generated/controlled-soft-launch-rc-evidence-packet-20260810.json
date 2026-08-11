@@ -12,9 +12,9 @@
   },
   "supersededBy": {
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "currentCandidateSha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
-    "supersededAt": "2026-08-10T20:05:30.000Z",
-    "reason": "New evidence collection must use the candidate that includes support bundle hardening from PR 367."
+    "currentCandidateSha": "7390afa2ba8509d0f46733b98d966928cb07b231",
+    "supersededAt": "2026-08-11T09:45:55.000Z",
+    "reason": "New evidence collection must use the candidate that includes tenant-isolation proof coverage and controlled-launch capability-boundary hardening from PR 373."
   },
   "artifactIdentity": {
     "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",
