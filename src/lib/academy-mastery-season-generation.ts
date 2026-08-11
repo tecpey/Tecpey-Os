@@ -132,6 +132,14 @@ function boundedTags(values: readonly string[]): string[] {
     .slice(0, 12);
 }
 
+function arrayOfUnknown(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
 export function buildAcademyMasterySeasonMentorDraftInstructions(
   context: AcademyMasterySeasonGenerationContext,
 ): string {
@@ -160,6 +168,9 @@ export function buildAcademyMasterySeasonMentorDraftInstructions(
 }
 
 function allDraftText(draft: AcademyGeneratedMasterySeasonDraft): string {
+  const sources = arrayOfUnknown(draft.sources).map(record);
+  const objectives = arrayOfUnknown(draft.objectives).map(record);
+  const missions = arrayOfUnknown(draft.missions).map(record);
   return [
     draft.id,
     draft.kind,
@@ -167,32 +178,32 @@ function allDraftText(draft: AcademyGeneratedMasterySeasonDraft): string {
     draft.titleEn,
     draft.summaryFa,
     draft.summaryEn,
-    ...draft.signalTags,
-    ...draft.riskControls,
-    ...draft.sources.flatMap((source) => [source.title, source.publisher, source.url, source.trust]),
-    ...draft.objectives.flatMap((objective) => [
+    ...arrayOfUnknown(draft.signalTags),
+    ...arrayOfUnknown(draft.riskControls),
+    ...sources.flatMap((source) => [source.title, source.publisher, source.url, source.trust]),
+    ...objectives.flatMap((objective) => [
       objective.conceptTag,
       objective.titleFa,
       objective.titleEn,
       objective.bloomLevel,
     ]),
-    ...draft.missions.flatMap((mission) => [
+    ...missions.flatMap((mission) => [
       mission.id,
       mission.titleFa,
       mission.titleEn,
       mission.methodFa,
       mission.methodEn,
-      ...mission.questions.flatMap((question) => [
+      ...arrayOfUnknown(mission.questions).map(record).flatMap((question) => [
         question.id,
         question.type,
         question.question,
         question.explanation,
         question.conceptTag,
-        ...(question.options ?? []),
+        ...arrayOfUnknown(question.options),
         ...(Array.isArray(question.correctAnswer) ? question.correctAnswer : [question.correctAnswer]),
       ]),
     ]),
-  ].join("\n");
+  ].map((value) => text(value)).join("\n");
 }
 
 function validateSources(
@@ -204,15 +215,18 @@ function validateSources(
     return 0;
   }
   const urls = new Set<string>();
-  for (const [index, source] of draft.sources.entries()) {
+  for (const [index, sourceValue] of draft.sources.entries()) {
+    const source = record(sourceValue);
+    const sourceUrl = text(source.url);
+    const sourceTrust = text(source.trust) as AcademyMasterySeasonSourceTrust;
     if (!text(source.title)) add(violations, "source_title_blank", `source ${index + 1} title is blank`);
     if (!text(source.publisher)) add(violations, "source_publisher_blank", `source ${index + 1} publisher is blank`);
-    if (!isHttpsUrl(text(source.url))) add(violations, "source_url_invalid", `source ${index + 1} must be an https URL`);
-    if (!ALLOWED_TRUST.has(source.trust)) {
+    if (!isHttpsUrl(sourceUrl)) add(violations, "source_url_invalid", `source ${index + 1} must be an https URL`);
+    if (!ALLOWED_TRUST.has(sourceTrust)) {
       add(violations, "source_trust_invalid", `source ${index + 1} has unsupported trust level`);
     }
-    if (urls.has(source.url)) add(violations, "source_url_duplicate", `source ${index + 1} duplicates a prior URL`);
-    urls.add(source.url);
+    if (urls.has(sourceUrl)) add(violations, "source_url_duplicate", `source ${index + 1} duplicates a prior URL`);
+    urls.add(sourceUrl);
   }
   return urls.size;
 }
@@ -226,7 +240,8 @@ function validateObjectives(
     return 0;
   }
   let advanced = 0;
-  for (const [index, objective] of draft.objectives.entries()) {
+  for (const [index, objectiveValue] of draft.objectives.entries()) {
+    const objective = record(objectiveValue);
     if (!TAG_PATTERN.test(text(objective.conceptTag))) {
       add(violations, "objective_concept_invalid", `objective ${index + 1} concept tag is invalid`);
     }
@@ -236,10 +251,11 @@ function validateObjectives(
     if (text(objective.titleEn).length < 8) {
       add(violations, "objective_title_en_weak", `objective ${index + 1} needs an English title`);
     }
-    if (!ALLOWED_BLOOM.has(objective.bloomLevel)) {
+    const bloomLevel = text(objective.bloomLevel) as AcademyMasterySeasonBloomLevel;
+    if (!ALLOWED_BLOOM.has(bloomLevel)) {
       add(violations, "objective_bloom_invalid", `objective ${index + 1} has an unsupported Bloom level`);
     }
-    if (["apply", "analyze", "evaluate"].includes(objective.bloomLevel)) advanced += 1;
+    if (["apply", "analyze", "evaluate"].includes(bloomLevel)) advanced += 1;
   }
   if (advanced < 2) {
     add(violations, "objectives_not_challenging", "generated seasons need at least two apply/analyze/evaluate objectives");
@@ -256,13 +272,15 @@ function validateMissions(
     return 0;
   }
   const questions: QuizQuestion[] = [];
-  for (const [index, mission] of draft.missions.entries()) {
+  for (const [index, missionValue] of draft.missions.entries()) {
+    const mission = record(missionValue);
     if (!ID_PATTERN.test(text(mission.id))) add(violations, "mission_id_invalid", `mission ${index + 1} id is invalid`);
     if (text(mission.titleFa).length < 8) add(violations, "mission_title_fa_weak", `mission ${index + 1} needs a Persian title`);
     if (text(mission.titleEn).length < 8) add(violations, "mission_title_en_weak", `mission ${index + 1} needs an English title`);
     if (text(mission.methodFa).length < 20) add(violations, "mission_method_fa_weak", `mission ${index + 1} needs a Persian method`);
     if (text(mission.methodEn).length < 20) add(violations, "mission_method_en_weak", `mission ${index + 1} needs an English method`);
-    if (!Number.isInteger(mission.estimatedMinutes) || mission.estimatedMinutes < 5 || mission.estimatedMinutes > 90) {
+    const estimatedMinutes = Number(mission.estimatedMinutes);
+    if (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 5 || estimatedMinutes > 90) {
       add(violations, "mission_duration_invalid", `mission ${index + 1} duration must be 5-90 minutes`);
     }
     if (!Array.isArray(mission.questions) || mission.questions.length < 2) {
