@@ -17,6 +17,7 @@ const incidentUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/423456789"
 const acceptedRiskUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/523456789";
 const approvalsUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/623456789";
 const acceptedRiskRegister = "docs/LAUNCH_ACCEPTED_RISKS.md";
+const fullSuiteDiagnosticsWorkflow = ".github/workflows/full-suite-diagnostics.yml";
 
 function runPacket(args = [], env = {}) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -368,4 +369,21 @@ test("accepted-risk register authority accepts multi-backtick code spans with pi
   );
 
   assert.deepEqual(evaluateAcceptedRiskRegisterAuthority(markdown), []);
+});
+
+test("Full Suite Diagnostics workflow produces exact-head main evidence for NOG-04", () => {
+  const workflow = readFileSync(fullSuiteDiagnosticsWorkflow, "utf8");
+
+  assert.match(workflow, /name: Full Suite Diagnostics/);
+  assert.match(
+    workflow,
+    /on:\n  push:\n    branches: \[main\]\n  pull_request:\n    branches: \[main\]\n  workflow_dispatch:/,
+  );
+  assert.match(workflow, /permissions:\n  contents: read/);
+  assert.match(workflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /EXPECTED_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /run: test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
+  assert.match(workflow, /actions\/checkout@[0-9a-f]{40} # v4/);
+  assert.match(workflow, /actions\/setup-node@[0-9a-f]{40} # v4/);
+  assert.match(workflow, /actions\/upload-artifact@[0-9a-f]{40} # v4/);
 });
