@@ -40,6 +40,22 @@ const REQUIRED_PUBLIC_BOUNDARIES = [
     ],
   },
   {
+    file: "src/app/swap/page.tsx",
+    tokens: [
+      "راهنمای آموزشی تبدیل رمزارز",
+      "مسیر پول‌واقعی تبدیل، واریز، برداشت و معامله تا پذیرش شواهد امنیتی، عملیاتی و انطباقی launch-gated باقی می‌ماند",
+      "تمرین بدون ریسک",
+    ],
+  },
+  {
+    file: "src/app/en/swap/page.tsx",
+    tokens: [
+      "Conversion Education — Launch-Gated",
+      "Real-money conversion, deposits, withdrawals and trading remain launch-gated",
+      "Practice first",
+    ],
+  },
+  {
     file: "src/components/seo/StructuredData.tsx",
     tokens: [
       '"@type": ["Organization", "EducationalOrganization"]',
@@ -173,6 +189,14 @@ const REQUIRED_RUNTIME_PATTERNS = [
 const WITHDRAWAL_WORKER_STARTUP_RE =
   /withdrawalWorkers\s*=\s*await\s+import\(["']\.\/src\/workers\/withdrawal-worker["']\)|withdrawalWorkers\.startWithdrawalWorkers\(\)/;
 
+const FORBIDDEN_PUBLIC_ROUTE_RE =
+  /^src\/app\/(?:en\/)?(?:enterprise|white-label|white-labels|whitelabel|public-rewards|financial-rewards|rewards|exchange|deposit|deposits|withdraw|withdrawals|custody)\/(?:page|layout)\.tsx$/;
+
+const FORBIDDEN_SWAP_CLAIMS = [
+  /شروع(?:\s|ِ|‌)+معامله/,
+  /وارد(?:\s|ِ|‌)+معامله(?:\s|ِ|‌)+شوید/,
+];
+
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
 }
@@ -259,6 +283,20 @@ function validateExchangeCompareData(failures, sources) {
   }
 }
 
+function validateForbiddenPublicRoutes(failures, sources) {
+  for (const file of Object.keys(sources)) {
+    if (FORBIDDEN_PUBLIC_ROUTE_RE.test(file)) {
+      failures.push(`${file}: disabled capability route must remain absent or be implemented behind an accepted launch gate`);
+    }
+  }
+}
+
+function validateSwapBoundary(failures, sources) {
+  for (const pattern of FORBIDDEN_SWAP_CLAIMS) {
+    rejectPattern(failures, sources, "src/app/swap/page.tsx", pattern);
+  }
+}
+
 export function evaluateDisabledCapabilityAttestation(sources) {
   const failures = [];
 
@@ -298,6 +336,8 @@ export function evaluateDisabledCapabilityAttestation(sources) {
   for (const contract of REQUIRED_RUNTIME_PATTERNS) {
     requireRuntimeGuard(failures, sources, contract);
   }
+  validateForbiddenPublicRoutes(failures, sources);
+  validateSwapBoundary(failures, sources);
   validateExchangeCompareData(failures, sources);
 
   const packageJson = JSON.parse(sourceFor(sources, "package.json") || "{}");
