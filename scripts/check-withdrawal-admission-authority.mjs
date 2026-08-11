@@ -154,6 +154,8 @@ requireText("migration", "UNIQUE (user_id, verification_step)", "one TOTP window
 requireText("migration", "withdrawal_admission_outbox", "admission events need an outbox");
 requireText("tenantMigration", "withdrawals_tenant_user_idempotency_unique_idx", "tenant/user idempotency needs DB uniqueness");
 requireText("tenantMigration", "tenant_id, user_id, idempotency_key", "withdrawal idempotency uniqueness must be tenant-scoped");
+requireText("tenantMigration", "SELECT checksum FROM _migrations", "tenant binding migration must verify ledger evidence before reruns");
+requireText("tenantMigration", "INSERT INTO _migrations", "tenant binding migration must persist canonical ledger evidence");
 requireText("migration", "price_snapshot_id", "withdrawals must retain price evidence linkage");
 requireText("migration", "compliance_evidence", "withdrawals must retain compliance evidence");
 requireText("migration", "tecpey_verify_withdrawal_price_evidence", "PostgreSQL must revalidate price evidence at insertion");

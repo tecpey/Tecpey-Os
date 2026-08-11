@@ -151,9 +151,34 @@ function checksum(sql: string): string {
 }
 
 export async function runWithdrawalTenantBindingMigrations(client: PoolClient): Promise<void> {
-  await client.query(WITHDRAWAL_TENANT_BINDING_SQL);
-  logger.info("[db-migrate] withdrawal tenant binding migrations applied", {
+  const cs = checksum(WITHDRAWAL_TENANT_BINDING_SQL);
+  const applied = await client.query<{ checksum: string }>(
+    "SELECT checksum FROM _migrations WHERE filename = $1 LIMIT 1",
+    [FILENAME],
+  );
+  if (applied.rows[0]) {
+    if (applied.rows[0].checksum !== cs) {
+      throw new Error(
+        `[db-migrate-withdrawal-tenant-binding] checksum mismatch for ${FILENAME}`,
+      );
+    }
+    return;
+  }
+
+  logger.info("[db-migrate-withdrawal-tenant-binding] applying migration", {
     filename: FILENAME,
-    checksum: checksum(WITHDRAWAL_TENANT_BINDING_SQL),
+    checksum: cs,
   });
+  await client.query("BEGIN");
+  try {
+    await client.query(WITHDRAWAL_TENANT_BINDING_SQL);
+    await client.query(
+      "INSERT INTO _migrations (filename, checksum) VALUES ($1, $2)",
+      [FILENAME, cs],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
 }
