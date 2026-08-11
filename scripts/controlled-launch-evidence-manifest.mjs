@@ -136,6 +136,25 @@ function valueAt(object, path) {
   return path.reduce((current, key) => current?.[key], object);
 }
 
+function findDuplicateWorkflowRunUrls(workflowEvidence) {
+  if (!workflowEvidence || typeof workflowEvidence !== "object" || Array.isArray(workflowEvidence)) {
+    return [];
+  }
+
+  const byUrl = new Map();
+  for (const [key, value] of Object.entries(workflowEvidence)) {
+    if (typeof value !== "string") continue;
+    const normalized = value.replace(/\/$/, "");
+    const existing = byUrl.get(normalized);
+    if (existing) {
+      return [existing, key, normalized];
+    }
+    byUrl.set(normalized, key);
+  }
+
+  return [];
+}
+
 function validateKnownShape(value, shape, label, failures) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     failures.push(`${label} must be an object`);
@@ -188,6 +207,14 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
   if (manifest?.schemaVersion !== 1) failures.push("manifest.schemaVersion must be 1");
   if (manifest?.evidenceClass !== REQUIRED_MANIFEST_CLASS) {
     failures.push(`manifest.evidenceClass must be ${REQUIRED_MANIFEST_CLASS}`);
+  }
+
+  const duplicateWorkflowRun = findDuplicateWorkflowRunUrls(manifest?.workflowEvidence);
+  if (duplicateWorkflowRun.length) {
+    const [firstKey, duplicateKey] = duplicateWorkflowRun;
+    failures.push(
+      `manifest.workflowEvidence.${duplicateKey} must not reuse the same GitHub Actions run URL as manifest.workflowEvidence.${firstKey}`,
+    );
   }
 
   const candidateSha = manifest?.releaseCandidate?.sha;

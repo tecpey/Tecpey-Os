@@ -10,6 +10,14 @@ const digest = `sha256:${"a".repeat(64)}`;
 const deploymentDigest = `sha256:${"b".repeat(64)}`;
 const externalDigest = `sha256:${"c".repeat(64)}`;
 const runUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456789";
+const fullSuiteRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456790";
+const apiSecurityRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456791";
+const sensitiveMutationRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456792";
+const repositoryAuditRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456793";
+const publicGoldenPathRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456794";
+const operationalRecoveryRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456795";
+const containerSupplyChainRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456796";
+const secretScanningRunUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/123456797";
 const recoveryUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/223456789";
 const rollbackUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/323456789";
 const incidentUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/423456789";
@@ -41,14 +49,14 @@ function completeManifest(overrides = {}, releaseCandidateSha = currentHead()) {
     },
     workflowEvidence: {
       ciRunUrl: runUrl,
-      fullSuiteRunUrl: runUrl,
-      apiSecurityRunUrl: runUrl,
-      sensitiveMutationRunUrl: runUrl,
-      repositoryAuditRunUrl: runUrl,
-      publicGoldenPathRunUrl: runUrl,
-      operationalRecoveryRunUrl: runUrl,
-      containerSupplyChainRunUrl: runUrl,
-      secretScanningRunUrl: runUrl,
+      fullSuiteRunUrl,
+      apiSecurityRunUrl,
+      sensitiveMutationRunUrl,
+      repositoryAuditRunUrl,
+      publicGoldenPathRunUrl,
+      operationalRecoveryRunUrl,
+      containerSupplyChainRunUrl,
+      secretScanningRunUrl,
     },
     requiredExternalEvidence: {
       protectedStaging: {
@@ -162,6 +170,20 @@ test("controlled launch evidence manifest rejects workflow URLs outside governed
   );
 });
 
+test("controlled launch evidence manifest rejects duplicated workflow run URLs", () => {
+  const manifest = completeManifest({
+    workflowEvidence: {
+      ...completeManifest().workflowEvidence,
+      fullSuiteRunUrl: runUrl,
+    },
+  });
+
+  assert.throws(
+    () => validateControlledLaunchEvidenceManifest(manifest),
+    /manifest.workflowEvidence.fullSuiteRunUrl must not reuse the same GitHub Actions run URL as manifest.workflowEvidence.ciRunUrl/,
+  );
+});
+
 test("controlled launch evidence manifest rejects raw secrets and connection strings", () => {
   const manifest = completeManifest({
     requiredExternalEvidence: {
@@ -207,11 +229,11 @@ test("release packet generator accepts a complete governed manifest", () => {
     assert.equal(packet.packetMode, "final_evidence_required");
     assert.equal(packet.artifactIdentity.imageDigest, digest);
     assert.equal(packet.workflowEvidence.ciRunUrl, runUrl);
-    assert.equal(packet.workflowEvidence.fullSuiteRunUrl, runUrl);
-    assert.equal(packet.workflowEvidence.apiSecurityRunUrl, runUrl);
-    assert.equal(packet.workflowEvidence.sensitiveMutationRunUrl, runUrl);
-    assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, runUrl);
-    assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, runUrl);
+    assert.equal(packet.workflowEvidence.fullSuiteRunUrl, fullSuiteRunUrl);
+    assert.equal(packet.workflowEvidence.apiSecurityRunUrl, apiSecurityRunUrl);
+    assert.equal(packet.workflowEvidence.sensitiveMutationRunUrl, sensitiveMutationRunUrl);
+    assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, operationalRecoveryRunUrl);
+    assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, containerSupplyChainRunUrl);
     assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
   } finally {
     rmSync(manifest.root, { recursive: true, force: true });
