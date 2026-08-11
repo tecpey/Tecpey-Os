@@ -112,12 +112,13 @@ describe("Withdrawal external-effect evidence schema", () => {
             ORDER BY tenant_id`,
           [userId, idempotencyKey],
         );
+        const expectedWithdrawals = [
+          [tenantA, withdrawalA],
+          [tenantB, withdrawalB],
+        ].sort(([leftTenant], [rightTenant]) => leftTenant.localeCompare(rightTenant));
         assert.deepEqual(
           sameUserSameKey.rows.map((row) => [row.tenant_id, row.id]),
-          [
-            [tenantA, withdrawalA],
-            [tenantB, withdrawalB],
-          ],
+          expectedWithdrawals,
         );
 
         await client.query(
@@ -180,10 +181,7 @@ describe("Withdrawal external-effect evidence schema", () => {
           );
           assert.deepEqual(
             rows.rows.map((row) => [row.tenant_id, row.withdrawal_id]),
-            [
-              [tenantA, withdrawalA],
-              [tenantB, withdrawalB],
-            ],
+            expectedWithdrawals,
           );
         }
       });
@@ -518,14 +516,18 @@ describe("Withdrawal external-effect evidence schema", () => {
             ORDER BY source, withdrawal_id`,
           [withdrawalA, withdrawalB],
         );
+        const expectedEvidence = [
+          ["broadcast", withdrawalB, tenantB],
+          ["confirmation", withdrawalB, tenantB],
+          ["intent", withdrawalA, tenantA],
+          ["intent", withdrawalB, tenantB],
+        ].sort(([leftSource, leftWithdrawal], [rightSource, rightWithdrawal]) =>
+          leftSource.localeCompare(rightSource) ||
+          leftWithdrawal.localeCompare(rightWithdrawal),
+        );
         assert.deepEqual(
           evidence.rows.map((row) => [row.source, row.withdrawal_id, row.tenant_id]),
-          [
-            ["broadcast", withdrawalB, tenantB],
-            ["confirmation", withdrawalB, tenantB],
-            ["intent", withdrawalA, tenantA],
-            ["intent", withdrawalB, tenantB],
-          ],
+          expectedEvidence,
         );
 
         await expectSqlRejection(

@@ -498,10 +498,11 @@ describe("Community reputation scoring consent PostgreSQL authority", () => {
         [tenantA.studentId],
       ),
     );
-    assert.deepEqual(profileRows.rows, [
+    const expectedProfileRows = [
       { tenant_id: tenantA.tenantId, public_profile_id: tenantA.publicProfileId },
       { tenant_id: tenantB.tenantId, public_profile_id: tenantB.publicProfileId },
-    ]);
+    ].sort((left, right) => left.tenant_id.localeCompare(right.tenant_id));
+    assert.deepEqual(profileRows.rows, expectedProfileRows);
 
     const profileConsent = {
       ...defaultCommunityConsent(),
@@ -581,7 +582,7 @@ describe("Community reputation scoring consent PostgreSQL authority", () => {
         [tenantA.studentId],
       ),
     );
-    assert.deepEqual(consentRows.rows, [
+    const expectedConsentRows = [
       {
         tenant_id: tenantA.tenantId,
         public_profile_id: tenantA.publicProfileId,
@@ -594,6 +595,7 @@ describe("Community reputation scoring consent PostgreSQL authority", () => {
         enabled: true,
         revision: "1",
       },
-    ]);
+    ].sort((left, right) => left.tenant_id.localeCompare(right.tenant_id));
+    assert.deepEqual(consentRows.rows, expectedConsentRows);
   });
 });

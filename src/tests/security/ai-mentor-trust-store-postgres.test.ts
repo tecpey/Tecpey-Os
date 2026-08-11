@@ -564,7 +564,7 @@ describe("AI Mentor durable trust store", () => {
                 ORDER BY tenant_id ASC`,
               [requestId],
             );
-            assert.deepEqual(rows.rows, [
+            const expectedRows = [
               {
                 tenant_id: tenantA,
                 input_hash: "b".repeat(64),
@@ -575,7 +575,8 @@ describe("AI Mentor durable trust store", () => {
                 input_hash: "c".repeat(64),
                 metadata: { tenantId: tenantB },
               },
-            ]);
+            ].sort((left, right) => left.tenant_id.localeCompare(right.tenant_id));
+            assert.deepEqual(rows.rows, expectedRows);
           } finally {
             await client.query("ROLLBACK");
           }

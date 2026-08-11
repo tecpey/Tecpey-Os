@@ -571,7 +571,7 @@ describe("Official journal challenge PostgreSQL authority", () => {
         ORDER BY tenant_id ASC`,
       [tenantA.studentId, cycle.key],
     ));
-    assert.deepEqual(rows.rows, [
+    const expectedRows = [
       {
         tenant_id: tenantA.tenantId,
         workspace_id: tenantA.workspaceId,
@@ -582,7 +582,8 @@ describe("Official journal challenge PostgreSQL authority", () => {
         workspace_id: tenantB.workspaceId,
         id: joinedB.state.enrollmentId!,
       },
-    ]);
+    ].sort((left, right) => left.tenant_id.localeCompare(right.tenant_id));
+    assert.deepEqual(rows.rows, expectedRows);
   });
 
   it("returns an explicit idempotency conflict for a mismatched stored request hash", {

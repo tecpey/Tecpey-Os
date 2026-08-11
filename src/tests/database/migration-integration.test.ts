@@ -59,6 +59,7 @@ const REQUIRED_MIGRATIONS = [
   "0056_achievement_contract_columns.sql",
   "0057_learning_brain_tenant_cache.sql",
   "0058_news_materialization_authority.sql",
+  "0062_academy_question_bank_locale.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -132,6 +133,7 @@ const REQUIRED_COLUMNS = [
   ["student_achievements", "payload"],
   ["learning_brain_profiles", "tenant_id"],
   ["notification_brain_snapshots", "tenant_id"],
+  ["academy_question_bank", "locale"],
   ["platform_news_materialization_snapshots", "snapshot_hash"],
   ["platform_news_impact_history_items", "related_coin_symbols"],
   ["platform_news_materialization_snapshot_items", "position"],
@@ -155,7 +157,7 @@ const REQUIRED_INDEXES = [
   "exchange_order_commands_market_idx",
   "exchange_order_commands_user_idx",
   "exchange_order_command_attempts_command_idx",
-  "withdrawals_user_idempotency_unique_idx",
+  "withdrawals_tenant_user_idempotency_unique_idx",
   "api_command_receipts_retention_idx",
   "api_command_receipts_operation_idx",
   "sensitive_mutation_audit_actor_idx",
@@ -165,6 +167,7 @@ const REQUIRED_INDEXES = [
   "student_achievements_student_code_unique_idx",
   "learning_brain_profiles_student_idx",
   "notification_brain_snapshots_student_idx",
+  "academy_question_bank_locale_lesson_idx",
   "platform_news_materialization_lookup_idx",
   "platform_news_impact_history_priority_idx",
   "platform_news_impact_history_coin_idx",

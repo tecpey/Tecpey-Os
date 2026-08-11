@@ -61,6 +61,7 @@ import { LEARNING_BRAIN_TENANT_CACHE_SQL } from "./db-migrate-learning-brain-ten
 import { NEWS_MATERIALIZATION_AUTHORITY_SQL } from "./db-migrate-news-materialization";
 import { COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL } from "./db-migrate-community-profile-tenant-primary-key";
 import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-evidence-tenant-key";
+import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-bank-locale";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -241,5 +242,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   withdrawalTenantBinding: one(
     "0061_withdrawal_tenant_binding.sql",
     WITHDRAWAL_TENANT_BINDING_SQL,
+  ),
+  academyQuestionBankLocale: one(
+    "0062_academy_question_bank_locale.sql",
+    ACADEMY_QUESTION_BANK_LOCALE_SQL,
   ),
 });
