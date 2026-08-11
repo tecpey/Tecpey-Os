@@ -60,6 +60,7 @@ const REQUIRED_MIGRATIONS = [
   "0057_learning_brain_tenant_cache.sql",
   "0058_news_materialization_authority.sql",
   "0062_academy_question_bank_locale.sql",
+  "0063_notification_brain_snapshot_contract.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -133,6 +134,14 @@ const REQUIRED_COLUMNS = [
   ["student_achievements", "payload"],
   ["learning_brain_profiles", "tenant_id"],
   ["notification_brain_snapshots", "tenant_id"],
+  ["notification_brain_snapshots", "return_probability"],
+  ["notification_brain_snapshots", "churn_risk"],
+  ["notification_brain_snapshots", "best_channel"],
+  ["notification_brain_snapshots", "best_time_label"],
+  ["notification_brain_snapshots", "next_hook_type"],
+  ["notification_brain_snapshots", "next_action_url"],
+  ["notification_brain_snapshots", "message_title"],
+  ["notification_brain_snapshots", "message_body"],
   ["academy_question_bank", "locale"],
   ["platform_news_materialization_snapshots", "snapshot_hash"],
   ["platform_news_impact_history_items", "related_coin_symbols"],

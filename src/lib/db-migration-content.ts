@@ -62,6 +62,7 @@ import { NEWS_MATERIALIZATION_AUTHORITY_SQL } from "./db-migrate-news-materializ
 import { COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL } from "./db-migrate-community-profile-tenant-primary-key";
 import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-evidence-tenant-key";
 import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-bank-locale";
+import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL } from "./db-migrate-notification-brain-snapshot-contract";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -246,5 +247,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyQuestionBankLocale: one(
     "0062_academy_question_bank_locale.sql",
     ACADEMY_QUESTION_BANK_LOCALE_SQL,
+  ),
+  notificationBrainSnapshotContract: one(
+    "0063_notification_brain_snapshot_contract.sql",
+    NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL,
   ),
 });
