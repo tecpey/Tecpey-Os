@@ -21,7 +21,7 @@ async function text(path) {
 async function json(path) {
   try {
     return JSON.parse(await text(path));
-  } catch (error) {
+  } catch {
     failures.push(`${path}: JSON parse failed`);
     return {};
   }
