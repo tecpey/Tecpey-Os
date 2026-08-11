@@ -131,6 +131,89 @@ async function seedProfile(label: string): Promise<Fixture> {
   });
 }
 
+async function seedSharedStudentProfilePair(): Promise<{
+  tenantA: Fixture;
+  tenantB: Fixture;
+}> {
+  const studentId = randomUUID();
+  const username = `u_${randomUUID().replaceAll("-", "").slice(0, 18)}`;
+  const tenantA: Fixture = {
+    tenantId: `reputation-shared-a-${randomUUID()}`,
+    workspaceId: `workspace-a-${randomUUID()}`,
+    studentId,
+    publicProfileId: "",
+  };
+  const tenantB: Fixture = {
+    tenantId: `reputation-shared-b-${randomUUID()}`,
+    workspaceId: `workspace-b-${randomUUID()}`,
+    studentId,
+    publicProfileId: "",
+  };
+  tenants.add(tenantA.tenantId);
+  tenants.add(tenantB.tenantId);
+  students.add(studentId);
+
+  return withClient(async (client) => {
+    await client.query("BEGIN");
+    try {
+      await client.query(
+        `INSERT INTO academy_students (id, locale, display_name, username)
+         VALUES ($1::uuid, 'fa', 'Shared Community Student', $2)`,
+        [studentId, username],
+      );
+      await client.query("DELETE FROM academy_public_profiles WHERE student_id = $1::uuid", [
+        studentId,
+      ]);
+      await client.query(
+        `DELETE FROM platform_principal_bindings
+          WHERE principal_type = 'student' AND principal_id = $1`,
+        [studentId],
+      );
+
+      for (const fixture of [tenantA, tenantB]) {
+        await client.query(
+          `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+           VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+          [fixture.tenantId],
+        );
+        await client.query(
+          `INSERT INTO platform_workspaces
+             (id, tenant_id, slug, display_name, products, settings)
+           VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+          [fixture.workspaceId, fixture.tenantId],
+        );
+        await client.query(
+          `INSERT INTO platform_principal_bindings
+             (tenant_id, workspace_id, principal_type, principal_id, source)
+           VALUES ($1, $2, 'student', $3, 'community_reputation_scoring_consent_test')`,
+          [fixture.tenantId, fixture.workspaceId, studentId],
+        );
+        const profile = await client.query<{ public_profile_id: string }>(
+          `INSERT INTO academy_public_profiles
+             (student_id, tenant_id, workspace_id, principal_type,
+              public_profile_id, visibility, leaderboard_visible,
+              journal_sharing_enabled, instructor_review_consent,
+              challenge_participation, study_group_discovery,
+              revision, consent_version, consented_at, created_at, updated_at)
+           VALUES
+             ($1::uuid, $2, $3, 'student', gen_random_uuid(), 'private', FALSE,
+              FALSE, FALSE, FALSE, FALSE, 0,
+              'community-profile-consent-v1', NULL, NOW(), NOW())
+           RETURNING public_profile_id::text`,
+          [studentId, fixture.tenantId, fixture.workspaceId],
+        );
+        fixture.publicProfileId = profile.rows[0].public_profile_id;
+      }
+
+      await client.query("COMMIT");
+      return { tenantA, tenantB };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
+  });
+}
+
 function scoringAudit(input: Fixture & {
   correlationId: string;
   expectedRevision: number;
@@ -397,5 +480,120 @@ describe("Community reputation scoring consent PostgreSQL authority", () => {
       }),
     });
     assert.deepEqual(forged, { ok: false, reason: "not_found" });
+  });
+
+  it("keeps public profiles and scoring consents independent for the same student in two tenants", {
+    skip: !configured,
+    timeout: 30_000,
+  }, async () => {
+    const { tenantA, tenantB } = await seedSharedStudentProfilePair();
+    assert.notEqual(tenantA.publicProfileId, tenantB.publicProfileId);
+
+    const profileRows = await withClient((client) =>
+      client.query<{ tenant_id: string; public_profile_id: string }>(
+        `SELECT tenant_id, public_profile_id::text
+           FROM academy_public_profiles
+          WHERE student_id = $1::uuid
+          ORDER BY tenant_id`,
+        [tenantA.studentId],
+      ),
+    );
+    assert.deepEqual(profileRows.rows, [
+      { tenant_id: tenantA.tenantId, public_profile_id: tenantA.publicProfileId },
+      { tenant_id: tenantB.tenantId, public_profile_id: tenantB.publicProfileId },
+    ]);
+
+    const profileConsent = {
+      ...defaultCommunityConsent(),
+      profileVisibility: "public" as const,
+      leaderboardVisible: true,
+    };
+    const profileA = await updateCommunityProfileConsent({
+      context: context(tenantA, ["community:profile:write"]),
+      expectedRevision: 0,
+      consent: profileConsent,
+      audit: profileAudit({
+        ...tenantA,
+        correlationId: `profile-consent-${randomUUID()}`,
+        expectedRevision: 0,
+        consent: profileConsent,
+      }),
+    });
+    assert.equal(profileA.ok, true);
+
+    const loadedA = await loadOwnedCommunityProfile(
+      context(tenantA, ["community:profile:read"]),
+    );
+    const loadedB = await loadOwnedCommunityProfile(
+      context(tenantB, ["community:profile:read"]),
+    );
+    assert.equal(loadedA.available, true);
+    assert.equal(loadedA.profile?.visibility, "public");
+    assert.equal(loadedA.profile?.revision, 1);
+    assert.equal(loadedB.available, true);
+    assert.equal(loadedB.profile?.visibility, "private");
+    assert.equal(loadedB.profile?.revision, 0);
+
+    const scoringA = await updateCommunityReputationScoringConsent({
+      context: context(tenantA, ["community:profile:write"]),
+      expectedRevision: 0,
+      enabled: true,
+      audit: scoringAudit({
+        ...tenantA,
+        correlationId: `reputation-consent-${randomUUID()}`,
+        expectedRevision: 0,
+        enabled: true,
+      }),
+    });
+    assert.equal(scoringA.ok, true);
+
+    const untouchedB = await loadCommunityReputationScoringConsent(
+      context(tenantB, ["community:profile:read"]),
+    );
+    assert.equal(untouchedB.available, true);
+    assert.equal(untouchedB.consent?.enabled, false);
+    assert.equal(untouchedB.consent?.revision, 0);
+
+    const scoringB = await updateCommunityReputationScoringConsent({
+      context: context(tenantB, ["community:profile:write"]),
+      expectedRevision: 0,
+      enabled: true,
+      audit: scoringAudit({
+        ...tenantB,
+        correlationId: `reputation-consent-${randomUUID()}`,
+        expectedRevision: 0,
+        enabled: true,
+      }),
+    });
+    assert.equal(scoringB.ok, true);
+
+    const consentRows = await withClient((client) =>
+      client.query<{
+        tenant_id: string;
+        public_profile_id: string;
+        enabled: boolean;
+        revision: string;
+      }>(
+        `SELECT tenant_id, public_profile_id::text, enabled, revision::text
+           FROM academy_community_reputation_scoring_consents
+          WHERE student_id = $1::uuid
+          ORDER BY tenant_id`,
+        [tenantA.studentId],
+      ),
+    );
+    assert.deepEqual(consentRows.rows, [
+      {
+        tenant_id: tenantA.tenantId,
+        public_profile_id: tenantA.publicProfileId,
+        enabled: true,
+        revision: "1",
+      },
+      {
+        tenant_id: tenantB.tenantId,
+        public_profile_id: tenantB.publicProfileId,
+        enabled: true,
+        revision: "1",
+      },
+    ]);
   });
 });

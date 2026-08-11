@@ -1,6 +1,7 @@
 // POST /api/auth/withdraw  — create a server-authoritative withdrawal request
 // GET  /api/auth/withdraw  — list the current user's withdrawal history
 
+import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -17,6 +18,7 @@ import { listUserWithdrawalsStrict } from "@/lib/security/withdrawal-read-author
 import { ensureWithdrawalPriceSnapshot } from "@/lib/security/withdrawal-price-producer";
 import { resolveWithdrawalReplay } from "@/lib/security/withdrawal-replay-authority";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,19 @@ export async function POST(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "user",
+      scopes: ["withdrawals:create"],
+      requestId: req.headers.get("x-request-id") ?? randomUUID(),
+    });
+    if (!tenantContext.available) {
+      return apiError("tenant_context_required", 403);
+    }
 
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-create",
-      identity: userId,
+      identity: `${tenantContext.tenantId}:${userId}`,
       limit: 5,
       windowMs: 60_000,
     });
@@ -75,6 +86,7 @@ export async function POST(req: NextRequest) {
     if (!canonical.ok) return apiError(canonical.reason, 400);
 
     const replay = await resolveWithdrawalReplay({
+      tenantId: tenantContext.tenantId,
       userId,
       idempotencyKey,
       requestHash: canonical.requestHash,
@@ -123,6 +135,7 @@ export async function POST(req: NextRequest) {
     const fingerprint = deviceFingerprint(userAgent, ip);
 
     const result = await createAuthoritativeWithdrawal({
+      tenantId: tenantContext.tenantId,
       ...canonical.command,
       authorizationId,
       deviceFingerprint: fingerprint,
@@ -158,10 +171,19 @@ export async function GET(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;
     if (!userId) return apiError("authentication_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "user",
+      scopes: ["withdrawals:read"],
+      requestId: req.headers.get("x-request-id") ?? randomUUID(),
+    });
+    if (!tenantContext.available) {
+      return apiError("tenant_context_required", 403);
+    }
 
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-list",
-      identity: userId,
+      identity: `${tenantContext.tenantId}:${userId}`,
       limit: 30,
       windowMs: 60_000,
     });
@@ -177,7 +199,12 @@ export async function GET(req: NextRequest) {
       0,
     );
 
-    const result = await listUserWithdrawalsStrict(userId, limit, offset);
+    const result = await listUserWithdrawalsStrict(
+      userId,
+      limit,
+      offset,
+      tenantContext.tenantId,
+    );
     if (!result.ok) return apiError(result.reason, 503);
     return apiOk({ withdrawals: result.withdrawals, limit, offset });
   });

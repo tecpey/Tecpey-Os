@@ -38,6 +38,7 @@ import { WITHDRAWAL_PREBROADCAST_TRANSITION_GATE_SQL } from "./db-migrate-withdr
 import { WITHDRAWAL_EXTERNAL_EFFECT_EVIDENCE_SQL } from "./db-migrate-withdrawal-external-effect-evidence";
 import { WITHDRAWAL_EXTERNAL_EFFECT_GATE_SQL } from "./db-migrate-withdrawal-external-effect-gate";
 import { WITHDRAWAL_EXTERNAL_EFFECT_GATE_AMOUNT_CAST_SQL } from "./db-migrate-withdrawal-external-effect-gate-amount-cast";
+import { WITHDRAWAL_TENANT_BINDING_SQL } from "./db-migrate-withdrawal-tenant-binding";
 import { RISK_ENFORCEMENT_AUTHORITY_SQL } from "./db-migrate-risk-enforcement-authority";
 import { TENANT_PRINCIPAL_ISOLATION_SQL } from "./db-migrate-tenant-principal-isolation";
 import { COMMUNITY_PROFILE_CONSENT_SQL } from "./db-migrate-community-profile-consent";
@@ -58,6 +59,8 @@ import { LEARNING_BRAIN_REFRESH_COLUMNS_SQL } from "./db-migrate-learning-brain-
 import { ACHIEVEMENT_CONTRACT_COLUMNS_SQL } from "./db-migrate-achievement-contract";
 import { LEARNING_BRAIN_TENANT_CACHE_SQL } from "./db-migrate-learning-brain-tenant-cache";
 import { NEWS_MATERIALIZATION_AUTHORITY_SQL } from "./db-migrate-news-materialization";
+import { COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL } from "./db-migrate-community-profile-tenant-primary-key";
+import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-evidence-tenant-key";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -226,5 +229,17 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   newsMaterialization: one(
     "0058_news_materialization_authority.sql",
     NEWS_MATERIALIZATION_AUTHORITY_SQL,
+  ),
+  communityProfileTenantPrimaryKey: one(
+    "0059_community_profile_tenant_primary_key.sql",
+    COMMUNITY_PROFILE_TENANT_PRIMARY_KEY_SQL,
+  ),
+  aiMentorEvidenceTenantKey: one(
+    "0060_ai_mentor_evidence_tenant_key.sql",
+    AI_MENTOR_EVIDENCE_TENANT_KEY_SQL,
+  ),
+  withdrawalTenantBinding: one(
+    "0061_withdrawal_tenant_binding.sql",
+    WITHDRAWAL_TENANT_BINDING_SQL,
   ),
 });

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { PoolClient } from "pg";
 import { withDb } from "@/lib/db";
+import { PLATFORM } from "@/lib/platform-config";
 
 export const WITHDRAWAL_READ_AUTHORITY_VERSION =
   "withdrawal-read-authority-v1" as const;
@@ -17,6 +18,7 @@ export type WithdrawalState =
 
 export type WithdrawalRecord = {
   id: string;
+  tenantId: string;
   userId: string;
   asset: string;
   amount: string;
@@ -55,6 +57,7 @@ type TimestampValue = Date | string;
 
 type WithdrawalRow = {
   id: string;
+  tenant_id: string;
   user_id: string;
   asset: string;
   amount: string;
@@ -79,6 +82,7 @@ type WithdrawalRow = {
 
 const WITHDRAWAL_PROJECTION_COLUMNS = `
   id,
+  tenant_id,
   user_id,
   asset,
   amount::text AS amount,
@@ -121,6 +125,7 @@ function toWithdrawalRecord(row: WithdrawalRow): WithdrawalRecord {
 
   return {
     id: row.id,
+    tenantId: row.tenant_id,
     userId: row.user_id,
     asset: row.asset,
     amount: row.amount,
@@ -174,20 +179,26 @@ async function withWithdrawalStorage<T>(
 export async function readWithdrawal(
   withdrawalId: string,
   ownerUserId?: string,
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
 ): Promise<WithdrawalReadResult> {
+  const scopedTenantId = tenantId.trim() || PLATFORM.DEFAULT_TENANT_ID;
   const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       ownerUserId
         ? `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
              FROM withdrawals
             WHERE id = $1
-              AND user_id = $2
+              AND tenant_id = $2
+              AND user_id = $3
             LIMIT 1`
         : `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
              FROM withdrawals
             WHERE id = $1
+              AND tenant_id = $2
             LIMIT 1`,
-      ownerUserId ? [withdrawalId, ownerUserId] : [withdrawalId],
+      ownerUserId
+        ? [withdrawalId, scopedTenantId, ownerUserId]
+        : [withdrawalId, scopedTenantId],
     );
     const row = selected.rows[0];
     return row ? toWithdrawalRecord(row) : null;
@@ -201,15 +212,18 @@ export async function listUserWithdrawalsStrict(
   userId: string,
   limit: number,
   offset: number,
+  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
 ): Promise<WithdrawalListResult> {
+  const scopedTenantId = tenantId.trim() || PLATFORM.DEFAULT_TENANT_ID;
   const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
          FROM withdrawals
-        WHERE user_id = $1
+        WHERE tenant_id = $1
+          AND user_id = $2
         ORDER BY created_at DESC, id DESC
-        LIMIT $2 OFFSET $3`,
-      [userId, boundedLimit(limit, 20, 100), boundedOffset(offset)],
+        LIMIT $3 OFFSET $4`,
+      [scopedTenantId, userId, boundedLimit(limit, 20, 100), boundedOffset(offset)],
     );
     return selected.rows.map(toWithdrawalRecord);
   });

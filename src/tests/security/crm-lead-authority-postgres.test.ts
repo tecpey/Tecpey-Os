@@ -49,6 +49,15 @@ function command(overrides: Partial<AcademyLeadCommand> = {}): AcademyLeadComman
   };
 }
 
+async function seedTenant(tenantId: string): Promise<void> {
+  await pool!.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+     VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId],
+  );
+}
+
 async function inTransaction<T>(handler: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool!.connect();
   await client.query("BEGIN");
@@ -233,6 +242,53 @@ describe("CRM lead PostgreSQL authority", () => {
       [created.result.id, claim.id],
     );
     assert.deepEqual(state.rows[0], { status: "delivered", successes: "1" });
+  });
+
+  it("claims CRM lead deliveries only for the requested tenant", {
+    skip: !databaseConfigured,
+    timeout: 30_000,
+  }, async () => {
+    const tenantB = `crm-tenant-${randomUUID()}`;
+    await seedTenant(tenantB);
+    const leadA = await ingestAcademyLead(command({
+      idempotencyKey: `crm-claim-tenant-a-${randomUUID()}`,
+      pii: { ...command().pii, phone: uniquePhone(), email: `claim-a-${randomUUID()}@example.test` },
+    }));
+    const leadB = await ingestAcademyLead(command({
+      tenantId: tenantB,
+      idempotencyKey: `crm-claim-tenant-b-${randomUUID()}`,
+      pii: { ...command().pii, phone: uniquePhone(), email: `claim-b-${randomUUID()}@example.test` },
+    }));
+    assert.equal(leadA.status, "committed");
+    assert.equal(leadB.status, "committed");
+    if (leadA.status !== "committed" || leadB.status !== "committed") return;
+
+    const workerId = `crm-tenant-worker-${randomUUID()}`;
+    const claims = await inTransaction((client) =>
+      claimCrmLeadDeliveries(client, workerId, { tenantId: tenantB, limit: 10 }),
+    );
+    assert.equal(
+      claims.every((claim) => claim.tenant_id === tenantB),
+      true,
+      "tenant-scoped claim must not lease rows from another tenant",
+    );
+    assert.ok(claims.some((claim) => claim.lead_id === leadB.result.id));
+    assert.equal(claims.some((claim) => claim.lead_id === leadA.result.id), false);
+
+    const states = await pool!.query<{ lead_id: string; tenant_id: string; status: string }>(
+      `SELECT lead_id::text, tenant_id, status
+         FROM crm_lead_delivery_outbox
+        WHERE lead_id IN ($1::uuid, $2::uuid)
+        ORDER BY tenant_id`,
+      [leadA.result.id, leadB.result.id],
+    );
+    assert.deepEqual(
+      states.rows.map((row) => [row.lead_id, row.tenant_id, row.status]),
+      [
+        [leadA.result.id, PLATFORM.DEFAULT_TENANT_ID, "pending"],
+        [leadB.result.id, tenantB, "processing"],
+      ],
+    );
   });
 
   it("does not deliver a claimed revision after a newer revision commits", {

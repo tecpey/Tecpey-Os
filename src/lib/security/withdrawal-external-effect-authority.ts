@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
-import { PLATFORM } from "@/lib/platform-config";
 import { hashSensitiveAuditRequest } from "@/lib/security/sensitive-mutation-audit";
 import {
   classifyWithdrawalBroadcastError,
@@ -19,6 +18,7 @@ const BROADCAST_LEASE_SECONDS = 2 * 60;
 
 export type AuthoritativeWithdrawalExecutionRecord = {
   id: string;
+  tenantId: string;
   userId: string;
   asset: string;
   amount: string;
@@ -100,6 +100,7 @@ function boundedFailureCategory(error: unknown): string {
 
 function withdrawalSelect(forUpdate = false): string {
   return `SELECT id,
+                 tenant_id AS "tenantId",
                  user_id AS "userId",
                  asset,
                  amount::text AS amount,
@@ -141,7 +142,7 @@ async function writeClaimEvidence(
   },
 ): Promise<void> {
   await writeWithdrawalExternalEffectEvidenceTx(client, {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    tenantId: input.withdrawal.tenantId,
     actorId: "withdrawal-executor",
     action: "withdrawal.execution.claim",
     resourceType: "withdrawal_execution",
@@ -243,7 +244,7 @@ async function backfillPreparedIntentTx(
     }),
   });
   await writeWithdrawalExternalEffectEvidenceTx(client, {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    tenantId: input.withdrawal.tenantId,
     actorId: "withdrawal-executor",
     action: "withdrawal.transaction.prepare",
     resourceType: "withdrawal_execution",
@@ -431,6 +432,7 @@ export async function claimWithdrawalExecution(input: {
           AND raw_tx IS NULL
           AND tx_hash IS NULL
         RETURNING id,
+                  tenant_id AS "tenantId",
                   user_id AS "userId",
                   asset,
                   amount::text AS amount,
@@ -555,6 +557,7 @@ export async function commitPreparedWithdrawalExecution(input: {
           AND raw_tx IS NULL
           AND tx_hash IS NULL
         RETURNING id,
+                  tenant_id AS "tenantId",
                   user_id AS "userId",
                   asset,
                   amount::text AS amount,
@@ -592,7 +595,7 @@ export async function commitPreparedWithdrawalExecution(input: {
       requiredConfirmations: input.requiredConfirmations,
     });
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action: "withdrawal.transaction.prepare",
       resourceType: "withdrawal_execution",
@@ -667,7 +670,7 @@ export async function failWithdrawalPreparation(input: {
     );
 
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action: "withdrawal.transaction.prepare",
       resourceType: "withdrawal_execution",
@@ -816,7 +819,7 @@ export async function beginWithdrawalBroadcastAttempt(input: {
       [attemptId],
     );
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action: "withdrawal.broadcast.attempt",
       resourceType: "withdrawal_broadcast_attempt",
@@ -948,7 +951,7 @@ export async function finalizeWithdrawalBroadcastAccepted(input: {
       ],
     );
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action: "withdrawal.broadcast.accepted",
       resourceType: "withdrawal_broadcast_attempt",
@@ -1050,7 +1053,7 @@ export async function finalizeWithdrawalBroadcastFailure(input: {
     }
 
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action,
       resourceType: "withdrawal_broadcast_attempt",
@@ -1160,7 +1163,7 @@ export async function reconcileAmbiguousWithdrawalBroadcast(input: {
     }
 
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenantId,
       actorId: "withdrawal-executor",
       action: input.observed === "present"
         ? "withdrawal.broadcast.accepted"
@@ -1242,11 +1245,12 @@ export async function publishWithdrawalConfirmationOutbox(
       });
       const marked = await withTx(async (client) => {
         const withdrawal = await client.query<{
+          tenant_id: string;
           asset: string;
           amount: string;
           state: string;
         }>(
-          `SELECT asset, amount::text AS amount, state
+          `SELECT tenant_id, asset, amount::text AS amount, state
              FROM withdrawals
             WHERE id = $1
             FOR UPDATE`,
@@ -1272,7 +1276,7 @@ export async function publishWithdrawalConfirmationOutbox(
           );
         }
         await writeWithdrawalExternalEffectEvidenceTx(client, {
-          tenantId: PLATFORM.DEFAULT_TENANT_ID,
+          tenantId: authority.tenant_id,
           actorId: "withdrawal-confirmation",
           action: "withdrawal.confirmation.monitor",
           resourceType: "withdrawal_execution",
@@ -1339,13 +1343,14 @@ export async function markWithdrawalConfirmationOutcome(input: {
 }): Promise<void> {
   const result = await withTx(async (client) => {
     const selected = await client.query<{
+      tenant_id: string;
       asset: string;
       amount: string;
       network: string;
       state: string;
       tx_hash: string | null;
     }>(
-      `SELECT asset, amount::text AS amount, network, state, tx_hash
+      `SELECT tenant_id, asset, amount::text AS amount, network, state, tx_hash
          FROM withdrawals
         WHERE id = $1
         FOR UPDATE`,
@@ -1373,7 +1378,7 @@ export async function markWithdrawalConfirmationOutcome(input: {
     );
     await completeWithdrawalConfirmationOutbox(client, input.withdrawalId);
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: withdrawal.tenant_id,
       actorId: "withdrawal-confirmation",
       action,
       resourceType: "withdrawal_execution",

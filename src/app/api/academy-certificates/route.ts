@@ -3,12 +3,15 @@ import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { issueCertificate } from "@/lib/academy-certificates";
 import { awardMilestonesAfterCertificate } from "@/lib/phase5-achievement-engine";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-certificates" }, async () => {
@@ -35,9 +38,16 @@ export async function POST(req: NextRequest) {
       return apiError("forbidden", 403);
     const limit = await rateLimit(req, { namespace: "academy-certificates-issue", limit: 12, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getStudentSessionFromRequest(req);
-    const studentId = cleanText(session?.studentId, 80);
-    if (!studentId) return apiError("complete_account_required", 401);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) return apiError("complete_account_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const studentId = cleanText(tenantContext.principalId, 80);
     try {
       const boundedBodyRequest = await readBoundedJsonRequest(req, {
         maxBytes: 2_048,
@@ -55,7 +65,7 @@ export async function POST(req: NextRequest) {
           [studentId, JSON.stringify({ termNumber, ip: getClientIp(req), source: "server_verified_progress" })],
         );
         const certificate = await issueCertificate(client, { studentId, termNumber });
-        await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id));
+        await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id), tenantContext.tenantId);
         return certificate;
       });
       if (!result.enabled) return apiError("certificate_service_unavailable", 503);

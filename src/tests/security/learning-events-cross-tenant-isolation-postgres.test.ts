@@ -5,6 +5,7 @@ import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { PLATFORM } from "../../lib/platform-config";
 import { refreshLearningBrain } from "../../lib/learning-os";
+import { buildNotificationBrain } from "../../lib/phase5-achievement-engine";
 
 // Load-bearing guard for the learning_events READ aggregation predicate (#109).
 //
@@ -24,6 +25,8 @@ import { refreshLearningBrain } from "../../lib/learning-os";
 // The derived brain cache is now tenant-keyed. These assertions read the
 // tenant-specific cache row after each refresh so the test proves both the read
 // aggregation predicate and the persisted cache key.
+// It also builds notification-brain snapshots for both tenants and verifies
+// the same student owns distinct tenant-keyed snapshots.
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -111,6 +114,23 @@ async function disciplineScore(
   return Number(rows.rows[0]?.discipline_score ?? -1);
 }
 
+async function notificationSnapshot(
+  client: PoolClient,
+  studentId: string,
+  tenantId: string,
+): Promise<{ return_probability: number; churn_risk: number } | null> {
+  const rows = await client.query<{
+    return_probability: number;
+    churn_risk: number;
+  }>(
+    `SELECT return_probability, churn_risk
+       FROM notification_brain_snapshots
+      WHERE tenant_id = $1 AND student_id = $2::uuid`,
+    [tenantId, studentId],
+  );
+  return rows.rows[0] ?? null;
+}
+
 before(async () => {
   if (!configured || !databaseUrl) return;
   pool = new Pool({ connectionString: databaseUrl, max: 4, allowExitOnIdle: true });
@@ -147,7 +167,7 @@ after(async () => {
 
 describe("learning_events read-aggregation tenant scoping", { skip: !configured }, () => {
   it(
-    "refreshLearningBrain counts only the requested tenant's learning events for the same student",
+    "learning brain caches and notification snapshots remain tenant-keyed for the same student",
     { timeout: 30_000 },
     async () => {
       const studentId = randomUUID();
@@ -166,6 +186,22 @@ describe("learning_events read-aggregation tenant scoping", { skip: !configured 
           5,
           "tenant A's refresh must count only tenant A's single lesson, not tenant B's events",
         );
+        const notificationA = await buildNotificationBrain(
+          client,
+          studentId,
+          "fa",
+          TENANT_A,
+        );
+        assert.equal(
+          notificationA.returnProbability,
+          41,
+          "tenant A's notification brain must be derived from tenant A's single lesson",
+        );
+        assert.deepEqual(
+          await notificationSnapshot(client, studentId, TENANT_A),
+          { return_probability: 41, churn_risk: 59 },
+          "tenant A's notification brain snapshot must persist under tenant A",
+        );
 
         // Refresh under tenant B: its own TWO lessons (10) in a distinct
         // tenant-keyed cache row.
@@ -174,6 +210,27 @@ describe("learning_events read-aggregation tenant scoping", { skip: !configured 
           await disciplineScore(client, studentId, TENANT_B),
           10,
           "tenant B's refresh must count only tenant B's two lessons",
+        );
+        const notificationB = await buildNotificationBrain(
+          client,
+          studentId,
+          "en",
+          TENANT_B,
+        );
+        assert.equal(
+          notificationB.returnProbability,
+          47,
+          "tenant B's notification brain must be derived from tenant B's two lessons",
+        );
+        assert.deepEqual(
+          await notificationSnapshot(client, studentId, TENANT_B),
+          { return_probability: 47, churn_risk: 53 },
+          "tenant B's notification brain snapshot must persist under tenant B",
+        );
+        assert.deepEqual(
+          await notificationSnapshot(client, studentId, TENANT_A),
+          { return_probability: 41, churn_risk: 59 },
+          "refreshing tenant B must not overwrite tenant A's notification snapshot",
         );
       });
     },

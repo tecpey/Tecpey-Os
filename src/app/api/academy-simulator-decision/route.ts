@@ -2,6 +2,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { academySimulations } from "@/data/academySimulationWorld";
 import { getStudentSessionFromRequest } from "@/lib/academy-session";
+import { getCanonicalSession } from "@/lib/auth-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { maybeAwardAchievement, recordLearningEvent } from "@/lib/learning-os";
@@ -9,6 +10,8 @@ import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import type { SchemaQueryable } from "@/lib/database-schema-contract";
 
 type SimulatorDecision = {
@@ -74,8 +77,16 @@ export async function POST(req: NextRequest) {
       return apiError("forbidden", 403);
     const limit = await rateLimit(req, { namespace: "academy-simulator-write", limit: 40, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getStudentSessionFromRequest(req);
-    if (!session?.studentId) return apiError("complete_account_required", 401);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) return apiError("complete_account_required", 401);
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const studentId = tenantContext.principalId;
 
     try {
       const boundedBodyRequest = await readBoundedJsonRequest(req, {
@@ -116,20 +127,21 @@ export async function POST(req: NextRequest) {
              emotion_state = EXCLUDED.emotion_state,
              risk_plan = EXCLUDED.risk_plan,
              created_at = NOW()`,
-          [session.studentId, scenarioId, locale, choiceId, score, xp, feedback, entryReason, emotionState, riskPlan],
+          [studentId, scenarioId, locale, choiceId, score, xp, feedback, entryReason, emotionState, riskPlan],
         );
         await client.query(
           `INSERT INTO academy_student_events (student_id, event_type, payload)
            VALUES ($1::uuid, 'simulator_decision_submitted', $2::jsonb)`,
-          [session.studentId, JSON.stringify({ scenarioId, locale, choiceId, score, entryReason: Boolean(entryReason), emotionState, riskPlan: Boolean(riskPlan), ip: getClientIp(req) })],
+          [studentId, JSON.stringify({ scenarioId, locale, choiceId, score, entryReason: Boolean(entryReason), emotionState, riskPlan: Boolean(riskPlan), ip: getClientIp(req) })],
         );
         await recordLearningEvent(client, {
-          studentId: session.studentId,
+          studentId,
+          tenantId: tenantContext.tenantId,
           eventType: "simulator_decision_saved",
           payload: { scenarioId, locale, choiceId, score, hasJournal: Boolean(entryReason), emotionState, hasRiskPlan: Boolean(riskPlan), ip: getClientIp(req) },
         });
-        if (entryReason && riskPlan) await maybeAwardAchievement(client, session.studentId, "simulator-journalist", { scenarioId, score });
-        return summarize(client, session.studentId);
+        if (entryReason && riskPlan) await maybeAwardAchievement(client, studentId, "simulator-journalist", { scenarioId, score }, tenantContext.tenantId);
+        return summarize(client, studentId);
       });
 
       if (!result.enabled) return apiError("simulator_service_not_configured", 503);

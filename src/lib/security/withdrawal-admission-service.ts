@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import { D } from "@/lib/trading/decimal";
 import { trackAuthEvent } from "./auth-metrics";
 import {
@@ -30,6 +31,7 @@ import {
 const DEFAULT_DAILY_LIMIT_USD = "10000";
 
 export type CreateAuthoritativeWithdrawalInput = {
+  tenantId?: string;
   userId: string;
   asset: string;
   amount: string;
@@ -80,9 +82,9 @@ function dailyLimitUsd(): string {
   }
 }
 
-function withdrawalIdFor(command: CanonicalWithdrawalCommand): string {
+function withdrawalIdFor(tenantId: string, command: CanonicalWithdrawalCommand): string {
   return createHash("sha256")
-    .update(`${command.userId}\0${command.idempotencyKey}`)
+    .update(`${tenantId}\0${command.userId}\0${command.idempotencyKey}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -97,6 +99,7 @@ function withdrawalEventType(
 
 async function findExistingByIdempotency(
   client: PoolClient,
+  tenantId: string,
   command: CanonicalWithdrawalCommand,
 ): Promise<{ id: string; request_hash: string | null; state: string } | null> {
   const existing = await client.query<{
@@ -105,27 +108,30 @@ async function findExistingByIdempotency(
     state: string;
   }>(
     `SELECT id, request_hash, state
-       FROM withdrawals
-      WHERE user_id = $1
-        AND idempotency_key = $2
+      FROM withdrawals
+      WHERE tenant_id = $1
+        AND user_id = $2
+        AND idempotency_key = $3
       FOR UPDATE`,
-    [command.userId, command.idempotencyKey],
+    [tenantId, command.userId, command.idempotencyKey],
   );
   return existing.rows[0] ?? null;
 }
 
 async function enforceVelocityTx(
   client: PoolClient,
+  tenantId: string,
   userId: string,
   amountUsd: string,
 ): Promise<void> {
   const velocity = await client.query<{ total_usd: string }>(
     `SELECT COALESCE(SUM(amount_usd), 0)::text AS total_usd
        FROM withdrawals
-      WHERE user_id = $1
+      WHERE tenant_id = $1
+        AND user_id = $2
         AND created_at >= NOW() - INTERVAL '24 hours'
         AND state NOT IN ('rejected', 'blocked', 'cancelled')`,
-    [userId],
+    [tenantId, userId],
   );
   const usedUsd = D(velocity.rows[0]?.total_usd ?? "0");
   if (usedUsd.plus(amountUsd).gt(dailyLimitUsd())) {
@@ -233,6 +239,7 @@ function applyRiskReview(
 
 async function insertWithdrawalTx(input: {
   client: PoolClient;
+  tenantId: string;
   command: CanonicalWithdrawalCommand;
   requestHash: string;
   withdrawalId: string;
@@ -245,6 +252,7 @@ async function insertWithdrawalTx(input: {
 }): Promise<void> {
   const {
     client,
+    tenantId,
     command,
     requestHash,
     withdrawalId,
@@ -258,7 +266,7 @@ async function insertWithdrawalTx(input: {
   const reserveFunds = compliance.state !== "blocked";
 
   if (reserveFunds) {
-    await enforceVelocityTx(client, command.userId, valuation.amountUsd);
+    await enforceVelocityTx(client, tenantId, command.userId, valuation.amountUsd);
     await reserveExactWithdrawalTx(client, command, withdrawalId);
   }
 
@@ -278,7 +286,7 @@ async function insertWithdrawalTx(input: {
 
   await client.query(
     `INSERT INTO withdrawals (
-       id, user_id, asset, amount, amount_usd, destination_address,
+       id, tenant_id, user_id, asset, amount, amount_usd, destination_address,
        destination_tag, network, state, security_gate_passed,
        device_fingerprint, ip, user_agent, two_fa_verified, velocity_used,
        request_hash, idempotency_key, price_snapshot_id, price_usd,
@@ -287,12 +295,13 @@ async function insertWithdrawalTx(input: {
        compliance_checked_at, authorization_id, funds_reserved_at,
        admission_completed_at, kyc_status, aml_risk, sanctions_hit
      ) VALUES (
-       $1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$10,$11,$12,TRUE,$13,
-       $14,$15,$16,$17,$18,$19,$20,$21,$21,NOW(),$22,
-       CASE WHEN $23 THEN NOW() ELSE NULL END,NOW(),$24,$25,$26
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,TRUE,$14,
+       $15,$16,$17,$18,$19,$20,$21,$22,$22,NOW(),$23,
+       CASE WHEN $24 THEN NOW() ELSE NULL END,NOW(),$25,$26,$27
      )`,
     [
       withdrawalId,
+      tenantId,
       command.userId,
       command.asset,
       command.amount,
@@ -331,6 +340,7 @@ async function insertWithdrawalTx(input: {
       eventType,
       `withdrawal-admission:${withdrawalId}:${eventType}`,
       JSON.stringify({
+        tenantId,
         userId: command.userId,
         asset: command.asset,
         amount: command.amount,
@@ -346,6 +356,7 @@ async function insertWithdrawalTx(input: {
 export async function createAuthoritativeWithdrawal(
   input: CreateAuthoritativeWithdrawalInput,
 ): Promise<AuthoritativeWithdrawalCreateResult> {
+  const tenantId = input.tenantId?.trim() || PLATFORM.DEFAULT_TENANT_ID;
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       input.authorizationId.trim(),
@@ -371,7 +382,7 @@ export async function createAuthoritativeWithdrawal(
     return { ok: false, reason: valuation.reason, code: 503 };
   }
 
-  const withdrawalId = withdrawalIdFor(command);
+  const withdrawalId = withdrawalIdFor(tenantId, command);
   const compliance = applyRiskReview(
     await evaluateWithdrawalCompliance({
       withdrawalId,
@@ -390,10 +401,10 @@ export async function createAuthoritativeWithdrawal(
   try {
     const tx = await withTx(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
-        `withdrawal:${command.userId}`,
+        `withdrawal:${tenantId}:${command.userId}`,
       ]);
 
-      const existing = await findExistingByIdempotency(client, command);
+      const existing = await findExistingByIdempotency(client, tenantId, command);
       if (existing) {
         if (existing.request_hash !== requestHash) {
           throw new AdmissionError("idempotency_conflict", 409);
@@ -416,6 +427,7 @@ export async function createAuthoritativeWithdrawal(
 
       await insertWithdrawalTx({
         client,
+        tenantId,
         command,
         requestHash,
         withdrawalId,
@@ -453,6 +465,7 @@ export async function createAuthoritativeWithdrawal(
   const read = await readWithdrawal(
     transactionResult.withdrawalId,
     command.userId,
+    tenantId,
   );
   if (!read.ok || !read.withdrawal) {
     return {

@@ -18,6 +18,7 @@ const files = {
   admission: "src/lib/security/withdrawal-admission-service.ts",
   legacyGate: "src/lib/security/withdraw-gate.ts",
   migration: "src/lib/db-migrate-withdrawal-admission.ts",
+  tenantMigration: "src/lib/db-migrate-withdrawal-tenant-binding.ts",
   migrationPlan: "src/lib/db-migration-registry.ts",
   unitTests: "src/tests/security/withdrawal-admission.test.ts",
   postgresTests: "src/tests/security/withdrawal-admission-postgres.test.ts",
@@ -116,8 +117,9 @@ requireText("compliance", "compliance_evidence_incomplete", "missing/malformed e
 requireText("compliance", "custody_launch_gate_disabled", "execution must remain behind custody closure");
 
 requireText("replay", "resolveWithdrawalReplay", "committed replay needs an explicit authority");
-requireText("replay", "user_id = $1", "replay lookup must be owner-bound");
-requireText("replay", "idempotency_key = $2", "replay lookup must bind the idempotency key");
+requireText("replay", "tenant_id = $1", "replay lookup must be tenant-bound");
+requireText("replay", "user_id = $2", "replay lookup must be owner-bound");
+requireText("replay", "idempotency_key = $3", "replay lookup must bind the idempotency key");
 requireText("replay", "request_hash", "replay must compare the immutable request hash");
 requireText("replay", "readWithdrawal", "replay must return persisted withdrawal evidence through the strict read authority");
 rejectText("replay", "getComplianceProviders", "committed replay may not depend on compliance providers");
@@ -150,7 +152,8 @@ requireText("migration", "withdrawal_authorizations", "one-time authorization ne
 requireText("migration", "verification_step BIGINT NOT NULL", "TOTP step replay prevention needs DB authority");
 requireText("migration", "UNIQUE (user_id, verification_step)", "one TOTP window may issue only one authorization");
 requireText("migration", "withdrawal_admission_outbox", "admission events need an outbox");
-requireText("migration", "withdrawals_user_idempotency_unique_idx", "user idempotency needs DB uniqueness");
+requireText("tenantMigration", "withdrawals_tenant_user_idempotency_unique_idx", "tenant/user idempotency needs DB uniqueness");
+requireText("tenantMigration", "tenant_id, user_id, idempotency_key", "withdrawal idempotency uniqueness must be tenant-scoped");
 requireText("migration", "price_snapshot_id", "withdrawals must retain price evidence linkage");
 requireText("migration", "compliance_evidence", "withdrawals must retain compliance evidence");
 requireText("migration", "tecpey_verify_withdrawal_price_evidence", "PostgreSQL must revalidate price evidence at insertion");

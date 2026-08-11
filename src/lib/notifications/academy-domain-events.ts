@@ -3,6 +3,7 @@ import { enqueueNotificationDomainEvent } from "./domain-outbox";
 import { resolveNotificationPrincipal } from "./principal";
 
 export type AcademyAssessmentNotificationInput = {
+  tenantId?: string;
   studentId: string;
   locale: "fa" | "en";
   termNumber: number;
@@ -39,7 +40,7 @@ export async function enqueueAcademyAssessmentCompleted(
     studentId: input.studentId,
     email: null,
     locale: input.locale,
-  });
+  }, input.tenantId);
   if (principal.status !== "active") {
     throw new Error("notification_principal_inactive");
   }

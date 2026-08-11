@@ -509,4 +509,80 @@ describe("AI Mentor durable trust store", () => {
       }
     },
   );
+
+  it(
+    "keeps request evidence tenant-keyed for the same request id and phase",
+    { skip: !configured, timeout: 20_000 },
+    async () => {
+      const studentId = await withClient((client) => createStudent(client, "mentor-evidence-tenant"));
+      const requestId = randomUUID();
+      const tenantA = `mentor-evidence-a-${randomUUID()}`;
+      const tenantB = `mentor-evidence-b-${randomUUID()}`;
+      try {
+        await withClient(async (client) => {
+          await client.query("BEGIN");
+          try {
+            for (const [tenantId, inputHash] of [
+              [tenantA, "b".repeat(64)],
+              [tenantB, "c".repeat(64)],
+            ] as const) {
+              assert.equal(
+                await appendAiMentorEvidence(
+                  {
+                    tenantId,
+                    requestId,
+                    studentId,
+                    phase: "admitted",
+                    provider: "openai",
+                    model: "test-model",
+                    policyVersion: AI_MENTOR_TRUST_POLICY_VERSION,
+                    contextClasses: ["public"],
+                    redactionCount: 0,
+                    injectionSignalCount: 0,
+                    inputHash,
+                    inputChars: 120,
+                    estimatedInputTokens: 40,
+                    outcome: "provider_admitted",
+                    memoryPersisted: null,
+                    metadata: { tenantId },
+                  },
+                  client,
+                ),
+                true,
+              );
+            }
+
+            const rows = await client.query<{
+              tenant_id: string;
+              input_hash: string;
+              metadata: Record<string, unknown>;
+            }>(
+              `SELECT tenant_id, input_hash, metadata
+                 FROM ai_mentor_request_evidence
+                WHERE request_id = $1::uuid
+                  AND phase = 'admitted'
+                ORDER BY tenant_id ASC`,
+              [requestId],
+            );
+            assert.deepEqual(rows.rows, [
+              {
+                tenant_id: tenantA,
+                input_hash: "b".repeat(64),
+                metadata: { tenantId: tenantA },
+              },
+              {
+                tenant_id: tenantB,
+                input_hash: "c".repeat(64),
+                metadata: { tenantId: tenantB },
+              },
+            ]);
+          } finally {
+            await client.query("ROLLBACK");
+          }
+        });
+      } finally {
+        await withClient((client) => cleanupStudent(client, studentId));
+      }
+    },
+  );
 });

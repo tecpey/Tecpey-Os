@@ -188,7 +188,7 @@ export async function createSmartNotification(client: Queryable, args: { student
   return id;
 }
 
-export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown> = {}) {
+export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown> = {}, tenantId: string = PLATFORM.DEFAULT_TENANT_ID) {
   const inserted = await client.query(
     `INSERT INTO student_achievements (student_id, achievement_id, code, payload)
      VALUES ($1::uuid, $2, $2, $3::jsonb)
@@ -197,7 +197,7 @@ export async function maybeAwardAchievement(client: Queryable, studentId: string
     [studentId, code, JSON.stringify(payload)],
   );
   if (inserted.rows[0]) {
-    await recordLearningEvent(client, { studentId, eventType: "badge_earned", payload: { code, ...payload } });
+    await recordLearningEvent(client, { studentId, tenantId, eventType: "badge_earned", payload: { code, ...payload } });
     await createSmartNotification(client, {
       studentId,
       type: "achievement",

@@ -43,6 +43,11 @@ export type DeliveryClaim = {
   max_attempts: number;
 };
 
+type CrmLeadDeliveryClaimOptions = {
+  limit?: number;
+  tenantId?: string | null;
+};
+
 function canonicalJson(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
@@ -344,14 +349,17 @@ export async function ingestAcademyLead(
 export async function recoverExpiredCrmLeadDeliveries(
   client: PoolClient,
   workerId: string,
-  limit = 100,
+  options: number | CrmLeadDeliveryClaimOptions = 100,
 ): Promise<number> {
+  const limit = typeof options === "number" ? options : options.limit ?? 100;
+  const tenantId = typeof options === "number" ? null : options.tenantId ?? null;
   const recovered = await client.query<DeliveryClaim & { terminal: boolean }>(
     `WITH expired AS (
        SELECT id
          FROM crm_lead_delivery_outbox
         WHERE status = 'processing'
           AND lease_expires_at <= NOW()
+          AND ($2::text IS NULL OR tenant_id = $2)
         ORDER BY lease_expires_at
         LIMIT $1
         FOR UPDATE SKIP LOCKED
@@ -373,7 +381,7 @@ export async function recoverExpiredCrmLeadDeliveries(
                 outbox.lead_revision, outbox.attempt_count,
                 outbox.max_attempts,
                 (outbox.status = 'terminal') AS terminal`,
-    [Math.max(1, Math.min(limit, 500))],
+    [Math.max(1, Math.min(limit, 500)), tenantId],
   );
 
   for (const row of recovered.rows) {
@@ -397,9 +405,14 @@ export async function recoverExpiredCrmLeadDeliveries(
 export async function claimCrmLeadDeliveries(
   client: PoolClient,
   workerId: string,
-  limit = 20,
+  options: number | CrmLeadDeliveryClaimOptions = 20,
 ): Promise<DeliveryClaim[]> {
-  await recoverExpiredCrmLeadDeliveries(client, workerId, Math.max(limit * 2, 20));
+  const limit = typeof options === "number" ? options : options.limit ?? 20;
+  const tenantId = typeof options === "number" ? null : options.tenantId ?? null;
+  await recoverExpiredCrmLeadDeliveries(client, workerId, {
+    limit: Math.max(limit * 2, 20),
+    tenantId,
+  });
   const bounded = Math.max(1, Math.min(limit, 100));
   const claims = await client.query<DeliveryClaim>(
     `WITH candidates AS (
@@ -407,6 +420,7 @@ export async function claimCrmLeadDeliveries(
          FROM crm_lead_delivery_outbox
         WHERE status IN ('pending', 'retryable')
           AND available_at <= NOW()
+          AND ($2::text IS NULL OR tenant_id = $2)
         ORDER BY available_at, created_at
         LIMIT $1
         FOR UPDATE SKIP LOCKED
@@ -415,7 +429,7 @@ export async function claimCrmLeadDeliveries(
         SET status = 'processing',
             attempt_count = attempt_count + 1,
             locked_at = NOW(),
-            locked_by = $2,
+            locked_by = $3,
             lease_expires_at = NOW() + INTERVAL '2 minutes',
             updated_at = NOW()
        FROM candidates
@@ -423,7 +437,7 @@ export async function claimCrmLeadDeliveries(
       RETURNING outbox.id, outbox.lead_id, outbox.tenant_id,
                 outbox.lead_revision, outbox.attempt_count,
                 outbox.max_attempts`,
-    [bounded, workerId],
+    [bounded, tenantId, workerId],
   );
 
   for (const claim of claims.rows) {

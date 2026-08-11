@@ -90,6 +90,7 @@ function termAssessmentCommand(commandType: string): {
 export async function storeLearningCommand(
   client: PoolClient,
   input: {
+    tenantId?: string;
     studentId: string;
     commandType: string;
     requestHash: string;
@@ -130,6 +131,7 @@ export async function storeLearningCommand(
   }
 
   await enqueueAcademyAssessmentCompleted(client, {
+    tenantId: input.tenantId,
     studentId: input.studentId,
     locale: command.locale,
     termNumber: command.termNumber,

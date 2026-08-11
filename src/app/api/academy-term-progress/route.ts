@@ -17,6 +17,8 @@ import {
 import { ACADEMY_XP } from "@/lib/academy-reward-policy";
 import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 type Queryable = {
   query: (
@@ -130,7 +132,14 @@ export async function POST(req: NextRequest) {
 
       const session = await getCanonicalSession(req, { strictRevocation: true });
       if (!session.studentId) return apiError("complete_account_required", 401);
-      const studentId = session.studentId;
+      const tenantContext = await resolveTenantPrincipalContext({
+        session,
+        requiredPrincipalType: "student",
+        scopes: ["academy:learning-events:write"],
+        requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+      });
+      if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+      const studentId = tenantContext.principalId;
 
       try {
         const boundedBodyRequest = await readBoundedJsonRequest(req, {
@@ -357,6 +366,7 @@ export async function POST(req: NextRequest) {
             revision: projection.revision,
           };
           await storeLearningCommand(client, {
+            tenantId: tenantContext.tenantId,
             studentId,
             commandType,
             requestHash: command.requestHash,
