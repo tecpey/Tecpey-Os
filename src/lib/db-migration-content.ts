@@ -64,6 +64,7 @@ import { AI_MENTOR_EVIDENCE_TENANT_KEY_SQL } from "./db-migrate-ai-mentor-eviden
 import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-bank-locale";
 import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL } from "./db-migrate-notification-brain-snapshot-contract";
 import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_REPAIR_SQL } from "./db-migrate-notification-brain-snapshot-contract-repair";
+import { ACADEMY_MASTERY_SEASONS_SQL } from "./db-migrate-academy-mastery-seasons";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -256,5 +257,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   notificationBrainSnapshotContractRepair: one(
     "0064_notification_brain_snapshot_contract_repair.sql",
     NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_REPAIR_SQL,
+  ),
+  academyMasterySeasons: one(
+    "0065_academy_mastery_seasons.sql",
+    ACADEMY_MASTERY_SEASONS_SQL,
   ),
 });

@@ -46,6 +46,22 @@ export default function AcademyPage() {
       
       <AcademyEngagementHub locale="en" />
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/25 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.18),transparent_34%),#06111f] p-6 shadow-[0_24px_80px_rgba(34,211,238,.12)]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
+            <div>
+              <p className="text-xs font-black text-cyan-300">Mastery Seasons</p>
+              <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">After Term 7, Academy does not end</h2>
+              <p className="mt-3 text-sm font-bold leading-8 text-slate-300">
+                TecPey creates personalized seasons for weak-area repair, current market learning, Trading Arena discipline and healthy peer-level competition.
+              </p>
+            </div>
+            <Link href="/en/academy/mastery-seasons" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">
+              Explore infinite learning
+            </Link>
+          </div>
+        </div>
+      </section>
+      <section className="px-4 pb-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl rounded-[34px] border border-emerald-300/20 bg-emerald-500/10 p-6 shadow-[0_24px_80px_rgba(16,185,129,.10)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-center">
             <div>

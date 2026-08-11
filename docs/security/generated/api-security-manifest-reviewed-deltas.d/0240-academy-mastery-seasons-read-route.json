@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [],
+  "readOnlyRoutes": [
+    {
+      "route": "/api/academy-mastery-seasons",
+      "sourcePath": "src/app/api/academy-mastery-seasons/route.ts",
+      "sourceHash": "278db333113213009c3b386b",
+      "issue": "#240",
+      "owner": "academy-platform",
+      "reason": "Mastery Seasons read model exposes personalized Academy recommendations only after strict session, tenant principal binding, rate limiting and private no-store controls.",
+      "controls": {
+        "classification": "authenticated",
+        "strictRevocation": true,
+        "rateLimit": true,
+        "verifiedPrincipal": true,
+        "tenantFromVerifiedContext": true,
+        "noStore": true,
+        "queryParameters": "none"
+      }
+    }
+  ]
+}

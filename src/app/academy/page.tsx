@@ -105,6 +105,22 @@ export default function AcademyPage() {
       <TrustStrip />
       <AcademyWorldClassUpgrade />
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/25 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.20),transparent_34%),linear-gradient(145deg,#03101f,#0f172a)] p-6 shadow-[0_24px_80px_rgba(34,211,238,.12)]">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-center">
+            <div>
+              <p className="text-xs font-black text-cyan-300">Mastery Seasons</p>
+              <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">بعد از ترم هفتم، مسیر آکادمی تمام نمی‌شود</h2>
+              <p className="mt-3 text-sm font-bold leading-8 text-slate-300">
+                Seasonهای اختصاصی تک‌پی ضعف‌های کاربر، اخبار و ابزارهای مهم روز، رفتار تمرینی در Trading Arena و رقابت سالم هم‌سطح را به مسیر رشد دائمی تبدیل می‌کنند.
+              </p>
+            </div>
+            <Link href="/academy/mastery-seasons" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">
+              مشاهده مسیر رشد بی‌پایان
+            </Link>
+          </div>
+        </div>
+      </section>
+      <section className="px-4 pb-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/25 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.20),transparent_34%),linear-gradient(145deg,#07111f,#0f172a)] p-6 shadow-[0_24px_80px_rgba(34,211,238,.12)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center">
             <div>
