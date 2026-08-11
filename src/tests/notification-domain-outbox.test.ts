@@ -219,8 +219,8 @@ test(
         [`academy-assessment:${studentId}:fa:1:${requestHash}`],
       );
       assert.deepEqual(
-        rows.rows.map((row) => [row.tenant_id, Number(row.count)]),
-        [[tenantA, 1], [tenantB, 1]],
+        new Map(rows.rows.map((row) => [row.tenant_id, Number(row.count)])),
+        new Map([[tenantA, 1], [tenantB, 1]]),
       );
     });
   },

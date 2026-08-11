@@ -27,6 +27,17 @@ export function stableId(prefix: string, input: string) {
   return `${prefix}-${digest}`;
 }
 
+function stableUuid(input: string) {
+  const digest = createHash("sha256").update(input).digest("hex");
+  return [
+    digest.slice(0, 8),
+    digest.slice(8, 12),
+    digest.slice(12, 16),
+    digest.slice(16, 20),
+    digest.slice(20, 32),
+  ].join("-");
+}
+
 export async function prepareLearningOsData(client: Queryable) {
   await assertRequiredDatabaseTables(client, [
     "learning_events",
@@ -162,7 +173,7 @@ function buildDefaultQuestions() {
       explanation: "رفتار حرفه‌ای یعنی تصمیم بر اساس برنامه، نه ترس یا طمع."
     }
   ];
-  return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableId("TQ", `${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`) })));
+  return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableUuid(`question:${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`) })));
 }
 
 export async function recordLearningEvent(client: Queryable, args: { studentId?: string | null; tenantId?: string; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {

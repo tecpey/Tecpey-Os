@@ -283,11 +283,11 @@ describe("CRM lead PostgreSQL authority", () => {
       [leadA.result.id, leadB.result.id],
     );
     assert.deepEqual(
-      states.rows.map((row) => [row.lead_id, row.tenant_id, row.status]),
-      [
-        [leadA.result.id, PLATFORM.DEFAULT_TENANT_ID, "pending"],
-        [leadB.result.id, tenantB, "processing"],
-      ],
+      new Map(states.rows.map((row) => [row.lead_id, [row.tenant_id, row.status]])),
+      new Map([
+        [leadA.result.id, [PLATFORM.DEFAULT_TENANT_ID, "pending"]],
+        [leadB.result.id, [tenantB, "processing"]],
+      ]),
     );
   });
 
