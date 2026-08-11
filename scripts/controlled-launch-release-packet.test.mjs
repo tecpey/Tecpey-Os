@@ -83,6 +83,36 @@ function completeFinalPacketArgs() {
   ];
 }
 
+function yamlBlock(source, indent, key) {
+  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const linePrefix = " ".repeat(indent);
+  const childPrefix = " ".repeat(indent + 2);
+  const match = source.match(
+    new RegExp(
+      `(?:^|\\n)${linePrefix}${escapedKey}:[^\\S\\n]*(?:\\n(?<body>(?:${childPrefix}.*(?:\\n|$))*))?`,
+    ),
+  );
+
+  return match?.groups?.body ?? "";
+}
+
+function yamlHasTrigger(workflow, trigger) {
+  return new RegExp(`(?:^|\\n)  ${trigger}:`).test(yamlBlock(workflow, 0, "on"));
+}
+
+function yamlTriggerBlock(workflow, trigger) {
+  return yamlBlock(yamlBlock(workflow, 0, "on"), 2, trigger);
+}
+
+function yamlTriggerTargetsMain(workflow, trigger) {
+  const triggerBlock = yamlTriggerBlock(workflow, trigger);
+
+  return (
+    /branches:\s*\[[^\]]*\bmain\b[^\]]*\]/.test(triggerBlock) ||
+    /branches:\s*\n(?: {6,}.*\n)* {6,}-\s*main\b/.test(triggerBlock)
+  );
+}
+
 function gitIn(cwd, args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -375,11 +405,16 @@ test("Full Suite Diagnostics workflow produces exact-head main evidence for NOG-
   const workflow = readFileSync(fullSuiteDiagnosticsWorkflow, "utf8");
 
   assert.match(workflow, /name: Full Suite Diagnostics/);
+  assert.equal(yamlHasTrigger(workflow, "push"), true);
+  assert.equal(yamlTriggerTargetsMain(workflow, "push"), true);
+  assert.equal(yamlHasTrigger(workflow, "pull_request"), true);
+  assert.equal(yamlTriggerTargetsMain(workflow, "pull_request"), true);
+  assert.equal(yamlHasTrigger(workflow, "workflow_dispatch"), true);
+  assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(
     workflow,
-    /on:\n  push:\n    branches: \[main\]\n  pull_request:\n    branches: \[main\]\n  workflow_dispatch:/,
+    /group: full-suite-diagnostics-\$\{\{ github\.event\.pull_request\.number \|\| github\.sha \}\}/,
   );
-  assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(workflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(workflow, /EXPECTED_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(workflow, /run: test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
