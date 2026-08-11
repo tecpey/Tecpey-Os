@@ -85,10 +85,10 @@ async function seedQuestionBank(client: Queryable) {
   for (const q of rows) {
     await client.query(
       `INSERT INTO academy_question_bank
-       (id, locale, term_number, lesson_slug, topic, cognitive_skill, difficulty, question, options, correct_option, explanation, approved)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,TRUE)
+       (id, locale, term_number, lesson_index, lesson_slug, topic, cognitive_skill, difficulty, question, options, correct_index, correct_option, explanation, approved)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12,$13,TRUE)
        ON CONFLICT (id) DO NOTHING`,
-      [q.id, q.locale, q.termNumber, q.lessonSlug, q.topic, q.skill, q.difficulty, q.question, JSON.stringify(q.options), q.correct, q.explanation],
+      [q.id, q.locale, q.termNumber, q.lessonIndex, q.lessonSlug, q.topic, q.skill, q.difficulty, q.question, JSON.stringify(q.options), q.correctIndex, q.correct, q.explanation],
     );
   }
 }
@@ -173,7 +173,7 @@ function buildDefaultQuestions() {
       explanation: "رفتار حرفه‌ای یعنی تصمیم بر اساس برنامه، نه ترس یا طمع."
     }
   ];
-  return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableUuid(`question:${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`) })));
+  return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableUuid(`question:${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`), lessonIndex: item.termNumber, correctIndex: ["A", "B", "C", "D"].indexOf(item.correct) })));
 }
 
 export async function recordLearningEvent(client: Queryable, args: { studentId?: string | null; tenantId?: string; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {
