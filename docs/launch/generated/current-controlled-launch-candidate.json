@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-11T13:24:18.000Z",
+  "generatedAt": "2026-08-11T13:55:55.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "866ff092828b15ef0e64c3508bf4904c6d22ba52",
+    "sha": "70894e0430ed4796016c9a0952dde8de06bc788a",
     "sourceBranch": "main",
-    "sourcePullRequest": 380,
-    "selectedAt": "2026-08-11T13:24:18Z",
-    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection and the PR #380 SHA-isolated evidence-run hardening after the support bundle hardening baseline."
+    "sourcePullRequest": 382,
+    "selectedAt": "2026-08-11T13:55:55Z",
+    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection, PR #380 SHA-isolated evidence-run hardening and PR #382 disabled-capability product-truth route guarding after the support bundle hardening baseline."
   },
   "supersedes": [
     {
@@ -50,6 +50,11 @@
       "sha": "db1f761d8fb543d1a3619ace901434b4636eeb4d",
       "previousRole": "current controlled-launch candidate after PR 378 exact-head Full Suite evidence collection",
       "currentStatus": "superseded_by_pr_380_for_new_exact_head_workflow_and_protected_staging_evidence_collection"
+    },
+    {
+      "sha": "866ff092828b15ef0e64c3508bf4904c6d22ba52",
+      "previousRole": "current controlled-launch candidate after PR 380 exact-head Full Suite hardening",
+      "currentStatus": "superseded_by_pr_382_for_new_product_truth_and_protected_staging_evidence_collection"
     }
   ],
   "activeInputs": {

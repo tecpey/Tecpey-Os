@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const SELECTED_SHA = "866ff092828b15ef0e64c3508bf4904c6d22ba52";
+const SELECTED_SHA = "70894e0430ed4796016c9a0952dde8de06bc788a";
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
