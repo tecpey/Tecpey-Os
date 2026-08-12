@@ -7,6 +7,7 @@
 **Candidate selected at:** `2026-08-12T03:51:09Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
+**Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -61,9 +62,11 @@ ambiguity this ledger is designed to remove.
 - Every new launch evidence artifact must record this exact 40-character SHA.
 - The deployed app checkout, workflow checkout, bundle manifest, `/api/health`
   commit and generated evidence JSON must all match this SHA.
-- If a later PR changes runtime, deployment, security, bundle, evidence or
-  launch-control behavior, this file and its generated JSON must be updated in a
-  separate candidate-promotion PR before evidence collection continues.
+- If a later PR changes runtime, deployment, security, bundle or launch-control
+  behavior, this file and its generated JSON must be updated in a separate
+  candidate-promotion PR before protected execution continues.
+- Documentation-only evidence attachments may preserve this runtime candidate
+  when they only record URLs, digests and dispositions for this exact SHA.
 - Historical evidence packets may stay in the repository, but they must not be
   presented as current final evidence unless regenerated and accepted for this
   SHA.
@@ -74,7 +77,7 @@ ambiguity this ledger is designed to remove.
 
 | Gate | Required before Go |
 | --- | --- |
-| Exact-head workflows | CI, Public Browser Golden Path, Full Suite, Sensitive Mutation, Repository Audit, Secret Scanning, API Security and Container Supply Chain evidence for this SHA. |
+| Exact-head workflows | Accepted for NOG-04 in `docs/launch/generated/exact-head-workflow-evidence-20260812.json`. |
 | Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
 | Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
 | Recovery and rollback | Backup/restore, reconciliation, rollback or approved forward-fix evidence for this SHA. |

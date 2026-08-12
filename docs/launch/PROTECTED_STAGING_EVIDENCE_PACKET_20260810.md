@@ -5,11 +5,12 @@
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Evidence branch:** `agent/runtime-image-digest-evidence`
+**Evidence branch:** `agent/exact-head-workflow-evidence-nog04`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
+**Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -44,7 +45,7 @@ evidence must match that same SHA.
 | NOG-01 | Protected staging activation evidence is missing | Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary. | docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md | Blocks controlled soft launch Go |
 | NOG-02 | Production-like environment configuration is not proven | Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values. | docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md | Blocks final packet |
 | NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `55f2e92bb8238de17e0809fe54c389476517f57b`: `sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
-| NOG-04 | Exact-head workflow URLs are not attached to a final manifest | Attach exact-head CI, repository audit, Public Browser Golden Path and secret scanning workflow URLs for the staging target SHA. | docs/launch/generated/controlled-soft-launch-rc-evidence-packet-20260810.json | Blocks final manifest |
+| NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback or forward-fix evidence is missing | Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks deployment safety |
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
@@ -113,6 +114,26 @@ This closes only the immutable runtime image digest blocker. It does not close
 protected staging, redacted env evidence, recovery reconciliation, rollback,
 incident readiness, accepted-risk sign-off, approval matrix, or the
 launch-disabled financial/enterprise capability blockers.
+
+## Exact-Head Workflow Evidence - 2026-08-12
+
+NOG-04 is accepted for exact-head workflow URL attachment only.
+
+| Workflow | Run | Disposition |
+|---|---|---|
+| CI | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911781` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Full Suite Diagnostics | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911951` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| API Security Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911808` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Sensitive Mutation Audit | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911818` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Repository Audit Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911907` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Public Browser Golden Path | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911856` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Container Supply Chain | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Full History Secret Scanning | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911749` | success on `55f2e92bb8238de17e0809fe54c389476517f57b` |
+
+This closes only the exact-head workflow URL blocker. Operational Recovery and
+product-domain recovery reconciliation remain under NOG-05, while protected
+staging activation and redacted environment proof remain under NOG-01 and
+NOG-02.
 
 ## Evidence Privacy Boundary
 
