@@ -272,10 +272,11 @@ for (const invariant of [
 
 for (const invariant of [
   "accepted-risk-signoff-evidence",
-  "NO_GO_NOG_08_ACCEPTED_RISK_REGISTER_CURRENT_SCOPE_ONLY",
-  "accepted_controlled_launch_risk_register_current",
+  "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
+  "prepared_owner_approval_required",
   "NOG-08",
-  "This evidence does not approve a Go decision",
+  "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
+  "accepted-risk owner sign-off",
   "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
 ]) {
   requireText("acceptedRiskEvidence", invariant, `accepted-risk evidence is missing invariant: ${invariant}`);
@@ -283,7 +284,9 @@ for (const invariant of [
 
 for (const invariant of [
   "Accepted-risk signoff evidence authority",
-  "accepted_controlled_launch_risk_register_current",
+  "prepared_owner_approval_required",
+  "requiredOwnerApprovalEvidence",
+  "currentEvidenceUrl",
   "evaluateAcceptedRiskRegisterAuthority",
   "NOG-08",
   "launch:accepted-risk-evidence:check",
@@ -375,12 +378,14 @@ for (const invariant of [
   "REQUIRED_CONTROLLED_LAUNCH_RISKS",
   "R-06",
   "evaluateAcceptedRiskRegisterAuthority",
-  "hasValidIsoReviewDate",
+  "parseIsoReviewDate",
+  "referenceDate",
   "splitMarkdownTableRow",
   "duplicate",
   "controlled-launch closure matrix is missing",
   "threshold must be measurable",
   "review date must be exact",
+  "review date ${parsedReviewDate.token} is stale",
 ]) {
   requireText("acceptedRiskAuthority", invariant, `accepted-risk authority policy is missing invariant: ${invariant}`);
 }
@@ -514,6 +519,7 @@ for (const invariant of [
   "accepted-risk register authority rejects phase-only review dates",
   "accepted-risk register authority rejects event-only review dates",
   "accepted-risk register authority rejects impossible calendar review dates",
+  "accepted-risk register authority rejects stale review dates",
   "accepted-risk register authority rejects duplicate controlled-launch risk rows",
   "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
   "accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows",

@@ -3,7 +3,8 @@ import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-
 
 const EVIDENCE_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
-const REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-09"];
+const REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const REFERENCE_DATE = process.env.TECPEY_ACCEPTED_RISK_REFERENCE_DATE ?? new Date().toISOString();
 
 const files = {
   evidence: EVIDENCE_PATH,
@@ -42,6 +43,12 @@ function requireArrayIncludes(label, values, expected) {
   }
 }
 
+function requireArrayNotIncludes(label, values, forbidden) {
+  if (!Array.isArray(values) || values.includes(forbidden)) {
+    failures.push(`${label} must not include ${forbidden}`);
+  }
+}
+
 function requireArrayIncludesText(label, values, expected) {
   if (!Array.isArray(values) || !values.some((value) => normalized(value).includes(normalized(expected)))) {
     failures.push(`${label} must include text ${expected}`);
@@ -61,15 +68,34 @@ function rejectText(label, text, token) {
 }
 
 requireEqual("evidence.schemaVersion", evidence.schemaVersion, 1);
-requireEqual("evidence.evidenceClass", evidence.evidenceClass, "accepted-risk-signoff-evidence");
+requireEqual("evidence.evidenceClass", evidence.evidenceClass, "accepted-risk-signoff-evidence-request");
 requireEqual(
   "evidence.decision",
   evidence.decision,
-  "NO_GO_NOG_08_ACCEPTED_RISK_REGISTER_CURRENT_SCOPE_ONLY",
+  "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
 );
+requireEqual("evidence.executionState", evidence.executionState, "prepared_owner_approval_required");
 requireEqual("evidence.selectedSha", evidence.selectedSha, candidate.currentCandidate?.sha);
-requireEqual("evidence.sourcePullRequest", evidence.sourcePullRequest, 388);
+requireEqual("evidence.sourcePullRequest", evidence.sourcePullRequest, 395);
 requireEqual("evidence.observedVia.provider", evidence.observedVia?.provider, "repository-local-authority");
+requireEqual("evidence.reviewFreshness.enforcedBy", evidence.reviewFreshness?.enforcedBy, "scripts/accepted-risk-register-authority-policy.mjs");
+requireEqual("evidence.reviewFreshness.earliestReviewDate", evidence.reviewFreshness?.earliestReviewDate, "2026-08-16");
+requireEqual("evidence.requiredOwnerApprovalEvidence.blocker", evidence.requiredOwnerApprovalEvidence?.blocker, "NOG-08");
+requireEqual("evidence.requiredOwnerApprovalEvidence.required", evidence.requiredOwnerApprovalEvidence?.required, true);
+requireEqual(
+  "evidence.requiredOwnerApprovalEvidence.requiredBeforeStatus",
+  evidence.requiredOwnerApprovalEvidence?.requiredBeforeStatus,
+  "accepted",
+);
+requireEqual("evidence.requiredOwnerApprovalEvidence.currentEvidenceUrl", evidence.requiredOwnerApprovalEvidence?.currentEvidenceUrl, null);
+requireEqual("evidence.requiredOwnerApprovalEvidence.currentState", evidence.requiredOwnerApprovalEvidence?.currentState, "missing");
+for (const invariant of [
+  "externally attributable repository-owner approval URL",
+  "signed Go/No-Go approval matrix URL",
+  "GitHub PR review approval by the accountable owner",
+]) {
+  requireArrayIncludes("evidence.requiredOwnerApprovalEvidence.allowedEvidence", evidence.requiredOwnerApprovalEvidence?.allowedEvidence, invariant);
+}
 requireEqual(
   "package launch:accepted-risk-evidence:check",
   packageJson.scripts?.["launch:accepted-risk-evidence:check"],
@@ -84,19 +110,19 @@ requireEqual(
   guard?.command,
   "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
 );
-requireEqual("evidence guard disposition", guard?.disposition, "pass");
+requireEqual("evidence guard disposition", guard?.disposition, "pass_no_acceptance_without_owner_approval");
 
-requireArrayIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-08");
+requireArrayNotIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-08");
+requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, "NOG-08");
 const nog08 = register.blockers?.find((entry) => entry.id === "NOG-08");
-requireEqual("NOG-08.status", nog08?.status, "accepted");
-requireEqual("NOG-08.executionState", nog08?.executionState, "accepted_controlled_launch_risk_register_current");
+requireEqual("NOG-08.status", nog08?.status, "open");
 requireEqual("NOG-08.evidence", nog08?.evidence, EVIDENCE_PATH);
-requireArrayIncludes(
+requireArrayNotIncludes(
   "register.acceptedEvidence",
   register.acceptedEvidence?.map((entry) => entry.id),
   "NOG-08",
 );
-requireArrayIncludes(
+requireArrayNotIncludes(
   "candidate.acceptedEvidence",
   candidate.acceptedEvidence?.map((entry) => entry.id),
   "NOG-08",
@@ -113,8 +139,8 @@ for (const risk of REQUIRED_RISKS) {
 }
 
 for (const invariant of [
-  "NOG-08 is accepted only as current controlled-launch accepted-risk register evidence",
-  "This evidence does not approve a Go decision",
+  "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
+  "owner approval evidence must be attached before NOG-08 can move to accepted",
   "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
 ]) {
   requireArrayIncludesText("evidence.acceptanceBoundary", evidence.acceptanceBoundary, invariant);
@@ -125,32 +151,34 @@ for (const invariant of [
   "recovery reconciliation evidence",
   "incident readiness evidence",
   "Go approval matrix",
+  "accepted-risk owner sign-off",
+  "NOG-08 closure evidence",
   "real-money Exchange activation",
 ]) {
   requireArrayIncludes("evidence.notAcceptedAs", evidence.notAcceptedAs, invariant);
 }
 
-failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks));
+failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: REFERENCE_DATE }));
 
 for (const invariant of [
   EVIDENCE_PATH,
-  "Accepted-risk sign-off evidence",
-  "Accepted-risk register evidence for NOG-08",
-  "Go remains blocked by protected staging, recovery reconciliation, incident readiness and approval evidence.",
+  "Accepted-risk owner sign-off evidence",
+  "Owner sign-off evidence for NOG-08 is still missing",
+  "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
 ]) {
   requireText("packet", source.packet, invariant);
 }
 
 for (const invariant of [
-  "Accepted-risk sign-off evidence",
-  "accepted-risk register evidence for NOG-08",
+  "Accepted-risk owner sign-off evidence",
+  "accepted-risk owner sign-off evidence",
 ]) {
   requireText("candidate ledger", source.candidateHuman, invariant);
 }
 
 for (const invariant of [
-  "Accepted-risk register evidence is accepted for NOG-08",
-  "Go remains blocked by protected staging, recovery reconciliation, incident readiness and approvals.",
+  "Accepted-risk owner sign-off evidence is missing",
+  "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.",
 ]) {
   requireText("checklist", source.checklist, invariant);
 }
@@ -177,5 +205,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Accepted-risk signoff evidence authority passed: NOG-08 is accepted only as current controlled-launch risk-register evidence, while Go remains blocked by staging, recovery, incident and approval evidence.",
+  "Accepted-risk signoff evidence authority passed: NOG-08 remains open until owner sign-off evidence is attached; stale review dates and false acceptance are blocked.",
 );

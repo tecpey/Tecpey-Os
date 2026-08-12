@@ -10,7 +10,7 @@
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
-**Accepted-risk sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
+**Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -86,7 +86,7 @@ ambiguity this ledger is designed to remove.
 | Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
-| Accepted risks and approvals | Accepted-risk register evidence for NOG-08 is recorded in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`; the Go approval matrix for this SHA and launch scope remains required. |
+| Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached; the Go approval matrix for this SHA and launch scope also remains required. |
 
 ## Decision
 
@@ -96,8 +96,10 @@ TecPey to Go.
 The disabled-capability attestation for NOG-10/NOG-11/NOG-12 is accepted only
 because those capabilities remain launch-disabled or product-disabled.
 
-The accepted-risk register evidence for NOG-08 is accepted only as current
-controlled-launch risk-register evidence. It does not approve a Go decision.
+The accepted-risk owner sign-off evidence for NOG-08 is still missing. This
+candidate only records the prepared risk-register/freshness guard; it does not
+approve a Go decision or close NOG-08.
 
 **Current decision: NO-GO until this exact candidate has complete accepted
-protected staging, recovery reconciliation, incident and approval evidence.**
+protected staging, recovery reconciliation, incident, accepted-risk owner
+sign-off and approval evidence.**

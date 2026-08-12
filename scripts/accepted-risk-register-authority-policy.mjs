@@ -19,17 +19,31 @@ function normalize(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function hasValidIsoReviewDate(value) {
+function parseIsoReviewDate(value) {
   const match = value.match(REVIEW_DATE_RE);
-  if (!match) return false;
+  if (!match) return null;
   const [year, month, day] = match[0].split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
 
-  return (
+  if (
     date.getUTCFullYear() === year &&
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day
-  );
+  ) {
+    return { date, token: match[0] };
+  }
+
+  return null;
+}
+
+function utcDay(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function formatUtcDay(date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function splitMarkdownTableRow(line) {
@@ -103,9 +117,15 @@ function extractClosureMatrix(markdown) {
   return { rows, failures: [] };
 }
 
-export function evaluateAcceptedRiskRegisterAuthority(markdown) {
+export function evaluateAcceptedRiskRegisterAuthority(markdown, options = {}) {
   const failures = [];
   const normalized = normalize(markdown);
+  const referenceDay =
+    options.referenceDate === undefined || options.referenceDate === null ? null : utcDay(options.referenceDate);
+
+  if (options.referenceDate !== undefined && options.referenceDate !== null && referenceDay === null) {
+    failures.push("accepted-risk authority referenceDate must be a valid date");
+  }
 
   for (const invariant of [
     "Controlled-launch closure update (2026-08-09)",
@@ -158,8 +178,15 @@ export function evaluateAcceptedRiskRegisterAuthority(markdown) {
     if (!owner.includes("+")) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} must have joint accountable owners`);
     }
-    if (!hasValidIsoReviewDate(reviewDate)) {
+    const parsedReviewDate = parseIsoReviewDate(reviewDate);
+    if (!parsedReviewDate) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} review date must be exact, not phase-only`);
+    } else if (referenceDay && parsedReviewDate.date < referenceDay) {
+      failures.push(
+        `docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} review date ${parsedReviewDate.token} is stale before ${formatUtcDay(
+          referenceDay,
+        )}`,
+      );
     }
     if (!/\b(?:NO-GO|halts?|pauses?|Disable|Remove|block|revert|incident|stays NO-GO)\b/i.test(rollback)) {
       failures.push(`docs/LAUNCH_ACCEPTED_RISKS.md: ${risk} rollback trigger must name a halt, pause, disablement, incident or NO-GO action`);
