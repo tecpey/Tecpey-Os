@@ -11,22 +11,37 @@ export type LandingGrowthCoin = CoinPage & {
 };
 
 export type LandingGrowthEvidenceStatus = "ready" | "degraded";
+export type LandingGrowthSourceAuthority =
+  | "news-impact-history:materialized"
+  | "news-impact-history:partial-seed-merged"
+  | "news-impact-history:seed-fallback";
 
 export type LandingGrowthEvidence = Readonly<{
   updatedAt: string;
-  sourceAuthority: "news-impact-history";
+  sourceAuthority: LandingGrowthSourceAuthority;
   requiredCoinCount: number;
   requiredToolCount: number;
   coinCount: number;
   toolCount: number;
   highPriorityNewsCount: number;
+  authorityHighPriorityNewsCount: number;
+  authorityFreshnessAgeMs: number | null;
   status: LandingGrowthEvidenceStatus;
+}>;
+
+export type LandingGrowthEvidenceInput = Readonly<{
+  sourceAuthority?: LandingGrowthSourceAuthority;
+  authorityUpdatedAt?: string | null;
+  authorityHighPriorityNewsCount?: number;
+  maxAuthorityAgeMs?: number;
+  now?: Date | string;
 }>;
 
 const REQUIRED_LANDING_COIN_COUNT = 5;
 const REQUIRED_LANDING_TOOL_COUNT = 5;
 const HIGH_PRIORITY_NEWS_THRESHOLD = 75;
 const LANDING_GROWTH_FALLBACK_UPDATED_AT = "2026-08-09T08:00:00.000Z";
+const LANDING_GROWTH_MAX_AUTHORITY_AGE_MS = 24 * 60 * 60 * 1000;
 
 function resolveLandingGrowthUpdatedAt(newsItems: NewsImpactHistoryItem[]) {
   const latest = newsItems
@@ -42,29 +57,48 @@ function buildLandingGrowthEvidence({
   coins,
   tools,
   newsItems,
+  input,
 }: {
   coins: LandingGrowthCoin[];
   tools: RankedTraderTool[];
   newsItems: NewsImpactHistoryItem[];
+  input?: LandingGrowthEvidenceInput;
 }): LandingGrowthEvidence {
   const highPriorityNewsCount = newsItems.filter(
     (item) => item.priority >= HIGH_PRIORITY_NEWS_THRESHOLD,
   ).length;
+  const sourceAuthority = input?.sourceAuthority ?? "news-impact-history:seed-fallback";
+  const authorityHighPriorityNewsCount = input?.authorityHighPriorityNewsCount ?? 0;
+  const authorityUpdatedAt = input?.authorityUpdatedAt ?? null;
+  const nowMs = input?.now ? Date.parse(String(input.now)) : Date.now();
+  const authorityUpdatedAtMs = authorityUpdatedAt ? Date.parse(authorityUpdatedAt) : Number.NaN;
+  const authorityFreshnessAgeMs = Number.isFinite(nowMs) && Number.isFinite(authorityUpdatedAtMs)
+    ? Math.max(0, nowMs - authorityUpdatedAtMs)
+    : null;
+  const maxAuthorityAgeMs = input?.maxAuthorityAgeMs ?? LANDING_GROWTH_MAX_AUTHORITY_AGE_MS;
+  const hasFreshMaterializedAuthority =
+    sourceAuthority === "news-impact-history:materialized" &&
+    authorityHighPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT &&
+    authorityFreshnessAgeMs !== null &&
+    authorityFreshnessAgeMs <= maxAuthorityAgeMs;
   const status =
     coins.length >= REQUIRED_LANDING_COIN_COUNT &&
     tools.length >= REQUIRED_LANDING_TOOL_COUNT &&
-    highPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT
+    highPriorityNewsCount >= REQUIRED_LANDING_COIN_COUNT &&
+    hasFreshMaterializedAuthority
       ? "ready"
       : "degraded";
 
   return {
     updatedAt: resolveLandingGrowthUpdatedAt(newsItems),
-    sourceAuthority: "news-impact-history",
+    sourceAuthority,
     requiredCoinCount: REQUIRED_LANDING_COIN_COUNT,
     requiredToolCount: REQUIRED_LANDING_TOOL_COUNT,
     coinCount: coins.length,
     toolCount: tools.length,
     highPriorityNewsCount,
+    authorityHighPriorityNewsCount,
+    authorityFreshnessAgeMs,
     status,
   };
 }
@@ -115,6 +149,7 @@ export function getLandingGrowthRadar(locale: ContentLocale) {
 export function getLandingGrowthRadarFromNewsItems(
   locale: ContentLocale,
   newsItems: NewsImpactHistoryItem[],
+  evidenceInput?: LandingGrowthEvidenceInput,
 ) {
   const tools = getFeaturedTraderTools(REQUIRED_LANDING_TOOL_COUNT);
   const coins = getFeaturedLandingCoinsFromNewsItems(
@@ -122,7 +157,12 @@ export function getLandingGrowthRadarFromNewsItems(
     newsItems,
     REQUIRED_LANDING_COIN_COUNT,
   );
-  const evidence = buildLandingGrowthEvidence({ coins, tools, newsItems });
+  const evidence = buildLandingGrowthEvidence({
+    coins,
+    tools,
+    newsItems,
+    input: evidenceInput,
+  });
 
   return {
     locale,

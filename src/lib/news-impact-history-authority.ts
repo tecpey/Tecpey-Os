@@ -31,6 +31,20 @@ type NewsImpactHistoryRow = {
   related_lesson_href: string;
 };
 
+export type NewsImpactHistoryAuthoritySource =
+  | "news-impact-history:materialized"
+  | "news-impact-history:partial-seed-merged"
+  | "news-impact-history:seed-fallback";
+
+export type NewsImpactHistoryAuthoritySnapshot = Readonly<{
+  items: NewsImpactHistoryItem[];
+  sourceAuthority: NewsImpactHistoryAuthoritySource;
+  persistedCount: number;
+  seededCount: number;
+  highPriorityPersistedCount: number;
+  latestPersistedRecordedAt: string | null;
+}>;
+
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -107,8 +121,41 @@ export async function getPostgresNewsImpactHistoryItems(
 export async function getNewsImpactHistoryItemsFromAuthority(
   locale?: ContentLocale,
 ): Promise<NewsImpactHistoryItem[]> {
+  const snapshot = await getNewsImpactHistoryAuthoritySnapshot(locale);
+  return snapshot.items;
+}
+
+export async function getNewsImpactHistoryAuthoritySnapshot(
+  locale?: ContentLocale,
+): Promise<NewsImpactHistoryAuthoritySnapshot> {
   const seeded = getNewsImpactHistoryItems(locale);
   const persisted = await getPostgresNewsImpactHistoryItems(locale);
-  if (persisted.length === 0) return seeded;
-  return mergeNewsImpactHistoryItems(persisted, seeded);
+  if (persisted.length === 0) {
+    return {
+      items: seeded,
+      sourceAuthority: "news-impact-history:seed-fallback",
+      persistedCount: 0,
+      seededCount: seeded.length,
+      highPriorityPersistedCount: 0,
+      latestPersistedRecordedAt: null,
+    };
+  }
+
+  const latestPersistedRecordedAt = persisted
+    .map((item) => Date.parse(item.recordedAt))
+    .filter((value) => Number.isFinite(value))
+    .sort((left, right) => right - left)[0];
+
+  return {
+    items: mergeNewsImpactHistoryItems(persisted, seeded),
+    sourceAuthority: persisted.length >= seeded.length
+      ? "news-impact-history:materialized"
+      : "news-impact-history:partial-seed-merged",
+    persistedCount: persisted.length,
+    seededCount: seeded.length,
+    highPriorityPersistedCount: persisted.filter((item) => item.priority >= 75).length,
+    latestPersistedRecordedAt: latestPersistedRecordedAt
+      ? new Date(latestPersistedRecordedAt).toISOString()
+      : null,
+  };
 }

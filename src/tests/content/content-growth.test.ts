@@ -27,6 +27,7 @@ import {
 } from "../../lib/landing-growth";
 import {
   buildNewsImpactItemListSchema,
+  getNewsImpactHistoryItems,
   getNewsImpactDetailPath,
   getHighPriorityNewsForCoin,
   getHighPriorityNewsForTool,
@@ -290,17 +291,34 @@ describe("Content growth entity contract", () => {
     assert.ok(faRadar.coins.every((coin) => coin.impactNews.priority >= 75));
     assert.ok(faRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/crypto-news/")));
     assert.ok(enRadar.coins.every((coin) => coin.newsDetailPath.startsWith("/en/crypto-news/")));
-    assert.equal(faRadar.evidence.status, "ready");
-    assert.equal(faRadar.evidence.sourceAuthority, "news-impact-history");
+    assert.equal(faRadar.evidence.status, "degraded");
+    assert.equal(faRadar.evidence.sourceAuthority, "news-impact-history:seed-fallback");
     assert.equal(faRadar.evidence.coinCount, 5);
     assert.equal(faRadar.evidence.toolCount, 5);
     assert.ok(faRadar.evidence.highPriorityNewsCount >= 5);
+    assert.equal(faRadar.evidence.authorityHighPriorityNewsCount, 0);
+    assert.equal(faRadar.evidence.authorityFreshnessAgeMs, null);
     assert.equal(faRadar.updatedAt, faRadar.evidence.updatedAt);
     assert.deepEqual(
       enRadar.tools.map((tool) => tool.slug),
       ["coinmarketcap", "tradingview", "coingecko", "coinglass", "cryptoquant"],
     );
     assert.ok(faRadar.coins.every((coin) => coin.impactRankScore >= 0.89));
+  });
+
+  it("marks the landing growth gate ready only with fresh materialized authority", () => {
+    const newsItems = getNewsImpactHistoryItems("fa");
+    const radar = getLandingGrowthRadarFromNewsItems("fa", newsItems, {
+      sourceAuthority: "news-impact-history:materialized",
+      authorityUpdatedAt: "2026-08-09T08:00:00.000Z",
+      authorityHighPriorityNewsCount: newsItems.filter((item) => item.priority >= 75).length,
+      now: "2026-08-09T08:04:00.000Z",
+    });
+
+    assert.equal(radar.evidence.status, "ready");
+    assert.equal(radar.evidence.sourceAuthority, "news-impact-history:materialized");
+    assert.equal(radar.evidence.authorityFreshnessAgeMs, 240000);
+    assert.ok(radar.evidence.authorityHighPriorityNewsCount >= 5);
   });
 
   it("builds landing ItemList schemas for featured coins and tools", () => {
@@ -525,7 +543,16 @@ describe("Content growth entity contract", () => {
       },
     ];
 
-    const radar = getLandingGrowthRadarFromNewsItems("en", mergeNewsImpactHistoryItems([persisted], seeded));
+    const radar = getLandingGrowthRadarFromNewsItems(
+      "en",
+      mergeNewsImpactHistoryItems([persisted], seeded),
+      {
+        sourceAuthority: "news-impact-history:partial-seed-merged",
+        authorityUpdatedAt: persisted.recordedAt,
+        authorityHighPriorityNewsCount: 1,
+        now: "2026-08-09T07:11:00.000Z",
+      },
+    );
 
     assert.equal(radar.coins[0].symbol, "BTC");
     assert.equal(radar.coins[0].latestImpactTitle, "Persisted Bitcoin ETF flows update");
@@ -535,6 +562,8 @@ describe("Content growth entity contract", () => {
     assert.equal(radar.evidence.coinCount, 1);
     assert.equal(radar.evidence.toolCount, 5);
     assert.equal(radar.evidence.highPriorityNewsCount, 1);
+    assert.equal(radar.evidence.authorityHighPriorityNewsCount, 1);
+    assert.equal(radar.evidence.authorityFreshnessAgeMs, 60000);
     assert.equal(radar.evidence.updatedAt, "2026-08-09T07:10:00.000Z");
   });
 
