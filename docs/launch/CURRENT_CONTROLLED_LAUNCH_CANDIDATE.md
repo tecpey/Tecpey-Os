@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `70894e0430ed4796016c9a0952dde8de06bc788a`
-**Candidate source:** `main` after PR #382
-**Candidate selected at:** `2026-08-11T13:55:55Z`
+**Current candidate SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
+**Candidate source:** `main` after PR #388
+**Candidate selected at:** `2026-08-12T03:51:09Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
@@ -23,14 +23,18 @@ so `main` evidence runs are isolated by SHA and the authority test no longer
 depends on one fragile YAML formatting layout. PR #382 hardened NOG-12 product
 truth by making the public swap surfaces explicitly educational/launch-gated
 and by adding route-level guards for disabled enterprise, white-label, rewards,
-exchange, deposit, withdrawal and custody pages. Because tenant isolation,
-launch-gated financial surfaces, support handoff, staging evidence collection,
-exact-head Full Suite evidence and product-truth route guards are all part of
-the launch decision boundary, the next evidence collection must use the SHA that
-contains those fixes:
+exchange, deposit, withdrawal and custody pages. PR #386 then added Academy
+mastery season review orchestration, PR #387 governed the public brand/action
+primitive contracts, and PR #388 added the landing discovery evidence contract
+so growth readiness cannot be reported as `ready` from seed-only fallback data.
+Because tenant isolation, launch-gated financial surfaces, support handoff,
+staging evidence collection, exact-head Full Suite evidence, product-truth route
+guards, Academy orchestration, governed UI primitives and provenance-aware
+growth evidence are all part of the launch decision boundary, the next evidence
+collection must use the SHA that contains those fixes:
 
 ```text
-70894e0430ed4796016c9a0952dde8de06bc788a
+55f2e92bb8238de17e0809fe54c389476517f57b
 ```
 
 Using older draft baselines for new staging/support evidence would recreate the
@@ -49,6 +53,7 @@ ambiguity this ledger is designed to remove.
 | `8a569aaa1ce7c99215a27acf86c078f4db0b494e` | Main after PR #377 staging evidence ledger promotion | Superseded by PR #378 for exact-head Full Suite evidence collection. |
 | `db1f761d8fb543d1a3619ace901434b4636eeb4d` | Current controlled-launch candidate after PR #378 exact-head Full Suite evidence collection | Superseded by PR #380 for all new exact-head workflow and protected staging evidence collection. |
 | `866ff092828b15ef0e64c3508bf4904c6d22ba52` | Current controlled-launch candidate after PR #380 exact-head Full Suite hardening | Superseded by PR #382 for all new product-truth, protected staging and exact-candidate evidence collection. |
+| `70894e0430ed4796016c9a0952dde8de06bc788a` | Current controlled-launch candidate after PR #382 product-truth route guarding | Superseded by PR #388 for all new Academy orchestration, governed UI, growth evidence, protected staging and exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
