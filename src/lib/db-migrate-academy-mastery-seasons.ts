@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_catalog (
   missions JSONB NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   catalog_version INTEGER NOT NULL DEFAULT 1 CHECK (catalog_version >= 1),
+  catalog_authority TEXT NOT NULL DEFAULT 'code-catalog-v1'
+    CHECK (catalog_authority IN ('code-catalog-v1', 'mentor_governed_generated_v1')),
+  published_draft_id UUID,
+  publication_review_id BIGINT,
+  published_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (season_id ~ '^[a-z0-9][a-z0-9-]{2,80}$'),
@@ -28,7 +33,15 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_catalog (
   CHECK (jsonb_typeof(signal_tags) = 'array'),
   CHECK (jsonb_array_length(signal_tags) BETWEEN 2 AND 30),
   CHECK (jsonb_typeof(missions) = 'array'),
-  CHECK (jsonb_array_length(missions) BETWEEN 3 AND 20)
+  CHECK (jsonb_array_length(missions) BETWEEN 3 AND 20),
+  CHECK (
+    catalog_authority = 'code-catalog-v1'
+    OR (
+      published_draft_id IS NOT NULL
+      AND publication_review_id IS NOT NULL
+      AND published_at IS NOT NULL
+    )
+  )
 );
 
 CREATE TABLE IF NOT EXISTS academy_student_mastery_profiles (
@@ -143,7 +156,7 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_generation_drafts (
   CHECK (jsonb_typeof(draft_payload) = 'object'),
   CHECK (jsonb_typeof(review_summary) = 'object'),
   CHECK (
-    status <> 'review_ready'
+    status NOT IN ('review_ready', 'approved', 'published')
     OR (
       source_count >= 2
       AND question_count >= 6
@@ -151,7 +164,7 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_generation_drafts (
       AND COALESCE(jsonb_array_length(review_summary->'violations'), 1) = 0
     )
   ),
-  CHECK (COALESCE(draft_payload->>'publishCapability', 'manual_review_required') = 'manual_review_required')
+  CHECK (COALESCE(draft_payload->>'publishCapability', 'mentor_governed_automation') = 'mentor_governed_automation')
 );
 
 CREATE INDEX IF NOT EXISTS academy_mastery_generation_drafts_lookup_idx
@@ -179,13 +192,16 @@ CREATE TABLE IF NOT EXISTS academy_mastery_season_generation_reviews (
   CHECK (policy_version ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{2,79}$'),
   CHECK (char_length(decision_notes) BETWEEN 20 AND 2000),
   CHECK (jsonb_typeof(evidence) = 'object'),
-  CHECK (decision IN ('reject', 'request_changes') OR reviewer_type = 'human')
+  CHECK (decision IN ('reject', 'request_changes') OR reviewer_type = 'mentor_ai')
 );
 
 CREATE INDEX IF NOT EXISTS academy_mastery_generation_reviews_draft_idx
   ON academy_mastery_season_generation_reviews(draft_id, decided_at DESC);
 CREATE INDEX IF NOT EXISTS academy_mastery_generation_reviews_tenant_idx
   ON academy_mastery_season_generation_reviews(tenant_id, workspace_id, decided_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS academy_mastery_generation_reviews_publish_once_idx
+  ON academy_mastery_season_generation_reviews(draft_id)
+  WHERE decision = 'publish';
 
 CREATE TABLE IF NOT EXISTS academy_mastery_season_progress_events (
   id BIGSERIAL PRIMARY KEY,
