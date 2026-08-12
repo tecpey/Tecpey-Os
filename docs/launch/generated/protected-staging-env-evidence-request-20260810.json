@@ -8,8 +8,8 @@
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
-    "runtimeCandidateBaselineSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "protectedStagingEvidenceTargetSha": "5d68865dd56331e011829749ee970d097e9b14a4",
+    "runtimeCandidateBaselineSha": "5d68865dd56331e011829749ee970d097e9b14a4",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
@@ -27,12 +27,12 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "release_sha": "5d68865dd56331e011829749ee970d097e9b14a4",
       "run_alert_probe": true
     },
     "envEvidenceWorkflowName": "Protected Staging Env Evidence",
     "envEvidenceWorkflowInputs": {
-      "release_sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "release_sha": "5d68865dd56331e011829749ee970d097e9b14a4",
       "environment_source": "protected_host_env_file"
     }
   },
@@ -99,7 +99,7 @@
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "workflowName": "Protected Staging Env Evidence",
     "workflowInputs": {
-      "release_sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "release_sha": "5d68865dd56331e011829749ee970d097e9b14a4",
       "environment_source": "protected_host_env_file"
     },
     "requiredArtifacts": [
