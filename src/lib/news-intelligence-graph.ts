@@ -1,4 +1,5 @@
 import type { ContentLocale } from "./content-growth";
+import { providerReadinessSummaryForDomain, type NewsProviderReadinessDecision } from "./news-provider-readiness";
 
 export const TECPEY_NEWS_INTELLIGENCE_GRAPH_POLICY_VERSION = "tecpey-news-intelligence-graph-v1";
 
@@ -24,6 +25,7 @@ export type NewsIntelligenceSource = {
   allowedForPersianEditorial: boolean;
   thumbnailPolicy: ThumbnailRightsPolicy;
   requiresAttribution: boolean;
+  providerReadiness: NewsProviderReadinessDecision;
 };
 
 export type NewsSocialLayer = {
@@ -78,6 +80,7 @@ export type NewsIntelligenceCandidate = {
 export type NewsIntelligenceGateReason =
   | "source_not_authorized"
   | "source_too_weak"
+  | "provider_not_enterprise_ready"
   | "canonical_url_not_https"
   | "source_url_not_https"
   | "invalid_publication_time"
@@ -199,6 +202,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "official_attribution",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("coindesk.com"),
   },
   {
     name: "Benzinga Crypto News API",
@@ -209,6 +213,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "licensed",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("benzinga.com"),
   },
   {
     name: "The Block",
@@ -219,6 +224,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "official_attribution",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("theblock.co"),
   },
   {
     name: "Decrypt",
@@ -229,6 +235,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "official_attribution",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("decrypt.co"),
   },
   {
     name: "Cointelegraph",
@@ -239,6 +246,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "official_attribution",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("cointelegraph.com"),
   },
   {
     name: "Official Project Source",
@@ -249,6 +257,7 @@ export const ENTERPRISE_NEWS_INTELLIGENCE_SOURCES: NewsIntelligenceSource[] = [
     allowedForPersianEditorial: true,
     thumbnailPolicy: "official_attribution",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain("official-project.example"),
   },
 ];
 
@@ -350,6 +359,7 @@ function sourceFallback(candidate: NewsIntelligenceCandidate): NewsIntelligenceS
     allowedForPersianEditorial: false,
     thumbnailPolicy: "blocked",
     requiresAttribution: true,
+    providerReadiness: providerReadinessSummaryForDomain(candidate.sourceUrl || candidate.canonicalUrl),
   };
 }
 
@@ -468,17 +478,26 @@ function buildReviews(
   reasons: NewsIntelligenceGateReason[],
 ): TecPeyCLevelAIReview[] {
   const hasRiskBlock = reasons.includes("financial_advice_or_signal") || reasons.includes("hype_or_profit_promise");
-  const hasSourceBlock = reasons.includes("source_not_authorized") || reasons.includes("source_too_weak");
+  const hasSourceBlock =
+    reasons.includes("source_not_authorized") ||
+    reasons.includes("source_too_weak") ||
+    reasons.includes("provider_not_enterprise_ready");
   const hasEditorialBlock =
     reasons.includes("persian_summary_missing") ||
     reasons.includes("persian_summary_too_short") ||
     reasons.includes("persian_summary_too_long");
 
   return [
-    reviewDossier("chief_data_officer_ai", !hasSourceBlock && duplicate.status === "unique", source.trustScore, [
-      `source:${source.domain}`,
-      `duplicate:${duplicate.status}`,
-    ]),
+    reviewDossier(
+      "chief_data_officer_ai",
+      !hasSourceBlock && source.providerReadiness.autoIngestionAllowed && duplicate.status === "unique",
+      Math.min(source.trustScore, source.providerReadiness.score),
+      [
+        `source:${source.domain}`,
+        `provider:${source.providerReadiness.status}`,
+        `duplicate:${duplicate.status}`,
+      ],
+    ),
     reviewDossier(
       "chief_market_intelligence_ai",
       candidate.entities.length > 0 && candidate.tags.length >= 2,
@@ -549,6 +568,7 @@ function collectGateReasons(
 
   if (!source || !source.allowedForPublicSummary || !source.allowedForPersianEditorial) reasons.push("source_not_authorized");
   else if (source.trustScore < 0.7) reasons.push("source_too_weak");
+  if (source && !source.providerReadiness.autoIngestionAllowed) reasons.push("provider_not_enterprise_ready");
   if (!isHttps(candidate.canonicalUrl)) reasons.push("canonical_url_not_https");
   if (!isHttps(candidate.sourceUrl)) reasons.push("source_url_not_https");
   if (!Number.isFinite(publishedAt)) reasons.push("invalid_publication_time");
@@ -580,6 +600,7 @@ function finalStatus(reasons: NewsIntelligenceGateReason[], reviews: TecPeyCLeve
   const hardBlocks: NewsIntelligenceGateReason[] = [
     "source_not_authorized",
     "source_too_weak",
+    "provider_not_enterprise_ready",
     "canonical_url_not_https",
     "source_url_not_https",
     "invalid_publication_time",
