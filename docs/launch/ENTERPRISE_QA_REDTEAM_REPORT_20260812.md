@@ -5,7 +5,7 @@
 **Audited tree:** `dce26fb79004797462666de7ebb6544bba6f6452`
 **Audit branch:** `agent/enterprise-qa-redteam-readme-20260812`
 **Current controlled-launch candidate ledger:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`
-**Current controlled-launch candidate SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
+**Controlled-launch candidate SHA at audit time:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Decision:** **NO-GO** for controlled Soft Launch until remaining operational evidence is accepted.
 **Hard boundary:** Real-money Exchange, custody, deposits, withdrawals, public financial rewards, enterprise activation and white-label activation remain **NO-GO**.
 
