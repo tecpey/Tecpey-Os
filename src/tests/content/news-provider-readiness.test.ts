@@ -23,6 +23,7 @@ function providerFixture(overrides: Partial<NewsProviderReadinessEvidence> = {})
     useCases: ["news_ingest", "thumbnail_media", "academy_grounding"],
     trustScore: 0.86,
     contractMode: "licensed_feed",
+    slaTier: "business_sla",
     redistribution: "licensed_excerpt",
     publicSummaryAllowed: true,
     persianEditorialAllowed: true,
