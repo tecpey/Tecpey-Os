@@ -287,6 +287,7 @@ for (const invariant of [
   "prepared_owner_approval_required",
   "requiredOwnerApprovalEvidence",
   "currentEvidenceUrl",
+  "evidence must not contain secrets, connection strings or host identifiers",
   "evaluateAcceptedRiskRegisterAuthority",
   "NOG-08",
   "launch:accepted-risk-evidence:check",

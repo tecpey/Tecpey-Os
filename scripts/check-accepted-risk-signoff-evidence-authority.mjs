@@ -195,6 +195,19 @@ for (const forbidden of [
   rejectText("checklist", source.checklist, forbidden);
 }
 
+const serializedEvidence = JSON.stringify(evidence);
+for (const forbidden of [
+  /postgres(?:ql)?:\/\//i,
+  /DATABASE_URL/i,
+  /BEGIN [A-Z ]*PRIVATE KEY/i,
+  /\bsk-[A-Za-z0-9_-]{20,}\b/,
+  /\b(?:\d{1,3}\.){3}\d{1,3}\b/,
+]) {
+  if (forbidden.test(serializedEvidence)) {
+    failures.push(`${files.evidence}: evidence must not contain secrets, connection strings or host identifiers`);
+  }
+}
+
 if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run launch:accepted-risk-evidence:check")) {
   failures.push("package.json: launch:decision:check must enforce accepted-risk evidence authority");
 }
