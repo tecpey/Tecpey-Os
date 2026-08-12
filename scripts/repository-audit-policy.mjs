@@ -137,7 +137,7 @@ const DOMAIN_RULES = [
     riskTier: "P2",
     reviewBatch: 10,
     patterns: [
-      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|tool-growth-automation|trading-tools-growth)\.ts$/,
+      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|tool-growth-automation|trading-tools-growth)\.ts$/,
     ],
   },
   {
