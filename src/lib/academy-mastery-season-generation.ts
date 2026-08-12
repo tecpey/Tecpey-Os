@@ -68,8 +68,8 @@ export type AcademyMasterySeasonDraftViolation = {
 
 export type AcademyMasterySeasonDraftReview = {
   policyVersion: typeof ACADEMY_MASTERY_SEASON_GENERATION_POLICY_VERSION;
-  status: "review_ready" | "rejected";
-  publishCapability: "manual_review_required";
+  status: "approved" | "rejected";
+  publishCapability: "mentor_governed_automation";
   sourceCount: number;
   questionCount: number;
   advancedObjectiveCount: number;
@@ -83,6 +83,8 @@ export type AcademyMasterySeasonGenerationContext = {
   arenaRiskFlags: string[];
   mentorTopicTags: string[];
   marketInterestTags: string[];
+  newsCenterEventTags?: string[];
+  exchangeReadinessFlags?: string[];
 };
 
 const ALLOWED_KIND = new Set<AcademyGeneratedMasterySeasonDraft["kind"]>([
@@ -151,18 +153,22 @@ export function buildAcademyMasterySeasonMentorDraftInstructions(
     arenaRiskFlags: boundedTags(context.arenaRiskFlags),
     mentorTopicTags: boundedTags(context.mentorTopicTags),
     marketInterestTags: boundedTags(context.marketInterestTags),
+    newsCenterEventTags: boundedTags(context.newsCenterEventTags ?? []),
+    exchangeReadinessFlags: boundedTags(context.exchangeReadinessFlags ?? []),
   };
 
   return [
-    "You are drafting an untrusted TecPey Academy Mastery Season candidate.",
+    "You are drafting a Mentor AI governed TecPey Academy Mastery Season candidate.",
     "Return JSON only. Do not include markdown, prose wrappers, or hidden comments.",
     `Policy version: ${ACADEMY_MASTERY_SEASON_GENERATION_POLICY_VERSION}.`,
-    "The draft is not allowed to publish itself. Set publishCapability to manual_review_required.",
+    "The draft is not allowed to publish itself. Set publishCapability to mentor_governed_automation; publication is controlled by Mentor AI governance, safety scoring, personalization evidence and audit logs.",
     "Allowed kind values: repair, market-update, arena-discipline. Do not draft cohort leagues.",
     "The draft must include at least two trusted HTTPS sources, three measurable objectives, three missions, and six total validated quiz questions.",
     "Every quiz question must be answerable: correctAnswer must exactly match one option for single/scenario questions.",
     "Never include profit promises, price targets, buy/sell/long/short signals, leverage culture, real_exchange_pnl, real_trade_volume, deposited_amount, leverage_used, paid_plan_status, or speed_without_accuracy.",
-    "Teach source review, risk controls, reflection, retrieval practice, and decision quality.",
+    "Personalize from prior Academy weaknesses, Trading Arena behavior, Mentor topics, News Center market events, and future consent-gated exchange readiness signals.",
+    "Convert latest news and market challenges into pre-trade education, scenario quizzes, risk checklists, and decision-quality practice, not trade advice.",
+    "Teach source review, risk controls, reflection, retrieval practice, and professional decision quality.",
     `Learner signal summary: ${JSON.stringify(safeContext)}.`,
   ].join("\n");
 }
@@ -306,13 +312,20 @@ function validateMissions(
 }
 
 export function reviewGeneratedAcademyMasterySeasonDraft(
-  draft: AcademyGeneratedMasterySeasonDraft,
+  draftValue: unknown,
 ): AcademyMasterySeasonDraftReview {
   const violations: AcademyMasterySeasonDraftViolation[] = [];
+  const draft = record(draftValue) as unknown as AcademyGeneratedMasterySeasonDraft;
 
   if (!ID_PATTERN.test(text(draft.id))) add(violations, "season_id_invalid", "season id is invalid");
   if (!ALLOWED_KIND.has(draft.kind)) {
     add(violations, "season_kind_invalid", "AI generation may only draft repair, market-update or arena-discipline seasons");
+  }
+  if (
+    record(draftValue).publishCapability !== undefined &&
+    record(draftValue).publishCapability !== "mentor_governed_automation"
+  ) {
+    add(violations, "publish_capability_invalid", "generated drafts may only request Mentor-governed automation");
   }
   if (text(draft.titleFa).length < 8) add(violations, "title_fa_weak", "Persian title is too weak");
   if (text(draft.titleEn).length < 8) add(violations, "title_en_weak", "English title is too weak");
@@ -354,8 +367,8 @@ export function reviewGeneratedAcademyMasterySeasonDraft(
 
   return {
     policyVersion: ACADEMY_MASTERY_SEASON_GENERATION_POLICY_VERSION,
-    status: violations.length === 0 ? "review_ready" : "rejected",
-    publishCapability: "manual_review_required",
+    status: violations.length === 0 ? "approved" : "rejected",
+    publishCapability: "mentor_governed_automation",
     sourceCount,
     questionCount,
     advancedObjectiveCount,

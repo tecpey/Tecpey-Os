@@ -767,35 +767,6 @@ html[dir="rtl"] .rtl-flip {
   scrollbar-width: none;  
 }
 
-/* TecPey Enterprise Landing Upgrade */
-.tecpey-enterprise {
-  --tp-bg: #f7fbff;
-  --tp-surface: #eef6ff;
-  --tp-card: rgba(255, 255, 255, 0.82);
-  --tp-text: #06111f;
-  --tp-muted: #475569;
-  --tp-primary: #075eab;
-  --tp-primary-2: #08d9d6;
-  --tp-border: rgba(15, 23, 42, 0.10);
-  color: var(--tp-text);
-  isolation: isolate;
-}
-
-.dark .tecpey-enterprise {
-  --tp-bg: #06111f;
-  --tp-surface: #081827;
-  --tp-card: rgba(15, 23, 42, 0.76);
-  --tp-text: #f8fafc;
-  --tp-muted: #94a3b8;
-  --tp-primary: #06b6d4;
-  --tp-primary-2: #22d3ee;
-  --tp-border: rgba(255, 255, 255, 0.10);
-}
-
-.tecpey-enterprise * {
-  -webkit-tap-highlight-color: transparent;
-}
-
 .tecpey-enterprise .line-clamp-1 {
   display: -webkit-box;
   -webkit-line-clamp: 1;

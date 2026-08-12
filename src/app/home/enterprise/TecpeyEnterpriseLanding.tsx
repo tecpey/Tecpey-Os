@@ -201,11 +201,11 @@ function Hero() {
             آموزش، قیمت‌های مرجع، تمرین مجازی و منتور آموزشی برای شروع آرام، امن و بدون سیگنال‌فروشی.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
-            <Link href={exchangeHref} className="group inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:shadow-2xl sm:text-base">
+            <Link href={exchangeHref} className="tecpey-action-primary group sm:text-base">
               ورود به صرافی
               <ArrowLeft className="h-5 w-5 transition group-hover:-translate-x-1" />
             </Link>
-            <Link href={academyHref} className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white/70 px-6 py-4 text-sm font-black text-[color:var(--tp-text)] backdrop-blur transition hover:bg-white dark:bg-white/5 dark:hover:bg-white/10 sm:text-base">
+            <Link href={academyHref} className="tecpey-action-secondary sm:text-base">
               آکادمی رایگان
               <LineChart className="h-5 w-5 text-[color:var(--tp-primary)]" />
             </Link>
@@ -275,11 +275,11 @@ function TopDiscoveryGateway({
                 </span>
               </div>
             )}
-            <Link href="/coins" className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-xs font-black text-cyan-700 transition hover:border-cyan-300/55 hover:bg-cyan-400/15 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:text-cyan-100">
+            <Link href="/coins" className="tecpey-action-ghost tecpey-action-compact">
               <Coins className="h-4 w-4" aria-hidden="true" />
               همه رمزارزها
             </Link>
-            <Link href="/trading-tools" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-[color:var(--tp-primary)] px-4 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-cyan-300/60">
+            <Link href="/trading-tools" className="tecpey-action-primary tecpey-action-compact">
               <Wrench className="h-4 w-4" aria-hidden="true" />
               تب ابزارها
             </Link>
