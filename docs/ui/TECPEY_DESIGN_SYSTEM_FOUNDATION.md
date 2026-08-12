@@ -56,6 +56,20 @@ Required token families:
 
 New page work should use tokens before raw hex values. Raw colors are acceptable only for third-party chart constraints, external asset previews, or a documented exception.
 
+The current foundation also exposes shared runtime primitives:
+
+| Primitive | Use |
+| --- | --- |
+| `.tecpey-enterprise` | Page-level governed surface with TP tokens, focus ring and brand scope |
+| `.tecpey-card` | Token-backed repeated entity cards and framed content blocks |
+| `.tecpey-kicker` | Small brand/context label when a label is necessary |
+| `.tecpey-action-primary` | Primary CTA with TP color, press feedback and reduced-motion behavior |
+| `.tecpey-action-secondary` | Secondary CTA on public/lightweight surfaces |
+| `.tecpey-action-ghost` | Low-emphasis action for filters, navigation and detail links |
+| `.tecpey-pressable` | Transform-only press feedback for existing custom elements |
+
+`scripts/check-ui-style-authority.mjs` is the enforcement gate. It rejects duplicate core TP token declarations in `globals.css`, verifies light/dark token coverage, requires the active landing to consume TP tokens, and requires shared public content surfaces to use the governed primitives. Page redesign PRs must extend this gate instead of bypassing it with per-page style islands.
+
 ## Page Family Direction
 
 | Page Family | UX Goal | Required Shared Modules |
