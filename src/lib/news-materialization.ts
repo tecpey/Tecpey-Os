@@ -235,7 +235,7 @@ function buildTags(decision: NewsAutomationDecision): string[] {
     tags.add("market-structure");
   }
   if (/security|hack|phishing|exploit|امنیت|هک|فیشینگ/i.test(text)) tags.add("security-risk");
-  if (/risk|liquidation|funding|open interest|ریسک|لیکوئید|فاندینگ/i.test(text)) {
+  if (/liquidation|funding|open interest|لیکوئید|فاندینگ/i.test(text)) {
     tags.add("risk-management");
   }
   if (decision.article.relatedLessonHref.includes("academy")) tags.add("academy-linked");
@@ -298,6 +298,7 @@ function materializeDossier(dossier: NewsIntelligenceDossier): MaterializedNewsD
     coinDiscoveries: dossier.coinDiscoveries,
   };
 }
+
 export function materializeNewsAutomationDecisions(
   decisions: NewsAutomationDecision[],
   options: MaterializeNewsAutomationOptions = {},
