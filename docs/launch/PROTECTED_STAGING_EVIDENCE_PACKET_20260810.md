@@ -62,6 +62,19 @@ evidence must match that same SHA.
 | NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
 | NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Accepted for controlled launch only while enterprise, white-label and public rewards stay disabled, absent or explicitly gated by route/env/UI/copy guards. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Expanded launch scope remains NO-GO; controlled public launch is not blocked while disabled |
 
+## Open Blocker Tracking
+
+These GitHub issues are the live execution handoff for the blockers that remain
+open. They do not replace the machine verifiers or evidence artifacts.
+
+| ID | Tracking issue | Scope |
+|---|---|---|
+| NOG-01/NOG-02 | https://github.com/tecpey/Tecpey-Os/issues/365 | Protected staging activation and redacted production-like env evidence |
+| NOG-05 | https://github.com/tecpey/Tecpey-Os/issues/407 | Protected staging recovery reconciliation |
+| NOG-07 | https://github.com/tecpey/Tecpey-Os/issues/408 | Protected incident readiness drill |
+| NOG-08 | https://github.com/tecpey/Tecpey-Os/issues/409 | Accepted-risk owner sign-off evidence |
+| NOG-09 | https://github.com/tecpey/Tecpey-Os/issues/410 | Final Go approval matrix |
+
 ## First Execution Slice
 
 The next engineering/operations slice should close **NOG-01** and **NOG-02**
