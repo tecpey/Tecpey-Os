@@ -643,6 +643,16 @@ export function buildNewsIntelligenceDossier(
   };
 }
 
+function mergeCoinDiscoveryStatus(left: CoinDiscoveryStatus, right: CoinDiscoveryStatus): CoinDiscoveryStatus {
+  const priority: Record<CoinDiscoveryStatus, number> = {
+    trending: 4,
+    educational_listed: 3,
+    manual_review_required: 2,
+    watchlist: 1,
+  };
+  return priority[right] > priority[left] ? right : left;
+}
+
 export function rankDailyCoinDiscoveries(dossiers: NewsIntelligenceDossier[], limit = 5): DailyCoinDiscovery[] {
   const bySymbol = new Map<string, DailyCoinDiscovery>();
 
@@ -656,14 +666,7 @@ export function rankDailyCoinDiscoveries(dossiers: NewsIntelligenceDossier[], li
       }
       bySymbol.set(discovery.symbol, {
         ...existing,
-        status:
-          existing.status === "trending" || discovery.status === "trending"
-            ? "trending"
-            : existing.status === "educational_listed" || discovery.status === "educational_listed"
-              ? "educational_listed"
-              : existing.status === "manual_review_required" || discovery.status === "manual_review_required"
-                ? "manual_review_required"
-                : "watchlist",
+        status: mergeCoinDiscoveryStatus(existing.status, discovery.status),
         sourceCount: existing.sourceCount + discovery.sourceCount,
         newsCount: existing.newsCount + discovery.newsCount,
         audienceScore: roundScore(Math.max(existing.audienceScore, discovery.audienceScore)),
