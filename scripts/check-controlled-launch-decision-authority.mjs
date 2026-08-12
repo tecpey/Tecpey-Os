@@ -18,6 +18,7 @@ const files = {
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
+  rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
@@ -235,6 +236,7 @@ for (const [target, label] of [
 for (const invariant of [
   '"launch:packet"',
   '"launch:disabled-capabilities:check"',
+  '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
   '"test:disabled-capability-attestation"',
@@ -242,12 +244,14 @@ for (const invariant of [
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
+  "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/controlled-launch-evidence-manifest.mjs",
   "scripts/controlled-launch-evidence-manifest.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
+  "npm run launch:rollback-evidence:check",
   "npm run launch:workflow-evidence:check",
   "npm run launch:disabled-capabilities:check",
   "npm run test:disabled-capability-attestation",
@@ -404,6 +408,17 @@ for (const invariant of [
   "NOG-02",
 ]) {
   requireText("workflowEvidenceAuthority", invariant, `exact-head workflow evidence authority is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "rollback-volume-restore-evidence",
+  "NO_GO_NOG_06_ACCEPTED_EPHEMERAL_ROLLBACK_VOLUME_RESTORE_ONLY",
+  "accepted_ephemeral_rollback_volume_restore",
+  "container-recovery-",
+  "previous-release-served",
+  "NOG-05",
+]) {
+  requireText("rollbackEvidenceAuthority", invariant, `rollback evidence authority is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [

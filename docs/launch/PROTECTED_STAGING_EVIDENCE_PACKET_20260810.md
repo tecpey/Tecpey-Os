@@ -1,7 +1,7 @@
 # Protected Staging Evidence Packet - 2026-08-10
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
-**Decision:** NO-GO until protected staging, recovery, rollback, incident, risk and approval evidence is accepted  
+**Decision:** NO-GO until protected staging, recovery reconciliation, incident, risk and approval evidence is accepted  
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
@@ -11,6 +11,7 @@
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
+**Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -33,7 +34,7 @@ evidence must match that same SHA.
 
 | Scope | Decision | Reason |
 |---|---|---|
-| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery, rollback, incident readiness and approvals are not yet accepted. |
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery reconciliation, incident readiness and approvals are not yet accepted. |
 | Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
 | Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
 | Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
@@ -47,7 +48,7 @@ evidence must match that same SHA.
 | NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `55f2e92bb8238de17e0809fe54c389476517f57b`: `sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
 | NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
-| NOG-06 | Rollback or forward-fix evidence is missing | Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks deployment safety |
+| NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
 | NOG-08 | Accepted-risk sign-off is not final evidence | Attach owner-approved accepted-risk sign-off for this exact candidate, including review dates, thresholds, user communication and rollback triggers. | docs/LAUNCH_ACCEPTED_RISKS.md | Blocks executive decision |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
@@ -110,9 +111,9 @@ NOG-03 is accepted for immutable runtime image identity only.
 | Release artifact digest | `sha256:db0a734eeae399a5b7ab5fea3d0daa6d76958e93d74bbf11db6e199062fc4b08` |
 | Signature verification | Cosign verification records issuer `https://token.actions.githubusercontent.com`, subject `.github/workflows/container-supply-chain.yml@refs/heads/main`, workflow SHA `55f2e92bb8238de17e0809fe54c389476517f57b`, and docker manifest digest matching the image digest above. |
 
-This closes only the immutable runtime image digest blocker. It does not close
-protected staging, redacted env evidence, recovery reconciliation, rollback,
-incident readiness, accepted-risk sign-off, approval matrix, or the
+This closes only the immutable runtime image digest blocker. It did not close
+protected staging, redacted env evidence, recovery reconciliation, incident
+readiness, accepted-risk sign-off, approval matrix, or the
 launch-disabled financial/enterprise capability blockers.
 
 ## Exact-Head Workflow Evidence - 2026-08-12
@@ -134,6 +135,27 @@ This closes only the exact-head workflow URL blocker. Operational Recovery and
 product-domain recovery reconciliation remain under NOG-05, while protected
 staging activation and redacted environment proof remain under NOG-01 and
 NOG-02.
+
+## Rollback/Volume-Restore Evidence - 2026-08-12
+
+NOG-06 is accepted for exact-candidate ephemeral rollback and synthetic
+PostgreSQL/Redis volume-restore mechanics only.
+
+| Field | Evidence |
+|---|---|
+| Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Previous release SHA | `e51f591b1af3195c625a839cbe8212b1720a0f9c` |
+| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811` |
+| Rollback job | `Ephemeral staging rollback and volume restore`, job `93999940637`, success |
+| Recovery artifact | `container-recovery-55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Recovery artifact digest | `sha256:f2de21d7bdcd9c7467d77f0a337d7e0fd1b89f764c7208e31bfba0c3eb2f6378` |
+| Rollback result | candidate image served, previous-release image served after rollback |
+| Volume-restore verifier | `scripts/verify-operational-recovery-evidence.mjs` passed for the candidate SHA |
+| RTO sample | synthetic CI recovery completed in `5124ms` under the `300s` maximum |
+
+This closes only the rollback/volume-restore mechanics blocker. Protected
+staging activation and redacted env evidence remain under NOG-01/NOG-02, and
+protected staging domain recovery reconciliation remains under NOG-05.
 
 ## Evidence Privacy Boundary
 
