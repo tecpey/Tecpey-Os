@@ -4,7 +4,7 @@
   "generatedAt": "2026-08-12T07:38:00.000Z",
   "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
   "executionState": "prepared_owner_approval_required",
-  "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+  "selectedSha": "5d68865dd56331e011829749ee970d097e9b14a4",
   "sourceBranch": "main",
   "sourcePullRequest": 395,
   "requestPath": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
@@ -13,7 +13,7 @@
   "requiredEnvironment": "release-control",
   "contract": "docs/LAUNCH_ACCEPTED_RISKS.md",
   "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
-  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 5d68865dd56331e011829749ee970d097e9b14a4",
   "authorityGuard": "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "reviewFreshness": {
     "referenceDate": "2026-08-12",
@@ -42,7 +42,7 @@
       },
       {
         "name": "ops:accepted-risk:evidence:verify",
-        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5d68865dd56331e011829749ee970d097e9b14a4",
         "disposition": "required_for_final_artifact"
       },
       {
@@ -68,7 +68,7 @@
     "authority": "tecpey-accepted-risk-owner-signoff-v1",
     "evidenceClass": "controlled-soft-launch-accepted-risk-owner-signoff",
     "environment": "release-control",
-    "sourceSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "sourceSha": "5d68865dd56331e011829749ee970d097e9b14a4",
     "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
     "allowedSurfaces": [
       "public-fa-en",
@@ -129,7 +129,7 @@
     },
     {
       "name": "ops:accepted-risk:evidence:verify",
-      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5d68865dd56331e011829749ee970d097e9b14a4",
       "disposition": "required_for_final_artifact"
     },
     {
