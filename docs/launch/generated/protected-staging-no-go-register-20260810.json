@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-no-go-register",
-  "generatedAt": "2026-08-12T03:51:09.000Z",
+  "generatedAt": "2026-08-12T04:49:00.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "stagingEvidenceTargetSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
   "runtimeCandidateBaselineSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
-  "currentMainShaAfterRcPacketMerge": "292719e9fd89e31f190baf2fc8988a1036502b38",
+  "currentMainShaAfterRcPacketMerge": "c652cf0a5c57bba1e20a072c7b0874cc6a97b61f",
   "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-  "evidenceBranch": "agent/protected-staging-env-evidence-target",
+  "evidenceBranch": "agent/runtime-image-digest-evidence",
   "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "privacyBoundary": [
     "register contains release identifiers, paths, closure actions and authority references only",
@@ -39,11 +39,17 @@
     {
       "order": 3,
       "id": "NOG-03",
-      "title": "Immutable runtime image digest is missing",
-      "status": "open",
-      "closureAction": "Build or identify the exact container/runtime image for the staging target SHA and record a SHA-256 image digest.",
+      "title": "Immutable runtime image digest is recorded",
+      "status": "accepted",
+      "acceptedAt": "2026-08-12T04:49:00Z",
+      "executionState": "accepted_exact_candidate_container_release_digest",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+      "imageDigest": "sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365",
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811",
+      "artifactDigest": "sha256:db0a734eeae399a5b7ab5fea3d0daa6d76958e93d74bbf11db6e199062fc4b08",
+      "closureAction": "Accepted for immutable runtime image identity only; preserve the container release artifact and signature verification for the exact staging target SHA.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "launchImpact": "Blocks exact release identity"
+      "launchImpact": "Exact release identity recorded; Go remains blocked by remaining operational evidence"
     },
     {
       "order": 4,
@@ -141,6 +147,17 @@
       "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
       "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
       "privacyBoundary": "redacted evidence only"
+    }
+  ],
+  "acceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "imageDigest": "sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811",
+      "containerReleaseArtifactDigest": "sha256:db0a734eeae399a5b7ab5fea3d0daa6d76958e93d74bbf11db6e199062fc4b08"
     }
   ],
   "recommendedNextSlice": {
