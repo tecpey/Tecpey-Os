@@ -37,7 +37,7 @@ Blocked thumbnail rights, non-HTTPS URLs, weak/unapproved sources, missing Persi
 | `social_signal` | Verified X/Telegram/Reddit/YouTube/forum sources | Secondary attention/sentiment evidence only |
 | `watchlist` | Unknown or low-evidence sources | Never auto-publish |
 
-Provider onboarding must verify rights, region availability, redistribution limits, rate limits, retention/privacy terms, and financial-use permissions before enabling live ingestion.
+Provider onboarding must verify rights, region availability, redistribution limits, rate limits, retention/privacy terms, financial-use permissions and continuity fallback before enabling live ingestion. The deterministic authority is `src/lib/news-provider-readiness.ts`; non-ready providers trigger `provider_not_enterprise_ready` and cannot auto-publish.
 
 ## Dedupe and Story Chain
 
@@ -121,7 +121,7 @@ The current materialization bridge stores dossier evidence in the existing snaps
 
 ## Integration Roadmap
 
-1. Connect live provider adapters to this authority module.
+1. Connect live provider adapters to `src/lib/news-provider-readiness.ts` and this graph authority module.
 2. Persist dossiers, graph edges, source cards, and coin discovery records in PostgreSQL.
 3. Expose review queue for human owner decisions.
 4. Render source cards in the News detail UI.
