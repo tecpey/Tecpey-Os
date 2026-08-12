@@ -163,6 +163,18 @@
   color: var(--tp-primary);
 }
 
+.tecpey-action-compact {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+}
+
+.tecpey-action-primary:active,
+.tecpey-action-secondary:active,
+.tecpey-action-ghost:active {
+  transform: scale(0.98);
+}
+
 .tecpey-tabular {
   font-variant-numeric: tabular-nums;
 }

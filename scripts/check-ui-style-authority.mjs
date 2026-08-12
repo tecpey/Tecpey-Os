@@ -79,6 +79,8 @@ for (const required of [
   ".tecpey-action-primary",
   ".tecpey-action-secondary",
   ".tecpey-action-ghost",
+  ".tecpey-action-compact",
+  ".tecpey-action-primary:active",
   "@media (hover: hover) and (pointer: fine)",
   "@media (prefers-reduced-motion: reduce)",
 ]) {

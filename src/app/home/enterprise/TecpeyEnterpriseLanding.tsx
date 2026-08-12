@@ -252,11 +252,11 @@ function TopDiscoveryGateway({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/coins" className="tecpey-action-ghost min-h-11 px-4 py-2 text-xs">
+            <Link href="/coins" className="tecpey-action-ghost tecpey-action-compact">
               <Coins className="h-4 w-4" aria-hidden="true" />
               همه رمزارزها
             </Link>
-            <Link href="/trading-tools" className="tecpey-action-primary min-h-11 px-4 py-2 text-xs">
+            <Link href="/trading-tools" className="tecpey-action-primary tecpey-action-compact">
               <Wrench className="h-4 w-4" aria-hidden="true" />
               تب ابزارها
             </Link>
