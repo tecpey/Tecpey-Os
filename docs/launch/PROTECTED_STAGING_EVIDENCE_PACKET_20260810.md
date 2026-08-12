@@ -2,10 +2,10 @@
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
 **Decision:** NO-GO until protected staging, recovery, rollback, incident, risk and approval evidence is accepted  
-**Staging evidence target SHA:** `70894e0430ed4796016c9a0952dde8de06bc788a`
-**Runtime candidate baseline:** `70894e0430ed4796016c9a0952dde8de06bc788a`
+**Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
+**Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Evidence branch:** `agent/protected-staging-no-go-evidence-packet`  
+**Evidence branch:** `agent/promote-candidate-after-growth-evidence`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 
@@ -14,11 +14,13 @@ RC evidence packet. It converts the remaining NO-GO decision into an execution
 register that can be closed one blocker at a time.
 
 The staging evidence target is the current candidate selected in
-`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #382 hardened
-NOG-12 product truth and disabled route guards on top of PR #380's exact-head
-Full Suite Diagnostics hardening, PR #378's post-merge evidence trigger, PR
-#376's protected staging environment evidence automation, PR #375's candidate
-lineage guard and PR #373's tenant-isolation proof package. Older PR #380, PR
+`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #388 added
+provenance-aware landing growth evidence on top of PR #387's governed UI
+primitive contracts, PR #386's Academy mastery season review orchestration, PR
+#382's NOG-12 product truth and disabled route guards, PR #380's exact-head Full
+Suite Diagnostics hardening, PR #378's post-merge evidence trigger, PR #376's
+protected staging environment evidence automation, PR #375's candidate lineage
+guard and PR #373's tenant-isolation proof package. Older PR #382, PR #380, PR
 #378, PR #376, PR #373, PR #367, PR #358 and first RC-packet SHAs remain
 historical draft baselines only.
 Any staging deployment must record which SHA was deployed, and health/runtime

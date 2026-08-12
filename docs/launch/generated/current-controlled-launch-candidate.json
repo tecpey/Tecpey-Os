@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-11T13:55:55.000Z",
+  "generatedAt": "2026-08-12T03:51:09.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "70894e0430ed4796016c9a0952dde8de06bc788a",
+    "sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
     "sourceBranch": "main",
-    "sourcePullRequest": 382,
-    "selectedAt": "2026-08-11T13:55:55Z",
-    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection, PR #380 SHA-isolated evidence-run hardening and PR #382 disabled-capability product-truth route guarding after the support bundle hardening baseline."
+    "sourcePullRequest": 388,
+    "selectedAt": "2026-08-12T03:51:09Z",
+    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection, PR #380 SHA-isolated evidence-run hardening, PR #382 disabled-capability product-truth route guarding, PR #386 Academy mastery season review orchestration, PR #387 governed brand/action primitives and PR #388 provenance-aware landing growth evidence after the support bundle hardening baseline."
   },
   "supersedes": [
     {
@@ -55,6 +55,11 @@
       "sha": "866ff092828b15ef0e64c3508bf4904c6d22ba52",
       "previousRole": "current controlled-launch candidate after PR 380 exact-head Full Suite hardening",
       "currentStatus": "superseded_by_pr_382_for_new_product_truth_and_protected_staging_evidence_collection"
+    },
+    {
+      "sha": "70894e0430ed4796016c9a0952dde8de06bc788a",
+      "previousRole": "current controlled-launch candidate after PR 382 product-truth route guarding",
+      "currentStatus": "superseded_by_pr_388_for_new_academy_ui_growth_protected_staging_and_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {
