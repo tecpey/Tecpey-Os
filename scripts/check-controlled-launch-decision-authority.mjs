@@ -23,6 +23,8 @@ const files = {
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
+  gatedCapabilityEvidenceAuthority: "scripts/check-gated-capability-evidence-authority.mjs",
+  gatedCapabilityEvidence: "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
   workflow: ".github/workflows/ci.yml",
   server: "server.ts",
   layout: "src/app/layout.tsx",
@@ -236,6 +238,7 @@ for (const [target, label] of [
 for (const invariant of [
   '"launch:packet"',
   '"launch:disabled-capabilities:check"',
+  '"launch:gated-capability-evidence:check"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
@@ -243,6 +246,7 @@ for (const invariant of [
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-disabled-capability-attestation.mjs",
+  "scripts/check-gated-capability-evidence-authority.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -254,10 +258,39 @@ for (const invariant of [
   "npm run launch:rollback-evidence:check",
   "npm run launch:workflow-evidence:check",
   "npm run launch:disabled-capabilities:check",
+  "npm run launch:gated-capability-evidence:check",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
+}
+
+for (const invariant of [
+  "disabled-capability-attestation-evidence",
+  "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
+  "accepted_launch_disabled_attestation",
+  "NOG-10",
+  "NOG-11",
+  "NOG-12",
+  "This evidence does not authorize real-money Exchange, custody, deposits, withdrawals, enterprise, white-label or public reward activation.",
+]) {
+  requireText("gatedCapabilityEvidence", invariant, `gated capability evidence is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Gated capability evidence authority",
+  "accepted_launch_disabled_attestation",
+  "evaluateDisabledCapabilityAttestation",
+  "NOG-10",
+  "NOG-11",
+  "NOG-12",
+  "launch:gated-capability-evidence:check",
+]) {
+  requireText(
+    "gatedCapabilityEvidenceAuthority",
+    invariant,
+    `gated capability evidence authority is missing invariant: ${invariant}`,
+  );
 }
 
 for (const invariant of [
