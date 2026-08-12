@@ -68,23 +68,36 @@
     "protectedStagingRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
     "noGoRegister": "docs/launch/generated/protected-staging-no-go-register-20260810.json",
     "runtimeImageDigestEvidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+    "exactHeadWorkflowEvidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
     "goNoGoChecklist": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md"
   },
   "candidateIdentityRules": [
     "all new launch evidence must record this exact 40-character SHA",
     "workflow checkout, deployed app checkout, bundle manifest, health commit and generated evidence JSON must match this SHA",
-    "later runtime, deployment, security, bundle, evidence or launch-control changes require a candidate-promotion PR before evidence collection continues",
+    "later runtime, deployment, security, bundle or launch-control behavior changes require a candidate-promotion PR before protected execution continues",
+    "documentation-only evidence attachments may preserve this runtime candidate when they only record URLs, digests and dispositions for this exact SHA",
     "historical draft packets are not current final evidence unless regenerated and accepted for this SHA",
     "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
   ],
   "requiredNextEvidence": [
-    "exact-head workflow URLs and dispositions for the current candidate",
     "deployment artifact digest and final manifest wiring after accepted runtime image digest evidence",
     "protected staging NOG-01/NOG-02 evidence for the current candidate",
     "recovery reconciliation evidence",
     "rollback or approved forward-fix evidence",
     "incident readiness evidence",
     "accepted-risk sign-off and Go approval matrix for the current candidate"
+  ],
+  "acceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-04",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
+    }
   ],
   "privacyBoundary": [
     "candidate ledgers contain release identifiers, paths, status and authority references only",

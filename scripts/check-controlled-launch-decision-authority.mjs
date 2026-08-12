@@ -17,6 +17,7 @@ const files = {
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
+  workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
@@ -234,17 +235,20 @@ for (const [target, label] of [
 for (const invariant of [
   '"launch:packet"',
   '"launch:disabled-capabilities:check"',
+  '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
   '"test:disabled-capability-attestation"',
   '"launch:decision:check"',
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-disabled-capability-attestation.mjs",
+  "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/controlled-launch-evidence-manifest.mjs",
   "scripts/controlled-launch-evidence-manifest.test.mjs",
   "scripts/check-controlled-launch-decision-authority.mjs",
   "npm run launch:decision:check",
+  "npm run launch:workflow-evidence:check",
   "npm run launch:disabled-capabilities:check",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
@@ -389,6 +393,17 @@ for (const invariant of [
   "must be a sha256 digest",
 ]) {
   requireText("evidenceManifest", invariant, `controlled launch evidence manifest validator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "exact-head-workflow-evidence",
+  "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY",
+  "accepted_exact_head_workflow_urls",
+  "operationalRecoveryRunUrl",
+  "NOG-01",
+  "NOG-02",
+]) {
+  requireText("workflowEvidenceAuthority", invariant, `exact-head workflow evidence authority is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
