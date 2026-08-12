@@ -13,9 +13,11 @@
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
+  "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
   "requiredContext": {
     "githubEnvironment": "staging",
+    "githubEnvironmentProtectionRequired": true,
     "runnerLabels": [
       "self-hosted",
       "linux",
@@ -131,6 +133,7 @@
   },
   "rejectionConditions": [
     "selected SHA is not exact or does not match deployed app and health commit",
+    "GitHub Environment staging has no protection rules or required reviewers",
     "workflow did not run in protected environment staging",
     "runner labels or runtime user/group do not match governed staging host",
     "required paths are symlinks where the contract forbids symlinks",

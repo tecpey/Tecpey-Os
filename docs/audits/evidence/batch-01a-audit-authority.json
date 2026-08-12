@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "cb1ab7a3a1430409a7da60a68b6c7ed156c5d4de",
-      "sha256": "d5933db69af3c1747672a4ac8df12a09a70f743e0ea2b0fbf4729e9d3b4f38f2",
-      "lines": 203,
+      "gitObjectId": "a146991d948bd25548875b4954cf6b9d0f6249f6",
+      "sha256": "5d53b88e536b18c2b8acc2df194eba2b2b048b48d62de5fdc8784b2eb8747e2e",
+      "lines": 204,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 203
+          "endLine": 204
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -75,16 +75,17 @@
         "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change.",
         "2026-08-10: re-reviewed after exposing scripts/check-browser-persistence.mjs as browser:persistence:check and wiring it into release:check. The command is an existing read-only static source guard over classified browser persistence; it adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
         "2026-08-11: re-reviewed after adding launch:candidate:check and composing it into launch:decision:check. The new command runs a local read-only candidate-lineage guard over controlled-launch ledger, protected-staging runbook, generated staging request and generated no-go register; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and prevents protected-staging execution from drifting across candidate SHA references.",
-        "2026-08-11: re-reviewed after adding ops:staging:env-evidence collect/verify/check commands and composing the env evidence authority into ops:staging:evidence:check. The new scripts run only in the protected staging evidence path, upload redacted pass/fail/digest artifacts, add no dependency, engine, override, product runtime activation surface or secret-printing path, and make NOG-02 evidence collection machine-verifiable."
+        "2026-08-11: re-reviewed after adding ops:staging:env-evidence collect/verify/check commands and composing the env evidence authority into ops:staging:evidence:check. The new scripts run only in the protected staging evidence path, upload redacted pass/fail/digest artifacts, add no dependency, engine, override, product runtime activation surface or secret-printing path, and make NOG-02 evidence collection machine-verifiable.",
+        "2026-08-12: re-reviewed after adding ops:staging:execution-status:check and composing it into ops:staging:evidence:check. The new command is a local read-only guard over generated launch status JSON, runbook, packet and register references; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open when protected staging execution is blocked."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 123,
+        "line": 129,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 123 and 126-127 use npm config set/delete before repository-scoped install commands.",
+        "evidence": "package.json lines 129 and 132-133 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
