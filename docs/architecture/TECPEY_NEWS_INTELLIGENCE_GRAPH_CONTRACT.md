@@ -113,6 +113,12 @@ A news item can be public only when:
 8. Academy context exists for deeper learning.
 9. TecPey AI Council reviews all sign off.
 
+## Materialization Bridge
+
+The current materialization bridge stores dossier evidence in the existing snapshot JSON instead of introducing new tables in the same change. `materializeNewsAutomationDecisions` writes each item to `decisions[].intelligence`, including the source card, Persian summary, duplicate decision, graph edges, C-level reviews, tags, entities, time buckets, and safe coin discoveries.
+
+`topCoins[].discovery` carries the daily coin discovery record needed by coin pages, while `exchangeEnabled` remains hard-coded to `false`. The existing persistence hash covers the enriched `decisions` payload, so idempotent replay and conflict detection also protect the intelligence evidence. A later migration can normalize these JSON records into dedicated dossier, edge, source-card, and coin-discovery tables.
+
 ## Integration Roadmap
 
 1. Connect live provider adapters to this authority module.
