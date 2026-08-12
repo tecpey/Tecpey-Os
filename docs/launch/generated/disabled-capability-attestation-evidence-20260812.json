@@ -3,7 +3,7 @@
   "evidenceClass": "disabled-capability-attestation-evidence",
   "generatedAt": "2026-08-12T07:12:52.000Z",
   "decision": "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
-  "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+  "selectedSha": "5d68865dd56331e011829749ee970d097e9b14a4",
   "sourceBranch": "main",
   "sourcePullRequest": 388,
   "executionState": "accepted_launch_disabled_attestation",
