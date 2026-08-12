@@ -371,6 +371,15 @@ test("accepted-risk register authority rejects impossible calendar review dates"
   );
 });
 
+test("accepted-risk register authority rejects stale review dates", () => {
+  const markdown = readFileSync(acceptedRiskRegister, "utf8");
+
+  assert.match(
+    evaluateAcceptedRiskRegisterAuthority(markdown, { referenceDate: "2026-08-17T00:00:00.000Z" }).join("\n"),
+    /R-06 review date 2026-08-16 is stale before 2026-08-17/,
+  );
+});
+
 test("accepted-risk register authority rejects duplicate controlled-launch risk rows", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
     /\n\| R-06 \|[^\n]+/,

@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "06ea143a460f5d87ef28471e2337a9ee818c97e8",
-      "sha256": "31d5c8b3cf3f368a411056b957477025d79c7f58bcf3b1fb7be9c9cabc91aa00",
-      "lines": 207,
+      "gitObjectId": "14da0e63bf12003288b6b459632f8d05b996cca4",
+      "sha256": "76ab926c480a872eded6a5eae428a4c7efce3ee73650aa31b173d35ac61d762d",
+      "lines": 208,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 207
+          "endLine": 208
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -79,16 +79,17 @@
         "2026-08-12: re-reviewed after adding ops:staging:execution-status:check and composing it into ops:staging:evidence:check. The new command is a local read-only guard over generated launch status JSON, runbook, packet and register references; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open when protected staging execution is blocked.",
         "2026-08-12: re-reviewed after adding launch:workflow-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over exact-head workflow evidence JSON, the no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open while accepting only NOG-04.",
         "2026-08-12: re-reviewed after adding launch:rollback-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over rollback/volume-restore evidence JSON, no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02/NOG-05 explicitly open while accepting only NOG-06.",
-        "2026-08-12: re-reviewed after adding launch:gated-capability-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over disabled-capability attestation evidence, no-go register, candidate ledger, packet, checklist and the existing disabled-capability policy scan; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-10/NOG-11/NOG-12 only as launch-disabled/product-disabled controlled-launch scope."
+        "2026-08-12: re-reviewed after adding launch:gated-capability-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over disabled-capability attestation evidence, no-go register, candidate ledger, packet, checklist and the existing disabled-capability policy scan; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-10/NOG-11/NOG-12 only as launch-disabled/product-disabled controlled-launch scope.",
+        "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 132,
+          "line": 133,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 132 and 135-136 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 133 and 136-137 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

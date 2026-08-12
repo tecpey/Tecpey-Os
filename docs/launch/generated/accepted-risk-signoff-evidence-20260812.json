@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "accepted-risk-signoff-evidence-request",
+  "generatedAt": "2026-08-12T07:38:00.000Z",
+  "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
+  "executionState": "prepared_owner_approval_required",
+  "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+  "sourceBranch": "main",
+  "sourcePullRequest": 395,
+  "reviewFreshness": {
+    "referenceDate": "2026-08-12",
+    "earliestReviewDate": "2026-08-16",
+    "enforcedBy": "scripts/accepted-risk-register-authority-policy.mjs",
+    "staleDecision": "launch:accepted-risk-evidence:check fails after a closure-row review date passes until the risk register is refreshed"
+  },
+  "acceptedForBlockers": [],
+  "notAcceptedForBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
+  "observedVia": {
+    "provider": "repository-local-authority",
+    "riskRegister": "docs/LAUNCH_ACCEPTED_RISKS.md",
+    "authorityPolicy": "scripts/accepted-risk-register-authority-policy.mjs",
+    "guardCommands": [
+      {
+        "name": "launch:accepted-risk-evidence:check",
+        "command": "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+        "disposition": "pass_no_acceptance_without_owner_approval"
+      }
+    ]
+  },
+  "riskRegisterCoverage": [
+    "R-01",
+    "R-02",
+    "R-04",
+    "R-05",
+    "R-06",
+    "R-07",
+    "R-08",
+    "R-09",
+    "R-10"
+  ],
+  "acceptanceBoundary": [
+    "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing.",
+    "The accepted-risk register structure is current for the selected candidate SHA, but owner approval evidence must be attached before NOG-08 can move to accepted.",
+    "This evidence does not approve a Go decision and does not substitute protected staging activation, production-like env evidence, recovery reconciliation, incident readiness or the Go approval matrix.",
+    "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO or launch-disabled under their separate gates."
+  ],
+  "notAcceptedAs": [
+    "protected staging evidence",
+    "production-like environment evidence",
+    "recovery reconciliation evidence",
+    "incident readiness evidence",
+    "Go approval matrix",
+    "real-money Exchange activation",
+    "custody or withdrawal activation",
+    "enterprise or white-label activation",
+    "accepted-risk owner sign-off",
+    "NOG-08 closure evidence"
+  ],
+  "remainingFinalManifestGaps": [
+    "protected staging evidence URL and digest",
+    "redacted protected staging env:check evidence",
+    "protected staging recovery reconciliation evidence and digest",
+    "incident readiness evidence and digest",
+    "accepted-risk owner sign-off evidence URL",
+    "Go approval matrix URL"
+  ],
+  "privacyBoundary": [
+    "evidence contains release identifiers, risk IDs, paths, owner-role coverage and dispositions only",
+    "no secrets, database URLs, host IPs, raw logs, raw customer data, private keys, provider payloads or prompt transcripts are recorded"
+  ],
+  "requiredOwnerApprovalEvidence": {
+    "blocker": "NOG-08",
+    "required": true,
+    "requiredBeforeStatus": "accepted",
+    "allowedEvidence": [
+      "externally attributable repository-owner approval URL",
+      "signed Go/No-Go approval matrix URL",
+      "GitHub PR review approval by the accountable owner"
+    ],
+    "currentEvidenceUrl": null,
+    "currentState": "missing"
+  }
+}

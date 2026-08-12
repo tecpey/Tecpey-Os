@@ -20,6 +20,8 @@ const files = {
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
+  acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+  acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -239,6 +241,7 @@ for (const invariant of [
   '"launch:packet"',
   '"launch:disabled-capabilities:check"',
   '"launch:gated-capability-evidence:check"',
+  '"launch:accepted-risk-evidence:check"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
@@ -247,6 +250,7 @@ for (const invariant of [
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-gated-capability-evidence-authority.mjs",
+  "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -259,10 +263,40 @@ for (const invariant of [
   "npm run launch:workflow-evidence:check",
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
+  "npm run launch:accepted-risk-evidence:check",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepted-risk-signoff-evidence",
+  "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
+  "prepared_owner_approval_required",
+  "NOG-08",
+  "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
+  "accepted-risk owner sign-off",
+  "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
+]) {
+  requireText("acceptedRiskEvidence", invariant, `accepted-risk evidence is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Accepted-risk signoff evidence authority",
+  "prepared_owner_approval_required",
+  "requiredOwnerApprovalEvidence",
+  "currentEvidenceUrl",
+  "evidence must not contain secrets, connection strings or host identifiers",
+  "evaluateAcceptedRiskRegisterAuthority",
+  "NOG-08",
+  "launch:accepted-risk-evidence:check",
+]) {
+  requireText(
+    "acceptedRiskEvidenceAuthority",
+    invariant,
+    `accepted-risk evidence authority is missing invariant: ${invariant}`,
+  );
 }
 
 for (const invariant of [
@@ -345,12 +379,14 @@ for (const invariant of [
   "REQUIRED_CONTROLLED_LAUNCH_RISKS",
   "R-06",
   "evaluateAcceptedRiskRegisterAuthority",
-  "hasValidIsoReviewDate",
+  "parseIsoReviewDate",
+  "referenceDate",
   "splitMarkdownTableRow",
   "duplicate",
   "controlled-launch closure matrix is missing",
   "threshold must be measurable",
   "review date must be exact",
+  "review date ${parsedReviewDate.token} is stale",
 ]) {
   requireText("acceptedRiskAuthority", invariant, `accepted-risk authority policy is missing invariant: ${invariant}`);
 }
@@ -484,6 +520,7 @@ for (const invariant of [
   "accepted-risk register authority rejects phase-only review dates",
   "accepted-risk register authority rejects event-only review dates",
   "accepted-risk register authority rejects impossible calendar review dates",
+  "accepted-risk register authority rejects stale review dates",
   "accepted-risk register authority rejects duplicate controlled-launch risk rows",
   "accepted-risk register authority accepts escaped and inline-code pipes in closure rows",
   "accepted-risk register authority accepts multi-backtick code spans with pipes in closure rows",

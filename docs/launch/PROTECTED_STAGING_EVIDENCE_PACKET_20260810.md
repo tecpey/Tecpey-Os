@@ -1,7 +1,7 @@
 # Protected Staging Evidence Packet - 2026-08-10
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
-**Decision:** NO-GO until protected staging, recovery reconciliation, incident, risk and approval evidence is accepted  
+**Decision:** NO-GO until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
@@ -13,6 +13,7 @@
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
+**Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -35,7 +36,7 @@ evidence must match that same SHA.
 
 | Scope | Decision | Reason |
 |---|---|---|
-| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery reconciliation, incident readiness and approvals are not yet accepted. |
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals are not yet accepted. The NOG-08 guard is prepared but does not close the blocker without externally attributable owner approval. |
 | Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
 | Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
 | Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
@@ -51,7 +52,7 @@ evidence must match that same SHA.
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
-| NOG-08 | Accepted-risk sign-off is not final evidence | Attach owner-approved accepted-risk sign-off for this exact candidate, including review dates, thresholds, user communication and rollback triggers. | docs/LAUNCH_ACCEPTED_RISKS.md | Blocks executive decision |
+| NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure and stale review dates, but NOG-08 remains open until sign-off evidence is attached. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
 | NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
@@ -180,6 +181,32 @@ the controlled public launch.
 
 This evidence does not authorize real-money Exchange, custody, deposits,
 withdrawals, enterprise, white-label or public reward activation.
+
+## Accepted-Risk Owner Sign-Off Evidence - 2026-08-12
+
+Owner sign-off evidence for NOG-08 is still missing. This artifact prepares the
+accepted-risk register and stale-review-date guard for the selected candidate
+SHA, but it does not close NOG-08.
+NOG-08 remains open until owner sign-off evidence is attached.
+
+| Field | Evidence |
+|---|---|
+| Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Evidence artifact | `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` |
+| Authority guard | `scripts/check-accepted-risk-signoff-evidence-authority.mjs` |
+| Risk register authority | `scripts/accepted-risk-register-authority-policy.mjs` |
+| Accepted scope | None; NOG-08 remains open pending owner sign-off evidence |
+
+The accepted-risk register contains named accountable owners, exact review
+dates, measurable thresholds, user-communication boundaries and rollback or halt
+triggers for the narrow controlled Academy, Mentor and virtual Arena scope.
+
+Owner sign-off evidence for NOG-08 is still missing. This evidence does not
+approve a Go decision and does not substitute protected staging activation,
+production-like env evidence, recovery reconciliation, incident readiness,
+accepted-risk owner sign-off or the Go approval matrix. Go remains blocked by
+protected staging, recovery reconciliation, incident readiness, accepted-risk
+owner sign-off and approval evidence.
 
 ## Evidence Privacy Boundary
 
