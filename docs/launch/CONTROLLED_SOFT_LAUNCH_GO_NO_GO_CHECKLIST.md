@@ -45,6 +45,7 @@ release-owner promotion PR explicitly reselects them.
 | Product truth and UX | Public copy, README, in-app states and docs preserve the launch boundary: education, Mentor and virtual Arena only; no live exchange/custody promise. | NO-GO if any user-facing surface overclaims readiness. |
 | Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner. | Accepted-risk owner sign-off evidence is missing for NOG-08. The register structure and freshness guard are prepared, but Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals. |
 | Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures, and the protected staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. | NO-GO until incident evidence is accepted; request is prepared in `docs/launch/generated/incident-readiness-evidence-request-20260812.json`. |
+| Go approval matrix | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approve the exact candidate SHA and controlled launch scope after prerequisite evidence is accepted; the final artifact passes `scripts/verify-go-approval-matrix-evidence.mjs`. | NO-GO until approval evidence is accepted; request is prepared in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`. |
 
 ## Required decision record
 
@@ -56,10 +57,10 @@ The final Go/No-Go record must contain:
    release candidate SHA, image digest, deployment artifact digest, workflow
    evidence URLs, protected staging evidence, recovery reconciliation evidence,
    rollback or forward-fix evidence, incident readiness evidence, accepted-risk
-   sign-off URL and Go approval URL; the manifest must contain only HTTPS URLs,
-   SHA-256 digests and release identifiers, never secrets, raw logs, host IPs,
-   connection strings or user data;
-3. `npm run launch:packet -- --manifest <controlled-launch-evidence-manifest.json>` JSON output for the exact candidate, or equivalently `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --full-suite-run-url <url> --api-security-run-url <url> --sensitive-mutation-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --operational-recovery-run-url <url> --container-supply-chain-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url>` JSON output for the exact candidate, with package-lock,
+   sign-off URL, Go approval URL and Go approval artifact digest; the manifest
+   must contain only HTTPS URLs, SHA-256 digests and release identifiers, never
+   secrets, raw logs, host IPs, connection strings or user data;
+3. `npm run launch:packet -- --manifest <controlled-launch-evidence-manifest.json>` JSON output for the exact candidate, or equivalently `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --full-suite-run-url <url> --api-security-run-url <url> --sensitive-mutation-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --operational-recovery-run-url <url> --container-supply-chain-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url> --go-approvals-artifact-digest <sha256:...>` JSON output for the exact candidate, with package-lock,
    migration-plan, image, deployment, protected-staging, recovery,
    rollback/forward-fix and incident-readiness artifact digests recorded. The
    command fails closed in final mode; `--draft` is only for local incomplete
@@ -75,7 +76,8 @@ The final Go/No-Go record must contain:
    acknowledgement evidence, two protected-staging P0 synthetic alert probes,
    zero pending/quarantine counts and verifier-passed artifact evidence;
 11. approvals from CEO, CTO or Chief Architect, Security, Product, Compliance,
-   SRE and QA.
+   SRE and QA, with a final matrix that passes
+   `scripts/verify-go-approval-matrix-evidence.mjs`.
 
 ## Non-negotiable No-Go rules
 

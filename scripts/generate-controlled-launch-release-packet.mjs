@@ -14,6 +14,7 @@ const valueArgs = new Set([
   "--api-security-run-url",
   "--container-supply-chain-run-url",
   "--full-suite-run-url",
+  "--go-approvals-artifact-digest",
   "--go-approvals-url",
   "--image-digest",
   "--incident-readiness-artifact-digest",
@@ -259,6 +260,10 @@ const goApprovalsUrl = optionalUrl(
   evidenceArg("go-approvals-url", "TECPEY_GO_APPROVALS_URL"),
   "Go approvals URL",
 );
+const goApprovalsArtifactDigest = optionalDigest(
+  evidenceArg("go-approvals-artifact-digest", "TECPEY_GO_APPROVALS_ARTIFACT_DIGEST"),
+  "Go approvals artifact digest",
+);
 
 function externalEvidence({ url, digest, urlLabel, digestLabel, contract, registry, draftMode }) {
   return {
@@ -344,7 +349,9 @@ const packet = {
     }),
     approvals: externalEvidence({
       url: goApprovalsUrl,
+      digest: goApprovalsArtifactDigest,
       urlLabel: "Go approvals URL",
+      digestLabel: "Go approvals artifact digest",
       contract: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       draftMode,
     }),

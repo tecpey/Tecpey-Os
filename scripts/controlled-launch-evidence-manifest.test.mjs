@@ -80,6 +80,7 @@ function completeManifest(overrides = {}, releaseCandidateSha = currentHead()) {
       },
       approvals: {
         evidenceUrl: approvalsUrl,
+        artifactDigest: externalDigest,
       },
     },
     ...overrides,
@@ -235,6 +236,7 @@ test("release packet generator accepts a complete governed manifest", () => {
     assert.equal(packet.workflowEvidence.operationalRecoveryRunUrl, operationalRecoveryRunUrl);
     assert.equal(packet.workflowEvidence.containerSupplyChainRunUrl, containerSupplyChainRunUrl);
     assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
+    assert.equal(packet.requiredExternalEvidence.approvals.artifactDigest, externalDigest);
   } finally {
     rmSync(manifest.root, { recursive: true, force: true });
     rmSync(fixture.root, { recursive: true, force: true });

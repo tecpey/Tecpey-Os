@@ -419,6 +419,9 @@ jobs:
       - name: Incident readiness evidence authority guard
         run: npm run launch:incident-readiness-evidence:check
 
+      - name: Go approval matrix evidence authority guard
+        run: npm run launch:go-approval-matrix-evidence:check
+
       - name: News materialization staging evidence guard
         run: npm run news:materialization:staging-evidence:check
 
