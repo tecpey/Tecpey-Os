@@ -239,8 +239,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "6fd2c67c86502fc494fd352f246b67dfbb38749d",
-      "sha256": "1c3c743cfb8cd745511ceca8c0d193d36e3acd38123418ff8daecb02c96a1e66",
+      "gitObjectId": "cb6eecb21a154bc08bd3283ecf368d2df1513cfc",
+      "sha256": "1b833ddffbc3b0202b97e80fd301026d5249a7464f9d94f6a50bdec533f73d1c",
       "lines": 281,
       "reviewedRanges": [
         {
@@ -253,7 +253,8 @@
         "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
         "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted.",
-        "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications."
+        "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications.",
+        "2026-08-12: re-reviewed after Policy v12 added explicit product-ui routing for src/lib/news-intelligence-graph.ts. The change is limited to one content intelligence module classification and the policy version constant; source-path fail-closed behavior remains intact, no runtime activation surface is added, and the new module is covered by focused content authority tests."
       ],
       "findings": []
     },

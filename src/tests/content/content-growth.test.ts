@@ -68,7 +68,7 @@ import {
 } from "../../lib/news-materialization-persistence";
 
 class FakeNewsMaterializationClient {
-  snapshots = new Map<string, { snapshot_id: string; snapshot_hash: string }>();
+  snapshots = new Map<string, { snapshot_id: string; snapshot_hash: string; decisions: string }>();
   history = new Map<string, { history_id: string; payload_hash: string }>();
   snapshotItems: Array<{ snapshotId: string; historyId: string; position: number }> = [];
 
@@ -81,6 +81,7 @@ class FakeNewsMaterializationClient {
       this.snapshots.set(String(values[3]), {
         snapshot_id: String(values[0]),
         snapshot_hash: String(values[5]),
+        decisions: String(values[13]),
       });
       return { rows: [] };
     }
@@ -694,6 +695,42 @@ describe("Content growth entity contract", () => {
       ["BTC", "ETH"],
     );
     assert.equal(snapshot.topCoins[0].newsDetailPath, `/en/crypto-news/${decisions[0].article.slug}`);
+
+    const publishableDecision = snapshot.decisions.find((decision) => decision.status === "publishable");
+    const reviewDecision = snapshot.decisions.find((decision) => decision.status === "needs_review");
+    assert.ok(publishableDecision);
+    assert.ok(reviewDecision);
+
+    const publishableIntel = publishableDecision.intelligence;
+    assert.equal(publishableIntel.status, "publishable");
+    assert.equal(publishableIntel.sourceCard.sourceName, "CoinDesk");
+    assert.equal(
+      publishableIntel.sourceCard.canonicalUrl,
+      "https://www.coindesk.com/markets/bitcoin-etf-approval-example",
+    );
+    assert.equal(publishableIntel.sourceCard.originalLanguage, "en");
+    assert.match(publishableIntel.sourceCard.persianSummary, /خلاصه فارسی تک‌پی/);
+    assert.match(publishableIntel.sourceCard.persianSummary, /توصیه معاملاتی/);
+    assert.ok(publishableIntel.graphEdges.some((edge) => edge.type === "mentions_coin" && edge.toId === "coin:BTC"));
+    assert.ok(
+      publishableIntel.graphEdges.some((edge) => edge.type === "mentions_tool" && edge.toId === "tool:TRADINGVIEW"),
+    );
+    assert.equal(publishableIntel.reviews.length, 6);
+    assert.ok(publishableIntel.reviews.every((review) => review.score >= 0 && review.score <= 1));
+    assert.deepEqual(
+      publishableIntel.coinDiscoveries.map((coin) => [coin.symbol, coin.status, coin.exchangeEnabled]),
+      [
+        ["BTC", "educational_listed", false],
+        ["ETH", "educational_listed", false],
+      ],
+    );
+    assert.equal(snapshot.topCoins[0].discovery?.exchangeEnabled, false);
+    assert.equal(snapshot.topCoins[0].discovery?.officialUrls[0], "https://bitcoin.org/");
+    assert.equal(snapshot.topCoins[1].discovery?.exchangeEnabled, false);
+    assert.equal(snapshot.topCoins[1].discovery?.officialUrls[0], "https://ethereum.org/");
+    assert.equal(reviewDecision.intelligence.status, "rejected");
+    assert.ok(reviewDecision.intelligence.reasons.includes("source_not_authorized"));
+    assert.ok(reviewDecision.intelligence.reasons.includes("missing_entities"));
   });
 
   it("persists materialized news snapshots idempotently with conflict detection", async () => {
@@ -730,6 +767,19 @@ describe("Content growth entity contract", () => {
     assert.equal(replay.replayed, true);
     assert.equal(replay.snapshotHash, first.snapshotHash);
     assert.equal(client.snapshotItems.length, 1);
+
+    const storedSnapshot = client.snapshots.get(input.idempotencyKey);
+    assert.ok(storedSnapshot);
+    const storedDecisions = JSON.parse(storedSnapshot.decisions) as Array<{
+      intelligence: {
+        status: string;
+        sourceCard: { persianSummary: string };
+        coinDiscoveries: Array<{ exchangeEnabled: boolean }>;
+      };
+    }>;
+    assert.equal(storedDecisions[0].intelligence.status, "publishable");
+    assert.match(storedDecisions[0].intelligence.sourceCard.persianSummary, /خلاصه فارسی تک‌پی/);
+    assert.equal(storedDecisions[0].intelligence.coinDiscoveries[0].exchangeEnabled, false);
 
     await assert.rejects(
       () => persistMaterializedNewsSnapshotTx(client, {
