@@ -5,13 +5,14 @@
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Evidence branch:** `agent/exact-head-workflow-evidence-nog04`
+**Evidence branch:** `agent/gated-capability-attestation-evidence-nog12`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
+**Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -52,9 +53,9 @@ evidence must match that same SHA.
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
 | NOG-08 | Accepted-risk sign-off is not final evidence | Attach owner-approved accepted-risk sign-off for this exact candidate, including review dates, thresholds, user communication and rollback triggers. | docs/LAUNCH_ACCEPTED_RISKS.md | Blocks executive decision |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
-| NOG-10 | Real-money Exchange remains uncertified | Keep Exchange launch-disabled until decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence are accepted. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks real-money Exchange only |
-| NOG-11 | Custody, deposits and withdrawals remain uncertified | Keep custody/deposit/withdrawal paths product-disabled until HSM/MPC, chain-provider certification, on-chain reconciliation and settlement evidence are accepted. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks custody and withdrawals only |
-| NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Preserve route/env/UI/copy guards so these surfaces cannot be advertised or activated by accident. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks expanded launch scope |
+| NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
+| NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
+| NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Accepted for controlled launch only while enterprise, white-label and public rewards stay disabled, absent or explicitly gated by route/env/UI/copy guards. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Expanded launch scope remains NO-GO; controlled public launch is not blocked while disabled |
 
 ## First Execution Slice
 
@@ -156,6 +157,29 @@ PostgreSQL/Redis volume-restore mechanics only.
 This closes only the rollback/volume-restore mechanics blocker. Protected
 staging activation and redacted env evidence remain under NOG-01/NOG-02, and
 protected staging domain recovery reconciliation remains under NOG-05.
+
+## Disabled Capability Attestation Evidence - 2026-08-12
+
+NOG-10/NOG-11/NOG-12 are accepted only as disabled-scope evidence for the
+controlled public launch.
+
+| Field | Evidence |
+|---|---|
+| Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Evidence artifact | `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json` |
+| Authority guard | `scripts/check-gated-capability-evidence-authority.mjs` |
+| Product-truth guard | `npm run launch:disabled-capabilities:check` |
+| Negative tests | `npm run test:disabled-capability-attestation` |
+| Accepted scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 |
+
+NOG-10 is accepted only as launch-disabled real-money Exchange scope for the
+controlled public launch. NOG-11 is accepted only as product-disabled custody,
+deposit and withdrawal scope for the controlled public launch. NOG-12 is
+accepted only as disabled enterprise, white-label and public rewards scope for
+the controlled public launch.
+
+This evidence does not authorize real-money Exchange, custody, deposits,
+withdrawals, enterprise, white-label or public reward activation.
 
 ## Evidence Privacy Boundary
 

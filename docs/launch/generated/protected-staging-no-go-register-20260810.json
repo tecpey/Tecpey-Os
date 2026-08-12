@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-no-go-register",
-  "generatedAt": "2026-08-12T06:52:00.000Z",
+  "generatedAt": "2026-08-12T07:12:52.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "stagingEvidenceTargetSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
   "runtimeCandidateBaselineSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
   "currentMainShaAfterRcPacketMerge": "c652cf0a5c57bba1e20a072c7b0874cc6a97b61f",
   "currentMainShaAfterRuntimeDigestEvidenceMerge": "74537d362188714aa07d3dd157d7dfc529854e98",
   "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-  "evidenceBranch": "agent/exact-head-workflow-evidence-nog04",
+  "evidenceBranch": "agent/gated-capability-attestation-evidence-nog12",
   "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "runtimeImageDigestEvidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
   "exactHeadWorkflowEvidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
@@ -119,28 +119,37 @@
       "order": 10,
       "id": "NOG-10",
       "title": "Real-money Exchange remains uncertified",
-      "status": "open",
-      "closureAction": "Keep Exchange launch-disabled until decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence are accepted.",
+      "status": "accepted",
+      "closureAction": "Accepted for controlled launch only while real-money Exchange stays launch-disabled; separate decimal conservation, order/trade/hold/balance/fee/ledger reconciliation, ambiguous-result recovery and provider evidence remain required before real-money Exchange activation.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "launchImpact": "Blocks real-money Exchange only"
+      "launchImpact": "Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while Exchange stays launch-disabled.",
+      "acceptedAt": "2026-08-12T07:12:52Z",
+      "executionState": "accepted_launch_disabled_attestation",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
     },
     {
       "order": 11,
       "id": "NOG-11",
       "title": "Custody, deposits and withdrawals remain uncertified",
-      "status": "open",
-      "closureAction": "Keep custody/deposit/withdrawal paths product-disabled until HSM/MPC, chain-provider certification, on-chain reconciliation and settlement evidence are accepted.",
+      "status": "accepted",
+      "closureAction": "Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider certification, on-chain reconciliation and withdrawal settlement evidence remain required before activation.",
       "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
-      "launchImpact": "Blocks custody and withdrawals only"
+      "launchImpact": "Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while these paths stay product-disabled.",
+      "acceptedAt": "2026-08-12T07:12:52Z",
+      "executionState": "accepted_launch_disabled_attestation",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
     },
     {
       "order": 12,
       "id": "NOG-12",
       "title": "Enterprise, white-label and public rewards remain outside launch scope",
-      "status": "open",
-      "closureAction": "Preserve route/env/UI/copy guards so these surfaces cannot be advertised or activated by accident.",
+      "status": "accepted",
+      "closureAction": "Accepted for controlled launch only while enterprise, white-label and public rewards stay disabled, absent or explicitly gated by route/env/UI/copy guards.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "launchImpact": "Blocks expanded launch scope"
+      "launchImpact": "Expanded launch scope remains NO-GO; controlled public launch is not blocked while these surfaces stay disabled.",
+      "acceptedAt": "2026-08-12T07:12:52Z",
+      "executionState": "accepted_launch_disabled_attestation",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
     }
   ],
   "executionRequests": [
@@ -197,6 +206,30 @@
       "containerRecoveryArtifact": "container-recovery-55f2e92bb8238de17e0809fe54c389476517f57b",
       "containerRecoveryArtifactDigest": "sha256:f2de21d7bdcd9c7467d77f0a337d7e0fd1b89f764c7208e31bfba0c3eb2f6378",
       "remainingBoundary": "Protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
+    },
+    {
+      "id": "NOG-10",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "executionState": "accepted_launch_disabled_attestation",
+      "remainingBoundary": "Real-money Exchange activation remains NO-GO until separate financial reconciliation, provider and ambiguous-result recovery evidence is accepted."
+    },
+    {
+      "id": "NOG-11",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "executionState": "accepted_launch_disabled_attestation",
+      "remainingBoundary": "Custody, deposits and withdrawals remain NO-GO until separate HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence is accepted."
+    },
+    {
+      "id": "NOG-12",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "executionState": "accepted_launch_disabled_attestation",
+      "remainingBoundary": "Enterprise, white-label and public rewards remain outside controlled-launch scope until separate activation approval is accepted."
     }
   ],
   "recommendedNextSlice": {
@@ -207,6 +240,7 @@
     "description": "Collect protected staging activation evidence and redacted env:check evidence for the current candidate SHA after PR #388, with either the protected host env file loaded or the service-manager preloaded environment verified for NOG-02.",
     "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
-  }
+    "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_APPROVAL_EVIDENCE_IS_ACCEPTED"
+  },
+  "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
 }

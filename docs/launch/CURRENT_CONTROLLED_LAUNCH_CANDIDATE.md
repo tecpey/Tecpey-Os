@@ -9,6 +9,7 @@
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
+**Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -83,6 +84,7 @@ ambiguity this ledger is designed to remove.
 | Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
 | Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA. |
+| Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
 | Accepted risks and approvals | Owner-approved risk register and approval matrix for this SHA and the narrow controlled launch scope. |
 
 ## Decision
@@ -90,6 +92,9 @@ ambiguity this ledger is designed to remove.
 This ledger narrows the launch-control line to one candidate. It does not move
 TecPey to Go.
 
+The disabled-capability attestation for NOG-10/NOG-11/NOG-12 is accepted only
+because those capabilities remain launch-disabled or product-disabled.
+
 **Current decision: NO-GO until this exact candidate has complete accepted
-operational evidence and every out-of-scope financial/enterprise capability
-remains explicitly launch-disabled.**
+protected staging, recovery reconciliation, incident, risk and approval
+evidence.**
