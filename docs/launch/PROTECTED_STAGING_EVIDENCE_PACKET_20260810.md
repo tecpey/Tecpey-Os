@@ -5,9 +5,10 @@
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Evidence branch:** `agent/promote-candidate-after-growth-evidence`
+**Evidence branch:** `agent/protected-staging-env-evidence-target`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
+**Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -77,6 +78,21 @@ The executable request for this slice is now captured in:
 
 These artifacts do not close NOG-01 or NOG-02. They make the evidence collection
 ready to execute on the protected staging host without exposing secrets.
+
+## Execution Status Observation - 2026-08-12
+
+Current machine-readable status:
+`docs/launch/generated/protected-staging-execution-status-20260812.json`.
+
+Decision: `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
+
+The latest GitHub API observation found the `staging` Environment exists, but
+its `protection_rules: []` response means it cannot yet be treated as accepted
+protected staging evidence. The protected env workflow has no observed runs, and
+the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
+and NOG-02 remain open until the staging Environment has required protection
+rules/reviewers and both manual workflow runs complete successfully for the
+selected candidate SHA.
 
 ## Evidence Privacy Boundary
 

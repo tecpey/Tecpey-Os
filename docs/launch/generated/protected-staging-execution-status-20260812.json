@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-staging-execution-status-observation",
+  "observedAt": "2026-08-12T04:15:37.000Z",
+  "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
+  "relatedBlockers": [
+    "NOG-01",
+    "NOG-02"
+  ],
+  "releaseLineage": {
+    "currentMainSha": "292719e9fd89e31f190baf2fc8988a1036502b38",
+    "protectedStagingEvidenceTargetSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
+  },
+  "observationSource": {
+    "githubApi": [
+      "GET /repos/tecpey/Tecpey-Os/environments/staging",
+      "GET /repos/tecpey/Tecpey-Os/actions/workflows/protected-staging-env-evidence.yml/runs",
+      "GET /repos/tecpey/Tecpey-Os/actions/workflows/staging-community-challenge-scheduler-evidence.yml/runs"
+    ],
+    "localTooling": [
+      "gh CLI unavailable",
+      "workflow_dispatch write action unavailable in connector",
+      "repository self-hosted runner listing returned 403 to the integration"
+    ]
+  },
+  "githubEnvironment": {
+    "name": "staging",
+    "exists": true,
+    "protectionRulesCount": 0,
+    "canAdminsBypass": true,
+    "protectionDisposition": "failed_no_protection_rules_observed"
+  },
+  "workflows": {
+    "protectedStagingEnvEvidence": {
+      "name": "Protected Staging Env Evidence",
+      "path": ".github/workflows/protected-staging-env-evidence.yml",
+      "state": "active",
+      "totalRunsObserved": 0,
+      "acceptedRunUrl": null,
+      "acceptedArtifactName": null,
+      "disposition": "blocked_no_runs_observed"
+    },
+    "stagingCommunityChallengeSchedulerEvidence": {
+      "name": "Staging Community Challenge Scheduler Evidence",
+      "path": ".github/workflows/staging-community-challenge-scheduler-evidence.yml",
+      "state": "active",
+      "totalRunsObserved": 1,
+      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31316341794",
+      "latestRunHeadSha": "772cd16b874aacf7fbec5ebfdd953057f3911885",
+      "latestRunConclusion": "cancelled",
+      "acceptedRunUrl": null,
+      "acceptedArtifactName": null,
+      "disposition": "blocked_no_accepted_current_candidate_run"
+    }
+  },
+  "privacyBoundary": {
+    "rawSecretsObserved": false,
+    "rawSecretsRecorded": false,
+    "hostIdentifiersRecorded": false,
+    "runnerNamesRecorded": false,
+    "rawLogsRecorded": false
+  },
+  "requiredBeforeAcceptance": [
+    "Configure GitHub Environment staging with required protection rules/reviewers before treating it as protected staging evidence.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 55f2e92bb8238de17e0809fe54c389476517f57b with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha 55f2e92bb8238de17e0809fe54c389476517f57b with one accepted environment_source.",
+    "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
+  ],
+  "decisionAfterObservation": "NOG-01 and NOG-02 remain open; no accepted protected staging or redacted env evidence exists for the selected candidate."
+}

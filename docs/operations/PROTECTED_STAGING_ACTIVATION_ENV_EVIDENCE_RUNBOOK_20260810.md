@@ -7,6 +7,7 @@
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
 **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
+**Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 
 This runbook is the operator-facing execution request for the first protected
 staging closure slice. It does not close either blocker by itself. It defines the
@@ -40,6 +41,21 @@ tecpey-staging
 
 The runner must use the governed non-root runtime user and group configured for
 TecPey staging. It must not run on a generic shared runner.
+
+## Execution Status Observation - 2026-08-12
+
+Current machine-readable status:
+`docs/launch/generated/protected-staging-execution-status-20260812.json`.
+
+Decision: `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
+
+The latest GitHub API observation found the `staging` Environment exists, but
+its `protection_rules: []` response means it cannot yet be treated as accepted
+protected staging evidence. The protected env workflow has no observed runs, and
+the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
+and NOG-02 remain open until the staging Environment has required protection
+rules/reviewers and both manual workflow runs complete successfully for the
+selected candidate SHA.
 
 ## Required Environment Inputs
 
