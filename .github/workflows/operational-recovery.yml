@@ -14,10 +14,12 @@ on:
       - src/lib/db-migration-*.ts
       - scripts/test-container-volume-recovery.sh
       - scripts/verify-operational-recovery-evidence.mjs
+      - scripts/verify-protected-recovery-reconciliation-evidence.mjs
       - scripts/check-operational-recovery-authority.mjs
       - scripts/operational-recovery-authority-policy.mjs
       - scripts/operational-recovery-authority-policy.test.mjs
       - scripts/operational-recovery-evidence.test.mjs
+      - scripts/protected-recovery-reconciliation-evidence.test.mjs
       - docs/operations/OPERATIONAL_RECOVERY_DRILLS.md
       - docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md

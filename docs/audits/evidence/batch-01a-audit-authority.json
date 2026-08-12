@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "14da0e63bf12003288b6b459632f8d05b996cca4",
-      "sha256": "76ab926c480a872eded6a5eae428a4c7efce3ee73650aa31b173d35ac61d762d",
-      "lines": 208,
+      "gitObjectId": "00f29a726793ec9f75f383ab92258fee6104df20",
+      "sha256": "ec18395cf0d8acb83d30bb2540856bb148e1260167fac728e47a18243f1aa4b1",
+      "lines": 209,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 208
+          "endLine": 209
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -80,7 +80,8 @@
         "2026-08-12: re-reviewed after adding launch:workflow-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over exact-head workflow evidence JSON, the no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open while accepting only NOG-04.",
         "2026-08-12: re-reviewed after adding launch:rollback-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over rollback/volume-restore evidence JSON, no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02/NOG-05 explicitly open while accepting only NOG-06.",
         "2026-08-12: re-reviewed after adding launch:gated-capability-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over disabled-capability attestation evidence, no-go register, candidate ledger, packet, checklist and the existing disabled-capability policy scan; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-10/NOG-11/NOG-12 only as launch-disabled/product-disabled controlled-launch scope.",
-        "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals."
+        "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals.",
+        "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains."
       ],
       "findings": [
         {

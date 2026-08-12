@@ -48,6 +48,16 @@ Each domain produces a deterministic JSON summary with:
 The `queryDigest` is computed from sorted, redacted, deterministic query output.
 Evidence must contain counts and hashes only. Do not store raw rows.
 
+Protected staging recovery reconciliation evidence must pass
+`scripts/verify-protected-recovery-reconciliation-evidence.mjs` for the selected
+release candidate SHA before NOG-05 can be represented as accepted. The verifier
+requires the six launch domains in the matrix above, independent operator and
+reviewer identities, a bounded restore window, a shared migration plan hash,
+domain-level row counts, domain-level query digests, and the privacy boundary
+`counts-and-hashes-only`, `no-raw-rows`, and `no-secrets-or-connection-urls`.
+The repository-owned ephemeral CI restore verifier remains necessary but is not
+accepted as protected staging domain reconciliation evidence.
+
 ## Required queries
 
 The exact SQL may evolve with migrations, but each query set must cover the
