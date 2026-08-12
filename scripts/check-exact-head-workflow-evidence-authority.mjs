@@ -141,7 +141,7 @@ for (const invariant of [
 }
 for (const invariant of [
   "Exact-head CI, Full Suite, API Security, Sensitive Mutation, Repository Audit, Public Golden Path, Container Supply Chain and Secret Scanning URLs are accepted for NOG-04",
-  "NO-GO remains until protected staging, recovery reconciliation, incident, risk and approval evidence is accepted",
+  "NO-GO remains until protected staging, recovery reconciliation, incident and approval evidence is accepted",
 ]) {
   requireText(files.checklist, checklist, invariant, `checklist is missing NOG-04 boundary: ${invariant}`);
 }

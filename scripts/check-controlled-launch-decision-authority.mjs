@@ -20,6 +20,8 @@ const files = {
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
+  acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+  acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -239,6 +241,7 @@ for (const invariant of [
   '"launch:packet"',
   '"launch:disabled-capabilities:check"',
   '"launch:gated-capability-evidence:check"',
+  '"launch:accepted-risk-evidence:check"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
@@ -247,6 +250,7 @@ for (const invariant of [
   "scripts/generate-controlled-launch-release-packet.mjs",
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-gated-capability-evidence-authority.mjs",
+  "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -259,10 +263,36 @@ for (const invariant of [
   "npm run launch:workflow-evidence:check",
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
+  "npm run launch:accepted-risk-evidence:check",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
   requireText("packageJson", invariant, `package.json is missing launch decision guard wiring: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepted-risk-signoff-evidence",
+  "NO_GO_NOG_08_ACCEPTED_RISK_REGISTER_CURRENT_SCOPE_ONLY",
+  "accepted_controlled_launch_risk_register_current",
+  "NOG-08",
+  "This evidence does not approve a Go decision",
+  "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
+]) {
+  requireText("acceptedRiskEvidence", invariant, `accepted-risk evidence is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Accepted-risk signoff evidence authority",
+  "accepted_controlled_launch_risk_register_current",
+  "evaluateAcceptedRiskRegisterAuthority",
+  "NOG-08",
+  "launch:accepted-risk-evidence:check",
+]) {
+  requireText(
+    "acceptedRiskEvidenceAuthority",
+    invariant,
+    `accepted-risk evidence authority is missing invariant: ${invariant}`,
+  );
 }
 
 for (const invariant of [

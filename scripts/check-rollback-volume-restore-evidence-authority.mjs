@@ -223,7 +223,7 @@ for (const invariant of [
 }
 for (const invariant of [
   "Exact-candidate rollback and synthetic PostgreSQL/Redis volume-restore evidence is accepted for NOG-06",
-  "NO-GO remains until protected staging, recovery reconciliation, incident, risk and approval evidence is accepted",
+  "NO-GO remains until protected staging, recovery reconciliation, incident and approval evidence is accepted",
 ]) {
   requireText(files.checklist, checklist, invariant, `checklist is missing NOG-06 boundary: ${invariant}`);
 }

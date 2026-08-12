@@ -71,7 +71,8 @@
     "exactHeadWorkflowEvidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
     "rollbackVolumeRestoreEvidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
     "goNoGoChecklist": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-    "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
+    "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
+    "acceptedRiskSignoffEvidence": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json"
   },
   "candidateIdentityRules": [
     "all new launch evidence must record this exact 40-character SHA",
@@ -86,7 +87,7 @@
     "protected staging NOG-01/NOG-02 evidence for the current candidate",
     "recovery reconciliation evidence",
     "incident readiness evidence",
-    "accepted-risk sign-off and Go approval matrix for the current candidate"
+    "Go approval matrix for the current candidate"
   ],
   "acceptedEvidence": [
     {
@@ -118,6 +119,11 @@
       "id": "NOG-12",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-08",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json"
     }
   ],
   "privacyBoundary": [
