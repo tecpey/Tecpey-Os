@@ -27,6 +27,7 @@
       "closureAction": "Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary.",
       "authority": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
       "executionRequest": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/365",
       "launchImpact": "Blocks controlled soft launch Go"
     },
     {
@@ -38,6 +39,7 @@
       "closureAction": "Run `env:check` in protected staging with either the protected host env file loaded or the service-manager preloaded environment verified, then preserve redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md",
       "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/365",
       "launchImpact": "Blocks final packet"
     },
     {
@@ -77,6 +79,7 @@
       "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
       "executionRequest": "docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json",
       "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/407",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02"
@@ -105,6 +108,7 @@
       "authority": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
       "executionRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
       "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/408",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02"
@@ -121,6 +125,7 @@
       "authority": "docs/LAUNCH_ACCEPTED_RISKS.md",
       "executionRequest": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
       "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/409",
       "launchImpact": "Blocks executive decision until owner sign-off evidence is attached",
       "evidence": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json"
     },
@@ -134,6 +139,7 @@
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       "executionRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
       "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/410",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02",
@@ -194,6 +200,7 @@
       "requiredEnvironment": "staging",
       "selectedSha": "5d68865dd56331e011829749ee970d097e9b14a4",
       "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/365",
       "privacyBoundary": "redacted evidence only"
     },
     {
@@ -210,6 +217,7 @@
         "NOG-01",
         "NOG-02"
       ],
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/407",
       "privacyBoundary": "counts and hashes only"
     },
     {
@@ -226,6 +234,7 @@
         "NOG-01",
         "NOG-02"
       ],
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/408",
       "privacyBoundary": "redacted timing, counts, digests and role identities only"
     },
     {
@@ -238,6 +247,7 @@
       "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
       "requiredEnvironment": "release-control",
       "selectedSha": "5d68865dd56331e011829749ee970d097e9b14a4",
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/409",
       "privacyBoundary": "release identifiers, risk IDs, owner identities, repository URLs, SHA-256 digests and dispositions only"
     },
     {
@@ -257,6 +267,7 @@
         "NOG-07",
         "NOG-08"
       ],
+      "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/410",
       "privacyBoundary": "release identifiers, role identities, repository URLs, SHA-256 digests and dispositions only"
     }
   ],
@@ -344,5 +355,13 @@
     "NOG-07",
     "NOG-08",
     "NOG-09"
-  ]
+  ],
+  "openBlockerTrackingIssues": {
+    "NOG-01": "https://github.com/tecpey/Tecpey-Os/issues/365",
+    "NOG-02": "https://github.com/tecpey/Tecpey-Os/issues/365",
+    "NOG-05": "https://github.com/tecpey/Tecpey-Os/issues/407",
+    "NOG-07": "https://github.com/tecpey/Tecpey-Os/issues/408",
+    "NOG-08": "https://github.com/tecpey/Tecpey-Os/issues/409",
+    "NOG-09": "https://github.com/tecpey/Tecpey-Os/issues/410"
+  }
 }
