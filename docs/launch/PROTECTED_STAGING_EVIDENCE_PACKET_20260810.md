@@ -9,6 +9,7 @@
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
+**Environment protection setup runbook:** `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
@@ -98,6 +99,14 @@ the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
 and NOG-02 remain open until the staging Environment has required protection
 rules/reviewers and both manual workflow runs complete successfully for the
 selected candidate SHA.
+
+Post-merge refresh: after PR #397 merged the Enterprise QA/Red-Team report into
+`main` at `18468c2c5a547a0810ae5e675feeb1072dcd8ad9`, the GitHub API status
+was unchanged for this blocker pair: `staging` still returns
+`protection_rules: []`, the Protected Staging Env Evidence workflow still has
+zero observed runs, and the only observed scheduler evidence run remains the
+cancelled older-SHA run. This packet therefore keeps NOG-01 and NOG-02 open and
+adds the environment setup runbook above as the required pre-dispatch step.
 
 ## Runtime Image Evidence - 2026-08-12
 

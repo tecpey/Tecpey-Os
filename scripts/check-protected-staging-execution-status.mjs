@@ -6,6 +6,8 @@ const files = {
   register: "docs/launch/generated/protected-staging-no-go-register-20260810.json",
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",
   runbook: "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+  environmentProtectionRunbook:
+    "docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
   packageJson: "package.json",
 };
 
@@ -76,6 +78,16 @@ requireEqual(
   register.executionStatusObservation,
   files.status,
 );
+requireEqual(
+  "request.environmentProtectionRunbook",
+  request.environmentProtectionRunbook,
+  files.environmentProtectionRunbook,
+);
+requireEqual(
+  "register.executionRequests[0].environmentProtectionRunbook",
+  register.executionRequests?.[0]?.environmentProtectionRunbook,
+  files.environmentProtectionRunbook,
+);
 
 requireEqual("status.githubEnvironment.name", status.githubEnvironment?.name, "staging");
 requireEqual("status.githubEnvironment.exists", status.githubEnvironment?.exists, true);
@@ -141,6 +153,29 @@ for (const invariant of [
 ]) {
   requireText("packet", invariant, `packet is missing execution-status invariant: ${invariant}`);
   requireText("runbook", invariant, `runbook is missing execution-status invariant: ${invariant}`);
+}
+for (const invariant of [
+  "GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
+  "protection_rules: []",
+]) {
+  requireText("packet", invariant, `packet is missing environment-protection invariant: ${invariant}`);
+  requireText("runbook", invariant, `runbook is missing environment-protection invariant: ${invariant}`);
+}
+for (const invariant of [
+  "Environment name",
+  "Required reviewers",
+  "self-hosted",
+  "linux",
+  "x64",
+  "tecpey-staging",
+  "TECPEY_STAGING_ENV_FILE",
+  "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
+]) {
+  requireText(
+    "environmentProtectionRunbook",
+    invariant,
+    `environment protection runbook is missing invariant: ${invariant}`,
+  );
 }
 for (const invariant of [
   "\"ops:staging:execution-status:check\"",

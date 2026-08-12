@@ -161,6 +161,7 @@
       ],
       "status": "blocked_pending_protected_environment_rules_and_workflow_dispatch",
       "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+      "environmentProtectionRunbook": "docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
       "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
       "requiredEnvironment": "staging",
