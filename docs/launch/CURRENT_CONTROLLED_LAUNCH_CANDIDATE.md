@@ -8,6 +8,7 @@
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
+**Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -80,7 +81,7 @@ ambiguity this ledger is designed to remove.
 | Exact-head workflows | Accepted for NOG-04 in `docs/launch/generated/exact-head-workflow-evidence-20260812.json`. |
 | Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
 | Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
-| Recovery and rollback | Backup/restore, reconciliation, rollback or approved forward-fix evidence for this SHA. |
+| Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA. |
 | Accepted risks and approvals | Owner-approved risk register and approval matrix for this SHA and the narrow controlled launch scope. |
 

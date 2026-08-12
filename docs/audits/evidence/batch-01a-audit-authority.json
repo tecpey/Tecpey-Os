@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "f069fd8b9e9c06b0f9ff78b615a60401b75b69d5",
-      "sha256": "27d0c1e26b3f4f110da7de560de5fec286f620b270245282e8f1a8758bcc53f0",
-      "lines": 205,
+      "gitObjectId": "0034d98db49b649d4070a65b1515a90292deb821",
+      "sha256": "871a71f5d650fba2ebe7239e95f442840f0d884739b14b4b159cb34273386ff5",
+      "lines": 206,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 205
+          "endLine": 206
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -77,16 +77,17 @@
         "2026-08-11: re-reviewed after adding launch:candidate:check and composing it into launch:decision:check. The new command runs a local read-only candidate-lineage guard over controlled-launch ledger, protected-staging runbook, generated staging request and generated no-go register; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and prevents protected-staging execution from drifting across candidate SHA references.",
         "2026-08-11: re-reviewed after adding ops:staging:env-evidence collect/verify/check commands and composing the env evidence authority into ops:staging:evidence:check. The new scripts run only in the protected staging evidence path, upload redacted pass/fail/digest artifacts, add no dependency, engine, override, product runtime activation surface or secret-printing path, and make NOG-02 evidence collection machine-verifiable.",
         "2026-08-12: re-reviewed after adding ops:staging:execution-status:check and composing it into ops:staging:evidence:check. The new command is a local read-only guard over generated launch status JSON, runbook, packet and register references; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open when protected staging execution is blocked.",
-        "2026-08-12: re-reviewed after adding launch:workflow-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over exact-head workflow evidence JSON, the no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open while accepting only NOG-04."
+        "2026-08-12: re-reviewed after adding launch:workflow-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over exact-head workflow evidence JSON, the no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open while accepting only NOG-04.",
+        "2026-08-12: re-reviewed after adding launch:rollback-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over rollback/volume-restore evidence JSON, no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02/NOG-05 explicitly open while accepting only NOG-06."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-        "line": 130,
+          "line": 131,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-        "evidence": "package.json lines 130 and 133-134 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 131 and 134-135 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

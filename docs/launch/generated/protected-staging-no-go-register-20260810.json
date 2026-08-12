@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-no-go-register",
-  "generatedAt": "2026-08-12T06:35:00.000Z",
+  "generatedAt": "2026-08-12T06:52:00.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "stagingEvidenceTargetSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
   "runtimeCandidateBaselineSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
@@ -12,6 +12,7 @@
   "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
   "runtimeImageDigestEvidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
   "exactHeadWorkflowEvidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  "rollbackVolumeRestoreEvidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
   "privacyBoundary": [
     "register contains release identifiers, paths, closure actions and authority references only",
     "final evidence must not contain raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
@@ -64,7 +65,7 @@
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
       "closureAction": "Accepted exact-head GitHub Actions run URLs for CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning on the staging target SHA.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "launchImpact": "Exact-head workflow URL evidence recorded; Go remains blocked by protected staging, recovery, rollback, incident, risk and approval evidence"
+      "launchImpact": "Exact-head workflow URL evidence recorded; Go remains blocked by protected staging, recovery reconciliation, incident, risk and approval evidence"
     },
     {
       "order": 5,
@@ -78,11 +79,14 @@
     {
       "order": 6,
       "id": "NOG-06",
-      "title": "Rollback or forward-fix evidence is missing",
-      "status": "open",
-      "closureAction": "Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner.",
+      "title": "Rollback and volume-restore evidence is attached for the current candidate",
+      "status": "accepted",
+      "acceptedAt": "2026-08-12T06:52:00Z",
+      "executionState": "accepted_ephemeral_rollback_volume_restore",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+      "closureAction": "Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "launchImpact": "Blocks deployment safety"
+      "launchImpact": "Rollback and volume-restore mechanics recorded; Go remains blocked by protected staging, recovery reconciliation, incident, risk and approval evidence"
     },
     {
       "order": 7,
@@ -181,6 +185,18 @@
         "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31559911749"
       },
       "remainingBoundary": "Operational Recovery and product-domain recovery reconciliation remain under NOG-05; protected staging and env evidence remain under NOG-01/NOG-02."
+    },
+    {
+      "id": "NOG-06",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "previousReleaseSha": "e51f591b1af3195c625a839cbe8212b1720a0f9c",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811",
+      "rollbackJobId": 93999940637,
+      "containerRecoveryArtifact": "container-recovery-55f2e92bb8238de17e0809fe54c389476517f57b",
+      "containerRecoveryArtifactDigest": "sha256:f2de21d7bdcd9c7467d77f0a337d7e0fd1b89f764c7208e31bfba0c3eb2f6378",
+      "remainingBoundary": "Protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     }
   ],
   "recommendedNextSlice": {
@@ -191,6 +207,6 @@
     "description": "Collect protected staging activation evidence and redacted env:check evidence for the current candidate SHA after PR #388, with either the protected host env file loaded or the service-manager preloaded environment verified for NOG-02.",
     "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
+    "decisionAfterSlice": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
   }
 }
