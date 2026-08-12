@@ -282,6 +282,34 @@ function buildDecisionDossiers(decisions: NewsAutomationDecision[]): DecisionDos
   });
 }
 
+function materializeSourceCard(sourceCard: NewsSourceCard): NewsSourceCard {
+  const materialized: NewsSourceCard = {
+    title: sourceCard.title,
+    sourceName: sourceCard.sourceName,
+    sourceUrl: sourceCard.sourceUrl,
+    canonicalUrl: sourceCard.canonicalUrl,
+    thumbnailRights: sourceCard.thumbnailRights,
+    attributionRequired: sourceCard.attributionRequired,
+    persianSummary: sourceCard.persianSummary,
+    originalLanguage: sourceCard.originalLanguage,
+    socialLayerSummary: sourceCard.socialLayerSummary,
+  };
+  if (sourceCard.thumbnailUrl) materialized.thumbnailUrl = sourceCard.thumbnailUrl;
+  if (sourceCard.thumbnailAlt) materialized.thumbnailAlt = sourceCard.thumbnailAlt;
+  return materialized;
+}
+
+function materializeEntity(entity: NewsEntityReference): NewsEntityReference {
+  const materialized: NewsEntityReference = {
+    type: entity.type,
+    id: entity.id,
+    label: entity.label,
+    confidence: entity.confidence,
+  };
+  if (entity.officialUrl) materialized.officialUrl = entity.officialUrl;
+  return materialized;
+}
+
 function materializeDossier(dossier: NewsIntelligenceDossier): MaterializedNewsDecisionIntelligence {
   return {
     dossierId: dossier.id,
@@ -289,8 +317,8 @@ function materializeDossier(dossier: NewsIntelligenceDossier): MaterializedNewsD
     status: dossier.status,
     reasons: dossier.reasons,
     duplicate: dossier.duplicate,
-    sourceCard: dossier.sourceCard,
-    entities: dossier.entities,
+    sourceCard: materializeSourceCard(dossier.sourceCard),
+    entities: dossier.entities.map(materializeEntity),
     tags: dossier.tags,
     timeBuckets: dossier.timeBuckets,
     graphEdges: dossier.graphEdges,
