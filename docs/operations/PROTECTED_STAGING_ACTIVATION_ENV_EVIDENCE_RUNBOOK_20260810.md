@@ -8,6 +8,7 @@
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
 **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
+**Environment protection setup runbook:** `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 
 This runbook is the operator-facing execution request for the first protected
 staging closure slice. It does not close either blocker by itself. It defines the
@@ -56,6 +57,16 @@ the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
 and NOG-02 remain open until the staging Environment has required protection
 rules/reviewers and both manual workflow runs complete successfully for the
 selected candidate SHA.
+
+Post-merge refresh: after PR #397 merged the Enterprise QA/Red-Team report into
+`main` at `18468c2c5a547a0810ae5e675feeb1072dcd8ad9`, a fresh GitHub API
+observation still returned `protection_rules: []`, zero protected env evidence
+runs, and no accepted current-candidate scheduler evidence run. The selected
+protected staging target remains
+`55f2e92bb8238de17e0809fe54c389476517f57b`; PR #397 was a documentation and
+launch-control update, not a release-owner candidate promotion. Follow
+`docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
+before dispatching either workflow.
 
 ## Required Environment Inputs
 
