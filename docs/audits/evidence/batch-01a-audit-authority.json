@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5b25e9e37eed5611960c06aa86e60f5addc5e5d6",
-      "sha256": "49921972274d6c97048effedc74fdc3ad1092e2bb0ea6db628c9efd189d55304",
-      "lines": 210,
+      "gitObjectId": "8820dbb53c4f6b7127f6a1124c6ee623e67a067a",
+      "sha256": "04c64f2dd1afb8758cb67839f70754411e0c84205984d8065b2aeaa72b2c9d88",
+      "lines": 217,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 210
+          "endLine": 217
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -71,6 +71,7 @@
         "2026-08-09: re-reviewed after adding launch:evidence:manifest:check, test:launch-evidence-manifest and composing the manifest test into launch:decision:check. The new commands validate governed final launch evidence manifests and packet manifest wiring with local node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and keep release authority fail-closed.",
         "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate.",
         "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check.",
+        "2026-08-12: re-reviewed after adding support:install:rehearse, support:install:check and wiring the readiness guard into supply-chain:check. The new commands are local clean-room ZIP/checksum rehearsal and static source guards for support handoff; they add no dependency, engine, override, network access, product runtime activation surface or secret-printing path, do not execute bundled install/build/migration/runtime commands, and keep release:check unchanged.",
         "2026-08-10: re-reviewed after wiring governed news materialization, coin growth and tool growth commands into package scripts and release:check. The commands remain local repository scripts/tests, add no dependency, engine or override, do not enable exchange execution, wallet connection, API-key access, signal publishing or external trade automation, and the file now has 198 lines.",
         "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change.",
         "2026-08-10: re-reviewed after exposing scripts/check-browser-persistence.mjs as browser:persistence:check and wiring it into release:check. The command is an existing read-only static source guard over classified browser persistence; it adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
@@ -80,16 +81,19 @@
         "2026-08-12: re-reviewed after adding launch:workflow-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over exact-head workflow evidence JSON, the no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02 explicitly open while accepting only NOG-04.",
         "2026-08-12: re-reviewed after adding launch:rollback-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over rollback/volume-restore evidence JSON, no-go register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keeps NOG-01/NOG-02/NOG-05 explicitly open while accepting only NOG-06.",
         "2026-08-12: re-reviewed after adding launch:gated-capability-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over disabled-capability attestation evidence, no-go register, candidate ledger, packet, checklist and the existing disabled-capability policy scan; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-10/NOG-11/NOG-12 only as launch-disabled/product-disabled controlled-launch scope.",
-        "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals."
+        "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals.",
+        "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains.",
+        "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier.",
+        "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 133,
+          "line": 142,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 133 and 136-137 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 142 and 145-146 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -235,8 +239,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "6fd2c67c86502fc494fd352f246b67dfbb38749d",
-      "sha256": "1c3c743cfb8cd745511ceca8c0d193d36e3acd38123418ff8daecb02c96a1e66",
+      "gitObjectId": "63a082569dac5721e1bce8e6b40c62fa8ee1547c",
+      "sha256": "fd9e7f5b9b5a9c3b89a9f34194b9bb12ae86304d5c07a0cfadddd699ee231c78",
       "lines": 281,
       "reviewedRanges": [
         {
@@ -249,7 +253,9 @@
         "Generated/vendored ownership, explicit repository-supply-chain authorities, ordered domain rules, source-path fail-closed behavior, provenance-driven pending state, twelve batches and Policy v10 multi-slice evidence-path ownership were reviewed.",
         "Tests/docs precedence is intentional for Batch 12; operations precedes repository-supply classification for runtime authorities.",
         "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted.",
-        "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications."
+        "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications.",
+        "2026-08-12: re-reviewed after Policy v12 added explicit product-ui routing for src/lib/news-intelligence-graph.ts. The change is limited to one content intelligence module classification and the policy version constant; source-path fail-closed behavior remains intact, no runtime activation surface is added, and the new module is covered by focused content authority tests.",
+        "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states."
       ],
       "findings": []
     },

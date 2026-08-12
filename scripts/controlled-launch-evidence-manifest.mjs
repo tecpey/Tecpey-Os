@@ -46,6 +46,7 @@ const manifestShape = Object.freeze({
     },
     approvals: {
       evidenceUrl: "url",
+      artifactDigest: "digest",
     },
   },
 });
@@ -72,6 +73,7 @@ const manifestFlagPaths = Object.freeze({
   "incident-readiness-artifact-digest": ["requiredExternalEvidence", "incidentReadiness", "artifactDigest"],
   "accepted-risk-signoff-url": ["requiredExternalEvidence", "acceptedRisks", "evidenceUrl"],
   "go-approvals-url": ["requiredExternalEvidence", "approvals", "evidenceUrl"],
+  "go-approvals-artifact-digest": ["requiredExternalEvidence", "approvals", "artifactDigest"],
 });
 
 const forbiddenSensitiveEvidence = [
@@ -298,6 +300,10 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
         evidenceUrl: validateUrl(
           manifest.requiredExternalEvidence.approvals.evidenceUrl,
           "manifest.requiredExternalEvidence.approvals.evidenceUrl",
+        ),
+        artifactDigest: normalizeDigest(
+          manifest.requiredExternalEvidence.approvals.artifactDigest,
+          "manifest.requiredExternalEvidence.approvals.artifactDigest",
         ),
       },
     },

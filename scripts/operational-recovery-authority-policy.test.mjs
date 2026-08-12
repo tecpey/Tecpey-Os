@@ -14,6 +14,7 @@ const files = {
   workflow: ".github/workflows/operational-recovery.yml",
   recovery: "scripts/test-container-volume-recovery.sh",
   verifier: "scripts/verify-operational-recovery-evidence.mjs",
+  protectedVerifier: "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
   runbook: "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
   reconciliation: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   packageJson: "package.json",
@@ -108,6 +109,21 @@ test("rejects weakening the measured RTO verifier", () => {
   );
   const failures = evaluateOperationalRecoveryAuthority({ ...valid, verifier });
   assert.equal(failures.some((value) => value.includes("recoveryDurationMs")), true);
+});
+
+test("rejects weakening protected recovery reconciliation evidence verification", () => {
+  const protectedVerifier = valid.protectedVerifier
+    .replace("tenantPrincipalIsolation", "tenantScopeOptional")
+    .replaceAll("forbidRawMaterial", "allowRawMaterial");
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, protectedVerifier });
+  assert.equal(
+    failures.includes("protected recovery verifier is missing tenantPrincipalIsolation"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected recovery verifier is missing forbidRawMaterial"),
+    true,
+  );
 });
 
 test("rejects removing a launch domain from the recovery reconciliation contract", () => {

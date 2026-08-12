@@ -5,6 +5,7 @@ const files = {
   workflow: ".github/workflows/operational-recovery.yml",
   recovery: "scripts/test-container-volume-recovery.sh",
   verifier: "scripts/verify-operational-recovery-evidence.mjs",
+  protectedVerifier: "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
   runbook: "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
   reconciliation: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   packageJson: "package.json",

@@ -72,8 +72,15 @@
       "id": "NOG-05",
       "title": "Backup, restore and recovery reconciliation evidence is missing",
       "status": "open",
+      "executionState": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
       "closureAction": "Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation.",
       "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
+      "executionRequest": "docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json",
+      "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
       "launchImpact": "Blocks restore trust"
     },
     {
@@ -93,8 +100,15 @@
       "id": "NOG-07",
       "title": "Incident readiness evidence is missing",
       "status": "open",
-      "closureAction": "Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill.",
+      "executionState": "blocked_pending_protected_staging_incident_drill",
+      "closureAction": "Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass scripts/verify-incident-readiness-evidence.mjs.",
       "authority": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "executionRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+      "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
       "launchImpact": "Blocks support readiness"
     },
     {
@@ -112,8 +126,18 @@
       "id": "NOG-09",
       "title": "Go approval matrix is missing",
       "status": "open",
-      "closureAction": "Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope.",
+      "executionState": "blocked_pending_final_go_approval_matrix",
+      "closureAction": "Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes scripts/verify-go-approval-matrix-evidence.mjs.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "executionRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+      "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02",
+        "NOG-05",
+        "NOG-07",
+        "NOG-08"
+      ],
       "launchImpact": "Blocks Go record"
     },
     {
@@ -161,12 +185,64 @@
       ],
       "status": "blocked_pending_protected_environment_rules_and_workflow_dispatch",
       "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
+      "environmentProtectionRunbook": "docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
       "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
       "requiredEnvironment": "staging",
       "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
       "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
       "privacyBoundary": "redacted evidence only"
+    },
+    {
+      "ids": [
+        "NOG-05"
+      ],
+      "status": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
+      "operatorRunbook": "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
+      "machineReadableRequest": "docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json",
+      "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
+      "requiredEnvironment": "protected-staging",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
+      "privacyBoundary": "counts and hashes only"
+    },
+    {
+      "ids": [
+        "NOG-07"
+      ],
+      "status": "blocked_pending_protected_staging_incident_drill",
+      "operatorRunbook": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "machineReadableRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+      "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+      "requiredEnvironment": "protected-staging",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
+      "privacyBoundary": "redacted timing, counts, digests and role identities only"
+    },
+    {
+      "ids": [
+        "NOG-09"
+      ],
+      "status": "blocked_pending_final_go_approval_matrix",
+      "operatorRunbook": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "machineReadableRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+      "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
+      "requiredEnvironment": "release-control",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02",
+        "NOG-05",
+        "NOG-07",
+        "NOG-08"
+      ],
+      "privacyBoundary": "release identifiers, role identities, repository URLs, SHA-256 digests and dispositions only"
     }
   ],
   "acceptedEvidence": [
@@ -245,6 +321,7 @@
   },
   "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
   "acceptedRiskSignoffEvidence": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  "goApprovalMatrixEvidenceRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   "remainingOpenBlockers": [
     "NOG-01",
     "NOG-02",

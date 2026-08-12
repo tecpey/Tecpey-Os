@@ -22,6 +22,14 @@ const files = {
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  incidentReadinessEvidenceAuthority: "scripts/check-incident-readiness-evidence-authority.mjs",
+  incidentReadinessVerifier: "scripts/verify-incident-readiness-evidence.mjs",
+  incidentReadinessVerifierTest: "scripts/incident-readiness-evidence.test.mjs",
+  incidentReadinessRequest: "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+  goApprovalMatrixEvidenceAuthority: "scripts/check-go-approval-matrix-evidence-authority.mjs",
+  goApprovalMatrixVerifier: "scripts/verify-go-approval-matrix-evidence.mjs",
+  goApprovalMatrixVerifierTest: "scripts/go-approval-matrix-evidence.test.mjs",
+  goApprovalMatrixRequest: "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -215,10 +223,65 @@ for (const invariant of [
   "protected staging synthetic critical alert delivery succeeds twice",
   "pending alert count is zero",
   "quarantine count is zero",
+  "Machine-readable evidence artifact",
+  "tecpey-incident-readiness-v1",
+  "protected-staging-incident-readiness",
+  "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+  "npm run ops:incident-readiness:evidence:verify",
+  "DB, Redis, migration, alert-delivery, provider, worker and reconciliation",
   "launch decision remains NO-GO",
   "No README, landing page, in-app copy, investor update or release note may imply 24/7 production support",
 ]) {
   requireText("incidentReadiness", invariant, `incident readiness contract is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "incident-readiness-evidence-request",
+  "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
+  "blocked_pending_protected_staging_incident_drill",
+  "tecpey-incident-readiness-v1",
+  "protected-staging-incident-readiness",
+  "maximumLatencySeconds",
+  "insideSupportWindowTargetSeconds",
+  "outsideSupportWindowTargetSeconds",
+  "reviewer must differ from operator, incidentCommander and sreOwner",
+  "NOG-07 is not accepted by this request",
+]) {
+  requireText("incidentReadinessRequest", invariant, `incident readiness request is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "verifyIncidentReadinessEvidence",
+  "RUNBOOK_FAILURE_MODES",
+  "synthetic-critical-alert",
+  "pendingAlertCountAfterProbe",
+  "quarantineCountAfterProbe",
+  "reviewer_must_be_independent",
+  "no-host-ips",
+]) {
+  requireText("incidentReadinessVerifier", invariant, `incident readiness verifier is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepts protected staging incident readiness evidence",
+  "rejects slow alert delivery",
+  "rejects P0 acknowledgement misses",
+  "rejects missing runbook coverage",
+]) {
+  requireText("incidentReadinessVerifierTest", invariant, `incident readiness verifier tests are missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Incident readiness evidence authority",
+  "launch:incident-readiness-evidence:check",
+  "ops:incident-readiness:evidence:verify",
+  "test:incident-readiness-evidence",
+]) {
+  requireText(
+    "incidentReadinessEvidenceAuthority",
+    invariant,
+    `incident readiness evidence authority is missing invariant: ${invariant}`,
+  );
 }
 
 for (const [target, label] of [
@@ -242,6 +305,12 @@ for (const invariant of [
   '"launch:disabled-capabilities:check"',
   '"launch:gated-capability-evidence:check"',
   '"launch:accepted-risk-evidence:check"',
+  '"launch:incident-readiness-evidence:check"',
+  '"ops:incident-readiness:evidence:verify"',
+  '"test:incident-readiness-evidence"',
+  '"launch:go-approval-matrix-evidence:check"',
+  '"ops:go-approval-matrix:evidence:verify"',
+  '"test:go-approval-matrix-evidence"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
@@ -251,6 +320,12 @@ for (const invariant of [
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-gated-capability-evidence-authority.mjs",
   "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+  "scripts/check-incident-readiness-evidence-authority.mjs",
+  "scripts/verify-incident-readiness-evidence.mjs",
+  "scripts/incident-readiness-evidence.test.mjs",
+  "scripts/check-go-approval-matrix-evidence-authority.mjs",
+  "scripts/verify-go-approval-matrix-evidence.mjs",
+  "scripts/go-approval-matrix-evidence.test.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -264,6 +339,10 @@ for (const invariant of [
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
   "npm run launch:accepted-risk-evidence:check",
+  "npm run launch:incident-readiness-evidence:check",
+  "npm run test:incident-readiness-evidence",
+  "npm run launch:go-approval-matrix-evidence:check",
+  "npm run test:go-approval-matrix-evidence",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {
@@ -296,6 +375,63 @@ for (const invariant of [
     "acceptedRiskEvidenceAuthority",
     invariant,
     `accepted-risk evidence authority is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "go-approval-matrix-evidence-request",
+  "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
+  "blocked_pending_final_go_approval_matrix",
+  "NOG-09",
+  "tecpey-go-approval-matrix-v1",
+  "controlled-soft-launch-go-approval-matrix",
+  "controlled-public-fa-en-academy-mentor-arena",
+  "CEO",
+  "CTO or Chief Architect",
+  "Security",
+  "Product",
+  "Compliance",
+  "SRE",
+  "QA",
+  "NOG-09 is not accepted by this request",
+]) {
+  requireText("goApprovalMatrixRequest", invariant, `Go approval matrix request is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "verifyGoApprovalMatrixEvidence",
+  "REQUIRED_APPROVAL_ROLES",
+  "REQUIRED_PREREQUISITE_BLOCKERS",
+  "approved-for-controlled-soft-launch-only",
+  "approval_matrix_independence_invalid",
+  "no-secrets-or-connection-urls",
+  "no-host-ips",
+]) {
+  requireText("goApprovalMatrixVerifier", invariant, `Go approval matrix verifier is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepts complete Go approval matrix evidence",
+  "rejects stale candidate SHA",
+  "rejects pending prerequisites",
+  "rejects rejected approvals",
+  "rejects operator self-review",
+]) {
+  requireText("goApprovalMatrixVerifierTest", invariant, `Go approval matrix verifier tests are missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Go approval matrix evidence authority",
+  "blocked_pending_final_go_approval_matrix",
+  "NOG-09",
+  "launch:go-approval-matrix-evidence:check",
+  "ops:go-approval-matrix:evidence:verify",
+  "test:go-approval-matrix-evidence",
+]) {
+  requireText(
+    "goApprovalMatrixEvidenceAuthority",
+    invariant,
+    `Go approval matrix evidence authority is missing invariant: ${invariant}`,
   );
 }
 
@@ -362,6 +498,7 @@ for (const invariant of [
   "incident-readiness-artifact-digest",
   "accepted-risk-signoff-url",
   "go-approvals-url",
+  "go-approvals-artifact-digest",
   "attached_for_release_owner_acceptance",
   "protectedStaging",
   "recoveryReconciliation",
@@ -369,6 +506,7 @@ for (const invariant of [
   "incidentReadiness",
   "acceptedRisks",
   "approvals",
+  "goApprovalsArtifactDigest",
   "real-money Exchange remains NO-GO",
   "packet must not contain raw secrets",
 ]) {
@@ -464,6 +602,7 @@ for (const invariant of [
   "must be an absolute https URL",
   "must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os",
   "must be a sha256 digest",
+  "go-approvals-artifact-digest",
 ]) {
   requireText("evidenceManifest", invariant, `controlled launch evidence manifest validator is missing invariant: ${invariant}`);
 }
@@ -514,6 +653,7 @@ for (const invariant of [
   "rollbackOrForwardFix.evidenceUrl",
   "incidentReadiness.artifactDigest",
   "acceptedRisks.evidenceUrl",
+  "approvals.artifactDigest",
   "accepted-risk register authority accepts the controlled-launch closure matrix",
   "accepted-risk register authority rejects a missing controlled-launch risk row",
   "accepted-risk register authority rejects placeholder thresholds in closure rows",
@@ -532,6 +672,8 @@ for (const invariant of [
 for (const invariant of [
   "Controlled launch decision authority guard",
   "npm run launch:decision:check",
+  "Go approval matrix evidence authority guard",
+  "npm run launch:go-approval-matrix-evidence:check",
 ]) {
   requireText("workflow", invariant, `CI workflow is missing launch decision guard wiring: ${invariant}`);
 }

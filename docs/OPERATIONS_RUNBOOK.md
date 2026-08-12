@@ -132,6 +132,28 @@ echo $EMAIL_PROVIDER $RESEND_API_KEY
 
 ---
 
+## Incident: Alert delivery failure
+
+**Symptom:** Synthetic P0 probe does not arrive in the approved operator channel
+within five minutes, or pending/quarantine counts are non-zero.
+
+**Diagnosis:**
+```bash
+npm run ops:alerts:deliver
+npm run ops:staging:evidence:verify -- <redacted-evidence.json>
+```
+
+**Resolution:**
+1. Freeze launch expansion and assign the incident commander.
+2. Verify `TECPEY_OPS_ALERT_WEBHOOK_URL` is present in the protected
+   environment without exposing the value.
+3. Re-run two synthetic critical probes and preserve counts, hashes and timing
+   only.
+4. Keep NOG-07 open until the evidence passes
+   `scripts/verify-incident-readiness-evidence.mjs`.
+
+---
+
 ## Incident: Migration Failure
 
 **Symptom:** `DB_DOWN` or `MIGRATION_FAILED` alert. App starts but DB operations fail.
@@ -152,6 +174,28 @@ psql "$DATABASE_URL" -c "SELECT filename, applied_at FROM _migrations ORDER BY a
 2. If a migration applied partially: manually revert the partial changes and delete the `_migrations` row, then redeploy.
 3. If a checksum mismatch: the migration file was edited after being applied. Restore the original content or create a new corrective migration.
 4. Never delete `_migrations` rows without reverting the schema change they represent.
+
+---
+
+## Incident: Provider failure
+
+**Symptom:** A configured external provider for email, market data, AI Mentor,
+alert delivery or CRM rejects requests, times out, or produces ambiguous
+results.
+
+**Diagnosis:**
+```bash
+curl https://tecpey.ir/api/health | jq '.checks, .warnings'
+grep 'provider\|timeout\|ambiguous' <log-stream>
+```
+
+**Resolution:**
+1. Degrade or pause the affected feature; do not enable real-money flows as a
+   workaround.
+2. Record provider name as a category only, not raw payloads or credentials.
+3. Open an incident if user-visible Academy, Mentor, Arena or alert delivery is
+   affected.
+4. User communication owner records the controlled-launch status update.
 
 ---
 
@@ -176,6 +220,49 @@ grep '"level":"error"' <log-stream> | tail -50 | jq '.msg, .route, .errorMessage
 3. If auth-related: check `TECPEY_SESSION_SECRET` is still set.
 4. If rate-limit errors: check Redis status; rate limits may be tighter under single-instance fallback.
 5. Deploy a fix or rollback (see Deployment Rollback section).
+
+---
+
+## Incident: Worker failure
+
+**Symptom:** Scheduled jobs, notification delivery, challenge finalization,
+community jobs or reconciliation workers stop, retry indefinitely, or quarantine
+events grow.
+
+**Diagnosis:**
+```bash
+npm run ops:scheduler:check
+npm run notifications:runtime:check
+grep 'worker\|queue\|quarantine' <log-stream>
+```
+
+**Resolution:**
+1. Pause expansion and identify the owning worker.
+2. Drain safe retries only after idempotency and tenant/principal boundaries are
+   confirmed.
+3. Preserve counts and digests only; never attach raw jobs or user payloads.
+4. Re-run the relevant authority guard before resuming the controlled cohort.
+
+---
+
+## Incident: Reconciliation failure
+
+**Symptom:** Academy progress, Arena state, Mentor memory, Exchange ledger,
+notifications/jobs, tenant/principal isolation or audit trails fail domain
+reconciliation after restore or rollback.
+
+**Diagnosis:**
+```bash
+npm run ops:recovery:check
+npm run ops:recovery:protected-evidence:verify -- <artifact.json> --expected-sha <candidate-sha>
+```
+
+**Resolution:**
+1. Keep NOG-05 open and freeze launch expansion.
+2. Assign domain owner and independent reviewer.
+3. Re-run reconciliation with counts and hashes only.
+4. Do not accept the incident as closed until halt/rollback and
+   user-communication ownership are recorded.
 
 ---
 

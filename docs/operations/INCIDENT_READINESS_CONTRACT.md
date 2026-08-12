@@ -43,6 +43,44 @@ The Go packet must attach redacted evidence proving:
 
 If any item is missing, the launch decision remains NO-GO.
 
+## Machine-readable evidence artifact
+
+NOG-07 remains open until a protected-staging artifact passes:
+
+```bash
+npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha <current-candidate-sha>
+```
+
+The artifact authority is `tecpey-incident-readiness-v1`, the evidence class is
+`protected-staging-incident-readiness`, and the request is tracked at
+`docs/launch/generated/incident-readiness-evidence-request-20260812.json`.
+
+The accepted artifact must contain:
+
+- support window `09:00-23:00 Asia/Tehran` with every-day controlled-launch
+  coverage;
+- two protected-staging P0 synthetic probes with alert type
+  `synthetic-critical-alert`, delivery under five minutes, and zero
+  pending/quarantine after each probe;
+- final alert queue state with zero pending alerts and zero quarantined alerts;
+- P0 acknowledgement drill by incident commander and SRE owner within 900
+  seconds inside support hours or 3600 seconds outside support hours;
+- DB, Redis, migration, alert-delivery, provider, worker and reconciliation
+  runbook coverage with first responder, escalation path, halt/rollback
+  condition and user-communication owner;
+- independent reviewer evidence where the reviewer differs from the operator,
+  incident commander and SRE owner;
+- redacted-evidence-only privacy boundary with no secrets, connection URLs,
+  host IPs, raw logs, customer data, provider payloads, private keys, webhook
+  URLs or prompt transcripts.
+
+Runbook coverage must include the exact failure modes `Database`, `Redis`,
+`Migration`, `Alert delivery`, `Provider`, `Worker` and `Reconciliation`.
+
+The request and verifier prepare the evidence path only. They do not accept
+NOG-07 and do not imply 24/7 production support or real-money operational
+readiness.
+
 ## User communication boundary
 
 Controlled-launch users must be told that support is available during the
