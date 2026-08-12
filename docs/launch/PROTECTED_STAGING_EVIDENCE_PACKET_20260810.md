@@ -14,6 +14,7 @@
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 **NOG-05 recovery reconciliation request:** `docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json`
+**NOG-07 incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 
@@ -53,7 +54,7 @@ evidence must match that same SHA.
 | NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation; final evidence must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
-| NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill. | docs/operations/INCIDENT_READINESS_CONTRACT.md | Blocks support readiness |
+| NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass `scripts/verify-incident-readiness-evidence.mjs`. | docs/launch/generated/incident-readiness-evidence-request-20260812.json | Blocks support readiness |
 | NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure and stale review dates, but NOG-08 remains open until sign-off evidence is attached. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
@@ -180,6 +181,19 @@ candidate SHA and must include accepted count/hash reconciliation for Academy,
 Trading Arena, Mentor AI, Exchange Ledger, notifications/jobs, and
 tenant/principal isolation. Ephemeral CI restore evidence remains necessary, but
 it is not accepted as protected staging domain reconciliation evidence.
+
+## Incident Readiness Evidence Request - 2026-08-12
+
+Incident readiness evidence request: NOG-07 remains open. The machine-readable request in
+`docs/launch/generated/incident-readiness-evidence-request-20260812.json`
+defines the protected staging artifact that must be attached before incident
+readiness can be considered for release-owner acceptance. The final artifact
+must pass `scripts/verify-incident-readiness-evidence.mjs` for the exact
+candidate SHA and must include two accepted P0 synthetic alert probes under five
+minutes, zero pending/quarantine counts, P0 acknowledgement by incident
+commander and SRE owner, independent review, and accepted runbook coverage for
+DB, Redis, migration, alert delivery, provider, worker and reconciliation
+failures.
 
 ## Disabled Capability Attestation Evidence - 2026-08-12
 

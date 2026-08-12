@@ -100,8 +100,15 @@
       "id": "NOG-07",
       "title": "Incident readiness evidence is missing",
       "status": "open",
-      "closureAction": "Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, and record P0 acknowledgement drill.",
+      "executionState": "blocked_pending_protected_staging_incident_drill",
+      "closureAction": "Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass scripts/verify-incident-readiness-evidence.mjs.",
       "authority": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "executionRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+      "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
       "launchImpact": "Blocks support readiness"
     },
     {
@@ -191,6 +198,22 @@
         "NOG-02"
       ],
       "privacyBoundary": "counts and hashes only"
+    },
+    {
+      "ids": [
+        "NOG-07"
+      ],
+      "status": "blocked_pending_protected_staging_incident_drill",
+      "operatorRunbook": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "machineReadableRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+      "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+      "requiredEnvironment": "protected-staging",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02"
+      ],
+      "privacyBoundary": "redacted timing, counts, digests and role identities only"
     }
   ],
   "acceptedEvidence": [

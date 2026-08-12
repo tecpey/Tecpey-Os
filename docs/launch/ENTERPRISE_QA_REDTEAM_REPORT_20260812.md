@@ -119,9 +119,9 @@ override the Go/No-Go checklist.
 ### P0-RT-003 - Incident readiness is not accepted
 
 **Status:** Open.
-**Evidence:** `NOG-07`, `docs/operations/INCIDENT_READINESS_CONTRACT.md`.
+**Evidence:** `NOG-07`, `docs/operations/INCIDENT_READINESS_CONTRACT.md`, `docs/launch/generated/incident-readiness-evidence-request-20260812.json`.
 **Risk:** Operators could deploy an otherwise good artifact without proven critical alert delivery, acknowledgement, support windows or escalation.
-**Required closure:** Run critical alert probes, prove latency, pending/quarantine state and P0 acknowledgement, then attach evidence.
+**Required closure:** Run critical alert probes, prove latency, pending/quarantine state and P0 acknowledgement, then attach evidence that passes `scripts/verify-incident-readiness-evidence.mjs`.
 
 ### P0-RT-004 - Sign-off and final approvals are missing
 
@@ -209,7 +209,7 @@ override the Go/No-Go checklist.
 
 1. Close `NOG-01` and `NOG-02` with protected staging activation and redacted env evidence.
 2. Close `NOG-05` with protected staging recovery reconciliation across Academy, Arena, Mentor, Exchange ledger, notifications/jobs, tenant/principal isolation and audit trails.
-3. Close `NOG-07` with incident readiness evidence, critical alert probes and P0 acknowledgement.
+3. Close `NOG-07` with incident readiness evidence, critical alert probes and P0 acknowledgement that pass `scripts/verify-incident-readiness-evidence.mjs`.
 4. Close `NOG-08` with externally attributable owner sign-off evidence.
 5. Close `NOG-09` with the final Go approval matrix for CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA.
 6. Keep `NOG-10`, `NOG-11` and `NOG-12` accepted only as disabled-scope evidence; do not activate any related capability.

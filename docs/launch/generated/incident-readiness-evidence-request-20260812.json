@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "incident-readiness-evidence-request",
+  "generatedAt": "2026-08-12T10:28:04Z",
+  "decision": "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
+  "executionState": "blocked_pending_protected_staging_incident_drill",
+  "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+  "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
+  "requestPath": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+  "blocker": "NOG-07",
+  "status": "open",
+  "notAcceptedForBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
+  "requiredEnvironment": "protected-staging",
+  "prerequisiteBlockers": [
+    "NOG-01",
+    "NOG-02"
+  ],
+  "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+  "verifier": "scripts/verify-incident-readiness-evidence.mjs",
+  "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+  "authorityGuard": "scripts/check-incident-readiness-evidence-authority.mjs",
+  "requiredArtifact": {
+    "schemaVersion": 1,
+    "authority": "tecpey-incident-readiness-v1",
+    "evidenceClass": "protected-staging-incident-readiness",
+    "environment": "protected-staging",
+    "sourceSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "supportWindow": {
+      "timezone": "Asia/Tehran",
+      "dailyStart": "09:00",
+      "dailyEnd": "23:00",
+      "coverage": "every-day-controlled-launch"
+    },
+    "alertProbes": {
+      "requiredCount": 2,
+      "severity": "P0",
+      "alertType": "synthetic-critical-alert",
+      "maximumLatencySeconds": 300,
+      "pendingAlertCountAfterEachProbe": 0,
+      "quarantineCountAfterEachProbe": 0
+    },
+    "alertQueueState": {
+      "pendingAlertCount": 0,
+      "quarantineCount": 0,
+      "queryDigest": "sha256-without-raw-rows"
+    },
+    "acknowledgementDrill": {
+      "severity": "P0",
+      "insideSupportWindowTargetSeconds": 900,
+      "outsideSupportWindowTargetSeconds": 3600,
+      "requiredAcknowledgers": [
+        "incidentCommander",
+        "sreOwner"
+      ]
+    },
+    "runbookCoverage": [
+      "Database",
+      "Redis",
+      "Migration",
+      "Alert delivery",
+      "Provider",
+      "Worker",
+      "Reconciliation"
+    ],
+    "reviewerIndependence": "reviewer must differ from operator, incidentCommander and sreOwner",
+    "finalDisposition": "accepted"
+  },
+  "guardCommands": [
+    {
+      "name": "launch:incident-readiness-evidence:check",
+      "command": "node scripts/check-incident-readiness-evidence-authority.mjs",
+      "disposition": "pass_no_acceptance_without_verified_artifact"
+    },
+    {
+      "name": "ops:incident-readiness:evidence:verify",
+      "command": "node scripts/verify-incident-readiness-evidence.mjs <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+      "disposition": "required_for_final_artifact"
+    },
+    {
+      "name": "test:incident-readiness-evidence",
+      "command": "node --test scripts/incident-readiness-evidence.test.mjs",
+      "disposition": "pass"
+    }
+  ],
+  "acceptanceBoundary": [
+    "NOG-07 is not accepted by this request because protected staging incident evidence is still missing.",
+    "The final artifact must pass scripts/verify-incident-readiness-evidence.mjs for the exact selected SHA before release-owner acceptance.",
+    "Alert delivery must be proven with two protected-staging P0 synthetic probes under five minutes and zero pending/quarantine counts.",
+    "P0 acknowledgement must be recorded by incident commander and SRE owner within the configured support-window target.",
+    "DB, Redis, migration, alert-delivery, provider, worker and reconciliation runbooks must name responder, escalation, halt/rollback and user-communication ownership."
+  ],
+  "notAcceptedAs": [
+    "protected staging evidence",
+    "recovery reconciliation evidence",
+    "accepted-risk owner sign-off",
+    "Go approval matrix",
+    "24/7 production support",
+    "real-money operational readiness"
+  ],
+  "privacyBoundary": [
+    "request and final evidence contain release identifiers, digests, counts, timings and role identities only",
+    "final evidence must not contain raw secrets, database URLs, host IPs, raw logs, customer data, provider payloads, private keys, webhook URLs or prompt transcripts"
+  ]
+}

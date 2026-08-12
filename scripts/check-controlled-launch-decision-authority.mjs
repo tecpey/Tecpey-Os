@@ -22,6 +22,10 @@ const files = {
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  incidentReadinessEvidenceAuthority: "scripts/check-incident-readiness-evidence-authority.mjs",
+  incidentReadinessVerifier: "scripts/verify-incident-readiness-evidence.mjs",
+  incidentReadinessVerifierTest: "scripts/incident-readiness-evidence.test.mjs",
+  incidentReadinessRequest: "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -215,10 +219,65 @@ for (const invariant of [
   "protected staging synthetic critical alert delivery succeeds twice",
   "pending alert count is zero",
   "quarantine count is zero",
+  "Machine-readable evidence artifact",
+  "tecpey-incident-readiness-v1",
+  "protected-staging-incident-readiness",
+  "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
+  "npm run ops:incident-readiness:evidence:verify",
+  "DB, Redis, migration, alert-delivery, provider, worker and reconciliation",
   "launch decision remains NO-GO",
   "No README, landing page, in-app copy, investor update or release note may imply 24/7 production support",
 ]) {
   requireText("incidentReadiness", invariant, `incident readiness contract is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "incident-readiness-evidence-request",
+  "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
+  "blocked_pending_protected_staging_incident_drill",
+  "tecpey-incident-readiness-v1",
+  "protected-staging-incident-readiness",
+  "maximumLatencySeconds",
+  "insideSupportWindowTargetSeconds",
+  "outsideSupportWindowTargetSeconds",
+  "reviewer must differ from operator, incidentCommander and sreOwner",
+  "NOG-07 is not accepted by this request",
+]) {
+  requireText("incidentReadinessRequest", invariant, `incident readiness request is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "verifyIncidentReadinessEvidence",
+  "RUNBOOK_FAILURE_MODES",
+  "synthetic-critical-alert",
+  "pendingAlertCountAfterProbe",
+  "quarantineCountAfterProbe",
+  "reviewer_must_be_independent",
+  "no-host-ips",
+]) {
+  requireText("incidentReadinessVerifier", invariant, `incident readiness verifier is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepts protected staging incident readiness evidence",
+  "rejects slow alert delivery",
+  "rejects P0 acknowledgement misses",
+  "rejects missing runbook coverage",
+]) {
+  requireText("incidentReadinessVerifierTest", invariant, `incident readiness verifier tests are missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "Incident readiness evidence authority",
+  "launch:incident-readiness-evidence:check",
+  "ops:incident-readiness:evidence:verify",
+  "test:incident-readiness-evidence",
+]) {
+  requireText(
+    "incidentReadinessEvidenceAuthority",
+    invariant,
+    `incident readiness evidence authority is missing invariant: ${invariant}`,
+  );
 }
 
 for (const [target, label] of [
@@ -242,6 +301,9 @@ for (const invariant of [
   '"launch:disabled-capabilities:check"',
   '"launch:gated-capability-evidence:check"',
   '"launch:accepted-risk-evidence:check"',
+  '"launch:incident-readiness-evidence:check"',
+  '"ops:incident-readiness:evidence:verify"',
+  '"test:incident-readiness-evidence"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
   '"test:launch-packet"',
@@ -251,6 +313,9 @@ for (const invariant of [
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-gated-capability-evidence-authority.mjs",
   "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+  "scripts/check-incident-readiness-evidence-authority.mjs",
+  "scripts/verify-incident-readiness-evidence.mjs",
+  "scripts/incident-readiness-evidence.test.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -264,6 +329,8 @@ for (const invariant of [
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
   "npm run launch:accepted-risk-evidence:check",
+  "npm run launch:incident-readiness-evidence:check",
+  "npm run test:incident-readiness-evidence",
   "npm run test:disabled-capability-attestation",
   '"test:launch-evidence-manifest"',
 ]) {

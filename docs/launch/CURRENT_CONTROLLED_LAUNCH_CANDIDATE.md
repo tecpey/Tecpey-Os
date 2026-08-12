@@ -10,6 +10,7 @@
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
+**Incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
@@ -84,7 +85,7 @@ ambiguity this ledger is designed to remove.
 | Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
 | Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
 | Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05 and must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. |
-| Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA. |
+| Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA; NOG-07 remains open until `docs/launch/generated/incident-readiness-evidence-request-20260812.json` is satisfied and the final protected-staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
 | Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached; the Go approval matrix for this SHA and launch scope also remains required. |
 
