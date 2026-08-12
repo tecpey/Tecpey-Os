@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
-**Candidate source:** `main` after PR #388
-**Candidate selected at:** `2026-08-12T03:51:09Z`
+**Current candidate SHA:** `5d68865dd56331e011829749ee970d097e9b14a4`
+**Candidate source:** `main` after PR #396
+**Candidate selected at:** `2026-08-12T16:13:21Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -20,32 +20,21 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #373 completed the tenant-isolation proof package and hardened the
-controlled-launch capability boundary after PR #367's support deployment bundle
-hardening. PR #375 then guarded the controlled candidate lineage, PR #376 added
-protected staging environment evidence automation for NOG-02, and PR #378 made
-Full Suite Diagnostics collectable on `main` and `workflow_dispatch` for
-exact-head NOG-04 evidence. PR #380 then hardened that exact-head evidence path
-so `main` evidence runs are isolated by SHA and the authority test no longer
-depends on one fragile YAML formatting layout. PR #382 hardened NOG-12 product
-truth by making the public swap surfaces explicitly educational/launch-gated
-and by adding route-level guards for disabled enterprise, white-label, rewards,
-exchange, deposit, withdrawal and custody pages. PR #386 then added Academy
-mastery season review orchestration, PR #387 governed the public brand/action
-primitive contracts, and PR #388 added the landing discovery evidence contract
-so growth readiness cannot be reported as `ready` from seed-only fallback data.
-Because tenant isolation, launch-gated financial surfaces, support handoff,
-staging evidence collection, exact-head Full Suite evidence, product-truth route
-guards, Academy orchestration, governed UI primitives and provenance-aware
-growth evidence are all part of the launch decision boundary, the next evidence
-collection must use the SHA that contains those fixes:
+PR #391 through PR #396 materially changed the launch-control line after the
+previous candidate. The current main now includes immutable runtime-image digest
+evidence, exact-head workflow evidence, rollback and volume-restore evidence,
+gated disabled-capability evidence, accepted-risk signoff verification, News
+Intelligence Graph wiring, News Provider Readiness authority, and support install
+rehearsal hardening. Because these changes affect launch evidence, source bundle
+handoff, news materialization safety and the final protected-staging target, all
+new evidence collection must use the SHA that contains them:
 
 ```text
-55f2e92bb8238de17e0809fe54c389476517f57b
+5d68865dd56331e011829749ee970d097e9b14a4
 ```
 
-Using older draft baselines for new staging/support evidence would recreate the
-ambiguity this ledger is designed to remove.
+Using the prior PR #388 candidate for new staging/support evidence would make
+the final evidence packet stale before execution.
 
 ## Superseded Draft Baselines
 
@@ -61,6 +50,7 @@ ambiguity this ledger is designed to remove.
 | `db1f761d8fb543d1a3619ace901434b4636eeb4d` | Current controlled-launch candidate after PR #378 exact-head Full Suite evidence collection | Superseded by PR #380 for all new exact-head workflow and protected staging evidence collection. |
 | `866ff092828b15ef0e64c3508bf4904c6d22ba52` | Current controlled-launch candidate after PR #380 exact-head Full Suite hardening | Superseded by PR #382 for all new product-truth, protected staging and exact-candidate evidence collection. |
 | `70894e0430ed4796016c9a0952dde8de06bc788a` | Current controlled-launch candidate after PR #382 product-truth route guarding | Superseded by PR #388 for all new Academy orchestration, governed UI, growth evidence, protected staging and exact-candidate evidence collection. |
+| `55f2e92bb8238de17e0809fe54c389476517f57b` | Current controlled-launch candidate after PR #388 provenance-aware landing growth evidence | Superseded by PR #396 for support install readiness, news readiness and exact-candidate evidence refresh. |
 
 ## Candidate Identity Rules
 
