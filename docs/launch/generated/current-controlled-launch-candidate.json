@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-12T03:51:09.000Z",
+  "generatedAt": "2026-08-12T16:13:21.000Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "sha": "5d68865dd56331e011829749ee970d097e9b14a4",
     "sourceBranch": "main",
-    "sourcePullRequest": 388,
-    "selectedAt": "2026-08-12T03:51:09Z",
-    "reason": "Includes tenant-isolation proof coverage, controlled-launch candidate lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection, PR #380 SHA-isolated evidence-run hardening, PR #382 disabled-capability product-truth route guarding, PR #386 Academy mastery season review orchestration, PR #387 governed brand/action primitives and PR #388 provenance-aware landing growth evidence after the support bundle hardening baseline."
+    "sourcePullRequest": 396,
+    "selectedAt": "2026-08-12T16:13:21Z",
+    "reason": "Promotes the controlled-launch evidence target to current main after PR #396 support install rehearsal hardening, PR #402 accepted-risk signoff verifier, PR #404 News Intelligence Graph wiring and PR #405 News Provider Readiness authority. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
   },
   "supersedes": [
     {
@@ -60,6 +60,11 @@
       "sha": "70894e0430ed4796016c9a0952dde8de06bc788a",
       "previousRole": "current controlled-launch candidate after PR 382 product-truth route guarding",
       "currentStatus": "superseded_by_pr_388_for_new_academy_ui_growth_protected_staging_and_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "previousRole": "current controlled-launch candidate after PR #388 provenance-aware landing growth evidence",
+      "currentStatus": "superseded_by_pr_396_for_support_install_readiness_news_readiness_and_exact_candidate_evidence_refresh"
     }
   ],
   "activeInputs": {
@@ -86,7 +91,6 @@
     "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
   ],
   "requiredNextEvidence": [
-    "deployment artifact digest and final manifest wiring after accepted runtime image digest evidence",
     "protected staging NOG-01/NOG-02 evidence for the current candidate",
     "protected staging recovery reconciliation evidence that passes scripts/verify-protected-recovery-reconciliation-evidence.mjs",
     "incident readiness evidence that passes scripts/verify-incident-readiness-evidence.mjs",
