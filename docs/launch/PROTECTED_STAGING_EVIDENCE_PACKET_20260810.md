@@ -5,10 +5,11 @@
 **Staging evidence target SHA:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Runtime candidate baseline:** `55f2e92bb8238de17e0809fe54c389476517f57b`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
-**Evidence branch:** `agent/protected-staging-env-evidence-target`
+**Evidence branch:** `agent/runtime-image-digest-evidence`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
 **NOG-01/NOG-02 execution request:** `docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md`, `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
+**Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -42,7 +43,7 @@ evidence must match that same SHA.
 |---|---|---|---|---|
 | NOG-01 | Protected staging activation evidence is missing | Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary. | docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md | Blocks controlled soft launch Go |
 | NOG-02 | Production-like environment configuration is not proven | Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values. | docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md | Blocks final packet |
-| NOG-03 | Immutable runtime image digest is missing | Build or identify the exact container/runtime image for the staging target SHA and record a SHA-256 image digest. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks exact release identity |
+| NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `55f2e92bb8238de17e0809fe54c389476517f57b`: `sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
 | NOG-04 | Exact-head workflow URLs are not attached to a final manifest | Attach exact-head CI, repository audit, Public Browser Golden Path and secret scanning workflow URLs for the staging target SHA. | docs/launch/generated/controlled-soft-launch-rc-evidence-packet-20260810.json | Blocks final manifest |
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback or forward-fix evidence is missing | Prove rollback from the staging target to the previous accepted release, or record an approved irreversible-migration forward-fix decision with owner. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks deployment safety |
@@ -93,6 +94,25 @@ the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
 and NOG-02 remain open until the staging Environment has required protection
 rules/reviewers and both manual workflow runs complete successfully for the
 selected candidate SHA.
+
+## Runtime Image Evidence - 2026-08-12
+
+NOG-03 is accepted for immutable runtime image identity only.
+
+| Field | Evidence |
+|---|---|
+| Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Image | `ghcr.io/tecpey/tecpey-os` |
+| Image digest | `sha256:f8f1996d92460f37823bca0c1a8c830e5fbd8992699a4cd41f6e065dd9d1f365` |
+| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/31559911811` |
+| Release artifact | `container-release-55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Release artifact digest | `sha256:db0a734eeae399a5b7ab5fea3d0daa6d76958e93d74bbf11db6e199062fc4b08` |
+| Signature verification | Cosign verification records issuer `https://token.actions.githubusercontent.com`, subject `.github/workflows/container-supply-chain.yml@refs/heads/main`, workflow SHA `55f2e92bb8238de17e0809fe54c389476517f57b`, and docker manifest digest matching the image digest above. |
+
+This closes only the immutable runtime image digest blocker. It does not close
+protected staging, redacted env evidence, recovery reconciliation, rollback,
+incident readiness, accepted-risk sign-off, approval matrix, or the
+launch-disabled financial/enterprise capability blockers.
 
 ## Evidence Privacy Boundary
 

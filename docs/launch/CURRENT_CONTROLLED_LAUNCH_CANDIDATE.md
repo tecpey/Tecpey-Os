@@ -6,6 +6,7 @@
 **Candidate source:** `main` after PR #388
 **Candidate selected at:** `2026-08-12T03:51:09Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
+**Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -74,7 +75,7 @@ ambiguity this ledger is designed to remove.
 | Gate | Required before Go |
 | --- | --- |
 | Exact-head workflows | CI, Public Browser Golden Path, Full Suite, Sensitive Mutation, Repository Audit, Secret Scanning, API Security and Container Supply Chain evidence for this SHA. |
-| Immutable runtime identity | Container/runtime image digest and deployment artifact digest for this SHA. |
+| Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
 | Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
 | Recovery and rollback | Backup/restore, reconciliation, rollback or approved forward-fix evidence for this SHA. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA. |
