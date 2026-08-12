@@ -416,6 +416,9 @@ jobs:
       - name: Staging scheduler evidence tests
         run: npm run test:ops-staging-evidence
 
+      - name: Incident readiness evidence authority guard
+        run: npm run launch:incident-readiness-evidence:check
+
       - name: News materialization staging evidence guard
         run: npm run news:materialization:staging-evidence:check
 
