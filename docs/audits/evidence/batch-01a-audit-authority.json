@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "0898a2dda18c09a988ad08d043cdbeb6f206e3b1",
-      "sha256": "9ff8401028eb43f45e46710518050b603cf5fb9ad58dc871f7e8b72379c28664",
-      "lines": 212,
+      "gitObjectId": "13afa6d01610053977d82ca51fc79b95352563d1",
+      "sha256": "92bdd8f6ecefcfeda8b168a2dfc49863cdb63e47ea2f1958a354a45b51c3840c",
+      "lines": 215,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 212
+          "endLine": 215
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -82,7 +82,8 @@
         "2026-08-12: re-reviewed after adding launch:gated-capability-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over disabled-capability attestation evidence, no-go register, candidate ledger, packet, checklist and the existing disabled-capability policy scan; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-10/NOG-11/NOG-12 only as launch-disabled/product-disabled controlled-launch scope.",
         "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals.",
         "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains.",
-        "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier."
+        "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier.",
+        "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier."
       ],
       "findings": [
         {

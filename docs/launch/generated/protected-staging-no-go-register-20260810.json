@@ -126,8 +126,18 @@
       "id": "NOG-09",
       "title": "Go approval matrix is missing",
       "status": "open",
-      "closureAction": "Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope.",
+      "executionState": "blocked_pending_final_go_approval_matrix",
+      "closureAction": "Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes scripts/verify-go-approval-matrix-evidence.mjs.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "executionRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+      "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02",
+        "NOG-05",
+        "NOG-07",
+        "NOG-08"
+      ],
       "launchImpact": "Blocks Go record"
     },
     {
@@ -214,6 +224,25 @@
         "NOG-02"
       ],
       "privacyBoundary": "redacted timing, counts, digests and role identities only"
+    },
+    {
+      "ids": [
+        "NOG-09"
+      ],
+      "status": "blocked_pending_final_go_approval_matrix",
+      "operatorRunbook": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "machineReadableRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+      "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
+      "requiredEnvironment": "release-control",
+      "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+      "prerequisiteBlockers": [
+        "NOG-01",
+        "NOG-02",
+        "NOG-05",
+        "NOG-07",
+        "NOG-08"
+      ],
+      "privacyBoundary": "release identifiers, role identities, repository URLs, SHA-256 digests and dispositions only"
     }
   ],
   "acceptedEvidence": [
@@ -292,6 +321,7 @@
   },
   "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
   "acceptedRiskSignoffEvidence": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  "goApprovalMatrixEvidenceRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   "remainingOpenBlockers": [
     "NOG-01",
     "NOG-02",

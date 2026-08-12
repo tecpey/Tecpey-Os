@@ -17,6 +17,7 @@
 **NOG-07 incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
+**Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
 
 This packet is the next release-control surface after the controlled soft launch
 RC evidence packet. It converts the remaining NO-GO decision into an execution
@@ -39,7 +40,7 @@ evidence must match that same SHA.
 
 | Scope | Decision | Reason |
 |---|---|---|
-| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals are not yet accepted. The NOG-08 guard is prepared but does not close the blocker without externally attributable owner approval. |
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | Protected staging activation, env, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals are not yet accepted. The NOG-08 guard is prepared but does not close the blocker without externally attributable owner approval; the NOG-09 guard is prepared but does not close the blocker without a verified Go approval matrix. |
 | Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
 | Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
 | Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
@@ -56,7 +57,7 @@ evidence must match that same SHA.
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass `scripts/verify-incident-readiness-evidence.mjs`. | docs/launch/generated/incident-readiness-evidence-request-20260812.json | Blocks support readiness |
 | NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure and stale review dates, but NOG-08 remains open until sign-off evidence is attached. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
-| NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope. | docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md | Blocks Go record |
+| NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes `scripts/verify-go-approval-matrix-evidence.mjs`. | docs/launch/generated/go-approval-matrix-evidence-request-20260812.json | Blocks Go record |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
 | NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
 | NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Accepted for controlled launch only while enterprise, white-label and public rewards stay disabled, absent or explicitly gated by route/env/UI/copy guards. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Expanded launch scope remains NO-GO; controlled public launch is not blocked while disabled |
@@ -243,6 +244,30 @@ production-like env evidence, recovery reconciliation, incident readiness,
 accepted-risk owner sign-off or the Go approval matrix. Go remains blocked by
 protected staging, recovery reconciliation, incident readiness, accepted-risk
 owner sign-off and approval evidence.
+
+## Go Approval Matrix Evidence Request - 2026-08-12
+
+Go approval matrix evidence for NOG-09 is still missing. This request prepares
+the final approval artifact contract for the selected candidate SHA, but it does
+not close NOG-09.
+NOG-09 remains open until the final matrix passes
+`scripts/verify-go-approval-matrix-evidence.mjs`.
+
+| Field | Evidence |
+|---|---|
+| Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
+| Evidence request | `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` |
+| Authority guard | `scripts/check-go-approval-matrix-evidence-authority.mjs` |
+| Verifier | `scripts/verify-go-approval-matrix-evidence.mjs` |
+| Required roles | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA |
+| Accepted scope | None; NOG-09 remains open pending verified approval matrix evidence |
+
+The final approval matrix must include accepted prerequisite evidence URL and
+SHA-256 digest coverage for NOG-01/NOG-02/NOG-03/NOG-04/NOG-05/NOG-06/NOG-07/
+NOG-08/NOG-10/NOG-11/NOG-12. It can approve only the controlled public FA/EN,
+Academy, Mentor and virtual Arena scope; real-money Exchange, custody,
+deposits, withdrawals, public rewards, enterprise and white-label remain
+disabled or separately blocked.
 
 ## Evidence Privacy Boundary
 

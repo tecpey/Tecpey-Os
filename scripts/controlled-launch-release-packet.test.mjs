@@ -80,6 +80,8 @@ function completeFinalPacketArgs() {
     acceptedRiskUrl,
     "--go-approvals-url",
     approvalsUrl,
+    "--go-approvals-artifact-digest",
+    externalDigest,
   ];
 }
 
@@ -297,6 +299,7 @@ test("final launch packet emits only after all release evidence is complete", ()
     assert.equal(packet.requiredExternalEvidence.incidentReadiness.artifactDigest, externalDigest);
     assert.equal(packet.requiredExternalEvidence.acceptedRisks.evidenceUrl, acceptedRiskUrl);
     assert.equal(packet.requiredExternalEvidence.approvals.evidenceUrl, approvalsUrl);
+    assert.equal(packet.requiredExternalEvidence.approvals.artifactDigest, externalDigest);
     assert.deepEqual(packet.disabledCapabilityAttestation, [
       "real-money Exchange remains NO-GO unless separately certified",
       "custody, deposits and withdrawals remain NO-GO unless separately certified",
