@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "14da0e63bf12003288b6b459632f8d05b996cca4",
-      "sha256": "76ab926c480a872eded6a5eae428a4c7efce3ee73650aa31b173d35ac61d762d",
-      "lines": 208,
+      "gitObjectId": "5b25e9e37eed5611960c06aa86e60f5addc5e5d6",
+      "sha256": "49921972274d6c97048effedc74fdc3ad1092e2bb0ea6db628c9efd189d55304",
+      "lines": 210,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 208
+          "endLine": 210
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",

@@ -96,6 +96,9 @@ jobs:
       - name: Verify support deployment bundle
         run: npm run support:bundle:verify -- "${{ steps.create_bundle.outputs.zip_path }}" "${{ steps.create_bundle.outputs.sha_path }}"
 
+      - name: Rehearse support install package
+        run: npm run support:install:rehearse -- "${{ steps.create_bundle.outputs.zip_path }}" "${{ steps.create_bundle.outputs.sha_path }}"
+
       - name: Write support artifact notice
         env:
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
