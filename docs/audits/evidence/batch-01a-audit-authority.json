@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "9b46dc418909b7ad7955b59f81c4d5ea2a86ac52",
-      "sha256": "29f058e676093f8b92fe5972853e093a3220a8edfd360d9eaa34566252071457",
-      "lines": 217,
+      "gitObjectId": "5126a0c259620452309f84e7f50a2e8e7ee25d76",
+      "sha256": "601439ab9b35b2a6e9a36cd4ed20a48c149102afd2a461993e6b1e7e6b550a0e",
+      "lines": 219,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 217
+          "endLine": 219
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -71,6 +71,7 @@
         "2026-08-09: re-reviewed after adding launch:evidence:manifest:check, test:launch-evidence-manifest and composing the manifest test into launch:decision:check. The new commands validate governed final launch evidence manifests and packet manifest wiring with local node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and keep release authority fail-closed.",
         "2026-08-09: re-reviewed after adding launch:disabled-capabilities:check and test:disabled-capability-attestation to launch:decision:check. The new commands are local read-only guards over public product-truth copy, release packet attestation, runtime custody gating and negative node:test coverage; they add no dependency, engine, override, network access or runtime mutation path, and release:check still reaches them through the governed launch decision gate.",
         "2026-08-09: re-reviewed after adding support:bundle. The new command runs a local support deployment bundle script that reads tracked source metadata, writes only to an explicit output directory or /tmp by default, excludes secret/runtime/build artifacts, adds no dependency, engine, override, network access or runtime mutation path, and is not wired into release:check.",
+        "2026-08-12: re-reviewed after adding support:install:rehearse, support:install:check and wiring the readiness guard into supply-chain:check. The new commands are local clean-room ZIP/checksum rehearsal and static source guards for support handoff; they add no dependency, engine, override, network access, product runtime activation surface or secret-printing path, do not execute bundled install/build/migration/runtime commands, and keep release:check unchanged.",
         "2026-08-10: re-reviewed after wiring governed news materialization, coin growth and tool growth commands into package scripts and release:check. The commands remain local repository scripts/tests, add no dependency, engine or override, do not enable exchange execution, wallet connection, API-key access, signal publishing or external trade automation, and the file now has 198 lines.",
         "2026-08-10: re-reviewed after preserving news materialization as the immediate predecessor to launch:decision:check while keeping coin/tool growth checks in release:check. This is ordering-only release-gate wiring, with no dependency, engine, override, network access or runtime mutation path change.",
         "2026-08-10: re-reviewed after exposing scripts/check-browser-persistence.mjs as browser:persistence:check and wiring it into release:check. The command is an existing read-only static source guard over classified browser persistence; it adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
@@ -90,10 +91,10 @@
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 142,
+          "line": 144,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 142 and 145-146 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 144 and 147-148 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

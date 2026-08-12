@@ -88,8 +88,13 @@ docs/security/SOURCE_CODE_OWNERSHIP_AND_DELIVERY_POLICY.md
 Deployment contracts:
 DEPLOY_UBUNTU_24_PRODUCTION.md
 docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
+docs/operations/SUPPORT_INSTALL_READINESS_CONTRACT.md
 docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md
 docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
+scripts/rehearse-support-deployment-install.mjs
+scripts/check-support-install-readiness-authority.mjs
+scripts/support-install-readiness-policy.mjs
+support:install:rehearse
 
 Operational workers included:
 deploy/systemd/tecpey-news-materialization.service.in

@@ -99,6 +99,26 @@ threads, or any channel that is not approved for proprietary TecPey source
 delivery. The workflow artifact retention is intentionally short; if the support
 window expires, regenerate the artifact from the same exact release SHA.
 
+## Clean-Room Install Rehearsal
+
+Before sending the zip to support, the release owner must rehearse the received
+artifact shape from the artifact directory:
+
+```bash
+npm run support:install:rehearse -- tecpey-deployment-RELEASE_SHA.zip tecpey-deployment-RELEASE_SHA.zip.sha256
+```
+
+No staging or server access is required for this rehearsal.
+
+This rehearsal verifies the detached checksum, unpacks the zip into an isolated
+temporary candidate directory, checks that production secrets and live build
+artifacts are absent, and validates the support runbook command order. This
+rehearsal does not run build, migration, runtime, database, Redis, or Nginx
+commands.
+
+If rehearsal fails, do not send the zip. Regenerate the artifact from the exact
+reviewed release SHA and repeat verification.
+
 ## Preflight Before Unpack
 
 Before sending the bundle to support, the release owner should verify the local
