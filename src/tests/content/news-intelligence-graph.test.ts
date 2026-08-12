@@ -77,7 +77,7 @@ describe("News Intelligence Graph authority", () => {
         status: "trending",
         sourceCount: 1,
         newsCount: 1,
-        audienceScore: 0.8992,
+        audienceScore: 0.872,
         riskReviewRequired: false,
         exchangeEnabled: false,
         officialUrls: ["https://bitcoin.org/"],
