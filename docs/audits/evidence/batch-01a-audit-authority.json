@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "13afa6d01610053977d82ca51fc79b95352563d1",
-      "sha256": "92bdd8f6ecefcfeda8b168a2dfc49863cdb63e47ea2f1958a354a45b51c3840c",
-      "lines": 215,
+      "gitObjectId": "9b46dc418909b7ad7955b59f81c4d5ea2a86ac52",
+      "sha256": "29f058e676093f8b92fe5972853e093a3220a8edfd360d9eaa34566252071457",
+      "lines": 217,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 215
+          "endLine": 217
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -83,16 +83,17 @@
         "2026-08-12: re-reviewed after adding launch:accepted-risk-evidence:check and composing it into launch:decision:check. The new command is a local read-only guard over accepted-risk sign-off evidence, no-go register, candidate ledger, packet, checklist and the existing accepted-risk register policy; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and accepts NOG-08 only as current controlled-launch risk-register evidence while Go remains blocked by staging, recovery, incident and approvals.",
         "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains.",
         "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier.",
-        "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier."
+        "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier.",
+        "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 133,
+          "line": 142,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 133 and 136-137 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 142 and 145-146 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

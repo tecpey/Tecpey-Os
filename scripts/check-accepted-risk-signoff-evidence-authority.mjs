@@ -4,6 +4,14 @@ import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-
 const EVIDENCE_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
 const REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const REQUIRED_RISK_CONDITIONS = [
+  "exact candidate SHA accepted",
+  "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+  "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+  "real-money Exchange remains disabled",
+  "custody deposits withdrawals remain disabled",
+  "enterprise white-label public rewards remain disabled",
+];
 const REFERENCE_DATE = process.env.TECPEY_ACCEPTED_RISK_REFERENCE_DATE ?? new Date().toISOString();
 
 const files = {
@@ -14,7 +22,10 @@ const files = {
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",
   checklist: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
   acceptedRisks: "docs/LAUNCH_ACCEPTED_RISKS.md",
+  verifier: "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  verifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
   packageJson: "package.json",
+  workflow: ".github/workflows/ci.yml",
 };
 
 const source = Object.fromEntries(
@@ -77,6 +88,39 @@ requireEqual(
 requireEqual("evidence.executionState", evidence.executionState, "prepared_owner_approval_required");
 requireEqual("evidence.selectedSha", evidence.selectedSha, candidate.currentCandidate?.sha);
 requireEqual("evidence.sourcePullRequest", evidence.sourcePullRequest, 395);
+requireEqual("evidence.requestPath", evidence.requestPath, EVIDENCE_PATH);
+requireEqual("evidence.blocker", evidence.blocker, "NOG-08");
+requireEqual("evidence.status", evidence.status, "open");
+requireEqual("evidence.requiredEnvironment", evidence.requiredEnvironment, "release-control");
+requireEqual("evidence.verifier", evidence.verifier, "scripts/verify-accepted-risk-signoff-evidence.mjs");
+requireEqual("evidence.requiredArtifact.authority", evidence.requiredArtifact?.authority, "tecpey-accepted-risk-owner-signoff-v1");
+requireEqual(
+  "evidence.requiredArtifact.evidenceClass",
+  evidence.requiredArtifact?.evidenceClass,
+  "controlled-soft-launch-accepted-risk-owner-signoff",
+);
+requireEqual("evidence.requiredArtifact.sourceSha", evidence.requiredArtifact?.sourceSha, candidate.currentCandidate?.sha);
+requireEqual(
+  "evidence.requiredArtifact.launchScopeId",
+  evidence.requiredArtifact?.launchScopeId,
+  "controlled-public-fa-en-academy-mentor-arena",
+);
+requireEqual(
+  "evidence.requiredArtifact.riskRegister.minimumReviewDate",
+  evidence.requiredArtifact?.riskRegister?.minimumReviewDate,
+  "2026-08-16",
+);
+requireEqual(
+  "evidence.requiredArtifact.riskOwnerSignoffs.requiredForEveryCoveredRisk",
+  evidence.requiredArtifact?.riskOwnerSignoffs?.requiredForEveryCoveredRisk,
+  true,
+);
+requireEqual(
+  "evidence.requiredArtifact.riskOwnerSignoffs.minimumDistinctApprovalOwners",
+  evidence.requiredArtifact?.riskOwnerSignoffs?.minimumDistinctApprovalOwners,
+  3,
+);
+requireEqual("evidence.requiredArtifact.finalDisposition", evidence.requiredArtifact?.finalDisposition, "accepted");
 requireEqual("evidence.observedVia.provider", evidence.observedVia?.provider, "repository-local-authority");
 requireEqual("evidence.reviewFreshness.enforcedBy", evidence.reviewFreshness?.enforcedBy, "scripts/accepted-risk-register-authority-policy.mjs");
 requireEqual("evidence.reviewFreshness.earliestReviewDate", evidence.reviewFreshness?.earliestReviewDate, "2026-08-16");
@@ -93,24 +137,39 @@ for (const invariant of [
   "externally attributable repository-owner approval URL",
   "signed Go/No-Go approval matrix URL",
   "GitHub PR review approval by the accountable owner",
+  "owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs",
 ]) {
   requireArrayIncludes("evidence.requiredOwnerApprovalEvidence.allowedEvidence", evidence.requiredOwnerApprovalEvidence?.allowedEvidence, invariant);
 }
-requireEqual(
-  "package launch:accepted-risk-evidence:check",
-  packageJson.scripts?.["launch:accepted-risk-evidence:check"],
-  "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
-);
 
-const guard = evidence.observedVia?.guardCommands?.find(
+for (const risk of REQUIRED_RISKS) {
+  requireArrayIncludes("evidence.riskRegisterCoverage", evidence.riskRegisterCoverage, risk);
+  requireArrayIncludes("evidence.requiredArtifact.riskRegister.coveredRisks", evidence.requiredArtifact?.riskRegister?.coveredRisks, risk);
+}
+
+for (const condition of REQUIRED_RISK_CONDITIONS) {
+  requireArrayIncludes("evidence.requiredArtifact.approvalConditions", evidence.requiredArtifact?.approvalConditions, condition);
+}
+
+for (const [name, command] of [
+  ["launch:accepted-risk-evidence:check", "node scripts/check-accepted-risk-signoff-evidence-authority.mjs"],
+  ["ops:accepted-risk:evidence:verify", "node scripts/verify-accepted-risk-signoff-evidence.mjs"],
+  ["test:accepted-risk-signoff-evidence", "node --test scripts/accepted-risk-signoff-evidence.test.mjs"],
+]) {
+  requireEqual(`package ${name}`, packageJson.scripts?.[name], command);
+  const guard = evidence.guardCommands?.find((entry) => entry.name === name);
+  requireEqual(`evidence guard ${name}`, guard?.command.startsWith(command), true);
+}
+
+const observedGuard = evidence.observedVia?.guardCommands?.find(
   (entry) => entry.name === "launch:accepted-risk-evidence:check",
 );
 requireEqual(
-  "evidence guard launch:accepted-risk-evidence:check",
-  guard?.command,
+  "evidence observed guard launch:accepted-risk-evidence:check",
+  observedGuard?.command,
   "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
 );
-requireEqual("evidence guard disposition", guard?.disposition, "pass_no_acceptance_without_owner_approval");
+requireEqual("evidence observed guard disposition", observedGuard?.disposition, "pass_no_acceptance_without_owner_approval");
 
 requireArrayNotIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-08");
 requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, "NOG-08");
@@ -134,13 +193,10 @@ for (const blocker of REMAINING_BLOCKERS) {
   requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blocker);
 }
 
-for (const risk of REQUIRED_RISKS) {
-  requireArrayIncludes("evidence.riskRegisterCoverage", evidence.riskRegisterCoverage, risk);
-}
-
 for (const invariant of [
   "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
-  "owner approval evidence must be attached before NOG-08 can move to accepted",
+  "owner approval evidence must be attached and pass scripts/verify-accepted-risk-signoff-evidence.mjs before NOG-08 can move to accepted",
+  "every controlled-launch risk owner sign-off",
   "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
 ]) {
   requireArrayIncludesText("evidence.acceptanceBoundary", evidence.acceptanceBoundary, invariant);
@@ -156,6 +212,30 @@ for (const invariant of [
   "real-money Exchange activation",
 ]) {
   requireArrayIncludes("evidence.notAcceptedAs", evidence.notAcceptedAs, invariant);
+}
+
+for (const invariant of [
+  "verifyAcceptedRiskSignoffEvidence",
+  "tecpey-accepted-risk-owner-signoff-v1",
+  "controlled-soft-launch-accepted-risk-owner-signoff",
+  "REQUIRED_CONTROLLED_LAUNCH_RISKS",
+  "controlled-public-fa-en-academy-mentor-arena",
+  "accepted-risk-register-approved-for-controlled-soft-launch-only",
+  "accepted_risk_signoff_independence_invalid",
+  "no-secrets-or-connection-urls",
+  "no-host-ips",
+]) {
+  requireText("verifier", source.verifier, invariant);
+}
+
+for (const invariant of [
+  "accepts complete accepted-risk owner signoff evidence",
+  "rejects stale candidate SHA",
+  "rejects stale review date",
+  "rejects rejected owner signoff",
+  "rejects operator self-approval",
+]) {
+  requireText("verifier test", source.verifierTest, invariant);
 }
 
 failures.push(...evaluateAcceptedRiskRegisterAuthority(source.acceptedRisks, { referenceDate: REFERENCE_DATE }));
@@ -210,6 +290,16 @@ for (const forbidden of [
 
 if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run launch:accepted-risk-evidence:check")) {
   failures.push("package.json: launch:decision:check must enforce accepted-risk evidence authority");
+}
+if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run test:accepted-risk-signoff-evidence")) {
+  failures.push("package.json: launch:decision:check must run accepted-risk signoff verifier tests");
+}
+
+for (const invariant of [
+  "Accepted-risk signoff evidence authority guard",
+  "npm run launch:accepted-risk-evidence:check",
+]) {
+  requireText("workflow", source.workflow, invariant);
 }
 
 if (failures.length > 0) {

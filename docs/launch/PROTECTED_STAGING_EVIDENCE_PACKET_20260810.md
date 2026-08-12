@@ -56,7 +56,7 @@ evidence must match that same SHA.
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation; final evidence must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
 | NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass `scripts/verify-incident-readiness-evidence.mjs`. | docs/launch/generated/incident-readiness-evidence-request-20260812.json | Blocks support readiness |
-| NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure and stale review dates, but NOG-08 remains open until sign-off evidence is attached. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
+| NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure, stale review dates and final artifact verifier wiring, but NOG-08 remains open until sign-off evidence passes `scripts/verify-accepted-risk-signoff-evidence.mjs`. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes `scripts/verify-go-approval-matrix-evidence.mjs`. | docs/launch/generated/go-approval-matrix-evidence-request-20260812.json | Blocks Go record |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
 | NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
@@ -231,12 +231,19 @@ NOG-08 remains open until owner sign-off evidence is attached.
 | Candidate SHA | `55f2e92bb8238de17e0809fe54c389476517f57b` |
 | Evidence artifact | `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` |
 | Authority guard | `scripts/check-accepted-risk-signoff-evidence-authority.mjs` |
+| Final artifact verifier | `scripts/verify-accepted-risk-signoff-evidence.mjs` |
+| Negative tests | `npm run test:accepted-risk-signoff-evidence` |
 | Risk register authority | `scripts/accepted-risk-register-authority-policy.mjs` |
 | Accepted scope | None; NOG-08 remains open pending owner sign-off evidence |
 
 The accepted-risk register contains named accountable owners, exact review
 dates, measurable thresholds, user-communication boundaries and rollback or halt
 triggers for the narrow controlled Academy, Mentor and virtual Arena scope.
+The final NOG-08 artifact must include every controlled-launch risk owner
+sign-off, the `docs/LAUNCH_ACCEPTED_RISKS.md` digest, exact review-date
+freshness, governed GitHub evidence URLs and SHA-256 digests, and it must pass
+`scripts/verify-accepted-risk-signoff-evidence.mjs` for the selected candidate
+SHA.
 
 Owner sign-off evidence for NOG-08 is still missing. This evidence does not
 approve a Go decision and does not substitute protected staging activation,
