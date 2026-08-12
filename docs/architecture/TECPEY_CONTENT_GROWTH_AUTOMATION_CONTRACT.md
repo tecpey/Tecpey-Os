@@ -167,6 +167,7 @@ Target public behavior:
 - The coin hub shows five priority coins at the top when fresh high-importance news exists.
 - Target refresh cadence is ten minutes for ranking materialization.
 - Pages serve cached server results and display `updatedAt`.
+- Landing discovery publishes a typed evidence envelope with source authority provenance, materialized-authority freshness, coin/tool counts, high-priority news count and `ready/degraded` status so QA can catch stale, seed-fallback or incomplete ranking materialization before the UI claims a complete top-ten surface.
 - Each priority card shows the coin, impact label, short news slice, source/time, and a link to the TecPey news detail page.
 - Coin detail pages preserve high-priority related news with `publishedAt` and TecPey `recordedAt`, so users can audit why a coin was highlighted.
 
