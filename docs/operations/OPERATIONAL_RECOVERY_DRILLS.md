@@ -53,6 +53,14 @@ commands, reconciliation query outputs or digests, and final disposition.
 Credentials, tokens, connection URLs, personal data, and raw customer records are
 forbidden.
 
+For NOG-05, the final protected staging domain reconciliation artifact must pass
+`scripts/verify-protected-recovery-reconciliation-evidence.mjs --expected-sha
+<selected-candidate-sha>`. This verifier is intentionally separate from the
+ephemeral PostgreSQL/Redis restore verifier. It requires accepted reconciliation
+for Academy, Trading Arena, Mentor AI, Exchange Ledger, notifications/jobs, and
+tenant/principal isolation before release-owner review can treat recovery as
+accepted evidence.
+
 ## Ambiguity policy
 
 If the system cannot prove whether a state mutation or provider effect occurred,

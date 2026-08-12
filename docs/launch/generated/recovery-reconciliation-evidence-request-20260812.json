@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-staging-recovery-reconciliation-evidence-request",
+  "generatedAt": "2026-08-12T10:12:00.000Z",
+  "decision": "NO_GO_RECOVERY_RECONCILIATION_EVIDENCE_MISSING",
+  "relatedBlockers": [
+    "NOG-05"
+  ],
+  "status": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
+  "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+  "environment": "protected-staging",
+  "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
+  "operatorRunbook": "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
+  "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
+  "prerequisiteBlockers": [
+    "NOG-01",
+    "NOG-02"
+  ],
+  "requiredDomains": [
+    "Academy",
+    "Trading Arena",
+    "Mentor AI",
+    "Exchange Ledger",
+    "Notifications and operational jobs",
+    "Tenant and principal isolation"
+  ],
+  "requiredEvidenceShape": {
+    "authority": "tecpey-protected-recovery-reconciliation-v1",
+    "evidenceClass": "protected-staging-domain-recovery-reconciliation",
+    "environment": "protected-staging",
+    "finalDisposition": "accepted",
+    "privacyBoundary": [
+      "counts-and-hashes-only",
+      "no-raw-rows",
+      "no-secrets-or-connection-urls"
+    ]
+  },
+  "privacyBoundary": [
+    "counts and hashes only",
+    "no raw rows",
+    "no secrets or connection URLs",
+    "no host IPs or private hostnames",
+    "no customer identifiers, provider payloads, prompt transcripts, private keys or raw logs"
+  ],
+  "acceptanceNotes": [
+    "Repository-owned ephemeral PostgreSQL/Redis restore evidence is necessary but not sufficient for NOG-05.",
+    "Protected staging recovery reconciliation must pass the verifier for the exact selected SHA.",
+    "Each required domain must record row counts, redacted query digest, matching migration plan hash, independent operator/reviewer identities and accepted disposition.",
+    "NOG-05 remains open until protected staging restore evidence and domain reconciliation evidence are attached for release-owner acceptance."
+  ]
+}

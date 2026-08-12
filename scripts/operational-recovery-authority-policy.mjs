@@ -18,6 +18,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
     workflow,
     recovery,
     verifier,
+    protectedVerifier,
     runbook,
     reconciliation,
     packageJson,
@@ -29,7 +30,10 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "cancel-in-progress: false", "timeout-minutes: 25", "git rev-parse HEAD",
     "persist-credentials: false", "TECPEY_RECOVERY_RTO_SECONDS: '300'",
     "TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
-    "test-container-volume-recovery.sh", "retention-days: 30",
+    "test-container-volume-recovery.sh",
+    "verify-protected-recovery-reconciliation-evidence.mjs",
+    "protected-recovery-reconciliation-evidence.test.mjs",
+    "retention-days: 30",
   ]) {
     requireText(failures, workflow, token, `scheduled workflow is missing ${token}`);
   }
@@ -84,6 +88,34 @@ export function evaluateOperationalRecoveryAuthority(source) {
   }
 
   for (const token of [
+    "tecpey-protected-recovery-reconciliation-v1",
+    "protected-staging-domain-recovery-reconciliation",
+    "DOMAIN_KEYS",
+    "Academy",
+    "Trading Arena",
+    "Mentor AI",
+    "Exchange Ledger",
+    "Notifications and operational jobs",
+    "Tenant and principal isolation",
+    "tenantPrincipalIsolation",
+    "forbidRawMaterial",
+    "rawRows",
+    "databaseUrl",
+    "counts-and-hashes-only",
+    "no-raw-rows",
+    "finalDisposition",
+    "reviewer_must_be_independent",
+    "verifyProtectedRecoveryReconciliationEvidence",
+  ]) {
+    requireText(
+      failures,
+      protectedVerifier,
+      token,
+      `protected recovery verifier is missing ${token}`,
+    );
+  }
+
+  for (const token of [
     "Automated repository evidence", "Protected staging evidence",
     "Independent operator", "Do not close #110", "Recovery command",
     "Reconciliation query", "Halt condition", "RPO", "RTO",
@@ -119,8 +151,14 @@ export function evaluateOperationalRecoveryAuthority(source) {
   requireText(
     failures,
     packageJson,
-    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs"',
+    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs"',
     "package scripts must expose negative authority tests",
+  );
+  requireText(
+    failures,
+    packageJson,
+    '"ops:recovery:protected-evidence:verify": "node scripts/verify-protected-recovery-reconciliation-evidence.mjs"',
+    "package scripts must expose the protected recovery evidence verifier",
   );
   requireText(
     failures,
