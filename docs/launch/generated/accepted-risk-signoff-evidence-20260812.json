@@ -7,6 +7,14 @@
   "selectedSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
   "sourceBranch": "main",
   "sourcePullRequest": 395,
+  "requestPath": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  "blocker": "NOG-08",
+  "status": "open",
+  "requiredEnvironment": "release-control",
+  "contract": "docs/LAUNCH_ACCEPTED_RISKS.md",
+  "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+  "authorityGuard": "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "reviewFreshness": {
     "referenceDate": "2026-08-12",
     "earliestReviewDate": "2026-08-16",
@@ -31,6 +39,16 @@
         "name": "launch:accepted-risk-evidence:check",
         "command": "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
         "disposition": "pass_no_acceptance_without_owner_approval"
+      },
+      {
+        "name": "ops:accepted-risk:evidence:verify",
+        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+        "disposition": "required_for_final_artifact"
+      },
+      {
+        "name": "test:accepted-risk-signoff-evidence",
+        "command": "node --test scripts/accepted-risk-signoff-evidence.test.mjs",
+        "disposition": "pass"
       }
     ]
   },
@@ -45,9 +63,85 @@
     "R-09",
     "R-10"
   ],
+  "requiredArtifact": {
+    "schemaVersion": 1,
+    "authority": "tecpey-accepted-risk-owner-signoff-v1",
+    "evidenceClass": "controlled-soft-launch-accepted-risk-owner-signoff",
+    "environment": "release-control",
+    "sourceSha": "55f2e92bb8238de17e0809fe54c389476517f57b",
+    "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+    "allowedSurfaces": [
+      "public-fa-en",
+      "academy",
+      "mentor",
+      "virtual-trading-arena"
+    ],
+    "disabledSurfaces": [
+      "real-money-exchange",
+      "custody-deposits-withdrawals",
+      "public-financial-rewards",
+      "enterprise-white-label"
+    ],
+    "riskRegister": {
+      "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
+      "requiredDigest": "sha256",
+      "minimumReviewDate": "2026-08-16",
+      "coveredRisks": [
+        "R-01",
+        "R-02",
+        "R-04",
+        "R-05",
+        "R-06",
+        "R-07",
+        "R-08",
+        "R-09",
+        "R-10"
+      ],
+      "supersededRisks": [
+        "R-03"
+      ],
+      "freshnessPolicy": "fail-closed-if-any-review-date-is-stale-before-go"
+    },
+    "riskOwnerSignoffs": {
+      "requiredForEveryCoveredRisk": true,
+      "minimumDistinctApprovalOwners": 3,
+      "allowedEvidenceUrlPattern": "https://github.com/tecpey/Tecpey-Os/(pull|issues|actions/runs|commit|blob)/...",
+      "requiredDigest": "sha256",
+      "requiredDecision": "accepted",
+      "requiredAttestation": "accepted-risk-register-approved-for-controlled-soft-launch-only"
+    },
+    "approvalConditions": [
+      "exact candidate SHA accepted",
+      "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+      "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+      "real-money Exchange remains disabled",
+      "custody deposits withdrawals remain disabled",
+      "enterprise white-label public rewards remain disabled"
+    ],
+    "reviewerIndependence": "reviewer must differ from releaseOwner and operator; risk approval owners must differ from operator",
+    "finalDisposition": "accepted"
+  },
+  "guardCommands": [
+    {
+      "name": "launch:accepted-risk-evidence:check",
+      "command": "node scripts/check-accepted-risk-signoff-evidence-authority.mjs",
+      "disposition": "pass_no_acceptance_without_owner_approval"
+    },
+    {
+      "name": "ops:accepted-risk:evidence:verify",
+      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 55f2e92bb8238de17e0809fe54c389476517f57b",
+      "disposition": "required_for_final_artifact"
+    },
+    {
+      "name": "test:accepted-risk-signoff-evidence",
+      "command": "node --test scripts/accepted-risk-signoff-evidence.test.mjs",
+      "disposition": "pass"
+    }
+  ],
   "acceptanceBoundary": [
     "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing.",
-    "The accepted-risk register structure is current for the selected candidate SHA, but owner approval evidence must be attached before NOG-08 can move to accepted.",
+    "The accepted-risk register structure is current for the selected candidate SHA, but owner approval evidence must be attached and pass scripts/verify-accepted-risk-signoff-evidence.mjs before NOG-08 can move to accepted.",
+    "The final artifact must include every controlled-launch risk owner sign-off, a risk-register digest, exact review-date freshness and governed GitHub evidence URLs for the selected SHA.",
     "This evidence does not approve a Go decision and does not substitute protected staging activation, production-like env evidence, recovery reconciliation, incident readiness or the Go approval matrix.",
     "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO or launch-disabled under their separate gates."
   ],
@@ -82,7 +176,8 @@
     "allowedEvidence": [
       "externally attributable repository-owner approval URL",
       "signed Go/No-Go approval matrix URL",
-      "GitHub PR review approval by the accountable owner"
+      "GitHub PR review approval by the accountable owner",
+      "owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs"
     ],
     "currentEvidenceUrl": null,
     "currentState": "missing"

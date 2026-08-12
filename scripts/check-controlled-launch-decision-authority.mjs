@@ -22,6 +22,8 @@ const files = {
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  acceptedRiskVerifier: "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  acceptedRiskVerifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
   incidentReadinessEvidenceAuthority: "scripts/check-incident-readiness-evidence-authority.mjs",
   incidentReadinessVerifier: "scripts/verify-incident-readiness-evidence.mjs",
   incidentReadinessVerifierTest: "scripts/incident-readiness-evidence.test.mjs",
@@ -339,6 +341,7 @@ for (const invariant of [
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
   "npm run launch:accepted-risk-evidence:check",
+  "npm run test:accepted-risk-signoff-evidence",
   "npm run launch:incident-readiness-evidence:check",
   "npm run test:incident-readiness-evidence",
   "npm run launch:go-approval-matrix-evidence:check",
@@ -351,10 +354,14 @@ for (const invariant of [
 
 for (const invariant of [
   "accepted-risk-signoff-evidence",
+  "tecpey-accepted-risk-owner-signoff-v1",
+  "controlled-soft-launch-accepted-risk-owner-signoff",
   "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
   "prepared_owner_approval_required",
   "NOG-08",
   "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
+  "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  "riskOwnerSignoffs",
   "accepted-risk owner sign-off",
   "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
 ]) {
@@ -365,17 +372,44 @@ for (const invariant of [
   "Accepted-risk signoff evidence authority",
   "prepared_owner_approval_required",
   "requiredOwnerApprovalEvidence",
+  "requiredArtifact",
+  "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  "scripts/accepted-risk-signoff-evidence.test.mjs",
   "currentEvidenceUrl",
   "evidence must not contain secrets, connection strings or host identifiers",
   "evaluateAcceptedRiskRegisterAuthority",
   "NOG-08",
   "launch:accepted-risk-evidence:check",
+  "test:accepted-risk-signoff-evidence",
 ]) {
   requireText(
     "acceptedRiskEvidenceAuthority",
     invariant,
     `accepted-risk evidence authority is missing invariant: ${invariant}`,
   );
+}
+
+for (const invariant of [
+  "verifyAcceptedRiskSignoffEvidence",
+  "tecpey-accepted-risk-owner-signoff-v1",
+  "controlled-soft-launch-accepted-risk-owner-signoff",
+  "REQUIRED_CONTROLLED_LAUNCH_RISKS",
+  "accepted-risk-register-approved-for-controlled-soft-launch-only",
+  "accepted_risk_signoff_independence_invalid",
+  "no-secrets-or-connection-urls",
+  "no-host-ips",
+]) {
+  requireText("acceptedRiskVerifier", invariant, `accepted-risk verifier is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "accepts complete accepted-risk owner signoff evidence",
+  "rejects stale candidate SHA",
+  "rejects stale review date",
+  "rejects rejected owner signoff",
+  "rejects operator self-approval",
+]) {
+  requireText("acceptedRiskVerifierTest", invariant, `accepted-risk verifier tests are missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -670,6 +704,8 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  "Accepted-risk signoff evidence authority guard",
+  "npm run launch:accepted-risk-evidence:check",
   "Controlled launch decision authority guard",
   "npm run launch:decision:check",
   "Go approval matrix evidence authority guard",

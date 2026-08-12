@@ -90,7 +90,7 @@
     "protected staging NOG-01/NOG-02 evidence for the current candidate",
     "protected staging recovery reconciliation evidence that passes scripts/verify-protected-recovery-reconciliation-evidence.mjs",
     "incident readiness evidence that passes scripts/verify-incident-readiness-evidence.mjs",
-    "accepted-risk owner sign-off evidence for the current candidate",
+    "accepted-risk owner sign-off evidence for the current candidate that passes scripts/verify-accepted-risk-signoff-evidence.mjs",
     "Go approval matrix for the current candidate that passes scripts/verify-go-approval-matrix-evidence.mjs"
   ],
   "acceptedEvidence": [

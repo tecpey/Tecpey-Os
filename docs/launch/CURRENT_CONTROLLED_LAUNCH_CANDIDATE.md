@@ -88,7 +88,7 @@ ambiguity this ledger is designed to remove.
 | Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05 and must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA; NOG-07 remains open until `docs/launch/generated/incident-readiness-evidence-request-20260812.json` is satisfied and the final protected-staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
-| Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached; the Go approval matrix for this SHA and launch scope also remains required, and NOG-09 remains open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
+| Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached and the final artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`; the Go approval matrix for this SHA and launch scope also remains required, and NOG-09 remains open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
 
 ## Decision
 
@@ -99,8 +99,8 @@ The disabled-capability attestation for NOG-10/NOG-11/NOG-12 is accepted only
 because those capabilities remain launch-disabled or product-disabled.
 
 The accepted-risk owner sign-off evidence for NOG-08 is still missing. This
-candidate only records the prepared risk-register/freshness guard; it does not
-approve a Go decision or close NOG-08.
+candidate only records the prepared risk-register/freshness guard and final
+owner sign-off verifier; it does not approve a Go decision or close NOG-08.
 
 **Current decision: NO-GO until this exact candidate has complete accepted
 protected staging, recovery reconciliation, incident, accepted-risk owner

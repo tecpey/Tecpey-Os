@@ -43,7 +43,7 @@ release-owner promotion PR explicitly reselects them.
 | Custody and withdrawal boundary | HSM/MPC, chain-provider certification, testnet/on-chain reconciliation and withdrawal settlement evidence are accepted, or every real withdrawal path remains custody-gated and product-disabled. | Accepted as product-disabled scope only. Custody, deposits and withdrawals remain NO-GO until separately certified. |
 | Compliance activation | KYC/AML provider configuration, production-negative mock tests, jurisdiction/legal review and evidence retention plan are accepted, or compliance-dependent flows remain disabled. | NO-GO for compliance-dependent real-money flows. |
 | Product truth and UX | Public copy, README, in-app states and docs preserve the launch boundary: education, Mentor and virtual Arena only; no live exchange/custody promise. | NO-GO if any user-facing surface overclaims readiness. |
-| Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner. | Accepted-risk owner sign-off evidence is missing for NOG-08. The register structure and freshness guard are prepared, but Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals. |
+| Accepted risks | Every remaining non-blocking risk has a named owner, expiration/review date, mitigation, rollback condition and approval owner; the final owner sign-off artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`. | Accepted-risk owner sign-off evidence is missing for NOG-08. The register structure, freshness guard and final artifact verifier are prepared, but Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals. |
 | Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures, and the protected staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. | NO-GO until incident evidence is accepted; request is prepared in `docs/launch/generated/incident-readiness-evidence-request-20260812.json`. |
 | Go approval matrix | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approve the exact candidate SHA and controlled launch scope after prerequisite evidence is accepted; the final artifact passes `scripts/verify-go-approval-matrix-evidence.mjs`. | NO-GO until approval evidence is accepted; request is prepared in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`. |
 
@@ -71,7 +71,8 @@ The final Go/No-Go record must contain:
 7. rollback evidence and migration decision notes;
 8. disabled-capability attestation for real-money Exchange, custody,
    deposits, withdrawals, public rewards, enterprise and white-label claims;
-9. accepted-risk register with named owners and dates;
+9. accepted-risk register with named owners and dates, plus owner sign-off
+   evidence that passes `scripts/verify-accepted-risk-signoff-evidence.mjs`;
 10. incident readiness contract with support hours, severity targets,
    acknowledgement evidence, two protected-staging P0 synthetic alert probes,
    zero pending/quarantine counts and verifier-passed artifact evidence;
