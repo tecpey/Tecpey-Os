@@ -12,6 +12,8 @@ import { ACADEMY_XP } from "@/lib/academy-reward-policy";
 import { refreshAcademyProgressProjection } from "@/lib/academy-progress-projection";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +54,15 @@ export async function POST(req: NextRequest) {
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("complete_account_required", 401);
+    // The term prerequisite below gates progression, so it must read the term
+    // progress of THIS tenant rather than the student's global history.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
 
     let body: Record<string, unknown>;
     try {
@@ -96,6 +107,7 @@ export async function POST(req: NextRequest) {
       }
       const command = await readLearningCommand<Record<string, unknown>>(
         client,
+        tenantContext,
         session.studentId as string,
         commandType,
         commandRequest,
@@ -115,9 +127,16 @@ export async function POST(req: NextRequest) {
       if (assessment.termNumber > 1) {
         const previous = await client.query(
           `SELECT 1 FROM academy_term_progress
-           WHERE student_id = $1::uuid AND locale = $2 AND term_number = $3 AND status = 'passed'
+           WHERE tenant_id = $1 AND workspace_id = $2
+             AND student_id = $3::uuid AND locale = $4 AND term_number = $5 AND status = 'passed'
            LIMIT 1`,
-          [session.studentId, locale, assessment.termNumber - 1],
+          [
+            tenantContext.tenantId,
+            tenantContext.workspaceId,
+            session.studentId,
+            locale,
+            assessment.termNumber - 1,
+          ],
         );
         if (!previous.rows[0]) return { blocked: true as const };
       }
@@ -223,6 +242,8 @@ export async function POST(req: NextRequest) {
         revision: projection.revision,
       };
       await storeLearningCommand(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
         studentId: session.studentId as string,
         commandType,
         requestHash: command.requestHash,

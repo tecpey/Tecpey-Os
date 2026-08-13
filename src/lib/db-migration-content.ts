@@ -65,6 +65,9 @@ import { ACADEMY_QUESTION_BANK_LOCALE_SQL } from "./db-migrate-academy-question-
 import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_SQL } from "./db-migrate-notification-brain-snapshot-contract";
 import { NOTIFICATION_BRAIN_SNAPSHOT_CONTRACT_REPAIR_SQL } from "./db-migrate-notification-brain-snapshot-contract-repair";
 import { ACADEMY_MASTERY_SEASONS_SQL } from "./db-migrate-academy-mastery-seasons";
+import { ACADEMY_TERM_PROGRESS_TENANT_SQL } from "./db-migrate-academy-term-progress-tenant";
+import { ACADEMY_CERTIFICATE_CONTRACT_SQL } from "./db-migrate-academy-certificate-contract";
+import { ACADEMY_LEARNING_COMMAND_TENANT_SQL } from "./db-migrate-academy-learning-command-tenant";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -261,5 +264,17 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyMasterySeasons: one(
     "0065_academy_mastery_seasons.sql",
     ACADEMY_MASTERY_SEASONS_SQL,
+  ),
+  academyTermProgressTenant: one(
+    "0066_academy_term_progress_tenant.sql",
+    ACADEMY_TERM_PROGRESS_TENANT_SQL,
+  ),
+  academyCertificateContract: one(
+    "0067_academy_certificate_contract.sql",
+    ACADEMY_CERTIFICATE_CONTRACT_SQL,
+  ),
+  academyLearningCommandTenant: one(
+    "0068_academy_learning_command_tenant.sql",
+    ACADEMY_LEARNING_COMMAND_TENANT_SQL,
   ),
 });

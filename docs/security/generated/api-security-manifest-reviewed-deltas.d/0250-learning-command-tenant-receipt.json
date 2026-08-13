@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-lesson-assessment",
+      "method": "POST",
+      "previousSourceHash": "0ced445cb6f17026a0da4271",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning-command receipts are now tenant-scoped (migration 0068, Codex P1 on #415): a tenant-scoped progress write behind a tenant-blind receipt let a second tenant replay the first tenant's cached response and write nothing. readLearningCommand and storeLearningCommand now carry tenant/workspace. No control is weakened.",
+      "replacement": {
+        "route": "/api/academy-lesson-assessment",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
+        "sourceHash": "35a9c8fb3fc6d05423d6ce74",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-lesson-assessment",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-lesson-assessment",
+        "testReferences": [],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy-term-progress",
+      "method": "POST",
+      "previousSourceHash": "ffa6c2b8a127408df7f340e6",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning-command receipts are now tenant-scoped (migration 0068, Codex P1 on #415): a tenant-scoped progress write behind a tenant-blind receipt let a second tenant replay the first tenant's cached response and write nothing. readLearningCommand and storeLearningCommand now carry tenant/workspace. No control is weakened.",
+      "replacement": {
+        "route": "/api/academy-term-progress",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-term-progress/route.ts",
+        "sourceHash": "5305a8ddbdcd85866316bbf2",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-term-progress-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-term-progress",
+        "testReferences": [
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-term-progress/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
