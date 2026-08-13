@@ -8,6 +8,7 @@ import type {
   SanctionsProvider,
 } from "../../lib/security/compliance";
 import { withDb, withTx } from "../../lib/db";
+import { PLATFORM } from "../../lib/platform-config";
 import { hashApiCommand } from "../../lib/security/api-command-idempotency";
 import {
   canonicalizeWithdrawalCommand,
@@ -333,6 +334,7 @@ describe("Withdrawal owner isolation and terminal race authority", () => {
           }),
           adminActOnAuthoritativeWithdrawal({
             withdrawalId,
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
             adminId,
             action: "reject",
             notes,

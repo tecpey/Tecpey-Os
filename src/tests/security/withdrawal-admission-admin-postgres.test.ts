@@ -8,6 +8,7 @@ import type {
   SanctionsProvider,
 } from "../../lib/security/compliance";
 import { withDb, withTx } from "../../lib/db";
+import { PLATFORM } from "../../lib/platform-config";
 import {
   canonicalizeWithdrawalCommand,
   issueWithdrawalAuthorizationTx,
@@ -257,6 +258,7 @@ describe("Authoritative admin withdrawal transitions", () => {
         assert.deepEqual(
           await adminActOnAuthoritativeWithdrawal({
             withdrawalId,
+            tenantId: PLATFORM.DEFAULT_TENANT_ID,
             adminId,
             action: "approve",
             authorizationEvidence: adminAuthorizationEvidence("approve"),
@@ -314,6 +316,7 @@ describe("Authoritative admin withdrawal transitions", () => {
       try {
         const first = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
           adminId,
           action: "reject",
           notes,
@@ -329,6 +332,7 @@ describe("Authoritative admin withdrawal transitions", () => {
 
         const replay = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
           adminId,
           action: "reject",
           notes,

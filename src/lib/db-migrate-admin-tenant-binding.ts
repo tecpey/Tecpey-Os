@@ -47,6 +47,19 @@ ALTER TABLE admin_users
   ADD CONSTRAINT admin_users_tenant_fk
   FOREIGN KEY (tenant_id) REFERENCES platform_tenants(id) ON DELETE RESTRICT;
 
+-- The regexes above only prove the identifiers are well formed. Without a
+-- composite key an operator could be provisioned with tenant A and a workspace
+-- that does not exist, or one owned by tenant B, and loadAdminPrincipal would
+-- hand that incoherent pair out as an authenticated scope. platform_memberships,
+-- platform_principal_bindings and platform_tenant_domains all bind the pair;
+-- admin_users binds it the same way.
+ALTER TABLE admin_users
+  DROP CONSTRAINT IF EXISTS admin_users_tenant_workspace_fk;
+ALTER TABLE admin_users
+  ADD CONSTRAINT admin_users_tenant_workspace_fk
+  FOREIGN KEY (tenant_id, workspace_id)
+  REFERENCES platform_workspaces (tenant_id, id) ON DELETE RESTRICT;
+
 CREATE INDEX IF NOT EXISTS admin_users_tenant_idx
   ON admin_users (tenant_id, workspace_id, status);
 `;

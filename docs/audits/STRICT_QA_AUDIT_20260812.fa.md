@@ -119,10 +119,25 @@ tenant-aware نیستند.
 **آنچه امروز واقعاً scope شد.** فقط دو خواندن مدیریتی جدول‌شان ستون tenant
 دارند و هر دو اکنون فیلتر می‌شوند:
 
-| خواندن | جدول | وضعیت |
+| مسیر | جدول | وضعیت |
 |---|---|---|
 | صف بازبینی برداشت (`listPendingReviewWithdrawalsStrict`) | `withdrawals` | ✅ scope شد |
+| خواندن جزئیات برداشت (`readWithdrawal`) | `withdrawals` | ✅ scope شد |
+| **اقدام مدیر روی برداشت** (`adminActOnAuthoritativeWithdrawal`) | `withdrawals` | ✅ scope شد |
 | تجمیع رویدادهای یادگیری در Command Center | `learning_events` | ✅ scope شد |
+
+دو مورد میانی را بازبینی Codex روی PR #417 بیرون کشید و **درست بود**. تا پیش از
+آن، هم `readWithdrawal(id)` و هم `SELECT … FOR UPDATE` در مسیر اقدام، برداشت را
+**فقط با id** پیدا می‌کردند. یعنی مدیری که id برداشت مستأجر دیگری را داشت
+می‌توانست آن را approve/reject/block کند — یک **نوشتن** بین‌مستأجری، نه صرفاً
+خواندن. حالا هر دو (و همچنین `UPDATE withdrawals`) شرط tenant دارند.
+
+یک نکته‌ی صادقانه: رسید idempotency این اقدام هنوز زیر tenant پیش‌فرض نوشته
+می‌شود، چون تریگر `tecpey_append_withdrawal_admin_evidence` رسید را با tenant
+ثابت پیدا می‌کند و شواهد custody را هم زیر همان می‌نویسد. جابه‌جا کردن فقط رسید،
+اقدام مدیرِ مستأجر غیرپیش‌فرض را به‌کلی غیرممکن می‌کرد. چون `principalId` همان
+UUID سراسری‌یکتای مدیر است، برخوردی بین مستأجرها رخ نمی‌دهد؛ این یک ناسازگاری
+برچسب است نه مرز. tenant-aware کردن کل زنجیره‌ی شواهد custody برش خودش را دارد.
 
 **آنچه هنوز ممکن نیست — و صادقانه برچسب خورد.** چهار متریک دیگر Command Center
 روی جداولی می‌نشینند که **اصلاً ستون tenant ندارند**: `academy_students`،
@@ -145,6 +160,8 @@ tenant_id — scope the query» می‌شکند.
 | `WHERE tenant_id = $3` در صف برداشت ← `$3 IS NOT NULL` | ۱ شکست |
 | `WHERE tenant_id = $1` در تجمیع Command Center ← `$1 IS NOT NULL` | ۱ شکست |
 | `tenantId: row.tenant_id` ← `tenantId: "tecpey"` | ۳ شکست |
+| `AND tenant_id = $2` در `SELECT … FOR UPDATE` اقدام ← `$2 IS NOT NULL` | ۱ شکست |
+| حذف آرگومان tenant از `readWithdrawal` در مسیر جزئیات | ۱ شکست |
 | وارونه‌کردن برچسب scope (هر دو جهت) | ۱ شکست در هر جهت |
 
 کاوش سوم دقیقاً همان حالت شکستی است که فیکسچرِ مستأجر-پیش‌فرض پنهان می‌کند؛
@@ -152,7 +169,9 @@ tenant_id — scope the query» می‌شکند.
 
 **آنچه باز می‌ماند.** دادن مرز tenant به `academy_students` یک برنامه است نه یک
 PR: ۴۳ جدول به آن FK دارند. `notification_center`، `academy_certificates` و
-`mentor_challenge_attempts` برش‌های بعدی‌اند.
+`mentor_challenge_attempts` برش‌های بعدی‌اند. زنجیره‌ی شواهد custody مدیر
+(تریگر `tecpey_append_withdrawal_admin_evidence` و
+`tecpey_insert_withdrawal_evidence`) هم هنوز tenant را ثابت `tecpey` می‌گیرد.
 
 ---
 
@@ -483,6 +502,7 @@ is deprecated and will be removed in pg@9.0
 | ۷ | tenant-aware کردن Admin/Command Center (F-1) | باز کردن مسیر white-label (#20، #13) | بزرگ | 🟡 برش اول بسته شد |
 | ۷٫۱ | ستون tenant برای `notification_center` و `academy_certificates` | دو متریک باقی‌مانده‌ی قابل scope | متوسط | باز |
 | ۷٫۲ | مرز tenant برای `academy_students` (۴۳ FK وابسته) | ریشه‌ی آکادمی؛ برنامه است نه PR | بزرگ | باز |
+| ۷٫۳ | tenant-aware کردن زنجیره‌ی شواهد custody مدیر | رسید و شواهد هنوز tenant ثابت دارند | متوسط | باز |
 | ۸ | هسته‌ی انگلیسی آکادمی یا تصریح دامنه‌ی دوزبانگی (F-3) | صداقت محصول | بزرگ | تصمیم محصول |
 
 موارد ۱ تا ۶ انجام شده‌اند و دیگر هیچ نشت بین‌مستأجری **تأییدشده‌ای** باز نیست.

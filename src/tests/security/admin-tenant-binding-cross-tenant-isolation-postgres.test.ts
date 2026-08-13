@@ -10,7 +10,16 @@ import {
 } from "../../lib/admin-control-plane";
 import { COMMAND_CENTER_METRICS } from "../../lib/admin-command-center-scopes";
 import { GET as adminWithdrawals } from "../../app/api/admin/withdrawals/route";
+import {
+  GET as adminWithdrawalDetail,
+  POST as adminWithdrawalAction,
+} from "../../app/api/admin/withdrawals/[id]/route";
 import { GET as commandCenterSummary } from "../../app/api/command-center/summary/route";
+import { pinCsrfSiteOrigin } from "./csrf-origin-fixture";
+
+// The admin action route verifies the CSRF origin, so pin the site origin
+// rather than depending on the ambient environment of whoever runs this.
+pinCsrfSiteOrigin();
 
 // Load-bearing guard for the admin control plane's tenant boundary (F-1).
 //
@@ -183,6 +192,35 @@ function request(url: string, cookie: string): NextRequest {
   });
 }
 
+function actionRequest(withdrawalId: string, cookie: string): NextRequest {
+  return new NextRequest(`https://tecpey.ir/api/admin/withdrawals/${withdrawalId}`, {
+    method: "POST",
+    headers: {
+      cookie,
+      origin: "https://tecpey.ir",
+      "content-type": "application/json",
+      "Idempotency-Key": randomUUID(),
+      "user-agent": "admin-tenant-binding-test",
+      "x-forwarded-for": "127.0.0.1",
+    },
+    body: JSON.stringify({ action: "block", notes: "cross-tenant reach attempt" }),
+  });
+}
+
+function routeParams(id: string): { params: Promise<{ id: string }> } {
+  return { params: Promise.resolve({ id }) };
+}
+
+async function withdrawalState(id: string): Promise<string> {
+  return withClient(async (client) => {
+    const row = await client.query<{ state: string }>(
+      "SELECT state FROM withdrawals WHERE id = $1",
+      [id],
+    );
+    return row.rows[0]?.state ?? "missing";
+  });
+}
+
 async function readJson(response: Response): Promise<Record<string, unknown>> {
   return (await response.json()) as Record<string, unknown>;
 }
@@ -251,8 +289,36 @@ after(async () => {
 
   if (!pool) return;
   await withClient(async (client) => {
-    await client.query("DELETE FROM withdrawals WHERE id = ANY($1::text[])", [
+    // withdrawal_admin_actions is an append-only ledger: a BEFORE DELETE trigger
+    // rejects removal, and the row FKs back to the withdrawal. So a withdrawal
+    // that was acted on cannot be deleted, and neither can the tenant that owns
+    // it. Delete everything else and leave that remnant, which is how
+    // withdrawal-admission-admin-postgres.test.ts handles the same situation.
+    const immutable = await client.query<{ withdrawal_id: string }>(
+      "SELECT DISTINCT withdrawal_id FROM withdrawal_admin_actions WHERE withdrawal_id = ANY($1::text[])",
+      [[WITHDRAWAL_A, WITHDRAWAL_B1, WITHDRAWAL_B2, WITHDRAWAL_B_DONE]],
+    );
+    const retained = new Set(immutable.rows.map((row) => row.withdrawal_id));
+    const retainedTenants = new Set<string>();
+    if (retained.size > 0) {
+      const owners = await client.query<{ tenant_id: string }>(
+        "SELECT DISTINCT tenant_id FROM withdrawals WHERE id = ANY($1::text[])",
+        [[...retained]],
+      );
+      for (const row of owners.rows) retainedTenants.add(row.tenant_id);
+      await client.query(
+        "DELETE FROM api_command_receipts WHERE principal_type = 'admin' AND principal_id = ANY($1::text[])",
+        [[adminIdA, adminIdB]],
+      );
+      await client.query(
+        "DELETE FROM withdrawal_admission_outbox WHERE withdrawal_id = ANY($1::text[])",
+        [[...retained]],
+      );
+    }
+
+    await client.query("DELETE FROM withdrawals WHERE id = ANY($1::text[]) AND NOT (id = ANY($2::text[]))", [
       [WITHDRAWAL_A, WITHDRAWAL_B1, WITHDRAWAL_B2, WITHDRAWAL_B_DONE],
+      [...retained],
     ]);
     await client.query("DELETE FROM learning_events WHERE student_id = $1::uuid", [STUDENT_ID]);
     // Inserting an academy_student fires triggers that create a default-tenant
@@ -268,12 +334,11 @@ after(async () => {
     await client.query("DELETE FROM admin_users WHERE tenant_id = ANY($1::text[])", [
       [TENANT_A, TENANT_B],
     ]);
+    const removable = [TENANT_A, TENANT_B].filter((tenant) => !retainedTenants.has(tenant));
     await client.query("DELETE FROM platform_workspaces WHERE tenant_id = ANY($1::text[])", [
-      [TENANT_A, TENANT_B],
+      removable,
     ]);
-    await client.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [
-      [TENANT_A, TENANT_B],
-    ]);
+    await client.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [removable]);
   });
   await pool.end();
   pool = null;
@@ -410,6 +475,51 @@ describe("Admin control plane tenant binding", () => {
         }
       }
       assert.deepEqual(dishonest, [], dishonest.join("; "));
+    },
+  );
+
+  // Declared last on purpose: it moves a withdrawal out of the review queue,
+  // and node:test runs these subtests sequentially in declaration order, so the
+  // queue assertions above see the seeded state.
+  it(
+    "refuses to open or act on another tenant's withdrawal",
+    { skip: !configured },
+    async () => {
+      // Reading the detail of a row this operator can see in its own queue.
+      const owned = await adminWithdrawalDetail(
+        request(`https://tecpey.ir/api/admin/withdrawals/${WITHDRAWAL_B2}`, cookieB),
+        routeParams(WITHDRAWAL_B2),
+      );
+      assert.equal(owned.status, 200);
+      const ownedBody = await readJson(owned);
+      assert.equal((ownedBody.withdrawal as { id: string }).id, WITHDRAWAL_B2);
+
+      // The same operator reaching for tenant A's withdrawal by id.
+      const foreign = await adminWithdrawalDetail(
+        request(`https://tecpey.ir/api/admin/withdrawals/${WITHDRAWAL_A}`, cookieB),
+        routeParams(WITHDRAWAL_A),
+      );
+      assert.equal(foreign.status, 404);
+      assert.equal((await readJson(foreign)).error, "withdrawal_not_found");
+
+      // Acting on tenant A's withdrawal must be refused, and must leave the row
+      // untouched — a 404 that still wrote would be the worse failure.
+      const blocked = await adminWithdrawalAction(
+        actionRequest(WITHDRAWAL_A, cookieB),
+        routeParams(WITHDRAWAL_A),
+      );
+      assert.equal(blocked.status, 404);
+      assert.equal(await withdrawalState(WITHDRAWAL_A), "pending");
+
+      // The predicate is not simply refusing everything: the same operator can
+      // still act inside its own tenant, all the way through the custody
+      // evidence triggers to a committed state change.
+      const permitted = await adminWithdrawalAction(
+        actionRequest(WITHDRAWAL_B2, cookieB),
+        routeParams(WITHDRAWAL_B2),
+      );
+      assert.equal(permitted.status, 200);
+      assert.equal(await withdrawalState(WITHDRAWAL_B2), "blocked");
     },
   );
 });
