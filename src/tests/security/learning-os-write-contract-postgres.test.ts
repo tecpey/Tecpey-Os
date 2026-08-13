@@ -37,11 +37,30 @@ let pool: Pool | null = null;
 const TENANT = PLATFORM.DEFAULT_TENANT_ID;
 const WORKSPACE = PLATFORM.DEFAULT_WORKSPACE_ID;
 
-async function withRollback<T>(fn: (client: PoolClient, studentId: string) => Promise<T>): Promise<T> {
+async function withRollback<T>(
+  fn: (client: PoolClient, studentId: string, scope: { tenantId: string; workspaceId: string }) => Promise<T>,
+  options: { nonDefaultWorkspace?: boolean } = {},
+): Promise<T> {
   const client = await pool!.connect();
   try {
     await client.query("BEGIN");
     await prepareLearningOsData(client);
+    let scope: { tenantId: string; workspaceId: string } = { tenantId: TENANT, workspaceId: WORKSPACE };
+    if (options.nonDefaultWorkspace) {
+      const tenantId = `tenant-b-${randomUUID()}`;
+      const workspaceId = `ws-b-${randomUUID()}`;
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+           VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+        [tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
+           VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+        [workspaceId, tenantId],
+      );
+      scope = { tenantId, workspaceId };
+    }
     const studentId = randomUUID();
     await client.query(
       `INSERT INTO academy_students (id, locale, email, display_name)
@@ -53,9 +72,9 @@ async function withRollback<T>(fn: (client: PoolClient, studentId: string) => Pr
          (tenant_id, workspace_id, principal_type, principal_id, status, source)
        VALUES ($1, $2, 'student', $3, 'active', 'learning-os-write-contract-test')
        ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING`,
-      [TENANT, WORKSPACE, studentId],
+      [scope.tenantId, scope.workspaceId, studentId],
     );
-    return await fn(client, studentId);
+    return await fn(client, studentId, scope);
   } finally {
     await client.query("ROLLBACK");
     client.release();
@@ -201,8 +220,7 @@ describe("Learning OS write contract", () => {
           studentId,
           1,
           "TP-CERT-PROBE",
-          TENANT,
-          WORKSPACE,
+          { tenantId: TENANT, workspaceId: WORKSPACE },
         );
 
         const achievement = await client.query<{ code: string }>(
@@ -229,6 +247,40 @@ describe("Learning OS write contract", () => {
         );
         assert.equal(notifications.rows[0]?.count, "2");
       });
+    },
+  );
+
+  it(
+    "writes the milestone chain into a non-default workspace",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      await withRollback(
+        async (client, studentId, scope) => {
+          // The default-workspace cases above cannot see this: while the helpers
+          // defaulted the workspace to 'main', a student bound elsewhere had
+          // every derived write rejected by learning_events_principal_binding_fk,
+          // and because the routes run on withDb rather than a transaction the
+          // achievement row survived the failure — so the retry's ON CONFLICT
+          // then skipped the event and the notification permanently.
+          await awardMilestonesAfterCertificate(
+            client,
+            studentId,
+            1,
+            "TP-CERT-PROBE",
+            scope,
+          );
+
+          const events = await client.query<{ workspace_id: string; tenant_id: string }>(
+            `SELECT DISTINCT tenant_id, workspace_id FROM learning_events
+              WHERE student_id = $1::uuid`,
+            [studentId],
+          );
+          assert.deepEqual(events.rows, [
+            { tenant_id: scope.tenantId, workspace_id: scope.workspaceId },
+          ]);
+        },
+        { nonDefaultWorkspace: true },
+      );
     },
   );
 });

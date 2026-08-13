@@ -218,7 +218,13 @@ export async function createSmartNotification(client: Queryable, args: { student
   return id;
 }
 
-export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown> = {}, tenantId: string = PLATFORM.DEFAULT_TENANT_ID, workspaceId: string = PLATFORM.DEFAULT_WORKSPACE_ID) {
+// scope is a required object rather than two defaulted positional arguments.
+// Defaulting the workspace filed a non-default-workspace student's badge_earned
+// event under 'main', which learning_events_principal_binding_fk rejects — and
+// because the callers run on withDb rather than a transaction, the achievement
+// row survived while the request failed, so the ON CONFLICT on retry then
+// skipped the event and the notification for good.
+export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown>, scope: { tenantId: string; workspaceId: string }) {
   const inserted = await client.query(
     `INSERT INTO student_achievements (student_id, achievement_id, code, payload)
      VALUES ($1::uuid, $2, $2, $3::jsonb)
@@ -227,7 +233,7 @@ export async function maybeAwardAchievement(client: Queryable, studentId: string
     [studentId, code, JSON.stringify(payload)],
   );
   if (inserted.rows[0]) {
-    await recordLearningEvent(client, { studentId, tenantId, workspaceId, eventType: "badge_earned", payload: { code, ...payload } });
+    await recordLearningEvent(client, { studentId, tenantId: scope.tenantId, workspaceId: scope.workspaceId, eventType: "badge_earned", payload: { code, ...payload } });
     await createSmartNotification(client, {
       studentId,
       type: "achievement",
