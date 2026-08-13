@@ -11,6 +11,9 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { recordDegradedRead } from "@/lib/degraded-read";
+
+const ROUTE = "/api/mentor-challenge";
 
 type QuestionRow = {
   id: string;
@@ -47,7 +50,7 @@ function fallbackQuestion(locale: string, termNumber: number, lessonSlug: string
 }
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
   const limit = await rateLimit(req, { namespace: "mentor-challenge-read", limit: 80, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
@@ -81,16 +84,20 @@ export async function GET(req: NextRequest) {
       if (question) await client.query(`UPDATE academy_question_bank SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, [question.id]);
       return question ? publicQuestion(question) : fallbackQuestion(locale, termNumber, lessonSlug);
     });
-    if (!result.enabled) return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
-    return apiOk({ question: result.value });
-  } catch {
-    return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    if (!result.enabled) {
+      recordDegradedRead(ROUTE, "storage_unavailable");
+      return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    }
+    return apiOk({ degraded: false, question: result.value });
+  } catch (error) {
+    recordDegradedRead(ROUTE, "read_failed", error);
+    return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
   }
   }); // end withObservability
 }
 
 export async function POST(req: NextRequest) {
-  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-challenge-submit", limit: 80, windowMs: 60_000 });

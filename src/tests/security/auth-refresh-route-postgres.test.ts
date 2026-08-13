@@ -9,9 +9,17 @@ import {
   REFRESH_COOKIE,
   verifyRefreshToken,
 } from "../../lib/security/refresh-tokens";
+import { pinCsrfSiteOrigin } from "./csrf-origin-fixture";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
+
+// verifyCsrfOrigin compares the request Origin against NEXT_PUBLIC_SITE_URL.
+// Leaving that to the ambient environment made this assertion depend on the CI
+// job's exported variables: without it the route answered 401 (user_not_found)
+// long before the CSRF branch could reject anything, so the test proved
+// nothing about CSRF.
+pinCsrfSiteOrigin();
 
 describe("Refresh route CSRF authority", () => {
   it(

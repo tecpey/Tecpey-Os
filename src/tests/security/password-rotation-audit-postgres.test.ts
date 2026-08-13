@@ -14,6 +14,11 @@ import {
   signUnifiedSession,
 } from "../../lib/unified-session";
 import { COOKIES } from "../../lib/platform-config";
+import { pinCsrfSiteOrigin } from "./csrf-origin-fixture";
+
+// Pin the CSRF site origin so these route assertions do not depend on the
+// ambient environment of whoever runs them.
+pinCsrfSiteOrigin();
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();

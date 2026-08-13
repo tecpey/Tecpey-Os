@@ -17,6 +17,10 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
   const [issuing, setIssuing] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [eligibleTerms, setEligibleTerms] = useState<EligibleTerm[]>([]);
+  // The certificate API answers 200 with an empty list when its storage is
+  // unreachable. Without this flag the page would tell a graduate that no
+  // certificate is recorded, which is a false statement about their record.
+  const [degraded, setDegraded] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -28,11 +32,13 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
       const data = await certificateResponse.json();
       const progressData = progressResponse?.ok ? await progressResponse.json() : null;
       setCertificates(Array.isArray(data?.certificates) ? data.certificates : []);
+      setDegraded(data?.degraded === true);
       const terms = Array.isArray(progressData?.terms) ? progressData.terms : [];
       setEligibleTerms(terms.filter((item: { term_number?: number; score?: number; status?: string }) => item.status === "passed").map((item: { term_number?: number; score?: number }) => ({ term: Number(item.term_number), score: Number(item.score) || 100 })));
     } catch {
       setCertificates([]);
       setEligibleTerms([]);
+      setDegraded(true);
     } finally { setLoading(false); }
   };
 
@@ -87,8 +93,16 @@ export function AcademyCertificatesClient({ locale = "fa" }: { locale?: Locale }
         {!hasCerts ? (
           <section className="rounded-[34px] border border-slate-200 bg-white/90 p-8 text-center shadow-sm dark:border-white/10 dark:bg-white/[0.055]">
             <Award className="mx-auto h-14 w-14 text-cyan-500" />
-            <h2 className="mt-4 text-2xl font-black">{isFa ? "هنوز گواهی رسمی در پرونده تو ثبت نشده" : "No official certificate is recorded yet"}</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{isFa ? "بعد از تکمیل حساب و ثبت قبولی آزمون در پرونده آموزشی تک‌پی، گواهی قابل استعلام به‌صورت رسمی صادر می‌شود." : "After completing your account and officially passing a term assessment in TecPey, a verifiable certificate can be issued."}</p>
+            <h2 className="mt-4 text-2xl font-black">
+              {degraded
+                ? (isFa ? "پرونده‌ی گواهی‌ها موقتاً در دسترس نیست" : "The certificate record is temporarily unavailable")
+                : (isFa ? "هنوز گواهی رسمی در پرونده تو ثبت نشده" : "No official certificate is recorded yet")}
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm font-bold leading-8 text-[color:var(--tp-muted)]">
+              {degraded
+                ? (isFa ? "این یعنی سرویس در دسترس نیست، نه اینکه گواهی نداری. اگر قبلاً گواهی صادر شده، پس از بازگشت سرویس همان‌جا خواهد بود." : "This means the service is unreachable, not that you have no certificate. Anything already issued will still be here once the service recovers.")
+                : (isFa ? "بعد از تکمیل حساب و ثبت قبولی آزمون در پرونده آموزشی تک‌پی، گواهی قابل استعلام به‌صورت رسمی صادر می‌شود." : "After completing your account and officially passing a term assessment in TecPey, a verifiable certificate can be issued.")}
+            </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link href={isFa ? "/academy/profile" : "/en/academy/profile"} className="inline-flex rounded-2xl bg-cyan-500 px-6 py-3 text-sm font-black text-white">{isFa ? "تکمیل و ذخیره حساب" : "Complete account"}</Link>
               <Link href={isFa ? "/academy/term-1" : "/en/academy/term-1"} className="inline-flex rounded-2xl border border-cyan-300/30 px-6 py-3 text-sm font-black">{isFa ? "ادامه ترم‌ها" : "Continue terms"}</Link>

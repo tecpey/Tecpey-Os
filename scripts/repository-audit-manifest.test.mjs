@@ -511,6 +511,18 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 10,
     classificationRule: "product-ui-prefix",
   });
+  assert.deepEqual(classifyDomain("src/lib/json-ld.ts"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
+  assert.deepEqual(classifyDomain("src/lib/degraded-read.ts"), {
+    domain: "operations-runtime",
+    riskTier: "P1",
+    reviewBatch: 11,
+    classificationRule: "operations-runtime",
+  });
   assert.equal(classifyDomain("src/lib/ops/operational-job-evidence.ts").reviewBatch, 11);
   assert.deepEqual(classifyDomain("src/lib/news-materialization-persistence.ts"), {
     domain: "database-persistence",

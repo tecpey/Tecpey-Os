@@ -9,6 +9,7 @@ import { TermAccessGuard } from "@/components/academy/TermAccessGuard";
 import { AcademyLessonCompletionControl } from "@/components/academy/AcademyLessonCompletionControl";
 import { MentorChallengeBox } from "@/components/learning-os/MentorChallengeBox";
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardCheck, Lightbulb, ListChecks, MessageCircleQuestion, ShieldCheck, Target, TriangleAlert } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 const termEnhancements: Record<number, { caseStudy: string; practice: string; mentorPrompt: string; mastery: string[] }> = {
   1: {
@@ -105,7 +106,7 @@ export function AcademyTermPage({ slug }: { slug: string }) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleSchema) }} />
       <main className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <Link href="/academy" className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm font-black text-cyan-300 transition hover:bg-cyan-300/15">

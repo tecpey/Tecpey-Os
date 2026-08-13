@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import terms from "@/data/glossaryTerms.json";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 function getTerm(slug: string) { return terms.find((term) => term.slug === slug); }
@@ -16,8 +17,8 @@ export default async function GlossaryTermPage({ params }: Props) {
   const schema = { "@context":"https://schema.org", "@type":"DefinedTerm", name: term.fa, alternateName: term.en, description: term.summaryFa, inDefinedTermSet:"https://tecpey.ir/glossary", url:`https://tecpey.ir/glossary/${term.slug}` };
   const faqSchema = { "@context":"https://schema.org", "@type":"FAQPage", mainEntity: term.faqFa.map((f)=>({"@type":"Question", name:f.q, acceptedAnswer:{"@type":"Answer", text:f.a}})) };
   return <main dir="rtl" className="min-h-screen bg-[color:var(--tp-bg)] px-4 py-14 text-[color:var(--tp-text)] sm:px-6 lg:px-8">
-    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(schema)}} />
-    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(faqSchema)}} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(schema)}} />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{__html:safeJsonLd(faqSchema)}} />
     <article className="mx-auto max-w-4xl">
       <Link href="/glossary" className="inline-flex items-center gap-2 text-sm font-black text-cyan-500"><ArrowLeft className="h-4 w-4 rotate-180" /> بازگشت به واژه‌نامه</Link>
       <div className="mt-6 rounded-[36px] border border-cyan-300/15 bg-white/80 p-6 shadow-2xl shadow-cyan-500/10 dark:bg-white/[0.055] lg:p-8">

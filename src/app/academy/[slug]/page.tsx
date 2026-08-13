@@ -7,6 +7,7 @@ import { NeonIcon } from "@/components/tecpey/NeonIcon";
 import { ArrowLeft, Clock3, BookOpen } from "lucide-react";
 import { TermQuizClient } from "@/components/academy/TermQuizClient";
 import { AcademyArticleLearningCompanion } from "@/components/academy/AcademyArticleLearningCompanion";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -77,8 +78,8 @@ export default async function AcademyArticlePage({ params }: Props) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(articleSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd({
         "@context": "https://schema.org",
         "@type": "Course",
         name: article.title,
@@ -89,7 +90,7 @@ export default async function AcademyArticlePage({ params }: Props) {
         teaches: [article.title, article.description],
         hasCourseInstance: { "@type": "CourseInstance", courseMode: "online", location: { "@type": "VirtualLocation", url: `https://tecpey.ir/academy/${article.slug}` } },
       }) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }} />
 
       <article className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">

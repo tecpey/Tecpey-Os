@@ -6,9 +6,12 @@ import { fallbackAchievementSnapshot, getAchievementSnapshot } from "@/lib/phase
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { recordDegradedRead } from "@/lib/degraded-read";
+
+const ROUTE = "/api/achievements";
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/achievements" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
     const limit = await rateLimit(req, { namespace: "academy-achievements-read", limit: 90, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
     const session = await getStudentSessionFromRequest(req);
@@ -16,10 +19,14 @@ export async function GET(req: NextRequest) {
     if (!session?.studentId) return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale) });
     try {
       const result = await withDb((client) => getAchievementSnapshot(client, session.studentId));
-      if (!result.enabled) return apiOk({ authenticated: true, achievements: fallbackAchievementSnapshot(locale) });
-      return apiOk({ authenticated: true, achievements: result.value || [] });
-    } catch {
-      return apiOk({ authenticated: true, achievements: fallbackAchievementSnapshot(locale) });
+      if (!result.enabled) {
+        recordDegradedRead(ROUTE, "storage_unavailable");
+        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+      }
+      return apiOk({ authenticated: true, degraded: false, achievements: result.value || [] });
+    } catch (error) {
+      recordDegradedRead(ROUTE, "read_failed", error);
+      return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
     }
   });
 }

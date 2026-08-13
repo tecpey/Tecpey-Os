@@ -14,6 +14,7 @@ import {
 } from "@/lib/news-impact-history";
 import { ArrowLeft, CheckCircle2, AlertTriangle, BookOpen } from "lucide-react";
 import { NeonIcon } from "@/components/tecpey/NeonIcon";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -88,8 +89,8 @@ export default async function CoinPage({ params }: Props) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(financialProductSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(financialProductSchema) }} />
       <StructuredData
         data={buildNewsImpactItemListSchema({
           items: impactNews,

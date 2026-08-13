@@ -5,6 +5,7 @@ import Link from "next/link";
 import { learningSeoPages, getLearningSeoPage } from "@/data/organicSeo";
 import { ContentShell, FaqList } from "@/components/content/ContentUI";
 import { BookOpen, CheckCircle2, ShieldCheck, ArrowLeft, Sparkles } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -92,7 +93,7 @@ export default async function LearningSeoPage({ params }: Props) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([breadcrumbSchema, faqSchema, articleSchema, courseSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([breadcrumbSchema, faqSchema, articleSchema, courseSchema]) }} />
       <main className="px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <Link href="/academy" className="inline-flex items-center gap-2 text-sm font-black text-cyan-600 dark:text-cyan-300">
