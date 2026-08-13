@@ -57,7 +57,7 @@ function auditContext(input: {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/webauthn/register/verify" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "webauthn-reg-verify",

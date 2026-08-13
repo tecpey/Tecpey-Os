@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/offline-sync POST" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const context = await resolveTenantPrincipalContext({

@@ -209,7 +209,7 @@ function responseEnvelope(input: {
 
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/ai-mentor" }, async () => {
-    if (!verifyCsrfOrigin(request)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(request)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(request, { strictRevocation: true });
     if (!session.isAcademyUser && !session.studentId) {

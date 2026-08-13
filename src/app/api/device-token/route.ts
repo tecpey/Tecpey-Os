@@ -14,7 +14,7 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
-  if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+  if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
   const session = await getCanonicalSession(req, { strictRevocation: true });
   if (!session.studentId) return apiError("complete_account_required", 401);

@@ -5,7 +5,7 @@ import { apiError } from "@/lib/api-validation";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
-  if (!verifyCsrfOrigin(req))
+  if (!await verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const boundedBodyRequest = await readBoundedJsonRequest(req, {
     maxBytes: 8_192,

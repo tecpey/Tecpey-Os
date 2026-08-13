@@ -4,7 +4,7 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { apiError } from "@/lib/api-validation";
 
 export async function POST(req: NextRequest) {
-  if (!verifyCsrfOrigin(req))
+  if (!await verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   return academyAuthDelete(req);
 }

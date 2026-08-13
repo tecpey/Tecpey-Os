@@ -14,7 +14,7 @@ const MAX_PAYLOAD_BYTES = 5_000;
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-specialized-lead" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const trustedIp = getTrustedClientIp(req);
     if (process.env.NODE_ENV === "production" && !trustedIp) {

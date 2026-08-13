@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/api-keys" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "api-keys-create",

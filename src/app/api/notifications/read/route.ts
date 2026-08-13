@@ -13,7 +13,7 @@ import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-c
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/notifications/read" }, async () => {
-    if (!verifyCsrfOrigin(req))
+    if (!await verifyCsrfOrigin(req))
       return apiError("forbidden", 403);
     const limit = await rateLimit(req, { namespace: "notifications-read-write", limit: 120, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);

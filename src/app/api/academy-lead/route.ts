@@ -12,7 +12,7 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/academy-lead" }, async () => {
-    if (!verifyCsrfOrigin(request)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(request)) return apiError("forbidden", 403);
 
     const trustedIp = getTrustedClientIp(request);
     if (process.env.NODE_ENV === "production" && !trustedIp) {

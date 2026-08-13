@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "academy-auth",
@@ -385,7 +385,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-auth" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const sessionToken = req.cookies.get(UNIFIED_SESSION_COOKIE)?.value;
     if (!sessionToken) {

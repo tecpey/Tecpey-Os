@@ -46,7 +46,7 @@ function parseAnswers(value: unknown): QuizAnswerMap | null {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-lesson-assessment" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
     if (!checkBodySize(req.headers.get("content-length"), 64_000)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(req, { namespace: "academy-lesson-assessment", limit: 30, windowMs: 60_000 });

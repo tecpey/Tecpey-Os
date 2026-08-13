@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 // current access session and its bound refresh family.
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/sessions" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rl = await rateLimit(req, {
       namespace: "auth-revoke-all",

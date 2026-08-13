@@ -28,7 +28,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   return withObservability(req, { route: "/api/notifications/[id]" }, async () => {
-    if (!verifyCsrfOrigin(req)) return notificationApiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return notificationApiError("forbidden", 403);
 
     const rate = await rateLimit(req, {
       namespace: "notifications-mutate",

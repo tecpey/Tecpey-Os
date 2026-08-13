@@ -41,55 +41,55 @@ afterEach(() => {
 });
 
 describe("CSRF origin authority", () => {
-  it("accepts a request with no Origin header", () => {
+  it("accepts a request with no Origin header", async () => {
     configure("production", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request()), true);
+    assert.equal(await await verifyCsrfOrigin(request()), true);
   });
 
-  it("accepts the configured site origin", () => {
+  it("accepts the configured site origin", async () => {
     configure("production", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request("https://tecpey.ir")), true);
+    assert.equal(await verifyCsrfOrigin(request("https://tecpey.ir")), true);
   });
 
-  it("tolerates a trailing slash in the configured site URL", () => {
+  it("tolerates a trailing slash in the configured site URL", async () => {
     configure("production", "https://tecpey.ir/");
-    assert.equal(verifyCsrfOrigin(request("https://tecpey.ir")), true);
+    assert.equal(await verifyCsrfOrigin(request("https://tecpey.ir")), true);
   });
 
-  it("rejects a foreign origin", () => {
+  it("rejects a foreign origin", async () => {
     configure("production", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request("https://attacker.example")), false);
+    assert.equal(await verifyCsrfOrigin(request("https://attacker.example")), false);
   });
 
-  it("rejects a look-alike subdomain of the configured site", () => {
+  it("rejects a look-alike subdomain of the configured site", async () => {
     configure("production", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request("https://tecpey.ir.attacker.example")), false);
+    assert.equal(await verifyCsrfOrigin(request("https://tecpey.ir.attacker.example")), false);
   });
 
-  it("allows localhost outside production so local development is not blocked", () => {
+  it("allows localhost outside production so local development is not blocked", async () => {
     configure("development", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request("http://localhost:3000")), true);
-    assert.equal(verifyCsrfOrigin(request("http://127.0.0.1:3000")), true);
+    assert.equal(await verifyCsrfOrigin(request("http://localhost:3000")), true);
+    assert.equal(await verifyCsrfOrigin(request("http://127.0.0.1:3000")), true);
   });
 
-  it("does not allow localhost in production", () => {
+  it("does not allow localhost in production", async () => {
     configure("production", "https://tecpey.ir");
-    assert.equal(verifyCsrfOrigin(request("http://localhost:3000")), false);
+    assert.equal(await verifyCsrfOrigin(request("http://localhost:3000")), false);
   });
 
-  it("fails closed on a foreign origin when the site URL is unset, in every environment", () => {
+  it("fails closed on a foreign origin when the site URL is unset, in every environment", async () => {
     for (const nodeEnv of ["production", "development", "test", undefined]) {
       configure(nodeEnv, undefined);
       assert.equal(
-        verifyCsrfOrigin(request("https://attacker.example")),
+        await verifyCsrfOrigin(request("https://attacker.example")),
         false,
         `a missing NEXT_PUBLIC_SITE_URL must never admit a foreign origin (NODE_ENV=${String(nodeEnv)})`,
       );
     }
   });
 
-  it("fails closed when the configured site URL cannot be parsed", () => {
+  it("fails closed when the configured site URL cannot be parsed", async () => {
     configure("production", "not a url");
-    assert.equal(verifyCsrfOrigin(request("https://attacker.example")), false);
+    assert.equal(await verifyCsrfOrigin(request("https://attacker.example")), false);
   });
 });

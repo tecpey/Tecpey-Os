@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
 // POST: confirm enrollment with the first TOTP code.
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/2fa/enroll" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "2fa-enroll-post",

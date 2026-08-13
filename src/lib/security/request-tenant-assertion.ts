@@ -64,6 +64,18 @@ export function resetTenantHostDirectoryCache(): void {
   cachedDirectory = null;
 }
 
+/**
+ * The cached host->tenant lookup, or null when no directory can be loaded.
+ *
+ * Exposed because CSRF origin verification needs the same single source of
+ * truth: a tenant's own domain has to be recognizable as same-site, and it must
+ * be recognized from `platform_tenant_domains` rather than from the
+ * attacker-controlled Host header.
+ */
+export async function lookupTenantHost(): Promise<TenantHostLookup | null> {
+  return hostDirectory();
+}
+
 async function hostDirectory(): Promise<TenantHostLookup | null> {
   const now = Date.now();
   if (cachedDirectory && now - cachedDirectory.loadedAt < DIRECTORY_TTL_MS) {
