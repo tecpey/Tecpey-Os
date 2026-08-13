@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { PLATFORM } from "@/lib/platform-config";
 import {
   claimApiCommandTx,
   completeApiCommandTx,
@@ -108,6 +109,49 @@ export async function cancelWithdrawalIdempotently(input: {
         idempotencyKey: input.idempotencyKey,
         requestHash: input.requestHash,
       };
+
+      // Receipts written before migration 0072 were filed under the platform
+      // default whatever tenant the withdrawal belonged to. A retry of one of
+      // those would miss the scope above, claim a fresh command, then find the
+      // withdrawal already cancelled and answer withdrawal_cannot_be_cancelled —
+      // a 409 for a request that had already succeeded, which is the opposite of
+      // what an idempotency key is for.
+      //
+      // Only a non-default owner can have a receipt in the other scope, so the
+      // default-tenant path never runs this and never pays for it.
+      if (ownerTenantId !== PLATFORM.DEFAULT_TENANT_ID) {
+        const legacy = await client.query<{
+          request_hash: string;
+          response_body: WithdrawalCancelReceipt | null;
+        }>(
+          `SELECT request_hash, response_body
+             FROM api_command_receipts
+            WHERE tenant_id = $1
+              AND principal_type = 'user'
+              AND principal_id = $2
+              AND operation = 'withdrawal.cancel'
+              AND idempotency_key = $3
+              AND status = 'completed'
+            LIMIT 1`,
+          [PLATFORM.DEFAULT_TENANT_ID, input.userId, input.idempotencyKey],
+        );
+        const retained = legacy.rows[0];
+        if (retained) {
+          // The same key with different arguments is still a conflict, exactly
+          // as it would be in the owning scope.
+          if (retained.request_hash !== input.requestHash) {
+            throw new WithdrawalCancelError("idempotency_conflict", 409);
+          }
+          if (retained.response_body?.withdrawalId !== input.withdrawalId) {
+            throw new WithdrawalCancelError("idempotency_conflict", 409);
+          }
+          return {
+            withdrawalId: retained.response_body.withdrawalId,
+            replayed: true,
+            tenantId: ownerTenantId,
+          };
+        }
+      }
 
       const claim = await claimApiCommandTx<WithdrawalCancelReceipt>(
         client,

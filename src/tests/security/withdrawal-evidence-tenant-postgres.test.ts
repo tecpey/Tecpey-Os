@@ -153,11 +153,7 @@ async function seedTenant(): Promise<string> {
   return tenantId;
 }
 
-/**
- * A withdrawal owned by `tenantId`. It is admitted through the real service and
- * then moved, because the admission path has no tenant input of its own — the
- * column carries a default. What matters here is the state the triggers see.
- */
+/** A withdrawal admitted into `tenantId` through the real admission service. */
 async function seedWithdrawal(userId: string, tenantId: string): Promise<string> {
   const key = `withdrawal-tenant-${randomUUID()}`;
   const amount = "2";
@@ -207,6 +203,7 @@ async function seedWithdrawal(userId: string, tenantId: string): Promise<string>
   }
 
   const created = await createAuthoritativeWithdrawal({
+    tenantId,
     userId,
     asset: "USDT",
     amount,
@@ -221,13 +218,6 @@ async function seedWithdrawal(userId: string, tenantId: string): Promise<string>
   });
   if (!created.ok) throw new Error("withdrawal seed failed");
 
-  const moved = await withDb((client) =>
-    client.query("UPDATE withdrawals SET tenant_id = $2 WHERE id = $1", [
-      created.withdrawal.id,
-      tenantId,
-    ]),
-  );
-  assert.equal(moved.enabled, true);
   return created.withdrawal.id;
 }
 
@@ -361,43 +351,109 @@ describe("Withdrawal custody evidence tenant", () => {
   );
 
   it(
-    "records where the chain still begins in the default tenant",
+    "files the whole chain — admission included — under the owning tenant",
     { skip: !integrationConfigured, timeout: 60_000 },
     async () => {
-      // Not a fix — a boundary, stated so it is not mistaken for one.
+      // An earlier draft of this case asserted that admission evidence stays in
+      // the default tenant, on the belief that withdrawal creation had no tenant
+      // input. That was wrong: createAuthoritativeWithdrawal takes a tenantId and
+      // POST /api/auth/withdraw passes the request's verified tenant. The draft
+      // only saw the default because the seed here did not pass one.
       //
-      // The admission trigger now derives its tenant from the withdrawal row, but
-      // it fires as the row is created, and createAuthoritativeWithdrawal has no
-      // tenant input at all: withdrawals.tenant_id carries a column default. So
-      // admission evidence is filed under the default tenant no matter who the
-      // withdrawal ends up belonging to, and only the later transitions land in
-      // the owning tenant.
-      //
-      // Giving the withdrawal admission path a tenant of its own is the next
-      // slice. Until then this case pins the exact shape of the gap, so a reader
-      // is not left believing the whole chain moved.
+      // So the chain really does move end to end, and this case says so instead.
       const tenantId = await seedTenant();
-      const userId = `wd-tenant-admit-${randomUUID()}`;
+      const userId = `wd-tenant-chain-${randomUUID()}`;
       const withdrawalId = await seedWithdrawal(userId, tenantId);
 
       const cancelled = await cancelWithdrawalIdempotently({
         withdrawalId,
         userId,
-        idempotencyKey: `admit-tenant-${randomUUID()}`,
+        idempotencyKey: `chain-tenant-${randomUUID()}`,
         requestHash: hashApiCommand({ withdrawalId, action: "cancel" }),
       });
       assert.equal(cancelled.ok, true, JSON.stringify(cancelled));
 
+      const tenants = await evidenceTenants(withdrawalId);
+      assert.ok(tenants.length > 0, "the withdrawal must have custody evidence");
       assert.deepEqual(
-        await evidenceTenants(withdrawalId, "withdrawal.cancel"),
+        tenants,
         [tenantId],
-        "the transition this test controls files under the owning tenant",
+        "every evidence row for this withdrawal must name the owning tenant",
       );
       assert.deepEqual(
         await evidenceTenants(withdrawalId, "withdrawal.review"),
-        [PLATFORM.DEFAULT_TENANT_ID],
-        "admission still files under the default tenant, because creation has no tenant input",
+        [tenantId],
+        "admission evidence included",
       );
+    },
+  );
+
+  it(
+    "replays a cancellation receipt retained under the pre-migration scope",
+    { skip: !integrationConfigured, timeout: 60_000 },
+    async () => {
+      // Before migration 0072 every cancel receipt was filed under the platform
+      // default, whatever tenant the withdrawal belonged to. A retry after
+      // deployment searches the owning tenant, so without a fallback it would
+      // miss that receipt, claim a fresh command, find the withdrawal already
+      // cancelled and answer 409 — for a request that had already succeeded.
+      //
+      // Raised in review of #425.
+      const tenantId = await seedTenant();
+      const userId = `wd-legacy-${randomUUID()}`;
+      const withdrawalId = await seedWithdrawal(userId, tenantId);
+      const idempotencyKey = `legacy-cancel-${randomUUID()}`;
+      const requestHash = hashApiCommand({ withdrawalId, action: "cancel" });
+
+      const first = await cancelWithdrawalIdempotently({
+        withdrawalId,
+        userId,
+        idempotencyKey,
+        requestHash,
+      });
+      assert.equal(first.ok, true, JSON.stringify(first));
+
+      // A receipt cannot be relocated — api_command_receipts is immutable by
+      // trigger — so the pre-migration state is reproduced by writing a receipt
+      // where the old writer would have put it, under a key of its own. The
+      // withdrawal is already cancelled at this point, so without the fallback
+      // this retry claims a fresh command and answers 409.
+      const legacyKey = `legacy-${randomUUID()}`;
+      const legacyHash = hashApiCommand({ withdrawalId, action: "cancel", legacy: true });
+      const seededLegacy = await withDb((client) =>
+        client.query(
+          `INSERT INTO api_command_receipts
+             (tenant_id, principal_type, principal_id, operation, idempotency_key,
+              request_hash, status, http_status, response_body, completed_at)
+           VALUES ($1, 'user', $2, 'withdrawal.cancel', $3, $4, 'completed', 200,
+                   jsonb_build_object('withdrawalId', $5::text), NOW())`,
+          [PLATFORM.DEFAULT_TENANT_ID, userId, legacyKey, legacyHash, withdrawalId],
+        ),
+      );
+      assert.equal(seededLegacy.enabled, true);
+
+      const retry = await cancelWithdrawalIdempotently({
+        withdrawalId,
+        userId,
+        idempotencyKey: legacyKey,
+        requestHash: legacyHash,
+      });
+      assert.equal(
+        retry.ok,
+        true,
+        `a retained receipt must replay, not 409: ${JSON.stringify(retry)}`,
+      );
+      if (retry.ok) assert.equal(retry.replayed, true);
+
+      // A different request under the same key is still a conflict.
+      const mismatched = await cancelWithdrawalIdempotently({
+        withdrawalId,
+        userId,
+        idempotencyKey: legacyKey,
+        requestHash: hashApiCommand({ withdrawalId, action: "cancel", v: 2 }),
+      });
+      assert.equal(mismatched.ok, false);
+      if (!mismatched.ok) assert.equal(mismatched.reason, "idempotency_conflict");
     },
   );
 });
