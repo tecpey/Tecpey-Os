@@ -2,7 +2,6 @@ import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
-import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { issueCertificate } from "@/lib/academy-certificates";
 import { awardMilestonesAfterCertificate } from "@/lib/phase5-achievement-engine";
@@ -20,12 +19,51 @@ export async function GET(req: NextRequest) {
   return withObservability(req, { route: ROUTE }, async () => {
     const limit = await rateLimit(req, { namespace: "academy-certificates-read", limit: 80, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getStudentSessionFromRequest(req);
-    const studentId = cleanText(session?.studentId, 80);
+    // academy_certificates carries a tenant boundary (migration 0070), so the
+    // student's own list has to be read inside the tenant they are acting in.
+    // Keyed by student_id alone, a student bound to two tenants saw both
+    // tenants' certificates in whichever one they happened to open — their own
+    // data, but presented as if one tenant had issued all of it.
+    //
+    // This resolves the same verified context the POST on this route already
+    // uses. The narrower effect is that a browser still holding only a legacy
+    // student cookie no longer lists certificates: those cookies stopped being
+    // issued in Phase 23, and a retired credential should not carry a
+    // tenant-scoped read.
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) {
+      // Only an unreachable authority makes an empty answer a lie. A visitor
+      // with no cookie, an expired or revoked one, or a valid account-only
+      // session issued before the student profile exists (academy-auth signs
+      // exactly that on login) all genuinely have no certificates to list, and
+      // reporting an outage for them would both mislead the reader and emit a
+      // false outage metric.
+      if (session.authorityDegraded) {
+        recordDegradedRead(ROUTE, "session_authority_unavailable");
+        return apiOk({ degraded: true, certificates: [] });
+      }
+      return apiOk({ degraded: false, certificates: [] });
+    }
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      recordDegradedRead(ROUTE, "tenant_context_unavailable");
+      return apiOk({ degraded: true, certificates: [] });
+    }
+    const studentId = cleanText(tenantContext.principalId, 80);
     if (!studentId) return apiOk({ degraded: false, certificates: [] });
     try {
       const result = await withDb(async (client) => {
-        const rows = await client.query(`SELECT * FROM academy_certificates WHERE student_id = $1::uuid ORDER BY term_number ASC`, [studentId]);
+        const rows = await client.query(
+          `SELECT * FROM academy_certificates
+            WHERE tenant_id = $2 AND workspace_id = $3 AND student_id = $1::uuid
+            ORDER BY term_number ASC`,
+          [studentId, tenantContext.tenantId, tenantContext.workspaceId],
+        );
         return rows.rows;
       });
       if (!result.enabled) {

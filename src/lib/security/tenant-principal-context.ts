@@ -1,7 +1,7 @@
 import { withDb } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
 import type { CanonicalSession } from "@/lib/auth-session";
-import { resolvePlatformContext } from "@/lib/tenant-service";
+import { resolvePlatformContextInTenant } from "@/lib/tenant-service";
 
 export type TenantPrincipalType =
   | "student"
@@ -156,11 +156,40 @@ export async function resolveBoundTenantPrincipal(input: {
   };
 }
 
+/**
+ * Resolve the tenant a session's principal is acting in.
+ *
+ * `preferredTenantId` is a *filter*, not a ranking: the resolver's
+ * `($3::text IS NULL OR binding.tenant_id = $3)` predicate is the security core
+ * that stops a request asserting tenant B from being handed tenant A's binding,
+ * and platform-principal-binding-cross-tenant-isolation proves it. So it may
+ * only ever carry a tenant the request genuinely asserted.
+ *
+ * This function used to feed it `resolvePlatformContext(...).tenantId`, which is
+ * the hard-coded platform default and not an assertion by anything. The filter
+ * then admitted the pair ('tecpey','main') and nothing else: a principal bound
+ * only to another tenant resolved to `binding_missing`, and one in a non-default
+ * workspace of the default tenant to `workspace_mismatch` — both verified
+ * against a migrated database. Every route on this helper was therefore pinned
+ * to the default tenant, and a principal outside it could not read or write at
+ * all.
+ *
+ * With no assertion to honor, the preferences are left null and the resolver's
+ * ORDER BY does the ranking it was written for: the default tenant/workspace
+ * first, then the oldest binding. A principal can still only ever resolve to a
+ * binding of its own, so this widens availability without widening reach.
+ *
+ * A caller that *has* an asserted tenant (a host or header hint run through
+ * `resolveRequestTenant`) passes it here, and the filter applies as before.
+ */
 export async function resolveTenantPrincipalContext(input: {
   session: CanonicalSession;
   requiredPrincipalType: Exclude<TenantPrincipalType, "service">;
   scopes: string[];
   requestId: string;
+  /** A tenant the request asserted and is entitled to. Never a default. */
+  assertedTenantId?: string | null;
+  assertedWorkspaceId?: string | null;
 }): Promise<TenantPrincipalContext> {
   const principalId = sessionPrincipal(
     input.session,
@@ -168,18 +197,27 @@ export async function resolveTenantPrincipalContext(input: {
   );
   if (!principalId) return { available: false, reason: "principal_missing" };
 
-  const platform = await resolvePlatformContext(input.session);
-  return resolveBoundTenantPrincipal({
+  const bound = await resolveBoundTenantPrincipal({
     principalType: input.requiredPrincipalType,
     principalId,
-    preferredTenantId: platform.tenantId,
-    preferredWorkspaceId:
-      platform.workspaceId === PLATFORM.DEFAULT_WORKSPACE_ID
-        ? platform.workspaceId
-        : null,
-    roles: platform.roles,
+    preferredTenantId: input.assertedTenantId ?? null,
+    preferredWorkspaceId: input.assertedWorkspaceId ?? null,
     scopes: input.scopes,
-    membershipId: platform.membership?.id ?? null,
     requestId: input.requestId,
   });
+  if (!bound.available) return bound;
+
+  // Roles and membership are read in the tenant the binding named, so the whole
+  // context describes one tenant rather than pairing a binding with the default
+  // tenant's membership.
+  const platform = await resolvePlatformContextInTenant(
+    input.session,
+    bound.tenantId,
+    bound.workspaceId,
+  );
+  return {
+    ...bound,
+    roles: [...new Set(platform.roles)].sort(),
+    membershipId: platform.membership?.id ?? null,
+  };
 }

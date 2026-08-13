@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { DEGRADED_READ_COUNTER, recordDegradedRead } from "../../lib/degraded-read";
 import { metrics } from "../../lib/metrics";
 import { STUDENT_SESSION_COOKIE } from "../../lib/academy-session";
+import { UNIFIED_SESSION_COOKIE } from "../../lib/unified-session";
 
 // Several academy read routes deliberately answer 200 with fallback content
 // when their storage is unreachable, so an outage degrades the page instead of
@@ -25,6 +26,27 @@ async function studentCookie(): Promise<string> {
     .setExpirationTime("10m")
     .sign(new TextEncoder().encode(SESSION_SECRET));
   return `${STUDENT_SESSION_COOKIE}=${token}`;
+}
+
+// The certificate list moved onto the canonical session when it became
+// tenant-scoped, so its degraded-read case needs a unified cookie rather than
+// the retired legacy student one. The assertion is unchanged: an authenticated
+// read must say it is degraded instead of reporting an empty shelf.
+async function unifiedStudentCookie(): Promise<string> {
+  const token = await new SignJWT({
+    role: "unified",
+    v: 1,
+    accountId: null,
+    studentId: randomUUID(),
+    email: null,
+    displayName: null,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setJti(randomUUID())
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(new TextEncoder().encode(SESSION_SECRET));
+  return `${UNIFIED_SESSION_COOKIE}=${token}`;
 }
 
 function counterFor(route: string): number {
@@ -92,7 +114,7 @@ describe("Degraded read observability", () => {
     const { GET } = await import("../../app/api/academy-certificates/route");
     const response = await GET(
       new NextRequest("https://tecpey.ir/api/academy-certificates", {
-        headers: { cookie: await studentCookie() },
+        headers: { cookie: await unifiedStudentCookie() },
       }),
     );
 
@@ -124,4 +146,5 @@ describe("Degraded read observability", () => {
     assert.equal(body.degraded, false);
     assert.equal(counterFor("/api/academy-certificates"), 0);
   });
+
 });

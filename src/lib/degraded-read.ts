@@ -18,6 +18,11 @@ export type DegradedReadReason =
   | "storage_unavailable"
   /** The tenant/principal context could not be resolved for this reader. */
   | "tenant_context_unavailable"
+  /**
+   * Strict session verification could not reach its revocation authority, so
+   * the reader was handed a guest it has no grounds to treat as one.
+   */
+  | "session_authority_unavailable"
   /** The read threw after storage was reachable. */
   | "read_failed";
 
