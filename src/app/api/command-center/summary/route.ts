@@ -19,13 +19,16 @@ export async function GET(req: NextRequest) {
 
     try {
       const result = await withDb(async (client) => {
-        const [students, events, notifications, certificates, challenges] = await Promise.all([
-          client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE last_seen_at > NOW() - INTERVAL '7 days')::int AS active_week FROM academy_students`),
-          client.query(`SELECT event_type, COUNT(*)::int AS count FROM learning_events WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY event_type ORDER BY count DESC LIMIT 8`),
-          client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread FROM notification_center`),
-          client.query(`SELECT COUNT(*)::int AS total FROM academy_certificates`).catch(() => ({ rows: [{ total: 0 }] })),
-          client.query(`SELECT COUNT(*)::int AS total, COALESCE(ROUND(AVG(CASE WHEN is_correct THEN 100 ELSE 0 END)),0)::int AS success FROM mentor_challenge_attempts`),
-        ]);
+        // These run on one pooled client, which pg serializes anyway; issuing
+        // them through Promise.all only produced a pg@9 deprecation warning
+        // without buying concurrency.
+        const students = await client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE last_seen_at > NOW() - INTERVAL '7 days')::int AS active_week FROM academy_students`);
+        const events = await client.query(`SELECT event_type, COUNT(*)::int AS count FROM learning_events WHERE created_at > NOW() - INTERVAL '7 days' GROUP BY event_type ORDER BY count DESC LIMIT 8`);
+        const notifications = await client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread FROM notification_center`);
+        const certificates = await client
+          .query(`SELECT COUNT(*)::int AS total FROM academy_certificates`)
+          .catch(() => ({ rows: [{ total: 0 }] }));
+        const challenges = await client.query(`SELECT COUNT(*)::int AS total, COALESCE(ROUND(AVG(CASE WHEN is_correct THEN 100 ELSE 0 END)),0)::int AS success FROM mentor_challenge_attempts`);
         return {
           students: students.rows[0],
           events: events.rows,

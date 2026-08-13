@@ -6,10 +6,10 @@
     {
       "route": "/api/academy-mastery-seasons",
       "sourcePath": "src/app/api/academy-mastery-seasons/route.ts",
-      "sourceHash": "f3b275f1f1eed8856256b8ce",
+      "sourceHash": "c35890df3a15e3bc381f2b57",
       "issue": "#240",
       "owner": "academy-platform",
-      "reason": "Mastery Seasons read model exposes personalized Academy recommendations only after strict session, tenant principal binding, rate limiting and private no-store controls.",
+      "reason": "Mastery Seasons read model exposes personalized Academy recommendations only after strict session, tenant principal binding, rate limiting and private no-store controls. 2026-08-13 (#109, audit finding F-9): the two locale reads shared one pooled client through Promise.all and are now awaited in order — pg 8 serialized them anyway. Read-only status, the reject-all-query-parameters rule and the tenant/principal resolution are unchanged.",
       "controls": {
         "classification": "authenticated",
         "strictRevocation": true,
