@@ -66,8 +66,8 @@ test(
 
       await client.query(
         `INSERT INTO notification_center
-          (student_id, type, title, body, action_url, priority, metadata)
-         VALUES ($1, 'mentor', $2, 'Continue the lesson',
+          (tenant_id, workspace_id, student_id, type, title, body, action_url, priority, metadata)
+         VALUES ('tecpey', 'main', $1, 'mentor', $2, 'Continue the lesson',
                  '/academy/profile', 3, '{"origin":"legacy"}'::jsonb)`,
         [studentId, legacyTitle],
       );

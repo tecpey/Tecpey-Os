@@ -70,6 +70,7 @@ import { ACADEMY_CERTIFICATE_CONTRACT_SQL } from "./db-migrate-academy-certifica
 import { ACADEMY_LEARNING_COMMAND_TENANT_SQL } from "./db-migrate-academy-learning-command-tenant";
 import { ADMIN_TENANT_BINDING_SQL } from "./db-migrate-admin-tenant-binding";
 import { ACADEMY_CERTIFICATE_TENANT_SQL } from "./db-migrate-academy-certificate-tenant";
+import { NOTIFICATION_CENTER_TENANT_SQL } from "./db-migrate-notification-center-tenant";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -286,5 +287,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyCertificateTenant: one(
     "0070_academy_certificate_tenant.sql",
     ACADEMY_CERTIFICATE_TENANT_SQL,
+  ),
+  notificationCenterTenant: one(
+    "0071_notification_center_tenant.sql",
+    NOTIFICATION_CENTER_TENANT_SQL,
   ),
 });

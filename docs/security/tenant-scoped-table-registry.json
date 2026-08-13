@@ -227,6 +227,15 @@
       "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
+      "table": "notification_center",
+      "domain": "notifications",
+      "sourceFile": "src/lib/db-migrate-notification-center-tenant.ts",
+      "isolationModel": "tenant_id + workspace_id on the legacy inbox row, FK-bound to platform_tenants and, as a composite pair, to platform_workspaces (tenant_id, id). createSmartNotification takes the pair as a required scope and writes it. Every reader filters on it: the legacy drain into platform_notifications (migrateLegacyNotificationsForPrincipal, which runs on every GET /api/notifications and previously copied one tenant's notification into every tenant the student was bound to), the brain-notification dedupe lookup in phase5-achievement-engine, the mark-read route, and the Command Center notification count. Ownership of pre-existing rows is derived from the student's sole active principal binding rather than defaulted; broadcast rows with no student belong to the default tenant, and anything unresolvable stops the migration by name instead of being guessed.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "notification_domain_outbox",
       "domain": "notifications",
       "sourceFile": "src/lib/db-migrate-notification-domain-outbox.ts",

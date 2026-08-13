@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/command-center/campaign",
+      "method": "POST",
+      "previousSourceHash": "c37e28d5e59f6d01985ddd07",
+      "issue": "#109",
+      "owner": "notifications",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
+      "replacement": {
+        "route": "/api/command-center/campaign",
+        "method": "POST",
+        "sourcePath": "src/app/api/command-center/campaign/route.ts",
+        "sourceHash": "1576b9a512b21e6ca32c7ece",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-campaign",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/notification-inbox-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/campaign/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "previousSourceHash": "b24d488cdc0d9a4623e3e8ef",
+      "issue": "#109",
+      "owner": "notifications",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
+      "replacement": {
+        "route": "/api/mentor-challenge",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "sourceHash": "9696e254d037bf2f055f71f9",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-challenge-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-challenge",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-challenge/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notifications",
+      "method": "POST",
+      "previousSourceHash": "5970429bd7d1458d4a164202",
+      "issue": "#109",
+      "owner": "notifications",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
+      "replacement": {
+        "route": "/api/notifications",
+        "method": "POST",
+        "sourcePath": "src/app/api/notifications/route.ts",
+        "sourceHash": "005b9e4ad707b53e4aea052a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "deny-only",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "rateLimitNamespace": null,
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "notifications",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/notification-inbox-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notifications/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notifications/read",
+      "method": "POST",
+      "previousSourceHash": "d28e322be97bb79d3541c69a",
+      "issue": "#109",
+      "owner": "notifications",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
+      "replacement": {
+        "route": "/api/notifications/read",
+        "method": "POST",
+        "sourcePath": "src/app/api/notifications/read/route.ts",
+        "sourceHash": "a16ebcfd148991591547a5a2",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "notifications-read-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "notifications",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notifications/read/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

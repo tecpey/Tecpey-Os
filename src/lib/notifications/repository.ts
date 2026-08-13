@@ -167,7 +167,8 @@ export async function migrateLegacyNotificationsForPrincipal(
             legacy.priority, legacy.read_at, legacy.created_at,
             legacy.scheduled_for, legacy.metadata
        FROM notification_center AS legacy
-      WHERE (legacy.student_id = $1::uuid OR legacy.student_id IS NULL)
+      WHERE legacy.tenant_id = $2
+        AND (legacy.student_id = $1::uuid OR legacy.student_id IS NULL)
         AND NOT EXISTS (
           SELECT 1
             FROM platform_notifications AS migrated

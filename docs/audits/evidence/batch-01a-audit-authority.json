@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "fc6e1c463be6bf32dd404837e9df7aa25045ebc7",
-      "sha256": "400799867b5de021581e5505df0b22b092209956bf71b19431748c4ae6dbcd69",
+      "gitObjectId": "2acefaff25181409fc1c52963f16327c96717b77",
+      "sha256": "1984311ee7e324c2f44e59529feb22637ebf3c23b37dc2941348dd0587484758",
       "lines": 219,
       "reviewedRanges": [
         {
@@ -88,7 +88,8 @@
         "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier.",
         "2026-08-13: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/academy-mastery-seasons*.test.ts (issue #109 — the Mastery Seasons cross-tenant isolation proof that closes the registry at 37/37). Test-wiring only: the script gains one additional Postgres integration-test path alongside the existing academy-progress and learning-events globs. No dependency, engine, override, release-authority command, network access or runtime mutation path changed, and the file stays 219 lines.",
         "2026-08-13: re-reviewed after test:withdrawal-read-authority additionally executes src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts, the cross-tenant proof for the admin control plane's new tenant binding (audit finding F-1). The change adds one governed test file to an existing command; no dependency pin, engine constraint, override or release-path command was altered.",
-        "2026-08-13: re-reviewed after test:academy-progress additionally executes src/tests/security/learning-os-write-contract-postgres.test.ts and src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts, and gains NODE_PATH=src/tests/stubs so the write-contract suite can resolve the server-only stub. The change adds two governed test files and one test-only module path to an existing command; no dependency pin, engine constraint, override or release-path command was altered."
+        "2026-08-13: re-reviewed after test:academy-progress additionally executes src/tests/security/learning-os-write-contract-postgres.test.ts and src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts, and gains NODE_PATH=src/tests/stubs so the write-contract suite can resolve the server-only stub. The change adds two governed test files and one test-only module path to an existing command; no dependency pin, engine constraint, override or release-path command was altered.",
+        "2026-08-13: re-reviewed after test:academy-progress additionally executes src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, the cross-tenant proof for notification_center (migration 0071). One governed test file added to an existing command; no dependency pin, engine constraint, override or release-path command was altered."
       ],
       "findings": [
         {

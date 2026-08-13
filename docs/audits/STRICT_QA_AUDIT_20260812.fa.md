@@ -139,18 +139,19 @@ tenant-aware نیستند.
 UUID سراسری‌یکتای مدیر است، برخوردی بین مستأجرها رخ نمی‌دهد؛ این یک ناسازگاری
 برچسب است نه مرز. tenant-aware کردن کل زنجیره‌ی شواهد custody برش خودش را دارد.
 
-**آنچه هنوز ممکن نیست — و صادقانه برچسب خورد.** سه متریک دیگر Command Center
-روی جداولی می‌نشینند که **اصلاً ستون tenant ندارند**: `academy_students`،
-`notification_center` و `mentor_challenge_attempts`. (متریک گواهی با مهاجرت
-۰۰۷۰ scope شد و برچسبش به `tenant` رفت — F-12.)
+**آنچه هنوز ممکن نیست — و صادقانه برچسب خورد.** دو متریک دیگر Command Center
+روی جداولی می‌نشینند که **اصلاً ستون tenant ندارند**: `academy_students` و
+`mentor_challenge_attempts`. (متریک گواهی با مهاجرت ۰۰۷۰ و متریک اعلان با ۰۰۷۱
+scope شدند و هر دو به `tenant` رفتند — F-12 و F-15.)
 به‌جای اینکه عددی پلتفرم‌گستر را به‌عنوان عدد یک مستأجر جا بزنیم، پاسخ اکنون
 برای هر متریک `scope` را اعلام می‌کند (`"tenant"` یا `"platform"`)، و
 `src/lib/admin-command-center-scopes.ts` این اعلان را نگه می‌دارد.
 
 این برچسب‌ها تزئینی نیستند: یک گارد در تست خصمانه، اعلان را با
-`information_schema` می‌سنجد. اگر روزی `notification_center` ستون `tenant_id`
-بگیرد و متریکش scope نشود، گارد با پیام «labelled platform but … now has
-tenant_id — scope the query» می‌شکند.
+`information_schema` می‌سنجد. اگر روزی `academy_students` ستون `tenant_id` بگیرد
+و متریکش scope نشود، گارد با پیام «labelled platform but … now has tenant_id —
+scope the query» می‌شکند. همین گارد در برش‌های F-12 و F-15 عملاً کار کرد: افزودن
+ستون بدون scope کردن متریک، build را شکست.
 
 **اثبات.** `src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts`
 دو مدیر را در **دو مستأجر تازه‌ساخته** (هیچ‌کدام مستأجر پیش‌فرض نیست) از مسیر
@@ -169,8 +170,7 @@ tenant_id — scope the query» می‌شکند.
 به همین دلیل هیچ‌یک از دو مستأجر این تست، `tecpey` نیست.
 
 **آنچه باز می‌ماند.** دادن مرز tenant به `academy_students` یک برنامه است نه یک
-PR: ۴۳ جدول به آن FK دارند. `notification_center` و `mentor_challenge_attempts`
-برش‌های بعدی‌اند. زنجیره‌ی شواهد custody مدیر
+PR: ۴۳ جدول به آن FK دارند. `mentor_challenge_attempts` برش بعدی است. زنجیره‌ی شواهد custody مدیر
 (تریگر `tecpey_append_withdrawal_admin_evidence` و
 `tecpey_insert_withdrawal_evidence`) هم هنوز tenant را ثابت `tecpey` می‌گیرد.
 
@@ -539,6 +539,62 @@ column "channels" is of type text[] but expression is of type jsonb
 
 ---
 
+### F-15 — اعلان یک مستأجر خودکار به inbox مستأجر دیگر می‌رفت 🔴 P1 ✅ بسته شد
+
+**نشتی زنده روی مسیر خواندن** — نه یک احتمال نظری. قبل از هر تغییری روی `main`
+بازتولیدش کردم.
+
+`notification_center` صندوق قدیمی است که به `platform_notifications` تخلیه
+می‌شود، و `migrateLegacyNotificationsForPrincipal` روی **هر**
+`GET /api/notifications` اجرا می‌شود. ردیف‌ها را فقط با `student_id` انتخاب
+می‌کرد و هرکدام را زیر tenant **خواننده** کپی می‌کرد.
+
+گارد `NOT EXISTS` آن هم با همان tenant کلید می‌خورد — پس کپی را **جلوگیری
+نمی‌کرد، تضمین می‌کرد**: هر مستأجری که دانشجو در آن بسته است، همان ردیف‌های
+قدیمی را در صندوق خودش تخلیه می‌کرد.
+
+**بازتولید روی main:**
+
+```
+migrated-into-tenant-B=1
+tenant-B-inbox=["TENANT-A-PRIVATE-…"]
+```
+
+عنوان و متن اعلانی که هنگام فعالیت دانشجو در مستأجر A نوشته شده بود، عیناً در
+صندوق مستأجر B. بعد از رفع: `migrated-into-tenant-B=0`.
+
+**رفع (مهاجرت ۰۰۷۱) — کل زنجیره یک‌جا.** این‌بار طبق درس بازبینی برش قبلی، پیش
+از دست‌زدن به کد **هر پنج نقطه** را فهرست کردم نه لایه‌به‌لایه:
+
+| نقش | نقطه | تغییر |
+|---|---|---|
+| نوشتن | `createSmartNotification` | `scope` الزامی + نوشتن جفت |
+| خواندن | تخلیه‌ی قدیمی | **خودِ نشت** — فیلتر tenant |
+| خواندن | dedupe اعلان مغز | صریح شد |
+| خواندن | mark-read | فیلتر tenant |
+| خواندن | شمارش Command Center | فیلتر tenant، برچسب → `tenant` |
+
+نکته‌ی سوم ارزش تأکید دارد: آن lookup **تصادفاً** tenant-scoped بود، چون
+fingerprint خودش tenant را hash می‌کرد. **مرز ضمنی یک refactor با نبودن فاصله
+دارد**؛ حالا در خودِ predicate نوشته شده.
+
+**backfill — استنتاج، نه پیش‌فرض.** مالکیت از تنها binding فعال دانشجو؛ ردیف‌های
+broadcast به tenant پیش‌فرض؛ و هرچه قابل استنتاج نباشد مهاجرت را با نام‌بردن
+ردیف‌ها **متوقف می‌کند**.
+
+جمعیت این backfill هم قابل بررسی است: `channels` از ابتدا `TEXT[]` بوده و
+نویسنده `jsonb` می‌فرستاد، پس `createSmartNotification` هرگز روی هیچ دیتابیس
+مهاجرت‌شده‌ای موفق نبوده (F-14).
+
+**اثبات — دو کاوش:**
+
+| کاوش | نتیجه |
+|---|---|
+| خنثی‌کردن فیلتر tenant در تخلیه | ۲ حالت انزوا شکست |
+| حذف FK مرکب workspace | فقط حالت جفت ناسازگار شکست |
+
+---
+
 ### F-9 — چند پرس‌وجوی هم‌زمان روی یک client ✅ بسته شد
 
 هنگام اجرای تست، `pg` این هشدار را داد:
@@ -656,7 +712,7 @@ is deprecated and will be removed in pg@9.0
 | ۷ | tenant-aware کردن Admin/Command Center (F-1) | باز کردن مسیر white-label (#20، #13) | بزرگ | 🟡 برش اول بسته شد |
 | ۷٫۱ | ستون tenant برای `academy_certificates` (F-12) | نشت تأییدشده: گواهی A تحویل B می‌شد | متوسط | ✅ بسته شد |
 | ۷٫۰٫۱ | بازگرداندن قرارداد نوشتن Learning OS (F-13, F-14) | ثبت رویداد و اعلان اصلاً کار نمی‌کرد | متوسط | ✅ بسته شد |
-| ۷٫۱٫۱ | ستون tenant برای `notification_center` | آخرین متریک قابلِ scope + نشت drain | متوسط | باز |
+| ۷٫۱٫۱ | ستون tenant برای `notification_center` (F-15) | نشت تأییدشده روی مسیر خواندن | متوسط | ✅ بسته شد |
 | ۷٫۱٫۲ | scope کردن فهرست گواهی دانشجو | نیازمند canonical session روی آن مسیر | کوچک | باز |
 | ۷٫۲ | مرز tenant برای `academy_students` (۴۳ FK وابسته) | ریشه‌ی آکادمی؛ برنامه است نه PR | بزرگ | باز |
 | ۷٫۳ | tenant-aware کردن زنجیره‌ی شواهد custody مدیر | رسید و شواهد هنوز tenant ثابت دارند | متوسط | باز |
