@@ -78,7 +78,10 @@ export async function POST(req: NextRequest) {
           tenantId: tenantContext.tenantId,
           workspaceId: tenantContext.workspaceId,
         });
-        await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id), tenantContext.tenantId);
+        await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id), {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+        });
         return certificate;
       });
       if (!result.enabled) return apiError("certificate_service_unavailable", 503);

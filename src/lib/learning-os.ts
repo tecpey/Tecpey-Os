@@ -176,16 +176,31 @@ function buildDefaultQuestions() {
   return base.flatMap((item) => ["fa"].map((locale) => ({ ...item, locale, id: stableUuid(`question:${locale}:${item.termNumber}:${item.lessonSlug}:${item.topic}:${item.question}`), lessonIndex: item.termNumber, correctIndex: ["A", "B", "C", "D"].indexOf(item.correct) })));
 }
 
-export async function recordLearningEvent(client: Queryable, args: { studentId?: string | null; tenantId?: string; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {
-  const eventId = stableId("EVT", `${args.studentId || "anon"}:${args.eventType}:${Date.now()}:${randomUUID()}`);
-  const tenantId = cleanText(args.tenantId || PLATFORM.DEFAULT_TENANT_ID, 80) || PLATFORM.DEFAULT_TENANT_ID;
+// learning_events gained (workspace_id, principal_type, principal_id) with the
+// tenant-principal migration, all NOT NULL and bound by a composite foreign key
+// to platform_principal_bindings. This writer was never updated, so every insert
+// failed with `null value in column "workspace_id"` — which meant POST
+// /api/learning-events answered 500 for every event and the learning brain,
+// which only ever refreshes from here, never refreshed at all (audit finding
+// F-13).
+//
+// studentId and workspaceId are required rather than defaulted. student_id is
+// NOT NULL, so an anonymous event was never storable; and defaulting the
+// workspace would file a tenant's event under a workspace it may not own, which
+// the composite binding rejects anyway. Requiring both makes every caller state
+// the scope it is writing in.
+export async function recordLearningEvent(client: Queryable, args: { studentId: string; tenantId: string; workspaceId: string; eventType: LearningEventType; source?: string; locale?: string; payload?: Record<string, unknown> }) {
+  const eventId = stableId("EVT", `${args.studentId}:${args.eventType}:${Date.now()}:${randomUUID()}`);
+  const tenantId = cleanText(args.tenantId, 80) || PLATFORM.DEFAULT_TENANT_ID;
+  const workspaceId = cleanText(args.workspaceId, 80) || PLATFORM.DEFAULT_WORKSPACE_ID;
   await client.query(
-    `INSERT INTO learning_events (event_id, tenant_id, student_id, event_type, source, locale, payload)
-     VALUES ($1, $2, $3::uuid, $4, $5, $6, $7::jsonb)
+    `INSERT INTO learning_events
+       (event_id, tenant_id, workspace_id, principal_type, principal_id, student_id, event_type, source, locale, payload)
+     VALUES ($1, $2, $3, 'student', $4::text, $4::uuid, $5, $6, $7, $8::jsonb)
      ON CONFLICT (event_id) DO NOTHING`,
-    [eventId, tenantId, args.studentId || null, args.eventType, cleanText(args.source || "web", 40), cleanText(args.locale || "fa", 10), JSON.stringify(args.payload || {})],
+    [eventId, tenantId, workspaceId, args.studentId, args.eventType, cleanText(args.source || "web", 40), cleanText(args.locale || "fa", 10), JSON.stringify(args.payload || {})],
   );
-  if (args.studentId) await refreshLearningBrain(client, args.studentId, tenantId);
+  await refreshLearningBrain(client, args.studentId, tenantId);
   return eventId;
 }
 
@@ -193,13 +208,23 @@ export async function createSmartNotification(client: Queryable, args: { student
   const id = randomUUID();
   await client.query(
     `INSERT INTO notification_center (id, student_id, type, title, body, action_url, priority, channels, metadata, scheduled_for)
-     VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, COALESCE($10::timestamptz, NOW()))`,
-    [id, args.studentId || null, args.type, cleanText(args.title, 160), cleanText(args.body, 500), cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), JSON.stringify(args.channels || ["in_app"]), JSON.stringify(args.metadata || {}), args.scheduledFor || null],
+     VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8::text[], $9::jsonb, COALESCE($10::timestamptz, NOW()))`,
+    // channels is text[], not jsonb. Passing a JSON string failed every insert
+    // with `column "channels" is of type text[] but expression is of type
+    // jsonb`, so no notification this codebase produces was ever stored (audit
+    // finding F-14). pg adapts a JS array to text[] directly.
+    [id, args.studentId || null, args.type, cleanText(args.title, 160), cleanText(args.body, 500), cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), args.channels || ["in_app"], JSON.stringify(args.metadata || {}), args.scheduledFor || null],
   );
   return id;
 }
 
-export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown> = {}, tenantId: string = PLATFORM.DEFAULT_TENANT_ID) {
+// scope is a required object rather than two defaulted positional arguments.
+// Defaulting the workspace filed a non-default-workspace student's badge_earned
+// event under 'main', which learning_events_principal_binding_fk rejects — and
+// because the callers run on withDb rather than a transaction, the achievement
+// row survived while the request failed, so the ON CONFLICT on retry then
+// skipped the event and the notification for good.
+export async function maybeAwardAchievement(client: Queryable, studentId: string, code: string, payload: Record<string, unknown>, scope: { tenantId: string; workspaceId: string }) {
   const inserted = await client.query(
     `INSERT INTO student_achievements (student_id, achievement_id, code, payload)
      VALUES ($1::uuid, $2, $2, $3::jsonb)
@@ -208,7 +233,7 @@ export async function maybeAwardAchievement(client: Queryable, studentId: string
     [studentId, code, JSON.stringify(payload)],
   );
   if (inserted.rows[0]) {
-    await recordLearningEvent(client, { studentId, tenantId, eventType: "badge_earned", payload: { code, ...payload } });
+    await recordLearningEvent(client, { studentId, tenantId: scope.tenantId, workspaceId: scope.workspaceId, eventType: "badge_earned", payload: { code, ...payload } });
     await createSmartNotification(client, {
       studentId,
       type: "achievement",

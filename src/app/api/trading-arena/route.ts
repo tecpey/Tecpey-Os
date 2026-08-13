@@ -374,6 +374,7 @@ export async function POST(request: NextRequest) {
         await recordLearningEvent(client, {
           studentId,
           tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
           eventType: "simulator_decision_saved",
           payload: {
             symbol: decision.symbol,
@@ -388,7 +389,7 @@ export async function POST(request: NextRequest) {
         await maybeAwardAchievement(client, studentId, "simulator-journalist", {
           tradeId: decision.id,
           symbol: decision.symbol,
-        }, tenantContext.tenantId);
+        }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
 
         const refreshedAccount = await ensureArenaAccount(client, studentId);
         const decisions = await getDecisions(client, studentId);

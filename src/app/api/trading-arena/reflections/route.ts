@@ -417,6 +417,7 @@ export async function POST(request: NextRequest) {
         await recordLearningEvent(client, {
           studentId,
           tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
           eventType: "simulator_decision_saved",
           source: "trading-arena-reflection",
           payload: { kind: "post_trade_reflection", ...eventPayload },

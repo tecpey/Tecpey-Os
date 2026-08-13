@@ -67,7 +67,10 @@ export async function POST(req: NextRequest) {
     });
     if (!tenantContext.available) return noStore(apiError("notification_brain_unavailable", 503));
     try {
-      const result = await withDb((client) => createBrainNotification(client, tenantContext.principalId, locale, tenantContext.tenantId));
+      const result = await withDb((client) => createBrainNotification(client, tenantContext.principalId, locale, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
+      }));
       if (!result.enabled) {
         recordDegradedRead(ROUTE, "storage_unavailable");
         return noStore(apiOk({ degraded: true, brain: fallbackNotificationBrain(locale) }));
