@@ -374,6 +374,7 @@ export async function POST(request: NextRequest) {
         await recordLearningEvent(client, {
           studentId,
           tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
           eventType: "simulator_decision_saved",
           payload: {
             symbol: decision.symbol,

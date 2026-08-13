@@ -177,6 +177,7 @@ export async function createBrainNotification(
   studentId: string,
   locale: "fa" | "en" = "fa",
   tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+  workspaceId: string = PLATFORM.DEFAULT_WORKSPACE_ID,
 ) {
   const snapshot = await buildNotificationBrain(client, studentId, locale, tenantId);
   const fingerprint = createHash("sha256").update([tenantId, studentId, snapshot.nextHookType, snapshot.nextActionUrl, new Date().toISOString().slice(0, 10)].join("|")).digest("hex").slice(0, 12);
@@ -195,7 +196,7 @@ export async function createBrainNotification(
       channels: [snapshot.bestChannel, "in_app"],
       metadata: { fingerprint, brain: snapshot },
     });
-    await recordLearningEvent(client, { studentId, tenantId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
+    await recordLearningEvent(client, { studentId, tenantId, workspaceId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
   }
   return snapshot;
 }
@@ -206,9 +207,10 @@ export async function awardMilestonesAfterCertificate(
   termNumber: number,
   certificateId: string,
   tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+  workspaceId: string = PLATFORM.DEFAULT_WORKSPACE_ID,
 ) {
-  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId }, tenantId);
-  await recordLearningEvent(client, { studentId, tenantId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
+  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId }, tenantId, workspaceId);
+  await recordLearningEvent(client, { studentId, tenantId, workspaceId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
   await createSmartNotification(client, {
     studentId,
     type: "achievement",

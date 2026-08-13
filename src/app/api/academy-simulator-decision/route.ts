@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
         await recordLearningEvent(client, {
           studentId,
           tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
           eventType: "simulator_decision_saved",
           payload: { scenarioId, locale, choiceId, score, hasJournal: Boolean(entryReason), emotionState, hasRiskPlan: Boolean(riskPlan), ip: getClientIp(req) },
         });

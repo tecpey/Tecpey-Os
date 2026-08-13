@@ -1,0 +1,553 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-certificates",
+      "method": "POST",
+      "previousSourceHash": "aad0177e0076b444ac3fc33b",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/academy-certificates",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-certificates/route.ts",
+        "sourceHash": "aad0177e0076b444ac3fc33b",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-certificates-issue",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-certificates",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-os-write-contract-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-certificates/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy-simulator-decision",
+      "method": "POST",
+      "previousSourceHash": "7b24ca8a2b7652833a0b3cb8",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/academy-simulator-decision",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+        "sourceHash": "00dd447b5c07ee648d5498ee",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-simulator-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-simulator-decision",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/learning-events",
+      "method": "POST",
+      "previousSourceHash": "30b0fa48973d2f8209162344",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/learning-events",
+        "method": "POST",
+        "sourcePath": "src/app/api/learning-events/route.ts",
+        "sourceHash": "0a79b00197047cc7b69f7b08",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "learning-events-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "learning-events",
+        "testReferences": [
+          "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/learning-events/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "previousSourceHash": "0d0389110370e5dce9df712f",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/mentor-challenge",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "sourceHash": "ad014d985db66a3288c91905",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-challenge-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-challenge",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-challenge/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notifications/read",
+      "method": "POST",
+      "previousSourceHash": "f8fa432bcac70403b4a51854",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/notifications/read",
+        "method": "POST",
+        "sourcePath": "src/app/api/notifications/read/route.ts",
+        "sourceHash": "d28e322be97bb79d3541c69a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "notifications-read-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "notifications",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notifications/read/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena",
+      "method": "POST",
+      "previousSourceHash": "bb6aceabe2fa6d7392d0e340",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/trading-arena",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/route.ts",
+        "sourceHash": "1846529f4bf4de3f85a5d5c0",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "trading-arena-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/arena/reflection-authority.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena/execution",
+      "method": "POST",
+      "previousSourceHash": "76584bd99f788652d65195d9",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/trading-arena/execution",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+        "sourceHash": "edfd81febf34d7eb2f404859",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-execution-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/execution/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/trading-arena/reflections",
+      "method": "POST",
+      "previousSourceHash": "28c76107e77201b311aca301",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Learning OS write contract restoration (audit findings F-13 and F-14). recordLearningEvent omitted workspace_id/principal_type/principal_id, which learning_events has required and NOT NULL since the tenant-principal migration, so every insert threw and these routes answered 500 for every event. The writer now supplies the full identity and takes workspaceId as a required argument, so each route passes tenantContext.workspaceId — that threading is the whole source change here. No control moved: the tenant and principal were already resolved from verified context at each call site, they simply were not being written. Proven by src/tests/security/learning-os-write-contract-postgres.test.ts, which drives the real writers against a migrated database.",
+      "replacement": {
+        "route": "/api/trading-arena/reflections",
+        "method": "POST",
+        "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
+        "sourceHash": "bc471c75c7cd962ef08086af",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "arena-reflections-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "trading-arena",
+        "testReferences": [
+          "src/tests/arena/reflection-authority.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/trading-arena-execution-state-validation.test.ts",
+          "src/tests/trading-arena-execution-v2.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/trading-arena/reflections/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

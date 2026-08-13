@@ -145,7 +145,8 @@ export async function POST(req: NextRequest) {
         [studentId, questionId, row.term_number, row.lesson_slug, cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa", selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
       );
       if (isCorrect) await client.query(`UPDATE academy_question_bank SET success_count = success_count + 1 WHERE id = $1`, [questionId]);
-      await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
+      await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
       if (attemptNumber === 1) await maybeAwardAchievement(client, studentId, "first-quiz", { questionId }, tenantContext.tenantId);
       if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, tenantContext.tenantId);
       await createSmartNotification(client, {
