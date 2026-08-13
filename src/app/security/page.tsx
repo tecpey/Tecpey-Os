@@ -13,6 +13,7 @@ import {
   Siren,
 } from "lucide-react";
 import { ContentShell } from "@/components/content/ContentUI";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const metadata: Metadata = {
   title: "امنیت حساب و دارایی در تک‌پی | تک‌پی",
@@ -89,7 +90,7 @@ export default function SecurityPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLd({
             "@context": "https://schema.org",
             "@type": "FAQPage",
             mainEntity: faqs.map((item) => ({

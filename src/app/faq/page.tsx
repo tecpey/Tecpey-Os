@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
 import { globalFaqs } from "@/data/academy";
 import { ContentHero, ContentShell, FaqList, TrustStrip } from "@/components/content/ContentUI";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const metadata: Metadata = {
   title: "سوالات پرتکرار تک‌پی | FAQ خرید تتر، بیت‌کوین، امنیت و کارمزد",
@@ -27,7 +28,7 @@ export default function FaqPage() {
   return (
     <ContentShell>
       <StructuredData data={breadcrumbSchema([{ name: "خانه", url: "https://tecpey.ir" }, { name: "سوالات پرتکرار", url: "https://tecpey.ir/faq" }])} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }} />
       <ContentHero
         eyebrow="سوالات پرتکرار"
         title="سوالات پرتکرار تک‌پی؛ پاسخ‌های کوتاه، دقیق و قابل فهم"

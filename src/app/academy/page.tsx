@@ -11,6 +11,7 @@ import { AcademyInteractiveRoadmap } from "@/components/academy/AcademyInteracti
 import { AcademyEngagementHub } from "@/components/academy/AcademyEngagementHub";
 import { academyCaseStudies } from "@/data/academyCaseStudies";
 import { AcademyWorldClassUpgrade } from "@/components/academy/AcademyWorldClassUpgrade";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const metadata: Metadata = {
   title: "آکادمی تک‌پی | نقطه امن یادگیری و ورود به بازار رمزارز",
@@ -94,7 +95,7 @@ export default function AcademyPage() {
   return (
     <ContentShell>
       <ArticleSchema headline="آکادمی تک‌پی؛ آموزش روشن و کاربردی رمزارز" description="آموزش مفاهیم رمزارز، امنیت حساب، کارمزدها و شروع آگاهانه معامله برای کاربران فارسی‌زبان." url="https://tecpey.ir/academy" language="fa-IR" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionSchema) }} />
       <ContentHero
         eyebrow="آکادمی تک‌پی"
         title="تک‌پی، نقطه امن ورود به بازار رمزارز"
