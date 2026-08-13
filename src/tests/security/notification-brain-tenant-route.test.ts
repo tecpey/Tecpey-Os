@@ -15,9 +15,14 @@ describe("notification brain route tenant authority", () => {
       route,
       /buildNotificationBrain\(client, tenantContext\.principalId, locale, tenantContext\.tenantId\)/,
     );
+    // The write path now carries the workspace as well as the tenant. Both must
+    // come from the resolved context: defaulting the workspace filed the derived
+    // learning event under 'main', which the composite principal binding rejects
+    // (audit finding F-13). Pinning the pair keeps a future edit from dropping
+    // back to the tenant alone.
     assert.match(
       route,
-      /createBrainNotification\(client, tenantContext\.principalId, locale, tenantContext\.tenantId\)/,
+      /createBrainNotification\(client, tenantContext\.principalId, locale, \{\s*tenantId: tenantContext\.tenantId,\s*workspaceId: tenantContext\.workspaceId,\s*\}\)/,
     );
   });
 
