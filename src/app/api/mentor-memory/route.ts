@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/mentor-memory" }, async () => {
-    if (!verifyCsrfOrigin(req))
+    if (!await verifyCsrfOrigin(req))
       return apiError("forbidden", 403);
     const limit = await rateLimit(req, { namespace: "mentor-memory-write", limit: 20, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   return withObservability(req, { route: "/api/mentor-memory" }, async () => {
-    if (!verifyCsrfOrigin(req))
+    if (!await verifyCsrfOrigin(req))
       return apiError("forbidden", 403);
     const limit = await rateLimit(req, { namespace: "mentor-memory-delete", limit: 20, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);

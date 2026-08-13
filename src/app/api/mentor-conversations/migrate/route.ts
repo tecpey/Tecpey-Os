@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 type ValidatedMessage = { role: "user" | "assistant"; content: string; ts: Date };
 
 export async function POST(req: NextRequest) {
-  if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+  if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
   const session = await getCanonicalSession(req, { strictRevocation: true });
   if (!session.studentId) return apiError("academy_profile_required", 401);

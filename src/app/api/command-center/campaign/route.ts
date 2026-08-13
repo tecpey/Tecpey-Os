@@ -14,7 +14,7 @@ import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/campaign" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "command-center-campaign",

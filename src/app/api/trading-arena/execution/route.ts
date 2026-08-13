@@ -395,7 +395,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/trading-arena/execution" }, async () => {
-    if (!verifyCsrfOrigin(request)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(request)) return apiError("forbidden", 403);
     if (!checkBodySize(request.headers.get("content-length"), 12_000)) {
       return apiError("payload_too_large", 413);
     }

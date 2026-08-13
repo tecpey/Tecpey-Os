@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-flashcards" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
     if (!checkBodySize(req.headers.get("content-length"), 512_000)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(req, { namespace: "academy-flashcards-write", limit: 90, windowMs: 60_000 });

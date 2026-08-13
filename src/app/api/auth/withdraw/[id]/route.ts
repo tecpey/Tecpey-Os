@@ -47,7 +47,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   return withObservability(req, { route: "/api/auth/withdraw/[id] DELETE" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "withdraw-cancel",

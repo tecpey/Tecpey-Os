@@ -22,7 +22,7 @@ function noStore<T>(response: NextResponse<T>): NextResponse<T> {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/learning-events" }, async () => {
-    if (!verifyCsrfOrigin(req))
+    if (!await verifyCsrfOrigin(req))
       return noStore(apiError("forbidden", 403));
     const limit = await rateLimit(req, { namespace: "learning-events-write", limit: 90, windowMs: 60_000 });
     if (!limit.ok) return noStore(apiError("rate_limited", 429));

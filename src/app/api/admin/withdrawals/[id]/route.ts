@@ -83,7 +83,7 @@ export async function POST(
 ) {
   const { id } = await params;
   return withObservability(req, { route: "/api/admin/withdrawals/[id] POST" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const requestLimit = await rateLimit(req, {
       namespace: "admin-withdrawals-action",

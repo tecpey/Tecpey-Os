@@ -23,7 +23,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withObservability(req, { route: "/api/api-keys/[id]" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "api-keys-update",
@@ -103,7 +103,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withObservability(req, { route: "/api/api-keys/[id]" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "api-keys-delete",

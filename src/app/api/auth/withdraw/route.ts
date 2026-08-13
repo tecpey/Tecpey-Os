@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/withdraw POST" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const userId = session.academyAccountId ?? session.userId ?? session.studentId;

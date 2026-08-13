@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/auth/webauthn/register/challenge" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "webauthn-reg-challenge",

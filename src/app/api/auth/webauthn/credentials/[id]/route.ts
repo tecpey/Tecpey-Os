@@ -58,7 +58,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   return withObservability(req, { route: "/api/auth/webauthn/credentials/[id] PATCH" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "webauthn-credential-patch",
@@ -111,7 +111,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   return withObservability(req, { route: "/api/auth/webauthn/credentials/[id] DELETE" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const rlimit = await rateLimit(req, {
       namespace: "webauthn-credential-delete",
