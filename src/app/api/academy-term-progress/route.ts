@@ -58,6 +58,7 @@ function normalizeAttemptLog(value: unknown) {
 
 async function hasPreviousTermPassed(
   client: Queryable,
+  scope: { tenantId: string; workspaceId: string },
   studentId: string,
   termNumber: number,
   locale: string,
@@ -66,12 +67,14 @@ async function hasPreviousTermPassed(
   const row = await client.query(
     `SELECT 1
        FROM academy_term_progress
-      WHERE student_id = $1::uuid
-        AND term_number = $2
-        AND locale = $3
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND term_number = $4
+        AND locale = $5
         AND status = 'passed'
       LIMIT 1`,
-    [studentId, termNumber - 1, locale],
+    [scope.tenantId, scope.workspaceId, studentId, termNumber - 1, locale],
   );
   return Boolean(row.rows[0]);
 }
@@ -90,6 +93,13 @@ export async function GET(req: NextRequest) {
 
       const session = await getCanonicalSession(req, { strictRevocation: true });
       if (!session.studentId) return apiError("complete_account_required", 401);
+      const tenantContext = await resolveTenantPrincipalContext({
+        session,
+        requiredPrincipalType: "student",
+        scopes: ["academy:learning-events:read"],
+        requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+      });
+      if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
       const locale = cleanText(
         new URL(req.url).searchParams.get("locale") || "fa",
         10,
@@ -99,9 +109,12 @@ export async function GET(req: NextRequest) {
         const rows = await client.query(
           `SELECT term_number, locale, score, percent, status, passed_at, updated_at
              FROM academy_term_progress
-            WHERE student_id = $1::uuid AND locale = $2
+            WHERE tenant_id = $1
+              AND workspace_id = $2
+              AND student_id = $3::uuid
+              AND locale = $4
             ORDER BY term_number ASC`,
-          [session.studentId, locale],
+          [tenantContext.tenantId, tenantContext.workspaceId, tenantContext.principalId, locale],
         );
         return rows.rows;
       });
@@ -261,6 +274,7 @@ export async function POST(req: NextRequest) {
 
           const previousPassed = await hasPreviousTermPassed(
             client,
+            tenantContext,
             studentId,
             termNumber,
             locale,
@@ -269,11 +283,11 @@ export async function POST(req: NextRequest) {
 
           await client.query(
             `INSERT INTO academy_term_progress
-              (student_id, term_number, locale, score, percent, status, passed_at)
+              (tenant_id, workspace_id, student_id, term_number, locale, score, percent, status, passed_at)
              VALUES
-              ($1::uuid, $2, $3, $4, $5, $6,
-               CASE WHEN $6 = 'passed' THEN NOW() ELSE NULL END)
-             ON CONFLICT (student_id, term_number, locale) DO UPDATE SET
+              ($1, $2, $3::uuid, $4, $5, $6, $7, $8,
+               CASE WHEN $8 = 'passed' THEN NOW() ELSE NULL END)
+             ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO UPDATE SET
                score = GREATEST(academy_term_progress.score, EXCLUDED.score),
                percent = GREATEST(academy_term_progress.percent, EXCLUDED.percent),
                status = CASE
@@ -288,6 +302,8 @@ export async function POST(req: NextRequest) {
                ),
                updated_at = NOW()`,
             [
+              tenantContext.tenantId,
+              tenantContext.workspaceId,
               studentId,
               termNumber,
               locale,

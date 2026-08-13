@@ -72,7 +72,12 @@ export async function POST(req: NextRequest) {
           `INSERT INTO academy_student_events (student_id, event_type, payload) VALUES ($1::uuid, 'certificate_requested', $2::jsonb)`,
           [studentId, JSON.stringify({ termNumber, ip: getClientIp(req), source: "server_verified_progress" })],
         );
-        const certificate = await issueCertificate(client, { studentId, termNumber });
+        const certificate = await issueCertificate(client, {
+          studentId,
+          termNumber,
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+        });
         await awardMilestonesAfterCertificate(client, studentId, termNumber, String(certificate.id), tenantContext.tenantId);
         return certificate;
       });

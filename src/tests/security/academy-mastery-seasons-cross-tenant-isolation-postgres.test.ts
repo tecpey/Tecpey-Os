@@ -31,12 +31,12 @@ import { validGeneratedMasteryDraft } from "../product/mastery-season-draft-fixt
 // Removing `AND tenant_id = $1` from any of the covered statements makes at
 // least one assertion here fail.
 //
-// One deliberate exception is documented and asserted as-is at the end:
-// readAcademyMasterySeasonState composes readCompletedTerms(), which reads
-// academy_term_progress — a table with no tenant column at all. That is a
-// pre-existing platform-wide gap rather than a defect in these six tables, and
-// it is recorded in the tenant-scoped table registry and in the audit report
-// instead of being silently proven away here.
+// The final case guards a leak this suite originally discovered and recorded as
+// audit finding F-8: readAcademyMasterySeasonState composes readCompletedTerms(),
+// which read academy_term_progress — then a table with no tenant column at all —
+// so terms passed in one tenant unlocked a season in another. Migration 0066
+// gave that table a tenant boundary and the read is now scoped, so the case
+// asserts isolation rather than the old contamination.
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
@@ -443,7 +443,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
   );
 
   it(
-    "records the known academy_term_progress contamination of season eligibility",
+    "keeps season eligibility from inheriting another tenant's term progress",
     { skip: !configured, timeout: 45_000 },
     async () => {
       await withClient(async (client) => {
@@ -460,40 +460,34 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           "with no term progress the season must stay locked for tenant B",
         );
 
-        // academy_term_progress has no tenant column, so these rows belong to
-        // the student globally rather than to a tenant.
+        // Tenant A earns every term the season requires; tenant B earns none.
         for (let term = 1; term <= SEASON_UNLOCK_TERM; term += 1) {
           await client.query(
-            `INSERT INTO academy_term_progress (student_id, term_number, status, locale, score, percent)
-             VALUES ($1::uuid, $2, 'passed', 'fa', 100, 100)
-             ON CONFLICT (student_id, term_number, locale) DO NOTHING`,
-            [studentId, term],
+            `INSERT INTO academy_term_progress
+               (tenant_id, workspace_id, student_id, term_number, status, locale, score, percent)
+             VALUES ($1, $2, $3::uuid, $4, 'passed', 'fa', 100, 100)
+             ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO NOTHING`,
+            [TENANT_A, WORKSPACE_A, studentId, term],
           );
         }
 
-        const contaminated = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
+        const afterTenantAProgress = await readAcademyMasterySeasonState(client, SCOPE_B, studentId, "fa");
 
-        // This is the documented gap, asserted so it cannot change silently:
-        // readCompletedTerms() reads academy_term_progress without a tenant
-        // predicate, so global term progress raises tenant B's completedTerms
-        // and unlocks the season even though tenant B's own profile is empty.
-        // The six Mastery Seasons tables are still isolated — the contamination
-        // enters from a table that carries no tenant column at all, tracked in
-        // docs/security/tenant-scoped-table-registry.json.
+        // Migration 0066 gave academy_term_progress a tenant boundary and
+        // readCompletedTerms now filters on it, so tenant A's progress no
+        // longer raises tenant B's completedTerms or unlocks its season.
         assert.equal(
-          contaminated.completedTerms,
-          SEASON_UNLOCK_TERM,
-          "known gap: completedTerms is derived from an unscoped table",
+          afterTenantAProgress.completedTerms,
+          0,
+          "tenant B must not inherit tenant A's term progress",
         );
         assert.equal(
-          contaminated.recommendations.find((item) => item.season.id === SEASON)?.eligible,
-          true,
-          "known gap: unscoped term progress unlocks the season for a second tenant",
+          afterTenantAProgress.recommendations.find((item) => item.season.id === SEASON)?.eligible,
+          false,
+          "tenant B must not unlock a season it did not earn",
         );
 
-        // The Mastery Seasons tables themselves remain clean: tenant B still
-        // holds no assignment and reads none of tenant A's rows.
-        assert.deepEqual(contaminated.assignments, []);
+        assert.deepEqual(afterTenantAProgress.assignments, []);
       });
     },
   );

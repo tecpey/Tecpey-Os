@@ -78,16 +78,23 @@ export async function assertCertificateSchema(client: SchemaQueryable) {
   await assertRequiredDatabaseTables(client, ["academy_certificates"], "academy_certificates");
 }
 
-export async function issueCertificate(client: SchemaQueryable, input: { studentId: string; termNumber: number }) {
+export async function issueCertificate(
+  client: SchemaQueryable,
+  input: { studentId: string; termNumber: number; tenantId: string; workspaceId: string },
+) {
   getCertificateSigningSecret();
   const termNumber = Math.max(1, Math.min(7, Math.round(Number(input.termNumber) || 1)));
+  // Certificate issuance is a gate on verified term progress, so it must read
+  // the progress recorded in the issuing tenant rather than the student's
+  // global history.
   const progress = await client.query(
     `SELECT p.percent, s.display_name
      FROM academy_term_progress p
      JOIN academy_students s ON s.id = p.student_id
-     WHERE p.student_id = $1::uuid AND p.term_number = $2 AND p.status = 'passed'
+     WHERE p.tenant_id = $1 AND p.workspace_id = $2
+       AND p.student_id = $3::uuid AND p.term_number = $4 AND p.status = 'passed'
      LIMIT 1`,
-    [input.studentId, termNumber],
+    [input.tenantId, input.workspaceId, input.studentId, termNumber],
   );
   const verifiedProgress = progress.rows[0];
   if (!verifiedProgress) throw new Error("term_not_verified");

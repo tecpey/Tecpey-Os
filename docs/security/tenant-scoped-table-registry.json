@@ -35,6 +35,51 @@
       "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
     },
     {
+      "table": "academy_mastery_season_assignments",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id lead the open-assignment unique index with student_id, locale and season_id, and both the activation UPDATE and readAssignments filter on them. The same student activating the same season in a second tenant creates a second independent assignment instead of replaying or mutating the first tenant's row.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_mastery_season_generation_drafts",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every Mentor-generated draft; listAcademyMasteryGenerationDrafts and the FOR UPDATE select inside decideAcademyMasteryGenerationDraft both filter on them, so a second tenant can neither list nor decide on another tenant's draft even when it holds the draft id.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_mastery_season_generation_reviews",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are recorded on every review decision and the row is FK-bound to a tenant-owned draft. A cross-tenant decision attempt is refused at the draft lookup and writes no review row at all.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_mastery_season_progress_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are written on every progress event from the activating tenant's scope and the event is bound by FK to that tenant's assignment, so each tenant owns a separate 'started' trail for the same student and season.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_mastery_weakness_signals",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are stored on every signal and lead the student index; readWeaknessSignalTags filters WHERE tenant_id = $1 AND workspace_id = $2, so a signal recorded for a student in one tenant never becomes a recommendation input in another tenant.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "academy_public_profiles",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-profile-consent.ts; src/lib/db-migrate-community-profile-tenant-primary-key.ts",
@@ -42,6 +87,26 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
+    },
+    {
+      "table": "academy_student_mastery_profiles",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
+      "isolationModel": "tenant_id + workspace_id are the leading columns of the primary key with student_id and locale, and readProfile filters WHERE tenant_id = $1 AND workspace_id = $2 before returning any tag or completed-terms value. The same student principal bound in two tenants therefore owns two independent profile rows, and neither tenant's weak-concept tags reach the other's mastery state.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "Table isolation is proven, but one composed read is not tenant-pure: readAcademyMasterySeasonState also calls readCompletedTerms(), which reads academy_term_progress — a table that carries no tenant column at all and is keyed by (student_id, term_number, locale). Because platform_principal_bindings lets the same student UUID be bound in two tenants, global term progress raises a second tenant's completedTerms and can unlock a season whose recommendedAfterTerm that tenant's own profile does not satisfy. The contamination is asserted as-is by the testReference so it cannot change silently. academy_term_progress cannot be listed in this registry (the coverage gate requires a real tenant_id column); tenant-scoping it touches nine readers across academy, mentor, certificates and projection and is tracked as its own slice under #20/#109."
+    },
+    {
+      "table": "academy_term_progress",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-term-progress-tenant.ts",
+      "isolationModel": "tenant_id + workspace_id added by migration 0066, replacing the tenant-blind (student_id, term_number, locale) uniqueness with (tenant_id, workspace_id, student_id, term_number, locale). Existing rows backfill to the default tenant. Every gate built on this table is tenant-scoped: the term-progress writer and its previous-term prerequisite, the term-progress read, the lesson-assessment prerequisite, certificate issuance, and readCompletedTerms in the Mastery Seasons authority. The same student principal bound in two tenants therefore holds independent term progress, and neither tenant can unlock a season or issue a certificate from the other's passes.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "Gates are tenant-scoped; four derived-analytics readers are not yet and remain global: academy-progress-projection.ts, mentor-memory.ts, mentor-signals.ts and student-cartax.ts. None of them gates progression, issuance or eligibility — they compute XP/level projections, mentor context and profile summaries — and each also reads other tables whose own tenant status differs, so threading a scope through them is tracked as a separate slice under #20 rather than being half-applied here."
     },
     {
       "table": "ai_mentor_request_evidence",
@@ -107,15 +172,6 @@
       "issue": "#109"
     },
     {
-      "table": "learning_events",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
-      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes offline writes; direct recordLearningEvent producers now resolve a student tenant principal context and pass tenantContext.tenantId into the insert, guarded by src/tests/security/learning-events-tenant-route.test.ts. Derived readers are tenant-scoped too: refreshLearningBrain and buildNotificationBrain count learning_events WHERE student_id = $1 AND tenant_id = $2.",
-      "adversarialProof": "proven",
-      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
-      "issue": "#109"
-    },
-    {
       "table": "learning_brain_profiles",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-learning-brain-tenant-cache.ts",
@@ -125,59 +181,13 @@
       "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts"
     },
     {
-      "table": "academy_student_mastery_profiles",
+      "table": "learning_events",
       "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are the leading columns of the primary key with student_id and locale, and readProfile filters WHERE tenant_id = $1 AND workspace_id = $2 before returning any tag or completed-terms value. The same student principal bound in two tenants therefore owns two independent profile rows, and neither tenant's weak-concept tags reach the other's mastery state.",
+      "sourceFile": "src/lib/db-migrate-tenant-principal-isolation.ts",
+      "isolationModel": "composite FK (tenant_id, workspace_id, principal_type, principal_id) -> platform_principal_bindings scopes offline writes; direct recordLearningEvent producers now resolve a student tenant principal context and pass tenantContext.tenantId into the insert, guarded by src/tests/security/learning-events-tenant-route.test.ts. Derived readers are tenant-scoped too: refreshLearningBrain and buildNotificationBrain count learning_events WHERE student_id = $1 AND tenant_id = $2.",
       "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
-      "isolationNote": "Table isolation is proven, but one composed read is not tenant-pure: readAcademyMasterySeasonState also calls readCompletedTerms(), which reads academy_term_progress — a table that carries no tenant column at all and is keyed by (student_id, term_number, locale). Because platform_principal_bindings lets the same student UUID be bound in two tenants, global term progress raises a second tenant's completedTerms and can unlock a season whose recommendedAfterTerm that tenant's own profile does not satisfy. The contamination is asserted as-is by the testReference so it cannot change silently. academy_term_progress cannot be listed in this registry (the coverage gate requires a real tenant_id column); tenant-scoping it touches nine readers across academy, mentor, certificates and projection and is tracked as its own slice under #20/#109."
-    },
-    {
-      "table": "academy_mastery_weakness_signals",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every signal and lead the student index; readWeaknessSignalTags filters WHERE tenant_id = $1 AND workspace_id = $2, so a signal recorded for a student in one tenant never becomes a recommendation input in another tenant.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "academy_mastery_season_assignments",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id lead the open-assignment unique index with student_id, locale and season_id, and both the activation UPDATE and readAssignments filter on them. The same student activating the same season in a second tenant creates a second independent assignment instead of replaying or mutating the first tenant's row.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "academy_mastery_season_progress_events",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are written on every progress event from the activating tenant's scope and the event is bound by FK to that tenant's assignment, so each tenant owns a separate 'started' trail for the same student and season.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "academy_mastery_season_generation_drafts",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every Mentor-generated draft; listAcademyMasteryGenerationDrafts and the FOR UPDATE select inside decideAcademyMasteryGenerationDraft both filter on them, so a second tenant can neither list nor decide on another tenant's draft even when it holds the draft id.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
-    },
-    {
-      "table": "academy_mastery_season_generation_reviews",
-      "domain": "academy",
-      "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are recorded on every review decision and the row is FK-bound to a tenant-owned draft. A cross-tenant decision attempt is refused at the draft lookup and writes no review row at all.",
-      "adversarialProof": "proven",
-      "issue": "#109",
-      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+      "testReference": "src/tests/security/learning-events-cross-tenant-isolation-postgres.test.ts",
+      "issue": "#109"
     },
     {
       "table": "notification_brain_snapshots",
@@ -253,6 +263,15 @@
       "testReference": "src/tests/notification-inbox-persistence.test.ts"
     },
     {
+      "table": "platform_tenant_domains",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-tenant-custom-domains.ts",
+      "isolationModel": "host is the PRIMARY KEY (a hostname belongs to exactly one tenant) constrained to canonical normalized form so byte-uniqueness equals normalized-uniqueness; composite FK (tenant_id, workspace_id) -> platform_workspaces(tenant_id, id) forbids binding a domain to another tenant's workspace; loadTenantHostDirectory reads all rows and resolveTenantHostHint only returns a binding for the exact normalized host",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/tenant-domain-directory-postgres.test.ts",
+      "issue": "#20"
+    },
+    {
       "table": "platform_workspaces",
       "domain": "platform",
       "sourceFile": "src/lib/db-migrate.ts",
@@ -300,15 +319,6 @@
       "issue": "#109"
     },
     {
-      "table": "withdrawals",
-      "domain": "wallet",
-      "sourceFile": "src/lib/db-migrate-withdrawal-tenant-binding.ts",
-      "isolationModel": "tenant_id is now a first-class parent attribute with a platform_tenants FK. Existing rows backfill to the default tenant; new tenant-specific withdrawal rows can be created directly, and external-effect evidence tables bind their tenant_id from this parent value.",
-      "adversarialProof": "proven",
-      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
-      "issue": "#109"
-    },
-    {
       "table": "withdrawal_broadcast_attempts",
       "domain": "wallet",
       "sourceFile": "src/lib/db-migrate-withdrawal-external-effect-evidence.ts",
@@ -336,13 +346,13 @@
       "issue": "#109"
     },
     {
-      "table": "platform_tenant_domains",
-      "domain": "platform",
-      "sourceFile": "src/lib/db-migrate-tenant-custom-domains.ts",
-      "isolationModel": "host is the PRIMARY KEY (a hostname belongs to exactly one tenant) constrained to canonical normalized form so byte-uniqueness equals normalized-uniqueness; composite FK (tenant_id, workspace_id) -> platform_workspaces(tenant_id, id) forbids binding a domain to another tenant's workspace; loadTenantHostDirectory reads all rows and resolveTenantHostHint only returns a binding for the exact normalized host",
+      "table": "withdrawals",
+      "domain": "wallet",
+      "sourceFile": "src/lib/db-migrate-withdrawal-tenant-binding.ts",
+      "isolationModel": "tenant_id is now a first-class parent attribute with a platform_tenants FK. Existing rows backfill to the default tenant; new tenant-specific withdrawal rows can be created directly, and external-effect evidence tables bind their tenant_id from this parent value.",
       "adversarialProof": "proven",
-      "testReference": "src/tests/security/tenant-domain-directory-postgres.test.ts",
-      "issue": "#20"
+      "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
+      "issue": "#109"
     }
   ]
 }

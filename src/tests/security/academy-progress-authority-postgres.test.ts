@@ -108,7 +108,7 @@ describe("Academy PostgreSQL progress authority v2", () => {
         `INSERT INTO academy_term_progress
           (student_id, locale, term_number, status, score, percent, passed_at)
          VALUES ($1::uuid, 'fa', 1, 'passed', 9, 90, NOW())
-         ON CONFLICT (student_id, locale, term_number) DO UPDATE SET
+         ON CONFLICT (tenant_id, workspace_id, student_id, term_number, locale) DO UPDATE SET
            status = EXCLUDED.status,
            score = EXCLUDED.score,
            percent = EXCLUDED.percent,

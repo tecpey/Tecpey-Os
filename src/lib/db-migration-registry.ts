@@ -55,6 +55,8 @@ import { runAcademyQuestionBankLocaleMigrations } from "./db-migrate-academy-que
 import { runNotificationBrainSnapshotContractMigrations } from "./db-migrate-notification-brain-snapshot-contract";
 import { runNotificationBrainSnapshotContractRepairMigrations } from "./db-migrate-notification-brain-snapshot-contract-repair";
 import { runAcademyMasterySeasonsMigrations } from "./db-migrate-academy-mastery-seasons";
+import { runAcademyTermProgressTenantMigrations } from "./db-migrate-academy-term-progress-tenant";
+import { runAcademyCertificateContractMigrations } from "./db-migrate-academy-certificate-contract";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -147,6 +149,8 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(48, "migration-step-048", CANONICAL_MIGRATION_CONTENT.notificationBrainSnapshotContract, "engagement-platform", "notifications", runNotificationBrainSnapshotContractMigrations),
   entry(49, "migration-step-049", CANONICAL_MIGRATION_CONTENT.notificationBrainSnapshotContractRepair, "engagement-platform", "notifications", runNotificationBrainSnapshotContractRepairMigrations),
   entry(50, "migration-step-050", CANONICAL_MIGRATION_CONTENT.academyMasterySeasons, "academy-platform", "academy", runAcademyMasterySeasonsMigrations),
+  entry(51, "migration-step-051", CANONICAL_MIGRATION_CONTENT.academyTermProgressTenant, "academy-platform", "academy", runAcademyTermProgressTenantMigrations),
+  entry(52, "migration-step-052", CANONICAL_MIGRATION_CONTENT.academyCertificateContract, "academy-platform", "academy", runAcademyCertificateContractMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
