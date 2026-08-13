@@ -128,49 +128,56 @@
       "table": "academy_student_mastery_profiles",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are part of the primary key with student_id and locale, so a student principal bound in two tenants owns separate Mastery Season profile, consent and tag rows. The read model filters by resolved tenant/workspace before reading this profile; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id are the leading columns of the primary key with student_id and locale, and readProfile filters WHERE tenant_id = $1 AND workspace_id = $2 before returning any tag or completed-terms value. The same student principal bound in two tenants therefore owns two independent profile rows, and neither tenant's weak-concept tags reach the other's mastery state.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "Table isolation is proven, but one composed read is not tenant-pure: readAcademyMasterySeasonState also calls readCompletedTerms(), which reads academy_term_progress — a table that carries no tenant column at all and is keyed by (student_id, term_number, locale). Because platform_principal_bindings lets the same student UUID be bound in two tenants, global term progress raises a second tenant's completedTerms and can unlock a season whose recommendedAfterTerm that tenant's own profile does not satisfy. The contamination is asserted as-is by the testReference so it cannot change silently. academy_term_progress cannot be listed in this registry (the coverage gate requires a real tenant_id column); tenant-scoping it touches nine readers across academy, mentor, certificates and projection and is tracked as its own slice under #20/#109."
     },
     {
       "table": "academy_mastery_weakness_signals",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every weakness signal and lead both student and concept indexes. The read model filters by resolved tenant/workspace before turning signals into recommendations; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id are stored on every signal and lead the student index; readWeaknessSignalTags filters WHERE tenant_id = $1 AND workspace_id = $2, so a signal recorded for a student in one tenant never becomes a recommendation input in another tenant.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_mastery_season_assignments",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id participate in the open-assignment uniqueness boundary with student_id, locale and season_id. Activation updates/inserts filter by resolved tenant/workspace, preventing tenant B from activating or replaying tenant A assignments; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id lead the open-assignment unique index with student_id, locale and season_id, and both the activation UPDATE and readAssignments filter on them. The same student activating the same season in a second tenant creates a second independent assignment instead of replaying or mutating the first tenant's row.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_mastery_season_progress_events",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every progress event and indexed with student_id/locale. Activation inserts the resolved tenant/workspace and uses a durable event idempotency key to prevent duplicate started events on retry; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id are written on every progress event from the activating tenant's scope and the event is bound by FK to that tenant's assignment, so each tenant owns a separate 'started' trail for the same student and season.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_mastery_season_generation_drafts",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every Mentor-generated season draft and indexed with locale/status and season_id, so the review queue can be scoped per tenant/workspace before any draft becomes official catalog content. Publish remains blocked by validation and manual review; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id are stored on every Mentor-generated draft; listAcademyMasteryGenerationDrafts and the FOR UPDATE select inside decideAcademyMasteryGenerationDraft both filter on them, so a second tenant can neither list nor decide on another tenant's draft even when it holds the draft id.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_mastery_season_generation_reviews",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",
-      "isolationModel": "tenant_id + workspace_id are stored on every generation review decision and indexed for tenant/workspace review history. The table references the draft ledger and records reviewer identity, decision, reason and policy version; a dedicated cross-tenant negative test is still required before this table can be marked proven.",
-      "adversarialProof": "pending",
-      "issue": "#109"
+      "isolationModel": "tenant_id + workspace_id are recorded on every review decision and the row is FK-bound to a tenant-owned draft. A cross-tenant decision attempt is refused at the draft lookup and writes no review row at all.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "notification_brain_snapshots",

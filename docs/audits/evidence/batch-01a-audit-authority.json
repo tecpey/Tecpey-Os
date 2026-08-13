@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5126a0c259620452309f84e7f50a2e8e7ee25d76",
-      "sha256": "601439ab9b35b2a6e9a36cd4ed20a48c149102afd2a461993e6b1e7e6b550a0e",
+      "gitObjectId": "03e93634a95e467f1f6a28775bb400bfe3e5a4eb",
+      "sha256": "75cd0936952e17ac67eed77075a59d6898d199b4846eebf2d0c5c58151c41a14",
       "lines": 219,
       "reviewedRanges": [
         {
@@ -85,7 +85,8 @@
         "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains.",
         "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier.",
         "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier.",
-        "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier."
+        "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier.",
+        "2026-08-13: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/academy-mastery-seasons*.test.ts (issue #109 — the Mastery Seasons cross-tenant isolation proof that closes the registry at 37/37). Test-wiring only: the script gains one additional Postgres integration-test path alongside the existing academy-progress and learning-events globs. No dependency, engine, override, release-authority command, network access or runtime mutation path changed, and the file stays 219 lines."
       ],
       "findings": [
         {
