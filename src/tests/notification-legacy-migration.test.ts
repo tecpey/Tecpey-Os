@@ -39,8 +39,10 @@ test(
       const totalLegacyRows = LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE + 5;
       await client.query(
         `INSERT INTO notification_center
-          (student_id, type, title, body, priority, created_at, scheduled_for, metadata)
-         SELECT $1::uuid,
+          (tenant_id, workspace_id, student_id, type, title, body, priority, created_at, scheduled_for, metadata)
+         SELECT 'tecpey',
+                'main',
+                $1::uuid,
                 'academy',
                 $2 || ':' || sequence_number::text,
                 'Legacy migration batch body',

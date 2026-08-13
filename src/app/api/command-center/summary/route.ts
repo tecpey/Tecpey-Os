@@ -44,7 +44,12 @@ export async function GET(req: NextRequest) {
             LIMIT 8`,
           [tenantId],
         );
-        const notifications = await client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread FROM notification_center`);
+        // notification_center carries tenant_id (migration 0071).
+        const notifications = await client.query(
+          `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread
+             FROM notification_center WHERE tenant_id = $1`,
+          [tenantId],
+        );
         // academy_certificates carries tenant_id (migration 0070).
         const certificates = await client
           .query(

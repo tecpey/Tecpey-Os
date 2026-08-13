@@ -168,6 +168,7 @@ describe("Learning OS write contract", () => {
       await withRollback(async (client, studentId) => {
         const id = await createSmartNotification(client, {
           studentId,
+          scope: { tenantId: TENANT, workspaceId: WORKSPACE },
           type: "achievement",
           title: "Probe title",
           body: "Probe body",
@@ -193,6 +194,7 @@ describe("Learning OS write contract", () => {
       await withRollback(async (client, studentId) => {
         const id = await createSmartNotification(client, {
           studentId,
+          scope: { tenantId: TENANT, workspaceId: WORKSPACE },
           type: "learning",
           title: "Default channel",
           body: "Body",

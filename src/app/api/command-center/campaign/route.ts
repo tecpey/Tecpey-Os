@@ -65,6 +65,10 @@ export async function POST(req: NextRequest) {
         for (const row of students.rows) {
           await createSmartNotification(client, {
             studentId: row.id,
+            scope: {
+              tenantId: authorization.principal.tenantId,
+              workspaceId: authorization.principal.workspaceId,
+            },
             type: "system",
             title,
             body: message,

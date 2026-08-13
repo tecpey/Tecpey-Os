@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
       if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
       await createSmartNotification(client, {
         studentId,
+        scope: { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId },
         type: isCorrect ? "achievement" : "mentor",
         title: isCorrect ? "چالش منتور ثبت شد" : "منتور یک تمرین بهتر پیشنهاد می‌کند",
         body: isCorrect ? "پاسخ تو در پروفایل یادگیری ثبت شد." : "پاسخ اشتباه هم ارزشمند است؛ منتور از همین رفتار برای تحلیل مسیر یادگیری استفاده می‌کند.",

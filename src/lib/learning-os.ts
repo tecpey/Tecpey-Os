@@ -204,16 +204,20 @@ export async function recordLearningEvent(client: Queryable, args: { studentId: 
   return eventId;
 }
 
-export async function createSmartNotification(client: Queryable, args: { studentId?: string | null; type: NotificationType; title: string; body: string; actionUrl?: string; priority?: number; channels?: NotificationChannel[]; metadata?: Record<string, unknown>; scheduledFor?: string }) {
+// scope is required for the same reason it is on recordLearningEvent: the row
+// now carries a tenant boundary, and a default would file one tenant's
+// notification where another tenant reads it — which is exactly what the legacy
+// drain used to do (migration 0071).
+export async function createSmartNotification(client: Queryable, args: { studentId?: string | null; scope: { tenantId: string; workspaceId: string }; type: NotificationType; title: string; body: string; actionUrl?: string; priority?: number; channels?: NotificationChannel[]; metadata?: Record<string, unknown>; scheduledFor?: string }) {
   const id = randomUUID();
   await client.query(
-    `INSERT INTO notification_center (id, student_id, type, title, body, action_url, priority, channels, metadata, scheduled_for)
-     VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8::text[], $9::jsonb, COALESCE($10::timestamptz, NOW()))`,
+    `INSERT INTO notification_center (id, tenant_id, workspace_id, student_id, type, title, body, action_url, priority, channels, metadata, scheduled_for)
+     VALUES ($1, $11, $12, $2::uuid, $3, $4, $5, $6, $7, $8::text[], $9::jsonb, COALESCE($10::timestamptz, NOW()))`,
     // channels is text[], not jsonb. Passing a JSON string failed every insert
     // with `column "channels" is of type text[] but expression is of type
     // jsonb`, so no notification this codebase produces was ever stored (audit
     // finding F-14). pg adapts a JS array to text[] directly.
-    [id, args.studentId || null, args.type, cleanText(args.title, 160), cleanText(args.body, 500), cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), args.channels || ["in_app"], JSON.stringify(args.metadata || {}), args.scheduledFor || null],
+    [id, args.studentId || null, args.type, cleanText(args.title, 160), cleanText(args.body, 500), cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), args.channels || ["in_app"], JSON.stringify(args.metadata || {}), args.scheduledFor || null, args.scope.tenantId, args.scope.workspaceId],
   );
   return id;
 }
@@ -236,6 +240,7 @@ export async function maybeAwardAchievement(client: Queryable, studentId: string
     await recordLearningEvent(client, { studentId, tenantId: scope.tenantId, workspaceId: scope.workspaceId, eventType: "badge_earned", payload: { code, ...payload } });
     await createSmartNotification(client, {
       studentId,
+      scope,
       type: "achievement",
       title: "نشان جدید در تک‌پی",
       body: "یک دستاورد جدید به پروفایل آموزشی تو اضافه شد.",
