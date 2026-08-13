@@ -26,21 +26,30 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
 
-/** Every table the migration constrains, so a new one cannot be added untested. */
+/** Every table this migration constrains, so a new one cannot be added untested. */
 const CONSTRAINED_TABLES = [
   "academy_certificates",
-  "academy_community_challenge_enrollments",
-  "academy_community_reputation_evidence",
-  "academy_community_reputation_scoring_consents",
   "academy_learning_commands",
   "academy_mastery_season_assignments",
   "academy_mastery_season_progress_events",
   "academy_mastery_weakness_signals",
-  "academy_public_profiles",
   "academy_student_mastery_profiles",
   "academy_term_progress",
-  "learning_events",
   "notification_center",
+] as const;
+
+/**
+ * Already protected by migrations 0046/0048 with the identical foreign key, so
+ * this migration must NOT touch them — four are DEFERRABLE INITIALLY DEFERRED
+ * and a non-deferrable duplicate would reject a transaction that inserts the row
+ * before its binding and commits both together.
+ */
+const ALREADY_PROTECTED = [
+  "academy_community_challenge_enrollments",
+  "academy_community_reputation_evidence",
+  "academy_community_reputation_scoring_consents",
+  "academy_public_profiles",
+  "learning_events",
   "offline_sync_commands",
 ] as const;
 
@@ -124,6 +133,11 @@ describe("Student tenant binding integrity", () => {
         const tenantB = await seedTenant(client);
         const studentId = await seedStudent(client);
         await bind(client, tenantB, studentId);
+
+        // The constraint is deferred, matching the ones already in place, so it
+        // is checked at commit. Forcing it immediate is how the refusal becomes
+        // observable inside a rolled-back case.
+        await client.query("SET CONSTRAINTS ALL IMMEDIATE");
 
         // The load-bearing negative, and the exact shape reproduced against a
         // migrated database before this migration existed.
@@ -260,6 +274,85 @@ describe("Student tenant binding integrity", () => {
           "a caller must not be able to write the projected principal type",
         );
       });
+    },
+  );
+
+  it(
+    "leaves the tables that were already protected alone",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      // A first draft constrained these too. Migrations 0046 and 0048 already
+      // give them the identical foreign key with principal_type and principal_id
+      // pinned to the student, so a second copy rewrites the table for nothing —
+      // and on the four deferrable ones it would reject a transaction that
+      // inserts the row before its binding and commits both together.
+      await withRollback(async (client) => {
+        const { rows } = await client.query<{ conname: string }>(
+          `SELECT c.conname
+             FROM pg_constraint c
+            WHERE c.contype = 'f'
+              AND c.conname LIKE '%\\_stu\\_bind\\_fk'
+              AND c.conrelid::regclass::text = ANY($1::text[])`,
+          [[...ALREADY_PROTECTED]],
+        );
+        assert.deepEqual(
+          rows.map((row) => row.conname),
+          [],
+          "this migration must not duplicate a constraint those tables already carry",
+        );
+
+        // And what they do carry is genuinely equivalent, not merely similar.
+        const existing = await client.query<{ tbl: string; def: string }>(
+          `SELECT c.conrelid::regclass::text AS tbl, pg_get_constraintdef(c.oid) AS def
+             FROM pg_constraint c
+            WHERE c.contype = 'f'
+              AND c.confrelid = 'platform_principal_bindings'::regclass
+              AND c.conrelid::regclass::text = ANY($1::text[])
+            ORDER BY 1`,
+          [[...ALREADY_PROTECTED]],
+        );
+        assert.equal(existing.rows.length, ALREADY_PROTECTED.length);
+        for (const row of existing.rows) {
+          assert.match(
+            row.def,
+            /FOREIGN KEY \(tenant_id, workspace_id, principal_type, principal_id\)/,
+            `${row.tbl} must already bind its student to the tenant`,
+          );
+        }
+      });
+    },
+  );
+
+  it(
+    "allows a row to be inserted before its binding within one transaction",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      // Why these constraints are DEFERRABLE INITIALLY DEFERRED rather than
+      // immediate. A caller may write the row and admit the student in the same
+      // transaction, in either order, so long as both are true at commit. A
+      // non-deferrable constraint would reject the first statement — which is
+      // exactly the regression a first draft of this migration would have
+      // introduced on the four tables that were already deferrable.
+      const client = await pool!.connect();
+      try {
+        await client.query("BEGIN");
+        const tenant = await seedTenant(client);
+        const studentId = await seedStudent(client);
+
+        await client.query(
+          `INSERT INTO academy_certificates
+             (id, student_id, tenant_id, workspace_id, term_number)
+           VALUES ($1, $2::uuid, $3, $4, 1)`,
+          [`cert-${randomUUID()}`, studentId, tenant.tenantId, tenant.workspaceId],
+        );
+        await bind(client, tenant, studentId);
+
+        // The constraint is satisfied by commit, so this must not throw.
+        await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
+      }
     },
   );
 });

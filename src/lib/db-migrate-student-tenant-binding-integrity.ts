@@ -13,6 +13,17 @@ const FILENAME = "0073_student_tenant_binding_integrity.sql";
 // this migration — an academy_certificates row naming tenant A and a student
 // bound only to tenant B inserted without complaint.
 //
+// Six of those fourteen were already protected, which a first draft of this
+// migration missed. Migrations 0046 and 0048 gave learning_events,
+// offline_sync_commands, academy_public_profiles and the three community tables
+// the identical foreign key, with principal_type and principal_id pinned to the
+// student by CHECK or by generation. Adding a second copy would have rewritten
+// those tables for nothing — and worse, four of the six are DEFERRABLE
+// INITIALLY DEFERRED, so a non-deferrable duplicate would have started
+// rejecting transactions that insert the row before its binding and commit both
+// together. Only the eight genuinely unprotected tables are touched here, and
+// their constraints match the deferrability of the ones already in place.
+//
 // The obvious fix is the wrong one. Giving academy_students a tenant_id would
 // say a student belongs to exactly one tenant, and the model deliberately says
 // otherwise: platform_principal_bindings admits one student into several
@@ -39,9 +50,9 @@ const FILENAME = "0073_student_tenant_binding_integrity.sql";
 // Rows are never invented to satisfy the constraint. If a table holds a pair
 // with no binding, creating one would hand that tenant access it was never
 // given — the migration names the offending pairs and stops instead. On a
-// database carrying this suite's data there were none: all fourteen tables
-// swept clean, because every student is bound to the default tenant by
-// tecpey_bind_default_student_principal at creation.
+// database carrying this suite's data there were none, because every student is
+// bound to the default tenant by tecpey_bind_default_student_principal at
+// creation.
 
 export const STUDENT_TENANT_BINDING_INTEGRITY_SQL = `
 -- academy_certificates
@@ -66,10 +77,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_certificates
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_certificates
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -80,124 +93,7 @@ ALTER TABLE academy_certificates
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- academy_community_challenge_enrollments
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM academy_community_challenge_enrollments c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'academy_community_challenge_enrollments holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE academy_community_challenge_enrollments
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_community_challenge_enrollments
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE academy_community_challenge_enrollments
-  DROP CONSTRAINT IF EXISTS academy_community_challenge_enrollments_stu_bind_fk;
-ALTER TABLE academy_community_challenge_enrollments
-  ADD CONSTRAINT academy_community_challenge_enrollments_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- academy_community_reputation_evidence
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM academy_community_reputation_evidence c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'academy_community_reputation_evidence holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE academy_community_reputation_evidence
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_community_reputation_evidence
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE academy_community_reputation_evidence
-  DROP CONSTRAINT IF EXISTS academy_community_reputation_evidence_stu_bind_fk;
-ALTER TABLE academy_community_reputation_evidence
-  ADD CONSTRAINT academy_community_reputation_evidence_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- academy_community_reputation_scoring_consents
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM academy_community_reputation_scoring_consents c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'academy_community_reputation_scoring_consents holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE academy_community_reputation_scoring_consents
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_community_reputation_scoring_consents
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE academy_community_reputation_scoring_consents
-  DROP CONSTRAINT IF EXISTS academy_community_reputation_scoring_consents_stu_bind_fk;
-ALTER TABLE academy_community_reputation_scoring_consents
-  ADD CONSTRAINT academy_community_reputation_scoring_consents_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_learning_commands
@@ -222,10 +118,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_learning_commands
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_learning_commands
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -236,7 +134,7 @@ ALTER TABLE academy_learning_commands
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_mastery_season_assignments
@@ -261,10 +159,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_mastery_season_assignments
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_mastery_season_assignments
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -275,7 +175,7 @@ ALTER TABLE academy_mastery_season_assignments
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_mastery_season_progress_events
@@ -300,10 +200,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_mastery_season_progress_events
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_mastery_season_progress_events
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -314,7 +216,7 @@ ALTER TABLE academy_mastery_season_progress_events
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_mastery_weakness_signals
@@ -339,10 +241,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_mastery_weakness_signals
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_mastery_weakness_signals
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -353,46 +257,7 @@ ALTER TABLE academy_mastery_weakness_signals
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- academy_public_profiles
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM academy_public_profiles c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'academy_public_profiles holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE academy_public_profiles
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_public_profiles
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE academy_public_profiles
-  DROP CONSTRAINT IF EXISTS academy_public_profiles_stu_bind_fk;
-ALTER TABLE academy_public_profiles
-  ADD CONSTRAINT academy_public_profiles_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_student_mastery_profiles
@@ -417,10 +282,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_student_mastery_profiles
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_student_mastery_profiles
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -431,7 +298,7 @@ ALTER TABLE academy_student_mastery_profiles
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- academy_term_progress
@@ -456,10 +323,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE academy_term_progress
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE academy_term_progress
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -470,46 +339,7 @@ ALTER TABLE academy_term_progress
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- learning_events
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM learning_events c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'learning_events holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE learning_events
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE learning_events
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE learning_events
-  DROP CONSTRAINT IF EXISTS learning_events_stu_bind_fk;
-ALTER TABLE learning_events
-  ADD CONSTRAINT learning_events_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 
 
 -- notification_center
@@ -534,10 +364,12 @@ BEGIN
   END IF;
 END $do$;
 
+-- Both projections in one statement: a stored generated column is computed for
+-- every existing row, so two ALTERs would rewrite the table twice under an
+-- exclusive lock.
 ALTER TABLE notification_center
   ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE notification_center
+    GENERATED ALWAYS AS ('student') STORED,
   ADD COLUMN IF NOT EXISTS student_principal_id TEXT
     GENERATED ALWAYS AS (student_id::text) STORED;
 
@@ -548,46 +380,7 @@ ALTER TABLE notification_center
   FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
   REFERENCES platform_principal_bindings
     (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
-
-
--- offline_sync_commands
-DO $do$
-DECLARE
-  offenders TEXT;
-BEGIN
-  SELECT string_agg(DISTINCT c.tenant_id || '/' || c.workspace_id || '/' || c.student_id::text, ', ')
-    INTO offenders
-    FROM offline_sync_commands c
-   WHERE c.student_id IS NOT NULL
-     AND NOT EXISTS (
-       SELECT 1 FROM platform_principal_bindings b
-        WHERE b.tenant_id = c.tenant_id
-          AND b.workspace_id = c.workspace_id
-          AND b.principal_type = 'student'
-          AND b.principal_id = c.student_id::text);
-  IF offenders IS NOT NULL THEN
-    RAISE EXCEPTION
-      'offline_sync_commands holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
-      offenders;
-  END IF;
-END $do$;
-
-ALTER TABLE offline_sync_commands
-  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
-    GENERATED ALWAYS AS ('student') STORED;
-ALTER TABLE offline_sync_commands
-  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
-    GENERATED ALWAYS AS (student_id::text) STORED;
-
-ALTER TABLE offline_sync_commands
-  DROP CONSTRAINT IF EXISTS offline_sync_commands_stu_bind_fk;
-ALTER TABLE offline_sync_commands
-  ADD CONSTRAINT offline_sync_commands_stu_bind_fk
-  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
-  REFERENCES platform_principal_bindings
-    (tenant_id, workspace_id, principal_type, principal_id)
-  ON DELETE RESTRICT;
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
 `;
 
 function checksum(sql: string): string {
