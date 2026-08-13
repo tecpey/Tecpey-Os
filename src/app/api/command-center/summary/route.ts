@@ -45,8 +45,12 @@ export async function GET(req: NextRequest) {
           [tenantId],
         );
         const notifications = await client.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread FROM notification_center`);
+        // academy_certificates carries tenant_id (migration 0070).
         const certificates = await client
-          .query(`SELECT COUNT(*)::int AS total FROM academy_certificates`)
+          .query(
+            `SELECT COUNT(*)::int AS total FROM academy_certificates WHERE tenant_id = $1`,
+            [tenantId],
+          )
           .catch(() => ({ rows: [{ total: 0 }] }));
         const challenges = await client.query(`SELECT COUNT(*)::int AS total, COALESCE(ROUND(AVG(CASE WHEN is_correct THEN 100 ELSE 0 END)),0)::int AS success FROM mentor_challenge_attempts`);
         return {

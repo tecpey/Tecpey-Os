@@ -1,10 +1,11 @@
 // Declared scope of every Command Center summary metric (audit finding F-1).
 //
 // The admin operator now carries a tenant (migration 0069), so admin reads that
-// CAN be scoped are scoped. Several cannot be yet: academy_students,
-// notification_center, academy_certificates and mentor_challenge_attempts have
-// no tenant column at all, and academy_students is the academy root with 43
-// tables pointing at it, so giving it a tenant boundary is its own program.
+// CAN be scoped are scoped. Some still cannot: academy_students,
+// notification_center and mentor_challenge_attempts have no tenant column at
+// all, and academy_students is the academy root with 43 tables pointing at it,
+// so giving it a tenant boundary is its own program. (academy_certificates
+// gained one in migration 0070 and moved to "tenant".)
 //
 // Rather than let those numbers imply a boundary that is not enforced, each
 // metric declares the scope it actually has. A tenant operator reading
@@ -31,7 +32,7 @@ export const COMMAND_CENTER_METRICS = Object.freeze({
   students: Object.freeze({ table: "academy_students", scope: "platform" }),
   events: Object.freeze({ table: "learning_events", scope: "tenant" }),
   notifications: Object.freeze({ table: "notification_center", scope: "platform" }),
-  certificates: Object.freeze({ table: "academy_certificates", scope: "platform" }),
+  certificates: Object.freeze({ table: "academy_certificates", scope: "tenant" }),
   challenges: Object.freeze({ table: "mentor_challenge_attempts", scope: "platform" }),
 }) satisfies Readonly<Record<string, CommandCenterMetric>>;
 

@@ -8,6 +8,15 @@
   },
   "tables": [
     {
+      "table": "academy_certificates",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-certificate-tenant.ts",
+      "isolationModel": "tenant_id + workspace_id on the certificate, FK-bound to platform_tenants and, as a composite pair, to platform_workspaces (tenant_id, id). The active-certificate uniqueness boundary moved from (student_id, term_number) WHERE status = 'verified' to (tenant_id, workspace_id, student_id, term_number) WHERE status = 'verified', so each tenant holds its own certificate for the same student and term while re-issuance inside one tenant still replays that tenant's certificate. issueCertificate writes the pair and scopes both its existing-certificate lookup and its post-conflict re-select to the issuing tenant; the Command Center certificate count filters on the operator's tenant. Public verification (getCertificate / /verify/[certificateId]) stays global by design: it resolves an unguessable certificate id whose holder is not assumed to know the issuing tenant. The student-facing list at GET /api/academy-certificates is still keyed by student_id alone, so a student bound to two tenants sees their own certificates from both — their own data rather than another principal's, and scoping it requires moving that route onto a canonical session.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "academy_community_challenge_enrollments",
       "domain": "community",
       "sourceFile": "src/lib/db-migrate-community-journal-challenge.ts",
