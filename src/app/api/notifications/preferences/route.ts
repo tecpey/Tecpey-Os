@@ -43,10 +43,8 @@ export async function GET(req: NextRequest) {
         if (principal.status !== "active") {
           throw new Error("notification_principal_inactive");
         }
-        const [preferences, consents] = await Promise.all([
-          getNotificationPreferences(client, principal.id),
-          getCurrentNotificationConsents(client, principal.id),
-        ]);
+        const preferences = await getNotificationPreferences(client, principal.id);
+        const consents = await getCurrentNotificationConsents(client, principal.id);
         return { ...preferences, consents };
       });
 
@@ -140,10 +138,8 @@ export async function PATCH(req: NextRequest) {
           await updateNotificationSettings(client, principal.id, settings);
         }
 
-        const [preferences, consents] = await Promise.all([
-          getNotificationPreferences(client, principal.id),
-          getCurrentNotificationConsents(client, principal.id),
-        ]);
+        const preferences = await getNotificationPreferences(client, principal.id);
+        const consents = await getCurrentNotificationConsents(client, principal.id);
         return { ...preferences, consents };
       });
 

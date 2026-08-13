@@ -248,12 +248,12 @@ export async function readAcademyMasterySeasonState(
   studentId: string,
   locale: AcademyMasteryLocale,
 ): Promise<AcademyMasterySeasonState> {
-  const [completedTermsFromTerms, profile, signalTags, assignments] = await Promise.all([
-    readCompletedTerms(client, scope, studentId, locale),
-    readProfile(client, scope, studentId, locale),
-    readWeaknessSignalTags(client, scope, studentId, locale),
-    readAssignments(client, scope, studentId, locale),
-  ]);
+  // All four reads share one pooled client, which pg serializes; issuing them
+  // through Promise.all only produced a pg@9 concurrent-query deprecation.
+  const completedTermsFromTerms = await readCompletedTerms(client, scope, studentId, locale);
+  const profile = await readProfile(client, scope, studentId, locale);
+  const signalTags = await readWeaknessSignalTags(client, scope, studentId, locale);
+  const assignments = await readAssignments(client, scope, studentId, locale);
   const completedTerms = Math.max(
     completedTermsFromTerms,
     Number(profile?.completed_terms || 0),

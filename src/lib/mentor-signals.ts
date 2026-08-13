@@ -59,20 +59,19 @@ export async function collectAcademySignals(studentId: string): Promise<AcademyS
   };
 
   const result = await withDb(async (client) => {
-    const [termRes, challengeRes] = await Promise.all([
-      client.query(
-        `SELECT term_number, status, percent
+    // One pooled client serializes both reads regardless.
+    const termRes = await client.query(
+      `SELECT term_number, status, percent
          FROM academy_term_progress WHERE student_id = $1::uuid
          ORDER BY term_number ASC`,
-        [studentId],
-      ),
-      client.query(
-        `SELECT question_id, lesson_slug, is_correct, attempt_number
+      [studentId],
+    );
+    const challengeRes = await client.query(
+      `SELECT question_id, lesson_slug, is_correct, attempt_number
          FROM mentor_challenge_attempts WHERE student_id = $1::uuid
          ORDER BY created_at DESC LIMIT 200`,
-        [studentId],
-      ),
-    ]);
+      [studentId],
+    );
 
     const terms = termRes.rows;
     const passed = terms.filter((r) => r.status === "passed");

@@ -248,29 +248,27 @@ export async function refreshAcademyProgressProjection(
     legacySnapshotCaptured = Boolean(inserted.rows[0]);
   }
 
-  const [rewardsResult, assessmentsResult, termsResult] = await Promise.all([
-    client.query<RewardEvidence>(
-      `SELECT reward_key, source_id, xp, badge_code, awarded_at
-         FROM academy_reward_ledger
-        WHERE student_id = $1::uuid AND locale = $2
-        ORDER BY awarded_at ASC`,
-      [studentId, locale],
-    ),
-    client.query<LessonAssessmentEvidence>(
-      `SELECT lesson_id, term_number, best_score, passed_at, updated_at
-         FROM academy_lesson_assessments
-        WHERE student_id = $1::uuid AND locale = $2
-        ORDER BY updated_at ASC`,
-      [studentId, locale],
-    ),
-    client.query<TermProgressEvidence>(
-      `SELECT term_number, status, score, percent, passed_at, updated_at
-         FROM academy_term_progress
-        WHERE student_id = $1::uuid AND locale = $2
-        ORDER BY term_number ASC`,
-      [studentId, locale],
-    ),
-  ]);
+  const rewardsResult = await client.query<RewardEvidence>(
+    `SELECT reward_key, source_id, xp, badge_code, awarded_at
+       FROM academy_reward_ledger
+      WHERE student_id = $1::uuid AND locale = $2
+      ORDER BY awarded_at ASC`,
+    [studentId, locale],
+  );
+  const assessmentsResult = await client.query<LessonAssessmentEvidence>(
+    `SELECT lesson_id, term_number, best_score, passed_at, updated_at
+       FROM academy_lesson_assessments
+      WHERE student_id = $1::uuid AND locale = $2
+      ORDER BY updated_at ASC`,
+    [studentId, locale],
+  );
+  const termsResult = await client.query<TermProgressEvidence>(
+    `SELECT term_number, status, score, percent, passed_at, updated_at
+       FROM academy_term_progress
+      WHERE student_id = $1::uuid AND locale = $2
+      ORDER BY term_number ASC`,
+    [studentId, locale],
+  );
 
   const state = buildAcademyProgressProjection({
     rewards: rewardsResult.rows,

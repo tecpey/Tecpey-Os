@@ -27,23 +27,23 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await withDb(async (client) => {
-      const [insightRows, profileRow] = await Promise.all([
-        client.query(
-          `SELECT id, insight_type, content, generated_at
+      // One pooled client serializes these regardless; awaiting in order keeps
+      // the same behaviour without the pg@9 concurrent-query deprecation.
+      const insightRows = await client.query(
+        `SELECT id, insight_type, content, generated_at
            FROM mentor_insights
            WHERE student_id = $1::uuid
            ORDER BY generated_at DESC
            LIMIT 5`,
-          [studentId],
-        ),
-        client.query(
-          `SELECT level, risk_profile, primary_goal, weak_areas, strong_areas,
+        [studentId],
+      );
+      const profileRow = await client.query(
+        `SELECT level, risk_profile, primary_goal, weak_areas, strong_areas,
                   confidence_score, discipline_score, learning_style, updated_at
            FROM mentor_profiles
            WHERE student_id = $1::uuid`,
-          [studentId],
-        ),
-      ]);
+        [studentId],
+      );
 
       const insights = insightRows.rows.map((r) => ({
         id: r.id,

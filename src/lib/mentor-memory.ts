@@ -202,41 +202,41 @@ export async function getMentorContext(studentId: string): Promise<MentorContext
   };
 
   const result = await withDb(async (client) => {
-    const [profileRes, convRes, memRes, termRes, tradeRes] = await Promise.all([
-      client.query(
-        `SELECT id, student_id, level, risk_profile, primary_goal,
+    // One pooled client serializes these five reads regardless; awaiting in
+    // order keeps the behaviour and drops the pg@9 deprecation.
+    const profileRes = await client.query(
+      `SELECT id, student_id, level, risk_profile, primary_goal,
                 weak_areas, strong_areas, confidence_score,
                 discipline_score, learning_style, last_active_at
          FROM mentor_profiles WHERE student_id = $1::uuid`,
-        [studentId],
-      ),
-      client.query(
-        `SELECT role, content, locale, term_number, created_at
+      [studentId],
+    );
+    const convRes = await client.query(
+      `SELECT role, content, locale, term_number, created_at
          FROM mentor_conversations WHERE student_id = $1::uuid
          ORDER BY created_at DESC LIMIT 12`,
-        [studentId],
-      ),
-      client.query(
-        `SELECT id, category, content, importance, created_at
+      [studentId],
+    );
+    const memRes = await client.query(
+      `SELECT id, category, content, importance, created_at
          FROM mentor_memories WHERE student_id = $1::uuid
          ORDER BY importance DESC, created_at DESC LIMIT 20`,
-        [studentId],
-      ),
-      client.query(
-        `SELECT term_number, status, percent
+      [studentId],
+    );
+    const termRes = await client.query(
+      `SELECT term_number, status, percent
          FROM academy_term_progress WHERE student_id = $1::uuid
          ORDER BY term_number ASC`,
-        [studentId],
-      ),
-      client
-        .query(
-          `SELECT risk_percent, risk_flag, discipline_score, emotion
+      [studentId],
+    );
+    const tradeRes = await client
+      .query(
+        `SELECT risk_percent, risk_flag, discipline_score, emotion
            FROM academy_trading_arena_trades
            WHERE student_id = $1::uuid ORDER BY created_at DESC LIMIT 20`,
-          [studentId],
-        )
-        .catch(() => ({ rows: [] })),
-    ]);
+        [studentId],
+      )
+      .catch(() => ({ rows: [] }));
 
     const profile: MentorProfile | null = profileRes.rows[0]
       ? {
@@ -338,18 +338,16 @@ export async function saveMentorMemory(
  */
 export async function generateMentorInsights(studentId: string): Promise<string | null> {
   const result = await withDb(async (client) => {
-    const [memRes, profileRes] = await Promise.all([
-      client.query(
-        `SELECT category, content, importance FROM mentor_memories
+    const memRes = await client.query(
+      `SELECT category, content, importance FROM mentor_memories
          WHERE student_id = $1::uuid ORDER BY importance DESC, created_at DESC LIMIT 30`,
-        [studentId],
-      ),
-      client.query(
-        `SELECT level, risk_profile, primary_goal, weak_areas, strong_areas, confidence_score
+      [studentId],
+    );
+    const profileRes = await client.query(
+      `SELECT level, risk_profile, primary_goal, weak_areas, strong_areas, confidence_score
          FROM mentor_profiles WHERE student_id = $1::uuid`,
-        [studentId],
-      ),
-    ]);
+      [studentId],
+    );
 
     if (!memRes.rows.length) return null;
 

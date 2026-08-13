@@ -45,14 +45,16 @@ export async function GET(req: NextRequest) {
       if ([...searchParams.keys()].length > 0) {
         return apiError("unsupported_query_parameter", 400);
       }
-      const result = await withDb((client) =>
-        Promise.all([
-          readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "fa"),
-          readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "en"),
-        ]),
-      );
+      // Both locales read through the same pooled client, so they are
+      // serialized by pg either way; awaiting in order avoids the pg@9
+      // concurrent-query deprecation.
+      const result = await withDb(async (client) => {
+        const fa = await readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "fa");
+        const en = await readAcademyMasterySeasonState(client, tenantContext, tenantContext.principalId, "en");
+        return { fa, en };
+      });
       if (!result.enabled) return apiError("mastery_seasons_service_not_configured", 503);
-      return noStore(apiOk({ states: { fa: result.value[0], en: result.value[1] } }));
+      return noStore(apiOk({ states: { fa: result.value.fa, en: result.value.en } }));
     },
   );
 }
