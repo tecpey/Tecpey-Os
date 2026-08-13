@@ -8,12 +8,12 @@
       "previousSourceHash": "c37e28d5e59f6d01985ddd07",
       "issue": "#109",
       "owner": "notifications",
-      "reason": "notification_center tenant boundary (migration 0071). The legacy inbox drain (migrateLegacyNotificationsForPrincipal, which runs on every GET /api/notifications) selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. notification_center now carries tenant_id/workspace_id, createSmartNotification takes the pair as a required scope, and every reader filters on it. These operations change only because each now passes the scope it had already resolved from verified context. /api/command-center/campaign moves tenantFromVerifiedContext false -> true: the admin campaign writes under the operator's own tenant (migration 0069) rather than an implicit default. That is a control strengthening; no control was weakened. Proven by src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it is closed.",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
       "replacement": {
         "route": "/api/command-center/campaign",
         "method": "POST",
         "sourcePath": "src/app/api/command-center/campaign/route.ts",
-        "sourceHash": "e9869fafb316c734c10a7e72",
+        "sourceHash": "1576b9a512b21e6ca32c7ece",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
@@ -47,7 +47,9 @@
           "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
         },
         "domainOwner": "command-center",
-        "testReferences": [],
+        "testReferences": [
+          "src/tests/security/notification-inbox-tenant-route.test.ts"
+        ],
         "requirements": {
           "csrf": true,
           "strictRevocation": true,
@@ -74,7 +76,7 @@
       "previousSourceHash": "b24d488cdc0d9a4623e3e8ef",
       "issue": "#109",
       "owner": "notifications",
-      "reason": "notification_center tenant boundary (migration 0071). The legacy inbox drain (migrateLegacyNotificationsForPrincipal, which runs on every GET /api/notifications) selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. notification_center now carries tenant_id/workspace_id, createSmartNotification takes the pair as a required scope, and every reader filters on it. These operations change only because each now passes the scope it had already resolved from verified context. /api/command-center/campaign moves tenantFromVerifiedContext false -> true: the admin campaign writes under the operator's own tenant (migration 0069) rather than an implicit default. That is a control strengthening; no control was weakened. Proven by src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it is closed.",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
       "replacement": {
         "route": "/api/mentor-challenge",
         "method": "POST",
@@ -141,12 +143,12 @@
       "previousSourceHash": "5970429bd7d1458d4a164202",
       "issue": "#109",
       "owner": "notifications",
-      "reason": "notification_center tenant boundary (migration 0071). The legacy inbox drain (migrateLegacyNotificationsForPrincipal, which runs on every GET /api/notifications) selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. notification_center now carries tenant_id/workspace_id, createSmartNotification takes the pair as a required scope, and every reader filters on it. These operations change only because each now passes the scope it had already resolved from verified context. /api/command-center/campaign moves tenantFromVerifiedContext false -> true: the admin campaign writes under the operator's own tenant (migration 0069) rather than an implicit default. That is a control strengthening; no control was weakened. Proven by src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it is closed.",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
       "replacement": {
         "route": "/api/notifications",
         "method": "POST",
         "sourcePath": "src/app/api/notifications/route.ts",
-        "sourceHash": "5970429bd7d1458d4a164202",
+        "sourceHash": "005b9e4ad707b53e4aea052a",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "deny-only",
@@ -181,7 +183,8 @@
         "testReferences": [
           "src/tests/security/auth-strict-revocation-routes.test.ts",
           "src/tests/security/learning-events-tenant-route.test.ts",
-          "src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts"
+          "src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/notification-inbox-tenant-route.test.ts"
         ],
         "requirements": {
           "csrf": false,
@@ -209,7 +212,7 @@
       "previousSourceHash": "d28e322be97bb79d3541c69a",
       "issue": "#109",
       "owner": "notifications",
-      "reason": "notification_center tenant boundary (migration 0071). The legacy inbox drain (migrateLegacyNotificationsForPrincipal, which runs on every GET /api/notifications) selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. notification_center now carries tenant_id/workspace_id, createSmartNotification takes the pair as a required scope, and every reader filters on it. These operations change only because each now passes the scope it had already resolved from verified context. /api/command-center/campaign moves tenantFromVerifiedContext false -> true: the admin campaign writes under the operator's own tenant (migration 0069) rather than an implicit default. That is a control strengthening; no control was weakened. Proven by src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it is closed.",
+      "reason": "notification_center tenant boundary (migration 0071, audit finding F-15). The legacy inbox drain ran on every GET /api/notifications, selected rows by student_id alone and copied each into platform_notifications under the reading principal's tenant, so one tenant's notification reached every tenant the student was bound to. The row now carries the boundary and every reader filters on it. Two operations gain a verified tenant they previously assumed: /api/notifications now resolves its inbox principal through resolveTenantPrincipalContext instead of letting resolveNotificationPrincipal fall back to the platform tenant, and /api/command-center/campaign selects recipients through active platform_principal_bindings for the operator's own tenant instead of selecting academy_students globally and stamping the operator's tenant onto whatever the LIMIT returned. The campaign operation therefore moves tenantFromVerifiedContext false -> true. Both are control strengthenings; none was weakened. Proven by notification-center-cross-tenant-isolation-postgres.test.ts, which reproduces the drain leak and asserts it closed, and by notification-inbox-tenant-route.test.ts.",
       "replacement": {
         "route": "/api/notifications/read",
         "method": "POST",

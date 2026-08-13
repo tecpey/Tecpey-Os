@@ -3,6 +3,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import { withTx } from "@/lib/db";
 import { Validate } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { getCanonicalSession } from "@/lib/auth-session";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import {
   getNotificationIdentityFromRequest,
   resolveNotificationPrincipal,
@@ -32,6 +35,23 @@ export async function GET(req: NextRequest) {
     const identity = await getNotificationIdentityFromRequest(req);
     if (!identity) return notificationApiError("authentication_required", 401);
 
+    // The inbox principal has to be resolved in the tenant this request is
+    // actually acting in. resolveNotificationPrincipal defaults to the platform
+    // tenant when none is given, so without this the inbox only ever resolved
+    // under 'tecpey' — and now that notification_center carries a boundary
+    // (migration 0071), a non-default tenant's inbox would never drain at all.
+    // This is the same verified context /api/notifications/read already uses.
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      return notificationApiError("notification_inbox_unavailable", 503);
+    }
+
     const url = new URL(req.url);
     const limit = Validate.int(url.searchParams.get("limit") ?? "30", 1, 50);
     if (!limit) return notificationApiError("invalid_limit", 400);
@@ -42,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     try {
       const result = await withTx(async (client) => {
-        const principal = await resolveNotificationPrincipal(client, identity);
+        const principal = await resolveNotificationPrincipal(client, identity, tenantContext.tenantId);
         if (principal.status !== "active") {
           throw new Error("notification_principal_inactive");
         }

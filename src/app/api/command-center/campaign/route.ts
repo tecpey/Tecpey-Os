@@ -56,10 +56,37 @@ export async function POST(req: NextRequest) {
       const ip = getClientIp(req);
       const userAgent = (req.headers.get("user-agent") ?? "").slice(0, 500);
       const result = await withTx(async (client) => {
+        // academy_students has no tenant column of its own (that boundary is its
+        // own program — 43 tables point at it), so recipients are selected
+        // through the active principal bindings for the operator's tenant.
+        // Selecting globally and then stamping the operator's tenant would both
+        // omit that tenant's own students behind the LIMIT and mint
+        // undeliverable rows for students who are not in it — while reporting
+        // them as sent.
         const students = await client.query(
           audience === "inactive"
-            ? `SELECT id FROM academy_students WHERE last_seen_at < NOW() - INTERVAL '3 days' LIMIT 500`
-            : `SELECT id FROM academy_students ORDER BY last_seen_at DESC LIMIT 500`,
+            ? `SELECT s.id
+                 FROM academy_students s
+                 JOIN platform_principal_bindings b
+                   ON b.principal_type = 'student'
+                  AND b.principal_id = s.id::text
+                  AND b.tenant_id = $1
+                  AND b.workspace_id = $2
+                  AND b.status = 'active'
+                WHERE s.last_seen_at < NOW() - INTERVAL '3 days'
+                ORDER BY s.last_seen_at ASC
+                LIMIT 500`
+            : `SELECT s.id
+                 FROM academy_students s
+                 JOIN platform_principal_bindings b
+                   ON b.principal_type = 'student'
+                  AND b.principal_id = s.id::text
+                  AND b.tenant_id = $1
+                  AND b.workspace_id = $2
+                  AND b.status = 'active'
+                ORDER BY s.last_seen_at DESC
+                LIMIT 500`,
+          [authorization.principal.tenantId, authorization.principal.workspaceId],
         );
 
         for (const row of students.rows) {
