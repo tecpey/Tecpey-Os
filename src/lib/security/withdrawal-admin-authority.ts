@@ -1,5 +1,4 @@
 import { withTx } from "@/lib/db";
-import { PLATFORM } from "@/lib/platform-config";
 import { logger } from "@/lib/logger";
 import { isCustodyCapabilityEnabled } from "@/lib/wallet/custody-launch-policy";
 import {
@@ -185,16 +184,19 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
     flag_review: "compliance_review",
   };
   const requestedState = stateMap[input.action];
-  // Deliberately the default tenant, not input.tenantId. The database trigger
-  // tecpey_append_withdrawal_admin_evidence resolves this receipt with a
-  // hard-coded tenant and then writes the custody evidence row under the same
-  // one, so moving the receipt alone would leave a non-default-tenant operator
-  // unable to complete any action at all. principalId is the admin's UUID, which
-  // is globally unique, so two operators in different tenants cannot collide
-  // here — this is a labelling inconsistency, not a boundary. Migrating the
-  // whole admin custody-evidence chain to be tenant-aware is its own slice.
+  // The acting tenant, matching the withdrawal this operator is allowed to touch
+  // (the row is selected by id AND tenant_id below).
+  //
+  // This was pinned to the platform default until migration 0072, because
+  // tecpey_append_withdrawal_admin_evidence resolved the receipt under a
+  // hard-coded tenant and then filed the custody evidence under the same one —
+  // moving the receipt alone would have left a non-default-tenant operator
+  // unable to complete any action at all. The trigger now derives the tenant
+  // from the withdrawal, so the two sides move together: this scope must stay in
+  // step with that migration or the receipt lookup finds nothing and every admin
+  // action raises 'withdrawal admin receipt evidence is missing'.
   const receiptScope: ApiCommandScope = {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
+    tenantId: input.tenantId,
     principalType: "admin",
     principalId: input.adminId,
     operation: "withdrawal.admin_action",
