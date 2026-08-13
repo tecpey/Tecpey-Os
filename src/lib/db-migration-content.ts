@@ -72,6 +72,7 @@ import { ADMIN_TENANT_BINDING_SQL } from "./db-migrate-admin-tenant-binding";
 import { ACADEMY_CERTIFICATE_TENANT_SQL } from "./db-migrate-academy-certificate-tenant";
 import { NOTIFICATION_CENTER_TENANT_SQL } from "./db-migrate-notification-center-tenant";
 import { WITHDRAWAL_EVIDENCE_TENANT_SQL } from "./db-migrate-withdrawal-evidence-tenant";
+import { STUDENT_TENANT_BINDING_INTEGRITY_SQL } from "./db-migrate-student-tenant-binding-integrity";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -296,5 +297,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   withdrawalEvidenceTenant: one(
     "0072_withdrawal_evidence_tenant.sql",
     WITHDRAWAL_EVIDENCE_TENANT_SQL,
+  ),
+  studentTenantBindingIntegrity: one(
+    "0073_student_tenant_binding_integrity.sql",
+    STUDENT_TENANT_BINDING_INTEGRITY_SQL,
   ),
 });

@@ -57,6 +57,26 @@ async function seedTenantB(client: PoolClient): Promise<{ tenantId: string; work
   return { tenantId, workspaceId };
 }
 
+/**
+ * Admits a student into a tenant. Migration 0073 binds notification_center rows
+ * to platform_principal_bindings, so a notification can only name a tenant that
+ * has actually admitted the student — which is what a real flow does, and what
+ * these cases previously skipped.
+ */
+async function admit(
+  client: PoolClient,
+  scope: { tenantId: string; workspaceId: string },
+  studentId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO platform_principal_bindings
+       (tenant_id, workspace_id, principal_type, principal_id, status, source)
+     VALUES ($1, $2, 'student', $3, 'active', 'test')
+     ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING`,
+    [scope.tenantId, scope.workspaceId, studentId],
+  );
+}
+
 async function seedStudent(client: PoolClient): Promise<string> {
   const studentId = randomUUID();
   await client.query(
@@ -156,6 +176,7 @@ describe("notification_center cross-tenant isolation", () => {
         const studentId = await seedStudent(client);
         const titleA = `A ${randomUUID()}`;
         const titleB = `B ${randomUUID()}`;
+        await admit(client, tenantB, studentId);
 
         await createSmartNotification(client, {
           studentId,
