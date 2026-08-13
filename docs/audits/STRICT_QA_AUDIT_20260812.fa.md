@@ -20,7 +20,8 @@
 | پوشش تست | ✅ بسیار قوی | ۸۴۴ از ۸۴۴ تست پاس، صفر skip، صفر cancel |
 | حاکمیت (Governance) | ✅ کامل | ۳۲ از ۳۲ گیت ایستا پاس |
 | بیلد تولید | ✅ سالم | `npm run build` با کد خروج ۰ |
-| انزوای چندمستاجری داده | 🟡 ۳۱ از ۳۷ | ۶ جدول Mastery Seasons هنوز اثبات خصمانه ندارند |
+| انزوای چندمستاجری داده | ✅ ۳۷ از ۳۷ | هر جدول tenant-scoped اثبات خصمانه دارد (F-7 بسته شد) |
+| ورودی‌های بدون tenant به مدل خواندن | 🟠 نشت تأییدشده | `academy_term_progress` ستون tenant ندارد و eligibility را آلوده می‌کند (F-8) |
 | صفحه‌ی مدیریت (Admin/Command Center) | 🔴 فاقد tenant | خارج از دامنه‌ی سافت‌لانچ، ولی مسدودکننده‌ی white-label |
 | پوشش دوزبانه | 🟡 ۵۵٪ | ۴۹ مسیر فارسی بدون معادل انگلیسی |
 | آمادگی پرتاب عملیاتی | 🔴 NO-GO | ۶ از ۱۲ مسدودکننده‌ی NOG هنوز باز است |
@@ -202,23 +203,73 @@ Origin بیرونی پذیرفته می‌شود). این را عملاً باز
 
 ---
 
-### F-7 — ۶ جدول بدون اثبات خصمانه‌ی انزوا 🟡 P3
+### F-7 — ۶ جدول بدون اثبات خصمانه‌ی انزوا ✅ بسته شد
 
-ثبت انزوا اکنون **۳۱ اثبات‌شده از ۳۷** است (پیشرفت چشمگیر نسبت به ۱۴/۲۸ قبلی).
-هر ۶ مورد باقی‌مانده جدول‌های تازه‌ی Mastery Seasons هستند:
+**وضعیت: رفع‌شده.** ثبت انزوا اکنون **۳۷ از ۳۷** است. شش جدول Mastery Seasons
+با `academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts` اثبات شدند:
+یک دانشجوی واحد که در دو tenant بایند شده، و در هر سه محور (پروفایل/سیگنال،
+تخصیص/رویداد پیشرفت، پیش‌نویس/بازبینی) دو نمای کاملاً جدا.
+
+اثبات load-bearing بودن: هر شش شرط `tenant_id` تک‌به‌تک با یک بازنویسی
+همیشه‌درست (`$1 IS NOT NULL`) خنثی شد و هر بار حداقل یک assertion شکست:
+
+| شرط خنثی‌شده | نتیجه |
+|---|---|
+| `readProfile` | ۳ شکست از ۴ |
+| `readWeaknessSignalTags` | ۳ شکست از ۴ |
+| `readAssignments` | ۳ شکست از ۴ |
+| `activate` UPDATE | ۱ شکست |
+| `listDrafts` | ۱ شکست |
+| `decideDraft` SELECT | ۱ شکست |
+| هیچ‌کدام (پایه) | ۴/۴ سبز |
+
+---
+
+### F-8 — `academy_term_progress` اصلاً ستون tenant ندارد و به Season نشت می‌کند 🟠 P2
+
+**کشف‌شده حین اثبات F-7.** `readAcademyMasterySeasonState` علاوه بر خواندن‌های
+tenant-scoped، تابع `readCompletedTerms` را هم صدا می‌زند که از
+`academy_term_progress` می‌خواند — جدولی که **هیچ ستون tenant ندارد** و کلید
+یکتای آن `(student_id, term_number, locale)` است.
+
+**چرا این نشت واقعی است:** `platform_principal_bindings` با کلید
+`(tenant_id, workspace_id, principal_type, principal_id)` اجازه می‌دهد **همان
+UUID دانشجو در دو tenant بایند شود**، و `resolveTenantPrincipalContext`
+همان `session.studentId` را به‌عنوان `principalId` برمی‌گرداند. پس هر دو tenant
+دقیقاً همان ردیف‌های term-progress را می‌بینند.
+
+**چرا بی‌خطر نیست:** در `scoreAcademyMasterySeasonRecommendations` رابطه‌ی
+`eligible = completedTerms >= season.recommendedAfterTerm` برقرار است. یعنی
+پیشرفت دانشجو در tenant A می‌تواند Season‌ای را در tenant B **باز کند** که
+پروفایل خودِ tenant B شرطش را ندارد. این تجربی اثبات و در تست ثبت شده
+(assertion صریح روی رفتار فعلی، تا بی‌صدا تغییر نکند).
+
+**چرا اینجا رفع نشد:** بستن درست آن یعنی افزودن `tenant_id` به
+`academy_term_progress` و به‌روزرسانی **۹ خواننده** در دامنه‌های academy، mentor،
+گواهی‌ها و projection — یک برش مستقل، نه یک وصله‌ی جانبی. ضمناً این جدول را
+نمی‌توان در ثبت انزوا وارد کرد، چون گیت پوشش صراحتاً ستون `tenant_id` واقعی
+می‌خواهد؛ پس caveat روی `academy_student_mastery_profiles` ثبت شد.
+
+---
+
+### F-9 — چند پرس‌وجوی هم‌زمان روی یک client در ۹ نقطه 🟡 P3
+
+هنگام اجرای تست، `pg` این هشدار را داد:
 
 ```
-academy_student_mastery_profiles
-academy_mastery_weakness_signals
-academy_mastery_season_assignments
-academy_mastery_season_progress_events
-academy_mastery_season_generation_drafts
-academy_mastery_season_generation_reviews
+Calling client.query() when the client is already executing a query
+is deprecated and will be removed in pg@9.0
 ```
 
-هر شش جدول **از نظر ساختاری** درست‌اند (`tenant_id` + `workspace_id` در کلید
-اصلی/یکتایی) و یادداشت صادقانه‌ی خودشان می‌گوید «تست منفی بین‌مستأجری هنوز
-لازم است». این دقیقاً همان انضباطی است که باید حفظ شود: ادعای اثبات بدون تست.
+منشأ مشاهده‌شده `readAcademyMasterySeasonState` است که چهار خواندن را با
+`Promise.all` روی **یک** `PoolClient` اجرا می‌کند. همین الگو در ۹ نقطه تکرار
+شده: `command-center/summary`، `mentor-insights`، `academy-mastery-seasons`،
+`mentor-memory` (۲ نقطه)، `mentor-signals` (۲ نقطه)،
+`mentor-profile-recompute-authority` و خودِ authority.
+
+**اثر امروز:** هیچ — `pg@8` این فراخوانی‌ها را سریالی می‌کند، پس موازی‌سازی
+از ابتدا توهم بوده. **اثر فردا:** در `pg@9` این رفتار حذف می‌شود. چون الگو
+سیستمی است نه محلی، وصله‌ی یک نقطه بی‌معنی بود و به‌عنوان یک برش مستقل ثبت شد.
 
 ---
 
@@ -289,17 +340,20 @@ academy_mastery_season_generation_reviews
 
 ## ۸. نقشه‌ی راه پیشنهادی (به ترتیب اولویت)
 
-| # | کار | چرا | اندازه |
-|---|---|---|---|
-| ۱ | لاگ + متریک + پرچم `degraded` روی ۴ مسیر F-2 | قطعی بی‌صدا خطرناک‌ترین حالت است | کوچک |
-| ۲ | `safeJsonLd()` و اجبار همه‌ی ۲۵ نقطه | بستن XSS نهفته پیش از رشد | کوچک |
-| ۳ | pin کردن env در تست CSRF + محدود کردن fail-open به localhost | ادعای امنیتی نباید به محیط وابسته باشد | کوچک |
-| ۴ | ۶ تست خصمانه‌ی Mastery Seasons | رساندن ثبت انزوا به ۳۷/۳۷ | متوسط |
-| ۵ | tenant-aware کردن Admin/Command Center | باز کردن مسیر white-label (#20، #13) | بزرگ |
-| ۶ | هسته‌ی انگلیسی آکادمی یا تصریح دامنه‌ی دوزبانگی | صداقت محصول | بزرگ |
+| # | کار | چرا | اندازه | وضعیت |
+|---|---|---|---|---|
+| ۱ | لاگ + متریک + پرچم `degraded` روی ۴ مسیر F-2 | قطعی بی‌صدا خطرناک‌ترین حالت است | کوچک | ✅ PR #413 |
+| ۲ | `safeJsonLd()` و اجبار همه‌ی ۲۵ نقطه | بستن XSS نهفته پیش از رشد | کوچک | ✅ PR #413 |
+| ۳ | pin کردن env در تست CSRF + محدود کردن fail-open | ادعای امنیتی نباید به محیط وابسته باشد | کوچک | ✅ PR #413 |
+| ۴ | ۶ تست خصمانه‌ی Mastery Seasons | رساندن ثبت انزوا به ۳۷/۳۷ | متوسط | ✅ بسته شد |
+| ۵ | tenant-scoped کردن `academy_term_progress` (F-8) | نشت تأییدشده به eligibility؛ ۹ خواننده | متوسط | باز |
+| ۶ | حذف پرس‌وجوی هم‌زمان روی یک client (F-9) | آمادگی `pg@9`؛ ۹ نقطه | کوچک | باز |
+| ۷ | tenant-aware کردن Admin/Command Center (F-1) | باز کردن مسیر white-label (#20، #13) | بزرگ | باز |
+| ۸ | هسته‌ی انگلیسی آکادمی یا تصریح دامنه‌ی دوزبانگی (F-3) | صداقت محصول | بزرگ | باز |
 
-موارد ۱ تا ۳ روی هم کمتر از یک برش کاری‌اند و هر سه از جنس «سخت‌سازی بدون
-ریسک رگرسیون» هستند.
+موارد ۱ تا ۴ انجام شده‌اند. از باقیمانده، مورد ۶ کوچک‌ترین و کم‌ریسک‌ترین است و
+مورد ۵ بیشترین ارزش امنیتی را دارد، چون تنها نشت **تأییدشده‌ی** بین‌مستأجری است
+که هنوز باز مانده.
 
 ---
 
