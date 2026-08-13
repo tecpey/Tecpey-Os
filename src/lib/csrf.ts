@@ -25,16 +25,17 @@ export function verifyCsrfOrigin(req: NextRequest): boolean {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
   if (!siteUrl) {
-    // Fail-closed in production: a missing NEXT_PUBLIC_SITE_URL is a misconfiguration,
-    // not a reason to allow all cross-origin requests.
-    if (process.env.NODE_ENV === "production") {
-      logger.error(
-        "[csrf] NEXT_PUBLIC_SITE_URL is not set — blocking request as a safety measure. Set NEXT_PUBLIC_SITE_URL to the production URL.",
-      );
-      return false;
-    }
-    // In development with no site URL configured, allow to avoid blocking local dev.
-    return true;
+    // Fail closed whatever the environment. The previous behaviour returned
+    // true outside production so local development would not be blocked, but
+    // the localhost allowance above already covers that case: any request that
+    // reaches here carries a non-localhost Origin, and accepting an arbitrary
+    // external Origin is never what a developer needs. A staging or preview
+    // deployment running with NODE_ENV unset would otherwise have accepted
+    // cross-origin state-changing requests from anywhere.
+    logger.error(
+      "[csrf] NEXT_PUBLIC_SITE_URL is not set — blocking cross-origin request as a safety measure. Set NEXT_PUBLIC_SITE_URL to the deployment URL.",
+    );
+    return false;
   }
 
   try {
