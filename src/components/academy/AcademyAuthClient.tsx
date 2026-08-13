@@ -425,7 +425,7 @@ export function AcademyAuthClient({
           </div>
 
           <div className="mb-5">
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2">
               <SocialAuthButton
                 label="Google"
                 status={socialStatus}
