@@ -370,6 +370,65 @@ describe("Mastery Seasons cross-tenant isolation", () => {
           decisionNotes: "owning tenant rejects the draft with a sufficiently long note",
         });
 
+        // Tenant B submits and decides its OWN draft. Without this half the
+        // suite would pass even if both writers hard-coded the default tenant,
+        // because tenant A *is* the default tenant — every successful write
+        // above would look correct under a tenant-blind implementation.
+        const seasonIdB = `gen-season-b-${randomUUID().slice(0, 8)}`;
+        const submittedB = await submitAcademyMasteryGenerationDraft(client, {
+          scope: SCOPE_B,
+          locale: "fa",
+          draft: validGeneratedMasteryDraft({ id: seasonIdB }),
+        });
+        cleanupDraftIds.add(submittedB.draft.id);
+
+        const draftRowB = await client.query<{ tenant_id: string; workspace_id: string }>(
+          `SELECT tenant_id, workspace_id
+             FROM academy_mastery_season_generation_drafts
+            WHERE id = $1::uuid`,
+          [submittedB.draft.id],
+        );
+        assert.equal(draftRowB.rows[0]?.tenant_id, TENANT_B, "a tenant B draft must be written under tenant B");
+        assert.equal(draftRowB.rows[0]?.workspace_id, WORKSPACE_B);
+
+        // Tenant A cannot see or decide on tenant B's draft either — the
+        // refusal is symmetric, not just a default-tenant privilege.
+        const listedAAfterB = await listAcademyMasteryGenerationDrafts(client, { scope: SCOPE_A, status: "all" });
+        assert.equal(
+          listedAAfterB.some((draft) => draft.id === submittedB.draft.id),
+          false,
+          "tenant A must not list tenant B's draft",
+        );
+        await assert.rejects(
+          decideAcademyMasteryGenerationDraft(client, {
+            scope: SCOPE_A,
+            draftId: submittedB.draft.id,
+            decision: "reject",
+            reviewerId: "mentor-reviewer-a",
+            decisionNotes: "cross-tenant decision attempt from the default tenant must be refused",
+          }),
+          /draft_not_found/,
+          "the default tenant must not reach tenant B's draft",
+        );
+
+        await decideAcademyMasteryGenerationDraft(client, {
+          scope: SCOPE_B,
+          draftId: submittedB.draft.id,
+          decision: "reject",
+          reviewerId: "mentor-reviewer-b",
+          decisionNotes: "owning tenant B rejects its own draft with a sufficiently long note",
+        });
+
+        const reviewsB = await client.query<{ tenant_id: string; workspace_id: string }>(
+          `SELECT tenant_id, workspace_id
+             FROM academy_mastery_season_generation_reviews
+            WHERE draft_id = $1::uuid`,
+          [submittedB.draft.id],
+        );
+        assert.equal(reviewsB.rows.length, 1);
+        assert.equal(reviewsB.rows[0]?.tenant_id, TENANT_B, "a tenant B review must be written under tenant B");
+        assert.equal(reviewsB.rows[0]?.workspace_id, WORKSPACE_B);
+
         const reviews = await client.query<{ tenant_id: string; workspace_id: string }>(
           `SELECT tenant_id, workspace_id
              FROM academy_mastery_season_generation_reviews
