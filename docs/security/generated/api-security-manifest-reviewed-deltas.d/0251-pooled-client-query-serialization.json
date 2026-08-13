@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-lesson-progress",
+      "method": "PUT",
+      "previousSourceHash": "961853c30d7bd6a7c9639c69",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Concurrent-query removal (audit finding F-9): queries that shared one pooled client are now awaited in order. pg 8 serialized them anyway, so behaviour is identical; pg 9 removes the concurrent path. No control changed — only the source hash moves.",
+      "replacement": {
+        "route": "/api/academy-lesson-progress",
+        "method": "PUT",
+        "sourcePath": "src/app/api/academy-lesson-progress/route.ts",
+        "sourceHash": "b35f17fd7f30c26ce3cef19a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "deny-only",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "rateLimitNamespace": null,
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "academy-lesson-progress",
+        "testReferences": [],
+        "requirements": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-lesson-progress/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notifications/preferences",
+      "method": "PATCH",
+      "previousSourceHash": "440d4ebc5729be266c03d659",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Concurrent-query removal (audit finding F-9): queries that shared one pooled client are now awaited in order. pg 8 serialized them anyway, so behaviour is identical; pg 9 removes the concurrent path. No control changed — only the source hash moves.",
+      "replacement": {
+        "route": "/api/notifications/preferences",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/notifications/preferences/route.ts",
+        "sourceHash": "f2d136aa3cf53d7f75f3b2d9",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getNotificationIdentityFromRequest",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "notification-preferences-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": true,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "notifications",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notifications/preferences/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

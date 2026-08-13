@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-certificates",
+      "method": "POST",
+      "previousSourceHash": "8bb910df09d3267116fc1207",
+      "issue": "#412",
+      "owner": "academy-platform",
+      "reason": "Degraded-read observability: the GET half of this route file now records a metric and a warn-level log through recordDegradedRead() and returns degraded:true when its storage is unreachable, instead of presenting fallback content as a stored record. No mutating control changed — only the source hash and the test references move.",
+      "replacement": {
+        "route": "/api/academy-certificates",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-certificates/route.ts",
+        "sourceHash": "e194961791b361daad91ded7",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-certificates-issue",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-certificates",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-certificates/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "previousSourceHash": "41b4a9ea87819e58c492a0d9",
+      "issue": "#412",
+      "owner": "academy-platform",
+      "reason": "Degraded-read observability: the GET half of this route file now records a metric and a warn-level log through recordDegradedRead() and returns degraded:true when its storage is unreachable, instead of presenting fallback content as a stored record. No mutating control changed — only the source hash and the test references move.",
+      "replacement": {
+        "route": "/api/mentor-challenge",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "sourceHash": "0d0389110370e5dce9df712f",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-challenge-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-challenge",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-challenge/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notification-brain",
+      "method": "POST",
+      "previousSourceHash": "f9ef598c64f3912b37669e6d",
+      "issue": "#412",
+      "owner": "academy-platform",
+      "reason": "Degraded-read observability: the GET half of this route file now records a metric and a warn-level log through recordDegradedRead() and returns degraded:true when its storage is unreachable, instead of presenting fallback content as a stored record. No mutating control changed — only the source hash and the test references move.",
+      "replacement": {
+        "route": "/api/notification-brain",
+        "method": "POST",
+        "sourcePath": "src/app/api/notification-brain/route.ts",
+        "sourceHash": "6ee4db244f5baff2be7e42b8",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "notification-brain-generate",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "notification-brain",
+        "testReferences": [
+          "src/tests/security/notification-brain-tenant-route.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notification-brain/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

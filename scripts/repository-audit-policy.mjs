@@ -72,7 +72,7 @@ const DOMAIN_RULES = [
     patterns: [
       /(?:^|\/)(?:auth|session|csrf|webauthn|passkey|two-factor|2fa|admin|rbac|abac|tenant|principal|security|risk|audit)(?:[./_-]|$)/i,
       /^src\/lib\/compliance\//,
-      /^src\/lib\/(?:api-error|api-validation|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
+      /^src\/lib\/(?:api-error|api-validation|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
       /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
@@ -151,7 +151,7 @@ const DOMAIN_RULES = [
       /^ecosystem\.config\./,
       /(?:^|\/)(?:operations|deployment|runtime|bootstrap|readiness|health|recovery|backup|restore|observability)(?:[./_-]|$)/i,
       /^src\/lib\/ops\//,
-      /^src\/lib\/(?:alerts|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
+      /^src\/lib\/(?:alerts|degraded-read|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
       /^src\/lib\/news-materialization-worker\.ts$/,
       /^src\/lib\/ws\//,
       /^server\.ts$/,
@@ -259,7 +259,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 13,
+  version: 14,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

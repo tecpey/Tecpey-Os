@@ -78,23 +78,36 @@ export async function assertCertificateSchema(client: SchemaQueryable) {
   await assertRequiredDatabaseTables(client, ["academy_certificates"], "academy_certificates");
 }
 
-export async function issueCertificate(client: SchemaQueryable, input: { studentId: string; termNumber: number }) {
+export async function issueCertificate(
+  client: SchemaQueryable,
+  input: { studentId: string; termNumber: number; tenantId: string; workspaceId: string },
+) {
   getCertificateSigningSecret();
   const termNumber = Math.max(1, Math.min(7, Math.round(Number(input.termNumber) || 1)));
+  // Certificate issuance is a gate on verified term progress, so it must read
+  // the progress recorded in the issuing tenant rather than the student's
+  // global history.
   const progress = await client.query(
     `SELECT p.percent, s.display_name
      FROM academy_term_progress p
      JOIN academy_students s ON s.id = p.student_id
-     WHERE p.student_id = $1::uuid AND p.term_number = $2 AND p.status = 'passed'
+     WHERE p.tenant_id = $1 AND p.workspace_id = $2
+       AND p.student_id = $3::uuid AND p.term_number = $4 AND p.status = 'passed'
      LIMIT 1`,
-    [input.studentId, termNumber],
+    [input.tenantId, input.workspaceId, input.studentId, termNumber],
   );
   const verifiedProgress = progress.rows[0];
   if (!verifiedProgress) throw new Error("term_not_verified");
   const courseTitle = certificateCourses[termNumber - 1] || certificateCourses[0];
+  // Scoped to the issuing tenant (migration 0070). Tenant-blind, this returned
+  // another tenant's certificate — id, student name and course title included —
+  // and the issuing tenant then never created one of its own.
   const existing = await client.query(
-    `SELECT * FROM academy_certificates WHERE student_id = $1::uuid AND term_number = $2 AND status = 'verified' LIMIT 1`,
-    [input.studentId, termNumber],
+    `SELECT * FROM academy_certificates
+      WHERE tenant_id = $1 AND workspace_id = $2
+        AND student_id = $3::uuid AND term_number = $4 AND status = 'verified'
+      LIMIT 1`,
+    [input.tenantId, input.workspaceId, input.studentId, termNumber],
   );
   const existingCertificate = certificateRow(existing.rows[0]);
   if (existingCertificate) return existingCertificate;
@@ -104,16 +117,44 @@ export async function issueCertificate(client: SchemaQueryable, input: { student
   const studentName = String(verifiedProgress.display_name || "TecPey Academy Student").slice(0, 160);
   const score = Math.max(0, Math.min(100, Math.round(Number(verifiedProgress.percent) || 0)));
   const hash = certificateHash({ certificateId, studentId: input.studentId, courseTitle, issuedAt });
+  // academy_certificates_tenant_active_term_idx forbids a second verified
+  // certificate for the same tenant, student and term. The check above races
+  // with a concurrent request, so treat the conflict as a replay of whichever
+  // request won rather than surfacing a unique violation.
   const row = await client.query(
     `INSERT INTO academy_certificates
-      (id, student_id, public_student_id, student_name, course_title, term_number, score, level_title, verification_hash, issued_at)
-     VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz)
+      (id, tenant_id, workspace_id, student_id, public_student_id, student_name, course_title, term_number, score, level_title, verification_hash, issued_at)
+     VALUES ($1, $2, $3, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12::timestamptz)
+     ON CONFLICT DO NOTHING
      RETURNING *`,
-    [certificateId, input.studentId, publicStudentId, studentName, courseTitle, termNumber, score, `Term ${termNumber} Verified`, hash, issuedAt],
+    [
+      certificateId,
+      input.tenantId,
+      input.workspaceId,
+      input.studentId,
+      publicStudentId,
+      studentName,
+      courseTitle,
+      termNumber,
+      score,
+      `Term ${termNumber} Verified`,
+      hash,
+      issuedAt,
+    ],
   );
   const inserted = certificateRow(row.rows[0]);
-  if (!inserted) throw new Error("certificate_insert_failed");
-  return inserted;
+  if (inserted) return inserted;
+
+  const winner = await client.query(
+    `SELECT * FROM academy_certificates
+      WHERE tenant_id = $1 AND workspace_id = $2
+        AND student_id = $3::uuid AND term_number = $4 AND status = 'verified'
+      LIMIT 1`,
+    [input.tenantId, input.workspaceId, input.studentId, termNumber],
+  );
+  const raced = certificateRow(winner.rows[0]);
+  if (!raced) throw new Error("certificate_insert_failed");
+  return raced;
 }
 
 export async function getCertificate(client: SchemaQueryable, certificateId: string) {

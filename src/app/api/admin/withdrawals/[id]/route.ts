@@ -64,7 +64,10 @@ export async function GET(
     const authorization = await authorizeAdminRequest(req, "withdrawals.read");
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const read = await readWithdrawal(id);
+    // Scoped to the operator's tenant (migration 0069): the review queue only
+    // lists this tenant's withdrawals, so opening one must resolve under the
+    // same boundary rather than falling back to the default tenant.
+    const read = await readWithdrawal(id, undefined, authorization.principal.tenantId);
     if (!read.ok) return apiError(read.reason, 503);
     if (!read.withdrawal) return apiError("withdrawal_not_found", 404);
 
@@ -135,6 +138,7 @@ export async function POST(
     });
     const result = await adminActOnAuthoritativeWithdrawal({
       withdrawalId: id,
+      tenantId: authorization.principal.tenantId,
       adminId: authorization.principal.adminId,
       action,
       notes,

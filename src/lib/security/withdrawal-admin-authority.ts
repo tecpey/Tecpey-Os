@@ -1,6 +1,6 @@
 import { withTx } from "@/lib/db";
-import { logger } from "@/lib/logger";
 import { PLATFORM } from "@/lib/platform-config";
+import { logger } from "@/lib/logger";
 import { isCustodyCapabilityEnabled } from "@/lib/wallet/custody-launch-policy";
 import {
   claimApiCommandTx,
@@ -156,6 +156,12 @@ async function releaseReservedFundsTx(
 
 export async function adminActOnAuthoritativeWithdrawal(input: {
   withdrawalId: string;
+  /**
+   * Tenant the acting operator is bound to (migration 0069). The withdrawal is
+   * both selected and updated under this tenant, so an operator cannot reach
+   * another tenant's row by id.
+   */
+  tenantId: string;
   adminId: string;
   action: AuthoritativeAdminWithdrawalAction;
   notes?: string;
@@ -179,6 +185,14 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
     flag_review: "compliance_review",
   };
   const requestedState = stateMap[input.action];
+  // Deliberately the default tenant, not input.tenantId. The database trigger
+  // tecpey_append_withdrawal_admin_evidence resolves this receipt with a
+  // hard-coded tenant and then writes the custody evidence row under the same
+  // one, so moving the receipt alone would leave a non-default-tenant operator
+  // unable to complete any action at all. principalId is the admin's UUID, which
+  // is globally unique, so two operators in different tenants cannot collide
+  // here — this is a labelling inconsistency, not a boundary. Migrating the
+  // whole admin custody-evidence chain to be tenant-aware is its own slice.
   const receiptScope: ApiCommandScope = {
     tenantId: PLATFORM.DEFAULT_TENANT_ID,
     principalType: "admin",
@@ -216,8 +230,9 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
                 funds_reserved_at, compliance_evidence
            FROM withdrawals
           WHERE id = $1
+            AND tenant_id = $2
           FOR UPDATE`,
-        [input.withdrawalId],
+        [input.withdrawalId, input.tenantId],
       );
       const row = current.rows[0];
       if (!row) throw new AdminWithdrawalError("withdrawal_not_found", 404);
@@ -272,8 +287,15 @@ export async function adminActOnAuthoritativeWithdrawal(input: {
                 reviewed_at = NOW(),
                 review_notes = $3,
                 updated_at = NOW()
-          WHERE id = $4`,
-        [requestedState, input.adminId, input.notes ?? null, input.withdrawalId],
+          WHERE id = $4
+            AND tenant_id = $5`,
+        [
+          requestedState,
+          input.adminId,
+          input.notes ?? null,
+          input.withdrawalId,
+          input.tenantId,
+        ],
       );
 
       await client.query(

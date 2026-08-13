@@ -61,27 +61,25 @@ export async function collectBehavioralInputs(
   locale: "fa" | "en",
 ): Promise<BehavioralInputs | null> {
   const result = await withDb(async (client) => {
-    const [stateResult, tradesResult] = await Promise.all([
-      client.query<{
-        progress: unknown;
-        flashcards: unknown;
-        reflections: unknown;
-      }>(
-        `SELECT progress, flashcards, reflections
-         FROM academy_state_documents
-         WHERE student_id = $1::uuid AND locale = $2
-         LIMIT 1`,
-        [studentId, locale],
-      ),
-      client.query<ArenaTradeRow>(
-        `SELECT risk_percent, risk_flag, entry_reason, emotion, risk_plan
-         FROM academy_trading_arena_trades
-         WHERE student_id = $1::uuid
-         ORDER BY created_at DESC
-         LIMIT 200`,
-        [studentId],
-      ),
-    ]);
+    const stateResult = await client.query<{
+      progress: unknown;
+      flashcards: unknown;
+      reflections: unknown;
+    }>(
+      `SELECT progress, flashcards, reflections
+       FROM academy_state_documents
+       WHERE student_id = $1::uuid AND locale = $2
+       LIMIT 1`,
+      [studentId, locale],
+    );
+    const tradesResult = await client.query<ArenaTradeRow>(
+      `SELECT risk_percent, risk_flag, entry_reason, emotion, risk_plan
+       FROM academy_trading_arena_trades
+       WHERE student_id = $1::uuid
+       ORDER BY created_at DESC
+       LIMIT 200`,
+      [studentId],
+    );
 
     const stateRow = stateResult.rows[0];
     const progress = normalizeAcademyProgressState(stateRow?.progress);

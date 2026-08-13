@@ -50,6 +50,7 @@ const directStrictFiles = [
   "src/app/api/notifications/consent/route.ts",
   "src/app/api/notifications/preferences/route.ts",
   "src/app/api/notifications/read/route.ts",
+  "src/app/api/notifications/route.ts",
   "src/app/api/offline-sync/route.ts",
   "src/app/api/orders/[id]/route.ts",
   "src/app/api/orders/route.ts",

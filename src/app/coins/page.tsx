@@ -6,6 +6,7 @@ import { coinPages } from "@/data/coins";
 import { ContentHero, ContentShell, TrustStrip } from "@/components/content/ContentUI";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const metadata: Metadata = {
   title: "خرید و راهنمای رمزارزها | تک‌پی",
@@ -49,7 +50,7 @@ export default function CoinsPage() {
   return (
     <ContentShell>
       <ArticleSchema headline="راهنمای رمزارزهای تک‌پی" description="صفحات آموزشی رمزارزها برای بررسی کاربرد، ریسک، شبکه انتقال و نکات مهم قبل از خرید." url="https://tecpey.ir/coins" language="fa-IR" />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
       <ContentHero
         eyebrow="راهنمای رمزارزها"
         title="خرید بیت‌کوین، تتر، تون‌کوین و ده‌ها ارز دیجیتال دیگر"

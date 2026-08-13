@@ -5,6 +5,7 @@ import Link from "next/link";
 import { comparePages } from "@/data/academy";
 import { ContentShell, FaqList, SeoNote } from "@/components/content/ContentUI";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -45,7 +46,7 @@ export default async function ComparePage({ params }: Props) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema) }} />
       <section className="px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div>

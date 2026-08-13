@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       const result = await withDb((client) => recordLearningEvent(client, {
         studentId: tenantContext.principalId,
         tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
         eventType,
         source: cleanText(body.source || "web", 40),
         locale: cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa",

@@ -145,14 +145,21 @@ export function buildAcademyMasterySeasonState(input: {
   };
 }
 
-async function readCompletedTerms(client: Queryable, studentId: string, locale: AcademyMasteryLocale): Promise<number> {
+async function readCompletedTerms(
+  client: Queryable,
+  scope: AcademyMasteryTenantScope,
+  studentId: string,
+  locale: AcademyMasteryLocale,
+): Promise<number> {
   const result = await client.query<{ completed_terms: number }>(
     `SELECT COALESCE(MAX(term_number), 0)::int AS completed_terms
        FROM academy_term_progress
-      WHERE student_id = $1::uuid
-        AND locale = $2
+      WHERE tenant_id = $1
+        AND workspace_id = $2
+        AND student_id = $3::uuid
+        AND locale = $4
         AND status = 'passed'`,
-    [studentId, locale],
+    [scope.tenantId, scope.workspaceId, studentId, locale],
   );
   return Number(result.rows[0]?.completed_terms || 0);
 }
@@ -241,12 +248,12 @@ export async function readAcademyMasterySeasonState(
   studentId: string,
   locale: AcademyMasteryLocale,
 ): Promise<AcademyMasterySeasonState> {
-  const [completedTermsFromTerms, profile, signalTags, assignments] = await Promise.all([
-    readCompletedTerms(client, studentId, locale),
-    readProfile(client, scope, studentId, locale),
-    readWeaknessSignalTags(client, scope, studentId, locale),
-    readAssignments(client, scope, studentId, locale),
-  ]);
+  // All four reads share one pooled client, which pg serializes; issuing them
+  // through Promise.all only produced a pg@9 concurrent-query deprecation.
+  const completedTermsFromTerms = await readCompletedTerms(client, scope, studentId, locale);
+  const profile = await readProfile(client, scope, studentId, locale);
+  const signalTags = await readWeaknessSignalTags(client, scope, studentId, locale);
+  const assignments = await readAssignments(client, scope, studentId, locale);
   const completedTerms = Math.max(
     completedTermsFromTerms,
     Number(profile?.completed_terms || 0),

@@ -97,25 +97,23 @@ export async function GET(req: NextRequest) {
       const termFilter = requestedTermSlug ? "AND term_slug = $3" : "";
       if (requestedTermSlug) values.push(requestedTermSlug);
 
-      const [recordsResult, summariesResult] = await Promise.all([
-        client.query<LessonRow>(
-          `SELECT locale, term_number, term_slug, section_key, section_heading,
-                  completed, answer, first_answer, answer_attempts,
-                  completed_at, answered_at, updated_at
-             FROM academy_lesson_progress
-            WHERE student_id = $1::uuid AND locale = $2 ${termFilter}
-            ORDER BY term_number ASC, section_key ASC`,
-          values,
-        ),
-        client.query<SummaryRow>(
-          `SELECT locale, term_number, term_slug, total_sections,
-                  completed_sections, answered_sections, percent, xp, updated_at
-             FROM academy_term_learning_progress
-            WHERE student_id = $1::uuid AND locale = $2 ${termFilter}
-            ORDER BY term_number ASC`,
-          values,
-        ),
-      ]);
+      const recordsResult = await client.query<LessonRow>(
+        `SELECT locale, term_number, term_slug, section_key, section_heading,
+                completed, answer, first_answer, answer_attempts,
+                completed_at, answered_at, updated_at
+           FROM academy_lesson_progress
+          WHERE student_id = $1::uuid AND locale = $2 ${termFilter}
+          ORDER BY term_number ASC, section_key ASC`,
+        values,
+      );
+      const summariesResult = await client.query<SummaryRow>(
+        `SELECT locale, term_number, term_slug, total_sections,
+                completed_sections, answered_sections, percent, xp, updated_at
+           FROM academy_term_learning_progress
+          WHERE student_id = $1::uuid AND locale = $2 ${termFilter}
+          ORDER BY term_number ASC`,
+        values,
+      );
 
       return {
         records: recordsResult.rows.map(toLessonRecord),

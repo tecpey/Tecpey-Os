@@ -11,6 +11,9 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { recordDegradedRead } from "@/lib/degraded-read";
+
+const ROUTE = "/api/mentor-challenge";
 
 type QuestionRow = {
   id: string;
@@ -47,7 +50,7 @@ function fallbackQuestion(locale: string, termNumber: number, lessonSlug: string
 }
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
   const limit = await rateLimit(req, { namespace: "mentor-challenge-read", limit: 80, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
   const session = await getStudentSessionFromRequest(req);
@@ -81,16 +84,20 @@ export async function GET(req: NextRequest) {
       if (question) await client.query(`UPDATE academy_question_bank SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1`, [question.id]);
       return question ? publicQuestion(question) : fallbackQuestion(locale, termNumber, lessonSlug);
     });
-    if (!result.enabled) return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
-    return apiOk({ question: result.value });
-  } catch {
-    return apiOk({ question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    if (!result.enabled) {
+      recordDegradedRead(ROUTE, "storage_unavailable");
+      return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
+    }
+    return apiOk({ degraded: false, question: result.value });
+  } catch (error) {
+    recordDegradedRead(ROUTE, "read_failed", error);
+    return apiOk({ degraded: true, question: fallbackQuestion(locale, termNumber, lessonSlug) });
   }
   }); // end withObservability
 }
 
 export async function POST(req: NextRequest) {
-  return withObservability(req, { route: "/api/mentor-challenge" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
   if (!verifyCsrfOrigin(req))
     return apiError("forbidden", 403);
   const limit = await rateLimit(req, { namespace: "mentor-challenge-submit", limit: 80, windowMs: 60_000 });
@@ -138,11 +145,13 @@ export async function POST(req: NextRequest) {
         [studentId, questionId, row.term_number, row.lesson_slug, cleanText(body.locale || "fa", 10) === "en" ? "en" : "fa", selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, confidence],
       );
       if (isCorrect) await client.query(`UPDATE academy_question_bank SET success_count = success_count + 1 WHERE id = $1`, [questionId]);
-      await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
-      if (attemptNumber === 1) await maybeAwardAchievement(client, studentId, "first-quiz", { questionId }, tenantContext.tenantId);
-      if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, tenantContext.tenantId);
+      await recordLearningEvent(client, { studentId, tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId, eventType: "mentor_challenge_answered", payload: { questionId, selectedOption, isCorrect, attemptNumber, firstAnswer, responseTimeMs, topic: row.topic, difficulty: row.difficulty, ip: getClientIp(req) } });
+      if (attemptNumber === 1) await maybeAwardAchievement(client, studentId, "first-quiz", { questionId }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
+      if (row.topic === "risk-management" && isCorrect) await maybeAwardAchievement(client, studentId, "risk-master", { questionId }, { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId });
       await createSmartNotification(client, {
         studentId,
+        scope: { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId },
         type: isCorrect ? "achievement" : "mentor",
         title: isCorrect ? "چالش منتور ثبت شد" : "منتور یک تمرین بهتر پیشنهاد می‌کند",
         body: isCorrect ? "پاسخ تو در پروفایل یادگیری ثبت شد." : "پاسخ اشتباه هم ارزشمند است؛ منتور از همین رفتار برای تحلیل مسیر یادگیری استفاده می‌کند.",

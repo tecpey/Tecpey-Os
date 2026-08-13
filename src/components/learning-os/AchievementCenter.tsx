@@ -20,6 +20,10 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
   const isFa = locale === "fa";
   const [items, setItems] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+  // The API answers 200 with placeholder badges when its storage is unreachable.
+  // Without this flag the page would present that placeholder set as the
+  // student's real record.
+  const [degraded, setDegraded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -28,8 +32,9 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
       .then((data) => {
         if (!active) return;
         setItems(Array.isArray(data?.achievements) ? data.achievements : []);
+        setDegraded(data?.degraded === true);
       })
-      .catch(() => undefined)
+      .catch(() => active && setDegraded(true))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [locale]);
@@ -56,6 +61,14 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
             </div>
           </div>
         </div>
+
+        {degraded && !loading && (
+          <p role="status" className="rounded-[30px] border border-amber-300/30 bg-amber-400/10 p-5 text-sm font-black leading-7 text-amber-100">
+            {isFa
+              ? "ثبت دستاوردها موقتاً در دسترس نیست. آنچه می‌بینی نمونه‌ی نمایشی است، نه سابقه‌ی واقعی تو — به‌محض بازگشت سرویس، رکورد واقعی نمایش داده می‌شود."
+              : "The achievement record is temporarily unavailable. What you see is a placeholder set, not your real history — your actual record returns once the service recovers."}
+          </p>
+        )}
 
         {next && (
           <section className="rounded-[34px] border border-emerald-300/20 bg-emerald-400/10 p-5">

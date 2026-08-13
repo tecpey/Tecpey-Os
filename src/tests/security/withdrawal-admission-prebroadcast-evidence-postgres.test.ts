@@ -5,6 +5,7 @@ import { Redis } from "ioredis";
 import { NextRequest } from "next/server";
 import { POST as authorizeWithdrawal } from "../../app/api/auth/withdraw/authorize/route";
 import { withDb, withTx } from "../../lib/db";
+import { PLATFORM } from "../../lib/platform-config";
 import type {
   AMLProvider,
   KYCProvider,
@@ -38,6 +39,11 @@ import {
   cleanupBoundSessions,
   issueBoundSession,
 } from "./session-authority-test-fixtures";
+import { pinCsrfSiteOrigin } from "./csrf-origin-fixture";
+
+// Pin the CSRF site origin so these route assertions do not depend on the
+// ambient environment of whoever runs them.
+pinCsrfSiteOrigin();
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const redisUrl = process.env.REDIS_URL?.trim();
@@ -682,6 +688,7 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       try {
         const result = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
           adminId,
           action: "reject",
           notes,

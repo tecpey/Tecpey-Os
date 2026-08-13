@@ -175,18 +175,26 @@ export function fallbackNotificationBrain(locale: "fa" | "en" = "fa"): Notificat
 export async function createBrainNotification(
   client: Queryable,
   studentId: string,
-  locale: "fa" | "en" = "fa",
-  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+  locale: "fa" | "en",
+  scope: { tenantId: string; workspaceId: string },
 ) {
+  const { tenantId, workspaceId } = scope;
   const snapshot = await buildNotificationBrain(client, studentId, locale, tenantId);
   const fingerprint = createHash("sha256").update([tenantId, studentId, snapshot.nextHookType, snapshot.nextActionUrl, new Date().toISOString().slice(0, 10)].join("|")).digest("hex").slice(0, 12);
+  // The fingerprint already hashes the tenant, so this lookup was tenant-scoped
+  // by accident. Now that the row carries the boundary, say so in the predicate:
+  // an implicit boundary is one refactor away from not being one (migration 0071).
   const existing = await client.query(
-    `SELECT 1 FROM notification_center WHERE student_id = $1::uuid AND metadata->>'fingerprint' = $2 LIMIT 1`,
-    [studentId, fingerprint],
+    `SELECT 1 FROM notification_center
+      WHERE tenant_id = $3 AND workspace_id = $4
+        AND student_id = $1::uuid AND metadata->>'fingerprint' = $2
+      LIMIT 1`,
+    [studentId, fingerprint, tenantId, workspaceId],
   );
   if (!existing.rows[0]) {
     await createSmartNotification(client, {
       studentId,
+      scope,
       type: snapshot.nextHookType,
       title: snapshot.messageTitle,
       body: snapshot.messageBody,
@@ -195,7 +203,7 @@ export async function createBrainNotification(
       channels: [snapshot.bestChannel, "in_app"],
       metadata: { fingerprint, brain: snapshot },
     });
-    await recordLearningEvent(client, { studentId, tenantId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
+    await recordLearningEvent(client, { studentId, tenantId, workspaceId, eventType: "notification_opened", payload: { generated: true, fingerprint } });
   }
   return snapshot;
 }
@@ -205,12 +213,14 @@ export async function awardMilestonesAfterCertificate(
   studentId: string,
   termNumber: number,
   certificateId: string,
-  tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
+  scope: { tenantId: string; workspaceId: string },
 ) {
-  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId }, tenantId);
-  await recordLearningEvent(client, { studentId, tenantId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
+  const { tenantId, workspaceId } = scope;
+  await maybeAwardAchievement(client, studentId, "first-certificate", { termNumber, certificateId }, scope);
+  await recordLearningEvent(client, { studentId, tenantId, workspaceId, eventType: "certificate_issued", payload: { termNumber, certificateId } });
   await createSmartNotification(client, {
     studentId,
+    scope,
     type: "achievement",
     title: "مدرک رسمی تو آماده است",
     body: "گواهی قابل استعلام آکادمی تک‌پی در پرونده آموزشی تو ثبت شد.",

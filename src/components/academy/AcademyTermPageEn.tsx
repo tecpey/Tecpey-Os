@@ -7,6 +7,7 @@ import { TermQuizClient } from "@/components/academy/TermQuizClient";
 import { TermAccessGuard } from "@/components/academy/TermAccessGuard";
 import { AcademyLessonCompletionControl } from "@/components/academy/AcademyLessonCompletionControl";
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardCheck, Lightbulb, ListChecks, ShieldCheck, Target, TriangleAlert } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 
 function publicQuizQuestions(questions: { q: string; options: string[]; answer?: string }[]) {
@@ -51,7 +52,7 @@ export function AcademyTermPageEn({ slug }: { slug: string }) {
 
   return (
     <EnglishShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(courseSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(courseSchema) }} />
       <main className="px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <Link href="/en/academy" className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-black text-cyan-700 transition hover:bg-cyan-100">

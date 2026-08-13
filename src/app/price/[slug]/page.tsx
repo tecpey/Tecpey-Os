@@ -6,6 +6,7 @@ import { coinPages } from "@/data/coins";
 import { ContentShell, FaqList } from "@/components/content/ContentUI";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import { ArrowLeft, BarChart3, BookOpen, ShieldAlert, TrendingUp } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -75,7 +76,7 @@ export default async function PriceSeoPage({ params }: Props) {
 
   return (
     <ContentShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([breadcrumbSchema, faqSchema, datasetSchema]) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd([breadcrumbSchema, faqSchema, datasetSchema]) }} />
       <main className="px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <Link href="/markets" className="inline-flex items-center gap-2 text-sm font-black text-cyan-600 dark:text-cyan-300"><ArrowLeft className="h-4 w-4 rotate-180" /> بازگشت به مارکت‌برد آنلاین</Link>

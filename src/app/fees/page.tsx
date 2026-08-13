@@ -14,6 +14,7 @@ import {
   WalletCards,
   Zap,
 } from "lucide-react";
+import { safeJsonLd } from "@/lib/json-ld";
 
 export const metadata: Metadata = {
   title: "کارمزدها و کمیسیون تک‌پی | شفاف، قابل فهم و بدون هزینه پنهان",
@@ -150,7 +151,7 @@ const feeSchema = {
 export default function FeesPage() {
   return (
     <main className="min-h-screen bg-bg pt-28 text-fg">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(feeSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(feeSchema) }} />
 
       <section className="relative overflow-hidden px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pb-20">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.22),transparent_34%),radial-gradient(circle_at_15%_25%,rgba(37,99,235,.13),transparent_30%)]" />

@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5126a0c259620452309f84e7f50a2e8e7ee25d76",
-      "sha256": "601439ab9b35b2a6e9a36cd4ed20a48c149102afd2a461993e6b1e7e6b550a0e",
+      "gitObjectId": "e9a99594cb14776e3604fd04b3791aab855d50fa",
+      "sha256": "db34d997382c23f1f707ca2c23f12f8fe7c18bcf313faf16d4f939dcc9c24da2",
       "lines": 219,
       "reviewedRanges": [
         {
@@ -85,7 +85,11 @@
         "2026-08-12: re-reviewed after adding ops:recovery:protected-evidence:verify and wiring protected-recovery-reconciliation-evidence.test.mjs into test:ops-recovery-authority. The new verifier is a local JSON evidence validator for future protected staging NOG-05 artifacts; it adds no dependency, engine, override, network access, runtime mutation path or activation surface, and enforces counts/hashes-only recovery reconciliation across all launch domains.",
         "2026-08-12: re-reviewed after adding ops:incident-readiness:evidence:verify, launch:incident-readiness-evidence:check and test:incident-readiness-evidence, then composing the NOG-07 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future protected staging incident readiness artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-07 open until protected alert probes, queue state, acknowledgement and runbook evidence pass the verifier.",
         "2026-08-12: re-reviewed after adding ops:go-approval-matrix:evidence:verify, launch:go-approval-matrix-evidence:check and test:go-approval-matrix-evidence, then composing the NOG-09 guard into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future final Go approval matrix artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-09 open until exact-candidate role approvals, prerequisite evidence digests and independent review pass the verifier.",
-        "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier."
+        "2026-08-12: re-reviewed after adding ops:accepted-risk:evidence:verify and test:accepted-risk-signoff-evidence, then composing the NOG-08 verifier tests into launch:decision:check. The new commands are local JSON/static validators and node:test coverage for future accepted-risk owner sign-off artifacts; they add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and keep NOG-08 open until exact-candidate risk-owner sign-offs, risk-register digest, review-date freshness and independent review pass the verifier.",
+        "2026-08-13: re-reviewed after extending the test:academy-progress script to also glob src/tests/security/academy-mastery-seasons*.test.ts (issue #109 — the Mastery Seasons cross-tenant isolation proof that closes the registry at 37/37). Test-wiring only: the script gains one additional Postgres integration-test path alongside the existing academy-progress and learning-events globs. No dependency, engine, override, release-authority command, network access or runtime mutation path changed, and the file stays 219 lines.",
+        "2026-08-13: re-reviewed after test:withdrawal-read-authority additionally executes src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts, the cross-tenant proof for the admin control plane's new tenant binding (audit finding F-1). The change adds one governed test file to an existing command; no dependency pin, engine constraint, override or release-path command was altered.",
+        "2026-08-13: re-reviewed after test:academy-progress additionally executes src/tests/security/learning-os-write-contract-postgres.test.ts and src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts, and gains NODE_PATH=src/tests/stubs so the write-contract suite can resolve the server-only stub. The change adds two governed test files and one test-only module path to an existing command; no dependency pin, engine constraint, override or release-path command was altered.",
+        "2026-08-13: re-reviewed after test:academy-progress additionally executes src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts, the cross-tenant proof for notification_center (migration 0071). One governed test file added to an existing command; no dependency pin, engine constraint, override or release-path command was altered."
       ],
       "findings": [
         {
@@ -240,8 +244,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "63a082569dac5721e1bce8e6b40c62fa8ee1547c",
-      "sha256": "fd9e7f5b9b5a9c3b89a9f34194b9bb12ae86304d5c07a0cfadddd699ee231c78",
+      "gitObjectId": "84c3dc581a854d1e0f1e83f8c024dc729fd4b644",
+      "sha256": "f0cbf09465168bb8687fb4d7da71f6e44390bc4544806e0f69044b74996291a9",
       "lines": 281,
       "reviewedRanges": [
         {
@@ -256,7 +260,8 @@
         "Re-reviewed in full while restacking Batch 1B onto main 23cac29 (PR #282): the file now declares both batch-01a and batch-01b evidence paths at version 10 and retains the secret-scanning-baseline authentication-admin-security routing line merged from main; the change is limited to one evidence-path entry, the version constant and that routing line, classification tests cover all three, and no new findings resulted.",
         "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications.",
         "2026-08-12: re-reviewed after Policy v12 added explicit product-ui routing for src/lib/news-intelligence-graph.ts. The change is limited to one content intelligence module classification and the policy version constant; source-path fail-closed behavior remains intact, no runtime activation surface is added, and the new module is covered by focused content authority tests.",
-        "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states."
+        "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states.",
+        "2026-08-13: re-reviewed after Policy v14 added explicit routing for the two libraries introduced by the 2026-08-12 audit hardening. src/lib/degraded-read.ts joins operations-runtime Batch 11 alongside logger, metrics and observe because it is part of the observability signal path. src/lib/json-ld.ts joins authentication-admin-security Batch 3 alongside api-validation rather than product-ui: it renders as SEO markup, but it is the output encoder standing between schema data and dangerouslySetInnerHTML, so a regression in it is a stored-XSS vector and P1 is the truthful tier. The change is limited to two classification entries and the policy version constant; the source-path fail-closed invariant is untouched, no ordering between existing rules changed, and both new classifications are asserted in scripts/repository-audit-manifest.test.mjs."
       ],
       "findings": []
     },

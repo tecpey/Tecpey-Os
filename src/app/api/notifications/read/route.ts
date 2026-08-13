@@ -39,8 +39,9 @@ export async function POST(req: NextRequest) {
       const id = cleanText(body.id, 80);
       if (!id) return apiError("invalid_notification", 400);
       await withDb(async (client) => {
-        await client.query(`UPDATE notification_center SET read_at = COALESCE(read_at, NOW()) WHERE id = $1::uuid AND (student_id = $2::uuid OR student_id IS NULL)`, [id, tenantContext.principalId]);
-        await recordLearningEvent(client, { studentId: tenantContext.principalId, tenantId: tenantContext.tenantId, eventType: "notification_opened", payload: { id } });
+        await client.query(`UPDATE notification_center SET read_at = COALESCE(read_at, NOW()) WHERE id = $1::uuid AND tenant_id = $3 AND (student_id = $2::uuid OR student_id IS NULL)`, [id, tenantContext.principalId, tenantContext.tenantId]);
+        await recordLearningEvent(client, { studentId: tenantContext.principalId, tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId, eventType: "notification_opened", payload: { id } });
         return true;
       });
       return apiOk({});

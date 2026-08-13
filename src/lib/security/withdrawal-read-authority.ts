@@ -235,15 +235,20 @@ export async function listUserWithdrawalsStrict(
 export async function listPendingReviewWithdrawalsStrict(
   limit: number,
   offset: number,
+  tenantId: string,
 ): Promise<WithdrawalListResult> {
+  // withdrawals carries tenant_id (migration 0061), so the admin review queue
+  // is scoped to the operator's tenant rather than the whole platform
+  // (audit finding F-1).
   const result = await withWithdrawalStorage(async (client) => {
     const selected = await client.query<WithdrawalRow>(
       `SELECT ${WITHDRAWAL_PROJECTION_COLUMNS}
          FROM withdrawals
-        WHERE state IN ('pending', 'compliance_review')
+        WHERE tenant_id = $3
+          AND state IN ('pending', 'compliance_review')
         ORDER BY created_at ASC, id ASC
         LIMIT $1 OFFSET $2`,
-      [boundedLimit(limit, 50, 200), boundedOffset(offset)],
+      [boundedLimit(limit, 50, 200), boundedOffset(offset), tenantId],
     );
     return selected.rows.map(toWithdrawalRecord);
   });
