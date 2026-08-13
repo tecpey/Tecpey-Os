@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-certificates",
+      "method": "POST",
+      "previousSourceHash": "28ffd0311489a8b02bc6ea95",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Tenant resolution corrected so a principal resolves its own tenant rather than the platform default, plus an honest session-degradation signal (roadmap 7.1.2 follow-up, both raised in review of PR #421). resolveTenantPrincipalContext passed the hard-coded platform default to resolveBoundTenantPrincipal as the request preferred tenant, but that parameter is a filter and not a ranking, so the helper admitted only the pair (tecpey,main): verified against a migrated database, a principal bound elsewhere resolved to binding_missing and one in a non-default workspace of the default tenant to workspace_mismatch. The filter is load-bearing and is kept for callers that genuinely assert a tenant (assertedTenantId/assertedWorkspaceId) and left null when nothing was asserted, so the existing ORDER BY ranks default-first then oldest binding; a principal still only ever resolves to a binding of its own. Separately, strictRevocationVerdict now distinguishes an unreachable revocation authority from a decision it made, and the GET reports degraded only for the former, so a valid account-only session (which academy-auth signs on every login before profile completion) no longer reports a false outage. The POST handler on this file is unchanged; its sourceHash moves because the file is shared and its testReferences gained certificate-session-degradation-postgres.test.ts. No control was weakened.",
+      "replacement": {
+        "route": "/api/academy-certificates",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-certificates/route.ts",
+        "sourceHash": "363013c657c8358e5fb54cde",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-certificates-issue",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-certificates",
+        "testReferences": [
+          "src/tests/security/certificate-session-degradation-postgres.test.ts",
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-os-write-contract-postgres.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-certificates/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
