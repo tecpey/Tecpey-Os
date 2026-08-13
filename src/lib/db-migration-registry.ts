@@ -59,6 +59,7 @@ import { runAcademyTermProgressTenantMigrations } from "./db-migrate-academy-ter
 import { runAcademyCertificateContractMigrations } from "./db-migrate-academy-certificate-contract";
 import { runAcademyLearningCommandTenantMigrations } from "./db-migrate-academy-learning-command-tenant";
 import { runAdminTenantBindingMigrations } from "./db-migrate-admin-tenant-binding";
+import { runAcademyCertificateTenantMigrations } from "./db-migrate-academy-certificate-tenant";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -155,6 +156,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(52, "migration-step-052", CANONICAL_MIGRATION_CONTENT.academyCertificateContract, "academy-platform", "academy", runAcademyCertificateContractMigrations),
   entry(53, "migration-step-053", CANONICAL_MIGRATION_CONTENT.academyLearningCommandTenant, "academy-platform", "academy", runAcademyLearningCommandTenantMigrations),
   entry(54, "migration-step-054", CANONICAL_MIGRATION_CONTENT.adminTenantBinding, "platform-security", "admin", runAdminTenantBindingMigrations),
+  entry(55, "migration-step-055", CANONICAL_MIGRATION_CONTENT.academyCertificateTenant, "academy-platform", "academy", runAcademyCertificateTenantMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

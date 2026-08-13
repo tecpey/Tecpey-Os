@@ -305,4 +305,71 @@ describe("academy_term_progress cross-tenant isolation", () => {
       });
     },
   );
+
+  it(
+    "issues an independent certificate per tenant when both recorded the pass",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      await withClient(async (client) => {
+        const studentId = await seedStudentBoundToBothTenants(client);
+        // Both tenants legitimately recorded this student passing term 2, so the
+        // progress gate lets both through. This is the case the previous test
+        // does not reach, and the one where academy_certificates being
+        // tenant-blind actually bit: the lookup keyed on
+        // (student_id, term_number, status) returned tenant A's certificate to
+        // tenant B, and academy_certificates_active_term_idx made it impossible
+        // for tenant B to ever hold one of its own (migration 0070).
+        await recordTerm(client, SCOPE_A, studentId, 2, "passed");
+        await recordTerm(client, SCOPE_B, studentId, 2, "passed");
+
+        const certificateA = await issueCertificate(client, {
+          studentId,
+          termNumber: 2,
+          tenantId: TENANT_A,
+          workspaceId: WORKSPACE_A,
+        });
+        const certificateB = await issueCertificate(client, {
+          studentId,
+          termNumber: 2,
+          tenantId: TENANT_B,
+          workspaceId: WORKSPACE_B,
+        });
+
+        assert.notEqual(
+          certificateB.id,
+          certificateA.id,
+          "tenant B must receive its own certificate, not tenant A's",
+        );
+
+        const stored = await client.query<{ tenant_id: string; id: string }>(
+          `SELECT tenant_id, id FROM academy_certificates
+            WHERE student_id = $1::uuid AND term_number = 2 AND status = 'verified'
+            ORDER BY tenant_id`,
+          [studentId],
+        );
+        assert.equal(stored.rows.length, 2, "each tenant holds its own certificate row");
+        assert.deepEqual(
+          [...stored.rows.map((row) => row.tenant_id)].sort(),
+          [TENANT_A, TENANT_B].sort(),
+        );
+
+        // Re-issuing inside one tenant still replays that tenant's certificate
+        // rather than minting a second one, so the uniqueness guarantee moved
+        // with the boundary instead of being dropped.
+        const replay = await issueCertificate(client, {
+          studentId,
+          termNumber: 2,
+          tenantId: TENANT_B,
+          workspaceId: WORKSPACE_B,
+        });
+        assert.equal(replay.id, certificateB.id);
+        const afterReplay = await client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count FROM academy_certificates
+            WHERE student_id = $1::uuid AND term_number = 2 AND status = 'verified'`,
+          [studentId],
+        );
+        assert.equal(afterReplay.rows[0]?.count, "2");
+      });
+    },
+  );
 });
