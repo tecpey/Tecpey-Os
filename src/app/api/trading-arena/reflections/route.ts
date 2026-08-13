@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: ROUTE }, async () => {
-    if (!verifyCsrfOrigin(request)) return fail("forbidden", 403);
+    if (!await verifyCsrfOrigin(request)) return fail("forbidden", 403);
     if (!checkBodySize(request.headers.get("content-length"), 20_000)) {
       return fail("payload_too_large", 413);
     }

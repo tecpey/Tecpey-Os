@@ -19,7 +19,7 @@ export async function DELETE(
 ) {
   return withObservability(req, { route: "/api/orders/[id]" }, async () => {
     const startedAt = Date.now();
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.userId && !session.studentId) {

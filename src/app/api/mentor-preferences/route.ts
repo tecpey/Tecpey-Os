@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest) {
     req,
     { route: "/api/mentor-preferences PATCH" },
     async () => {
-      if (!verifyCsrfOrigin(req)) return noStore(apiError("forbidden", 403));
+      if (!await verifyCsrfOrigin(req)) return noStore(apiError("forbidden", 403));
       const session = await getCanonicalSession(req, { strictRevocation: true });
       if (!session.studentId) return noStore(apiError("academy_profile_required", 401));
 

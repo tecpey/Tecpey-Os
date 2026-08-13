@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: ROUTE }, async () => {
-    if (!verifyCsrfOrigin(req))
+    if (!await verifyCsrfOrigin(req))
       return noStore(apiError("forbidden", 403));
     const limit = await rateLimit(req, { namespace: "notification-brain-generate", limit: 20, windowMs: 60_000 });
     if (!limit.ok) return noStore(apiError("rate_limited", 429));

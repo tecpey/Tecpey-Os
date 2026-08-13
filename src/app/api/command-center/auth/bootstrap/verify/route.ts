@@ -27,7 +27,7 @@ function validAdminId(value: unknown): value is string {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/auth/bootstrap/verify" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "admin-bootstrap-verify",

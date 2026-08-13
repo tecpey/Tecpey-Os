@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 import { logger } from "./logger";
+import { lookupTenantHost } from "./security/request-tenant-assertion";
+import { normalizeHostHeader } from "./security/tenant-host-resolution";
 
 /**
  * Verifies that a state-changing request originates from the same site.
@@ -10,7 +12,7 @@ import { logger } from "./logger";
  *
  * Returns true when the request is safe to process.
  */
-export function verifyCsrfOrigin(req: NextRequest): boolean {
+export async function verifyCsrfOrigin(req: NextRequest): Promise<boolean> {
   const origin = req.headers.get("origin");
 
   // No Origin header — same-origin navigation or server-to-server call.
@@ -39,8 +41,77 @@ export function verifyCsrfOrigin(req: NextRequest): boolean {
   }
 
   try {
-    return origin === new URL(siteUrl).origin;
+    if (origin === new URL(siteUrl).origin) return true;
   } catch {
     return false;
   }
+
+  // Everything above is the original control and still decides every request on
+  // the platform's own domain, so the tenant-domain path below costs nothing on
+  // the normal path — it is only reached by an Origin that is not the site URL.
+  return verifiedTenantSameOrigin(req, origin);
+}
+
+/**
+ * A white-label tenant serves the product on its own domain, so a browser there
+ * sends that domain in Origin and the single-origin comparison above refuses it
+ * — every mutation on a bound custom domain returned 403 while reads resolved
+ * normally.
+ *
+ * The allowance is deliberately narrower than "an Origin that is a bound tenant
+ * domain". With two tenants bound, that rule would let a page on one mint
+ * state-changing requests against the other: cross-tenant CSRF, a threat that
+ * does not exist while the allow-list is a single origin. So the Origin must
+ * name the host the request was actually *addressed to*. Same-site stays
+ * same-site, and a second bound tenant remains a stranger.
+ *
+ * `platform_tenant_domains` is the only source of truth here. An arbitrary Host
+ * proves nothing: it is attacker-controlled, so it is checked against the
+ * directory rather than trusted, and an unreachable directory refuses.
+ */
+async function verifiedTenantSameOrigin(
+  req: NextRequest,
+  origin: string,
+): Promise<boolean> {
+  let originUrl: URL;
+  try {
+    originUrl = new URL(origin);
+  } catch {
+    return false;
+  }
+
+  // The header must be a bare serialized origin and nothing else. Parsing is
+  // lossy in exactly the direction that hurts: `new URL("https://user@acme.com")`
+  // quietly discards the userinfo and reports `acme.com` as the host, so a
+  // smuggled value would pass a host comparison and the `@` would never reach
+  // the normalizer that exists to refuse it. Comparing against the re-serialized
+  // origin restores what parsing threw away, and also refuses a path, query or
+  // fragment. Browsers only ever send a bare origin, so nothing legitimate is
+  // lost. My own adversarial case caught this — the first version accepted
+  // `https://user@<bound-host>`.
+  if (origin !== originUrl.origin) return false;
+
+  // A custom tenant domain is served over TLS. Admitting http here would let a
+  // network attacker on the same hostname mount the very request this control
+  // exists to stop; outside production the localhost allowance above already
+  // covers local development.
+  if (process.env.NODE_ENV === "production" && originUrl.protocol !== "https:") {
+    return false;
+  }
+
+  // Both sides go through the same fail-closed normalizer the domain directory
+  // is keyed by, so a smuggled or malformed value yields null and is refused
+  // rather than being cleaned up into a hostname.
+  //
+  // The comparison is by hostname, not host:port. A port difference on one
+  // registered hostname is still the same tenant's domain — the boundary this
+  // guards is a *different* hostname — and Host arrives with or without an
+  // explicit port depending on the proxy in front.
+  const originHost = normalizeHostHeader(originUrl.host);
+  const requestHost = normalizeHostHeader(req.headers.get("host"));
+  if (!originHost || !requestHost || originHost !== requestHost) return false;
+
+  const lookup = await lookupTenantHost();
+  if (!lookup) return false;
+  return lookup(originHost) !== null;
 }

@@ -25,6 +25,9 @@ const files = {
   directory: "src/lib/security/tenant-domain-directory.ts",
   proof: "src/tests/security/request-tenant-assertion-postgres.test.ts",
   wiringGuard: "src/tests/security/tenant-request-wiring-guard.test.ts",
+  csrf: "src/lib/csrf.ts",
+  csrfProof: "src/tests/security/csrf-tenant-domain-postgres.test.ts",
+  csrfAwaitGuard: "src/tests/security/csrf-await-guard.test.ts",
 };
 
 const source = Object.fromEntries(
@@ -147,6 +150,44 @@ requireText(
   "wiringGuard",
   "async function routeFiles(dir",
   "the wiring guard must sweep the API tree, not a fixed route list",
+);
+
+// 8. CSRF may recognize a tenant's own domain as same-site, but only its own.
+//    Each of these was probed by deletion; each one alone admits a real attack.
+requireText(
+  "csrf",
+  "if (!originHost || !requestHost || originHost !== requestHost) return false;",
+  "the Origin must name the host the request was addressed to, or one bound tenant can CSRF another",
+);
+requireText(
+  "csrf",
+  "return lookup(originHost) !== null;",
+  "an Origin matching an arbitrary Host proves nothing without the domain directory",
+);
+requireText(
+  "csrf",
+  "if (origin !== originUrl.origin) return false;",
+  "the Origin must be a bare serialized origin — URL parsing silently drops userinfo",
+);
+requireText(
+  "csrf",
+  'if (process.env.NODE_ENV === "production" && originUrl.protocol !== "https:")',
+  "a downgraded origin must not be treated as the tenant's own domain",
+);
+requireText(
+  "csrf",
+  "export async function verifyCsrfOrigin(",
+  "verifyCsrfOrigin must stay async, or the await sweep guards nothing",
+);
+requireText(
+  "csrfProof",
+  "refuses one bound tenant domain posting to another",
+  "the cross-tenant CSRF case must remain",
+);
+requireText(
+  "csrfAwaitGuard",
+  "awaits verifyCsrfOrigin at every call site",
+  "a forgotten await disables CSRF silently and nothing else catches it",
 );
 
 if (failures.length > 0) {

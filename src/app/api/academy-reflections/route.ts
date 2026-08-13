@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-reflections" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
     if (!checkBodySize(req.headers.get("content-length"), 16_384)) return apiError("payload_too_large", 413);
 
     const limit = await rateLimit(req, { namespace: "academy-reflection-write", limit: 60, windowMs: 60_000 });

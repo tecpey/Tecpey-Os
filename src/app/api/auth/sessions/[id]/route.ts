@@ -20,7 +20,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withObservability(req, { route: "/api/auth/sessions/[id]" }, async () => {
-    if (!verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const limit = await rateLimit(req, {
       namespace: "auth-revoke-session",

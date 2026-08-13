@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/notifications/consent" }, async () => {
-    if (!verifyCsrfOrigin(req)) return notificationApiError("forbidden", 403);
+    if (!await verifyCsrfOrigin(req)) return notificationApiError("forbidden", 403);
 
     const rate = await rateLimit(req, {
       namespace: "notification-consent-write",
