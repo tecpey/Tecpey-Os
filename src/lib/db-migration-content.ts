@@ -68,6 +68,7 @@ import { ACADEMY_MASTERY_SEASONS_SQL } from "./db-migrate-academy-mastery-season
 import { ACADEMY_TERM_PROGRESS_TENANT_SQL } from "./db-migrate-academy-term-progress-tenant";
 import { ACADEMY_CERTIFICATE_CONTRACT_SQL } from "./db-migrate-academy-certificate-contract";
 import { ACADEMY_LEARNING_COMMAND_TENANT_SQL } from "./db-migrate-academy-learning-command-tenant";
+import { ADMIN_TENANT_BINDING_SQL } from "./db-migrate-admin-tenant-binding";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -276,5 +277,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyLearningCommandTenant: one(
     "0068_academy_learning_command_tenant.sql",
     ACADEMY_LEARNING_COMMAND_TENANT_SQL,
+  ),
+  adminTenantBinding: one(
+    "0069_admin_tenant_binding.sql",
+    ADMIN_TENANT_BINDING_SQL,
   ),
 });
