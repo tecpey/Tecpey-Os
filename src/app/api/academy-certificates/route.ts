@@ -12,22 +12,30 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { recordDegradedRead } from "@/lib/degraded-read";
+
+const ROUTE = "/api/academy-certificates";
 
 export async function GET(req: NextRequest) {
-  return withObservability(req, { route: "/api/academy-certificates" }, async () => {
+  return withObservability(req, { route: ROUTE }, async () => {
     const limit = await rateLimit(req, { namespace: "academy-certificates-read", limit: 80, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
     const session = await getStudentSessionFromRequest(req);
     const studentId = cleanText(session?.studentId, 80);
-    if (!studentId) return apiOk({ certificates: [] });
+    if (!studentId) return apiOk({ degraded: false, certificates: [] });
     try {
       const result = await withDb(async (client) => {
         const rows = await client.query(`SELECT * FROM academy_certificates WHERE student_id = $1::uuid ORDER BY term_number ASC`, [studentId]);
         return rows.rows;
       });
-      return apiOk({ certificates: result.value || [] });
-    } catch {
-      return apiOk({ certificates: [] });
+      if (!result.enabled) {
+        recordDegradedRead(ROUTE, "storage_unavailable");
+        return apiOk({ degraded: true, certificates: [] });
+      }
+      return apiOk({ degraded: false, certificates: result.value });
+    } catch (error) {
+      recordDegradedRead(ROUTE, "read_failed", error);
+      return apiOk({ degraded: true, certificates: [] });
     }
   });
 }

@@ -22,7 +22,7 @@ const GOVERNED_DESCRIPTION = /--\s+#\d+:\s+\S/;
 const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/ThemeToggle.tsx:15:5",
   "react-hooks/set-state-in-effect:src/components/TradingViewChart.tsx:47:5",
-  "react-hooks/set-state-in-effect:src/components/academy/AcademyCertificatesClient.tsx:40:21",
+  "react-hooks/set-state-in-effect:src/components/academy/AcademyCertificatesClient.tsx:46:21",
   "react-hooks/set-state-in-effect:src/components/academy/AcademyEngagementHub.tsx:43:19",
   "react-hooks/set-state-in-effect:src/components/academy/AcademyMentorCoachCenter.tsx:68:5",
   "react-hooks/set-state-in-effect:src/components/academy/AiMentorExperience.tsx:77:5",

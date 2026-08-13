@@ -24,6 +24,9 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
   const [confidence, setConfidence] = useState("medium");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("loading");
   const [result, setResult] = useState<{ isCorrect?: boolean; attemptNumber?: number; explanation?: string | null } | null>(null);
+  // The API answers 200 with a generic stand-in question when the question bank
+  // is unreachable. Saying so keeps the challenge from posing as personalised.
+  const [degraded, setDegraded] = useState(false);
   const startTime = useRef(0);
 
   const load = () => {
@@ -33,8 +36,8 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
     startTime.current = Date.now();
     fetch(`/api/mentor-challenge?locale=${locale}&termNumber=${termNumber}&lessonSlug=${encodeURIComponent(lessonSlug)}&topic=${encodeURIComponent(topic)}`, { cache: "no-store" })
       .then((response) => response.json())
-      .then((data) => { setQuestion(data?.question || null); setStatus("idle"); })
-      .catch(() => setStatus("error"));
+      .then((data) => { setQuestion(data?.question || null); setDegraded(data?.degraded === true); setStatus("idle"); })
+      .catch(() => { setDegraded(true); setStatus("error"); });
   };
 
   useEffect(() => {
@@ -70,6 +73,13 @@ export function MentorChallengeBox({ locale = "fa", termNumber = 1, lessonSlug =
           <p className="mt-2 text-sm font-bold leading-7 text-slate-700 dark:text-slate-300">
             {isFa ? "پاسخ درست فوراً لو نمی‌رود؛ هر انتخاب برای تحلیل رفتار یادگیری تو ثبت می‌شود." : "The correct answer is not revealed instantly; every choice improves your learning profile."}
           </p>
+          {degraded && (
+            <p role="status" className="mt-3 rounded-2xl border border-amber-300/40 bg-amber-400/15 px-4 py-3 text-xs font-black leading-6 text-amber-900 dark:text-amber-100">
+              {isFa
+                ? "بانک سوال موقتاً در دسترس نیست؛ این یک سوال عمومی است و متناسب با سطح تو انتخاب نشده."
+                : "The question bank is temporarily unavailable, so this is a generic question rather than one matched to your level."}
+            </p>
+          )}
         </div>
         <div className="rounded-2xl border border-white/15 bg-white/80 px-4 py-3 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-200">
           {isFa ? "سطح سختی" : "Difficulty"}: {question?.difficulty || "—"}/5
