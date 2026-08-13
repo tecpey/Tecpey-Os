@@ -17,6 +17,7 @@ const integrationConfigured = Boolean(
 );
 
 async function seedSettleableWithdrawal(input: {
+  tenantId?: string;
   userId: string;
   withdrawalId: string;
   txHash: string;
@@ -33,12 +34,12 @@ async function seedSettleableWithdrawal(input: {
     );
     await client.query(
       `INSERT INTO withdrawals (
-         id, user_id, asset, amount, amount_usd, destination_address,
+         id, user_id, tenant_id, asset, amount, amount_usd, destination_address,
          network, state, security_gate_passed, two_fa_verified,
          tx_hash, confirmation_count, required_confirmations,
          funds_reserved_at
        ) VALUES (
-         $1,$2,'USDT',$3::numeric,$3::numeric,$4,'ethereum','confirming',TRUE,TRUE,
+         $1,$2,$6,'USDT',$3::numeric,$3::numeric,$4,'ethereum','confirming',TRUE,TRUE,
          $5,1,2,NOW()
        )`,
       [
@@ -47,6 +48,7 @@ async function seedSettleableWithdrawal(input: {
         amount,
         `0x${"a".repeat(40)}`,
         input.txHash,
+        input.tenantId ?? PLATFORM.DEFAULT_TENANT_ID,
       ],
     );
     await client.query(
@@ -56,7 +58,7 @@ async function seedSettleableWithdrawal(input: {
       [input.userId, input.withdrawalId, amount],
     );
     await writeWithdrawalExternalEffectEvidenceTx(client, {
-      tenantId: PLATFORM.DEFAULT_TENANT_ID,
+      tenantId: input.tenantId ?? PLATFORM.DEFAULT_TENANT_ID,
       actorId: "withdrawal-confirmation",
       action: "withdrawal.confirmation.monitor",
       resourceType: "withdrawal_execution",
@@ -293,6 +295,74 @@ describe("Confirmed withdrawal settlement authority", () => {
         }
       } finally {
         await cleanup({ userId, withdrawalId });
+      }
+    },
+  );
+
+  it(
+    "settles a non-default-tenant withdrawal and files its evidence there",
+    { skip: !integrationConfigured, timeout: 45_000 },
+    async () => {
+      // Migration 0072 made the external-effect gate look for settlement
+      // evidence under the withdrawal's own tenant. writeSettlementEvidence was
+      // the one writer in this family still passing the platform default — every
+      // other caller of writeWithdrawalExternalEffectEvidenceTx already used the
+      // withdrawal's tenant — so the deferred constraint could not find the row
+      // written in the same transaction and rolled the settlement back, leaving
+      // a confirmed withdrawal with its funds still held.
+      //
+      // Raised in review of #425. This case is what should have caught it.
+      const tenantId = `tenant-settle-${randomUUID()}`;
+      const userId = `settle-tenant-${randomUUID()}`;
+      const withdrawalId = `settle-tenant-${randomUUID()}`;
+      const txHash = `0x${"c".repeat(64)}`;
+
+      const seededTenant = await withDb(async (client) => {
+        await client.query(
+          `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+           VALUES ($1, $1, $1, 'enterprise', '{}'::text[])`,
+          [tenantId],
+        );
+        return true;
+      });
+      assert.equal(seededTenant.enabled, true);
+
+      await seedSettleableWithdrawal({ tenantId, userId, withdrawalId, txHash });
+
+      try {
+        assert.equal(
+          await settleConfirmedWithdrawal({
+            withdrawalId,
+            txHash,
+            confirmations: 2,
+            blockNumber: BigInt(54321),
+          }),
+          "settled",
+          "settlement must complete for a withdrawal outside the default tenant",
+        );
+
+        const evidence = await withDb((client) =>
+          client.query<{ tenant_id: string }>(
+            `SELECT DISTINCT tenant_id
+               FROM sensitive_mutation_audit_events
+              WHERE action = 'withdrawal.settle'
+                AND resource_type = 'withdrawal_settlement'
+                AND resource_id = $1`,
+            [fingerprintWithdrawalSettlement({ withdrawalId, txHash })],
+          ),
+        );
+        assert.equal(evidence.enabled, true);
+        if (!evidence.enabled) return;
+        assert.deepEqual(
+          evidence.value.rows.map((row) => row.tenant_id),
+          [tenantId],
+          "settlement evidence must name the tenant that owns the withdrawal",
+        );
+      } finally {
+        await cleanup({ userId, withdrawalId });
+        await withDb((client) =>
+          client.query("DELETE FROM platform_tenants WHERE id = $1", [tenantId]),
+        );
       }
     },
   );

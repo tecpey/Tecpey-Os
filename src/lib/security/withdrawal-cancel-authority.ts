@@ -81,17 +81,78 @@ export async function cancelWithdrawalIdempotently(input: {
   idempotencyKey: string;
   requestHash: string;
 }): Promise<IdempotentWithdrawalCancelResult> {
-  const receiptScope: ApiCommandScope = {
-    tenantId: PLATFORM.DEFAULT_TENANT_ID,
-    principalType: "user",
-    principalId: input.userId,
-    operation: "withdrawal.cancel",
-    idempotencyKey: input.idempotencyKey,
-    requestHash: input.requestHash,
-  };
-
   try {
     const transaction = await withTx(async (client) => {
+      // The receipt has to be filed under the withdrawal's own tenant, because
+      // tecpey_append_withdrawal_cancel_evidence resolves it by that tenant
+      // (migration 0072) before it will write the custody evidence row. So the
+      // owning tenant is read first and the scope built from it, rather than
+      // assumed to be the platform default.
+      //
+      // Reading before claiming changes one edge: a replay naming a withdrawal
+      // that is not this user's now returns withdrawal_not_found instead of the
+      // stored receipt. Withdrawals are never deleted and the replay branch
+      // already refuses a mismatched withdrawalId, so the only requests this can
+      // reach were being refused a moment later anyway.
+      const owner = await client.query<{ tenant_id: string }>(
+        `SELECT tenant_id FROM withdrawals WHERE id = $1 AND user_id = $2`,
+        [input.withdrawalId, input.userId],
+      );
+      const ownerTenantId = owner.rows[0]?.tenant_id;
+      if (!ownerTenantId) throw new WithdrawalCancelError("withdrawal_not_found", 404);
+
+      const receiptScope: ApiCommandScope = {
+        tenantId: ownerTenantId,
+        principalType: "user",
+        principalId: input.userId,
+        operation: "withdrawal.cancel",
+        idempotencyKey: input.idempotencyKey,
+        requestHash: input.requestHash,
+      };
+
+      // Receipts written before migration 0072 were filed under the platform
+      // default whatever tenant the withdrawal belonged to. A retry of one of
+      // those would miss the scope above, claim a fresh command, then find the
+      // withdrawal already cancelled and answer withdrawal_cannot_be_cancelled —
+      // a 409 for a request that had already succeeded, which is the opposite of
+      // what an idempotency key is for.
+      //
+      // Only a non-default owner can have a receipt in the other scope, so the
+      // default-tenant path never runs this and never pays for it.
+      if (ownerTenantId !== PLATFORM.DEFAULT_TENANT_ID) {
+        const legacy = await client.query<{
+          request_hash: string;
+          response_body: WithdrawalCancelReceipt | null;
+        }>(
+          `SELECT request_hash, response_body
+             FROM api_command_receipts
+            WHERE tenant_id = $1
+              AND principal_type = 'user'
+              AND principal_id = $2
+              AND operation = 'withdrawal.cancel'
+              AND idempotency_key = $3
+              AND status = 'completed'
+            LIMIT 1`,
+          [PLATFORM.DEFAULT_TENANT_ID, input.userId, input.idempotencyKey],
+        );
+        const retained = legacy.rows[0];
+        if (retained) {
+          // The same key with different arguments is still a conflict, exactly
+          // as it would be in the owning scope.
+          if (retained.request_hash !== input.requestHash) {
+            throw new WithdrawalCancelError("idempotency_conflict", 409);
+          }
+          if (retained.response_body?.withdrawalId !== input.withdrawalId) {
+            throw new WithdrawalCancelError("idempotency_conflict", 409);
+          }
+          return {
+            withdrawalId: retained.response_body.withdrawalId,
+            replayed: true,
+            tenantId: ownerTenantId,
+          };
+        }
+      }
+
       const claim = await claimApiCommandTx<WithdrawalCancelReceipt>(
         client,
         receiptScope,
@@ -106,7 +167,11 @@ export async function cancelWithdrawalIdempotently(input: {
         if (claim.response.withdrawalId !== input.withdrawalId) {
           throw new WithdrawalCancelError("idempotency_conflict", 409);
         }
-        return { withdrawalId: claim.response.withdrawalId, replayed: true };
+        return {
+          withdrawalId: claim.response.withdrawalId,
+          replayed: true,
+          tenantId: ownerTenantId,
+        };
       }
 
       const locked = await client.query<{
@@ -166,16 +231,22 @@ export async function cancelWithdrawalIdempotently(input: {
         httpStatus: 200,
         response: { withdrawalId: row.id },
       });
-      return { withdrawalId: row.id, replayed: false };
+      return { withdrawalId: row.id, replayed: false, tenantId: ownerTenantId };
     });
 
     if (!transaction.enabled) {
       return { ok: false, reason: "withdrawal_storage_unavailable", code: 503 };
     }
 
+    // The read-back has to be scoped to the same tenant the withdrawal belongs
+    // to. readWithdrawal defaults to the platform default, so for a withdrawal
+    // owned by any other tenant this returned nothing and the caller was told
+    // "storage unavailable" — after the cancellation had already committed. A
+    // user was shown a 503 for an operation that succeeded.
     const read = await readWithdrawal(
       transaction.value.withdrawalId,
       input.userId,
+      transaction.value.tenantId,
     );
     if (!read.ok || !read.withdrawal) {
       return { ok: false, reason: "withdrawal_storage_unavailable", code: 503 };
