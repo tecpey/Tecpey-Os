@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-certificates",
+      "method": "POST",
+      "previousSourceHash": "4343c9944613b64462963454",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Student certificate list scoped to the acting tenant (roadmap 7.1.2, closing the read side of audit finding F-12). academy_certificates gained a tenant boundary in migration 0070, but GET /api/academy-certificates still read the student's own list by student_id alone, so a student bound to two tenants saw both tenants' certificates in whichever one they opened. The GET now resolves the same verified tenant context the POST on this file already used and filters on the tenant/workspace pair; the POST itself is unchanged apart from the shared sourceHash. The narrower effect is that a browser holding only a legacy student cookie no longer lists certificates — those cookies stopped being issued in Phase 23, and a retired credential should not carry a tenant-scoped read. No control was weakened. The other two operations change only because the guard file that references them was renamed to tenant-scoped-route-guards.test.ts, which now also covers this route.",
+      "replacement": {
+        "route": "/api/academy-certificates",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-certificates/route.ts",
+        "sourceHash": "54c53e51937cb7feaca219de",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "progress"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-certificates-issue",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-certificates",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-os-write-contract-postgres.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-certificates/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/command-center/campaign",
+      "method": "POST",
+      "previousSourceHash": "1576b9a512b21e6ca32c7ece",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Student certificate list scoped to the acting tenant (roadmap 7.1.2, closing the read side of audit finding F-12). academy_certificates gained a tenant boundary in migration 0070, but GET /api/academy-certificates still read the student's own list by student_id alone, so a student bound to two tenants saw both tenants' certificates in whichever one they opened. The GET now resolves the same verified tenant context the POST on this file already used and filters on the tenant/workspace pair; the POST itself is unchanged apart from the shared sourceHash. The narrower effect is that a browser holding only a legacy student cookie no longer lists certificates — those cookies stopped being issued in Phase 23, and a retired credential should not carry a tenant-scoped read. No control was weakened. The other two operations change only because the guard file that references them was renamed to tenant-scoped-route-guards.test.ts, which now also covers this route.",
+      "replacement": {
+        "route": "/api/command-center/campaign",
+        "method": "POST",
+        "sourcePath": "src/app/api/command-center/campaign/route.ts",
+        "sourceHash": "1576b9a512b21e6ca32c7ece",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-campaign",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/campaign/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/notifications",
+      "method": "POST",
+      "previousSourceHash": "005b9e4ad707b53e4aea052a",
+      "issue": "#109",
+      "owner": "academy-platform",
+      "reason": "Student certificate list scoped to the acting tenant (roadmap 7.1.2, closing the read side of audit finding F-12). academy_certificates gained a tenant boundary in migration 0070, but GET /api/academy-certificates still read the student's own list by student_id alone, so a student bound to two tenants saw both tenants' certificates in whichever one they opened. The GET now resolves the same verified tenant context the POST on this file already used and filters on the tenant/workspace pair; the POST itself is unchanged apart from the shared sourceHash. The narrower effect is that a browser holding only a legacy student cookie no longer lists certificates — those cookies stopped being issued in Phase 23, and a retired credential should not carry a tenant-scoped read. No control was weakened. The other two operations change only because the guard file that references them was renamed to tenant-scoped-route-guards.test.ts, which now also covers this route.",
+      "replacement": {
+        "route": "/api/notifications",
+        "method": "POST",
+        "sourcePath": "src/app/api/notifications/route.ts",
+        "sourceHash": "005b9e4ad707b53e4aea052a",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "deny-only",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [],
+        "controls": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "rateLimitNamespace": null,
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "failClosed": false,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "notifications",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/notification-center-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/notifications/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
