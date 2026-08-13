@@ -36,20 +36,27 @@ export async function awardAcademyReward(client: PoolClient, input: AcademyRewar
   return Boolean(inserted.rows[0]);
 }
 
+export type LearningCommandScope = { tenantId: string; workspaceId: string };
+
 export async function readLearningCommand<T>(
   client: PoolClient,
+  scope: LearningCommandScope,
   studentId: string,
   commandType: string,
   request: unknown,
   idempotencyKey?: string | null,
 ): Promise<{ requestHash: string; response: T | null; idempotencyConflict: boolean }> {
   const requestHash = hashLearningCommand(request);
+  // The receipt boundary must match the boundary of the rows the command
+  // writes. A tenant-blind lookup would hand a second tenant the first
+  // tenant's cached response and skip its write entirely.
   const existing = await client.query<{ result_response: T }>(
     `SELECT result_response
      FROM academy_learning_commands
-     WHERE student_id = $1::uuid AND command_type = $2 AND request_hash = $3
+     WHERE tenant_id = $1 AND workspace_id = $2
+       AND student_id = $3::uuid AND command_type = $4 AND request_hash = $5
      LIMIT 1`,
-    [studentId, commandType, requestHash],
+    [scope.tenantId, scope.workspaceId, studentId, commandType, requestHash],
   );
   if (existing.rows[0]) {
     return { requestHash, response: existing.rows[0].result_response, idempotencyConflict: false };
@@ -59,9 +66,10 @@ export async function readLearningCommand<T>(
     const byKey = await client.query<{ request_hash: string; result_response: T }>(
       `SELECT request_hash, result_response
        FROM academy_learning_commands
-       WHERE student_id = $1::uuid AND idempotency_key = $2
+       WHERE tenant_id = $1 AND workspace_id = $2
+         AND student_id = $3::uuid AND idempotency_key = $4
        LIMIT 1`,
-      [studentId, idempotencyKey],
+      [scope.tenantId, scope.workspaceId, studentId, idempotencyKey],
     );
     if (byKey.rows[0]) {
       return {
@@ -91,6 +99,7 @@ export async function storeLearningCommand(
   client: PoolClient,
   input: {
     tenantId?: string;
+    workspaceId?: string;
     studentId: string;
     commandType: string;
     requestHash: string;
@@ -100,11 +109,13 @@ export async function storeLearningCommand(
 ): Promise<void> {
   const inserted = await client.query<{ created_at: Date }>(
     `INSERT INTO academy_learning_commands
-       (student_id, command_type, request_hash, idempotency_key, result_response)
-     VALUES ($1::uuid, $2, $3, $4, $5::jsonb)
+       (tenant_id, workspace_id, student_id, command_type, request_hash, idempotency_key, result_response)
+     VALUES (COALESCE($1, 'tecpey'), COALESCE($2, 'main'), $3::uuid, $4, $5, $6, $7::jsonb)
      ON CONFLICT DO NOTHING
      RETURNING created_at`,
     [
+      input.tenantId ?? null,
+      input.workspaceId ?? null,
       input.studentId,
       input.commandType,
       input.requestHash,

@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       }
       const command = await readLearningCommand<Record<string, unknown>>(
         client,
+        tenantContext,
         session.studentId as string,
         commandType,
         commandRequest,
@@ -241,6 +242,8 @@ export async function POST(req: NextRequest) {
         revision: projection.revision,
       };
       await storeLearningCommand(client, {
+        tenantId: tenantContext.tenantId,
+        workspaceId: tenantContext.workspaceId,
         studentId: session.studentId as string,
         commandType,
         requestHash: command.requestHash,

@@ -35,6 +35,16 @@
       "testReference": "src/tests/security/community-reputation-scoring-consent-postgres.integration.ts"
     },
     {
+      "table": "academy_learning_commands",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-learning-command-tenant.ts",
+      "isolationModel": "tenant_id + workspace_id added by migration 0068. Both idempotency boundaries move with them: the request-hash uniqueness becomes (tenant_id, workspace_id, student_id, command_type, request_hash) and the idempotency-key uniqueness becomes (tenant_id, workspace_id, student_id, idempotency_key). readLearningCommand filters on the same scope and storeLearningCommand writes it, so the receipt boundary matches the boundary of the rows the command guards: the same student submitting an identical request in a second tenant gets a fresh command instead of the first tenant's cached response.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+      "isolationNote": "Added together with the academy_term_progress boundary (migration 0066). A tenant-scoped write behind a tenant-blind receipt is worse than either alone — tenant B would have reported `replayed: true` from tenant A's receipt and written no progress row at all — so the two boundaries have to move in the same change."
+    },
+    {
       "table": "academy_mastery_season_assignments",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-mastery-seasons.ts",

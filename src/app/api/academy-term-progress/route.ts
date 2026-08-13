@@ -250,6 +250,7 @@ export async function POST(req: NextRequest) {
 
           const command = await readLearningCommand<Record<string, unknown>>(
             client,
+            tenantContext,
             studentId,
             commandType,
             commandRequest,
@@ -383,6 +384,7 @@ export async function POST(req: NextRequest) {
           };
           await storeLearningCommand(client, {
             tenantId: tenantContext.tenantId,
+            workspaceId: tenantContext.workspaceId,
             studentId,
             commandType,
             requestHash: command.requestHash,

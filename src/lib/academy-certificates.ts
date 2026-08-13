@@ -111,16 +111,30 @@ export async function issueCertificate(
   const studentName = String(verifiedProgress.display_name || "TecPey Academy Student").slice(0, 160);
   const score = Math.max(0, Math.min(100, Math.round(Number(verifiedProgress.percent) || 0)));
   const hash = certificateHash({ certificateId, studentId: input.studentId, courseTitle, issuedAt });
+  // academy_certificates_active_term_idx forbids a second verified certificate
+  // for the same student and term. The check above races with a concurrent
+  // request, so treat the conflict as a replay of whichever request won rather
+  // than surfacing a unique violation.
   const row = await client.query(
     `INSERT INTO academy_certificates
       (id, student_id, public_student_id, student_name, course_title, term_number, score, level_title, verification_hash, issued_at)
      VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz)
+     ON CONFLICT DO NOTHING
      RETURNING *`,
     [certificateId, input.studentId, publicStudentId, studentName, courseTitle, termNumber, score, `Term ${termNumber} Verified`, hash, issuedAt],
   );
   const inserted = certificateRow(row.rows[0]);
-  if (!inserted) throw new Error("certificate_insert_failed");
-  return inserted;
+  if (inserted) return inserted;
+
+  const winner = await client.query(
+    `SELECT * FROM academy_certificates
+      WHERE student_id = $1::uuid AND term_number = $2 AND status = 'verified'
+      LIMIT 1`,
+    [input.studentId, termNumber],
+  );
+  const raced = certificateRow(winner.rows[0]);
+  if (!raced) throw new Error("certificate_insert_failed");
+  return raced;
 }
 
 export async function getCertificate(client: SchemaQueryable, certificateId: string) {

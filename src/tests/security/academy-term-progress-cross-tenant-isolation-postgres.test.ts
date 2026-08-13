@@ -5,6 +5,7 @@ import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { PLATFORM } from "../../lib/platform-config";
 import { issueCertificate } from "../../lib/academy-certificates";
+import { readLearningCommand, storeLearningCommand } from "../../lib/academy-authority";
 import {
   readAcademyMasterySeasonState,
   type AcademyMasteryTenantScope,
@@ -117,6 +118,7 @@ after(async () => {
   if (!pool) return;
   await withClient(async (client) => {
     for (const studentId of cleanupStudents) {
+      await client.query("DELETE FROM academy_learning_commands WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_certificates WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_term_progress WHERE student_id = $1::uuid", [studentId]);
       await client.query("DELETE FROM academy_student_mastery_profiles WHERE student_id = $1::uuid", [studentId]);
@@ -136,6 +138,74 @@ after(async () => {
 });
 
 describe("academy_term_progress cross-tenant isolation", () => {
+  it(
+    "does not replay one tenant's learning-command receipt in another",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      await withClient(async (client) => {
+        const studentId = await seedStudentBoundToBothTenants(client);
+        // A lesson command rather than a term_assessment one: storeLearningCommand
+        // validates the result payload of term assessments, and this case is
+        // about the receipt boundary, not that validation.
+        const commandType = `lesson_assessment:t1-m1-l1-${randomUUID().slice(0, 8)}`;
+        const request = { lessonId: "t1-m1-l1", locale: "fa", answers: { q1: "a" } };
+
+        // Tenant A submits and its receipt is stored.
+        const firstA = await readLearningCommand<Record<string, unknown>>(
+          client, SCOPE_A, studentId, commandType, request, null,
+        );
+        assert.equal(firstA.response, null, "tenant A starts with no receipt");
+        await storeLearningCommand(client, {
+          tenantId: TENANT_A,
+          workspaceId: WORKSPACE_A,
+          studentId,
+          commandType,
+          requestHash: firstA.requestHash,
+          result: { tenant: TENANT_A },
+        });
+
+        const replayA = await readLearningCommand<Record<string, unknown>>(
+          client, SCOPE_A, studentId, commandType, request, null,
+        );
+        assert.deepEqual(replayA.response, { tenant: TENANT_A }, "tenant A replays its own receipt");
+
+        // The same student submitting the SAME request in tenant B must not be
+        // handed tenant A's cached response. Before the receipt gained a tenant
+        // boundary it was, so tenant B reported a successful replay and never
+        // wrote a progress row of its own.
+        const firstB = await readLearningCommand<Record<string, unknown>>(
+          client, SCOPE_B, studentId, commandType, request, null,
+        );
+        assert.equal(
+          firstB.response,
+          null,
+          "tenant B must not inherit tenant A's command receipt",
+        );
+
+        await storeLearningCommand(client, {
+          tenantId: TENANT_B,
+          workspaceId: WORKSPACE_B,
+          studentId,
+          commandType,
+          requestHash: firstB.requestHash,
+          result: { tenant: TENANT_B },
+        });
+
+        const replayB = await readLearningCommand<Record<string, unknown>>(
+          client, SCOPE_B, studentId, commandType, request, null,
+        );
+        assert.deepEqual(replayB.response, { tenant: TENANT_B }, "tenant B replays its own receipt");
+
+        const receipts = await client.query<{ tenant_id: string }>(
+          `SELECT tenant_id FROM academy_learning_commands
+            WHERE student_id = $1::uuid AND command_type = $2 ORDER BY tenant_id`,
+          [studentId, commandType],
+        );
+        assert.equal(receipts.rows.length, 2, "each tenant owns its own receipt row");
+      });
+    },
+  );
+
   it(
     "gives one student independent term progress in two tenants",
     { skip: !configured, timeout: 45_000 },

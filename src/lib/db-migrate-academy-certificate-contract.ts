@@ -31,6 +31,13 @@ ALTER TABLE academy_certificates ADD COLUMN IF NOT EXISTS level_title TEXT;
 ALTER TABLE academy_certificates ADD COLUMN IF NOT EXISTS verification_hash TEXT;
 ALTER TABLE academy_certificates ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'verified';
 
+-- The column default cannot see revoked_at, so a legacy revoked certificate
+-- would arrive here marked 'verified'. issueCertificate looks for an existing
+-- row by status alone and would hand that revoked certificate back, while
+-- /verify rejects it (it checks revoked_at separately) — leaving the student
+-- unable to obtain a usable certificate. Derive the real status instead.
+UPDATE academy_certificates SET status = 'revoked' WHERE revoked_at IS NOT NULL AND status <> 'revoked';
+
 ALTER TABLE academy_certificates ALTER COLUMN display_name DROP NOT NULL;
 
 UPDATE academy_certificates
@@ -43,6 +50,21 @@ ALTER TABLE academy_certificates
 ALTER TABLE academy_certificates
   ADD CONSTRAINT academy_certificates_status_check
   CHECK (status IN ('verified', 'revoked'));
+
+-- issueCertificate checks for an existing certificate and then inserts without
+-- holding a lock, and the route runs on withDb rather than a serializing
+-- transaction, so two concurrent first-time requests could both see no row and
+-- both issue. A unique partial index makes that impossible; the writer below
+-- turns the resulting conflict into a replay of the winning certificate.
+--
+-- No duplicate can exist today: issueCertificate is the only writer to this
+-- table and it has never completed against a migrated schema. If a deployment
+-- somehow holds duplicates, this statement fails loudly and names the index,
+-- which is the right outcome — silently revoking one of a student's
+-- certificates to force the index through would be worse.
+CREATE UNIQUE INDEX IF NOT EXISTS academy_certificates_active_term_idx
+  ON academy_certificates (student_id, term_number)
+  WHERE status = 'verified';
 
 CREATE INDEX IF NOT EXISTS academy_certificates_student_term_idx
   ON academy_certificates (student_id, term_number, status);
