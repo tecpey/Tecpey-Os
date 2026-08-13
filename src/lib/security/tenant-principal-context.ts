@@ -2,6 +2,10 @@ import { withDb } from "@/lib/db";
 import { PLATFORM } from "@/lib/platform-config";
 import type { CanonicalSession } from "@/lib/auth-session";
 import { resolvePlatformContextInTenant } from "@/lib/tenant-service";
+import {
+  resolveRequestTenantAssertion,
+  type HeaderCarrier,
+} from "./request-tenant-assertion";
 
 export type TenantPrincipalType =
   | "student"
@@ -179,15 +183,24 @@ export async function resolveBoundTenantPrincipal(input: {
  * first, then the oldest binding. A principal can still only ever resolve to a
  * binding of its own, so this widens availability without widening reach.
  *
- * A caller that *has* an asserted tenant (a host or header hint run through
- * `resolveRequestTenant`) passes it here, and the filter applies as before.
+ * A caller that *has* an asserted tenant passes it here — either directly, or by
+ * passing `request`, from which the Host header's bound tenant is resolved. The
+ * filter then applies as before, so a white-label host reads that tenant and
+ * only that tenant.
  */
 export async function resolveTenantPrincipalContext(input: {
   session: CanonicalSession;
   requiredPrincipalType: Exclude<TenantPrincipalType, "service">;
   scopes: string[];
   requestId: string;
-  /** A tenant the request asserted and is entitled to. Never a default. */
+  /**
+   * The incoming request. When given, its Host header is resolved against the
+   * tenant domain directory and a bound domain asserts that tenant. A host that
+   * names no bound domain — every request on the default domain — asserts
+   * nothing and changes nothing.
+   */
+  request?: HeaderCarrier | null;
+  /** A tenant the caller already asserted and is entitled to. Never a default. */
   assertedTenantId?: string | null;
   assertedWorkspaceId?: string | null;
 }): Promise<TenantPrincipalContext> {
@@ -197,11 +210,25 @@ export async function resolveTenantPrincipalContext(input: {
   );
   if (!principalId) return { available: false, reason: "principal_missing" };
 
+  let assertedTenantId = input.assertedTenantId ?? null;
+  let assertedWorkspaceId = input.assertedWorkspaceId ?? null;
+  if (!assertedTenantId && input.request) {
+    const asserted = await resolveRequestTenantAssertion({
+      request: input.request,
+      principalType: input.requiredPrincipalType,
+      principalId,
+    });
+    if (asserted) {
+      assertedTenantId = asserted.tenantId;
+      assertedWorkspaceId = asserted.workspaceId;
+    }
+  }
+
   const bound = await resolveBoundTenantPrincipal({
     principalType: input.requiredPrincipalType,
     principalId,
-    preferredTenantId: input.assertedTenantId ?? null,
-    preferredWorkspaceId: input.assertedWorkspaceId ?? null,
+    preferredTenantId: assertedTenantId,
+    preferredWorkspaceId: assertedWorkspaceId,
     scopes: input.scopes,
     requestId: input.requestId,
   });

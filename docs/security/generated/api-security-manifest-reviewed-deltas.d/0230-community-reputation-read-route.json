@@ -6,10 +6,10 @@
     {
       "route": "/api/community/reputation-evidence",
       "sourcePath": "src/app/api/community/reputation-evidence/route.ts",
-      "sourceHash": "96661a1dcea2f2c54c134571",
+      "sourceHash": "9a39e5529ed3ef2addba4b0c",
       "issue": "#230",
       "owner": "community-platform",
-      "reason": "Adds one private evidence-only GET route with strict session revocation, bounded rate limiting, server-resolved tenant and principal identity, explicit private no-store caching, no query parameters and no mutating method exports.",
+      "reason": "Adds one private evidence-only GET route with strict session revocation, bounded rate limiting, server-resolved tenant and principal identity, explicit private no-store caching, no query parameters and no mutating method exports. Updated for roadmap 7.1.3 (multi-tenant #20): this GET now passes its request to resolveTenantPrincipalContext, so a bound white-label host resolves to that tenant instead of falling through to the platform default. A host naming no bound domain asserts nothing and the route resolves exactly as before. The only source change is request: req at the call site; no control changed, which is why this entry is re-pinned rather than rewritten.",
       "controls": {
         "classification": "authenticated",
         "strictRevocation": true,
