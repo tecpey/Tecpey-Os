@@ -424,7 +424,7 @@ if (
   apiRoute.readOnlyRoutes.length !== 1 ||
   reviewed?.route !== "/api/community/journal-discipline-score" ||
   reviewed?.sourcePath !== "src/app/api/community/journal-discipline-score/route.ts" ||
-  reviewed?.sourceHash !== "ae6e95ddc27005296ea870e2" ||
+  reviewed?.sourceHash !== "4c1504ab60a830cf5b850723" ||
   reviewed?.issue !== "#235" ||
   reviewed?.owner !== "community-platform" ||
   reviewed?.controls?.classification !== "authenticated" ||

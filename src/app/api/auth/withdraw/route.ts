@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     if (!userId) return apiError("authentication_required", 401);
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "user",
       scopes: ["withdrawals:create"],
       requestId: req.headers.get("x-request-id") ?? randomUUID(),
@@ -173,6 +174,7 @@ export async function GET(req: NextRequest) {
     if (!userId) return apiError("authentication_required", 401);
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "user",
       scopes: ["withdrawals:read"],
       requestId: req.headers.get("x-request-id") ?? randomUUID(),

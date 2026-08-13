@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     if (!session.studentId) return noStore(apiOk({ authenticated: false, degraded: false, brain: fallbackNotificationBrain(locale) }));
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "student",
       scopes: ["academy:notification-brain:read"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
     const locale = cleanText(new URL(req.url).searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "student",
       scopes: ["academy:notification-brain:write"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),

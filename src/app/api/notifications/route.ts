@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "student",
       scopes: ["academy:learning-events:read"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),

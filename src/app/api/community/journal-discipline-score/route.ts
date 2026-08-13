@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
 
       const context = await resolveTenantPrincipalContext({
         session,
+        request: req,
         requiredPrincipalType: "student",
         scopes: ["community:reputation:read"],
         requestId: resolveSensitiveAuditCorrelation(

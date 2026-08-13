@@ -212,6 +212,7 @@ export async function GET(req: NextRequest) {
 
         const journalContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:journal:read"],
           requestId: resolveSensitiveAuditCorrelation(
@@ -246,6 +247,7 @@ export async function GET(req: NextRequest) {
 
         const challengeContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:challenge:read"],
           requestId: resolveSensitiveAuditCorrelation(
@@ -276,6 +278,7 @@ export async function GET(req: NextRequest) {
 
         const challengeContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:challenge:read"],
           requestId: resolveSensitiveAuditCorrelation(
@@ -306,6 +309,7 @@ export async function GET(req: NextRequest) {
 
         const tenantContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:profile:read"],
           requestId: resolveSensitiveAuditCorrelation(
@@ -336,6 +340,7 @@ export async function GET(req: NextRequest) {
 
       const tenantContext = await resolveTenantPrincipalContext({
         session,
+        request: req,
         requiredPrincipalType: "student",
         scopes: ["community:profile:read"],
         requestId: resolveSensitiveAuditCorrelation(
@@ -401,6 +406,7 @@ export async function PATCH(req: NextRequest) {
         }
         const challengeContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:challenge:write"],
           requestId: idempotencyKey,
@@ -449,6 +455,7 @@ export async function PATCH(req: NextRequest) {
 
         const tenantContext = await resolveTenantPrincipalContext({
           session,
+          request: req,
           requiredPrincipalType: "student",
           scopes: ["community:profile:write"],
           requestId: idempotencyKey,
@@ -517,6 +524,7 @@ export async function PATCH(req: NextRequest) {
 
       const tenantContext = await resolveTenantPrincipalContext({
         session,
+        request: req,
         requiredPrincipalType: "student",
         scopes: ["community:profile:write"],
         requestId: idempotencyKey,
