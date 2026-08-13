@@ -7,7 +7,11 @@ import type { NextRequest } from "next/server";
 import { logger } from "./logger";
 import { COOKIES } from "./platform-config";
 import { UNIFIED_SESSION_COOKIE, verifyUnifiedSession } from "./unified-session";
-import { isJtiRevoked, isJtiRevokedStrict } from "./security/jti-store";
+import {
+  isJtiRevoked,
+  strictRevocationVerdict,
+  type StrictRevocationVerdict,
+} from "./security/jti-store";
 import { hasAdminAccess } from "./admin-auth";
 
 const JTI_CACHE_TTL_MS = 30_000;
@@ -33,17 +37,26 @@ function pruneJtiCache(): void {
  * Only deny decisions are cached. A previous allow can never survive logout,
  * password rotation or another instance's revocation write.
  */
-async function checkJtiRevoked(jti: string, strict = false): Promise<boolean> {
+async function checkJtiVerdict(
+  jti: string,
+  strict = false,
+): Promise<StrictRevocationVerdict> {
   const cached = jtiCache.get(jti);
-  if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) return true;
+  if (cached && Date.now() - cached.ts < JTI_CACHE_TTL_MS) return "revoked";
 
-  const revoked = strict
-    ? await isJtiRevokedStrict(jti)
-    : await isJtiRevoked(jti);
+  // Non-strict callers are legacy compatibility and keep their existing
+  // block-on-anything behaviour; only strict callers need the reason.
+  const verdict: StrictRevocationVerdict = strict
+    ? await strictRevocationVerdict(jti)
+    : (await isJtiRevoked(jti))
+      ? "revoked"
+      : "active";
   pruneJtiCache();
-  if (revoked) jtiCache.set(jti, { revoked: true, ts: Date.now() });
-  else jtiCache.delete(jti);
-  return revoked;
+  // Only a decision is cacheable. Caching an unreachable authority as a deny
+  // would keep refusing valid sessions for the cache TTL after it recovers.
+  if (verdict === "revoked") jtiCache.set(jti, { revoked: true, ts: Date.now() });
+  else if (verdict === "active") jtiCache.delete(jti);
+  return verdict;
 }
 
 export type CanonicalSession = {
@@ -56,9 +69,24 @@ export type CanonicalSession = {
   username: string | null;
   isAcademyUser: boolean;
   isAdmin: boolean;
+  /**
+   * True only when this session fell back to guest because an authority
+   * dependency could not be reached — today, the revocation store.
+   *
+   * Every other guest is an ordinary auth outcome: no cookie, an expired or
+   * tampered one, a revoked jti, or a strict caller refusing a token with no
+   * jti. Those are the truth, and a reader must present them as such. An
+   * unreachable authority is not the truth, it is an absence of one, and a
+   * reader that answers "you have nothing" from it is the silent degradation
+   * audit finding F-2 was about. Cookie presence cannot tell these apart —
+   * only this flag can.
+   */
+  authorityDegraded: boolean;
 };
 
-function guestSession(): CanonicalSession {
+function guestSession(
+  options?: { authorityDegraded?: boolean },
+): CanonicalSession {
   return {
     userId: null,
     studentId: null,
@@ -69,6 +97,7 @@ function guestSession(): CanonicalSession {
     username: null,
     isAcademyUser: false,
     isAdmin: false,
+    authorityDegraded: options?.authorityDegraded === true,
   };
 }
 
@@ -196,7 +225,15 @@ export async function getCanonicalSession(
 
     if (unified.jti) {
       try {
-        if (await checkJtiRevoked(unified.jti, strict)) {
+        const verdict = await checkJtiVerdict(unified.jti, strict);
+        if (verdict === "unavailable") {
+          logger.warn("[auth-session] revocation authority unavailable — blocking", {
+            jti: unified.jti,
+            strict,
+          });
+          return guestSession({ authorityDegraded: true });
+        }
+        if (verdict === "revoked") {
           logger.info("[auth-session] jti revoked — rejecting session", {
             jti: unified.jti,
             strict,
@@ -208,7 +245,10 @@ export async function getCanonicalSession(
           strict,
           err: String(err),
         });
-        return guestSession();
+        // The credential may well be valid; we simply cannot tell. Blocking is
+        // right, but the caller has to know this guest is a fallback and not a
+        // fact, so it can report a degraded read instead of an empty one.
+        return guestSession({ authorityDegraded: true });
       }
     }
 
@@ -222,6 +262,7 @@ export async function getCanonicalSession(
       username: unified.username,
       isAcademyUser: Boolean(unified.accountId),
       isAdmin: await hasAdminAccess(req),
+      authorityDegraded: false,
     };
   }
 
@@ -251,5 +292,6 @@ export async function getCanonicalSession(
     username: academyAuth?.username ?? null,
     isAcademyUser: Boolean(academyAuth),
     isAdmin: await hasAdminAccess(req),
+    authorityDegraded: false,
   };
 }

@@ -87,31 +87,52 @@ export async function isJtiRevoked(jti: string): Promise<boolean> {
 }
 
 /**
+ * Why a strict check refused a session.
+ *
+ * "revoked" is a decision: an authority was reached and it said no — the record
+ * is revoked, expired, or was never registered. "unavailable" is the absence of
+ * a decision: the authority could not be reached, so the session is blocked
+ * without anyone having judged it.
+ *
+ * Both block, and that is not negotiable. But a caller that answers a read with
+ * "you have nothing" is stating a fact it only holds in the first case, so the
+ * two have to stay distinguishable above this layer.
+ */
+export type StrictRevocationVerdict = "active" | "revoked" | "unavailable";
+
+/**
  * Security-sensitive check. PostgreSQL must confirm a registered active session
  * and Redis must be reachable with no deny record.
  */
-export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
+export async function strictRevocationVerdict(
+  jti: string,
+): Promise<StrictRevocationVerdict> {
   const durable = await durableSessionState(jti);
   if (durable !== "active") {
     if (durable === "unavailable") {
       logger.warn("[jti-store] strict durable check unavailable — blocking", {
         jti,
       });
+      return "unavailable";
     }
-    return true;
+    return "revoked";
   }
 
   const redis = getRedis();
-  if (!redis) return true;
+  if (!redis) return "unavailable";
   try {
-    return (await redis.get(`${PREFIX}${jti}`)) !== null;
+    return (await redis.get(`${PREFIX}${jti}`)) !== null ? "revoked" : "active";
   } catch (err) {
     logger.warn("[jti-store] strict Redis check failed — blocking", {
       jti,
       err: String(err),
     });
-    return true;
+    return "unavailable";
   }
+}
+
+export async function isJtiRevokedStrict(jti: string): Promise<boolean> {
+  return (await strictRevocationVerdict(jti)) !== "active";
 }
 
 /** Revoke several JTIs. False unless every Redis write succeeds. */

@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
 import { getCanonicalSession } from "@/lib/auth-session";
-import { UNIFIED_SESSION_COOKIE } from "@/lib/unified-session";
 import { issueCertificate } from "@/lib/academy-certificates";
 import { awardMilestonesAfterCertificate } from "@/lib/phase5-achievement-engine";
 import { withDb } from "@/lib/db";
@@ -33,13 +32,14 @@ export async function GET(req: NextRequest) {
     // tenant-scoped read.
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) {
-      // A caller that presented a session cookie but did not resolve to a
-      // student is not an anonymous visitor: strict revocation fails closed to a
-      // guest when the revocation store cannot be reached, so this is the outage
-      // shape. Reporting "no certificates" here would be the same silent
-      // degradation F-2 was about — an empty shelf presented as the truth.
-      if (req.cookies.get(UNIFIED_SESSION_COOKIE)) {
-        recordDegradedRead(ROUTE, "tenant_context_unavailable");
+      // Only an unreachable authority makes an empty answer a lie. A visitor
+      // with no cookie, an expired or revoked one, or a valid account-only
+      // session issued before the student profile exists (academy-auth signs
+      // exactly that on login) all genuinely have no certificates to list, and
+      // reporting an outage for them would both mislead the reader and emit a
+      // false outage metric.
+      if (session.authorityDegraded) {
+        recordDegradedRead(ROUTE, "session_authority_unavailable");
         return apiOk({ degraded: true, certificates: [] });
       }
       return apiOk({ degraded: false, certificates: [] });

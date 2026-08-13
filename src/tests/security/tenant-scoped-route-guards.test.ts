@@ -42,10 +42,18 @@ describe("Tenant-scoped route guards", () => {
       "a retired legacy cookie must not carry a tenant-scoped read",
     );
     // Strict revocation fails closed to a guest when the revocation store is
-    // unreachable, so a presented-but-unresolvable session is an outage, not an
-    // anonymous visitor. Reporting an empty shelf there would be the silent
-    // degradation F-2 exists to prevent.
-    assert.match(route, /if \(req\.cookies\.get\(UNIFIED_SESSION_COOKIE\)\)/);
+    // unreachable, so that guest is a fallback rather than a fact and the read
+    // must report itself degraded — the silent degradation F-2 exists to
+    // prevent. The discriminator has to be the session's own outage flag:
+    // cookie presence cannot distinguish an unreachable authority from a valid
+    // account-only session, an expired cookie or a revoked one, all of which
+    // genuinely have nothing to list.
+    assert.match(route, /if \(session\.authorityDegraded\)/);
+    assert.doesNotMatch(
+      route,
+      /req\.cookies\.get\(UNIFIED_SESSION_COOKIE\)/,
+      "cookie presence must not be used as an outage signal",
+    );
   });
 
   it("resolves the inbox principal in the request's verified tenant", async () => {

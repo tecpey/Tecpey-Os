@@ -151,9 +151,28 @@ export async function upsertMembership(
  * Returns a guest context when DB is unavailable or the user has no membership.
  */
 export async function resolvePlatformContext(session: CanonicalSession): Promise<PlatformContext> {
-  const tenantId = PLATFORM.DEFAULT_TENANT_ID;
-  const workspaceId = PLATFORM.DEFAULT_WORKSPACE_ID;
+  return resolvePlatformContextInTenant(
+    session,
+    PLATFORM.DEFAULT_TENANT_ID,
+    PLATFORM.DEFAULT_WORKSPACE_ID,
+  );
+}
 
+/**
+ * The same derivation as `resolvePlatformContext`, but for a tenant that has
+ * already been established by evidence rather than assumed to be the default.
+ *
+ * `resolvePlatformContext` answers "who is this session in the default tenant",
+ * which is the only question single-tenant callers have. Once a principal's
+ * binding names the tenant it actually acts in, the membership and roles have to
+ * be read in *that* tenant — otherwise a context reports one tenant's binding
+ * alongside another tenant's roles.
+ */
+export async function resolvePlatformContextInTenant(
+  session: CanonicalSession,
+  tenantId: string,
+  workspaceId: string,
+): Promise<PlatformContext> {
   const userId = session.academyAccountId ?? session.studentId ?? session.userId ?? null;
   if (!userId) {
     return { tenantId, workspaceId, roles: ["guest"], membership: null };

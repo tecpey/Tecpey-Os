@@ -146,4 +146,5 @@ describe("Degraded read observability", () => {
     assert.equal(body.degraded, false);
     assert.equal(counterFor("/api/academy-certificates"), 0);
   });
+
 });
