@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
     if (session.studentId) {
       const context = await resolveTenantPrincipalContext({
         session,
+        request: req,
         requiredPrincipalType: "student",
         scopes: ["offline-sync:write"],
         requestId: req.headers.get("x-tecpey-request-id") ?? crypto.randomUUID(),
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
     const session = await getCanonicalSession(req, { strictRevocation: true });
     const context = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "student",
       scopes: ["offline-sync:write"],
       requestId: req.headers.get("x-tecpey-request-id") ?? crypto.randomUUID(),

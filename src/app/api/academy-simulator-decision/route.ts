@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
     if (!session.studentId) return apiError("complete_account_required", 401);
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: req,
       requiredPrincipalType: "student",
       scopes: ["academy:learning-events:write"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),

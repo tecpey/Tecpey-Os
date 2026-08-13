@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       if (!session.studentId) return apiError("complete_account_required", 401);
       const tenantContext = await resolveTenantPrincipalContext({
         session,
+        request: req,
         requiredPrincipalType: "student",
         scopes: ["academy:mastery-seasons:read"],
         requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),

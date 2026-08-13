@@ -162,7 +162,7 @@
     "exchange:reconcile": "tsx scripts/reconcile-exchange-ledger.ts",
     "exchange:reconcile:check": "node scripts/check-exchange-reconciliation-authority.mjs",
     "test:exchange-reconciliation": "NODE_ENV=test node --import tsx --test --test-force-exit src/tests/trading/exchange-reconciliation-postgres.test.ts",
-    "tenant:isolation:check": "node scripts/check-tenant-principal-isolation.mjs && node scripts/check-tenant-scoped-table-coverage.mjs",
+    "tenant:isolation:check": "node scripts/check-tenant-principal-isolation.mjs && node scripts/check-tenant-scoped-table-coverage.mjs && node scripts/check-request-tenant-assertion-authority.mjs",
     "test:tenant-isolation-coverage": "NODE_ENV=test node --test scripts/tenant-scoped-table-coverage.test.mjs"
   },
   "dependencies": {

@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
     if (!session.studentId) return fail("academy_profile_required", 401);
     const tenantContext = await resolveTenantPrincipalContext({
       session,
+      request: request,
       requiredPrincipalType: "student",
       scopes: ["academy:learning-events:write"],
       requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
