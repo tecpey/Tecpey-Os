@@ -41,6 +41,11 @@ describe("Tenant-scoped route guards", () => {
       /getStudentSessionFromRequest/,
       "a retired legacy cookie must not carry a tenant-scoped read",
     );
+    // Strict revocation fails closed to a guest when the revocation store is
+    // unreachable, so a presented-but-unresolvable session is an outage, not an
+    // anonymous visitor. Reporting an empty shelf there would be the silent
+    // degradation F-2 exists to prevent.
+    assert.match(route, /if \(req\.cookies\.get\(UNIFIED_SESSION_COOKIE\)\)/);
   });
 
   it("resolves the inbox principal in the request's verified tenant", async () => {

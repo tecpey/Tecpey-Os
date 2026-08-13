@@ -13,7 +13,7 @@
         "route": "/api/academy-certificates",
         "method": "POST",
         "sourcePath": "src/app/api/academy-certificates/route.ts",
-        "sourceHash": "54c53e51937cb7feaca219de",
+        "sourceHash": "28ffd0311489a8b02bc6ea95",
         "delegatedTo": null,
         "delegatedSourceHash": null,
         "mutationMode": "active",
