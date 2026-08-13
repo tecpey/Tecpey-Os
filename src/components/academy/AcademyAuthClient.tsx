@@ -1,16 +1,16 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FaApple, FaGithub, FaGoogle } from "react-icons/fa6";
 import {
   ArrowLeft,
   ArrowRight,
   BookOpenCheck,
   Eye,
   EyeOff,
-  GraduationCap,
   Loader2,
   LockKeyhole,
   ShieldCheck,
@@ -47,6 +47,40 @@ function FieldLabel({
   );
 }
 
+function SocialAuthButton({
+  label,
+  status,
+  badge,
+  icon,
+}: {
+  label: string;
+  status: string;
+  badge: string;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled
+      className="group relative inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white px-3 py-2.5 text-sm font-black text-[color:var(--tp-text)] opacity-65 shadow-sm transition-[transform,border-color,background-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 disabled:cursor-not-allowed dark:bg-white/[0.08]"
+      aria-label={`${label} - ${status}`}
+      title={status}
+    >
+      <span className="text-base text-[color:var(--tp-text)]" aria-hidden="true">
+        {icon}
+      </span>
+      <span>{label}</span>
+      <span
+        className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-1.5 py-0.5 text-[9px] font-black text-cyan-700 dark:text-cyan-200"
+        aria-hidden="true"
+      >
+        {badge}
+      </span>
+      <span className="sr-only">{status}</span>
+    </button>
+  );
+}
+
 export function AcademyAuthClient({
   locale = "fa",
   mode = "login",
@@ -73,6 +107,12 @@ export function AcademyAuthClient({
   const loginHref = isFa ? "/academy/login" : "/en/academy/login";
   const signupHref = isFa ? "/academy/signup" : "/en/academy/signup";
   const overviewHref = isFa ? "/academy" : "/en/academy";
+  const socialStatus = isFa
+    ? "به‌زودی پس از اتصال امن provider فعال می‌شود"
+    : "Coming soon after secure provider connection";
+  const socialBadge = isFa ? "به‌زودی" : "Soon";
+  const errorId = "academy-auth-error";
+  const passwordHintId = "academy-password-hint";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,85 +239,143 @@ export function AcademyAuthClient({
 
   return (
     <main
-      className="tecpey-enterprise relative isolate min-h-[100dvh] overflow-hidden bg-[color:var(--tp-bg)] px-4 py-10 text-[color:var(--tp-text)] sm:px-6 lg:px-8"
+      className="tecpey-enterprise relative isolate min-h-[100dvh] overflow-hidden bg-[color:var(--tp-bg)] px-4 py-8 text-[color:var(--tp-text)] sm:px-6 lg:px-8"
       dir={isFa ? "rtl" : "ltr"}
     >
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_0%,rgba(8,217,214,.16),transparent_30%),radial-gradient(circle_at_86%_8%,rgba(7,94,171,.14),transparent_28%)]" />
-      <section className="mx-auto grid max-w-7xl gap-6 lg:min-h-[calc(100dvh-7rem)] lg:grid-cols-[minmax(0,.9fr)_minmax(400px,.72fr)] lg:items-center">
-        <div className="rounded-[34px] border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-6 shadow-[0_24px_90px_rgba(7,94,171,.13)] backdrop-blur md:p-8 lg:p-10">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-cyan-300/20 bg-white shadow-[0_18px_50px_rgba(7,94,171,.16)] dark:bg-white/[0.08]">
-              <TecpeyMark
-                alt="TecPey"
-                width={48}
-                height={48}
-                priority
-                className="h-12 w-12 object-contain"
-              />
-            </span>
-            <div>
-              <p className="text-xs font-black text-cyan-600 dark:text-cyan-300">
-                {isFa ? "حساب اختصاصی آکادمی" : "Dedicated Academy account"}
-              </p>
-              <p className="mt-1 text-sm font-bold text-[color:var(--tp-muted)]">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_14%_0%,rgba(8,217,214,.18),transparent_30%),radial-gradient(circle_at_86%_8%,rgba(7,94,171,.16),transparent_28%),linear-gradient(180deg,transparent,rgba(8,184,216,.08))]" />
+      <section className="mx-auto grid max-w-6xl items-center lg:min-h-[calc(100dvh-6rem)]">
+        <div
+          dir="ltr"
+          className="tecpey-glass grid overflow-hidden rounded-[30px] p-2 shadow-[0_28px_110px_rgba(7,94,171,.16)] lg:grid-cols-[minmax(0,.92fr)_minmax(390px,.72fr)]"
+        >
+          <aside
+            dir={isFa ? "rtl" : "ltr"}
+            className="tecpey-motion-reveal relative order-2 overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 p-6 text-white md:p-8 lg:order-1 lg:min-h-[680px] lg:p-10"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_14%,rgba(34,211,238,.34),transparent_28%),radial-gradient(circle_at_82%_16%,rgba(37,99,235,.28),transparent_25%),linear-gradient(145deg,rgba(2,6,23,.20),rgba(2,6,23,.86))]" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(160deg,transparent_18%,rgba(8,47,73,.72)_19%,rgba(15,23,42,.96)_62%),linear-gradient(20deg,transparent_28%,rgba(34,211,238,.18)_29%,transparent_58%)]" />
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl border border-cyan-200/25 bg-white/[0.10] shadow-[0_18px_50px_rgba(34,211,238,.18)] backdrop-blur">
+                  <TecpeyMark
+                    alt="TecPey"
+                    width={48}
+                    height={48}
+                    priority
+                    className="h-12 w-12 object-contain"
+                  />
+                </span>
+                <div>
+                  <p className="text-xs font-black text-cyan-200">
+                    {isFa ? "حساب اختصاصی آکادمی" : "Dedicated Academy account"}
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-slate-300">
+                    {isFa
+                      ? "مسیر یادگیری، تمرین و منتور هوشمند"
+                      : "Learning, practice and AI mentor access"}
+                  </p>
+                </div>
+              </div>
+
+              <h1 className="mt-8 max-w-3xl text-3xl font-black leading-tight sm:text-5xl">
+                {isSignup
+                  ? isFa
+                    ? "ثبت‌نام در آکادمی تک‌پی"
+                    : "Create your TecPey Academy account"
+                  : isFa
+                    ? "ورود به آکادمی تک‌پی"
+                    : "Log in to TecPey Academy"}
+              </h1>
+              <p className="mt-5 max-w-2xl text-base font-bold leading-8 text-slate-300">
                 {isFa
-                  ? "مسیر یادگیری، تمرین و منتور هوشمند"
-                  : "Learning, practice and AI mentor access"}
+                  ? "این فرم فقط برای مسیر آموزشی است. برای حساب مالی و صرافی، ورود از دامنه رسمی my.tecpey.ir انجام می‌شود."
+                  : "This form is only for the learning path. Exchange and financial account access continue on the official my.tecpey.ir domain."}
               </p>
-            </div>
-          </div>
 
-          <h1 className="mt-8 max-w-3xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">
-            {isSignup
-              ? isFa
-                ? "ثبت‌نام در آکادمی تک‌پی"
-                : "Create your TecPey Academy account"
-              : isFa
-                ? "ورود به آکادمی تک‌پی"
-                : "Log in to TecPey Academy"}
-          </h1>
-          <p className="mt-5 max-w-2xl text-base font-bold leading-8 text-[color:var(--tp-muted)]">
-            {isFa
-              ? "این فرم فقط برای مسیر آموزشی است. برای حساب مالی و صرافی، ورود از دامنه رسمی my.tecpey.ir انجام می‌شود."
-              : "This form is only for the learning path. Exchange and financial account access continue on the official my.tecpey.ir domain."}
-          </p>
-
-          <div className="mt-8 grid gap-3">
-            {learningPoints.map((item) => (
-              <div
-                key={item}
-                className="flex items-start gap-3 rounded-2xl border border-[color:var(--tp-border)] bg-white/[0.68] p-4 text-sm font-bold leading-7 text-[color:var(--tp-muted)] dark:bg-white/[0.07]"
-              >
-                <BookOpenCheck
-                  className="mt-0.5 h-5 w-5 shrink-0 text-cyan-600 dark:text-cyan-300"
+              <div className="relative mt-7 overflow-hidden rounded-[24px] border border-white/10 bg-slate-950 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,.08),0_18px_60px_rgba(0,0,0,.24)]">
+                <div
+                  className="pointer-events-none absolute inset-0 scale-105 bg-[url('/images/brand/academy-auth-crystal.jpeg')] bg-cover bg-[center_38%] opacity-90"
                   aria-hidden="true"
                 />
-                <span>{item}</span>
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,.94),rgba(2,6,23,.68)_46%,rgba(8,47,73,.28)),radial-gradient(circle_at_58%_34%,rgba(34,211,238,.20),transparent_28%)]" />
+                <div className="mb-14 flex gap-1.5 sm:mb-20" aria-hidden="true">
+                  <span className="h-3 w-3 rounded-full bg-rose-400" />
+                  <span className="h-3 w-3 rounded-full bg-amber-300" />
+                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                </div>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-[linear-gradient(155deg,transparent_12%,rgba(8,145,178,.38)_13%,rgba(15,23,42,.96)_58%),linear-gradient(25deg,transparent_28%,rgba(56,189,248,.30)_29%,transparent_60%)]" />
+                <div className="relative max-w-sm">
+                  <p className="text-2xl font-black leading-9">
+                    {isSignup
+                      ? isFa
+                        ? "شروع مسیر یادگیری"
+                        : "Begin your learning path"
+                      : isFa
+                        ? "خوش برگشتی"
+                        : "Welcome back"}
+                  </p>
+                  <p className="mt-2 text-sm font-bold leading-7 text-slate-300">
+                    {isSignup
+                      ? isFa
+                        ? "پروفایل آکادمی، تمرین و منتور از همین‌جا فعال می‌شود."
+                        : "Your academy profile, practice and mentor start here."
+                      : isFa
+                        ? "مسیرت را از آخرین درس، آزمون یا تمرین ادامه بده."
+                        : "Continue from your latest lesson, quiz or practice."}
+                  </p>
+                  <span className="mt-4 inline-flex min-h-10 items-center rounded-full border border-cyan-200/30 bg-white/[0.10] px-5 text-xs font-black text-cyan-100 backdrop-blur">
+                    {isSignup ? (isFa ? "ثبت‌نام" : "Sign up") : isFa ? "ورود" : "Login"}
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-6 rounded-3xl border border-cyan-300/20 bg-cyan-300/10 p-5">
-            <div className="flex items-start gap-3">
-              <ShieldCheck
-                className="mt-0.5 h-6 w-6 shrink-0 text-cyan-600 dark:text-cyan-300"
-                aria-hidden="true"
-              />
-              <p className="text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
-                {isFa
-                  ? "تک‌پی هیچ تضمین سودی نمی‌دهد. آکادمی برای ساخت تصمیم آگاهانه و کنترل ریسک طراحی شده است."
-                  : "TecPey does not promise profit. Academy is designed for informed decisions and risk control."}
-              </p>
+              <div className="mt-6 grid gap-3">
+                {learningPoints.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-4 text-sm font-bold leading-7 text-slate-300 backdrop-blur"
+                  >
+                    <BookOpenCheck
+                      className="mt-0.5 h-5 w-5 shrink-0 text-cyan-200"
+                      aria-hidden="true"
+                    />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-auto pt-8">
+                <div className="rounded-3xl border border-cyan-200/20 bg-cyan-300/10 p-5 backdrop-blur">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck
+                      className="mt-0.5 h-6 w-6 shrink-0 text-cyan-200"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm font-bold leading-7 text-slate-200">
+                      {isFa
+                        ? "تک‌پی هیچ تضمین سودی نمی‌دهد. آکادمی برای ساخت تصمیم آگاهانه و کنترل ریسک طراحی شده است."
+                        : "TecPey does not promise profit. Academy is designed for informed decisions and risk control."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-black text-cyan-100">
+                  {(isFa ? ["آموزش", "تمرین", "منتور"] : ["Learn", "Practice", "Mentor"]).map((item) => (
+                    <span key={item} className="rounded-2xl border border-white/10 bg-white/[0.06] px-2 py-3">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </aside>
 
         <form
+          dir={isFa ? "rtl" : "ltr"}
           onSubmit={submit}
-          className="rounded-[34px] border border-[color:var(--tp-border)] bg-white/[0.92] p-5 shadow-[0_28px_100px_rgba(6,17,31,.16)] backdrop-blur dark:bg-[#07111f]/[0.92] md:p-6 lg:p-7"
+          className="tecpey-motion-reveal order-1 rounded-[24px] bg-white/[0.96] p-5 shadow-[0_18px_70px_rgba(6,17,31,.08)] dark:bg-[#07111f]/[0.94] md:p-6 lg:order-2 lg:self-center lg:p-7"
           noValidate
         >
-          <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-black text-[color:var(--tp-text)]">
                 {isSignup
@@ -292,7 +390,7 @@ export function AcademyAuthClient({
                 {isFa ? "امن، جدا از حساب صرافی" : "Secure, separate from exchange"}
               </p>
             </div>
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/[0.12] text-cyan-700 dark:text-cyan-200">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/[0.12] text-cyan-700 dark:text-cyan-200">
               {isSignup ? (
                 <UserRoundCheck className="h-6 w-6" aria-hidden="true" />
               ) : (
@@ -301,11 +399,11 @@ export function AcademyAuthClient({
             </span>
           </div>
 
-          <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-1">
+          <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-1">
             <Link
               href={loginHref}
               aria-current={!isSignup ? "page" : undefined}
-              className={`inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-sm font-black transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/50 ${
+              className={`inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-sm font-black transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/50 ${
                 !isSignup
                   ? "bg-white text-cyan-700 shadow-sm dark:bg-white/[0.12] dark:text-cyan-200"
                   : "text-[color:var(--tp-muted)] hover:bg-white/[0.60] dark:hover:bg-white/[0.08]"
@@ -316,7 +414,7 @@ export function AcademyAuthClient({
             <Link
               href={signupHref}
               aria-current={isSignup ? "page" : undefined}
-              className={`inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-sm font-black transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/50 ${
+              className={`inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-sm font-black transition-[transform,background-color,color] duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/50 ${
                 isSignup
                   ? "bg-white text-cyan-700 shadow-sm dark:bg-white/[0.12] dark:text-cyan-200"
                   : "text-[color:var(--tp-muted)] hover:bg-white/[0.60] dark:hover:bg-white/[0.08]"
@@ -326,7 +424,42 @@ export function AcademyAuthClient({
             </Link>
           </div>
 
-          <div className="space-y-4">
+          <div className="mb-5">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <SocialAuthButton
+                label="Google"
+                status={socialStatus}
+                badge={socialBadge}
+                icon={<FaGoogle />}
+              />
+              <SocialAuthButton
+                label="Apple"
+                status={socialStatus}
+                badge={socialBadge}
+                icon={<FaApple />}
+              />
+              <SocialAuthButton
+                label="GitHub"
+                status={socialStatus}
+                badge={socialBadge}
+                icon={<FaGithub />}
+              />
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="h-px flex-1 bg-[color:var(--tp-border)]" />
+              <span className="text-xs font-black text-[color:var(--tp-muted)]">
+                {isFa ? "یا با ایمیل ادامه بده" : "or continue with email"}
+              </span>
+              <span className="h-px flex-1 bg-[color:var(--tp-border)]" />
+            </div>
+            <p className="mt-2 text-center text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
+              {isFa
+                ? "این دکمه‌ها فقط بعد از تکمیل OAuth واقعی و تست امنیتی فعال می‌شوند."
+                : "These buttons activate only after real OAuth and security testing are complete."}
+            </p>
+          </div>
+
+          <div className="space-y-3.5">
             {isSignup ? (
               <>
                 <div>
@@ -339,7 +472,7 @@ export function AcademyAuthClient({
                     onChange={(event) => setDisplayName(event.target.value)}
                     placeholder={isFa ? "مثلاً منان" : "e.g. Mannan"}
                     autoComplete="name"
-                    className="mt-2 min-h-12 w-full rounded-2xl border border-[color:var(--tp-border)] bg-white px-4 py-3 text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400"
+                    className="mt-2 min-h-11 w-full rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400 dark:focus:bg-white/[0.10]"
                   />
                 </div>
 
@@ -356,7 +489,7 @@ export function AcademyAuthClient({
                     placeholder="crypto_mannan"
                     dir="ltr"
                     autoComplete="username"
-                    className="mt-2 min-h-12 w-full rounded-2xl border border-[color:var(--tp-border)] bg-white px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400"
+                    className="mt-2 min-h-11 w-full rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400 dark:focus:bg-white/[0.10]"
                   />
                   <p className="mt-2 text-xs font-bold text-[color:var(--tp-muted)]">
                     @{usernameHint || "username"}
@@ -379,7 +512,8 @@ export function AcademyAuthClient({
                 autoComplete="email"
                 dir="ltr"
                 aria-invalid={error ? "true" : "false"}
-                className="mt-2 min-h-12 w-full rounded-2xl border border-[color:var(--tp-border)] bg-white px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400"
+                aria-describedby={error ? errorId : undefined}
+                className="mt-2 min-h-11 w-full rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400 dark:focus:bg-white/[0.10]"
               />
             </div>
 
@@ -397,7 +531,8 @@ export function AcademyAuthClient({
                   autoComplete={isSignup ? "new-password" : "current-password"}
                   dir="ltr"
                   aria-invalid={error ? "true" : "false"}
-                  className="min-h-12 w-full rounded-2xl border border-[color:var(--tp-border)] bg-white px-4 py-3 pe-14 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400"
+                  aria-describedby={error ? `${passwordHintId} ${errorId}` : passwordHintId}
+                  className="min-h-11 w-full rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 pe-14 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400 dark:focus:bg-white/[0.10]"
                 />
                 <button
                   type="button"
@@ -420,7 +555,10 @@ export function AcademyAuthClient({
                   )}
                 </button>
               </div>
-              <p className="mt-2 text-xs font-bold text-[color:var(--tp-muted)]">
+              <p
+                id={passwordHintId}
+                className="mt-2 text-xs font-bold text-[color:var(--tp-muted)]"
+              >
                 {isFa
                   ? "حداقل ۱۰ کاراکتر برای محافظت بهتر از حساب آموزشی."
                   : "Use at least 10 characters for stronger account protection."}
@@ -430,6 +568,7 @@ export function AcademyAuthClient({
 
           {error ? (
             <p
+              id={errorId}
               className="mt-5 rounded-2xl border border-red-300/35 bg-red-500/10 p-3 text-xs font-black leading-6 text-red-700 dark:text-red-200"
               role="alert"
             >
@@ -440,7 +579,7 @@ export function AcademyAuthClient({
           <button
             type="submit"
             disabled={saving}
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition-[transform,box-shadow,background-color,opacity] duration-150 ease-out hover:bg-cyan-700 hover:shadow-2xl hover:shadow-cyan-500/25 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/60"
+            className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition-[transform,box-shadow,background-color,opacity] duration-150 ease-out hover:bg-cyan-700 hover:shadow-2xl hover:shadow-cyan-500/25 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/60"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -463,7 +602,7 @@ export function AcademyAuthClient({
               href={EXCHANGE_SIGNIN_URL}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] px-4 py-3 text-sm font-black text-[color:var(--tp-text)] transition-[transform,border-color,background-color] duration-150 ease-out hover:border-cyan-300/50 hover:bg-cyan-50 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/50 dark:hover:bg-white/[0.08]"
             >
-              <GraduationCap
+              <ShieldCheck
                 className="h-4 w-4 text-cyan-600 dark:text-cyan-300"
                 aria-hidden="true"
               />
@@ -478,6 +617,7 @@ export function AcademyAuthClient({
             </Link>
           </div>
         </form>
+        </div>
       </section>
     </main>
   );

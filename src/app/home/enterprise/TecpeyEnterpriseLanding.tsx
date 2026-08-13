@@ -115,7 +115,7 @@ function getMarketFallback(): MarketCurrency[] {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--tp-border)] bg-white/70 px-3 py-2 text-xs font-bold text-[color:var(--tp-primary)] shadow-sm backdrop-blur dark:bg-white/5">
+    <div className="tecpey-kicker">
       <Sparkles className="h-4 w-4" />
       {children}
     </div>
@@ -129,8 +129,8 @@ function DeviceFrame() {
   return (
     <div className="relative mx-auto w-full max-w-[560px] lg:max-w-[620px]">
       <div className="absolute -inset-6 rounded-[48px] bg-[radial-gradient(circle_at_30%_20%,rgba(12,217,222,.35),transparent_35%),radial-gradient(circle_at_80%_40%,rgba(37,99,235,.30),transparent_35%)] blur-2xl" />
-      <div className="relative overflow-hidden rounded-[34px] border border-white/25 bg-white/80 p-3 shadow-2xl shadow-blue-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
-        <div className="rounded-[28px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
+      <div className="tecpey-glass relative rounded-[30px] p-3">
+        <div className="rounded-[24px] border border-[color:var(--tp-border)] bg-[color:var(--tp-surface)] p-4 sm:p-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <TecpeyMark alt="TecPey" width={42} height={42} className="h-10 w-10 rounded-2xl object-contain" priority />
@@ -149,7 +149,7 @@ function DeviceFrame() {
               ["داده‌های بازار", "مرجع"],
               ["راهنمایی", "آموزشی"],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl border border-[color:var(--tp-border)] bg-[color:var(--tp-card)] p-3 text-center">
+              <div key={label} className="tecpey-card rounded-2xl p-3 text-center shadow-none">
                 <p className="text-lg font-black text-[color:var(--tp-text)]">{value}</p>
                 <p className="mt-1 text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{label}</p>
               </div>
@@ -189,15 +189,15 @@ function DeviceFrame() {
 
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden bg-[color:var(--tp-bg)] pt-24 sm:pt-28 lg:pt-32">
+    <section className="tecpey-section relative isolate overflow-hidden pt-20 sm:px-6 sm:pt-24 lg:px-8">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(11,217,222,.20),transparent_30%),radial-gradient(circle_at_10%_30%,rgba(30,64,175,.16),transparent_28%)]" />
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[.95fr_1.05fr] lg:px-8 lg:pb-24">
+      <div className="tecpey-section-inner grid grid-cols-1 items-center gap-10 pb-14 pt-6 lg:grid-cols-[.95fr_1.05fr] lg:pb-20">
         <div className="text-center lg:text-right">
           <SectionLabel>مسیر امن آموزش و تمرین رمزارز</SectionLabel>
           <h1 className="mt-6 text-balance text-4xl font-black leading-[1.18] tracking-tight text-[color:var(--tp-text)] sm:text-5xl lg:text-6xl">
             تک‌پی، نقطه امن ورود به بازار رمزارز
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-8 text-[color:var(--tp-muted)] sm:text-lg lg:mx-0">
+          <p className="tecpey-copy mx-auto mt-5 max-w-xl text-pretty sm:text-lg lg:mx-0">
             آموزش، قیمت‌های مرجع، تمرین مجازی و منتور آموزشی برای شروع آرام، امن و بدون سیگنال‌فروشی.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:max-w-xl">
@@ -214,7 +214,7 @@ function Hero() {
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-500"><CheckCircle2 className="h-4 w-4" />۷ ترم آموزشی</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-2 text-blue-700 dark:text-blue-500"><ShieldCheck className="h-4 w-4" />۵۰+ پرونده رمزارز</span>
             <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-2 text-cyan-700 dark:text-cyan-500"><Clock3 className="h-4 w-4" />۲۰+ ابزار حرفه‌ای</span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-amber-500"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
+            <span className="inline-flex items-center gap-2 rounded-full bg-[color:var(--tp-primary-soft)] px-3 py-2 text-[color:var(--tp-primary)]"><BookOpen className="h-4 w-4" />آموزش فارسی</span>
           </div>
         </div>
         <DeviceFrame />
@@ -243,9 +243,9 @@ function TopDiscoveryGateway({
   return (
     <section
       aria-labelledby="top-discovery-gateway-title"
-      className="relative z-10 bg-[color:var(--tp-bg)] px-4 pt-5 sm:px-6 lg:px-8"
+      className="tecpey-section relative z-10 pt-5 sm:px-6 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl overflow-hidden rounded-[30px] border border-cyan-300/15 bg-white/80 p-4 shadow-[0_20px_70px_rgba(15,23,42,.10)] backdrop-blur-xl dark:bg-white/[0.055] sm:p-5">
+      <div className="tecpey-section-inner tecpey-glass rounded-[28px] p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
@@ -297,7 +297,7 @@ function TopDiscoveryGateway({
                 <Link
                   key={coin.symbol}
                   href={`/coins/${coin.slug}`}
-                  className="group min-w-[178px] overflow-hidden rounded-2xl border border-cyan-300/15 bg-[color:var(--tp-card)] p-2.5 transition hover:-translate-y-0.5 hover:border-cyan-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
+                  className="tecpey-pressable group min-w-[178px] overflow-hidden rounded-2xl border border-cyan-300/15 bg-[color:var(--tp-card)] p-2.5 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
                 >
                   <CoinVisual symbol={coin.symbol} slug={coin.slug} name={coin.name} faName={coin.faName} variant="cover" />
                   <div className="flex items-center justify-between gap-2">
@@ -328,7 +328,7 @@ function TopDiscoveryGateway({
                 <Link
                   key={tool.slug}
                   href={`/trading-tools/${tool.slug}`}
-                  className="group min-w-[152px] rounded-2xl border border-blue-300/15 bg-[color:var(--tp-card)] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/45 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
+                  className="tecpey-pressable group min-w-[152px] rounded-2xl border border-blue-300/15 bg-[color:var(--tp-card)] p-3 focus:outline-none focus:ring-2 focus:ring-cyan-300/60 md:min-w-0"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
@@ -1262,6 +1262,28 @@ function TradingArenaSection() {
   );
 }
 
+function TradingToolsKnowledgeCenter() {
+  return (
+    <section className="tecpey-section pb-16 sm:px-6 lg:px-8">
+      <div className="tecpey-section-inner tecpey-section-panel p-6 text-center">
+        <div className="mx-auto max-w-3xl">
+          <SectionLabel>مرکز دانش: جعبه ابزار معامله‌گر</SectionLabel>
+          <h2 className="mt-4 text-2xl font-black leading-9 text-[color:var(--tp-text)] sm:text-3xl">
+            ابزارهای تصمیم‌گیری را قبل از ورود جدی یاد بگیر
+          </h2>
+          <p className="tecpey-copy mx-auto mt-3 max-w-2xl">
+            برای خروج از سردرگمی، ابزارهای تحلیل، مدیریت ریسک، اخبار، آنچین و بررسی پروژه‌ها را به زبان ساده ببین.
+          </p>
+          <Link href="/trading-tools" className="tecpey-action-primary mt-5">
+            مشاهده ابزارهای ترید
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function TecpeyEnterpriseLanding({
   growthRadar,
 }: {
@@ -1287,7 +1309,7 @@ export default function TecpeyEnterpriseLanding({
       <AcademyGrowthSystem />
       <TradingArenaSection />
       <AcademyOfficialClarification />
-      <section className="bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/15 bg-cyan-300/10 p-6 text-center"><h2 className="text-2xl font-black text-[color:var(--tp-text)]">مرکز دانش: جعبه ابزار معامله‌گر</h2><p className="mt-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">برای خروج از سردرگمی، ابزارهای کاربردی تحلیل، مدیریت ریسک، اخبار، آنچین و بررسی پروژه‌ها را به زبان ساده یاد بگیرید.</p><a href="/trading-tools" className="mt-5 inline-flex rounded-2xl bg-cyan-700 px-5 py-3 text-sm font-black text-white hover:bg-cyan-800 dark:bg-cyan-500 dark:hover:bg-cyan-400">مشاهده ابزارهای ترید</a></div></section>
+      <TradingToolsKnowledgeCenter />
       <LearningExperienceSystem />
       <TrustGrowthSignals />
       <CorporateAcademySection />

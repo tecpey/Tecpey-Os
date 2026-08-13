@@ -22,14 +22,18 @@
   --tp-shadow-card: 0 18px 55px rgba(15, 23, 42, 0.10);
   --tp-ring: 0 0 0 3px rgba(34, 211, 238, 0.18);
   --tp-radius-control: 14px;
-  --tp-radius-card: 24px;
+  --tp-radius-card: 22px;
   --tp-radius-panel: 22px;
-  --tp-radius-hero: 32px;
+  --tp-radius-hero: 30px;
   --tp-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --tp-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --tp-duration-fast: 140ms;
   --tp-duration-base: 200ms;
   --tp-duration-panel: 260ms;
+  --tp-glass-bg: rgba(255, 255, 255, 0.72);
+  --tp-glass-border: rgba(255, 255, 255, 0.44);
+  --tp-glass-highlight: rgba(255, 255, 255, 0.62);
+  --tp-icon-bg: rgba(8, 184, 216, 0.12);
 }
 
 .dark {
@@ -55,6 +59,10 @@
   --tp-shadow-panel: 0 22px 70px rgba(0, 0, 0, 0.34);
   --tp-shadow-card: 0 18px 55px rgba(0, 0, 0, 0.28);
   --tp-ring: 0 0 0 3px rgba(34, 211, 238, 0.24);
+  --tp-glass-bg: rgba(15, 23, 42, 0.72);
+  --tp-glass-border: rgba(255, 255, 255, 0.14);
+  --tp-glass-highlight: rgba(255, 255, 255, 0.22);
+  --tp-icon-bg: rgba(34, 211, 238, 0.13);
 }
 
 .tecpey-enterprise {
@@ -77,6 +85,67 @@
   color: var(--tp-text);
 }
 
+.tecpey-section {
+  background: var(--tp-bg);
+  padding-inline: 1rem;
+}
+
+.tecpey-section-inner {
+  margin-inline: auto;
+  max-width: 80rem;
+}
+
+.tecpey-copy {
+  color: var(--tp-muted);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 2;
+}
+
+.tecpey-glass {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--tp-glass-border);
+  background:
+    linear-gradient(135deg, var(--tp-glass-highlight), transparent 38%),
+    var(--tp-glass-bg);
+  box-shadow: var(--tp-shadow-panel);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+
+.tecpey-glass::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+}
+
+.tecpey-section-panel {
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-hero);
+  background: var(--tp-card);
+  box-shadow: var(--tp-shadow-panel);
+}
+
+.tecpey-icon-shell {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tp-border);
+  border-radius: 1rem;
+  background: var(--tp-icon-bg);
+  color: var(--tp-primary);
+}
+
+.tecpey-motion-reveal {
+  animation: tecpey-reveal 320ms var(--tp-ease-out) both;
+}
+
 .tecpey-panel {
   border: 1px solid var(--tp-border);
   border-radius: var(--tp-radius-panel);
@@ -90,6 +159,18 @@
   background: var(--tp-card);
   box-shadow: var(--tp-shadow-card);
   backdrop-filter: blur(12px);
+}
+
+@keyframes tecpey-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tecpey-kicker {
@@ -195,8 +276,11 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .tecpey-card,
-  .tecpey-action-secondary {
+  .tecpey-action-secondary,
+  .tecpey-glass {
+    background: var(--tp-card);
     backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 
@@ -204,7 +288,9 @@
   .tecpey-pressable,
   .tecpey-action-primary,
   .tecpey-action-secondary,
-  .tecpey-action-ghost {
+  .tecpey-action-ghost,
+  .tecpey-motion-reveal {
+    animation: none;
     transition: none;
   }
 
