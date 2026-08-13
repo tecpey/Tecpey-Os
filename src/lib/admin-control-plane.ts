@@ -12,6 +12,9 @@ const DEFAULT_STEP_UP_MAX_AGE_SECONDS = 5 * 60;
 
 export type AdminPrincipal = {
   adminId: string;
+  /** Tenant the operator acts for. Every scopable admin read filters on it. */
+  tenantId: string;
+  workspaceId: string;
   sessionId: string;
   jti: string;
   email: string;
@@ -165,6 +168,8 @@ export async function loadAdminPrincipal(req: NextRequest): Promise<AdminPrincip
   const result = await withDb(async (client) => {
     const query = await client.query<{
       admin_id: string;
+      tenant_id: string;
+      workspace_id: string;
       session_id: string;
       jti: string;
       email: string;
@@ -179,6 +184,8 @@ export async function loadAdminPrincipal(req: NextRequest): Promise<AdminPrincip
     }>(
       `SELECT
          u.id::text AS admin_id,
+         u.tenant_id,
+         u.workspace_id,
          s.id::text AS session_id,
          s.jti,
          u.email,
@@ -213,6 +220,8 @@ export async function loadAdminPrincipal(req: NextRequest): Promise<AdminPrincip
 
     return {
       adminId: row.admin_id,
+      tenantId: row.tenant_id,
+      workspaceId: row.workspace_id,
       sessionId: row.session_id,
       jti: row.jti,
       email: row.email,

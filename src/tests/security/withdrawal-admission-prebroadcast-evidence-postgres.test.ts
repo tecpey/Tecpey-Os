@@ -5,6 +5,7 @@ import { Redis } from "ioredis";
 import { NextRequest } from "next/server";
 import { POST as authorizeWithdrawal } from "../../app/api/auth/withdraw/authorize/route";
 import { withDb, withTx } from "../../lib/db";
+import { PLATFORM } from "../../lib/platform-config";
 import type {
   AMLProvider,
   KYCProvider,
@@ -687,6 +688,7 @@ describe("Withdrawal pre-broadcast mandatory evidence", () => {
       try {
         const result = await adminActOnAuthoritativeWithdrawal({
           withdrawalId,
+          tenantId: PLATFORM.DEFAULT_TENANT_ID,
           adminId,
           action: "reject",
           notes,

@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       0,
     );
 
-    const result = await listPendingReviewWithdrawalsStrict(limit, offset);
+    const result = await listPendingReviewWithdrawalsStrict(limit, offset, authorization.principal.tenantId);
     if (!result.ok) return apiError(result.reason, 503);
 
     return apiOk(

@@ -119,6 +119,15 @@
       "isolationNote": "Gates are tenant-scoped; four derived-analytics readers are not yet and remain global: academy-progress-projection.ts, mentor-memory.ts, mentor-signals.ts and student-cartax.ts. None of them gates progression, issuance or eligibility — they compute XP/level projections, mentor context and profile summaries — and each also reads other tables whose own tenant status differs, so threading a scope through them is tracked as a separate slice under #20 rather than being half-applied here."
     },
     {
+      "table": "admin_users",
+      "domain": "platform",
+      "sourceFile": "src/lib/db-migrate-admin-tenant-binding.ts",
+      "isolationModel": "tenant_id + workspace_id on the admin operator itself, FK-bound to platform_tenants and, as a composite pair, to platform_workspaces (tenant_id, id) so a syntactically valid but foreign or nonexistent workspace cannot be provisioned. loadAdminPrincipal carries both onto AdminPrincipal, and every admin read or write whose table has a tenant column filters on the operator's tenant: the withdrawal review queue (listPendingReviewWithdrawalsStrict), the withdrawal detail read (readWithdrawal), the authoritative admin action (adminActOnAuthoritativeWithdrawal selects FOR UPDATE and updates state under the tenant) and the Command Center learning_events aggregate. Command Center metrics whose tables have no tenant column yet (academy_students, notification_center, academy_certificates, mentor_challenge_attempts) are returned labelled scope: \"platform\" rather than implying a boundary that is not enforced, and a guard fails the moment one of those tables gains a tenant_id without the metric being scoped.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/admin-tenant-binding-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "ai_mentor_request_evidence",
       "domain": "mentor",
       "sourceFile": "src/lib/db-migrate-ai-mentor-trust.ts; src/lib/db-migrate-ai-mentor-evidence-tenant-key.ts",

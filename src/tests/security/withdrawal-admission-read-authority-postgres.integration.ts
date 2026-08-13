@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { PLATFORM } from "../../lib/platform-config";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, it } from "node:test";
 import { withDb } from "../../lib/db";
@@ -159,7 +160,7 @@ describe("PostgreSQL withdrawal read authority", () => {
     "filters the Admin review queue and preserves deterministic oldest-first order",
     { skip: !integrationConfigured },
     async () => {
-      const result = await listPendingReviewWithdrawalsStrict(200, 0);
+      const result = await listPendingReviewWithdrawalsStrict(200, 0, PLATFORM.DEFAULT_TENANT_ID);
       assert.equal(result.ok, true);
       if (!result.ok) return;
 
