@@ -10,6 +10,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/control-plane" }, async () => {
+    if (Array.from(req.nextUrl.searchParams.keys()).length > 0) {
+      return apiError("unsupported_query", 400);
+    }
+
     const limit = await rateLimit(req, {
       namespace: "command-center-control-plane-read",
       limit: 60,
@@ -28,7 +32,10 @@ export async function GET(req: NextRequest) {
         snapshot: resolveAdminControlPlaneMatrix(),
       },
       200,
-      { "Cache-Control": "no-store, max-age=0" },
+      {
+        "Cache-Control": "private, no-store, max-age=0",
+        Vary: "Cookie",
+      },
     );
   });
 }

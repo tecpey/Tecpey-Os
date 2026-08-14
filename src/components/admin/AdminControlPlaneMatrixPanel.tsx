@@ -87,6 +87,12 @@ function lockedStatus(status: AdminControlPlaneStatus): boolean {
   return ["launch_locked", "feature_locked", "needs_evidence"].includes(status);
 }
 
+function initialGroupFilter(): GroupFilter {
+  if (typeof window === "undefined") return "all";
+  const hash = window.location.hash.replace("#", "");
+  return isGroupFilter(hash) ? hash : "all";
+}
+
 function StatusBadge({ status }: { status: AdminControlPlaneStatus }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${statusClassName[status]}`}>
@@ -135,7 +141,7 @@ export function AdminControlPlaneMatrixPanel() {
   const [snapshot, setSnapshot] = useState<AdminControlPlaneSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeGroup, setActiveGroup] = useState<GroupFilter>("all");
+  const [activeGroup, setActiveGroup] = useState<GroupFilter>(initialGroupFilter);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -171,9 +177,13 @@ export function AdminControlPlaneMatrixPanel() {
   }, []);
 
   useEffect(() => {
-    const hash = window.location.hash.replace("#", "");
-    if (isGroupFilter(hash)) setActiveGroup(hash);
-    void load();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) void load();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const visibleModules = useMemo(() => {

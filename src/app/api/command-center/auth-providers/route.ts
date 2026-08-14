@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiError, apiOk, checkBodySize, Validate } from "@/lib/api-validation";
+import { apiError, apiOk, Validate } from "@/lib/api-validation";
 import { authorizeAdminRequest } from "@/lib/admin-control-plane";
 import {
   evaluateAuthProviderUpdate,
@@ -11,8 +11,10 @@ import {
   applyAuthProviderEvidenceMutation,
   loadAuthProviderEvidenceByProvider,
 } from "@/lib/admin-auth-provider-evidence-store";
+import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
+import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,22 +53,26 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/auth-providers" }, async () => {
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const limit = await rateLimit(req, {
       namespace: "command-center-auth-providers-write",
       limit: 20,
       windowMs: 60_000,
     });
     if (!limit.ok) return apiError("rate_limited", 429);
-    if (!checkBodySize(req.headers.get("content-length"), 8_192)) {
-      return apiError("body_too_large", 413);
-    }
 
     const authorization = await authorizeAdminRequest(req, "admin.roles.manage", {
       stepUpWithinSeconds: 300,
     });
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const body = await req.json().catch(() => null) as { providerId?: unknown; requestedState?: unknown } | null;
+    const boundedBodyRequest = await readBoundedJsonRequest(req, { maxBytes: 8_192 });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
+    const body = boundedBodyRequest.value as { providerId?: unknown; requestedState?: unknown };
     const rawProviderId = body?.providerId;
     const providerId = isAuthProviderId(rawProviderId) ? rawProviderId : null;
     const requestedState = Validate.oneOf(body?.requestedState, ["enabled", "disabled"] as const);
@@ -102,22 +108,26 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   return withObservability(req, { route: "/api/command-center/auth-providers" }, async () => {
+    if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
+
     const limit = await rateLimit(req, {
       namespace: "command-center-auth-providers-evidence-write",
       limit: 30,
       windowMs: 60_000,
     });
     if (!limit.ok) return apiError("rate_limited", 429);
-    if (!checkBodySize(req.headers.get("content-length"), 12_288)) {
-      return apiError("body_too_large", 413);
-    }
 
     const authorization = await authorizeAdminRequest(req, "admin.roles.manage", {
       stepUpWithinSeconds: 300,
     });
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const body = await req.json().catch(() => null) as {
+    const boundedBodyRequest = await readBoundedJsonRequest(req, { maxBytes: 12_288 });
+    if (!boundedBodyRequest.ok) {
+      return apiError(boundedBodyRequest.error, boundedBodyRequest.status);
+    }
+    req = boundedBodyRequest.request;
+    const body = boundedBodyRequest.value as {
       providerId?: unknown;
       gateId?: unknown;
       action?: unknown;
@@ -125,7 +135,7 @@ export async function PATCH(req: NextRequest) {
       evidenceSha256?: unknown;
       expiresAt?: unknown;
       decisionNote?: unknown;
-    } | null;
+    };
     const providerId = isAuthProviderId(body?.providerId) ? body.providerId : null;
     const gateId = isAuthProviderEvidenceGateId(body?.gateId) ? body.gateId : null;
     const action = Validate.oneOf(body?.action, ["mark_missing", "mark_ready", "reject", "expire"] as const);

@@ -19,9 +19,9 @@ function moduleById(id: AdminControlPlaneModuleId) {
     featureFlags: LAUNCH_SAFE_FLAGS,
     now: new Date("2026-08-14T12:00:00.000Z"),
   });
-  const module = snapshot.modules.find((item) => item.id === id);
-  assert.ok(module, `${id} module must exist`);
-  return module;
+  const targetModule = snapshot.modules.find((item) => item.id === id);
+  assert.ok(targetModule, `${id} module must exist`);
+  return targetModule;
 }
 
 describe("admin control plane matrix", () => {
@@ -35,12 +35,12 @@ describe("admin control plane matrix", () => {
     assert.equal(snapshot.modules.length, snapshot.summary.totalModules);
 
     for (const id of ["real_exchange", "wallet_custody", "withdrawals_settlement"] as const) {
-      const module = snapshot.modules.find((item) => item.id === id);
-      assert.ok(module, `${id} module must exist`);
-      assert.equal(module.status, "launch_locked");
-      assert.equal(module.riskLevel, "critical");
-      assert.equal(module.stepUpRequired, true);
-      assert.ok(module.descriptionFa.includes("قفل") || module.controls.some((control) => control.lockedReasonFa?.includes("قفل")));
+      const targetModule = snapshot.modules.find((item) => item.id === id);
+      assert.ok(targetModule, `${id} module must exist`);
+      assert.equal(targetModule.status, "launch_locked");
+      assert.equal(targetModule.riskLevel, "critical");
+      assert.equal(targetModule.stepUpRequired, true);
+      assert.ok(targetModule.descriptionFa.includes("قفل") || targetModule.controls.some((control) => control.lockedReasonFa?.includes("قفل")));
     }
   });
 
@@ -50,12 +50,12 @@ describe("admin control plane matrix", () => {
     const criticalModules = snapshot.modules.filter((module) => module.riskLevel === "critical");
     assert.ok(criticalModules.length >= 5);
 
-    for (const module of criticalModules) {
-      assert.match(module.requiredPermission, /^admin\.roles\./);
-      assert.equal(module.stepUpRequired, true, `${module.id} must require step-up`);
+    for (const targetModule of criticalModules) {
+      assert.match(targetModule.requiredPermission, /^admin\.roles\./);
+      assert.equal(targetModule.stepUpRequired, true, `${targetModule.id} must require step-up`);
 
-      for (const control of module.controls.filter((item) => item.requiredPermission.endsWith(".manage"))) {
-        assert.equal(control.stepUpRequired, true, `${module.id}/${control.id} must require step-up`);
+      for (const control of targetModule.controls.filter((item) => item.requiredPermission.endsWith(".manage"))) {
+        assert.equal(control.stepUpRequired, true, `${targetModule.id}/${control.id} must require step-up`);
       }
     }
   });
@@ -63,8 +63,8 @@ describe("admin control plane matrix", () => {
   it("makes locked or secret-required connections explainable", () => {
     const snapshot = resolveAdminControlPlaneMatrix({ featureFlags: LAUNCH_SAFE_FLAGS });
 
-    const lockedConnections = snapshot.modules.flatMap((module) =>
-      module.connections.filter((connection) => ["locked", "needs_secret"].includes(connection.status)),
+    const lockedConnections = snapshot.modules.flatMap((targetModule) =>
+      targetModule.connections.filter((connection) => ["locked", "needs_secret"].includes(connection.status)),
     );
     assert.equal(lockedConnections.length, snapshot.summary.lockedConnections);
     assert.ok(lockedConnections.length > 0);
@@ -76,17 +76,17 @@ describe("admin control plane matrix", () => {
   });
 
   it("surfaces OAuth provider control from the identity module", () => {
-    const module = moduleById("auth_identity");
+    const targetModule = moduleById("auth_identity");
 
-    assert.equal(module.adminRoute, "/command-center/auth-providers");
-    assert.ok(module.apiRoutes.includes("/api/command-center/auth-providers"));
-    assert.ok(module.controls.some((control) => control.id === "provider_enable_review"));
+    assert.equal(targetModule.adminRoute, "/command-center/auth-providers");
+    assert.ok(targetModule.apiRoutes.includes("/api/command-center/auth-providers"));
+    assert.ok(targetModule.controls.some((control) => control.id === "provider_enable_review"));
   });
 
   it("feature-locks future marketplace until its flag is explicitly enabled", () => {
-    const module = moduleById("future_marketplace");
+    const targetModule = moduleById("future_marketplace");
 
-    assert.equal(module.status, "feature_locked");
-    assert.deepEqual(module.gatedBy, ["future.marketplace.enabled"]);
+    assert.equal(targetModule.status, "feature_locked");
+    assert.deepEqual(targetModule.gatedBy, ["future.marketplace.enabled"]);
   });
 });
