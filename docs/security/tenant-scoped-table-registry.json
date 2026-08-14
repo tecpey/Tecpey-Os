@@ -30,9 +30,9 @@
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-credential-ledger.ts",
       "isolationModel": "tenant_id + workspace_id + generated student principal_id are bound by composite foreign keys to platform_workspaces and platform_principal_bindings; credential uniqueness includes tenant, workspace and student, so the same monthly league key remains independent across tenants while a tenant cannot attribute a credential to another tenant's workspace or an unbound student.",
-      "adversarialProof": "proven",
+      "adversarialProof": "pending",
       "issue": "#109",
-      "testReference": "src/tests/security/academy-credential-ledger-cross-tenant-isolation-postgres.test.ts"
+      "isolationNote": "Composite foreign keys and tenant-leading uniqueness are enforced in migration 0076. End-to-end negative read/write proof will land with the credential authority API, whose exact scoped queries are the application boundary being proven."
     },
     {
       "table": "academy_certificates",
