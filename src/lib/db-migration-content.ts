@@ -75,6 +75,7 @@ import { WITHDRAWAL_EVIDENCE_TENANT_SQL } from "./db-migrate-withdrawal-evidence
 import { STUDENT_TENANT_BINDING_INTEGRITY_SQL } from "./db-migrate-student-tenant-binding-integrity";
 import { STUDENT_TENANT_BINDING_TRIGGER_SQL } from "./db-migrate-student-tenant-binding-trigger";
 import { ADMIN_AUTH_PROVIDER_EVIDENCE_SQL } from "./db-migrate-admin-auth-provider-evidence";
+import { ACADEMY_CREDENTIAL_LEDGER_SQL } from "./db-migrate-academy-credential-ledger";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -311,5 +312,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   adminAuthProviderEvidence: one(
     "0075_admin_auth_provider_evidence.sql",
     ADMIN_AUTH_PROVIDER_EVIDENCE_SQL,
+  ),
+  academyCredentialLedger: one(
+    "0076_academy_credential_ledger.sql",
+    ACADEMY_CREDENTIAL_LEDGER_SQL,
   ),
 });
