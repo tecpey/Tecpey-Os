@@ -29,6 +29,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "workflow_dispatch:", "pull_request:", "permissions:", "contents: read",
     "cancel-in-progress: false", "timeout-minutes: 25", "git rev-parse HEAD",
     "persist-credentials: false", "TECPEY_RECOVERY_RTO_SECONDS: '300'",
+    "npm ci --ignore-scripts --no-audit --no-fund",
     "TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
     "test-container-volume-recovery.sh",
     "verify-protected-recovery-reconciliation-evidence.mjs",
