@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
-import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
+import {
+  applyDatabaseMigrationsWithLock,
+  DATABASE_MIGRATION_LOCK_KEYS,
+} from "../../lib/db-migration-plan";
 import { ACADEMY_CERTIFICATE_TENANT_SQL } from "../../lib/db-migrate-academy-certificate-tenant";
 import { PLATFORM } from "../../lib/platform-config";
 
@@ -33,6 +36,9 @@ async function withRollback<T>(fn: (client: PoolClient) => Promise<T>): Promise<
   const client = await pool!.connect();
   try {
     await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock($1, $2)", [
+      ...DATABASE_MIGRATION_LOCK_KEYS,
+    ]);
     return await fn(client);
   } finally {
     await client.query("ROLLBACK");
