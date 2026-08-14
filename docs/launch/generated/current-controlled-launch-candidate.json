@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-14T15:27:51Z",
+  "generatedAt": "2026-08-14T16:00:49Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
+    "sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
     "sourceBranch": "main",
-    "sourcePullRequest": 441,
-    "selectedAt": "2026-08-14T15:27:51Z",
-    "reason": "Promotes the controlled-launch evidence target to current main after PR #440 AI Mentor egress entitlement gating and PR #441 Academy lesson-progress tenant binding landed on top of the PR #439 CI/full-suite hardening candidate. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
+    "sourcePullRequest": 437,
+    "selectedAt": "2026-08-14T16:00:49Z",
+    "reason": "Rebaselines the controlled-launch evidence target to the PR #437 squash-merge commit on main after the PR #441 tenant-binding candidate was promoted. The runtime tree remains the PR #441 candidate line, but every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
   },
   "supersedes": [
     {
@@ -90,6 +90,11 @@
       "sha": "b55860d8444db9c1b1020f1240816a229b1a2944",
       "previousRole": "current controlled-launch candidate after PR #439 concurrent authority CI/full-suite hardening",
       "currentStatus": "superseded_by_pr_440_pr_441_for_current_main_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
+      "previousRole": "current controlled-launch candidate after PR #441 Academy lesson-progress tenant-binding and PR #437 evidence-ledger promotion base",
+      "currentStatus": "superseded_by_pr_437_for_new_current_main_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {

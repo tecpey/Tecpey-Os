@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `5c933f2499fa84f7e71fcd3a1076ffe12cf3149e`
-**Candidate source:** `main` after PR #441 on top of PR #440 and PR #439
-**Candidate selected at:** `2026-08-14T15:27:51Z`
+**Current candidate SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Candidate source:** `main` after PR #437 promoted the PR #441 tenant-binding candidate line
+**Candidate selected at:** `2026-08-14T16:00:49Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -21,21 +21,21 @@ this ledger explicitly lists them as active inputs.
 ## Why This Candidate Exists
 
 PR #391 through PR #441 materially changed the launch-control line after the
-previous candidate. After PR #439 hardened concurrent authority CI and
-full-suite migration behavior, PR #440 gated AI Mentor external egress on the
-acting tenant's entitlement and PR #441 bound Academy lesson-progress reads to
-the acting tenant. The current main now includes the previous runtime-image,
-exact-head workflow, rollback/volume-restore and disabled-capability evidence
-line plus the PR #440/#441 tenant/entitlement security fixes. Because these
-changes affect launch evidence, tenant isolation and the final
+previous candidate. PR #437 then squash-merged the current evidence ledger into
+`main`, making the PR #441 tenant-binding line the active exact candidate for
+all new protected-staging and release-control artifacts. The runtime tree is the
+PR #441 candidate line, but the selected release identity is now the current
+`main` merge commit that contains the refreshed ledger, exact-head workflow,
+runtime image, rollback/volume-restore and disabled-capability evidence. Because
+these changes affect launch evidence, tenant isolation and the final
 protected-staging target, all new evidence collection must use the SHA that
 contains them:
 
 ```text
-5c933f2499fa84f7e71fcd3a1076ffe12cf3149e
+9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
 ```
 
-Using the prior PR #439, PR #434, PR #435 or PR #433 candidate for new
+Using the prior PR #441, PR #439, PR #434, PR #435 or PR #433 candidate for new
 staging/support evidence would make the final evidence packet stale before
 execution.
 
@@ -59,6 +59,7 @@ execution.
 | `92ccb8f18ac28232a2c1cb6cece09de52aa424f0` | Current controlled-launch candidate after PR #435 strict readiness audit and candidate-evidence promotion | Superseded by PR #434 for Mentor tenant-binding security and new exact-candidate evidence collection. |
 | `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d` | Current controlled-launch candidate after PR #434 Mentor conversation and insight tenant-binding security fix | Superseded by PR #436, PR #438 and PR #439 for current-main exact-candidate evidence collection. |
 | `b55860d8444db9c1b1020f1240816a229b1a2944` | Current controlled-launch candidate after PR #439 concurrent authority CI/full-suite hardening | Superseded by PR #440 and PR #441 for current-main exact-candidate evidence collection. |
+| `5c933f2499fa84f7e71fcd3a1076ffe12cf3149e` | Current controlled-launch candidate after PR #441 Academy lesson-progress tenant-binding and PR #437 evidence-ledger promotion base | Superseded by PR #437 for all new current-main exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
