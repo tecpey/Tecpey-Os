@@ -2,8 +2,8 @@
 
 **Status:** execution request for NOG-01 and NOG-02, not accepted evidence  
 **Decision after this runbook:** NO-GO until the protected staging run is executed and accepted  
-**Protected staging evidence target SHA:** `c2b5e58f23881635ebf507827158550a44d3f9b5`
-**Runtime candidate baseline SHA:** `c2b5e58f23881635ebf507827158550a44d3f9b5`
+**Protected staging evidence target SHA:** `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`
+**Runtime candidate baseline SHA:** `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
 **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
@@ -21,7 +21,7 @@ Do not silently move the staging target because documentation-only or
 launch-control PRs were merged after earlier draft packets. The selected staging
 evidence target is the current candidate in
 `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
-`c2b5e58f23881635ebf507827158550a44d3f9b5`.
+`389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`.
 
 The deployed application checkout, workflow checkout, bundle manifest and
 `/api/health` commit must all report the same selected SHA. If staging uses any
@@ -58,8 +58,8 @@ and NOG-02 remain open until the staging Environment has required protection
 rules/reviewers and both manual workflow runs complete successfully for the
 selected candidate SHA.
 
-Post-promotion refresh: after PR #433 merged auth-provider review decision authority and the controlled-launch candidate was promoted to
-`c2b5e58f23881635ebf507827158550a44d3f9b5`, a fresh GitHub API observation still returned `protection_rules: []`, zero protected env evidence
+Post-promotion refresh: after PR #434 advanced `main` beyond the PR #435 promotion and the controlled-launch candidate was promoted to
+`389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`, a fresh GitHub API observation still returned `protection_rules: []`, zero protected env evidence
 runs, and no accepted current-candidate scheduler evidence run. Follow
 `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 before dispatching either workflow.
@@ -92,7 +92,7 @@ Run the protected staging evidence workflow for the selected SHA:
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: c2b5e58f23881635ebf507827158550a44d3f9b5
+release_sha: 389c1fed2682b73db7d46ab36a9e992cc9ba9a1d
 run_alert_probe: true
 ```
 
@@ -122,7 +122,7 @@ Run the protected env evidence workflow for the selected SHA:
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: c2b5e58f23881635ebf507827158550a44d3f9b5
+release_sha: 389c1fed2682b73db7d46ab36a9e992cc9ba9a1d
 environment_source: protected_host_env_file
 ```
 
@@ -238,7 +238,7 @@ fields are known:
   "nog01": {
     "status": "accepted_or_rejected",
     "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/<id>",
-    "selectedSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "selectedSha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
     "artifactName": "tecpey-staging-scheduler-evidence.json",
     "artifactSha256": "sha256:<64-hex>",
     "verifierDisposition": "passed_or_failed",
@@ -247,7 +247,7 @@ fields are known:
   },
   "nog02": {
     "status": "accepted_or_rejected",
-    "selectedSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "selectedSha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
     "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",

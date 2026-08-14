@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "disabled-capability-attestation-evidence",
-  "generatedAt": "2026-08-14T12:46:43Z",
+  "generatedAt": "2026-08-14T13:56:09Z",
   "decision": "NO_GO_NOG_10_11_12_ACCEPTED_LAUNCH_DISABLED_SCOPE_ONLY",
-  "selectedSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+  "selectedSha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
   "sourceBranch": "main",
   "sourcePullRequest": 388,
   "executionState": "accepted_launch_disabled_attestation",

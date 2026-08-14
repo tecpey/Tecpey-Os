@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `c2b5e58f23881635ebf507827158550a44d3f9b5`
-**Candidate source:** `main` after PR #433
-**Candidate selected at:** `2026-08-14T12:46:43Z`
+**Current candidate SHA:** `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`
+**Candidate source:** `main` after PR #434 on top of PR #435
+**Candidate selected at:** `2026-08-14T13:56:09Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -20,21 +20,25 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #391 through PR #433 materially changed the launch-control line after the
-previous candidate. The current main now includes immutable runtime-image digest
-evidence, exact-head workflow evidence, rollback and volume-restore evidence,
-gated disabled-capability evidence, accepted-risk signoff verification, News
-Intelligence Graph wiring, News Provider Readiness authority, and support install
-rehearsal hardening, and PR #433 auth-provider review decision authority. Because these changes affect launch evidence, source bundle
-handoff, news materialization safety and the final protected-staging target, all
-new evidence collection must use the SHA that contains them:
+PR #391 through PR #435 materially changed the launch-control line after the
+previous candidate. After the PR #435 promotion, PR #434 also landed on `main`
+with Mentor conversation and insight tenant-binding fixes. The current main now
+includes immutable runtime-image digest evidence, exact-head workflow evidence,
+rollback and volume-restore evidence, gated disabled-capability evidence,
+accepted-risk signoff verification, News Intelligence Graph wiring, News
+Provider Readiness authority, support install rehearsal hardening, PR #433
+auth-provider review decision authority, PR #435's strict readiness audit plus
+candidate-evidence promotion, and PR #434's Mentor tenant-binding security fix.
+Because these changes affect launch evidence, source bundle handoff, news
+materialization safety and the final protected-staging target, all new evidence
+collection must use the SHA that contains them:
 
 ```text
-c2b5e58f23881635ebf507827158550a44d3f9b5
+389c1fed2682b73db7d46ab36a9e992cc9ba9a1d
 ```
 
-Using the prior PR #388 candidate for new staging/support evidence would make
-the final evidence packet stale before execution.
+Using the prior PR #435 or PR #433 candidate for new staging/support evidence
+would make the final evidence packet stale before execution.
 
 ## Superseded Draft Baselines
 
@@ -52,6 +56,8 @@ the final evidence packet stale before execution.
 | `70894e0430ed4796016c9a0952dde8de06bc788a` | Current controlled-launch candidate after PR #382 product-truth route guarding | Superseded by PR #388 for all new Academy orchestration, governed UI, growth evidence, protected staging and exact-candidate evidence collection. |
 | `55f2e92bb8238de17e0809fe54c389476517f57b` | Current controlled-launch candidate after PR #388 provenance-aware landing growth evidence | Superseded by PR #396 for support install readiness, news readiness and exact-candidate evidence refresh. |
 | `5d68865dd56331e011829749ee970d097e9b14a4` | Current controlled-launch candidate after PR #396 support install readiness, news readiness and exact-candidate evidence refresh | Superseded by PR #433 for auth-provider review decisions and new exact-candidate evidence collection. |
+| `c2b5e58f23881635ebf507827158550a44d3f9b5` | Current controlled-launch candidate after PR #433 auth-provider review decisions and exact-candidate evidence refresh | Superseded by PR #435 for current-main protected staging and exact-candidate evidence collection. |
+| `92ccb8f18ac28232a2c1cb6cece09de52aa424f0` | Current controlled-launch candidate after PR #435 strict readiness audit and candidate-evidence promotion | Superseded by PR #434 for Mentor tenant-binding security and new exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
