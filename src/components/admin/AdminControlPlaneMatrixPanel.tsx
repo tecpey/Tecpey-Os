@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   CheckCircle2,
   Database,
-  LoaderCircle,
   LockKeyhole,
   RefreshCw,
   ShieldCheck,
@@ -84,6 +83,10 @@ function isGroupFilter(value: string): value is GroupFilter {
   return groups.includes(value as GroupFilter);
 }
 
+function lockedStatus(status: AdminControlPlaneStatus): boolean {
+  return ["launch_locked", "feature_locked", "needs_evidence"].includes(status);
+}
+
 function StatusBadge({ status }: { status: AdminControlPlaneStatus }) {
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${statusClassName[status]}`}>
@@ -112,9 +115,18 @@ function ModuleAction({ module }: { module: AdminControlPlaneModule }) {
     );
   }
 
+  const locked = lockedStatus(module.status);
+  const Icon = locked ? LockKeyhole : CheckCircle2;
+
   return (
-    <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-4 text-sm font-black text-slate-400">
-      <LockKeyhole className="h-4 w-4" aria-hidden="true" /> کنترل عملیاتی در همین ماتریس
+    <span
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black ${
+        locked
+          ? "border-amber-300/15 bg-amber-300/[0.05] text-amber-100"
+          : "border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-100"
+      }`}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" /> {locked ? "قفل/رصد در همین ماتریس" : "کنترل عملیاتی در همین ماتریس"}
     </span>
   );
 }
@@ -302,7 +314,7 @@ export function AdminControlPlaneMatrixPanel() {
                   <div className="mt-4 space-y-2">
                     <h3 className="text-xs font-black text-slate-300">Controls</h3>
                     {module.controls.map((control) => {
-                      const locked = ["launch_locked", "feature_locked", "needs_evidence"].includes(control.status);
+                      const locked = lockedStatus(control.status);
                       return (
                         <div
                           key={control.id}
