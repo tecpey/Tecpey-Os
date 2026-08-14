@@ -78,13 +78,13 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "4eb6cb936e46eda222e55312d36f7100275930a0",
-      "sha256": "8cd01136538870953357ade323bc5be21287385010a6c253d5e2cd6a839a26ac",
-      "lines": 92,
+      "gitObjectId": "5d2970736b63fc42f4d256a9dadd1ea5284bfb8c",
+      "sha256": "ce72bab731d059eaa31dea958235c3b548b702f466639c9c470138d19bff9b51",
+      "lines": 95,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 92
+          "endLine": 95
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -92,7 +92,8 @@
         "Pull-request, weekly and manual triggers; read-only permissions; non-cancelling concurrency; exact-head checkout; pinned actions; governed recovery authority; exact migration-image identity; bounded RPO/RTO inputs; PostgreSQL and Redis restore; and always-uploaded evidence were reviewed.",
         "No confirmed defect was found in this file; the remaining staging and production-host activation boundary is recorded as residual risk rather than represented as completed.",
         "2026-08-08: re-reviewed after adding docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
-        "2026-08-12: re-reviewed after adding scripts/verify-protected-recovery-reconciliation-evidence.mjs and scripts/protected-recovery-reconciliation-evidence.test.mjs to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, exact migration-image identity, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged."
+        "2026-08-12: re-reviewed after adding scripts/verify-protected-recovery-reconciliation-evidence.mjs and scripts/protected-recovery-reconciliation-evidence.test.mjs to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, exact migration-image identity, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
+        "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries."
       ],
       "findings": []
     },
