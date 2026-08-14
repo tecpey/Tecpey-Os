@@ -33,6 +33,16 @@ type Achievement = {
   earnedAt?: string | null;
 };
 
+const achievementEnglishCopy: Record<string, { title: string; description: string }> = {
+  "first-lesson": { title: "First lesson", description: "You completed your first verified Academy learning step." },
+  "first-quiz": { title: "First assessment", description: "Your first official Academy assessment was recorded." },
+  "seven-day-streak": { title: "Seven-day consistency", description: "You returned to your learning path for seven consecutive days." },
+  "first-certificate": { title: "First certificate", description: "You earned your first verifiable Academy certificate." },
+  "risk-master": { title: "Risk mastery", description: "You demonstrated strong risk-management discipline in governed challenges." },
+  "simulator-journalist": { title: "Trading journal discipline", description: "You recorded a practice decision with reasoning, emotion and a risk plan." },
+  "community-rising": { title: "Rising contributor", description: "Your governed Academy participation earned community recognition." },
+};
+
 const fa = {
   checking: "در حال آماده‌سازی داشبورد آکادمی…",
   needLogin: "اول وارد حساب اختصاصی آکادمی شو",
@@ -107,20 +117,23 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     async function load() {
       setLoading(true);
       try {
-        const [profileRes, progressRes, achievementRes] = await Promise.all([
+        const achievementRequest = fetch(`/api/achievements?locale=${locale}`, { cache: "no-store", credentials: "include" })
+          .then((response) => response.json())
+          .catch(() => null);
+        const [profileRes, progressRes] = await Promise.all([
           fetch("/api/academy-student-profile", { cache: "no-store", credentials: "include" }),
           fetch(`/api/academy-term-progress?locale=${locale}`, { cache: "no-store", credentials: "include" }),
-          fetch(`/api/achievements?locale=${locale}`, { cache: "no-store", credentials: "include" }),
         ]);
         const profileData = await profileRes.json().catch(() => null);
         const progressData = await progressRes.json().catch(() => null);
-        const achievementData = await achievementRes.json().catch(() => null);
+        const achievementData = await achievementRequest;
         if (!active) return;
         setAuthenticated(Boolean(profileData?.authenticated));
         setProfile(profileData?.profile || null);
         setProgressRows(Array.isArray(progressData?.terms) ? progressData.terms : []);
-        setAchievements(Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
-        setAchievementsDegraded(achievementData?.degraded === true);
+        const achievementAuthorityAvailable = achievementData?.authenticated === true && achievementData?.degraded !== true;
+        setAchievements(achievementAuthorityAvailable && Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
+        setAchievementsDegraded(!achievementAuthorityAvailable);
       } finally {
         if (active) setLoading(false);
       }
@@ -264,10 +277,11 @@ function MedalCabinet({ locale, items, degraded }: { locale: Locale; items: Achi
           {featured.map((item) => {
             const competitive = /league|competition|tournament|arena/i.test(`${item.category}:${item.code}`);
             const Icon = competitive ? Trophy : Award;
+            const localized = !isFa ? achievementEnglishCopy[item.code] : null;
             return <article key={item.code} className="rounded-[26px] border border-white/10 bg-slate-950/45 p-4">
               <div className="flex items-center justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-amber-200/20 bg-amber-300/10 text-amber-200"><Icon className="h-5 w-5" aria-hidden="true" /></span><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-black text-slate-300">{competitive ? (isFa ? "رقابتی" : "Competition") : (isFa ? "آموزشی" : "Learning")}</span></div>
-              <h3 className="mt-4 text-base font-black leading-7">{item.title}</h3>
-              <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-400">{item.description}</p>
+              <h3 className="mt-4 text-base font-black leading-7">{localized?.title || item.title}</h3>
+              <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-400">{localized?.description || item.description}</p>
             </article>;
           })}
         </div>
