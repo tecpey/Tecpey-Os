@@ -119,7 +119,10 @@ export async function POST(req: NextRequest) {
       );
       if (command.idempotencyConflict) return { idempotencyConflict: true as const };
       if (command.response) {
-        const projection = await refreshAcademyProgressProjection(client, session.studentId as string, locale);
+        const projection = await refreshAcademyProgressProjection(client, tenantContext.principalId, locale, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+        });
         return {
           ...command.response,
           state: projection.state,
@@ -232,7 +235,10 @@ export async function POST(req: NextRequest) {
         ],
       );
 
-      const projection = await refreshAcademyProgressProjection(client, session.studentId as string, locale);
+      const projection = await refreshAcademyProgressProjection(client, tenantContext.principalId, locale, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+        });
       const response = {
         lessonId: assessment.lessonId,
         termNumber: assessment.termNumber,

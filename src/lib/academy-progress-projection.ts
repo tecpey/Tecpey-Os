@@ -198,6 +198,12 @@ export async function refreshAcademyProgressProjection(
   client: PoolClient,
   studentId: string,
   locale: "fa" | "en",
+  // The acting tenant/workspace the caller resolved (multi-tenant #20). Every
+  // other table this projection reads is student_global, but academy_term_progress
+  // is tenant-scoped: reading it by student_id alone would fold a student's term
+  // progress from every tenant they are bound to into one projection. The scope
+  // filters that read to the tenant the request acts in.
+  scope: { tenantId: string; workspaceId: string },
 ): Promise<{
   state: AcademyProgressState;
   revision: number;
@@ -266,8 +272,9 @@ export async function refreshAcademyProgressProjection(
     `SELECT term_number, status, score, percent, passed_at, updated_at
        FROM academy_term_progress
       WHERE student_id = $1::uuid AND locale = $2
+        AND tenant_id = $3 AND workspace_id = $4
       ORDER BY term_number ASC`,
-    [studentId, locale],
+    [studentId, locale, scope.tenantId, scope.workspaceId],
   );
 
   const state = buildAcademyProgressProjection({

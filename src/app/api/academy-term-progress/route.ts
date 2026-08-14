@@ -271,6 +271,7 @@ export async function POST(req: NextRequest) {
               client,
               studentId,
               locale,
+              { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId },
             );
             return {
               ...command.response,
@@ -380,6 +381,7 @@ export async function POST(req: NextRequest) {
             client,
             studentId,
             locale,
+            { tenantId: tenantContext.tenantId, workspaceId: tenantContext.workspaceId },
           );
           const response = {
             score,
