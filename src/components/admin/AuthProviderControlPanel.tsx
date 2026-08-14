@@ -3,8 +3,8 @@
 import Link from "next/link";
 import {
   Apple,
-  Chrome,
   CheckCircle2,
+  CircleUserRound,
   KeyRound,
   LoaderCircle,
   LockKeyhole,
@@ -14,44 +14,25 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { AuthProviderControlSnapshot } from "@/lib/admin-auth-provider-control-plane";
 
-type AuthProviderId = "passkey" | "google" | "apple" | "telegram" | "email_otp";
-type AuthProviderStatus = "configured" | "locked" | "planned" | "needs_evidence" | "disabled";
-type AuthProviderRiskLevel = "standard" | "sensitive" | "critical";
-
-type AuthProviderGate = {
-  id: string;
-  ready: boolean;
-  labelFa: string;
-};
-
-type AuthProviderControl = {
-  id: AuthProviderId;
-  labelFa: string;
-  providerFa: string;
-  descriptionFa: string;
-  status: AuthProviderStatus;
-  riskLevel: AuthProviderRiskLevel;
-  requiredPermission: string;
-  stepUpRequired: boolean;
-  adminLocked: boolean;
-  callbackPath: string | null;
-  gates: AuthProviderGate[];
-  readinessPercent: number;
-  missingGateIds: string[];
-};
-
-type AuthProviderSnapshot = {
-  generatedAt: string;
-  summary: {
-    totalProviders: number;
-    configuredProviders: number;
-    lockedProviders: number;
-    criticalProviders: number;
-    stepUpProviders: number;
-  };
-  providers: AuthProviderControl[];
-  safetyCopyFa: string;
+type AuthProviderSnapshot = AuthProviderControlSnapshot;
+type AuthProviderControl = AuthProviderSnapshot["providers"][number];
+type AuthProviderId = AuthProviderControl["id"];
+type AuthProviderStatus = AuthProviderControl["status"];
+type AuthProviderRiskLevel = AuthProviderControl["riskLevel"];
+type AuthProviderConfigStorage = AuthProviderControl["configurationFields"][number]["storage"];
+type AuthProviderConfigStatus = AuthProviderControl["configurationFields"][number]["status"];
+type AuthProviderAction = AuthProviderControl["adminActions"][number];
+type AuthProviderEvidenceGateId = AuthProviderControl["gates"][number]["id"];
+type EvidenceAction = "mark_missing" | "mark_ready" | "reject" | "expire";
+type EvidenceFormState = {
+  gateId: AuthProviderEvidenceGateId;
+  action: EvidenceAction;
+  evidenceRef: string;
+  evidenceSha256: string;
+  expiresAt: string;
+  decisionNote: string;
 };
 
 const statusLabelFa: Record<AuthProviderStatus, string> = {
@@ -76,9 +57,38 @@ const riskClassName: Record<AuthProviderRiskLevel, string> = {
   critical: "border-rose-300/20 bg-rose-300/[0.08] text-rose-100",
 };
 
+const storageLabelFa: Record<AuthProviderConfigStorage, string> = {
+  admin_metadata: "Admin metadata",
+  secret_store: "Secret store",
+  callback_allowlist: "Callback allowlist",
+  domain_verification: "Domain verification",
+  policy: "Policy",
+};
+
+const fieldStatusLabelFa: Record<AuthProviderConfigStatus, string> = {
+  configured: "Configured",
+  missing: "Missing",
+  managed: "Managed",
+  planned: "Planned",
+};
+
+const fieldStatusClassName: Record<AuthProviderConfigStatus, string> = {
+  configured: "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100",
+  missing: "border-amber-300/20 bg-amber-300/[0.08] text-amber-100",
+  managed: "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-100",
+  planned: "border-violet-300/20 bg-violet-300/[0.08] text-violet-100",
+};
+
+const evidenceActionLabelFa: Record<EvidenceAction, string> = {
+  mark_ready: "Mark ready",
+  reject: "Reject",
+  expire: "Expire",
+  mark_missing: "Mark missing",
+};
+
 const providerIcons: Record<AuthProviderId, typeof KeyRound> = {
   passkey: KeyRound,
-  google: Chrome,
+  google: CircleUserRound,
   apple: Apple,
   telegram: MessageCircle,
   email_otp: Mail,
@@ -100,10 +110,27 @@ function RiskBadge({ risk }: { risk: AuthProviderRiskLevel }) {
   );
 }
 
-function providerActionLabel(provider: AuthProviderControl): string {
-  if (provider.status === "configured") return "فعال و read-only";
-  if (provider.adminLocked || provider.status === "locked" || provider.status === "needs_evidence") return "قفل تا تکمیل evidence";
-  return "ارسال برای بازبینی";
+function FieldStatusBadge({ status }: { status: AuthProviderConfigStatus }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${fieldStatusClassName[status]}`}>
+      {fieldStatusLabelFa[status]}
+    </span>
+  );
+}
+
+function evidenceFormKey(providerId: AuthProviderId): string {
+  return providerId;
+}
+
+function defaultEvidenceForm(provider: AuthProviderControl): EvidenceFormState {
+  return {
+    gateId: provider.gates.find((gate) => !gate.ready)?.id ?? provider.gates[0]?.id ?? "client_registered",
+    action: "mark_ready",
+    evidenceRef: "",
+    evidenceSha256: "",
+    expiresAt: "",
+    decisionNote: "",
+  };
 }
 
 export function AuthProviderControlPanel() {
@@ -112,10 +139,10 @@ export function AuthProviderControlPanel() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busyProvider, setBusyProvider] = useState<AuthProviderId | null>(null);
+  const [busyEvidenceKey, setBusyEvidenceKey] = useState<string | null>(null);
+  const [evidenceForms, setEvidenceForms] = useState<Record<string, EvidenceFormState>>({});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const fetchSnapshot = useCallback(async () => {
     try {
       const response = await fetch("/api/command-center/auth-providers", {
         cache: "no-store",
@@ -132,6 +159,11 @@ export function AuthProviderControlPanel() {
         setError("برای مشاهده Provider Control، Permission ادمین admin.roles.read لازم است.");
         return;
       }
+      if (response.status === 503 && data?.error === "auth_provider_evidence_unavailable") {
+        setSnapshot(null);
+        setError("Evidence store ورود اجتماعی در دسترس نیست؛ schema یا اتصال دیتابیس باید بررسی شود.");
+        return;
+      }
       if (!response.ok || !data?.ok) {
         setSnapshot(null);
         setError("Snapshot Provider Control در حال حاضر قابل دریافت نیست.");
@@ -146,24 +178,44 @@ export function AuthProviderControlPanel() {
     }
   }, []);
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    await fetchSnapshot();
+  }, [fetchSnapshot]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    const timer = window.setTimeout(() => {
+      void fetchSnapshot();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSnapshot]);
 
   const configuredText = useMemo(() => {
     if (!snapshot) return "—";
     return `${snapshot.summary.configuredProviders}/${snapshot.summary.totalProviders}`;
   }, [snapshot]);
 
-  const requestEnable = async (providerId: AuthProviderId) => {
-    setBusyProvider(providerId);
+  const runProviderAction = async (provider: AuthProviderControl, action: AuthProviderAction) => {
+    if (!action.enabled) return;
+    if (action.id === "open_setup") {
+      setNotice(`Setup ${provider.labelFa} در همین کارت قابل بررسی است؛ مقدار Secret نمایش داده نمی‌شود.`);
+      return;
+    }
+    const requestedState = action.id === "request_disable" ? "disabled" : action.id === "request_enable" ? "enabled" : null;
+    if (!requestedState) {
+      setNotice("این عملیات هنوز به endpoint اجرایی audit شده وصل نشده است.");
+      return;
+    }
+
+    setBusyProvider(provider.id);
     setNotice("");
     try {
       const response = await fetch("/api/command-center/auth-providers", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerId, requestedState: "enabled" }),
+        body: JSON.stringify({ providerId: provider.id, requestedState }),
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -179,11 +231,96 @@ export function AuthProviderControlPanel() {
         setNotice(`Provider هنوز قفل است؛ ${missing.toLocaleString("fa-IR")} گیت evidence کامل نشده است.`);
         return;
       }
+      if (data?.error === "auth_provider_evidence_unavailable") {
+        setNotice("Evidence store در دسترس نیست؛ بدون evidence سمت سرور هیچ Provider فعال نمی‌شود.");
+        return;
+      }
       setNotice(response.ok ? "درخواست برای بازبینی پذیرفته شد." : "درخواست Provider Control پذیرفته نشد.");
     } catch {
       setNotice("ارتباط با سرویس Provider Control برقرار نشد.");
     } finally {
       setBusyProvider(null);
+    }
+  };
+
+  const resolveEvidenceForm = (provider: AuthProviderControl): EvidenceFormState =>
+    evidenceForms[evidenceFormKey(provider.id)] ?? defaultEvidenceForm(provider);
+
+  const updateEvidenceForm = (provider: AuthProviderControl, patch: Partial<EvidenceFormState>) => {
+    setEvidenceForms((current) => {
+      const key = evidenceFormKey(provider.id);
+      return {
+        ...current,
+        [key]: {
+          ...(current[key] ?? defaultEvidenceForm(provider)),
+          ...patch,
+        },
+      };
+    });
+  };
+
+  const submitEvidenceMutation = async (provider: AuthProviderControl) => {
+    if (provider.id === "passkey") return;
+    const form = resolveEvidenceForm(provider);
+    const key = evidenceFormKey(provider.id);
+    setBusyEvidenceKey(key);
+    setNotice("");
+    try {
+      const response = await fetch("/api/command-center/auth-providers", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: provider.id,
+          gateId: form.gateId,
+          action: form.action,
+          evidenceRef: form.action === "mark_ready" ? form.evidenceRef : null,
+          evidenceSha256: form.action === "mark_ready" ? form.evidenceSha256 : null,
+          expiresAt: form.action === "mark_ready" ? form.expiresAt : null,
+          decisionNote: form.decisionNote,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        setNotice("Session ادمین منقضی شده؛ دوباره از Command Center وارد شو.");
+        return;
+      }
+      if (data?.error === "step_up_required") {
+        setNotice("ثبت evidence نیازمند ورود دوباره با Passkey و Step-up تازه است.");
+        return;
+      }
+      if (data?.error === "auth_provider_evidence_secret_like_input") {
+        setNotice("ورودی شبیه Secret/Token خام است؛ فقط reference و SHA-256 مجاز است.");
+        return;
+      }
+      if (data?.error === "auth_provider_evidence_ready_requires_reference") {
+        setNotice("برای Mark ready باید Evidence reference و SHA-256 معتبر وارد شود.");
+        return;
+      }
+      if (data?.error === "auth_provider_evidence_reason_required") {
+        setNotice("برای Reject/Expire/Mark missing باید دلیل کوتاه audit-ready وارد شود.");
+        return;
+      }
+      if (data?.error === "auth_provider_evidence_expiry_invalid") {
+        setNotice("تاریخ انقضا باید معتبر و در آینده باشد.");
+        return;
+      }
+      if (data?.error === "auth_provider_evidence_unavailable") {
+        setNotice("Evidence store در دسترس نیست؛ schema یا اتصال دیتابیس باید بررسی شود.");
+        return;
+      }
+      if (!response.ok || !data?.ok) {
+        setNotice("ثبت evidence پذیرفته نشد.");
+        return;
+      }
+      if (data.snapshot) {
+        setSnapshot(data.snapshot as AuthProviderSnapshot);
+      }
+      setNotice("Evidence gate با audit append-only ثبت شد.");
+    } catch {
+      setNotice("ارتباط با سرویس Evidence Control برقرار نشد.");
+    } finally {
+      setBusyEvidenceKey(null);
     }
   };
 
@@ -266,10 +403,12 @@ export function AuthProviderControlPanel() {
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {snapshot.providers.map((provider) => {
               const Icon = providerIcons[provider.id];
-              const activationLocked = provider.adminLocked || provider.status === "locked" || provider.status === "needs_evidence";
-              const activationDisabled = busyProvider === provider.id || provider.status === "configured" || activationLocked;
+              const evidenceForm = resolveEvidenceForm(provider);
+              const currentEvidenceKey = evidenceFormKey(provider.id);
+              const evidenceBusy = busyEvidenceKey === currentEvidenceKey;
+              const readyEvidenceAction = evidenceForm.action === "mark_ready";
               return (
-                <article key={provider.id} className="rounded-[24px] border border-white/10 bg-[#030914] p-4">
+                <article key={provider.id} className="rounded-[24px] border border-white/10 bg-[#030914] p-4 md:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
                       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08]">
@@ -295,7 +434,198 @@ export function AuthProviderControlPanel() {
                     <span dir="ltr" className="truncate rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-left">{provider.callbackPath ?? "No callback"}</span>
                   </div>
 
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-xs font-black text-slate-300">Setup fields</h3>
+                        <span className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.06] px-2.5 py-1 text-[10px] font-black text-cyan-100">
+                          Secret value hidden
+                        </span>
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {provider.configurationFields.map((field) => (
+                          <div key={`${provider.id}-${field.id}`} className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-black text-slate-200">{field.labelFa}</p>
+                              <FieldStatusBadge status={field.status} />
+                            </div>
+                            <p className="mt-1 text-[11px] font-bold leading-6 text-slate-500">{field.helperFa}</p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              <span className="rounded-full border border-white/10 bg-[#030914] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {storageLabelFa[field.storage]}
+                              </span>
+                              <span className="rounded-full border border-white/10 bg-[#030914] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {field.required ? "Required" : "Optional"}
+                              </span>
+                              <span className="rounded-full border border-white/10 bg-[#030914] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                                {field.masked ? "Masked" : "Visible metadata"}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      {provider.id !== "passkey" && (
+                        <form
+                          className="rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.045] p-3"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void submitEvidenceMutation(provider);
+                          }}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <h3 className="text-xs font-black text-cyan-100">Evidence writer</h3>
+                              <p className="mt-1 text-[11px] font-bold leading-6 text-slate-500">
+                                Secret خام وارد نکن؛ فقط reference و fingerprint ثبت می‌شود.
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-cyan-300/15 bg-[#030914] px-2 py-0.5 text-[10px] font-black text-cyan-100">
+                              Audit append-only
+                            </span>
+                          </div>
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <label className="text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-gate`}>
+                              Evidence gate
+                              <select
+                                id={`${provider.id}-evidence-gate`}
+                                value={evidenceForm.gateId}
+                                onChange={(event) => updateEvidenceForm(provider, { gateId: event.target.value as AuthProviderEvidenceGateId })}
+                                className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-bold text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                              >
+                                {provider.gates.map((gate) => (
+                                  <option key={gate.id} value={gate.id}>{gate.labelFa}</option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-action`}>
+                              Action
+                              <select
+                                id={`${provider.id}-evidence-action`}
+                                value={evidenceForm.action}
+                                onChange={(event) => updateEvidenceForm(provider, { action: event.target.value as EvidenceAction })}
+                                className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-bold text-white outline-none transition focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                              >
+                                {(["mark_ready", "reject", "expire", "mark_missing"] as const).map((action) => (
+                                  <option key={action} value={action}>{evidenceActionLabelFa[action]}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+
+                          {readyEvidenceAction ? (
+                            <div className="mt-2 grid gap-2">
+                              <label className="text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-ref`}>
+                                Evidence reference
+                                <input
+                                  id={`${provider.id}-evidence-ref`}
+                                  value={evidenceForm.evidenceRef}
+                                  onChange={(event) => updateEvidenceForm(provider, { evidenceRef: event.target.value })}
+                                  placeholder="vault://oauth/google/client-secret"
+                                  className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-xs font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                                  dir="ltr"
+                                />
+                              </label>
+
+                              <label className="text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-sha`}>
+                                SHA-256 fingerprint
+                                <input
+                                  id={`${provider.id}-evidence-sha`}
+                                  value={evidenceForm.evidenceSha256}
+                                  onChange={(event) => updateEvidenceForm(provider, { evidenceSha256: event.target.value })}
+                                  placeholder="64 lowercase hex characters"
+                                  className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-xs font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                                  dir="ltr"
+                                />
+                              </label>
+
+                              <label className="text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-expiry`}>
+                                Optional expiry
+                                <input
+                                  id={`${provider.id}-evidence-expiry`}
+                                  value={evidenceForm.expiresAt}
+                                  onChange={(event) => updateEvidenceForm(provider, { expiresAt: event.target.value })}
+                                  placeholder="2026-12-31T23:59:00.000Z"
+                                  className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-left font-mono text-xs font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                                  dir="ltr"
+                                />
+                              </label>
+                            </div>
+                          ) : (
+                            <label className="mt-2 block text-[11px] font-black text-slate-300" htmlFor={`${provider.id}-evidence-note`}>
+                              Decision reason
+                              <input
+                                id={`${provider.id}-evidence-note`}
+                                value={evidenceForm.decisionNote}
+                                onChange={(event) => updateEvidenceForm(provider, { decisionNote: event.target.value })}
+                                placeholder="ticket-1234 callback mismatch"
+                                className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-300/40 focus:ring-2 focus:ring-cyan-300/25"
+                              />
+                            </label>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={evidenceBusy}
+                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.1] px-4 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/[0.15] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {evidenceBusy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+                            ثبت evidence gate
+                          </button>
+                        </form>
+                      )}
+
+                      <h3 className={`${provider.id === "passkey" ? "" : "mt-4"} text-xs font-black text-slate-300`}>Admin operations</h3>
+                      <div className="mt-2 space-y-2">
+                        {provider.adminActions.map((action) => {
+                          const disabled = !action.enabled || busyProvider === provider.id;
+                          const actionBusy = busyProvider === provider.id && ["request_enable", "request_disable"].includes(action.id);
+                          const actionableClassName =
+                            action.id === "request_enable"
+                              ? "border-amber-300/25 bg-amber-300/[0.08] text-amber-100 hover:bg-amber-300/[0.12] focus-visible:ring-amber-300"
+                              : "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-100 hover:bg-cyan-300/[0.12] focus-visible:ring-cyan-300";
+                          const lockedClassName = "border-white/10 bg-white/[0.025] text-slate-500";
+
+                          return (
+                            <button
+                              key={action.id}
+                              type="button"
+                              onClick={() => void runProviderAction(provider, action)}
+                              disabled={disabled}
+                              title={action.disabledReasonFa ?? action.descriptionFa}
+                              className={`min-h-11 w-full rounded-xl border px-3 py-2 text-right transition focus-visible:outline-none focus-visible:ring-2 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70 ${
+                                action.enabled ? actionableClassName : lockedClassName
+                              }`}
+                            >
+                              <span className="flex items-center justify-between gap-3">
+                                <span className="flex items-center gap-2 text-xs font-black">
+                                  {actionBusy ? (
+                                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                  ) : action.locked ? (
+                                    <LockKeyhole className="h-4 w-4" aria-hidden="true" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                                  )}
+                                  {action.labelFa}
+                                </span>
+                                <span className="text-[10px] font-black uppercase">{action.stepUpRequired ? "Step-up" : "Read"}</span>
+                              </span>
+                              <span className="mt-1 block text-[11px] font-bold leading-6 opacity-80">
+                                {action.disabledReasonFa ?? action.descriptionFa}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="mt-4 space-y-2">
+                    <h3 className="text-xs font-black text-slate-300">Evidence gates</h3>
                     {provider.gates.map((gate) => (
                       <div key={gate.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs font-bold text-slate-400">
                         <span className="flex items-center gap-2">
@@ -306,22 +636,6 @@ export function AuthProviderControlPanel() {
                       </div>
                     ))}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => void requestEnable(provider.id)}
-                    disabled={activationDisabled}
-                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-4 text-sm font-black text-amber-100 transition hover:bg-amber-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {busyProvider === provider.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LockKeyhole className="h-4 w-4" aria-hidden="true" />}
-                    {providerActionLabel(provider)}
-                  </button>
-
-                  {activationLocked && provider.status !== "configured" && (
-                    <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-xs font-bold leading-6 text-amber-100">
-                      این Provider تا تکمیل تمام evidence gateها و Step-up معتبر غیرقابل فعال‌سازی است.
-                    </p>
-                  )}
                 </article>
               );
             })}
