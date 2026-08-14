@@ -8,14 +8,14 @@
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "5d68865dd56331e011829749ee970d097e9b14a4",
-    "protectedStagingEvidenceTargetSha": "5d68865dd56331e011829749ee970d097e9b14a4",
+    "currentMainSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "protectedStagingEvidenceTargetSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
     "mergedPullRequest": 396,
     "mergedPullRequestTitle": "docs(ops): rehearse support source installs",
-    "mergeCommitSha": "5d68865dd56331e011829749ee970d097e9b14a4",
+    "mergeCommitSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
     "targetShaUnchanged": false,
     "targetShaDisposition": "candidate promoted to current main before new protected staging evidence collection; previous target is superseded"
   },
@@ -71,8 +71,8 @@
   },
   "requiredBeforeAcceptance": [
     "Configure GitHub Environment staging with required protection rules/reviewers before treating it as protected staging evidence.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 5d68865dd56331e011829749ee970d097e9b14a4 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha 5d68865dd56331e011829749ee970d097e9b14a4 with one accepted environment_source.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha c2b5e58f23881635ebf507827158550a44d3f9b5 with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha c2b5e58f23881635ebf507827158550a44d3f9b5 with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
   "decisionAfterObservation": "NOG-01 and NOG-02 remain open; no accepted protected staging or redacted env evidence exists for the selected candidate."

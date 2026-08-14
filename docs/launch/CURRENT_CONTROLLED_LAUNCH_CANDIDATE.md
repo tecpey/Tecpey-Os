@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `5d68865dd56331e011829749ee970d097e9b14a4`
-**Candidate source:** `main` after PR #396
-**Candidate selected at:** `2026-08-12T16:13:21Z`
+**Current candidate SHA:** `c2b5e58f23881635ebf507827158550a44d3f9b5`
+**Candidate source:** `main` after PR #433
+**Candidate selected at:** `2026-08-14T12:46:43Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -20,17 +20,17 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #391 through PR #396 materially changed the launch-control line after the
+PR #391 through PR #433 materially changed the launch-control line after the
 previous candidate. The current main now includes immutable runtime-image digest
 evidence, exact-head workflow evidence, rollback and volume-restore evidence,
 gated disabled-capability evidence, accepted-risk signoff verification, News
 Intelligence Graph wiring, News Provider Readiness authority, and support install
-rehearsal hardening. Because these changes affect launch evidence, source bundle
+rehearsal hardening, and PR #433 auth-provider review decision authority. Because these changes affect launch evidence, source bundle
 handoff, news materialization safety and the final protected-staging target, all
 new evidence collection must use the SHA that contains them:
 
 ```text
-5d68865dd56331e011829749ee970d097e9b14a4
+c2b5e58f23881635ebf507827158550a44d3f9b5
 ```
 
 Using the prior PR #388 candidate for new staging/support evidence would make
@@ -51,6 +51,7 @@ the final evidence packet stale before execution.
 | `866ff092828b15ef0e64c3508bf4904c6d22ba52` | Current controlled-launch candidate after PR #380 exact-head Full Suite hardening | Superseded by PR #382 for all new product-truth, protected staging and exact-candidate evidence collection. |
 | `70894e0430ed4796016c9a0952dde8de06bc788a` | Current controlled-launch candidate after PR #382 product-truth route guarding | Superseded by PR #388 for all new Academy orchestration, governed UI, growth evidence, protected staging and exact-candidate evidence collection. |
 | `55f2e92bb8238de17e0809fe54c389476517f57b` | Current controlled-launch candidate after PR #388 provenance-aware landing growth evidence | Superseded by PR #396 for support install readiness, news readiness and exact-candidate evidence refresh. |
+| `5d68865dd56331e011829749ee970d097e9b14a4` | Current controlled-launch candidate after PR #396 support install readiness, news readiness and exact-candidate evidence refresh | Superseded by PR #433 for auth-provider review decisions and new exact-candidate evidence collection. |
 
 ## Candidate Identity Rules
 
