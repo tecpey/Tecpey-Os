@@ -29,6 +29,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
     "workflow_dispatch:", "pull_request:", "permissions:", "contents: read",
     "cancel-in-progress: false", "timeout-minutes: 25", "git rev-parse HEAD",
     "persist-credentials: false", "TECPEY_RECOVERY_RTO_SECONDS: '300'",
+    "npm ci --ignore-scripts --no-audit --no-fund",
     "TECPEY_RECOVERY_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
     "test-container-volume-recovery.sh",
     "verify-protected-recovery-reconciliation-evidence.mjs",
@@ -151,7 +152,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
   requireText(
     failures,
     packageJson,
-    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs"',
+    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs && NODE_ENV=test node --import tsx --test src/tests/wallet/rpc-client-failover.test.ts"',
     "package scripts must expose negative authority tests",
   );
   requireText(

@@ -91,7 +91,12 @@ export class RpcClient {
   }
 
   private getHealthyEndpoint(): EndpointState | null {
+    return this.getHealthyEndpoints()[0] ?? null;
+  }
+
+  private getHealthyEndpoints(): EndpointState[] {
     const now = Date.now();
+    const healthy: EndpointState[] = [];
     for (const ep of this.endpoints) {
       if (ep.circuitOpen) {
         // Try to recover
@@ -103,9 +108,9 @@ export class RpcClient {
           continue;
         }
       }
-      return ep;
+      healthy.push(ep);
     }
-    return null;
+    return healthy;
   }
 
   private markFailure(ep: EndpointState): void {
@@ -127,10 +132,13 @@ export class RpcClient {
     let lastError: Error = new Error("No RPC endpoints configured");
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const ep = this.getHealthyEndpoint();
-      if (!ep) {
+      const healthyEndpoints = this.getHealthyEndpoints();
+      if (healthyEndpoints.length === 0) {
         throw new Error(`[rpc] all endpoints unhealthy for ${this.chainId}`);
       }
+      // Rotate within the same logical call. A degraded first endpoint must not
+      // consume the complete retry budget while a configured peer is healthy.
+      const ep = healthyEndpoints[attempt % healthyEndpoints.length];
 
       const delay = attempt > 0 ? RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1) : 0;
       if (delay > 0) await sleep(delay);
