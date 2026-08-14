@@ -334,6 +334,11 @@ for (const proof of [
 ]) {
   requireText("providerFixtureTests", proof, `provider RPC fixture is missing: ${proof}`);
 }
+requireText(
+  "package",
+  "src/tests/wallet/provider-ambiguous-rpc-fixtures.test.ts",
+  "provider ambiguity fixtures must execute in the withdrawal release gate",
+);
 
 for (const proof of [
   "enforces one active execution generation",
