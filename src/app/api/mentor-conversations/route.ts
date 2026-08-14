@@ -21,7 +21,14 @@ export async function GET(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
-    if (!session.studentId) return apiError("academy_profile_required", 401);
+    if (!session.studentId) {
+      // A degraded revocation authority returns a guest session with
+      // authorityDegraded:true and no studentId. Reporting that outage as the
+      // same storage:"unavailable" this route already uses keeps it from telling
+      // a still-valid user their academy profile is gone.
+      if (session.authorityDegraded) return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
+      return apiError("academy_profile_required", 401);
+    }
     // mentor_conversations is student_global (classification registry): no tenant
     // column, so reading it by session.studentId alone served the student their
     // chat history on any tenant's branded host. Resolving the acting tenant
@@ -34,10 +41,16 @@ export async function GET(req: NextRequest) {
       scopes: ["academy:learning-events:read"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
-    // Unbound, revoked, a foreign branded host, or storage down: nothing to show
-    // under this tenant, the same graceful empty this route already returns when
-    // its storage is unavailable.
-    if (!tenantContext.available) return apiOk({ conversations: [], nextCursor: null });
+    // Only an outage makes an empty history a lie. A binding that could not be
+    // read preserves storage:"unavailable"; an ordinary authorization outcome —
+    // unbound, revoked, a workspace mismatch, or a foreign branded host — is not
+    // an outage, so it returns the honest graceful empty instead of a false alert.
+    if (!tenantContext.available) {
+      if (tenantContext.reason === "binding_storage_unavailable") {
+        return apiOk({ conversations: [], nextCursor: null, storage: "unavailable" });
+      }
+      return apiOk({ conversations: [], nextCursor: null });
+    }
     const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
     if (productGate) return productGate;
     const studentId = tenantContext.principalId;
