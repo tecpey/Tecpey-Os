@@ -80,6 +80,16 @@ requireText(
   "uses dense rank so equal scores share the same place",
   "monthly league dense-rank proof is missing",
 );
+requireText(
+  "monthlyLeaguePolicy",
+  "appeal_review_pending",
+  "monthly league appeal hold must fail closed",
+);
+requireText(
+  "monthlyLeaguePolicy",
+  "Math.floor(5_000 / tiedLearners)",
+  "monthly league cash proposal must be tie-aware",
+);
 
 for (const mutation of ["award_xp", "pass_term", "award_badge", "lesson_complete", "module_score"]) {
   rejectText("stateRoute", mutation, `generic state projection still contains mutation ${mutation}`);

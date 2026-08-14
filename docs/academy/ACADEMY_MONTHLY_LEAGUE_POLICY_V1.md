@@ -54,6 +54,10 @@ name, wealth, speed and randomness are forbidden tie-breakers.
 - Rank 3: 60 days Arena Pro; proposal for 20% of an approved monthly cash pool.
 - Ranks 4–10: 30 days Arena Pro.
 
+When a rank is tied, that rank's cash share is divided equally across the tied
+learners. Integer rounding always rounds down and leaves any residual basis
+points in the approved pool; a tie can therefore never over-allocate cash.
+
 Subscription awards require an idempotent entitlement authority and appeal
 window. Cash remains a proposal only and requires Finance, Compliance and the
 governed C-level approval matrix; no application worker may initiate payment.

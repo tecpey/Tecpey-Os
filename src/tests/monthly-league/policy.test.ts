@@ -57,6 +57,7 @@ describe("Academy monthly league shadow policy", () => {
         scoringConsent: false,
         publicRankingConsent: false,
         integrityHold: true,
+        appealHold: true,
         completedCoreTerms: 6,
         eligibleAssessmentCount: 3,
         activeLearningDays: 7,
@@ -67,6 +68,7 @@ describe("Academy monthly league shadow policy", () => {
         "scoring_consent_required",
         "public_ranking_consent_required",
         "integrity_review_pending",
+        "appeal_review_pending",
         "core_terms_incomplete",
         "assessment_evidence_insufficient",
         "learning_days_insufficient",
@@ -103,5 +105,8 @@ describe("Academy monthly league shadow policy", () => {
     assert.equal(academyMonthlyLeagueRewardProposal(3).arenaProDays, 60);
     assert.equal(academyMonthlyLeagueRewardProposal(10).arenaProDays, 30);
     assert.equal(academyMonthlyLeagueRewardProposal(11).arenaProDays, 0);
+    assert.equal(academyMonthlyLeagueRewardProposal(1, 2).cashPoolShareBps, 2_500);
+    assert.equal(academyMonthlyLeagueRewardProposal(2, 3).cashPoolShareBps, 1_000);
+    assert.throws(() => academyMonthlyLeagueRewardProposal(1, 0), /tie_count_invalid/);
   });
 });

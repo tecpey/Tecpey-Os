@@ -25,6 +25,7 @@ export type AcademyMonthlyLeagueEligibility = {
   scoringConsent: boolean;
   publicRankingConsent: boolean;
   integrityHold: boolean;
+  appealHold: boolean;
   completedCoreTerms: number;
   eligibleAssessmentCount: number;
   activeLearningDays: number;
@@ -42,7 +43,7 @@ export type AcademyMonthlyLeagueBand =
 export type AcademyMonthlyLeagueRewardProposal = {
   rank: number;
   arenaProDays: 0 | 30 | 60 | 90;
-  cashPoolShareBps: 0 | 2_000 | 3_000 | 5_000;
+  cashPoolShareBps: number;
   cashDisposition: "not_eligible" | "c_level_compliance_approval_required";
 };
 
@@ -68,6 +69,7 @@ export function academyMonthlyLeagueIneligibilityReasons(
   if (!input.scoringConsent) reasons.push("scoring_consent_required");
   if (!input.publicRankingConsent) reasons.push("public_ranking_consent_required");
   if (input.integrityHold) reasons.push("integrity_review_pending");
+  if (input.appealHold) reasons.push("appeal_review_pending");
   if (!Number.isSafeInteger(input.completedCoreTerms) || input.completedCoreTerms < 7) {
     reasons.push("core_terms_incomplete");
   }
@@ -133,15 +135,19 @@ export function denseRankAcademyMonthlyLeague<T extends { scoreBps: number }>(
 
 export function academyMonthlyLeagueRewardProposal(
   rank: number,
+  tiedLearners = 1,
 ): AcademyMonthlyLeagueRewardProposal {
   if (!Number.isSafeInteger(rank) || rank < 1) {
     throw new Error("academy_monthly_league_rank_invalid");
+  }
+  if (!Number.isSafeInteger(tiedLearners) || tiedLearners < 1) {
+    throw new Error("academy_monthly_league_tie_count_invalid");
   }
   if (rank === 1) {
     return {
       rank,
       arenaProDays: 90,
-      cashPoolShareBps: 5_000,
+      cashPoolShareBps: Math.floor(5_000 / tiedLearners),
       cashDisposition: "c_level_compliance_approval_required",
     };
   }
@@ -149,7 +155,7 @@ export function academyMonthlyLeagueRewardProposal(
     return {
       rank,
       arenaProDays: 60,
-      cashPoolShareBps: rank === 2 ? 3_000 : 2_000,
+      cashPoolShareBps: Math.floor((rank === 2 ? 3_000 : 2_000) / tiedLearners),
       cashDisposition: "c_level_compliance_approval_required",
     };
   }
