@@ -10,6 +10,7 @@ import {
 import {
   applyAuthProviderEvidenceMutation,
   loadAuthProviderEvidenceByProvider,
+  loadAuthProviderReviewRequestsByProvider,
   submitAuthProviderReviewRequest,
 } from "@/lib/admin-auth-provider-evidence-store";
 import { verifyCsrfOrigin } from "@/lib/csrf";
@@ -38,6 +39,13 @@ export async function GET(req: NextRequest) {
     if (evidenceByProvider === "unavailable") {
       return apiError("auth_provider_evidence_unavailable", 503);
     }
+    const reviewRequestsByProvider = await loadAuthProviderReviewRequestsByProvider({
+      tenantId: authorization.principal.tenantId,
+      workspaceId: authorization.principal.workspaceId,
+    });
+    if (reviewRequestsByProvider === "unavailable") {
+      return apiError("auth_provider_review_requests_unavailable", 503);
+    }
 
     return apiOk(
       {
@@ -45,6 +53,7 @@ export async function GET(req: NextRequest) {
         tenantId: authorization.principal.tenantId,
         workspaceId: authorization.principal.workspaceId,
         snapshot: resolveAuthProviderControlSnapshot({ evidenceByProvider }),
+        reviewRequestsByProvider,
       },
       200,
       { "Cache-Control": "no-store, max-age=0" },
