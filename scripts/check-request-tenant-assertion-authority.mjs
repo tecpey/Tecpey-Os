@@ -79,16 +79,25 @@ requireText(
   "a binding's workspace must provably belong to its tenant",
 );
 
-// 3. Only a host result is an assertion.
+// 3. Only an exact host match is an assertion; anything else is a foreign host
+//    that must be REFUSED, not folded into "no assertion". A discarded hint used
+//    to return null, which let the caller fall back to the principal's own
+//    tenant and serve a tenant-less table's global rows under a stranger's brand
+//    (#431). The refusal is now explicit and distinct.
 requireText(
   "assertion",
-  'if (resolved.source !== "host") return null;',
-  "only a honored host hint may be returned as an assertion",
+  'resolved.source !== "host" || resolved.tenantId !== hint.hintTenantId',
+  "a non-host result or a tenant that disagrees with the hint must be refused",
 );
 requireText(
   "assertion",
-  "if (resolved.tenantId !== hint.hintTenantId)",
-  "a host-sourced result naming a different tenant than the hint must be refused",
+  'return { status: "foreign_host" };',
+  "a configured host the principal is not bound to must be refused as foreign, not fall back to the own tenant",
+);
+requireText(
+  "principalContext",
+  'return { available: false, reason: "host_tenant_mismatch" };',
+  "the context must refuse a foreign host rather than resolve it to the own tenant",
 );
 
 // 4. An unavailable directory must not fall back to a stale cache.
