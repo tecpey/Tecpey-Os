@@ -13,6 +13,9 @@ import {
   saveReflectionEntry,
 } from "@/lib/academy-reflections";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +29,34 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "academy-reflection-read", limit: 120, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
-    if (!session.studentId) return apiError("complete_account_required", 401);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) {
+      // A degraded revocation authority returns a guest with no studentId; that
+      // outage must not masquerade as a missing account.
+      if (session.authorityDegraded) return apiError("reflection_service_not_configured", 503);
+      return apiError("complete_account_required", 401);
+    }
+    // academy_state_documents is student_global (classification registry): keyed
+    // by student_id with no tenant column, so reading it by session.studentId
+    // alone served the reflections on any tenant's branded host. Resolving the
+    // acting tenant confirms the binding, refuses a foreign host, and gates Academy.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      // A binding-storage outage is a service failure (503); an ordinary
+      // authorization outcome — unbound, revoked, workspace mismatch, foreign
+      // host — is a refusal (403), not a fabricated empty reflection.
+      if (tenantContext.reason === "binding_storage_unavailable") return apiError("reflection_service_not_configured", 503);
+      return apiError("forbidden", 403);
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const url = new URL(req.url);
     const locale = parseLocale(url.searchParams.get("locale"));
@@ -44,7 +73,7 @@ export async function GET(req: NextRequest) {
          FROM academy_state_documents
          WHERE student_id = $1::uuid AND locale = $2
          LIMIT 1`,
-        [session.studentId, locale],
+        [studentId, locale],
       );
       const found = row.rows[0];
       const reflections = normalizeReflectionMap(found?.reflections);
@@ -72,6 +101,21 @@ export async function PUT(req: NextRequest) {
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("complete_account_required", 401);
+    // The write resolves the acting tenant before it saves anything: it confirms
+    // the student's binding, refuses a foreign branded host, and gates Academy.
+    // Any not-available outcome fails closed rather than writing the reflection
+    // under a tenant the student may not act in.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("reflection_service_not_configured", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     let body: Record<string, unknown>;
     try {
@@ -105,7 +149,7 @@ export async function PUT(req: NextRequest) {
            hashtext('academy_reflections'),
            hashtext($1)
          )`,
-        [`${session.studentId}:${locale}`],
+        [`${studentId}:${locale}`],
       );
 
       const row = await client.query<{
@@ -116,7 +160,7 @@ export async function PUT(req: NextRequest) {
          FROM academy_state_documents
          WHERE student_id = $1::uuid AND locale = $2
          FOR UPDATE`,
-        [session.studentId, locale],
+        [studentId, locale],
       );
 
       const currentRow = row.rows[0];
@@ -150,13 +194,13 @@ export async function PUT(req: NextRequest) {
            memory_updated_at = NOW(),
            updated_at = NOW()
          RETURNING reflection_revision::text, memory_updated_at`,
-        [session.studentId, locale, JSON.stringify(nextReflections)],
+        [studentId, locale, JSON.stringify(nextReflections)],
       );
 
       await client.query(
         `INSERT INTO academy_student_events (student_id, event_type, payload)
          VALUES ($1::uuid, 'learning_reflection_saved', $2::jsonb)`,
-        [session.studentId, JSON.stringify({
+        [studentId, JSON.stringify({
           locale,
           lessonId,
           textLength: reflection.text.length,
@@ -183,7 +227,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    scheduleMentorProfileUpdate(session.studentId, "reflection_updated");
+    scheduleMentorProfileUpdate(studentId, "reflection_updated");
     return apiOk({
       reflection: result.value.reflection,
       revision: result.value.revision,
