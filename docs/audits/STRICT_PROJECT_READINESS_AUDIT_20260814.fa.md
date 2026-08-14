@@ -1,11 +1,11 @@
 # گزارش فوق‌سختگیرانه‌ی آمادگی پروژه TecPey — ۱۴ اوت ۲۰۲۶
 
 **Repo:** `tecpey/Tecpey-Os`
-**Base:** `main` پس از merge PR #434 روی candidate پروموت‌شده‌ی PR #435
+**Base:** `main` پس از merge PR #439 روی candidate پروموت‌شده‌ی PR #435 و fixهای PR #434/#436/#438
 **Original audit SHA:** `c2b5e58f23881635ebf507827158550a44d3f9b5`
-**Current revalidation SHA:** `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d`
+**Current revalidation SHA:** `b55860d8444db9c1b1020f1240816a229b1a2944`
 **Launch candidate رسمی هنگام شروع audit:** `5d68865dd56331e011829749ee970d097e9b14a4`
-**Post-audit remediation refresh:** بعد از merge شدن PR #434 روی candidate پروموت‌شده‌ی PR #435، candidate در همین شاخه به `389c1fed2682b73db7d46ab36a9e992cc9ba9a1d` re-baseline شد؛ publish/PR هنوز جداگانه تصمیم می‌خواهد.
+**Post-audit remediation refresh:** بعد از merge شدن PR #436، PR #438 و PR #439 روی خط لانچ، candidate در همین شاخه به `b55860d8444db9c1b1020f1240816a229b1a2944` re-baseline شد؛ publish/PR هنوز جداگانه تصمیم می‌خواهد.
 **حکم کوتاه:** کد و CI فعلی سالم‌اند؛ کنترل لانچ هنوز **NO-GO** است.
 
 > این گزارش جایگزین audit قبلی نیست؛ delta و بازبینی سختگیرانه روی `main` فعلی است. ضمیمه‌ی فایل‌به‌فایل در `docs/audits/evidence/strict-file-inventory-20260814.json` و `docs/audits/evidence/strict-file-inventory-20260814.csv` تولید شد.
@@ -16,16 +16,16 @@
 
 | محور | وضعیت سختگیرانه | دلیل |
 |---|---|---|
-| سلامت main بعد از PR #434 | ✅ سالم | ۸ workflow روی `389c1fed` با event `push` سبز شد. |
+| سلامت main بعد از PR #439 | ✅ سالم | ۸ workflow روی `b55860d` با event `push` سبز شد. |
 | TypeScript | ✅ سالم | `tsc --noEmit --pretty false` با exit 0 اجرا شد. |
 | حاکمیت API/security | ✅ قوی | manifest امنیت API، audit mutation حساس، tenant و session guardها پاس شدند. |
 | فایل‌به‌فایل/مقیاس repo | 🟡 بزرگ و نیازمند مالک‌داری | 2451 فایل tracked؛ 1862 فایل خارج از vendor charting؛ 155 اسکریپت. |
-| کنترل لانچ | 🔴 NO-GO | audit اولیه نشان داد candidate رسمی `5d68865d` عقب است؛ بعد از PR #434، target فعلی باید `389c1fed` باشد. Re-baseline محلی انجام شد، اما Go هنوز به شواهد عملیاتی وابسته است. |
+| کنترل لانچ | 🔴 NO-GO | audit اولیه نشان داد candidate رسمی عقب است؛ بعد از PR #436/#438/#439، target فعلی باید `b55860d` باشد. Re-baseline محلی انجام شد، اما Go هنوز به شواهد عملیاتی وابسته است. |
 | protected staging و ops evidence | 🔴 NO-GO | NOG-01/02/05/07/08/09 باز هستند. |
 | real-money Exchange/custody/withdrawals | 🔴 NO-GO برای فعال‌سازی | فقط به‌عنوان launch-disabled/product-disabled پذیرفته شده‌اند، نه آماده‌ی فعال‌سازی. |
 | controlled education/Mentor/virtual Arena | 🟡 نزدیک‌تر، اما نه GO | کد و guardها قوی‌اند؛ شواهد عملیاتی و امضاهای owner هنوز مانده‌اند. |
 
-**نتیجه:** قدم منطقی بعدی، feature جدید نیست. قدم درست، **promotion/re-baseline کردن controlled launch candidate به `389c1fed`** و سپس اجرای evidence واقعی protected staging/recovery/incident/signoff روی همان SHA است. مرحله‌ی re-baseline در ادامه‌ی همین شاخه محلی انجام شد.
+**نتیجه:** قدم منطقی بعدی، feature جدید نیست. قدم درست، **promotion/re-baseline کردن controlled launch candidate به `b55860d`** و سپس اجرای evidence واقعی protected staging/recovery/incident/signoff روی همان SHA است. مرحله‌ی re-baseline در ادامه‌ی همین شاخه محلی انجام شد.
 
 ---
 
@@ -35,14 +35,14 @@
 
 | Workflow | نتیجه | لینک |
 |---|---|---|
-| CI | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471316) |
-| Full Suite Diagnostics | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471299) |
-| API Security Manifest | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471305) |
-| Sensitive Mutation Audit | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471295) |
-| Repository Audit Manifest | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471332) |
-| Public Browser Golden Path | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471352) |
-| Container Supply Chain | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471297) |
-| Full History Secret Scanning | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31805471342) |
+| CI | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425650) |
+| Full Suite Diagnostics | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425711) |
+| API Security Manifest | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425520) |
+| Sensitive Mutation Audit | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425672) |
+| Repository Audit Manifest | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425655) |
+| Public Browser Golden Path | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425576) |
+| Container Supply Chain | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425601) |
+| Full History Secret Scanning | ✅ success | [run](https://github.com/tecpey/Tecpey-Os/actions/runs/31811425761) |
 
 ### Local/guard checks که در همین audit استفاده شدند
 
@@ -80,7 +80,7 @@
 | NOG-11 | ✅ accepted | Custody, deposits and withdrawals remain uncertified | — |
 | NOG-12 | ✅ accepted | Enterprise, white-label and public rewards remain outside launch scope | — |
 
-نکته‌ی سختگیرانه: هنگام شروع audit، حتی NOGهای accepted فعلی هم برای candidate `5d68865d` ثبت شده بودند. بعد از PR #433 target به `c2b5e58f` رسید و بعد از merge شدن PR #434، head فعلی `389c1fed` شد. طبق خود ledger باید target جدید به‌عنوان candidate promote شود یا شواهد launch روی همین head بازتولید/ضمیمه شود. این هماهنگ‌سازی در ادامه‌ی همین شاخه محلی انجام شد؛ NOGهای عملیاتی همچنان باز هستند.
+نکته‌ی سختگیرانه: هنگام شروع audit، حتی NOGهای accepted فعلی هم برای candidate `5d68865d` ثبت شده بودند. بعد از PR #433 target به `c2b5e58f` رسید، بعد از PR #434 به `389c1fed` رسید، و بعد از merge شدن PR #436/#438/#439، head فعلی `b55860d` شد. طبق خود ledger باید target جدید به‌عنوان candidate promote شود یا شواهد launch روی همین head بازتولید/ضمیمه شود. این هماهنگ‌سازی در ادامه‌ی همین شاخه محلی انجام شد؛ NOGهای عملیاتی همچنان باز هستند و target قبلی `389c1fed` اکنون superseded است.
 
 ---
 
@@ -215,8 +215,8 @@
 
 ## ۷. کارهای مانده، به ترتیب منطقی
 
-1. **Candidate promotion PR:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` و JSON ledger را از `5d68865d`، سپس `c2b5e58f` و `92ccb8f` به `389c1fed` منتقل کن؛ دلیل: PR #434 بعد از PR #435 دوباره `main` را جلو برده است. وضعیت: انجام‌شده در شاخه‌ی محلی.
-2. **Re-attach exact-head evidence:** workflowهای سبز روی `389c1fed` را وارد exact-head evidence کن؛ runtime image digest و rollback artifact را هم از Container Supply Chain همان SHA ثبت کن. وضعیت: انجام‌شده در شاخه‌ی محلی برای workflow/runtime/rollback evidence.
+1. **Candidate promotion PR:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` و JSON ledger را از `5d68865d`، سپس `c2b5e58f` و `92ccb8f` به `b55860d` منتقل کن؛ دلیل: PR #436/#438/#439 بعد از PR #434 دوباره `main` را جلو برده‌اند. وضعیت: انجام‌شده در شاخه‌ی محلی.
+2. **Re-attach exact-head evidence:** workflowهای سبز روی `b55860d` را وارد exact-head evidence کن؛ runtime image digest و rollback artifact را هم از Container Supply Chain همان SHA ثبت کن. وضعیت: انجام‌شده در شاخه‌ی محلی برای workflow/runtime/rollback evidence.
 3. **Protected staging:** NOG-01/02 را با environment محافظت‌شده، runner درست، health/systemd/env redaction و artifact digest ببند.
 4. **Recovery reconciliation:** NOG-05 را روی protected staging برای Academy/Arena/Mentor/Exchange/notifications/tenant/audit اجرا و verifier را pass کن.
 5. **Incident readiness:** NOG-07 را با دو probe critical، latency، zero pending/quarantine و P0 acknowledgement ببند.
@@ -228,6 +228,6 @@
 
 ## ۸. جمع‌بندی نهایی
 
-PR #435 و سپس PR #434 از نظر engineering درست روی `main` نشسته‌اند و self-checkهای GitHub سبز هستند. پروژه از نظر کد «بی‌نظم یا خام» نیست؛ برعکس، guard و evidence discipline بسیار بالاست. مانع واقعی این است که repo خودش launch را fail-closed طراحی کرده و هنوز شواهد عملیاتی برای head فعلی وجود ندارد.
+PR #435، PR #434، PR #436، PR #438 و PR #439 از نظر engineering درست روی `main` نشسته‌اند و self-checkهای GitHub سبز هستند. پروژه از نظر کد «بی‌نظم یا خام» نیست؛ برعکس، guard و evidence discipline بسیار بالاست. مانع واقعی این است که repo خودش launch را fail-closed طراحی کرده و هنوز شواهد عملیاتی برای head فعلی وجود ندارد.
 
-**حکم:** تا قبل از بستن NOG-01/02/05/07/08/09، هیچ ادعای GO نباید داده شود. بعد از remediation محلی، قدم بعدی اجرای evidence عملیاتی protected staging/recovery/incident/signoff روی `389c1fed` است، نه اضافه‌کردن feature تازه.
+**حکم:** تا قبل از بستن NOG-01/02/05/07/08/09، هیچ ادعای GO نباید داده شود. بعد از remediation محلی، قدم بعدی اجرای evidence عملیاتی protected staging/recovery/incident/signoff روی `b55860d` است، نه اضافه‌کردن feature تازه.

@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-14T13:56:09Z",
+  "generatedAt": "2026-08-14T15:09:44Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
+    "sha": "b55860d8444db9c1b1020f1240816a229b1a2944",
     "sourceBranch": "main",
-    "sourcePullRequest": 434,
-    "selectedAt": "2026-08-14T13:56:09Z",
-    "reason": "Promotes the controlled-launch evidence target to current main after PR #434 landed Mentor tenant-binding security fixes on top of the PR #435 strict readiness candidate promotion. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
+    "sourcePullRequest": 439,
+    "selectedAt": "2026-08-14T15:09:44Z",
+    "reason": "Promotes the controlled-launch evidence target to current main after PR #436 and PR #438 Mentor tenant-binding fixes plus PR #439 CI/full-suite hardening landed on top of the PR #435 strict readiness candidate promotion. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
   },
   "supersedes": [
     {
@@ -80,6 +80,11 @@
       "sha": "92ccb8f18ac28232a2c1cb6cece09de52aa424f0",
       "previousRole": "current controlled-launch candidate after PR #435 strict readiness audit and candidate-evidence promotion",
       "currentStatus": "superseded_by_pr_434_for_mentor_tenant_binding_and_new_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
+      "previousRole": "current controlled-launch candidate after PR #434 Mentor conversation and insight tenant-binding security fix",
+      "currentStatus": "superseded_by_pr_436_pr_438_pr_439_for_current_main_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {
