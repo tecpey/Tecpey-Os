@@ -272,6 +272,7 @@ No implementation may regress these properties.
 |---|---|
 | preparation evidence insert fails | state, raw tx, tx hash, fee and confirmation policy roll back |
 | concurrent executor claims | one claim/prepared transaction/active generation |
+| two Redis workers race to submit the same prepared transaction | one PostgreSQL-authorized RPC submission, one durable attempt and one accepted evidence event |
 | signer throws | no partially prepared transaction; bounded failure/manual-review policy |
 | crash before RPC | prepared attempt resumes without rebuilding |
 | RPC accepted, process dies before result commit | attempt remains ambiguous/reconcilable; no blind new generation |

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { Queue, QueueEvents, Worker } from "bullmq";
 import { withDb } from "../../lib/db";
 import { PLATFORM } from "../../lib/platform-config";
 import {
@@ -21,6 +22,22 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const integrationConfigured = Boolean(
   databaseUrl && !databaseUrl.includes("CHANGE_ME"),
 );
+const redisUrl = process.env.REDIS_URL?.trim();
+const concurrentWorkerIntegrationConfigured = Boolean(
+  integrationConfigured && redisUrl,
+);
+
+function redisConnection() {
+  if (!redisUrl) throw new Error("test_redis_unavailable");
+  const parsed = new URL(redisUrl);
+  return {
+    host: parsed.hostname,
+    port: Number.parseInt(parsed.port || "6379", 10),
+    password: parsed.password || undefined,
+    tls: parsed.protocol === "rediss:" ? {} : undefined,
+    maxRetriesPerRequest: null,
+  };
+}
 
 function withdrawalId(): string {
   return randomUUID().replaceAll("-", "").slice(0, 32);
@@ -149,6 +166,96 @@ async function prepare(id: string) {
 }
 
 describe("Withdrawal external-effect transaction authority", () => {
+  it(
+    "allows only one PostgreSQL-authorized RPC submission across two Redis workers",
+    { skip: !concurrentWorkerIntegrationConfigured, timeout: 30_000 },
+    async () => {
+      const id = withdrawalId();
+      const userId = `external-concurrent-workers-${randomUUID()}`;
+      await seedApprovedWithdrawal(id, userId);
+      const prepared = await prepare(id);
+
+      const queueName = `withdrawal-broadcast-proof-${randomUUID()}`;
+      const connection = redisConnection();
+      const queue = new Queue<{ withdrawalId: string }>(queueName, { connection });
+      const events = new QueueEvents(queueName, { connection });
+      let rpcSubmissionCount = 0;
+      let releaseWinner!: () => void;
+      const loserObserved = new Promise<void>((resolve) => {
+        releaseWinner = resolve;
+      });
+
+      const processor = async () => {
+        const attempt = await beginWithdrawalBroadcastAttempt({
+          withdrawalId: id,
+          workerIdentity: `redis-worker-${randomUUID()}`,
+          providerClass: "TestEthereumProvider",
+        });
+        if (attempt.status !== "ready") {
+          assert.equal(attempt.status, "already_claimed");
+          releaseWinner();
+          return attempt.status;
+        }
+
+        rpcSubmissionCount += 1;
+        await loserObserved;
+        await finalizeWithdrawalBroadcastAccepted({
+          withdrawalId: id,
+          attemptId: attempt.attempt.id,
+          expectedTxHash: prepared.txHash,
+          outcome: "accepted",
+        });
+        return "broadcast_committed";
+      };
+
+      const workers = [
+        new Worker(queueName, processor, { connection, concurrency: 1 }),
+        new Worker(queueName, processor, { connection, concurrency: 1 }),
+      ];
+
+      try {
+        await events.waitUntilReady();
+        await Promise.all(workers.map((worker) => worker.waitUntilReady()));
+        const jobs = await queue.addBulk([
+          { name: "execute", data: { withdrawalId: id }, opts: { jobId: `worker-a-${id}` } },
+          { name: "execute", data: { withdrawalId: id }, opts: { jobId: `worker-b-${id}` } },
+        ]);
+        const results = await Promise.all(
+          jobs.map((job) => job.waitUntilFinished(events, 20_000)),
+        );
+
+        assert.equal(rpcSubmissionCount, 1);
+        assert.deepEqual(
+          [...results].sort(),
+          ["already_claimed", "broadcast_committed"],
+        );
+
+        const state = await loadState(id);
+        assert.equal(state.withdrawal?.state, "broadcasted");
+        assert.equal(state.withdrawal?.broadcast_attempts, 1);
+        assert.equal(state.attempts.length, 1);
+        assert.equal(state.attempts[0]?.state, "accepted");
+        assert.equal(
+          state.audit.filter(
+            (row) => row.action === "withdrawal.broadcast.attempt",
+          ).length,
+          1,
+        );
+        assert.equal(
+          state.audit.filter(
+            (row) => row.action === "withdrawal.broadcast.accepted",
+          ).length,
+          1,
+        );
+      } finally {
+        await Promise.all(workers.map((worker) => worker.close()));
+        await events.close();
+        await queue.obliterate({ force: true }).catch(() => undefined);
+        await queue.close();
+      }
+    },
+  );
+
   it(
     "allows one concurrent execution claim and commits typed claim evidence",
     { skip: !integrationConfigured, timeout: 30_000 },
