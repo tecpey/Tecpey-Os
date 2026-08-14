@@ -129,7 +129,7 @@ function allGatesReady(gates: readonly AuthProviderGate[]): boolean {
 
 function oauthProviderStatus(socialLoginEnabled: boolean, gates: readonly AuthProviderGate[]): AuthProviderStatus {
   if (!socialLoginEnabled) return "locked";
-  return allGatesReady(gates) ? "needs_evidence" : "needs_evidence";
+  return allGatesReady(gates) ? "planned" : "needs_evidence";
 }
 
 export function isAuthProviderId(value: unknown): value is AuthProviderId {
