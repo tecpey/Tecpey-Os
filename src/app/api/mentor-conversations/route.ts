@@ -4,6 +4,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import { withDb } from "@/lib/db";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +20,27 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-conversations-read", limit: 60, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    // mentor_conversations is student_global (classification registry): no tenant
+    // column, so reading it by session.studentId alone served the student their
+    // chat history on any tenant's branded host. Resolving the acting tenant
+    // confirms the student is bound to it and refuses a foreign host, and lets
+    // the Mentor product gate run on this read.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    // Unbound, revoked, a foreign branded host, or storage down: nothing to show
+    // under this tenant, the same graceful empty this route already returns when
+    // its storage is unavailable.
+    if (!tenantContext.available) return apiOk({ conversations: [], nextCursor: null });
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const url = new URL(req.url);
     const rowLimit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get("limit") || DEFAULT_LIMIT)));

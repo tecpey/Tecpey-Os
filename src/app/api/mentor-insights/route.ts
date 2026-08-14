@@ -6,6 +6,9 @@ import { generateMentorInsights } from "@/lib/mentor-memory";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +17,24 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-insights", limit: 30, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    // mentor_insights and mentor_profiles are student_global (classification
+    // registry): no tenant column, so reading them by session.studentId alone
+    // served the student their insights on any tenant's branded host. Resolving
+    // the acting tenant confirms the binding, refuses a foreign host, and lets
+    // the Mentor product gate run on this read.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiOk({ insights: [], profile: null });
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const shouldGenerate = new URL(req.url).searchParams.get("generate") === "1";
 
