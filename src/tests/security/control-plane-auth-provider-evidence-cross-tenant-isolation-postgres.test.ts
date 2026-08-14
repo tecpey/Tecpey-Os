@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import {
   applyAuthProviderEvidenceMutation,
+  decideAuthProviderReviewRequest,
   loadAuthProviderEvidenceByProvider,
   loadAuthProviderReviewRequestsByProvider,
   submitAuthProviderReviewRequest,
@@ -37,6 +38,7 @@ async function withClient<T>(callback: (client: PoolClient) => Promise<T>): Prom
 async function seedTenantAdmin(
   tenantId: string,
   workspaceId: string,
+  label = "primary",
 ): Promise<{ adminId: string }> {
   return withClient(async (client) => {
     await client.query(
@@ -56,7 +58,7 @@ async function seedTenantAdmin(
       `INSERT INTO admin_users (email, display_name, status, tenant_id, workspace_id)
        VALUES ($1, $2, 'active', $3, $4)
        RETURNING id::text AS id`,
-      [`admin-${tenantId}@tecpey.test`, `admin ${tenantId}`, tenantId, workspaceId],
+      [`admin-${label}-${tenantId}@tecpey.test`, `admin ${label} ${tenantId}`, tenantId, workspaceId],
     );
 
     return { adminId: admin.rows[0]!.id };
@@ -87,6 +89,7 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
       const workspaceA = `workspace-a-${suffix}`;
       const workspaceB = `workspace-b-${suffix}`;
       const adminA = await seedTenantAdmin(tenantA, workspaceA);
+      const reviewerA = await seedTenantAdmin(tenantA, workspaceA, "reviewer");
       const adminB = await seedTenantAdmin(tenantB, workspaceB);
       const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
 
@@ -257,6 +260,152 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
       assert.equal(queueA.google?.[0]?.requestedState, "enabled");
       assert.match(queueA.google?.[0]?.auditEventHash ?? "", /^[0-9a-f]{64}$/);
       assert.equal(queueB.google, undefined);
+
+      const selfReview = await decideAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        approvalRequestId: reviewRequest.approvalRequestId,
+        decision: "approve",
+        decisionNote: "request owner attempting self approval must be refused",
+        requestId: `auth-provider-self-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+
+      assert.equal(selfReview.ok, false);
+      if (selfReview.ok) return;
+      assert.equal(selfReview.error, "auth_provider_review_request_self_review_forbidden");
+
+      const expiredReviewRequest = await submitAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        providerId: "google",
+        requestedState: "disabled",
+        requestId: `auth-provider-expired-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+      assert.equal(expiredReviewRequest.ok, true);
+      if (!expiredReviewRequest.ok) return;
+
+      await withClient((client) =>
+        client.query(
+          `UPDATE admin_approval_requests
+              SET expires_at = NOW() - INTERVAL '1 minute'
+            WHERE id = $1::uuid`,
+          [expiredReviewRequest.approvalRequestId],
+        ),
+      );
+
+      const expiredSelfReview = await decideAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        approvalRequestId: expiredReviewRequest.approvalRequestId,
+        decision: "reject",
+        decisionNote: "expired owner request must be closed before self review denial",
+        requestId: `auth-provider-expired-self-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+      assert.equal(expiredSelfReview.ok, false);
+      if (expiredSelfReview.ok) return;
+      assert.equal(expiredSelfReview.error, "auth_provider_review_request_expired");
+
+      const expiredRows = await withClient((client) =>
+        client.query<{
+          status: string;
+          audit_status: string | null;
+          audit_error_code: string | null;
+          audit_outcome: string;
+        }>(
+          `SELECT request.status,
+                  audit.after_state ->> 'status' AS audit_status,
+                  audit.error_code AS audit_error_code,
+                  audit.outcome AS audit_outcome
+             FROM admin_approval_requests request
+             JOIN admin_audit_events audit
+               ON audit.approval_request_id = request.id
+            WHERE request.id = $1::uuid
+            ORDER BY audit.created_at DESC, audit.id DESC
+            LIMIT 1`,
+          [expiredReviewRequest.approvalRequestId],
+        ),
+      );
+      assert.deepEqual(expiredRows.rows, [
+        {
+          status: "expired",
+          audit_status: "expired",
+          audit_error_code: "auth_provider_review_request_expired",
+          audit_outcome: "denied",
+        },
+      ]);
+
+      const approved = await decideAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: reviewerA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        approvalRequestId: reviewRequest.approvalRequestId,
+        decision: "approve",
+        decisionNote: "independent reviewer verified every social login evidence gate",
+        requestId: `auth-provider-approve-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+
+      assert.equal(approved.ok, true);
+      if (!approved.ok) return;
+      assert.equal(approved.status, "approved");
+      assert.equal(approved.reviewedByAdminId, reviewerA.adminId);
+      assert.match(approved.auditEventHash, /^[0-9a-f]{64}$/);
+
+      const approvedRows = await withClient((client) =>
+        client.query<{
+          status: string;
+          reviewed_by: string;
+          audit_count: string;
+        }>(
+          `SELECT request.status,
+                  request.reviewed_by::text AS reviewed_by,
+                  COUNT(audit.id)::text AS audit_count
+             FROM admin_approval_requests request
+             LEFT JOIN admin_audit_events audit
+               ON audit.approval_request_id = request.id
+            WHERE request.id = $1::uuid
+            GROUP BY request.id`,
+          [reviewRequest.approvalRequestId],
+        ),
+      );
+
+      assert.deepEqual(approvedRows.rows, [
+        {
+          status: "approved",
+          reviewed_by: reviewerA.adminId,
+          audit_count: "3",
+        },
+      ]);
+
+      const approvedQueueA = await loadAuthProviderReviewRequestsByProvider({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+      });
+      assert.notEqual(approvedQueueA, "unavailable");
+      if (approvedQueueA === "unavailable") return;
+      const approvedQueueReview = approvedQueueA.google?.find(
+        (request) => request.id === reviewRequest.approvalRequestId,
+      );
+      assert.equal(approvedQueueReview?.status, "approved");
+      assert.equal(approvedQueueReview?.reviewedByAdminId, reviewerA.adminId);
     },
   );
 });

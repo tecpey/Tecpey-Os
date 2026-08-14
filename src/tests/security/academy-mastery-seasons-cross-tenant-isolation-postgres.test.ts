@@ -189,9 +189,11 @@ after(async () => {
       // the authority created for this student must go before its binding.
       await client.query(`DELETE FROM academy_public_profiles WHERE student_id = $1::uuid`, [studentId]);
       await client.query(`DELETE FROM learning_events WHERE student_id = $1::uuid`, [studentId]);
-      await client.query(
-        `DELETE FROM platform_principal_bindings WHERE principal_type = 'student' AND principal_id = $1`,
-        [studentId],
+      await retryPostgresDeadlock(() =>
+        client.query(
+          `DELETE FROM platform_principal_bindings WHERE principal_type = 'student' AND principal_id = $1`,
+          [studentId],
+        ),
       );
       await client.query(`DELETE FROM academy_students WHERE id = $1::uuid`, [studentId]);
     }

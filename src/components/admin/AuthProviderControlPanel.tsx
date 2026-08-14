@@ -33,12 +33,16 @@ type AuthProviderAction = AuthProviderControl["adminActions"][number];
 type AuthProviderEvidenceGateId = AuthProviderControl["gates"][number]["id"];
 type AuthProviderReviewRequestedState = AuthProviderReviewRequest["requestedState"];
 type EvidenceAction = "mark_missing" | "mark_ready" | "reject" | "expire";
+type ReviewDecisionAction = "approve" | "reject";
 type EvidenceFormState = {
   gateId: AuthProviderEvidenceGateId;
   action: EvidenceAction;
   evidenceRef: string;
   evidenceSha256: string;
   expiresAt: string;
+  decisionNote: string;
+};
+type ReviewDecisionFormState = {
   decisionNote: string;
 };
 
@@ -175,6 +179,10 @@ function evidenceFormKey(providerId: AuthProviderId): string {
   return providerId;
 }
 
+function reviewDecisionFormKey(requestId: string): string {
+  return requestId;
+}
+
 function defaultEvidenceForm(provider: AuthProviderControl): EvidenceFormState {
   return {
     gateId: provider.gates.find((gate) => !gate.ready)?.id ?? provider.gates[0]?.id ?? "client_registered",
@@ -195,6 +203,8 @@ export function AuthProviderControlPanel() {
   const [busyProvider, setBusyProvider] = useState<AuthProviderId | null>(null);
   const [busyEvidenceKey, setBusyEvidenceKey] = useState<string | null>(null);
   const [evidenceForms, setEvidenceForms] = useState<Record<string, EvidenceFormState>>({});
+  const [busyReviewRequestId, setBusyReviewRequestId] = useState<string | null>(null);
+  const [reviewDecisionForms, setReviewDecisionForms] = useState<Record<string, ReviewDecisionFormState>>({});
 
   const fetchSnapshot = useCallback(async () => {
     try {
@@ -331,6 +341,9 @@ export function AuthProviderControlPanel() {
   const resolveEvidenceForm = (provider: AuthProviderControl): EvidenceFormState =>
     evidenceForms[evidenceFormKey(provider.id)] ?? defaultEvidenceForm(provider);
 
+  const resolveReviewDecisionForm = (request: AuthProviderReviewRequest): ReviewDecisionFormState =>
+    reviewDecisionForms[reviewDecisionFormKey(request.id)] ?? { decisionNote: "" };
+
   const updateEvidenceForm = (provider: AuthProviderControl, patch: Partial<EvidenceFormState>) => {
     setEvidenceForms((current) => {
       const key = evidenceFormKey(provider.id);
@@ -338,6 +351,19 @@ export function AuthProviderControlPanel() {
         ...current,
         [key]: {
           ...(current[key] ?? defaultEvidenceForm(provider)),
+          ...patch,
+        },
+      };
+    });
+  };
+
+  const updateReviewDecisionForm = (request: AuthProviderReviewRequest, patch: Partial<ReviewDecisionFormState>) => {
+    setReviewDecisionForms((current) => {
+      const key = reviewDecisionFormKey(request.id);
+      return {
+        ...current,
+        [key]: {
+          ...(current[key] ?? { decisionNote: "" }),
           ...patch,
         },
       };
@@ -406,6 +432,83 @@ export function AuthProviderControlPanel() {
       setNotice("ارتباط با سرویس Evidence Control برقرار نشد.");
     } finally {
       setBusyEvidenceKey(null);
+    }
+  };
+
+  const submitReviewDecision = async (request: AuthProviderReviewRequest, decision: ReviewDecisionAction) => {
+    const form = resolveReviewDecisionForm(request);
+    setBusyReviewRequestId(request.id);
+    setNotice("");
+    try {
+      const response = await fetch("/api/command-center/auth-providers/review-requests", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          approvalRequestId: request.id,
+          decision,
+          decisionNote: form.decisionNote,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        setNotice("Session ادمین منقضی شده؛ دوباره از Command Center وارد شو.");
+        return;
+      }
+      if (data?.error === "step_up_required") {
+        setNotice("تصمیم روی Approval queue نیازمند ورود دوباره با Passkey و Step-up تازه است.");
+        return;
+      }
+      if (data?.error === "auth_provider_review_decision_reason_required") {
+        setNotice("برای approve/reject باید دلیل audit-ready حداقل ۱۰ کاراکتری وارد شود.");
+        return;
+      }
+      if (data?.error === "auth_provider_review_decision_secret_like_input") {
+        setNotice("Decision reason نباید Secret/Token خام داشته باشد.");
+        return;
+      }
+      if (data?.error === "auth_provider_review_request_self_review_forbidden") {
+        setNotice("Dual-control فعال است؛ درخواست‌دهنده نمی‌تواند همان درخواست را approve/reject کند.");
+        return;
+      }
+      if (data?.error === "auth_provider_review_request_expired") {
+        setNotice("این درخواست منقضی شده و برای تصمیم جدید باید request تازه ثبت شود.");
+        await fetchSnapshot();
+        return;
+      }
+      if (data?.error === "auth_provider_review_request_not_pending") {
+        setNotice("این درخواست دیگر pending نیست؛ queue تازه‌سازی می‌شود.");
+        await fetchSnapshot();
+        return;
+      }
+      if (data?.error === "auth_provider_review_request_not_found") {
+        setNotice("Approval request در tenant/workspace فعلی پیدا نشد.");
+        return;
+      }
+      if (data?.error === "auth_provider_review_decision_unavailable") {
+        setNotice("Approval decision store در دسترس نیست؛ اتصال دیتابیس یا schema باید بررسی شود.");
+        return;
+      }
+      if (!response.ok || !data?.ok) {
+        setNotice("تصمیم Approval queue پذیرفته نشد.");
+        return;
+      }
+      if (data.reviewRequestsByProvider) {
+        setReviewRequestsByProvider(data.reviewRequestsByProvider as AuthProviderReviewRequestsByProvider);
+      }
+      setReviewDecisionForms((current) => {
+        const next = { ...current };
+        delete next[reviewDecisionFormKey(request.id)];
+        return next;
+      });
+      setNotice(decision === "approve"
+        ? "Approval request با audit append-only تأیید شد؛ execution واقعی در مرحله بعد انجام می‌شود."
+        : "Approval request با audit append-only رد شد.");
+      await fetchSnapshot();
+    } catch {
+      setNotice("ارتباط با سرویس Approval Decision برقرار نشد.");
+    } finally {
+      setBusyReviewRequestId(null);
     }
   };
 
@@ -695,25 +798,70 @@ export function AuthProviderControlPanel() {
                             </p>
                           ) : (
                             <div className="mt-3 space-y-2">
-                              {providerReviewRequests.map((request) => (
-                                <div key={request.id} className="rounded-xl border border-white/10 bg-[#030914] px-3 py-2">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <p className="text-xs font-black text-white">
-                                      {reviewRequestedStateLabelFa[request.requestedState]}
+                              {providerReviewRequests.map((request) => {
+                                const decisionForm = resolveReviewDecisionForm(request);
+                                const decisionBusy = busyReviewRequestId === request.id;
+                                const pending = request.status === "pending";
+                                const noteTooShort = decisionForm.decisionNote.trim().length < 10;
+
+                                return (
+                                  <div key={request.id} className="rounded-xl border border-white/10 bg-[#030914] px-3 py-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-black text-white">
+                                        {reviewRequestedStateLabelFa[request.requestedState]}
+                                      </p>
+                                      <ReviewStatusBadge status={request.status} />
+                                    </div>
+                                    <div className="mt-2 grid gap-1.5 text-[10px] font-bold text-slate-500 sm:grid-cols-2">
+                                      <span dir="ltr" className="truncate text-left font-mono">ID: {request.id}</span>
+                                      <span dir="ltr" className="truncate text-left font-mono">Audit: {shortAuditHash(request.auditEventHash)}</span>
+                                      <span>ثبت: {formatIsoDateTime(request.requestedAt)}</span>
+                                      <span>انقضا: {formatIsoDateTime(request.expiresAt)}</span>
+                                    </div>
+                                    <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-6 text-slate-500">
+                                      {request.reason}
                                     </p>
-                                    <ReviewStatusBadge status={request.status} />
+
+                                    {pending && (
+                                      <div className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.045] p-2">
+                                        <label className="block text-[11px] font-black text-amber-100" htmlFor={`${request.id}-review-note`}>
+                                          Decision reason
+                                          <input
+                                            id={`${request.id}-review-note`}
+                                            value={decisionForm.decisionNote}
+                                            onChange={(event) => updateReviewDecisionForm(request, { decisionNote: event.target.value })}
+                                            placeholder="independent reviewer verified evidence ticket"
+                                            className="mt-1 min-h-10 w-full rounded-xl border border-white/10 bg-[#030914] px-3 text-xs font-bold text-white outline-none transition placeholder:text-slate-600 focus:border-amber-300/40 focus:ring-2 focus:ring-amber-300/20"
+                                          />
+                                        </label>
+                                        <p className="mt-2 text-[10px] font-bold leading-5 text-slate-500">
+                                          Dual-control سمت سرور enforce می‌شود؛ requester خودش نمی‌تواند تصمیم بگیرد.
+                                        </p>
+                                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                          <button
+                                            type="button"
+                                            disabled={decisionBusy || noteTooShort}
+                                            onClick={() => void submitReviewDecision(request, "approve")}
+                                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 text-xs font-black text-cyan-100 transition hover:bg-cyan-300/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-not-allowed disabled:opacity-55"
+                                          >
+                                            {decisionBusy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
+                                            Approve
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={decisionBusy || noteTooShort}
+                                            onClick={() => void submitReviewDecision(request, "reject")}
+                                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-rose-300/20 bg-rose-300/[0.08] px-3 text-xs font-black text-rose-100 transition hover:bg-rose-300/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-55"
+                                          >
+                                            {decisionBusy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LockKeyhole className="h-4 w-4" aria-hidden="true" />}
+                                            Reject
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="mt-2 grid gap-1.5 text-[10px] font-bold text-slate-500 sm:grid-cols-2">
-                                    <span dir="ltr" className="truncate text-left font-mono">ID: {request.id}</span>
-                                    <span dir="ltr" className="truncate text-left font-mono">Audit: {shortAuditHash(request.auditEventHash)}</span>
-                                    <span>ثبت: {formatIsoDateTime(request.requestedAt)}</span>
-                                    <span>انقضا: {formatIsoDateTime(request.expiresAt)}</span>
-                                  </div>
-                                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-6 text-slate-500">
-                                    {request.reason}
-                                  </p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
