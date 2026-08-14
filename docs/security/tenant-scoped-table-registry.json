@@ -14,7 +14,7 @@
       "isolationModel": "tenant_id + workspace_id lead the primary key with provider_id and gate_id; both evidence load paths filter WHERE tenant_id = $1 AND workspace_id = $2 before returning ready evidence, and mutations UPSERT on (tenant_id, workspace_id, provider_id, gate_id), so the same provider/gate evidence in a second tenant cannot replay or overwrite the first tenant's readiness state.",
       "adversarialProof": "proven",
       "issue": "#109",
-      "testReference": "src/tests/security/admin-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
+      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "admin_auth_provider_evidence_events",
@@ -23,7 +23,7 @@
       "isolationModel": "tenant_id + workspace_id are written into every append-only evidence event beside provider_id and gate_id; the write path inserts the authorized admin principal's tenant/workspace scope and the migration installs UPDATE/DELETE rejection triggers, so one tenant's provider evidence audit trail cannot be mutated or collapsed into another tenant's event stream.",
       "adversarialProof": "proven",
       "issue": "#109",
-      "testReference": "src/tests/security/admin-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
+      "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_certificates",
