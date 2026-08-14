@@ -44,22 +44,49 @@ async function registry(): Promise<{ tables: ClassifiedTable[] }> {
   return JSON.parse(raw);
 }
 
-/** Every FK child of academy_students that carries no tenant_id column. */
-async function tenantlessStudentChildren(): Promise<string[]> {
+/**
+ * Every student-owned, tenant-less table reachable from academy_students.
+ *
+ * A first version walked only DIRECT foreign keys to academy_students, and
+ * review (#430, Codex P2) found the hole: academy_trading_arena_attempts reaches
+ * the student table through academy_trading_arena_accounts, not directly, so it
+ * was student-owned, tenant-less, and invisible to the check — the registry
+ * classified the arena tables around it while omitting the central one.
+ *
+ * This walks the full FK lineage (the transitive closure of foreign keys rooted
+ * at academy_students) and keeps a table only when it carries a student_id and
+ * no tenant_id. The student_id column is the discriminator that keeps this to
+ * student-owned data rather than every distant descendant, and the absent
+ * tenant_id is what makes it this registry's concern rather than
+ * tenant-scoped-table-registry.json's.
+ */
+async function tenantlessStudentTables(): Promise<string[]> {
   const client = await pool!.connect();
   try {
     const { rows } = await client.query<{ tbl: string }>(
-      `SELECT DISTINCT con.conrelid::regclass::text AS tbl
-         FROM pg_constraint con
-        WHERE con.contype = 'f'
-          AND con.confrelid = 'academy_students'::regclass
+      `WITH RECURSIVE reachable AS (
+         SELECT con.conrelid AS rel
+           FROM pg_constraint con
+          WHERE con.contype = 'f'
+            AND con.confrelid = 'academy_students'::regclass
+         UNION
+         SELECT con.conrelid
+           FROM pg_constraint con
+           JOIN reachable r ON con.confrelid = r.rel
+          WHERE con.contype = 'f'
+       )
+       SELECT DISTINCT c.relname AS tbl
+         FROM reachable r
+         JOIN pg_class c ON c.oid = r.rel
+        WHERE c.relkind = 'r'
+          AND EXISTS (
+            SELECT 1 FROM information_schema.columns col
+             WHERE col.table_name = c.relname AND col.column_name = 'student_id')
           AND NOT EXISTS (
-            SELECT 1 FROM information_schema.columns c
-             WHERE c.table_name = con.conrelid::regclass::text
-               AND c.column_name = 'tenant_id')`,
+            SELECT 1 FROM information_schema.columns col
+             WHERE col.table_name = c.relname AND col.column_name = 'tenant_id')`,
     );
-    // conrelid::regclass can schema-qualify; the registry uses bare names.
-    return rows.map((r) => r.tbl.replace(/^public\./, "")).sort();
+    return rows.map((r) => r.tbl).sort();
   } finally {
     client.release();
   }
@@ -131,7 +158,7 @@ describe("Student-derived table classification", () => {
     async () => {
       const { tables } = await registry();
       const classified = tables.map((t) => t.table).sort();
-      const onDisk = await tenantlessStudentChildren();
+      const onDisk = await tenantlessStudentTables();
 
       const missing = onDisk.filter((t) => !classified.includes(t));
       const stale = classified.filter((t) => !onDisk.includes(t));
