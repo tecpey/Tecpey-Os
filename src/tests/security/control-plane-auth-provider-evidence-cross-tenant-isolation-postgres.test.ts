@@ -401,8 +401,11 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
       });
       assert.notEqual(approvedQueueA, "unavailable");
       if (approvedQueueA === "unavailable") return;
-      assert.equal(approvedQueueA.google?.[0]?.status, "approved");
-      assert.equal(approvedQueueA.google?.[0]?.reviewedByAdminId, reviewerA.adminId);
+      const approvedQueueReview = approvedQueueA.google?.find(
+        (request) => request.id === reviewRequest.approvalRequestId,
+      );
+      assert.equal(approvedQueueReview?.status, "approved");
+      assert.equal(approvedQueueReview?.reviewedByAdminId, reviewerA.adminId);
     },
   );
 });
