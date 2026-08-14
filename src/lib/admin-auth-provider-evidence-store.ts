@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { writeAdminAuditEvent } from "./admin-control-plane";
 import { withDb, withTx } from "./db";
 import { hashApiCommand } from "./security/api-command-idempotency";
 import {
@@ -28,6 +29,17 @@ export type AuthProviderEvidenceMutationInput = AuthProviderEvidenceScope & {
   decisionNote?: string | null;
 };
 
+export type AuthProviderReviewRequestInput = AuthProviderEvidenceScope & {
+  actorAdminId: string;
+  sessionId: string | null;
+  effectiveRoles: string[];
+  providerId: AuthProviderId;
+  requestedState: "enabled" | "disabled";
+  requestId?: string | null;
+  sourceIp?: string | null;
+  userAgent?: string | null;
+};
+
 export type AuthProviderEvidenceMutationDecision =
   | {
       ok: true;
@@ -50,6 +62,20 @@ export type AuthProviderEvidenceMutationDecision =
       httpStatus: 400 | 422 | 503;
     };
 type AuthProviderEvidenceMutationError = Extract<AuthProviderEvidenceMutationDecision, { ok: false }>;
+
+export type AuthProviderReviewRequestDecision =
+  | {
+      ok: true;
+      approvalRequestId: string;
+      auditEventId: string;
+      status: "pending";
+      expiresAt: string;
+    }
+  | {
+      ok: false;
+      error: "auth_provider_review_request_unavailable";
+      httpStatus: 503;
+    };
 
 export type AuthProviderEvidenceRow = {
   provider_id: string;
@@ -152,7 +178,11 @@ export function normalizeAuthProviderEvidenceMutation(
     }
   }
 
-  if (input.action !== "mark_ready" && (!decisionNote || decisionNote.length < 3)) {
+  if (decisionNote && decisionNote.length < 3) {
+    return { ok: false, error: "auth_provider_evidence_reason_required", httpStatus: 422 };
+  }
+
+  if (input.action !== "mark_ready" && !decisionNote) {
     return { ok: false, error: "auth_provider_evidence_reason_required", httpStatus: 422 };
   }
 
@@ -280,8 +310,9 @@ export async function applyAuthProviderEvidenceMutation(
     const event = await client.query<{ id: string }>(
       `INSERT INTO admin_auth_provider_evidence_events
          (tenant_id, workspace_id, provider_id, gate_id, action, actor_admin_id,
-          request_hash, evidence_state, evidence_ref, evidence_sha256, decision_note)
-       VALUES ($1, $2, $3, $4, $5, $6::uuid, $7, $8, $9, $10, $11)
+          request_hash, evidence_state, evidence_ref, evidence_sha256, decision_note,
+          expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6::uuid, $7, $8, $9, $10, $11, $12::timestamptz)
        RETURNING id`,
       [
         normalized.tenantId,
@@ -295,6 +326,7 @@ export async function applyAuthProviderEvidenceMutation(
         normalized.evidenceRef,
         normalized.evidenceSha256,
         normalized.decisionNote,
+        normalized.expiresAt,
       ],
     );
 
@@ -313,4 +345,69 @@ export async function applyAuthProviderEvidenceMutation(
   return result.enabled
     ? result.value
     : { ok: false, error: "auth_provider_evidence_unavailable", httpStatus: 503 };
+}
+
+export async function submitAuthProviderReviewRequest(
+  input: AuthProviderReviewRequestInput,
+): Promise<AuthProviderReviewRequestDecision> {
+  if (input.providerId === "passkey" || !isAuthProviderId(input.providerId)) {
+    return { ok: false, error: "auth_provider_review_request_unavailable", httpStatus: 503 };
+  }
+
+  const action = input.requestedState === "enabled"
+    ? "auth_provider.request_enable"
+    : "auth_provider.request_disable";
+  const resourceId = `${input.tenantId}/${input.workspaceId}/${input.providerId}`;
+  const reason = `Auth provider ${input.providerId} ${input.requestedState} review requested after evidence gates passed.`;
+  const payload = {
+    tenantId: input.tenantId,
+    workspaceId: input.workspaceId,
+    providerId: input.providerId,
+    requestedState: input.requestedState,
+    status: "accepted_for_review",
+  };
+
+  const result = await withTx(async (client) => {
+    const request = await client.query<{
+      id: string;
+      status: "pending";
+      expires_at: Date;
+    }>(
+      `INSERT INTO admin_approval_requests
+         (action, resource_type, resource_id, payload, reason, status, requested_by, expires_at)
+       VALUES ($1, 'auth_provider', $2, $3::jsonb, $4, 'pending', $5::uuid, NOW() + INTERVAL '7 days')
+       RETURNING id::text AS id, status, expires_at`,
+      [action, resourceId, JSON.stringify(payload), reason, input.actorAdminId],
+    );
+    const approval = request.rows[0];
+    if (!approval) throw new Error("auth_provider_review_request_not_recorded");
+
+    const audit = await writeAdminAuditEvent(client, {
+      actorAdminId: input.actorAdminId,
+      sessionId: input.sessionId,
+      effectiveRoles: input.effectiveRoles,
+      action,
+      resourceType: "auth_provider",
+      resourceId,
+      requestId: input.requestId ?? null,
+      sourceIp: input.sourceIp ?? null,
+      userAgent: input.userAgent ?? null,
+      reason,
+      afterState: payload,
+      approvalRequestId: approval.id,
+      outcome: "success",
+    });
+
+    return {
+      ok: true,
+      approvalRequestId: approval.id,
+      auditEventId: audit.id,
+      status: approval.status,
+      expiresAt: approval.expires_at.toISOString(),
+    } satisfies AuthProviderReviewRequestDecision;
+  });
+
+  return result.enabled
+    ? result.value
+    : { ok: false, error: "auth_provider_review_request_unavailable", httpStatus: 503 };
 }

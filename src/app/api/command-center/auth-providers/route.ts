@@ -10,10 +10,11 @@ import {
 import {
   applyAuthProviderEvidenceMutation,
   loadAuthProviderEvidenceByProvider,
+  submitAuthProviderReviewRequest,
 } from "@/lib/admin-auth-provider-evidence-store";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withObservability } from "@/lib/observe";
-import { rateLimit } from "@/lib/rate-limit";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 
 export const runtime = "nodejs";
@@ -102,7 +103,34 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return apiOk({ decision }, 202, { "Cache-Control": "no-store, max-age=0" });
+    try {
+      const reviewRequest = await submitAuthProviderReviewRequest({
+        tenantId: authorization.principal.tenantId,
+        workspaceId: authorization.principal.workspaceId,
+        actorAdminId: authorization.principal.adminId,
+        sessionId: authorization.principal.sessionId,
+        effectiveRoles: authorization.principal.roles,
+        providerId,
+        requestedState,
+        requestId: req.headers.get("x-tecpey-request-id") ?? null,
+        sourceIp: getClientIp(req),
+        userAgent: (req.headers.get("user-agent") ?? "").slice(0, 500),
+      });
+      if (!reviewRequest.ok) {
+        return apiError(reviewRequest.error, reviewRequest.httpStatus);
+      }
+
+      return apiOk(
+        {
+          decision,
+          reviewRequest,
+        },
+        202,
+        { "Cache-Control": "no-store, max-age=0" },
+      );
+    } catch {
+      return apiError("auth_provider_review_request_unavailable", 503);
+    }
   });
 }
 

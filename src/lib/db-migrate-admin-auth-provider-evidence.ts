@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS admin_auth_provider_evidence_events (
   evidence_ref TEXT,
   evidence_sha256 TEXT,
   decision_note TEXT,
+  expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   FOREIGN KEY (tenant_id, workspace_id)
     REFERENCES platform_workspaces (tenant_id, id) ON DELETE RESTRICT,
@@ -94,7 +95,8 @@ CREATE TABLE IF NOT EXISTS admin_auth_provider_evidence_events (
   CHECK (decision_note IS NULL OR (
     length(decision_note) BETWEEN 3 AND 500
     AND decision_note !~ '[[:cntrl:]]'
-  ))
+  )),
+  CHECK (expires_at IS NULL OR expires_at > created_at)
 );
 
 CREATE INDEX IF NOT EXISTS admin_auth_provider_evidence_events_scope_idx

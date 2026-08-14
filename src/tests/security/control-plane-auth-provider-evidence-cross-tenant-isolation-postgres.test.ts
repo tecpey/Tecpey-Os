@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
-import { applyAuthProviderEvidenceMutation, loadAuthProviderEvidenceByProvider } from "../../lib/admin-auth-provider-evidence-store";
+import {
+  applyAuthProviderEvidenceMutation,
+  loadAuthProviderEvidenceByProvider,
+  submitAuthProviderReviewRequest,
+} from "../../lib/admin-auth-provider-evidence-store";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
 // Cross-tenant adversarial proof for admin_auth_provider_evidence and
@@ -83,6 +87,7 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
       const workspaceB = `workspace-b-${suffix}`;
       const adminA = await seedTenantAdmin(tenantA, workspaceA);
       const adminB = await seedTenantAdmin(tenantB, workspaceB);
+      const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
 
       const readyA = await applyAuthProviderEvidenceMutation({
         tenantId: tenantA,
@@ -93,6 +98,7 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
         action: "mark_ready",
         evidenceRef: "vault://oauth/google/client-a",
         evidenceSha256: "a".repeat(64),
+        expiresAt,
       });
       const readyB = await applyAuthProviderEvidenceMutation({
         tenantId: tenantB,
@@ -160,6 +166,75 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
           gate_id: "domain_verified",
           evidence_sha256: "b".repeat(64),
           event_count: "1",
+        },
+      ]);
+
+      const eventExpiry = await withClient((client) =>
+        client.query<{ tenant_id: string; expires_at: Date | null }>(
+          `SELECT tenant_id, expires_at
+             FROM admin_auth_provider_evidence_events
+            WHERE tenant_id = ANY($1::text[])
+            ORDER BY tenant_id`,
+          [[tenantA, tenantB]],
+        ),
+      );
+      assert.equal(eventExpiry.rows.find((row) => row.tenant_id === tenantA)?.expires_at?.toISOString(), expiresAt);
+      assert.equal(eventExpiry.rows.find((row) => row.tenant_id === tenantB)?.expires_at, null);
+
+      const reviewRequest = await submitAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        providerId: "google",
+        requestedState: "enabled",
+        requestId: `auth-provider-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+
+      assert.equal(reviewRequest.ok, true);
+      if (!reviewRequest.ok) return;
+
+      const reviewRows = await withClient((client) =>
+        client.query<{
+          request_action: string;
+          resource_type: string;
+          resource_id: string;
+          requested_by: string;
+          payload_tenant_id: string;
+          payload_workspace_id: string;
+          payload_provider_id: string;
+          audit_count: string;
+        }>(
+          `SELECT request.action AS request_action,
+                  request.resource_type,
+                  request.resource_id,
+                  request.requested_by::text AS requested_by,
+                  request.payload ->> 'tenantId' AS payload_tenant_id,
+                  request.payload ->> 'workspaceId' AS payload_workspace_id,
+                  request.payload ->> 'providerId' AS payload_provider_id,
+                  COUNT(audit.id)::text AS audit_count
+             FROM admin_approval_requests request
+             LEFT JOIN admin_audit_events audit
+               ON audit.approval_request_id = request.id
+            WHERE request.id = $1::uuid
+            GROUP BY request.id`,
+          [reviewRequest.approvalRequestId],
+        ),
+      );
+
+      assert.deepEqual(reviewRows.rows, [
+        {
+          request_action: "auth_provider.request_enable",
+          resource_type: "auth_provider",
+          resource_id: `${tenantA}/${workspaceA}/google`,
+          requested_by: adminA.adminId,
+          payload_tenant_id: tenantA,
+          payload_workspace_id: workspaceA,
+          payload_provider_id: "google",
+          audit_count: "1",
         },
       ]);
     },

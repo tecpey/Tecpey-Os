@@ -273,6 +273,22 @@ describe("admin auth provider control plane", () => {
     if (!("ok" in rawSecret)) assert.fail("raw secret-like evidence mutation must fail");
     assert.equal(rawSecret.ok, false);
     assert.equal(rawSecret.error, "auth_provider_evidence_secret_like_input");
+
+    const shortReadyNote = normalizeAuthProviderEvidenceMutation({
+      tenantId: "tecpey",
+      workspaceId: "main",
+      actorAdminId: "00000000-0000-4000-8000-000000000001",
+      providerId: "google",
+      gateId: "secret_stored_server_side",
+      action: "mark_ready",
+      evidenceRef: "vault://oauth/google/client-secret",
+      evidenceSha256: "a".repeat(64),
+      decisionNote: "ok",
+    });
+
+    if (!("ok" in shortReadyNote)) assert.fail("short ready note must fail before database insert");
+    assert.equal(shortReadyNote.ok, false);
+    assert.equal(shortReadyNote.error, "auth_provider_evidence_reason_required");
   });
 
   it("requires reasons for non-ready evidence decisions and rejects passkey mutation", () => {
@@ -320,6 +336,14 @@ describe("admin auth provider control plane", () => {
     assert.match(patchRoute, /actorAdminId: authorization\.principal\.adminId/);
     assert.match(patchRoute, /applyAuthProviderEvidenceMutation\(\{/);
     assert.doesNotMatch(patchRoute, /clientSecret|privateKey|botToken|apiKey/);
+
+    const postStart = route.indexOf("export async function POST");
+    assert.ok(postStart >= 0, "POST provider review route must exist");
+    const postRoute = route.slice(postStart, patchStart);
+    assert.match(postRoute, /submitAuthProviderReviewRequest\(\{/);
+    assert.match(postRoute, /sessionId: authorization\.principal\.sessionId/);
+    assert.match(postRoute, /effectiveRoles: authorization\.principal\.roles/);
+    assert.match(postRoute, /reviewRequest/);
   });
 
   it("keeps auth-provider evidence reads and writes tenant/workspace scoped", async () => {
