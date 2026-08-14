@@ -282,15 +282,25 @@ describe("Withdrawal broadcast lease recovery authority", () => {
               )`,
           [id, claim.generation],
         );
+        const confirmationOutbox = await client.query<{
+          state: string;
+          attempts: number;
+        }>(
+          `SELECT state, attempts
+             FROM withdrawal_confirmation_outbox
+            WHERE withdrawal_id = $1`,
+          [id],
+        );
         return {
           withdrawal: withdrawal.rows[0],
           attempts: attempts.rows,
           acceptedEvents: Number(acceptedEvidence.rows[0]?.count ?? "0"),
+          confirmationOutbox: confirmationOutbox.rows[0],
         };
       });
       assert.equal(recovered.enabled, true);
       if (recovered.enabled) {
-        assert.equal(recovered.value.withdrawal?.state, "broadcasted");
+        assert.equal(recovered.value.withdrawal?.state, "confirming");
         assert.equal(recovered.value.withdrawal?.broadcast_attempts, 1);
         assert.deepEqual(recovered.value.attempts, [
           {
@@ -299,6 +309,10 @@ describe("Withdrawal broadcast lease recovery authority", () => {
           },
         ]);
         assert.equal(recovered.value.acceptedEvents, 1);
+        assert.deepEqual(recovered.value.confirmationOutbox, {
+          state: "published",
+          attempts: 1,
+        });
       }
     },
   );
