@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
-import { PLATFORM } from "../../lib/platform-config";
 import {
   activateAcademyMasterySeason,
   readAcademyMasterySeasonState,
@@ -42,8 +41,8 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
 
-const TENANT_A = PLATFORM.DEFAULT_TENANT_ID;
-const WORKSPACE_A = PLATFORM.DEFAULT_WORKSPACE_ID;
+const TENANT_A = `tenant-a-${randomUUID()}`;
+const WORKSPACE_A = `ws-a-${randomUUID()}`;
 const TENANT_B = `tenant-b-${randomUUID()}`;
 const WORKSPACE_B = `ws-b-${randomUUID()}`;
 
@@ -68,34 +67,58 @@ async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T>
   }
 }
 
-async function seedStudentBoundToBothTenants(client: PoolClient): Promise<string> {
-  const studentId = randomUUID();
-  cleanupStudents.add(studentId);
-  await client.query(
-    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
-       VALUES ($1, $1, $1, 'enterprise', '{}'::text[]) ON CONFLICT (id) DO NOTHING`,
-    [TENANT_B],
+function isPostgresErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === code
   );
-  await client.query(
-    `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
-       VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb) ON CONFLICT (id) DO NOTHING`,
-    [WORKSPACE_B, TENANT_B],
-  );
-  await client.query(
-    `INSERT INTO academy_students (id, locale) VALUES ($1::uuid, 'fa')
-       ON CONFLICT (id) DO NOTHING`,
-    [studentId],
-  );
-  for (const [tenant, workspace] of [[TENANT_A, WORKSPACE_A], [TENANT_B, WORKSPACE_B]]) {
-    await client.query(
-      `INSERT INTO platform_principal_bindings
-         (tenant_id, workspace_id, principal_type, principal_id, status, source)
-       VALUES ($1, $2, 'student', $3, 'active', 'test')
-       ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING`,
-      [tenant, workspace, studentId],
-    );
+}
+
+async function retryPostgresDeadlock<T>(operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!isPostgresErrorCode(error, "40P01") || attempt >= 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+    }
   }
-  return studentId;
+}
+
+async function seedStudentBoundToBothTenants(client: PoolClient): Promise<string> {
+  return retryPostgresDeadlock(async () => {
+    const studentId = randomUUID();
+    cleanupStudents.add(studentId);
+    for (const [tenant, workspace] of [[TENANT_A, WORKSPACE_A], [TENANT_B, WORKSPACE_B]]) {
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+         VALUES ($1, $1, $1, 'enterprise', '{}'::text[]) ON CONFLICT (id) DO NOTHING`,
+        [tenant],
+      );
+      await client.query(
+        `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
+         VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb) ON CONFLICT (id) DO NOTHING`,
+        [workspace, tenant],
+      );
+    }
+    await client.query(
+      `INSERT INTO academy_students (id, locale) VALUES ($1::uuid, 'fa')
+       ON CONFLICT (id) DO NOTHING`,
+      [studentId],
+    );
+    for (const [tenant, workspace] of [[TENANT_A, WORKSPACE_A], [TENANT_B, WORKSPACE_B]]) {
+      await client.query(
+        `INSERT INTO platform_principal_bindings
+           (tenant_id, workspace_id, principal_type, principal_id, status, source)
+         VALUES ($1, $2, 'student', $3, 'active', 'test')
+         ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING`,
+        [tenant, workspace, studentId],
+      );
+    }
+    return studentId;
+  });
 }
 
 async function upsertProfile(
@@ -178,8 +201,10 @@ after(async () => {
         [draftId],
       );
     }
-    await client.query(`DELETE FROM platform_workspaces WHERE tenant_id = $1`, [TENANT_B]);
-    await client.query(`DELETE FROM platform_tenants WHERE id = $1`, [TENANT_B]);
+    for (const tenantId of [TENANT_A, TENANT_B]) {
+      await client.query(`DELETE FROM platform_workspaces WHERE tenant_id = $1`, [tenantId]);
+      await client.query(`DELETE FROM platform_tenants WHERE id = $1`, [tenantId]);
+    }
   });
   await pool.end();
   pool = null;
@@ -371,9 +396,8 @@ describe("Mastery Seasons cross-tenant isolation", () => {
         });
 
         // Tenant B submits and decides its OWN draft. Without this half the
-        // suite would pass even if both writers hard-coded the default tenant,
-        // because tenant A *is* the default tenant — every successful write
-        // above would look correct under a tenant-blind implementation.
+        // suite would pass too easily if it only proved the first tenant's
+        // happy path; tenant B must also write under its own scope.
         const seasonIdB = `gen-season-b-${randomUUID().slice(0, 8)}`;
         const submittedB = await submitAcademyMasteryGenerationDraft(client, {
           scope: SCOPE_B,
@@ -405,7 +429,7 @@ describe("Mastery Seasons cross-tenant isolation", () => {
             draftId: submittedB.draft.id,
             decision: "reject",
             reviewerId: "mentor-reviewer-a",
-            decisionNotes: "cross-tenant decision attempt from the default tenant must be refused",
+            decisionNotes: "cross-tenant decision attempt from another tenant must be refused",
           }),
           /draft_not_found/,
           "the default tenant must not reach tenant B's draft",

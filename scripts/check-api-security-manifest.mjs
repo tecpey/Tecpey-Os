@@ -117,6 +117,7 @@ async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
   const shards = [];
   let shardEntryCount = 0;
   let shardReadOnlyRouteCount = 0;
+  let shardAddedOperationCount = 0;
   for (const name of names) {
     const shardPath = path.join(directoryPath, name);
     const raw = await readFile(shardPath, "utf8");
@@ -126,6 +127,9 @@ async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
     shardReadOnlyRouteCount += Array.isArray(registry.readOnlyRoutes)
       ? registry.readOnlyRoutes.length
       : 0;
+    shardAddedOperationCount += Array.isArray(registry.addedOperations)
+      ? registry.addedOperations.length
+      : 0;
   }
 
   return {
@@ -134,6 +138,7 @@ async function readReviewedDeltaRegistry(primaryPath, directoryPath) {
     shardCount: shards.length,
     shardEntryCount,
     shardReadOnlyRouteCount,
+    shardAddedOperationCount,
   };
 }
 
@@ -184,16 +189,35 @@ async function verifyReviewedReadOnlyRoutes(entries) {
         );
       }
     }
-    if (!/getCanonicalSession\s*\(/.test(source) || !/strictRevocation\s*:\s*true/.test(source)) {
+    const authenticatedRead = entry.controls.classification === "authenticated";
+    const adminRead = entry.controls.classification === "admin";
+    if (authenticatedRead && (!/getCanonicalSession\s*\(/.test(source) || !/strictRevocation\s*:\s*true/.test(source))) {
       failures.push(`Reviewed read-only route lacks strict canonical session evidence: ${entry.sourcePath}.`);
+    }
+    if (
+      adminRead
+      && (
+        !/authorizeAdminRequest\s*\(/.test(source)
+        || !/admin\.roles\.read/.test(source)
+        || !/authorization\.principal\.tenantId/.test(source)
+        || !/authorization\.principal\.workspaceId/.test(source)
+      )
+    ) {
+      failures.push(`Reviewed read-only admin route lacks live admin tenant/workspace authority: ${entry.sourcePath}.`);
     }
     if (!/\brateLimit\s*\(/.test(source)) {
       failures.push(`Reviewed read-only route lacks rate limiting: ${entry.sourcePath}.`);
     }
-    if (!/resolveTenantPrincipalContext\s*\(/.test(source)) {
+    if (authenticatedRead && !/resolveTenantPrincipalContext\s*\(/.test(source)) {
       failures.push(`Reviewed read-only route lacks verified tenant/principal context: ${entry.sourcePath}.`);
     }
-    if (!/Cache-Control["']\s*,\s*["']private, no-store/.test(source) || !/Vary["']\s*,\s*["']Cookie/.test(source)) {
+    const hasPrivateNoStore =
+      /Cache-Control["']\s*,\s*["']private, no-store/.test(source)
+      || /["']Cache-Control["']\s*:\s*["']private, no-store/.test(source);
+    const hasCookieVariance =
+      /Vary["']\s*,\s*["']Cookie/.test(source)
+      || /(?:["']Vary["']|\bVary)\s*:\s*["']Cookie/.test(source);
+    if (!hasPrivateNoStore || !hasCookieVariance) {
       failures.push(`Reviewed read-only route lacks private no-store cookie variance: ${entry.sourcePath}.`);
     }
     if (!/searchParams\.keys\s*\(\)/.test(source) || !/\b400\b/.test(source)) {
@@ -242,6 +266,7 @@ try {
   let appliedDeltaCount = 0;
   let appliedOperationDeltaCount = 0;
   let appliedReadOnlyRouteCount = 0;
+  let appliedAddedOperationCount = 0;
   try {
     const applied = applyReviewedManifestDeltas({
       baselineRaw,
@@ -252,6 +277,7 @@ try {
     appliedDeltaCount = applied.appliedCount;
     appliedOperationDeltaCount = applied.operationDeltaCount;
     appliedReadOnlyRouteCount = applied.readOnlyRouteCount;
+    appliedAddedOperationCount = applied.addedOperationCount;
     failures.push(...await verifyReviewedReadOnlyRoutes(applied.readOnlyRoutes));
   } catch (error) {
     failures.push(
@@ -289,8 +315,10 @@ try {
       + `${generated.totals.findings} governed findings, `
       + `${policy.exceptionCount} active exact exceptions, `
       + `${appliedDeltaCount} exact reviewed baseline deltas `
-      + `(${appliedOperationDeltaCount} operation replacements and ${appliedReadOnlyRouteCount} read-only route files; `
-      + `${reviewed.shardEntryCount} operation entries and ${reviewed.shardReadOnlyRouteCount} read-only entries across ${reviewed.shardCount} additive shard files).`,
+      + `(${appliedOperationDeltaCount} operation replacements, `
+      + `${appliedAddedOperationCount} added operations and ${appliedReadOnlyRouteCount} read-only route files; `
+      + `${reviewed.shardEntryCount} operation entries, ${reviewed.shardAddedOperationCount} added operation entries `
+      + `and ${reviewed.shardReadOnlyRouteCount} read-only entries across ${reviewed.shardCount} additive shard files).`,
     );
   }
 } finally {
