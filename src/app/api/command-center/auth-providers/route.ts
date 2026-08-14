@@ -54,14 +54,10 @@ export async function POST(req: NextRequest) {
     });
     if (!authorization.ok) return apiError(authorization.error, authorization.status);
 
-    const body = await req.json().catch(() => null);
-    const providerId = isAuthProviderId((body as { providerId?: unknown } | null)?.providerId)
-      ? (body as { providerId: ReturnType<typeof String> }).providerId
-      : null;
-    const requestedState = Validate.oneOf(
-      (body as { requestedState?: unknown } | null)?.requestedState,
-      ["enabled", "disabled"] as const,
-    );
+    const body = await req.json().catch(() => null) as { providerId?: unknown; requestedState?: unknown } | null;
+    const rawProviderId = body?.providerId;
+    const providerId = isAuthProviderId(rawProviderId) ? rawProviderId : null;
+    const requestedState = Validate.oneOf(body?.requestedState, ["enabled", "disabled"] as const);
 
     if (!providerId || !requestedState) {
       return apiError("invalid_auth_provider_control_request", 400);
