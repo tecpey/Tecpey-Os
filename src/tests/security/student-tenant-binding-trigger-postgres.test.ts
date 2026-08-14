@@ -110,9 +110,96 @@ function insertRow(
   );
 }
 
+/**
+ * The concurrency cases need state both connections can see, so this commits
+ * rather than working inside one transaction that is rolled back.
+ */
+async function seedCommitted(
+  options: { withRevokedSibling?: boolean } = {},
+): Promise<{ tenant: { tenantId: string; workspaceId: string }; studentId: string }> {
+  const client = await pool!.connect();
+  try {
+    await client.query("BEGIN");
+    const tenant = await seedTenant(client);
+    const studentId = await seedStudent(client);
+    await admit(client, tenant, studentId);
+    if (options.withRevokedSibling) {
+      const sibling = `${tenant.workspaceId}-revoked`;
+      await client.query(
+        `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
+           VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)`,
+        [sibling, tenant.tenantId],
+      );
+      await client.query(
+        `INSERT INTO platform_principal_bindings
+           (tenant_id, workspace_id, principal_type, principal_id, status, source)
+         VALUES ($1, $2, 'student', $3, 'revoked', 'test')`,
+        [tenant.tenantId, sibling, studentId],
+      );
+      await insertRow(client, "learning_brain_profiles", tenant.tenantId, studentId);
+    }
+    await client.query("COMMIT");
+    return { tenant, studentId };
+  } finally {
+    client.release();
+  }
+}
+
+/** Children before bindings, or the delete guard refuses its own fixture. */
+async function cleanupCommitted(tenantId: string, studentId: string): Promise<void> {
+  const client = await pool!.connect();
+  try {
+    for (const table of GUARDED_TABLES) {
+      await client.query(
+        `DELETE FROM ${table} WHERE tenant_id = $1 AND student_id = $2::uuid`,
+        [tenantId, studentId],
+      );
+    }
+    await client.query(
+      `DELETE FROM platform_principal_bindings WHERE tenant_id = $1 AND principal_id = $2`,
+      [tenantId, studentId],
+    );
+    await client.query("DELETE FROM academy_students WHERE id = $1::uuid", [studentId]);
+    await client.query("DELETE FROM platform_workspaces WHERE tenant_id = $1", [tenantId]);
+    await client.query("DELETE FROM platform_tenants WHERE id = $1", [tenantId]);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Wait until this connection's statement is parked on a lock.
+ *
+ * The interleaving is what these tests are about, so it is observed rather than
+ * slept through. A connection that never blocks is the bug the test is looking
+ * for, so the bounded wait simply returns and lets the assertion speak.
+ */
+async function backendPid(client: PoolClient): Promise<number> {
+  const { rows } = await client.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
+  return rows[0].pid;
+}
+
+async function waitUntilBlocked(pid: number): Promise<void> {
+  const observer = await pool!.connect();
+  try {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const waiting = await observer.query(
+        `SELECT 1 FROM pg_stat_activity
+          WHERE pid = $1 AND state = 'active' AND wait_event_type = 'Lock'`,
+        [pid],
+      );
+      if ((waiting.rowCount ?? 0) > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  } finally {
+    observer.release();
+  }
+}
+
 before(async () => {
   if (!configured || !databaseUrl) return;
-  pool = new Pool({ connectionString: databaseUrl, max: 2, allowExitOnIdle: true });
+  pool = new Pool({ connectionString: databaseUrl, max: 4, allowExitOnIdle: true });
   const client = await pool.connect();
   try {
     await applyDatabaseMigrationsWithLock(client);
@@ -231,6 +318,117 @@ describe("Student tenant binding trigger", () => {
         );
         assert.equal(removed.rowCount, 1, "a binding may go while another remains");
       });
+    },
+  );
+
+  // The two cases below are what separates a trigger from a foreign key. A
+  // plain EXISTS under READ COMMITTED reads a snapshot, and a snapshot cannot
+  // see what a concurrent uncommitted transaction is about to do. PostgreSQL's
+  // own referential integrity does not rely on a snapshot for this — a child
+  // write takes FOR KEY SHARE on the parent row, so a concurrent parent delete
+  // must wait rather than race. Both tests interleave two real connections.
+
+  it(
+    "makes a write wait for a concurrent removal of the binding it depends on",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      // Removing the binding first is what defeats an unlocked check: the
+      // delete guard looks for dependent rows and finds none because the other
+      // transaction has not inserted yet, and the write-side check finds the
+      // binding because the delete has not committed yet. Both succeed and the
+      // row outlives its binding.
+      const { tenant, studentId } = await seedCommitted();
+      const remover = await pool!.connect();
+      const writer = await pool!.connect();
+      try {
+        await remover.query("BEGIN");
+        await remover.query(
+          `DELETE FROM platform_principal_bindings
+            WHERE tenant_id = $1 AND principal_type = 'student' AND principal_id = $2`,
+          [tenant.tenantId, studentId],
+        );
+
+        await writer.query("BEGIN");
+        const writerPid = await backendPid(writer);
+        const write = insertRow(
+          writer,
+          "learning_brain_profiles",
+          tenant.tenantId,
+          studentId,
+        ).then(
+          () => "accepted" as const,
+          (error: unknown) => error,
+        );
+        await waitUntilBlocked(writerPid);
+        await remover.query("COMMIT");
+
+        const outcome = await write;
+        assert.notEqual(
+          outcome,
+          "accepted",
+          "a row must not be accepted against a binding that is being removed",
+        );
+        assert.match(String(outcome), /is not bound to student/);
+      } finally {
+        await writer.query("ROLLBACK").catch(() => {});
+        await remover.query("ROLLBACK").catch(() => {});
+        writer.release();
+        remover.release();
+        await cleanupCommitted(tenant.tenantId, studentId);
+      }
+    },
+  );
+
+  it(
+    "serializes two concurrent removals so the last binding cannot slip out",
+    { skip: !configured, timeout: 45_000 },
+    async () => {
+      // Each removal is individually legitimate — a sibling binding remains, so
+      // the guard lets it go. Run unlocked and concurrently, both read the
+      // other's still-committed row, both return early, and the dependent row
+      // is left with no binding at all.
+      const { tenant, studentId } = await seedCommitted({ withRevokedSibling: true });
+      const first = await pool!.connect();
+      const second = await pool!.connect();
+      try {
+        await first.query("BEGIN");
+        await first.query(
+          `DELETE FROM platform_principal_bindings
+            WHERE tenant_id = $1 AND workspace_id = $2
+              AND principal_type = 'student' AND principal_id = $3`,
+          [tenant.tenantId, tenant.workspaceId, studentId],
+        );
+
+        await second.query("BEGIN");
+        const secondPid = await backendPid(second);
+        const removal = second
+          .query(
+            `DELETE FROM platform_principal_bindings
+              WHERE tenant_id = $1 AND workspace_id = $2
+                AND principal_type = 'student' AND principal_id = $3`,
+            [tenant.tenantId, `${tenant.workspaceId}-revoked`, studentId],
+          )
+          .then(
+            () => "removed" as const,
+            (error: unknown) => error,
+          );
+        await waitUntilBlocked(secondPid);
+        await first.query("COMMIT");
+
+        const outcome = await removal;
+        assert.notEqual(
+          outcome,
+          "removed",
+          "the second removal must see the first and refuse to strand the row",
+        );
+        assert.match(String(outcome), /still has rows in learning_brain_profiles/);
+      } finally {
+        await second.query("ROLLBACK").catch(() => {});
+        await first.query("ROLLBACK").catch(() => {});
+        second.release();
+        first.release();
+        await cleanupCommitted(tenant.tenantId, studentId);
+      }
     },
   );
 

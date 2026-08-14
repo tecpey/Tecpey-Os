@@ -72,6 +72,19 @@ BEGIN
 END $do$;
 
 -- Write side: a row may only name a student its tenant has admitted.
+--
+-- FOR KEY SHARE, not a plain EXISTS. Under READ COMMITTED an unlocked check
+-- reads a snapshot, and a snapshot cannot see that another transaction is in
+-- the middle of removing the binding: the write is accepted against a row that
+-- is about to disappear, and the delete guard on the other side sees no
+-- dependants because this row is not committed yet. Both commit and the row
+-- outlives its binding.
+--
+-- This is the lock PostgreSQL's own referential integrity takes on a parent row
+-- when a child is written, and it is what makes the two ends meet: a concurrent
+-- DELETE of the binding must wait here, then this check re-runs on a fresh
+-- snapshot and refuses. Two concurrent writers hold it together, because a
+-- shared lock is all a read of this predicate needs.
 CREATE OR REPLACE FUNCTION tecpey_require_student_tenant_binding()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -80,13 +93,13 @@ BEGIN
   IF NEW.student_id IS NULL THEN
     RETURN NEW;
   END IF;
-  IF NOT EXISTS (
-    SELECT 1
-      FROM platform_principal_bindings b
-     WHERE b.tenant_id = NEW.tenant_id
-       AND b.principal_type = 'student'
-       AND b.principal_id = NEW.student_id::text
-  ) THEN
+  PERFORM 1
+     FROM platform_principal_bindings b
+    WHERE b.tenant_id = NEW.tenant_id
+      AND b.principal_type = 'student'
+      AND b.principal_id = NEW.student_id::text
+      FOR KEY SHARE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION
       'tenant % is not bound to student %, so it may not hold this row',
       NEW.tenant_id, NEW.student_id
@@ -111,8 +124,28 @@ BEGIN
     RETURN OLD;
   END IF;
 
+  -- Removals of this student's bindings in this tenant run one at a time.
+  -- Row locks do not serialize them: two transactions removing two *different*
+  -- workspaces' bindings never touch the same row, so each reads the other's
+  -- still-committed binding, each concludes a sibling remains, and both commit
+  -- — leaving the dependent rows with no binding at all. Every removal decides
+  -- from the same set, so every removal has to take the same lock before
+  -- reading it.
+  --
+  -- An advisory lock rather than SELECT ... FOR UPDATE over the siblings: two
+  -- transactions locking two overlapping sets in opposite orders deadlock,
+  -- whereas one lock per (tenant, student) is taken by everyone first and by
+  -- itself. Writers do not take it — they hold FOR KEY SHARE on the binding
+  -- row, which the DELETE below already conflicts with.
+  PERFORM pg_advisory_xact_lock(
+    hashtext('tecpey_student_binding_delete'),
+    hashtext(OLD.tenant_id || '/' || OLD.principal_id)
+  );
+
   -- Another binding for the same student in the same tenant still satisfies the
-  -- write-side check, so this only refuses the removal of the last one.
+  -- write-side check, so this only refuses the removal of the last one. Read
+  -- after the lock: under READ COMMITTED this query takes a fresh snapshot, so
+  -- it sees a removal that committed while this transaction waited.
   IF EXISTS (
     SELECT 1 FROM platform_principal_bindings b
      WHERE b.tenant_id = OLD.tenant_id
