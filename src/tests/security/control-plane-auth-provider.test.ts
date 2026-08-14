@@ -535,6 +535,20 @@ describe("admin auth provider control plane", () => {
       store,
       /WHERE request\.id = \$1::uuid[\s\S]*request\.resource_type = 'auth_provider'[\s\S]*left\(request\.resource_id, length\(\$2\)\) = \$2[\s\S]*request\.payload ->> 'tenantId' = \$3[\s\S]*request\.payload ->> 'workspaceId' = \$4[\s\S]*FOR UPDATE/,
     );
+    const expiryCheckIndex = store.indexOf("if (new Date(reviewRequest.expiresAt) <= new Date())");
+    const selfReviewCheckIndex = store.indexOf("if (reviewRequest.requestedByAdminId === normalized.actorAdminId)");
+    assert.ok(expiryCheckIndex > 0, "review decision must process expired requests");
+    assert.ok(
+      selfReviewCheckIndex > expiryCheckIndex,
+      "expired requests must be persisted before self-review denial",
+    );
+    assert.match(
+      store,
+      /writeDeniedAudit\(\s*"auth_provider_review_request_expired",\s*expiredRow\.status,\s*expiredRow\.reviewed_at\.toISOString\(\),\s*\)/,
+    );
+    assert.match(store, /AUTH_PROVIDER_REVIEW_DECISION_AUDIT_RETRY_ATTEMPTS = 3/);
+    assert.match(store, /isPostgresSerializationFailure\(error\) && attempt < AUTH_PROVIDER_REVIEW_DECISION_AUDIT_RETRY_ATTEMPTS/);
+    assert.match(store, /\(error as \{ code\?: unknown \}\)\.code === "40001"/);
     assert.match(store, /requested_by <> \$3::uuid/);
     assert.match(store, /auth_provider_review_request_self_review_forbidden/);
     assert.match(store, /outcome: "denied"/);

@@ -279,6 +279,76 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
       if (selfReview.ok) return;
       assert.equal(selfReview.error, "auth_provider_review_request_self_review_forbidden");
 
+      const expiredReviewRequest = await submitAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        providerId: "google",
+        requestedState: "disabled",
+        requestId: `auth-provider-expired-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+      assert.equal(expiredReviewRequest.ok, true);
+      if (!expiredReviewRequest.ok) return;
+
+      await withClient((client) =>
+        client.query(
+          `UPDATE admin_approval_requests
+              SET expires_at = NOW() - INTERVAL '1 minute'
+            WHERE id = $1::uuid`,
+          [expiredReviewRequest.approvalRequestId],
+        ),
+      );
+
+      const expiredSelfReview = await decideAuthProviderReviewRequest({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+        actorAdminId: adminA.adminId,
+        sessionId: null,
+        effectiveRoles: ["super_admin"],
+        approvalRequestId: expiredReviewRequest.approvalRequestId,
+        decision: "reject",
+        decisionNote: "expired owner request must be closed before self review denial",
+        requestId: `auth-provider-expired-self-review-${suffix}`,
+        sourceIp: "127.0.0.1",
+        userAgent: "node:test",
+      });
+      assert.equal(expiredSelfReview.ok, false);
+      if (expiredSelfReview.ok) return;
+      assert.equal(expiredSelfReview.error, "auth_provider_review_request_expired");
+
+      const expiredRows = await withClient((client) =>
+        client.query<{
+          status: string;
+          audit_status: string | null;
+          audit_error_code: string | null;
+          audit_outcome: string;
+        }>(
+          `SELECT request.status,
+                  audit.after_state ->> 'status' AS audit_status,
+                  audit.error_code AS audit_error_code,
+                  audit.outcome AS audit_outcome
+             FROM admin_approval_requests request
+             JOIN admin_audit_events audit
+               ON audit.approval_request_id = request.id
+            WHERE request.id = $1::uuid
+            ORDER BY audit.created_at DESC, audit.id DESC
+            LIMIT 1`,
+          [expiredReviewRequest.approvalRequestId],
+        ),
+      );
+      assert.deepEqual(expiredRows.rows, [
+        {
+          status: "expired",
+          audit_status: "expired",
+          audit_error_code: "auth_provider_review_request_expired",
+          audit_outcome: "denied",
+        },
+      ]);
+
       const approved = await decideAuthProviderReviewRequest({
         tenantId: tenantA,
         workspaceId: workspaceA,

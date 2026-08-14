@@ -219,6 +219,16 @@ const ACTION_TO_STATE: Record<AuthProviderEvidenceAction, AuthProviderEvidenceSt
 const FORBIDDEN_RAW_SECRET_PATTERN =
   /(-----BEGIN|-----END|bearer\s+[a-z0-9._-]+|password\s*[=:]|secret\s*[=:]|token\s*[=:]|private[_ -]?key\s*[=:]|authorization\s*[=:]|cookie\s*[=:])/i;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const AUTH_PROVIDER_REVIEW_DECISION_AUDIT_RETRY_ATTEMPTS = 3;
+
+function isPostgresSerializationFailure(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "40001"
+  );
+}
 
 function safeText(value: unknown, max: number): string | null {
   const text = String(value ?? "")
@@ -707,165 +717,193 @@ export async function decideAuthProviderReviewRequest(
   const normalized = normalizeAuthProviderReviewDecision(input);
   if (isAuthProviderReviewDecisionError(normalized)) return normalized;
 
-  const result = await withTx(async (client) => {
-    const resourcePrefix = `${normalized.tenantId}/${normalized.workspaceId}/`;
-    const request = await client.query<AuthProviderReviewRequestRow>(
-      `SELECT request.id::text AS id,
-              request.action,
-              request.resource_id,
-              request.payload,
-              request.reason,
-              request.status,
-              request.requested_by::text AS requested_by,
-              request.reviewed_by::text AS reviewed_by,
-              request.requested_at,
-              request.reviewed_at,
-              request.expires_at,
-              request.executed_at,
-              NULL::text AS audit_event_id,
-              NULL::text AS audit_event_hash
-         FROM admin_approval_requests request
-        WHERE request.id = $1::uuid
-          AND request.resource_type = 'auth_provider'
-          AND request.action IN ('auth_provider.request_enable', 'auth_provider.request_disable')
-          AND request.resource_id IS NOT NULL
-          AND left(request.resource_id, length($2)) = $2
-          AND request.payload ->> 'tenantId' = $3
-          AND request.payload ->> 'workspaceId' = $4
-        FOR UPDATE`,
-      [normalized.approvalRequestId, resourcePrefix, normalized.tenantId, normalized.workspaceId],
-    );
-    const row = request.rows[0];
-    if (!row) {
-      return { ok: false, error: "auth_provider_review_request_not_found", httpStatus: 404 } satisfies AuthProviderReviewDecisionResult;
-    }
+  for (let attempt = 1; attempt <= AUTH_PROVIDER_REVIEW_DECISION_AUDIT_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await withTx(async (client) => {
+        const resourcePrefix = `${normalized.tenantId}/${normalized.workspaceId}/`;
+        const request = await client.query<AuthProviderReviewRequestRow>(
+          `SELECT request.id::text AS id,
+                  request.action,
+                  request.resource_id,
+                  request.payload,
+                  request.reason,
+                  request.status,
+                  request.requested_by::text AS requested_by,
+                  request.reviewed_by::text AS reviewed_by,
+                  request.requested_at,
+                  request.reviewed_at,
+                  request.expires_at,
+                  request.executed_at,
+                  NULL::text AS audit_event_id,
+                  NULL::text AS audit_event_hash
+             FROM admin_approval_requests request
+            WHERE request.id = $1::uuid
+              AND request.resource_type = 'auth_provider'
+              AND request.action IN ('auth_provider.request_enable', 'auth_provider.request_disable')
+              AND request.resource_id IS NOT NULL
+              AND left(request.resource_id, length($2)) = $2
+              AND request.payload ->> 'tenantId' = $3
+              AND request.payload ->> 'workspaceId' = $4
+            FOR UPDATE`,
+          [normalized.approvalRequestId, resourcePrefix, normalized.tenantId, normalized.workspaceId],
+        );
+        const row = request.rows[0];
+        if (!row) {
+          return { ok: false, error: "auth_provider_review_request_not_found", httpStatus: 404 } satisfies AuthProviderReviewDecisionResult;
+        }
 
-    const reviewRequest = normalizeAuthProviderReviewRequestRow(row, normalized);
-    if (!reviewRequest) {
-      return { ok: false, error: "auth_provider_review_request_not_found", httpStatus: 404 } satisfies AuthProviderReviewDecisionResult;
-    }
-    const scopedReviewRequest = reviewRequest;
-    const decisionInput = normalized;
+        const reviewRequest = normalizeAuthProviderReviewRequestRow(row, normalized);
+        if (!reviewRequest) {
+          return { ok: false, error: "auth_provider_review_request_not_found", httpStatus: 404 } satisfies AuthProviderReviewDecisionResult;
+        }
+        const scopedReviewRequest = reviewRequest;
+        const decisionInput = normalized;
 
-    const action = decisionInput.decision === "approve"
-      ? "auth_provider.review_approve"
-      : "auth_provider.review_reject";
-    const baseAfterState = {
-      tenantId: decisionInput.tenantId,
-      workspaceId: decisionInput.workspaceId,
-      providerId: scopedReviewRequest.providerId,
-      requestedState: scopedReviewRequest.requestedState,
-      approvalRequestId: decisionInput.approvalRequestId,
-      decision: decisionInput.decision,
-      decisionNote: decisionInput.decisionNote,
-      requestHash: decisionInput.requestHash,
-    };
+        const action = decisionInput.decision === "approve"
+          ? "auth_provider.review_approve"
+          : "auth_provider.review_reject";
+        const baseAfterState = {
+          tenantId: decisionInput.tenantId,
+          workspaceId: decisionInput.workspaceId,
+          providerId: scopedReviewRequest.providerId,
+          requestedState: scopedReviewRequest.requestedState,
+          approvalRequestId: decisionInput.approvalRequestId,
+          decision: decisionInput.decision,
+          decisionNote: decisionInput.decisionNote,
+          requestHash: decisionInput.requestHash,
+        };
 
-    async function writeDeniedAudit(errorCode: AuthProviderReviewDecisionError["error"]) {
-      await writeAdminAuditEvent(client, {
-        actorAdminId: decisionInput.actorAdminId,
-        sessionId: input.sessionId,
-        effectiveRoles: input.effectiveRoles,
-        action,
-        resourceType: "auth_provider",
-        resourceId: `${decisionInput.tenantId}/${decisionInput.workspaceId}/${scopedReviewRequest.providerId}`,
-        requestId: input.requestId ?? null,
-        sourceIp: input.sourceIp ?? null,
-        userAgent: input.userAgent ?? null,
-        reason: decisionInput.decisionNote,
-        beforeState: scopedReviewRequest,
-        afterState: { ...baseAfterState, status: scopedReviewRequest.status, denied: true, errorCode },
-        approvalRequestId: decisionInput.approvalRequestId,
-        outcome: "denied",
-        errorCode,
+        async function writeDeniedAudit(
+          errorCode: AuthProviderReviewDecisionError["error"],
+          afterStatus: AuthProviderReviewRequestStatus = scopedReviewRequest.status,
+          reviewedAt: string | null = scopedReviewRequest.reviewedAt,
+        ) {
+          await writeAdminAuditEvent(client, {
+            actorAdminId: decisionInput.actorAdminId,
+            sessionId: input.sessionId,
+            effectiveRoles: input.effectiveRoles,
+            action,
+            resourceType: "auth_provider",
+            resourceId: `${decisionInput.tenantId}/${decisionInput.workspaceId}/${scopedReviewRequest.providerId}`,
+            requestId: input.requestId ?? null,
+            sourceIp: input.sourceIp ?? null,
+            userAgent: input.userAgent ?? null,
+            reason: decisionInput.decisionNote,
+            beforeState: scopedReviewRequest,
+            afterState: { ...baseAfterState, status: afterStatus, reviewedAt, denied: true, errorCode },
+            approvalRequestId: decisionInput.approvalRequestId,
+            outcome: "denied",
+            errorCode,
+          });
+        }
+
+        if (reviewRequest.status !== "pending") {
+          await writeDeniedAudit("auth_provider_review_request_not_pending");
+          return { ok: false, error: "auth_provider_review_request_not_pending", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
+        }
+
+        if (new Date(reviewRequest.expiresAt) <= new Date()) {
+          const expired = await client.query<{ status: "expired"; reviewed_at: Date }>(
+            `UPDATE admin_approval_requests
+                SET status = 'expired',
+                    reviewed_at = NOW()
+              WHERE id = $1::uuid
+                AND status = 'pending'
+            RETURNING status, reviewed_at`,
+            [normalized.approvalRequestId],
+          );
+          const expiredRow = expired.rows[0];
+          if (!expiredRow) {
+            await writeDeniedAudit("auth_provider_review_request_not_pending");
+            return { ok: false, error: "auth_provider_review_request_not_pending", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
+          }
+          await writeDeniedAudit(
+            "auth_provider_review_request_expired",
+            expiredRow.status,
+            expiredRow.reviewed_at.toISOString(),
+          );
+          return { ok: false, error: "auth_provider_review_request_expired", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
+        }
+
+        if (reviewRequest.requestedByAdminId === normalized.actorAdminId) {
+          await writeDeniedAudit("auth_provider_review_request_self_review_forbidden");
+          return { ok: false, error: "auth_provider_review_request_self_review_forbidden", httpStatus: 403 } satisfies AuthProviderReviewDecisionResult;
+        }
+
+        const updated = await client.query<{
+          status: "approved" | "rejected";
+          reviewed_by: string;
+          reviewed_at: Date;
+        }>(
+          `UPDATE admin_approval_requests
+              SET status = $2,
+                  reviewed_by = $3::uuid,
+                  reviewed_at = NOW()
+            WHERE id = $1::uuid
+              AND status = 'pending'
+              AND requested_by <> $3::uuid
+              AND expires_at > NOW()
+            RETURNING status, reviewed_by::text AS reviewed_by, reviewed_at`,
+          [normalized.approvalRequestId, normalized.status, normalized.actorAdminId],
+        );
+        const decisionRow = updated.rows[0];
+        if (!decisionRow) {
+          await writeDeniedAudit("auth_provider_review_request_not_pending");
+          return { ok: false, error: "auth_provider_review_request_not_pending", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
+        }
+
+        const reviewedAt = decisionRow.reviewed_at.toISOString();
+        const afterState = {
+          ...baseAfterState,
+          status: decisionRow.status,
+          reviewedByAdminId: decisionRow.reviewed_by,
+          reviewedAt,
+        };
+        const audit = await writeAdminAuditEvent(client, {
+          actorAdminId: normalized.actorAdminId,
+          sessionId: input.sessionId,
+          effectiveRoles: input.effectiveRoles,
+          action,
+          resourceType: "auth_provider",
+          resourceId: `${normalized.tenantId}/${normalized.workspaceId}/${reviewRequest.providerId}`,
+          requestId: input.requestId ?? null,
+          sourceIp: input.sourceIp ?? null,
+          userAgent: input.userAgent ?? null,
+          reason: normalized.decisionNote,
+          beforeState: reviewRequest,
+          afterState,
+          approvalRequestId: normalized.approvalRequestId,
+          outcome: "success",
+        });
+        const reviewRequestsByProvider = await loadReviewRequestsByProviderTx(client, normalized);
+
+        return {
+          ok: true,
+          approvalRequestId: normalized.approvalRequestId,
+          providerId: reviewRequest.providerId,
+          requestedState: reviewRequest.requestedState,
+          status: decisionRow.status,
+          reviewedAt,
+          reviewedByAdminId: decisionRow.reviewed_by,
+          auditEventId: audit.id,
+          auditEventHash: audit.eventHash,
+          reviewRequestsByProvider,
+        } satisfies AuthProviderReviewDecisionResult;
       });
+
+      return result.enabled
+        ? result.value
+        : { ok: false, error: "auth_provider_review_decision_unavailable", httpStatus: 503 };
+    } catch (error) {
+      if (isPostgresSerializationFailure(error) && attempt < AUTH_PROVIDER_REVIEW_DECISION_AUDIT_RETRY_ATTEMPTS) {
+        continue;
+      }
+      if (isPostgresSerializationFailure(error)) {
+        return { ok: false, error: "auth_provider_review_decision_unavailable", httpStatus: 503 };
+      }
+      throw error;
     }
+  }
 
-    if (reviewRequest.status !== "pending") {
-      await writeDeniedAudit("auth_provider_review_request_not_pending");
-      return { ok: false, error: "auth_provider_review_request_not_pending", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
-    }
-
-    if (reviewRequest.requestedByAdminId === normalized.actorAdminId) {
-      await writeDeniedAudit("auth_provider_review_request_self_review_forbidden");
-      return { ok: false, error: "auth_provider_review_request_self_review_forbidden", httpStatus: 403 } satisfies AuthProviderReviewDecisionResult;
-    }
-
-    if (new Date(reviewRequest.expiresAt) <= new Date()) {
-      await client.query(
-        `UPDATE admin_approval_requests
-            SET status = 'expired',
-                reviewed_at = NOW()
-          WHERE id = $1::uuid
-            AND status = 'pending'`,
-        [normalized.approvalRequestId],
-      );
-      await writeDeniedAudit("auth_provider_review_request_expired");
-      return { ok: false, error: "auth_provider_review_request_expired", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
-    }
-
-    const updated = await client.query<{
-      status: "approved" | "rejected";
-      reviewed_by: string;
-      reviewed_at: Date;
-    }>(
-      `UPDATE admin_approval_requests
-          SET status = $2,
-              reviewed_by = $3::uuid,
-              reviewed_at = NOW()
-        WHERE id = $1::uuid
-          AND status = 'pending'
-          AND requested_by <> $3::uuid
-          AND expires_at > NOW()
-        RETURNING status, reviewed_by::text AS reviewed_by, reviewed_at`,
-      [normalized.approvalRequestId, normalized.status, normalized.actorAdminId],
-    );
-    const decisionRow = updated.rows[0];
-    if (!decisionRow) {
-      await writeDeniedAudit("auth_provider_review_request_not_pending");
-      return { ok: false, error: "auth_provider_review_request_not_pending", httpStatus: 409 } satisfies AuthProviderReviewDecisionResult;
-    }
-
-    const reviewedAt = decisionRow.reviewed_at.toISOString();
-    const afterState = {
-      ...baseAfterState,
-      status: decisionRow.status,
-      reviewedByAdminId: decisionRow.reviewed_by,
-      reviewedAt,
-    };
-    const audit = await writeAdminAuditEvent(client, {
-      actorAdminId: normalized.actorAdminId,
-      sessionId: input.sessionId,
-      effectiveRoles: input.effectiveRoles,
-      action,
-      resourceType: "auth_provider",
-      resourceId: `${normalized.tenantId}/${normalized.workspaceId}/${reviewRequest.providerId}`,
-      requestId: input.requestId ?? null,
-      sourceIp: input.sourceIp ?? null,
-      userAgent: input.userAgent ?? null,
-      reason: normalized.decisionNote,
-      beforeState: reviewRequest,
-      afterState,
-      approvalRequestId: normalized.approvalRequestId,
-      outcome: "success",
-    });
-    const reviewRequestsByProvider = await loadReviewRequestsByProviderTx(client, normalized);
-
-    return {
-      ok: true,
-      approvalRequestId: normalized.approvalRequestId,
-      providerId: reviewRequest.providerId,
-      requestedState: reviewRequest.requestedState,
-      status: decisionRow.status,
-      reviewedAt,
-      reviewedByAdminId: decisionRow.reviewed_by,
-      auditEventId: audit.id,
-      auditEventHash: audit.eventHash,
-      reviewRequestsByProvider,
-    } satisfies AuthProviderReviewDecisionResult;
-  });
-
-  return result.enabled
-    ? result.value
-    : { ok: false, error: "auth_provider_review_decision_unavailable", httpStatus: 503 };
+  return { ok: false, error: "auth_provider_review_decision_unavailable", httpStatus: 503 };
 }
