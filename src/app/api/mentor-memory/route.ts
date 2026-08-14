@@ -14,6 +14,9 @@ import { cleanText } from "@/lib/student-cartax";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +26,39 @@ export async function GET(req: NextRequest) {
     if (!limit.ok) return apiError("rate_limited", 429);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
-    if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    if (!session.studentId) {
+      // A degraded revocation authority returns a guest session with
+      // authorityDegraded:true and no studentId. Reporting that outage as the
+      // same storage:"unavailable" this route already uses keeps it from telling
+      // a still-valid user their academy profile is gone.
+      if (session.authorityDegraded) return apiOk({ memories: [], storage: "unavailable" });
+      return apiError("academy_profile_required", 401);
+    }
+    // mentor_memories is student_global (classification registry): no tenant
+    // column, so reading it by session.studentId alone served the student their
+    // mentor memories on any tenant's branded host. Resolving the acting tenant
+    // confirms the student is bound to it and refuses a foreign host, and lets
+    // the Mentor product gate run on this read.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    // Only an outage makes an empty list a lie. A binding that could not be read
+    // preserves storage:"unavailable"; an ordinary authorization outcome —
+    // unbound, revoked, a workspace mismatch, or a foreign branded host — is not
+    // an outage, so it returns the honest graceful empty instead of a false alert.
+    if (!tenantContext.available) {
+      if (tenantContext.reason === "binding_storage_unavailable") {
+        return apiOk({ memories: [], storage: "unavailable" });
+      }
+      return apiOk({ memories: [] });
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const url = new URL(req.url);
     const categoryFilter = url.searchParams.get("category");
@@ -72,7 +106,22 @@ export async function POST(req: NextRequest) {
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    // A write must resolve the acting tenant before it stores anything: it
+    // confirms the student's binding, refuses a foreign branded host, and gates
+    // the Mentor product. Any not-available outcome fails closed with a 503 —
+    // the same fail-closed a write takes when its storage is down — rather than
+    // writing a memory under a tenant the student may not act in.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("mentor_memory_unavailable", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     let body: Record<string, unknown>;
     try {
@@ -124,7 +173,21 @@ export async function DELETE(req: NextRequest) {
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    // Same edge as the write: resolve the acting tenant, refuse a foreign host,
+    // and gate the Mentor product before deleting. The DELETE already scopes to
+    // the student id, so resolving it from the bound principal keeps a request on
+    // one tenant's host from deleting a memory read under another.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("mentor_memory_unavailable", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const id = new URL(req.url).searchParams.get("id");
     if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {

@@ -109,6 +109,7 @@ describe("Tenant-scoped route guards", () => {
     { route: "src/app/api/mentor-challenge/route.ts", table: "mentor_challenge_attempts" },
     { route: "src/app/api/mentor-conversations/route.ts", table: "mentor_conversations" },
     { route: "src/app/api/mentor-insights/route.ts", table: "mentor_insights" },
+    { route: "src/app/api/mentor-memory/route.ts", table: "mentor_memories" },
   ];
 
   for (const { route, table } of MIGRATED_GLOBAL_READS) {
@@ -175,6 +176,7 @@ describe("Tenant-scoped route guards", () => {
   const MENTOR_DEGRADED_READS: ReadonlyArray<{ route: string; empty: string }> = [
     { route: "src/app/api/mentor-conversations/route.ts", empty: "conversations: [], nextCursor: null" },
     { route: "src/app/api/mentor-insights/route.ts", empty: "insights: [], profile: null" },
+    { route: "src/app/api/mentor-memory/route.ts", empty: "memories: []" },
   ];
   for (const { route, empty } of MENTOR_DEGRADED_READS) {
     const name = route.replace("src/app/api/", "").replace("/route.ts", "");
@@ -262,6 +264,8 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/mentor-challenge/route.ts": "mentor",
   "src/app/api/mentor-conversations/route.ts": "mentor",
   "src/app/api/mentor-insights/route.ts": "mentor",
+  "src/app/api/mentor-memory/route.ts": "mentor",
+  "src/app/api/mentor-preferences/route.ts": "mentor",
   "src/app/api/notification-brain/route.ts": "academy",
   "src/app/api/trading-arena/route.ts": "academy",
   "src/app/api/trading-arena/execution/route.ts": "academy",
