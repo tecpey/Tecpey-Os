@@ -18,6 +18,7 @@
 import type { NextResponse } from "next/server";
 import { apiError } from "@/lib/api-validation";
 import { withDb } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import {
   isProductEnabledForTenant,
   PRODUCTS,
@@ -62,13 +63,28 @@ async function tenantProducts(tenantId: string): Promise<string[] | null> {
   const cached = cache.get(tenantId);
   if (cached && now - cached.loadedAt < ENTITLEMENT_TTL_MS) return cached.products;
 
-  const result = await withDb(async (client) => {
-    const { rows } = await client.query<{ products: string[] | null }>(
-      "SELECT products FROM platform_tenants WHERE id = $1 LIMIT 1",
-      [tenantId],
-    );
-    return rows[0] ?? null;
-  });
+  let result;
+  try {
+    result = await withDb(async (client) => {
+      const { rows } = await client.query<{ products: string[] | null }>(
+        "SELECT products FROM platform_tenants WHERE id = $1 LIMIT 1",
+        [tenantId],
+      );
+      return rows[0] ?? null;
+    });
+  } catch (error) {
+    // withDb reports a missing pool as { enabled: false }, but a live pool that
+    // then fails to connect or errors on the query rethrows. Without this the
+    // rejection escapes requireTenantProduct and the route becomes a 500 instead
+    // of the fail-closed 503 this whole path exists to give. Treated exactly
+    // like an unavailable database: no verdict, and no stale entry left behind.
+    logger.warn("[tenant-product-entitlement] entitlement read failed", {
+      tenantId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    cache.delete(tenantId);
+    return null;
+  }
   if (!result.enabled) {
     // No database means no evidence of an entitlement. A stale entry is not
     // served in its place: an unreachable authority must not keep a tenant

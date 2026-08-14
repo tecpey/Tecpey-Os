@@ -102,32 +102,118 @@ describe("Tenant-scoped route guards", () => {
 //
 // platform_tenants.products[] existed for the whole programme and was read by
 // nothing, so a tenant provisioned without Academy was served every Academy
-// route exactly like one that bought it. The gate is one call, which is exactly
-// the kind of thing a new handler forgets — so the count of gates is pinned to
-// the count of resolved tenants rather than merely asserting one is present.
+// route exactly like one that bought it.
+//
+// The first version of this test pinned a hand-written allowlist of six routes,
+// and review (#429, Codex P1) rightly called that bypassable: any tenant-
+// resolving route left off the list serves its product ungated and the test
+// stays green. So the surface is now DERIVED. Every route that resolves an
+// acting tenant is discovered from source and must be accounted for — either it
+// gates its product, or it is listed as an explicit, reasoned exemption. A new
+// tenant-resolving route that is neither fails this test, which is the whole
+// point: the contract can no longer be bypassed by omission.
+//
+// The product a route gates on is NOT derivable from its scope string —
+// mentor-challenge carries an `academy:` scope but is a Mentor feature — so the
+// map is explicit. What is derived is COMPLETENESS: the union of the gated map
+// and the exemptions must equal the set of tenant-resolving routes on disk.
 
-const PRODUCT_ROUTES: ReadonlyArray<{ route: string; product: string }> = [
-  { route: "src/app/api/academy-certificates/route.ts", product: "academy" },
-  { route: "src/app/api/academy-lesson-assessment/route.ts", product: "academy" },
-  { route: "src/app/api/academy-mastery-seasons/route.ts", product: "academy" },
-  { route: "src/app/api/academy-simulator-decision/route.ts", product: "academy" },
-  { route: "src/app/api/academy-term-progress/route.ts", product: "academy" },
-  { route: "src/app/api/mentor-challenge/route.ts", product: "mentor" },
-];
+const API_ROOT = path.join(ROOT, "src/app/api");
+
+/** Every route.ts under src/app/api that resolves an acting tenant. */
+async function tenantResolvingRoutes(): Promise<string[]> {
+  const { readdir } = await import("node:fs/promises");
+  const found: string[] = [];
+  async function walk(dir: string): Promise<void> {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.name === "route.ts") {
+        const text = await readFile(abs, "utf8");
+        if (/await resolveTenantPrincipalContext\(/.test(text)) {
+          found.push(path.relative(ROOT, abs));
+        }
+      }
+    }
+  }
+  await walk(API_ROOT);
+  return found.sort();
+}
+
+// Routes that gate, and the product each gates on.
+const GATED_PRODUCT: Readonly<Record<string, string>> = {
+  "src/app/api/academy-certificates/route.ts": "academy",
+  "src/app/api/academy-lesson-assessment/route.ts": "academy",
+  "src/app/api/academy-mastery-seasons/route.ts": "academy",
+  "src/app/api/academy-simulator-decision/route.ts": "academy",
+  "src/app/api/academy-term-progress/route.ts": "academy",
+  "src/app/api/learning-events/route.ts": "academy",
+  "src/app/api/mentor-challenge/route.ts": "mentor",
+  "src/app/api/notification-brain/route.ts": "academy",
+  "src/app/api/trading-arena/route.ts": "academy",
+  "src/app/api/trading-arena/execution/route.ts": "academy",
+  "src/app/api/trading-arena/reflections/route.ts": "academy",
+};
+
+// Routes that resolve a tenant but deliberately do not gate a product yet, each
+// with the reason. These are visible and tracked, not silently ungated.
+const EXEMPT_REASON: Readonly<Record<string, string>> = {
+  // The notification centre is cross-product: it carries withdrawal, security
+  // and system notices alongside academy ones. Gating it on academy would
+  // suppress the non-academy notices for a tenant without academy, which is a
+  // worse failure than the one this contract fixes. It needs a per-notice
+  // product decision, tracked as #20 remainder — not a blanket academy gate.
+  "src/app/api/notifications/route.ts": "cross-product notification centre",
+  "src/app/api/notifications/read/route.ts": "cross-product notification centre",
+  // Community is the Social product, whose platform flag is off by default.
+  // Gating these on social would 403 all community usage on every deployment
+  // that has not enabled social — a behaviour change that belongs with the
+  // social product slice, not this academy one.
+  "src/app/api/community/profile/route.ts": "social product, default-off flag",
+  "src/app/api/community/reputation-evidence/route.ts": "social product, default-off flag",
+  "src/app/api/community/journal-discipline-score/route.ts": "social product, default-off flag",
+  // Withdrawal is a wallet/custody operation, not a content product surface;
+  // its entitlement is the exchange/wallet gate, addressed with that slice.
+  "src/app/api/auth/withdraw/route.ts": "wallet custody, not a content product",
+  // Offline sync is transport infrastructure shared by every product, with no
+  // single product to gate on.
+  "src/app/api/offline-sync/route.ts": "cross-product sync transport",
+};
 
 describe("Tenant product entitlement route guards", () => {
-  for (const { route, product } of PRODUCT_ROUTES) {
+  it("accounts for every tenant-resolving route — gated or explicitly exempt", async () => {
+    const routes = await tenantResolvingRoutes();
+    const uncovered = routes.filter(
+      (route) => !(route in GATED_PRODUCT) && !(route in EXEMPT_REASON),
+    );
+    assert.deepEqual(
+      uncovered,
+      [],
+      "a route resolves an acting tenant but neither gates a product nor is listed "
+        + "exempt; add it to GATED_PRODUCT with its product or to EXEMPT_REASON with why",
+    );
+    // And the maps may not name routes that no longer resolve a tenant, or the
+    // completeness check above rots into a rubber stamp.
+    for (const route of [...Object.keys(GATED_PRODUCT), ...Object.keys(EXEMPT_REASON)]) {
+      assert.ok(routes.includes(route), `${route} is listed but no longer resolves a tenant`);
+    }
+  });
+
+  for (const [route, product] of Object.entries(GATED_PRODUCT)) {
     it(`gates ${route.replace("src/app/api/", "").replace("/route.ts", "")} on the ${product} entitlement`, async () => {
       const text = await source(route);
 
+      // One gate per resolved tenant: a handler that resolves a tenant and skips
+      // the gate is exactly the omission this pins closed.
       const resolved = text.match(/await resolveTenantPrincipalContext\(/g) ?? [];
       const gated = text.match(/await requireTenantProduct\(/g) ?? [];
+      assert.ok(resolved.length > 0, "this route is expected to resolve a tenant");
       assert.equal(
         gated.length,
         resolved.length,
         "every handler that resolves an acting tenant must also check its entitlement",
       );
-      assert.ok(resolved.length > 0, "this route is expected to resolve a tenant");
 
       // The entitlement has to be read for the tenant the request acts in. A
       // literal or a default here would gate every tenant on one tenant's
@@ -142,6 +228,19 @@ describe("Tenant product entitlement route guards", () => {
         text,
         /requireTenantProduct\(\s*PLATFORM\./,
         "the entitlement must not be read for the platform default tenant",
+      );
+    });
+  }
+
+  for (const route of Object.keys(EXEMPT_REASON)) {
+    it(`leaves ${route.replace("src/app/api/", "").replace("/route.ts", "")} ungated on purpose`, async () => {
+      // An exemption that has quietly grown a gate should be promoted out of the
+      // exempt list, so the reason stays true to the code.
+      const text = await source(route);
+      assert.doesNotMatch(
+        text,
+        /await requireTenantProduct\(/,
+        "this route now gates a product; move it from EXEMPT_REASON to GATED_PRODUCT",
       );
     });
   }

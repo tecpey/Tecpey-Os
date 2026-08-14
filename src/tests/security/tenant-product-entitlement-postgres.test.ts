@@ -240,6 +240,29 @@ describe("Tenant product entitlement", () => {
     );
 
     it(
+      "turns a failed entitlement read into an unavailable verdict, not a throw",
+      { skip: !configured, timeout: 45_000 },
+      async () => {
+        // withDb reports a missing pool as unavailable, but a live pool that
+        // errors on the query rethrows. Without the catch that rejection escapes
+        // requireTenantProduct and the route answers 500 instead of the
+        // documented 503. A tenant id carrying a NUL byte is rejected by
+        // Postgres before the SELECT can run, so the read throws inside withDb —
+        // and must still resolve to a verdict rather than propagate.
+        resetTenantProductEntitlementCache();
+        const nulTenant = "tenant\u0000id";
+        assert.deepEqual(await tenantProductVerdict(nulTenant, "academy"), {
+          entitled: false,
+          reason: "entitlement_unavailable",
+        });
+        // And the guard answers 503, not an unhandled rejection.
+        const refusal = await requireTenantProduct(nulTenant, "academy");
+        assert.ok(refusal);
+        assert.equal(refusal.status, 503);
+      },
+    );
+
+    it(
       "reads the entitlement once and then from cache until it is reset",
       { skip: !configured, timeout: 45_000 },
       async () => {
