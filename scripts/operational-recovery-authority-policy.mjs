@@ -151,7 +151,7 @@ export function evaluateOperationalRecoveryAuthority(source) {
   requireText(
     failures,
     packageJson,
-    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs"',
+    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs && NODE_ENV=test node --import tsx --test src/tests/wallet/rpc-client-failover.test.ts"',
     "package scripts must expose negative authority tests",
   );
   requireText(

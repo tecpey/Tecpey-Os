@@ -27,6 +27,11 @@ restores into isolated volumes, and validates:
 - measured restore time is within the five-minute CI RTO;
 - no credentials or user data are included in JSON evidence.
 
+The same recovery gate executes the real wallet `RpcClient` against bounded
+fixtures. It proves a failed primary endpoint rotates to a healthy peer within
+the same logical call, and that a three-failure single-endpoint circuit rejects
+subsequent calls without additional network I/O.
+
 This CI objective is not the production RPO or RTO. Production objectives require
 business approval and protected-staging measurement.
 
