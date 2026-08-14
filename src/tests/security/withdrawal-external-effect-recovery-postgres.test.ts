@@ -7,6 +7,7 @@ import { hashSensitiveAuditRequest } from "../../lib/security/sensitive-mutation
 import {
   claimWithdrawalExecution,
   commitPreparedWithdrawalExecution,
+  reconcileAmbiguousWithdrawalBroadcast,
 } from "../../lib/security/withdrawal-external-effect-authority";
 import {
   fingerprintExpectedTransactionHash,
@@ -27,7 +28,7 @@ function withdrawalId(): string {
 
 describe("Withdrawal broadcast lease recovery authority", () => {
   it(
-    "turns an expired calling lease into ambiguous reconciliation debt without a second attempt",
+    "turns an expired calling lease into ambiguous reconciliation debt without a second attempt and recovers a provider-present transaction",
     { skip: !integrationConfigured, timeout: 30_000 },
     async () => {
       const id = withdrawalId();
@@ -195,6 +196,69 @@ describe("Withdrawal broadcast lease recovery authority", () => {
         assert.equal(evidence.value.attempts[0]?.state, "ambiguous");
         assert.equal(evidence.value.attempts[0]?.outcome_category, "timeout");
         assert.equal(evidence.value.ambiguousEvents, 1);
+      }
+
+      // This is the post-RPC/pre-commit crash window: the provider has the
+      // deterministic transaction hash, while PostgreSQL still owns an
+      // expired `calling` attempt. Recovery must commit that same attempt as
+      // present; it must never manufacture a second broadcast attempt.
+      assert.equal(
+        await reconcileAmbiguousWithdrawalBroadcast({
+          withdrawalId: id,
+          attemptId,
+          observed: "present",
+        }),
+        "accepted",
+      );
+
+      const recovered = await withDb(async (client) => {
+        const withdrawal = await client.query<{
+          state: string;
+          broadcast_attempts: number;
+        }>(
+          `SELECT state, broadcast_attempts
+             FROM withdrawals
+            WHERE id = $1`,
+          [id],
+        );
+        const attempts = await client.query<{
+          state: string;
+          outcome_category: string | null;
+        }>(
+          `SELECT state, outcome_category
+             FROM withdrawal_broadcast_attempts
+            WHERE withdrawal_id = $1
+            ORDER BY attempt_number`,
+          [id],
+        );
+        const acceptedEvidence = await client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
+             FROM sensitive_mutation_audit_events
+            WHERE action = 'withdrawal.broadcast.accepted'
+              AND resource_type = 'withdrawal_broadcast_attempt'
+              AND resource_id = tecpey_withdrawal_evidence_hash(
+                'withdrawal-broadcast-attempt',
+                $1 || chr(31) || $2::text || chr(31) || '1'
+              )`,
+          [id, claim.generation],
+        );
+        return {
+          withdrawal: withdrawal.rows[0],
+          attempts: attempts.rows,
+          acceptedEvents: Number(acceptedEvidence.rows[0]?.count ?? "0"),
+        };
+      });
+      assert.equal(recovered.enabled, true);
+      if (recovered.enabled) {
+        assert.equal(recovered.value.withdrawal?.state, "broadcasted");
+        assert.equal(recovered.value.withdrawal?.broadcast_attempts, 1);
+        assert.deepEqual(recovered.value.attempts, [
+          {
+            state: "reconciled_present",
+            outcome_category: "reconciled_present",
+          },
+        ]);
+        assert.equal(recovered.value.acceptedEvents, 1);
       }
     },
   );

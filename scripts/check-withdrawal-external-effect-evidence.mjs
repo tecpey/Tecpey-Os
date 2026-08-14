@@ -303,6 +303,11 @@ requireText(
 );
 requireText(
   "recoveryTests",
+  "recovers a provider-present transaction",
+  "post-RPC/pre-commit crash recovery proof is missing",
+);
+requireText(
+  "recoveryTests",
   'recoveredClaim.mode === "reconcile"',
   "expired calling lease must become reconciliation-only debt",
 );
