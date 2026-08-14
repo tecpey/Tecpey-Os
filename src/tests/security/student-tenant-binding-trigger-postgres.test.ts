@@ -167,21 +167,27 @@ async function cleanupCommitted(tenantId: string, studentId: string): Promise<vo
   }
 }
 
+async function backendPid(client: PoolClient): Promise<number> {
+  const { rows } = await client.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
+  return rows[0].pid;
+}
+
 /**
  * Wait until this connection's statement is parked on a lock.
  *
  * The interleaving is what these tests are about, so it is observed rather than
  * slept through. A connection that never blocks is the bug the test is looking
  * for, so the bounded wait simply returns and lets the assertion speak.
+ *
+ * It never throws. Observing the wait makes the interleaving deterministic; it
+ * is not an assertion. A throw here would land in the caller's finally with a
+ * query still in flight, which is the one state these connections must never be
+ * left in — see `discard`.
  */
-async function backendPid(client: PoolClient): Promise<number> {
-  const { rows } = await client.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
-  return rows[0].pid;
-}
-
 async function waitUntilBlocked(pid: number): Promise<void> {
-  const observer = await pool!.connect();
+  let observer: PoolClient | null = null;
   try {
+    observer = await pool!.connect();
     const deadline = Date.now() + 5_000;
     while (Date.now() < deadline) {
       const waiting = await observer.query(
@@ -192,9 +198,35 @@ async function waitUntilBlocked(pid: number): Promise<void> {
       if ((waiting.rowCount ?? 0) > 0) return;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
+  } catch {
+    // Deliberately swallowed: the assertions decide the outcome, not this.
   } finally {
-    observer.release();
+    observer?.release();
   }
+}
+
+/**
+ * Both races park a statement on a lock on purpose, and a connection with a
+ * query still in flight is a trap. node-postgres queues everything behind it, so
+ * a ROLLBACK issued from a finally block never returns, its client is never
+ * released, and `pool.end()` then never resolves either — the test process
+ * wedges instead of failing, and the whole run hangs rather than reporting
+ * anything. Two habits make that impossible.
+ *
+ * A statement timeout, so a query waiting on a lock nobody will release always
+ * settles on its own.
+ */
+async function boundStatements(client: PoolClient): Promise<void> {
+  await client.query("SET statement_timeout = '15s'");
+}
+
+/**
+ * And a hard release, so a connection that raced is destroyed rather than
+ * returned to the pool — nothing is ever queued behind a statement that may
+ * still be in flight, and destroying it rolls back whatever it held.
+ */
+function discard(client: PoolClient): void {
+  client.release(true);
 }
 
 before(async () => {
@@ -209,8 +241,15 @@ before(async () => {
 });
 
 after(async () => {
-  await pool?.end();
+  const closing = pool;
   pool = null;
+  if (!closing) return;
+  // Bounded for the same reason as `discard`: a hook that never resolves turns
+  // a failing test into a run that never finishes.
+  await Promise.race([
+    closing.end(),
+    new Promise((resolve) => setTimeout(resolve, 10_000)),
+  ]);
 });
 
 describe("Student tenant binding trigger", () => {
@@ -340,7 +379,9 @@ describe("Student tenant binding trigger", () => {
       const { tenant, studentId } = await seedCommitted();
       const remover = await pool!.connect();
       const writer = await pool!.connect();
+      let write: Promise<unknown> = Promise.resolve();
       try {
+        await boundStatements(writer);
         await remover.query("BEGIN");
         await remover.query(
           `DELETE FROM platform_principal_bindings
@@ -350,7 +391,7 @@ describe("Student tenant binding trigger", () => {
 
         await writer.query("BEGIN");
         const writerPid = await backendPid(writer);
-        const write = insertRow(
+        write = insertRow(
           writer,
           "learning_brain_profiles",
           tenant.tenantId,
@@ -370,10 +411,9 @@ describe("Student tenant binding trigger", () => {
         );
         assert.match(String(outcome), /is not bound to student/);
       } finally {
-        await writer.query("ROLLBACK").catch(() => {});
-        await remover.query("ROLLBACK").catch(() => {});
-        writer.release();
-        remover.release();
+        await write;
+        discard(writer);
+        discard(remover);
         await cleanupCommitted(tenant.tenantId, studentId);
       }
     },
@@ -390,7 +430,9 @@ describe("Student tenant binding trigger", () => {
       const { tenant, studentId } = await seedCommitted({ withRevokedSibling: true });
       const first = await pool!.connect();
       const second = await pool!.connect();
+      let removal: Promise<unknown> = Promise.resolve();
       try {
+        await boundStatements(second);
         await first.query("BEGIN");
         await first.query(
           `DELETE FROM platform_principal_bindings
@@ -401,7 +443,7 @@ describe("Student tenant binding trigger", () => {
 
         await second.query("BEGIN");
         const secondPid = await backendPid(second);
-        const removal = second
+        removal = second
           .query(
             `DELETE FROM platform_principal_bindings
               WHERE tenant_id = $1 AND workspace_id = $2
@@ -423,10 +465,9 @@ describe("Student tenant binding trigger", () => {
         );
         assert.match(String(outcome), /still has rows in learning_brain_profiles/);
       } finally {
-        await second.query("ROLLBACK").catch(() => {});
-        await first.query("ROLLBACK").catch(() => {});
-        second.release();
-        first.release();
+        await removal;
+        discard(second);
+        discard(first);
         await cleanupCommitted(tenant.tenantId, studentId);
       }
     },
