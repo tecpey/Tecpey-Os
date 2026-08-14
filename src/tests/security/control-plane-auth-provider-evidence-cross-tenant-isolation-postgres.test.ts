@@ -5,6 +5,7 @@ import { Pool, type PoolClient } from "pg";
 import {
   applyAuthProviderEvidenceMutation,
   loadAuthProviderEvidenceByProvider,
+  loadAuthProviderReviewRequestsByProvider,
   submitAuthProviderReviewRequest,
 } from "../../lib/admin-auth-provider-evidence-store";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
@@ -237,6 +238,25 @@ describe("Admin auth provider evidence cross-tenant isolation", () => {
           audit_count: "1",
         },
       ]);
+
+      const queueA = await loadAuthProviderReviewRequestsByProvider({
+        tenantId: tenantA,
+        workspaceId: workspaceA,
+      });
+      const queueB = await loadAuthProviderReviewRequestsByProvider({
+        tenantId: tenantB,
+        workspaceId: workspaceB,
+      });
+
+      assert.notEqual(queueA, "unavailable");
+      assert.notEqual(queueB, "unavailable");
+      if (queueA === "unavailable" || queueB === "unavailable") return;
+
+      assert.equal(queueA.google?.[0]?.id, reviewRequest.approvalRequestId);
+      assert.equal(queueA.google?.[0]?.status, "pending");
+      assert.equal(queueA.google?.[0]?.requestedState, "enabled");
+      assert.match(queueA.google?.[0]?.auditEventHash ?? "", /^[0-9a-f]{64}$/);
+      assert.equal(queueB.google, undefined);
     },
   );
 });

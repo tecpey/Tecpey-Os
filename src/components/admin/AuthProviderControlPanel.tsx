@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Apple,
   CheckCircle2,
+  Clock3,
   CircleUserRound,
   KeyRound,
   LoaderCircle,
@@ -15,6 +16,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AuthProviderControlSnapshot } from "@/lib/admin-auth-provider-control-plane";
+import type {
+  AuthProviderReviewRequest,
+  AuthProviderReviewRequestsByProvider,
+  AuthProviderReviewRequestStatus,
+} from "@/lib/admin-auth-provider-evidence-store";
 
 type AuthProviderSnapshot = AuthProviderControlSnapshot;
 type AuthProviderControl = AuthProviderSnapshot["providers"][number];
@@ -25,6 +31,7 @@ type AuthProviderConfigStorage = AuthProviderControl["configurationFields"][numb
 type AuthProviderConfigStatus = AuthProviderControl["configurationFields"][number]["status"];
 type AuthProviderAction = AuthProviderControl["adminActions"][number];
 type AuthProviderEvidenceGateId = AuthProviderControl["gates"][number]["id"];
+type AuthProviderReviewRequestedState = AuthProviderReviewRequest["requestedState"];
 type EvidenceAction = "mark_missing" | "mark_ready" | "reject" | "expire";
 type EvidenceFormState = {
   gateId: AuthProviderEvidenceGateId;
@@ -79,6 +86,29 @@ const fieldStatusClassName: Record<AuthProviderConfigStatus, string> = {
   planned: "border-violet-300/20 bg-violet-300/[0.08] text-violet-100",
 };
 
+const reviewStatusLabelFa: Record<AuthProviderReviewRequestStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  expired: "Expired",
+  cancelled: "Cancelled",
+  executed: "Executed",
+};
+
+const reviewStatusClassName: Record<AuthProviderReviewRequestStatus, string> = {
+  pending: "border-amber-300/20 bg-amber-300/[0.08] text-amber-100",
+  approved: "border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-100",
+  rejected: "border-rose-300/20 bg-rose-300/[0.08] text-rose-100",
+  expired: "border-slate-300/15 bg-slate-300/[0.06] text-slate-300",
+  cancelled: "border-slate-300/15 bg-slate-300/[0.06] text-slate-300",
+  executed: "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100",
+};
+
+const reviewRequestedStateLabelFa: Record<AuthProviderReviewRequestedState, string> = {
+  enabled: "فعال‌سازی",
+  disabled: "خاموش‌سازی",
+};
+
 const evidenceActionLabelFa: Record<EvidenceAction, string> = {
   mark_ready: "Mark ready",
   reject: "Reject",
@@ -118,6 +148,29 @@ function FieldStatusBadge({ status }: { status: AuthProviderConfigStatus }) {
   );
 }
 
+function ReviewStatusBadge({ status }: { status: AuthProviderReviewRequestStatus }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${reviewStatusClassName[status]}`}>
+      {reviewStatusLabelFa[status]}
+    </span>
+  );
+}
+
+function formatIsoDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("fa-IR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function shortAuditHash(hash: string | null): string {
+  if (!hash) return "—";
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
 function evidenceFormKey(providerId: AuthProviderId): string {
   return providerId;
 }
@@ -135,6 +188,7 @@ function defaultEvidenceForm(provider: AuthProviderControl): EvidenceFormState {
 
 export function AuthProviderControlPanel() {
   const [snapshot, setSnapshot] = useState<AuthProviderSnapshot | null>(null);
+  const [reviewRequestsByProvider, setReviewRequestsByProvider] = useState<AuthProviderReviewRequestsByProvider>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -151,27 +205,40 @@ export function AuthProviderControlPanel() {
       const data = await response.json().catch(() => ({}));
       if (response.status === 401) {
         setSnapshot(null);
+        setReviewRequestsByProvider({});
         setError("ابتدا از مسیر Command Center با Passkey وارد شو.");
         return;
       }
       if (response.status === 403) {
         setSnapshot(null);
+        setReviewRequestsByProvider({});
         setError("برای مشاهده Provider Control، Permission ادمین admin.roles.read لازم است.");
         return;
       }
       if (response.status === 503 && data?.error === "auth_provider_evidence_unavailable") {
         setSnapshot(null);
+        setReviewRequestsByProvider({});
         setError("Evidence store ورود اجتماعی در دسترس نیست؛ schema یا اتصال دیتابیس باید بررسی شود.");
+        return;
+      }
+      if (response.status === 503 && data?.error === "auth_provider_review_requests_unavailable") {
+        setSnapshot(null);
+        setReviewRequestsByProvider({});
+        setError("Approval queue ورود اجتماعی در دسترس نیست؛ schema کنترل‌پلین یا اتصال audit باید بررسی شود.");
         return;
       }
       if (!response.ok || !data?.ok) {
         setSnapshot(null);
+        setReviewRequestsByProvider({});
         setError("Snapshot Provider Control در حال حاضر قابل دریافت نیست.");
         return;
       }
       setSnapshot((data.snapshot ?? null) as AuthProviderSnapshot | null);
+      setReviewRequestsByProvider((data.reviewRequestsByProvider ?? {}) as AuthProviderReviewRequestsByProvider);
+      setError("");
     } catch {
       setSnapshot(null);
+      setReviewRequestsByProvider({});
       setError("ارتباط با سرویس Provider Control برقرار نشد.");
     } finally {
       setLoading(false);
@@ -195,6 +262,14 @@ export function AuthProviderControlPanel() {
     if (!snapshot) return "—";
     return `${snapshot.summary.configuredProviders}/${snapshot.summary.totalProviders}`;
   }, [snapshot]);
+
+  const pendingReviewCount = useMemo(
+    () => Object.values(reviewRequestsByProvider)
+      .flat()
+      .filter((request) => request.status === "pending")
+      .length,
+    [reviewRequestsByProvider],
+  );
 
   const runProviderAction = async (provider: AuthProviderControl, action: AuthProviderAction) => {
     if (!action.enabled) return;
@@ -235,7 +310,17 @@ export function AuthProviderControlPanel() {
         setNotice("Evidence store در دسترس نیست؛ بدون evidence سمت سرور هیچ Provider فعال نمی‌شود.");
         return;
       }
-      setNotice(response.ok ? "درخواست برای بازبینی پذیرفته شد." : "درخواست Provider Control پذیرفته نشد.");
+      if (!response.ok || !data?.ok) {
+        setNotice("درخواست Provider Control پذیرفته نشد.");
+        return;
+      }
+      const reviewRequestId = typeof data.reviewRequest?.approvalRequestId === "string"
+        ? data.reviewRequest.approvalRequestId
+        : null;
+      setNotice(reviewRequestId
+        ? `درخواست برای بازبینی پذیرفته شد. Approval ID: ${reviewRequestId}`
+        : "درخواست برای بازبینی پذیرفته شد.");
+      await fetchSnapshot();
     } catch {
       setNotice("ارتباط با سرویس Provider Control برقرار نشد.");
     } finally {
@@ -382,12 +467,13 @@ export function AuthProviderControlPanel() {
 
       {snapshot && (
         <>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
               ["Providerها", snapshot.summary.totalProviders],
               ["Configured", configuredText],
               ["قفل/نیازمند evidence", snapshot.summary.lockedProviders],
               ["Step-up", snapshot.summary.stepUpProviders],
+              ["Review queue", pendingReviewCount],
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-[22px] border border-white/10 bg-[#030914] p-4">
                 <p className="text-xs font-bold text-slate-500">{String(label)}</p>
@@ -407,6 +493,8 @@ export function AuthProviderControlPanel() {
               const currentEvidenceKey = evidenceFormKey(provider.id);
               const evidenceBusy = busyEvidenceKey === currentEvidenceKey;
               const readyEvidenceAction = evidenceForm.action === "mark_ready";
+              const providerReviewRequests = reviewRequestsByProvider[provider.id] ?? [];
+              const pendingReview = providerReviewRequests.find((request) => request.status === "pending") ?? null;
               return (
                 <article key={provider.id} className="rounded-[24px] border border-white/10 bg-[#030914] p-4 md:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -426,6 +514,14 @@ export function AuthProviderControlPanel() {
                   </div>
 
                   <p className="mt-4 text-sm font-bold leading-7 text-slate-400">{provider.descriptionFa}</p>
+
+                  {pendingReview && (
+                    <p className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs font-black leading-6 text-amber-100">
+                      <Clock3 className="h-4 w-4" aria-hidden="true" />
+                      درخواست {reviewRequestedStateLabelFa[pendingReview.requestedState]} در صف approval است؛ انقضا:
+                      <span dir="ltr" className="font-mono">{formatIsoDateTime(pendingReview.expiresAt)}</span>
+                    </p>
+                  )}
 
                   <div className="mt-4 grid gap-2 text-[11px] font-bold text-slate-400 sm:grid-cols-2">
                     <span className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2">Permission: {provider.requiredPermission}</span>
@@ -577,6 +673,50 @@ export function AuthProviderControlPanel() {
                             ثبت evidence gate
                           </button>
                         </form>
+                      )}
+
+                      {provider.id !== "passkey" && (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <h3 className="text-xs font-black text-slate-300">Approval queue</h3>
+                              <p className="mt-1 text-[11px] font-bold leading-6 text-slate-500">
+                                آخرین درخواست‌های enable/disable با audit trace همین provider.
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-white/10 bg-[#030914] px-2.5 py-1 text-[10px] font-black text-slate-300">
+                              {providerReviewRequests.length.toLocaleString("fa-IR")} رکورد
+                            </span>
+                          </div>
+
+                          {providerReviewRequests.length === 0 ? (
+                            <p className="mt-3 rounded-xl border border-white/10 bg-[#030914] px-3 py-2 text-[11px] font-bold leading-6 text-slate-500">
+                              هنوز درخواست بازبینی برای این Provider ثبت نشده است.
+                            </p>
+                          ) : (
+                            <div className="mt-3 space-y-2">
+                              {providerReviewRequests.map((request) => (
+                                <div key={request.id} className="rounded-xl border border-white/10 bg-[#030914] px-3 py-2">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-xs font-black text-white">
+                                      {reviewRequestedStateLabelFa[request.requestedState]}
+                                    </p>
+                                    <ReviewStatusBadge status={request.status} />
+                                  </div>
+                                  <div className="mt-2 grid gap-1.5 text-[10px] font-bold text-slate-500 sm:grid-cols-2">
+                                    <span dir="ltr" className="truncate text-left font-mono">ID: {request.id}</span>
+                                    <span dir="ltr" className="truncate text-left font-mono">Audit: {shortAuditHash(request.auditEventHash)}</span>
+                                    <span>ثبت: {formatIsoDateTime(request.requestedAt)}</span>
+                                    <span>انقضا: {formatIsoDateTime(request.expiresAt)}</span>
+                                  </div>
+                                  <p className="mt-2 line-clamp-2 text-[11px] font-bold leading-6 text-slate-500">
+                                    {request.reason}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       <h3 className={`${provider.id === "passkey" ? "" : "mt-4"} text-xs font-black text-slate-300`}>Admin operations</h3>

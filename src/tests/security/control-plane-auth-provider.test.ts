@@ -9,6 +9,7 @@ import {
 import {
   evidenceByProviderFromRows,
   normalizeAuthProviderEvidenceMutation,
+  reviewRequestsByProviderFromRows,
 } from "@/lib/admin-auth-provider-evidence-store";
 import type { FeatureFlag } from "@/lib/feature-flags";
 
@@ -239,6 +240,94 @@ describe("admin auth provider control plane", () => {
     });
   });
 
+  it("builds provider review queues only from scoped approval rows", () => {
+    const scoped = reviewRequestsByProviderFromRows([
+      {
+        id: "review-google-1",
+        action: "auth_provider.request_enable",
+        resource_id: "tecpey/main/google",
+        payload: {
+          tenantId: "tecpey",
+          workspaceId: "main",
+          providerId: "google",
+          requestedState: "enabled",
+        },
+        reason: "ready for independent security review",
+        status: "pending",
+        requested_by: "00000000-0000-4000-8000-000000000001",
+        reviewed_by: null,
+        requested_at: "2026-08-14T12:00:00.000Z",
+        reviewed_at: null,
+        expires_at: "2026-08-21T12:00:00.000Z",
+        executed_at: null,
+        audit_event_id: "audit-1",
+        audit_event_hash: "a".repeat(64),
+      },
+      {
+        id: "cross-tenant-google",
+        action: "auth_provider.request_enable",
+        resource_id: "tecpey/main/google",
+        payload: {
+          tenantId: "other-tenant",
+          workspaceId: "main",
+          providerId: "google",
+          requestedState: "enabled",
+        },
+        reason: "must not leak into this tenant queue",
+        status: "pending",
+        requested_by: "00000000-0000-4000-8000-000000000002",
+        reviewed_by: null,
+        requested_at: "2026-08-14T12:01:00.000Z",
+        reviewed_at: null,
+        expires_at: "2026-08-21T12:01:00.000Z",
+        executed_at: null,
+        audit_event_id: "audit-2",
+        audit_event_hash: "b".repeat(64),
+      },
+      {
+        id: "passkey-review",
+        action: "auth_provider.request_disable",
+        resource_id: "tecpey/main/passkey",
+        payload: {
+          tenantId: "tecpey",
+          workspaceId: "main",
+          providerId: "passkey",
+          requestedState: "disabled",
+        },
+        reason: "passkey is read-only from this surface",
+        status: "pending",
+        requested_by: "00000000-0000-4000-8000-000000000003",
+        reviewed_by: null,
+        requested_at: "2026-08-14T12:02:00.000Z",
+        reviewed_at: null,
+        expires_at: "2026-08-21T12:02:00.000Z",
+        executed_at: null,
+        audit_event_id: null,
+        audit_event_hash: null,
+      },
+    ], { tenantId: "tecpey", workspaceId: "main" });
+
+    assert.deepEqual(scoped.google, [
+      {
+        id: "review-google-1",
+        providerId: "google",
+        requestedState: "enabled",
+        action: "auth_provider.request_enable",
+        status: "pending",
+        reason: "ready for independent security review",
+        requestedByAdminId: "00000000-0000-4000-8000-000000000001",
+        reviewedByAdminId: null,
+        requestedAt: "2026-08-14T12:00:00.000Z",
+        reviewedAt: null,
+        expiresAt: "2026-08-21T12:00:00.000Z",
+        executedAt: null,
+        auditEventId: "audit-1",
+        auditEventHash: "a".repeat(64),
+      },
+    ]);
+    assert.equal(scoped.passkey, undefined);
+  });
+
   it("validates evidence mutations without accepting raw secret-like input", () => {
     const ready = normalizeAuthProviderEvidenceMutation({
       tenantId: "tecpey",
@@ -322,9 +411,18 @@ describe("admin auth provider control plane", () => {
 
   it("guards the provider evidence write route with manage permission and fresh step-up", async () => {
     const route = await readFile("src/app/api/command-center/auth-providers/route.ts", "utf8");
+    const getStart = route.indexOf("export async function GET");
     const patchStart = route.indexOf("export async function PATCH");
+    const postStart = route.indexOf("export async function POST");
+    assert.ok(getStart >= 0, "GET provider read route must exist");
+    assert.ok(postStart >= 0, "POST provider review route must exist");
     assert.ok(patchStart >= 0, "PATCH evidence route must exist");
+    const getRoute = route.slice(getStart, postStart);
     const patchRoute = route.slice(patchStart);
+
+    assert.match(getRoute, /authorizeAdminRequest\(req, "admin\.roles\.read"\)/);
+    assert.match(getRoute, /loadAuthProviderReviewRequestsByProvider\(\{/);
+    assert.match(getRoute, /reviewRequestsByProvider/);
 
     assert.match(patchRoute, /namespace: "command-center-auth-providers-evidence-write"/);
     assert.match(
@@ -337,8 +435,6 @@ describe("admin auth provider control plane", () => {
     assert.match(patchRoute, /applyAuthProviderEvidenceMutation\(\{/);
     assert.doesNotMatch(patchRoute, /clientSecret|privateKey|botToken|apiKey/);
 
-    const postStart = route.indexOf("export async function POST");
-    assert.ok(postStart >= 0, "POST provider review route must exist");
     const postRoute = route.slice(postStart, patchStart);
     assert.match(postRoute, /submitAuthProviderReviewRequest\(\{/);
     assert.match(postRoute, /sessionId: authorization\.principal\.sessionId/);
@@ -361,7 +457,12 @@ describe("admin auth provider control plane", () => {
       store,
       /INSERT INTO admin_auth_provider_evidence_events\s+[\s\S]*\(tenant_id, workspace_id, provider_id, gate_id, action, actor_admin_id,/,
     );
+    assert.match(
+      store,
+      /FROM admin_approval_requests request[\s\S]*left\(request\.resource_id, length\(\$1\)\) = \$1[\s\S]*request\.payload ->> 'tenantId' = \$2[\s\S]*request\.payload ->> 'workspaceId' = \$3/,
+    );
     assert.doesNotMatch(store, /FROM admin_auth_provider_evidence\s+WHERE provider_id = \$1/);
     assert.doesNotMatch(store, /ON CONFLICT \(provider_id, gate_id\)/);
+    assert.doesNotMatch(store, /FROM admin_approval_requests request\s+WHERE request\.resource_id = \$1/);
   });
 });
