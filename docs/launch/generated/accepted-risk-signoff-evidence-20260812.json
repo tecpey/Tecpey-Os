@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "accepted-risk-signoff-evidence-request",
-  "generatedAt": "2026-08-14T12:46:43Z",
+  "generatedAt": "2026-08-14T15:27:51Z",
   "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
   "executionState": "prepared_owner_approval_required",
-  "selectedSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+  "selectedSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
   "sourceBranch": "main",
   "sourcePullRequest": 395,
   "requestPath": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
@@ -13,7 +13,7 @@
   "requiredEnvironment": "release-control",
   "contract": "docs/LAUNCH_ACCEPTED_RISKS.md",
   "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
-  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha c2b5e58f23881635ebf507827158550a44d3f9b5",
+  "verificationCommand": "npm run ops:accepted-risk:evidence:verify -- <artifact.json> --expected-sha 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
   "authorityGuard": "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   "reviewFreshness": {
     "referenceDate": "2026-08-12",
@@ -42,7 +42,7 @@
       },
       {
         "name": "ops:accepted-risk:evidence:verify",
-        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha c2b5e58f23881635ebf507827158550a44d3f9b5",
+        "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
         "disposition": "required_for_final_artifact"
       },
       {
@@ -68,7 +68,7 @@
     "authority": "tecpey-accepted-risk-owner-signoff-v1",
     "evidenceClass": "controlled-soft-launch-accepted-risk-owner-signoff",
     "environment": "release-control",
-    "sourceSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "sourceSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
     "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
     "allowedSurfaces": [
       "public-fa-en",
@@ -129,7 +129,7 @@
     },
     {
       "name": "ops:accepted-risk:evidence:verify",
-      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha c2b5e58f23881635ebf507827158550a44d3f9b5",
+      "command": "node scripts/verify-accepted-risk-signoff-evidence.mjs <artifact.json> --expected-sha 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
       "disposition": "required_for_final_artifact"
     },
     {

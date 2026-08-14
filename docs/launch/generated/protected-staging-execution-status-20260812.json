@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-execution-status-observation",
-  "observedAt": "2026-08-12T16:13:21.000Z",
+  "observedAt": "2026-08-14T15:27:51.000Z",
   "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
-    "protectedStagingEvidenceTargetSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "currentMainSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
+    "protectedStagingEvidenceTargetSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
-    "mergedPullRequest": 396,
-    "mergedPullRequestTitle": "docs(ops): rehearse support source installs",
-    "mergeCommitSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "mergedPullRequest": 441,
+    "mergedPullRequestTitle": "feat(academy): bind the lesson-progress read to the acting tenant",
+    "mergeCommitSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
     "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate promoted to current main before new protected staging evidence collection; previous target is superseded"
+    "targetShaDisposition": "candidate promoted to current main after PR #440 and PR #441 advanced main beyond the PR #439 target; previous PR #439 target is superseded"
   },
   "observationSource": {
     "githubApi": [
@@ -71,8 +71,8 @@
   },
   "requiredBeforeAcceptance": [
     "Configure GitHub Environment staging with required protection rules/reviewers before treating it as protected staging evidence.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha c2b5e58f23881635ebf507827158550a44d3f9b5 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha c2b5e58f23881635ebf507827158550a44d3f9b5 with one accepted environment_source.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
   "decisionAfterObservation": "NOG-01 and NOG-02 remain open; no accepted protected staging or redacted env evidence exists for the selected candidate."

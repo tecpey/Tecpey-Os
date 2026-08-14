@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "packetMode": "historical_draft_incomplete_evidence_superseded",
-  "generatedAt": "2026-08-10T17:05:29.779Z",
+  "generatedAt": "2026-08-14T15:27:51Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
   "releaseCandidate": {
     "sha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
@@ -12,9 +12,9 @@
   },
   "supersededBy": {
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "currentCandidateSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "currentCandidateSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
     "supersededAt": "2026-08-12T03:51:09.000Z",
-    "reason": "New evidence collection must use the candidate that includes tenant-isolation proof coverage, controlled-launch lineage guarding, protected staging environment evidence automation, exact-head Full Suite Diagnostics evidence collection, SHA-isolated evidence-run hardening, disabled-capability product-truth route guarding, Academy mastery season review orchestration, governed UI primitives and provenance-aware landing growth evidence through PR 388."
+    "reason": "New evidence collection must use the current main candidate after PR #440 AI Mentor egress entitlement gating and PR #441 Academy lesson-progress tenant binding. The historical draft packet remains incomplete and is not final Go evidence."
   },
   "artifactIdentity": {
     "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",

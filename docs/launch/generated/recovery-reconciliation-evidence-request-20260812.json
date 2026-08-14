@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-recovery-reconciliation-evidence-request",
-  "generatedAt": "2026-08-14T12:46:43Z",
+  "generatedAt": "2026-08-14T15:27:51Z",
   "decision": "NO_GO_RECOVERY_RECONCILIATION_EVIDENCE_MISSING",
   "relatedBlockers": [
     "NOG-05"
   ],
   "status": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
-  "selectedSha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+  "selectedSha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
   "environment": "protected-staging",
   "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   "operatorRunbook": "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",

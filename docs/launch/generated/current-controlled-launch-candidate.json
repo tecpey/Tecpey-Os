@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-14T12:46:43Z",
+  "generatedAt": "2026-08-14T15:27:51Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+    "sha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
     "sourceBranch": "main",
-    "sourcePullRequest": 433,
-    "selectedAt": "2026-08-14T12:46:43Z",
-    "reason": "Promotes the controlled-launch evidence target to current main after PR #433 auth-provider review decision workflow, tenant-scoped dual-control approval handling and Command Center decision actions. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
+    "sourcePullRequest": 441,
+    "selectedAt": "2026-08-14T15:27:51Z",
+    "reason": "Promotes the controlled-launch evidence target to current main after PR #440 AI Mentor egress entitlement gating and PR #441 Academy lesson-progress tenant binding landed on top of the PR #439 CI/full-suite hardening candidate. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
   },
   "supersedes": [
     {
@@ -70,6 +70,26 @@
       "sha": "5d68865dd56331e011829749ee970d097e9b14a4",
       "previousRole": "current controlled-launch candidate after PR #396 support install readiness, news readiness and exact-candidate evidence refresh",
       "currentStatus": "superseded_by_pr_433_for_auth_provider_review_decisions_and_new_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
+      "previousRole": "current controlled-launch candidate after PR #433 auth-provider review decisions and exact-candidate evidence refresh",
+      "currentStatus": "superseded_by_pr_435_for_new_current_main_protected_staging_and_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "92ccb8f18ac28232a2c1cb6cece09de52aa424f0",
+      "previousRole": "current controlled-launch candidate after PR #435 strict readiness audit and candidate-evidence promotion",
+      "currentStatus": "superseded_by_pr_434_for_mentor_tenant_binding_and_new_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
+      "previousRole": "current controlled-launch candidate after PR #434 Mentor conversation and insight tenant-binding security fix",
+      "currentStatus": "superseded_by_pr_436_pr_438_pr_439_for_current_main_exact_candidate_evidence_collection"
+    },
+    {
+      "sha": "b55860d8444db9c1b1020f1240816a229b1a2944",
+      "previousRole": "current controlled-launch candidate after PR #439 concurrent authority CI/full-suite hardening",
+      "currentStatus": "superseded_by_pr_440_pr_441_for_current_main_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {
