@@ -11,6 +11,7 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import { recordDegradedRead } from "@/lib/degraded-read";
 
 const ROUTE = "/api/academy-certificates";
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
       recordDegradedRead(ROUTE, "tenant_context_unavailable");
       return apiOk({ degraded: true, certificates: [] });
     }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     const studentId = cleanText(tenantContext.principalId, 80);
     if (!studentId) return apiOk({ degraded: false, certificates: [] });
     try {
@@ -95,6 +98,8 @@ export async function POST(req: NextRequest) {
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
     if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     const studentId = cleanText(tenantContext.principalId, 80);
     try {
       const boundedBodyRequest = await readBoundedJsonRequest(req, {

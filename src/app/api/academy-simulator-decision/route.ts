@@ -12,6 +12,7 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import type { SchemaQueryable } from "@/lib/database-schema-contract";
 
 type SimulatorDecision = {
@@ -87,6 +88,8 @@ export async function POST(req: NextRequest) {
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
     if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     const studentId = tenantContext.principalId;
 
     try {
