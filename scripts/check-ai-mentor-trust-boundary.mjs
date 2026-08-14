@@ -16,6 +16,16 @@ for (const [label, pattern] of [
   ["atomic conversation pair", /persistMentorConversationPair\(/],
   ["explicit memory mode", /memoryMode:/],
   ["client history ignored evidence", /client_history_ignored/],
+  // multi-tenant #20: external egress is gated on the acting tenant's Mentor
+  // entitlement. The tenant is resolved from the bound student principal, the
+  // product is checked for that tenant, and a non-entitled (or unresolved)
+  // tenant degrades to the local fallback rather than reaching the provider.
+  ["tenant resolved for egress", /resolveTenantPrincipalContext\(/],
+  ["mentor entitlement gate", /(?:requireTenantProduct|tenantProductVerdict)\(tenantContext\.tenantId, "mentor"\)/],
+  // Pin the entitlement into the egress-decision disjunction itself, not merely
+  // somewhere in the file: !mentorEntitled must sit in the condition that routes
+  // to the local fallback, or a non-entitled tenant reaches the provider.
+  ["entitlement gates egress", /!apiKey \|\|\s*!mentorEntitled \|\|\s*!preferences\.externalProviderEnabled/],
 ]) {
   if (!pattern.test(route)) failures.push(`AI Mentor route: missing ${label}`);
 }
@@ -35,6 +45,13 @@ const admissionIndex = route.indexOf('phase: "admitted"');
 const providerIndex = route.indexOf("callMentorProvider({");
 if (admissionIndex < 0 || providerIndex < 0 || admissionIndex > providerIndex) {
   failures.push("AI Mentor route: immutable egress admission must precede provider call");
+}
+
+// The Mentor entitlement must be decided before the external provider is called,
+// so a tenant not entitled to Mentor can never reach egress.
+const entitlementIndex = route.indexOf("mentorEntitled");
+if (entitlementIndex < 0 || providerIndex < 0 || entitlementIndex > providerIndex) {
+  failures.push("AI Mentor route: Mentor entitlement must gate egress before the provider call");
 }
 
 const trust = await source("src/lib/ai/mentor-trust-boundary.ts");

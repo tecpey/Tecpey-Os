@@ -255,6 +255,7 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 // Routes that gate, and the product each gates on.
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/achievements/route.ts": "academy",
+  "src/app/api/ai-mentor/route.ts": "mentor",
   "src/app/api/academy-certificates/route.ts": "academy",
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
@@ -321,9 +322,13 @@ describe("Tenant product entitlement route guards", () => {
       const text = await source(route);
 
       // One gate per resolved tenant: a handler that resolves a tenant and skips
-      // the gate is exactly the omission this pins closed.
+      // the gate is exactly the omission this pins closed. Either entitlement
+      // primitive counts — requireTenantProduct returns the 403/503 response a
+      // route surfaces directly, while tenantProductVerdict returns the verdict a
+      // route needs when it degrades (e.g. AI Mentor falling back to local
+      // guidance) instead of returning that response.
       const resolved = text.match(/await resolveTenantPrincipalContext\(/g) ?? [];
-      const gated = text.match(/await requireTenantProduct\(/g) ?? [];
+      const gated = text.match(/await (?:requireTenantProduct|tenantProductVerdict)\(/g) ?? [];
       assert.ok(resolved.length > 0, "this route is expected to resolve a tenant");
       assert.equal(
         gated.length,
@@ -334,7 +339,7 @@ describe("Tenant product entitlement route guards", () => {
       // The entitlement has to be read for the tenant the request acts in. A
       // literal or a default here would gate every tenant on one tenant's
       // purchase, which is the whole failure this guards against.
-      const calls = text.match(/requireTenantProduct\(([^)]*)\)/g) ?? [];
+      const calls = text.match(/(?:requireTenantProduct|tenantProductVerdict)\(([^)]*)\)/g) ?? [];
       assert.equal(calls.length, gated.length);
       for (const call of calls) {
         assert.match(call, /tenantContext\.tenantId/, call);
@@ -342,7 +347,7 @@ describe("Tenant product entitlement route guards", () => {
       }
       assert.doesNotMatch(
         text,
-        /requireTenantProduct\(\s*PLATFORM\./,
+        /(?:requireTenantProduct|tenantProductVerdict)\(\s*PLATFORM\./,
         "the entitlement must not be read for the platform default tenant",
       );
     });
@@ -355,7 +360,7 @@ describe("Tenant product entitlement route guards", () => {
       const text = await source(route);
       assert.doesNotMatch(
         text,
-        /await requireTenantProduct\(/,
+        /await (?:requireTenantProduct|tenantProductVerdict)\(/,
         "this route now gates a product; move it from EXEMPT_REASON to GATED_PRODUCT",
       );
     });
