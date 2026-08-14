@@ -1,0 +1,73 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/academy-flashcards",
+   "method": "PUT",
+   "previousSourceHash": "7bd72a865b44a0831f432e30",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash, tenantSource and the tenant/product controls change on this PUT (multi-tenant #20): academy_state_documents and academy_student_events are student_global per the classification registry, so the flashcard read and write were keyed by session.studentId with no binding check and no product gate. Both handlers now resolve the acting tenant with strict revocation, confirm the student's binding, refuse a foreign branded host, gate the Academy product and act on the bound principal; the write fails closed with 503 on any not-available outcome. The optimistic-revision transaction, bounded body and CSRF are unchanged, verified against the effective manifest and the derived route-guard test.",
+   "replacement": {
+    "route": "/api/academy-flashcards",
+    "method": "PUT",
+    "sourcePath": "src/app/api/academy-flashcards/route.ts",
+    "sourceHash": "0e3c7f9085383e260b7d174c",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": "tenantContext",
+    "risk": [],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "academy-flashcards-write",
+     "expectsBody": true,
+     "bodySizeLimit": true,
+     "contentTypeCheck": false,
+     "inputParser": "local:json",
+     "idempotency": false,
+     "transaction": true,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": true,
+     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+    },
+    "domainOwner": "academy-flashcards",
+    "testReferences": [
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": false,
+     "rateLimit": false,
+     "bodySizeLimit": true,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": false,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/academy-flashcards/route.ts",
+     "method": "PUT",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}

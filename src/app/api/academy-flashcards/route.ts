@@ -8,6 +8,9 @@ import { withObservability } from "@/lib/observe";
 import { scheduleMentorProfileUpdate } from "@/lib/mentor-events";
 import { normalizeDeck } from "@/lib/spaced-repetition";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +24,34 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "academy-flashcards-read", limit: 120, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
-    if (!session.studentId) return apiError("complete_account_required", 401);
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) {
+      // A degraded revocation authority returns a guest with no studentId; that
+      // outage must not masquerade as a missing account.
+      if (session.authorityDegraded) return apiError("flashcard_service_not_configured", 503);
+      return apiError("complete_account_required", 401);
+    }
+    // academy_state_documents is student_global (classification registry): keyed
+    // by student_id with no tenant column, so reading it by session.studentId
+    // alone served the deck on any tenant's branded host. Resolving the acting
+    // tenant confirms the binding, refuses a foreign host, and gates Academy.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      // A binding-storage outage is a service failure (503); an ordinary
+      // authorization outcome — unbound, revoked, workspace mismatch, foreign
+      // host — is a refusal (403), not a fabricated empty deck.
+      if (tenantContext.reason === "binding_storage_unavailable") return apiError("flashcard_service_not_configured", 503);
+      return apiError("forbidden", 403);
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
     const locale = parseLocale(new URL(req.url).searchParams.get("locale"));
 
     const result = await withDb(async (client) => {
@@ -31,7 +60,7 @@ export async function GET(req: NextRequest) {
          FROM academy_state_documents
          WHERE student_id = $1::uuid AND locale = $2
          LIMIT 1`,
-        [session.studentId, locale],
+        [studentId, locale],
       );
       const found = row.rows[0];
       return {
@@ -56,6 +85,21 @@ export async function PUT(req: NextRequest) {
 
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) return apiError("complete_account_required", 401);
+    // The write resolves the acting tenant before it saves anything: it confirms
+    // the student's binding, refuses a foreign branded host, and gates Academy.
+    // Any not-available outcome fails closed rather than writing the deck under a
+    // tenant the student may not act in.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:write"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) return apiError("flashcard_service_not_configured", 503);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     let body: Record<string, unknown>;
     try {
@@ -84,7 +128,7 @@ export async function PUT(req: NextRequest) {
          FROM academy_state_documents
          WHERE student_id = $1::uuid AND locale = $2
          FOR UPDATE`,
-        [session.studentId, locale],
+        [studentId, locale],
       );
 
       const current = row.rows[0];
@@ -104,13 +148,13 @@ export async function PUT(req: NextRequest) {
            memory_updated_at = NOW(),
            updated_at = NOW()
          RETURNING flashcard_revision::text, memory_updated_at`,
-        [session.studentId, locale, JSON.stringify(cards)],
+        [studentId, locale, JSON.stringify(cards)],
       );
 
       await client.query(
         `INSERT INTO academy_student_events (student_id, event_type, payload)
          VALUES ($1::uuid, 'flashcard_deck_saved', $2::jsonb)`,
-        [session.studentId, JSON.stringify({ locale, cardCount: cards.length, ip: getClientIp(req) })],
+        [studentId, JSON.stringify({ locale, cardCount: cards.length, ip: getClientIp(req) })],
       );
 
       return {
@@ -129,7 +173,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    scheduleMentorProfileUpdate(session.studentId, "flashcards_updated");
+    scheduleMentorProfileUpdate(studentId, "flashcards_updated");
     return apiOk({
       cards: result.value.cards,
       revision: result.value.revision,
