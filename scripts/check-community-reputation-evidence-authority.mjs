@@ -318,9 +318,9 @@ for (const invariant of [
   "READ_ONLY_ROUTE_FIELDS",
   "READ_ONLY_CONTROL_FIELDS",
   "api_security_read_only_route_",
-  "effective.totals.routeFiles += reviewedReadOnlyRoutes.length",
-  "strictRevocation !== true",
-  'queryParameters !== "none"',
+  "reviewedReadOnlyRoutes.length + addedSourcePaths.size",
+  "entry.controls.strictRevocation === true",
+  'entry.controls.queryParameters === "none"',
 ]) {
   requireText("apiDeltaAuthority", invariant, `API read-only ledger authority is missing: ${invariant}`);
 }
