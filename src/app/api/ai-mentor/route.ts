@@ -26,6 +26,9 @@ import {
   loadMentorAiPreferences,
   persistMentorConversationPair,
 } from "@/lib/ai/mentor-trust-store";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 
 type MentorRequest = {
   question?: string;
@@ -395,10 +398,36 @@ export async function POST(request: NextRequest) {
       return { memoryPersisted, evidencePersisted };
     };
 
+    // External egress is gated on the acting tenant's Mentor entitlement.
+    // mentor_ai_preferences is student_global, so this route served the external
+    // provider by session.studentId alone, with no binding check and no product
+    // gate (#438 review): a student bound to a tenant not entitled to Mentor — or
+    // on a foreign branded host — could still send data to the external provider.
+    // The request now resolves the acting tenant and only admits egress for a
+    // resolved, entitled student tenant; every other case (no student, unbound,
+    // revoked, foreign host, unreadable binding, or product disabled) fails closed
+    // to the local academy fallback, the same no-egress path a student who
+    // disabled the external provider already takes. Only egress is gated — the
+    // local guidance stays available to everyone.
+    let mentorEntitled = false;
+    if (studentId) {
+      const tenantContext = await resolveTenantPrincipalContext({
+        session,
+        request,
+        requiredPrincipalType: "student",
+        scopes: ["academy:learning-events:read"],
+        requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
+      });
+      if (tenantContext.available) {
+        mentorEntitled = (await requireTenantProduct(tenantContext.tenantId, "mentor")) === null;
+      }
+    }
+
     const apiKey = process.env.OPENAI_API_KEY?.trim() ?? "";
     const lowCostPattern = /^(سلام|درود|hi|hello|thanks|thank you|ممنون|مرسی)[.!؟\s]*$/i;
     if (
       !apiKey ||
+      !mentorEntitled ||
       !preferences.externalProviderEnabled ||
       lowCostPattern.test(question)
     ) {
@@ -406,9 +435,11 @@ export async function POST(request: NextRequest) {
         fallback.answer,
         !apiKey
           ? "provider_not_configured"
-          : preferences.externalProviderEnabled
-            ? "local_low_cost_path"
-            : "provider_disabled_by_user",
+          : !mentorEntitled
+            ? "product_not_entitled"
+            : preferences.externalProviderEnabled
+              ? "local_low_cost_path"
+              : "provider_disabled_by_user",
       );
       return apiOk(
         responseEnvelope({
@@ -420,9 +451,11 @@ export async function POST(request: NextRequest) {
           providerAttempted: false,
           providerStatus: !apiKey
             ? "provider_not_configured"
-            : preferences.externalProviderEnabled
-              ? "local_low_cost_path"
-              : "provider_disabled_by_user",
+            : !mentorEntitled
+              ? "product_not_entitled"
+              : preferences.externalProviderEnabled
+                ? "local_low_cost_path"
+                : "provider_disabled_by_user",
           memoryPersisted: local.memoryPersisted,
           memoryMode: local.memoryPersisted ? "durable" : "ephemeral",
           evidencePersisted: local.evidencePersisted,

@@ -255,6 +255,7 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 // Routes that gate, and the product each gates on.
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/achievements/route.ts": "academy",
+  "src/app/api/ai-mentor/route.ts": "mentor",
   "src/app/api/academy-certificates/route.ts": "academy",
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",

@@ -1,0 +1,152 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/ai-mentor",
+   "method": "POST",
+   "previousSourceHash": "1f21fb7b14e85f5637c954bd",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash, tenantSource and the tenant/product controls change on this POST (multi-tenant #20, #438 review): the AI Mentor inference path served the external provider by session.studentId alone, with no binding check and no Mentor product gate, so a student bound to a tenant not entitled to Mentor \u2014 or on a foreign branded host \u2014 could still send data to the external provider. The POST now resolves the acting tenant from the bound student principal and gates external egress on the Mentor entitlement: a non-entitled or unresolved tenant degrades to the local academy fallback (no egress), the same no-egress path a student who disabled the external provider already takes. The trust boundary \u2014 strict session, input inspection, typed egress, immutable admission before the provider call, output safety and the atomic conversation pair \u2014 is unchanged, verified against the effective manifest and the AI Mentor trust-boundary guard.",
+   "replacement": {
+    "route": "/api/ai-mentor",
+    "method": "POST",
+    "sourcePath": "src/app/api/ai-mentor/route.ts",
+    "sourceHash": "868db7997983a68f4570bef5",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": "tenantContext",
+    "risk": [
+     "ai-memory"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "ai-mentor",
+     "expectsBody": false,
+     "bodySizeLimit": false,
+     "contentTypeCheck": false,
+     "inputParser": null,
+     "idempotency": false,
+     "transaction": false,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": null
+    },
+    "domainOwner": "ai-mentor",
+    "testReferences": [
+     "src/tests/security/ai-mentor-provider.test.ts",
+     "src/tests/security/ai-mentor-trust-boundary.test.ts",
+     "src/tests/security/ai-mentor-trust-store-postgres.test.ts",
+     "src/tests/security/auth-strict-revocation-routes.test.ts",
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": false,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/ai-mentor/route.ts",
+     "method": "POST",
+     "resolved": true
+    }
+   }
+  },
+  {
+   "route": "/api/ai-mentor-v2",
+   "method": "POST",
+   "previousSourceHash": "f5b3b1803e1c60699a8fcc18",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Delegating alias of /api/ai-mentor: only its delegatedSourceHash tracks the delegate's moved source (multi-tenant #20, #438 review \u2014 external egress now gated on the Mentor entitlement). The alias's own source, contract and controls are unchanged; re-pinned because the delegate hash it mirrors moved, not because this operation did.",
+   "replacement": {
+    "route": "/api/ai-mentor-v2",
+    "method": "POST",
+    "sourcePath": "src/app/api/ai-mentor-v2/route.ts",
+    "sourceHash": "f5b3b1803e1c60699a8fcc18",
+    "delegatedTo": "src/app/api/ai-mentor/route.ts",
+    "delegatedSourceHash": "868db7997983a68f4570bef5",
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "canonical /api/ai-mentor handler",
+    "tenantSource": "tenantContext",
+    "risk": [
+     "ai-memory"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "ai-mentor",
+     "expectsBody": false,
+     "bodySizeLimit": false,
+     "contentTypeCheck": false,
+     "inputParser": null,
+     "idempotency": false,
+     "transaction": false,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": null
+    },
+    "domainOwner": "ai-mentor-v2",
+    "testReferences": [
+     "src/tests/security/auth-strict-revocation-routes.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": false,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/ai-mentor/route.ts",
+     "method": "POST",
+     "resolved": true
+    },
+    "operationOverride": {
+     "authorityType": "compatibility-alias",
+     "reason": "The compatibility endpoint delegates the complete request to the canonical AI Mentor handler and inherits its response policy.",
+     "issue": "#108"
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}
