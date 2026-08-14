@@ -21,7 +21,7 @@ for (const [label, pattern] of [
   // product is checked for that tenant, and a non-entitled (or unresolved)
   // tenant degrades to the local fallback rather than reaching the provider.
   ["tenant resolved for egress", /resolveTenantPrincipalContext\(/],
-  ["mentor entitlement gate", /requireTenantProduct\(tenantContext\.tenantId, "mentor"\)/],
+  ["mentor entitlement gate", /(?:requireTenantProduct|tenantProductVerdict)\(tenantContext\.tenantId, "mentor"\)/],
   // Pin the entitlement into the egress-decision disjunction itself, not merely
   // somewhere in the file: !mentorEntitled must sit in the condition that routes
   // to the local fallback, or a non-entitled tenant reaches the provider.
