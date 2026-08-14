@@ -221,15 +221,25 @@ describe("Tenant-scoped route guards", () => {
   // and a not-available outcome returns an authenticated-but-empty profile.
   it("gates the cross-tenant profile behind the acting tenant in academy-student-profile", async () => {
     const text = await source("src/app/api/academy-student-profile/route.ts");
+    // The cartax join must be gated on the FOUND student's binding, not the
+    // session's studentId field — a returning student's session is signed with
+    // studentId:null (academy-auth) and the student is found by email, so gating
+    // only on session.studentId would leave the account-only path ungated (#446).
     assert.match(
       text,
-      /if \(studentId\) \{[\s\S]*await resolveTenantPrincipalContext\(/,
-      "the acting tenant must be resolved for an authenticated student before the cartax join is served",
+      /if \(profile\?\.id\) \{[\s\S]*resolvedPrincipalId: String\(profile\.id\)/,
+      "the cartax must be gated on the found student's binding via resolvedPrincipalId",
     );
     assert.match(
       text,
       /if \(!tenantContext\.available\)[\s\S]*return apiOk\(\{ authenticated, profile: null \}\)/,
       "a foreign host / unbound student must be served no cross-tenant profile, not their cartax",
+    );
+    // A degraded strict-revocation authority is an outage, not a logout.
+    assert.match(
+      text,
+      /if \(session\.authorityDegraded\)/,
+      "a degraded revocation authority must be an outage, not an anonymous profile",
     );
     // The POST creates the student before its tenant binding is trigger-created,
     // so it must not be forced through the student resolver.

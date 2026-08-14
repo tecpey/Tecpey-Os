@@ -217,11 +217,21 @@ export async function resolveTenantPrincipalContext(input: {
   /** A tenant the caller already asserted and is entitled to. Never a default. */
   assertedTenantId?: string | null;
   assertedWorkspaceId?: string | null;
+  /**
+   * A principal id the caller resolved from the session's own verified evidence,
+   * for the case where the acting principal is not carried on the session as a
+   * typed field. The profile bootstrap uses it: a returning student's session is
+   * signed with studentId:null, so the student is discovered by the session's
+   * verified account email, and its student_global data must still be gated on
+   * THAT student's binding to the acting tenant. When set, the binding check and
+   * foreign-host refusal apply to this principal. The caller must only ever pass
+   * a principal the session is entitled to act as.
+   */
+  resolvedPrincipalId?: string | null;
 }): Promise<TenantPrincipalContext> {
-  const principalId = sessionPrincipal(
-    input.session,
-    input.requiredPrincipalType,
-  );
+  const principalId =
+    input.resolvedPrincipalId?.trim() ||
+    sessionPrincipal(input.session, input.requiredPrincipalType);
   if (!principalId) return { available: false, reason: "principal_missing" };
 
   let assertedTenantId = input.assertedTenantId ?? null;

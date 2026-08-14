@@ -13,7 +13,7 @@
     "route": "/api/academy-student-profile",
     "method": "POST",
     "sourcePath": "src/app/api/academy-student-profile/route.ts",
-    "sourceHash": "cf4a8908e11d965da56a4203",
+    "sourceHash": "7093e058c394be53d0e57421",
     "delegatedTo": null,
     "delegatedSourceHash": null,
     "mutationMode": "active",

@@ -164,38 +164,15 @@ export async function GET(req: NextRequest) {
       if (!limit.ok) return apiRateLimited(limit.retryAfterSeconds);
 
       const session = await getCanonicalSession(req, { strictRevocation: true });
-      const authenticated = session.isAcademyUser || Boolean(session.studentId);
-      let studentId = session.studentId;
-
-      // academy_student_cartax is student_global (classification registry): the
-      // derived progress, badges, XP and snapshots joined below carry no tenant
-      // column. When the caller is an authenticated student, resolve the acting
-      // tenant so this profile is not served on a branded host the student is not
-      // bound to, and gate the Academy product. The pre-student onboarding
-      // discovery (email only, before a studentId — the student row and its
-      // tenant binding do not exist yet) is left untouched below.
-      if (studentId) {
-        const tenantContext = await resolveTenantPrincipalContext({
-          session,
-          request: req,
-          requiredPrincipalType: "student",
-          scopes: ["academy:learning-events:read"],
-          requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
-        });
-        if (!tenantContext.available) {
-          // A binding-storage outage is a service failure; a foreign branded host
-          // or an unbound/revoked principal must not be served this student's
-          // cross-tenant profile. The response keeps the shape the client already
-          // handles before onboarding — authenticated, but no profile.
-          if (tenantContext.reason === "binding_storage_unavailable") {
-            return apiError("academy_profile_service_unavailable", 503);
-          }
-          return apiOk({ authenticated, profile: null });
-        }
-        const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
-        if (productGate) return productGate;
-        studentId = tenantContext.principalId;
+      // A degraded strict-revocation authority (e.g. Redis down while Postgres
+      // still holds an active session) returns a guest with authorityDegraded and
+      // cleared identity. That is an outage, not a logout — reporting an anonymous
+      // profile would sign valid users out mid-outage (#446 review).
+      if (session.authorityDegraded) {
+        return apiError("academy_profile_service_unavailable", 503);
       }
+      const authenticated = session.isAcademyUser || Boolean(session.studentId);
+      const studentId = session.studentId;
 
       try {
         const result = await withDb(async (client) => {
@@ -223,7 +200,37 @@ export async function GET(req: NextRequest) {
           return query.rows[0] || null;
         });
         if (result.enabled) {
-          return apiOk({ authenticated, profile: result.value });
+          const profile = result.value as { id?: string } | null;
+          // academy_student_cartax is student_global (classification registry):
+          // the joined progress, badges, XP and snapshots carry no tenant column.
+          // Gate them on the FOUND student's binding to the acting tenant, so a
+          // foreign branded host is not served the cross-tenant profile — this
+          // covers the account-only session (studentId:null, as academy-auth signs
+          // it) that finds the student by its verified email. A row with no student
+          // id (pre-student onboarding) has no cartax to gate.
+          if (profile?.id) {
+            const tenantContext = await resolveTenantPrincipalContext({
+              session,
+              request: req,
+              requiredPrincipalType: "student",
+              resolvedPrincipalId: String(profile.id),
+              scopes: ["academy:learning-events:read"],
+              requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+            });
+            if (!tenantContext.available) {
+              // A binding-storage outage is a service failure; a foreign branded
+              // host or an unbound/revoked principal must not be served this
+              // student's cross-tenant profile. The response keeps the shape the
+              // client already handles before onboarding — authenticated, no profile.
+              if (tenantContext.reason === "binding_storage_unavailable") {
+                return apiError("academy_profile_service_unavailable", 503);
+              }
+              return apiOk({ authenticated, profile: null });
+            }
+            const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+            if (productGate) return productGate;
+          }
+          return apiOk({ authenticated, profile });
         }
 
         if (!canUseLocalProfileStorage()) {
