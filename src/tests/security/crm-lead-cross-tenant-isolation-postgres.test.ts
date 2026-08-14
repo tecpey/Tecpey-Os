@@ -5,7 +5,6 @@ import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 import { ingestAcademyLead, type AcademyLeadCommand } from "../../lib/crm/lead-authority";
 import { deleteCrmLeadData, exportCrmLeadData } from "../../lib/crm/lead-data-rights";
-import { PLATFORM } from "../../lib/platform-config";
 
 // Cross-tenant adversarial proof for crm_leads (#109).
 //
@@ -28,7 +27,7 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const databaseConfigured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
 
-const TENANT_A = PLATFORM.DEFAULT_TENANT_ID;
+const TENANT_A = `tenant-a-${randomUUID()}`;
 const TENANT_B = `tenant-b-${randomUUID()}`;
 
 function uniquePhone(): string {
@@ -78,6 +77,14 @@ async function tenantOfLead(leadId: string): Promise<string | null> {
   });
 }
 
+async function ingestWithStorageRetry(commandInput: AcademyLeadCommand) {
+  for (let attempt = 1; ; attempt += 1) {
+    const result = await ingestAcademyLead(commandInput);
+    if (result.status !== "unavailable" || attempt >= 3) return result;
+    await new Promise((resolve) => setTimeout(resolve, 25 * attempt));
+  }
+}
+
 before(async () => {
   if (!databaseConfigured || !databaseUrl) return;
   process.env.TECPEY_CRM_PII_KEY_B64 ||= Buffer.alloc(32, 11).toString("base64");
@@ -86,20 +93,22 @@ before(async () => {
   pool = new Pool({ connectionString: databaseUrl, max: 8, allowExitOnIdle: true });
   await withClient(async (client) => {
     await applyDatabaseMigrationsWithLock(client);
-    await client.query(
-      `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
-       VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
-       ON CONFLICT (id) DO NOTHING`,
-      [TENANT_B],
-    );
+    for (const tenantId of [TENANT_A, TENANT_B]) {
+      await client.query(
+        `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+         VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
+         ON CONFLICT (id) DO NOTHING`,
+        [tenantId],
+      );
+    }
   });
 });
 
 after(async () => {
   // crm_lead_audit_events is append-only (immutable audit) and crm_leads is
-  // ON DELETE RESTRICT, so the tenant-B fixtures cannot be torn down and are
+  // ON DELETE RESTRICT, so these tenant fixtures cannot be torn down and are
   // intentionally left in place — harmless in the ephemeral CI database, and
-  // each run uses a fresh random TENANT_B id.
+  // each run uses fresh random tenant ids.
   await pool?.end();
   pool = null;
 });
@@ -112,7 +121,7 @@ describe("CRM lead cross-tenant isolation", () => {
       const phone = uniquePhone();
       const email = `shared-${randomUUID()}@example.test`;
 
-      const admittedA = await ingestAcademyLead(
+      const admittedA = await ingestWithStorageRetry(
         command({ tenantId: TENANT_A, pii: { ...command().pii, phone, email } }),
       );
       assert.equal(admittedA.status, "committed");
@@ -120,7 +129,7 @@ describe("CRM lead cross-tenant isolation", () => {
       // Tenant B, byte-identical contact (same phone → same global contact_hash),
       // distinct idempotency key. This is the shape that would deduplicate across
       // tenants if tenant_id were not part of the active-contact uniqueness.
-      const admittedB = await ingestAcademyLead(
+      const admittedB = await ingestWithStorageRetry(
         command({ tenantId: TENANT_B, pii: { ...command().pii, phone, email } }),
       );
       assert.equal(admittedB.status, "committed");
@@ -153,10 +162,10 @@ describe("CRM lead cross-tenant isolation", () => {
       const phone = uniquePhone();
       const email = `dedup-${randomUUID()}@example.test`;
 
-      const firstA = await ingestAcademyLead(
+      const firstA = await ingestWithStorageRetry(
         command({ tenantId: TENANT_A, pii: { ...command().pii, phone, email } }),
       );
-      const firstB = await ingestAcademyLead(
+      const firstB = await ingestWithStorageRetry(
         command({ tenantId: TENANT_B, pii: { ...command().pii, phone, email } }),
       );
       assert.equal(firstA.status, "committed");
@@ -168,7 +177,7 @@ describe("CRM lead cross-tenant isolation", () => {
       // A second, differently-keyed submission of the same contact under tenant A
       // must deduplicate to tenant A's existing lead (created=false, same id) —
       // and must never resolve to tenant B's identically-hashed lead.
-      const dedupA = await ingestAcademyLead(
+      const dedupA = await ingestWithStorageRetry(
         command({ tenantId: TENANT_A, pii: { ...command().pii, phone, email } }),
       );
       assert.equal(dedupA.status, "committed");
@@ -184,7 +193,7 @@ describe("CRM lead cross-tenant isolation", () => {
     "rejects cross-tenant read and erase by lead id: tenant B cannot export or delete tenant A's lead",
     { skip: !databaseConfigured, timeout: 30_000 },
     async () => {
-      const admittedA = await ingestAcademyLead(command({ tenantId: TENANT_A }));
+      const admittedA = await ingestWithStorageRetry(command({ tenantId: TENANT_A }));
       assert.equal(admittedA.status, "committed");
       if (admittedA.status !== "committed") throw new Error("tenant A ingest failed");
       const leadA = admittedA.result.id;
