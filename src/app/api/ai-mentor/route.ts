@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
     if (studentId) {
       const tenantContext = await resolveTenantPrincipalContext({
         session,
-        request,
+        request: request,
         requiredPrincipalType: "student",
         scopes: ["academy:learning-events:read"],
         requestId: resolveSensitiveAuditCorrelation(request.headers.get("x-tecpey-request-id")),
