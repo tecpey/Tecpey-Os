@@ -123,9 +123,13 @@ function readinessPercent(gates: readonly AuthProviderGate[]): number {
   return Math.round((gates.filter((gate) => gate.ready).length / gates.length) * 100);
 }
 
+function allGatesReady(gates: readonly AuthProviderGate[]): boolean {
+  return gates.every((gate) => gate.ready);
+}
+
 function oauthProviderStatus(socialLoginEnabled: boolean, gates: readonly AuthProviderGate[]): AuthProviderStatus {
   if (!socialLoginEnabled) return "locked";
-  return gates.every((gate) => gate.ready) ? "needs_evidence" : "needs_evidence";
+  return allGatesReady(gates) ? "needs_evidence" : "needs_evidence";
 }
 
 export function isAuthProviderId(value: unknown): value is AuthProviderId {
@@ -145,6 +149,8 @@ export function resolveAuthProviderControlSnapshot(input: {
   const appleGates = gatesFromEvidence(evidenceByProvider.apple);
   const telegramGates = gatesFromEvidence(evidenceByProvider.telegram);
   const emailGates = gatesFromEvidence(evidenceByProvider.email_otp);
+  const googleReadyForReview = socialLoginEnabled && allGatesReady(googleGates);
+  const appleReadyForReview = socialLoginEnabled && allGatesReady(appleGates);
 
   const providers: AuthProviderControl[] = [
     {
@@ -177,7 +183,7 @@ export function resolveAuthProviderControlSnapshot(input: {
       riskLevel: "critical",
       requiredPermission: "admin.roles.manage",
       stepUpRequired: true,
-      adminLocked: true,
+      adminLocked: !googleReadyForReview,
       callbackPath: "/api/auth/oauth/google/callback",
       gates: googleGates,
       readinessPercent: readinessPercent(googleGates),
@@ -195,7 +201,7 @@ export function resolveAuthProviderControlSnapshot(input: {
       riskLevel: "critical",
       requiredPermission: "admin.roles.manage",
       stepUpRequired: true,
-      adminLocked: true,
+      adminLocked: !appleReadyForReview,
       callbackPath: "/api/auth/oauth/apple/callback",
       gates: appleGates,
       readinessPercent: readinessPercent(appleGates),
