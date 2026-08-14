@@ -80,7 +80,7 @@ describe("Academy reward idempotency", () => {
       const client = await pool!.connect();
       try {
         await client.query("BEGIN");
-        const projection = await refreshAcademyProgressProjection(client, studentId, "fa", { tenantId: "tecpey", workspaceId: "main" });
+        const projection = await refreshAcademyProgressProjection(client, studentId, "fa");
         await client.query("COMMIT");
         assert.equal(projection.state.xp, 25);
         assert.deepEqual(projection.state.earnedBadges, ["first-lesson"]);

@@ -8,12 +8,12 @@
    "previousSourceHash": "e20a33705d30df247701e6a0",
    "issue": "#20",
    "owner": "academy-platform",
-   "reason": "Only sourceHash changes on this deny-only POST (multi-tenant #20): the academy progress projection reads academy_term_progress, which is tenant-scoped, so refreshAcademyProgressProjection now takes the caller's resolved acting tenant/workspace and filters that read to the tenant the request acts in instead of folding every tenant the student is bound to into one projection. The GET on this route was migrated to resolve the acting tenant, confirm the binding, refuse a foreign host and gate Academy before refreshing the projection with that scope; the POST still returns 405 academy_state_read_only. Re-pinned because the file hash moved, not the operation.",
+   "reason": "Only sourceHash changes on this deny-only POST (multi-tenant #20): the GET on this route now resolves the acting tenant, confirms the student's binding, refuses a foreign branded host and gates the Academy product before refreshing the student_global progress projection with the bound principal; the POST still returns 405 academy_state_read_only. Re-pinned because the file hash moved, not the operation.",
    "replacement": {
     "route": "/api/academy-state",
     "method": "POST",
     "sourcePath": "src/app/api/academy-state/route.ts",
-    "sourceHash": "c2cb21d1d7a7985459d46382",
+    "sourceHash": "b3041d8f1cf8d9ca413f3eac",
     "delegatedTo": null,
     "delegatedSourceHash": null,
     "mutationMode": "deny-only",
@@ -66,143 +66,6 @@
     "findings": [],
     "evidenceSource": {
      "sourcePath": "src/app/api/academy-state/route.ts",
-     "method": "POST",
-     "resolved": true
-    }
-   }
-  },
-  {
-   "route": "/api/academy-lesson-assessment",
-   "method": "POST",
-   "previousSourceHash": "e49252cc97db2f16d7ccff97",
-   "issue": "#20",
-   "owner": "academy-platform",
-   "reason": "Only sourceHash and the projection call change on this POST (multi-tenant #20): the academy progress projection reads academy_term_progress, which is tenant-scoped, so refreshAcademyProgressProjection now takes the caller's resolved acting tenant/workspace and filters that read to the tenant the request acts in instead of folding every tenant the student is bound to into one projection. This already-migrated route now passes its resolved tenantContext tenant/workspace (and the bound principal) into the projection. Its command authority, idempotency, CSRF and strict revocation are unchanged.",
-   "replacement": {
-    "route": "/api/academy-lesson-assessment",
-    "method": "POST",
-    "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
-    "sourceHash": "628f64cba0a4ec0e24bb6369",
-    "delegatedTo": null,
-    "delegatedSourceHash": null,
-    "mutationMode": "active",
-    "classification": "authenticated",
-    "principalSource": "getCanonicalSession",
-    "tenantSource": "tenantContext",
-    "risk": [
-     "progress"
-    ],
-    "controls": {
-     "csrf": true,
-     "strictRevocation": true,
-     "rateLimit": true,
-     "rateLimitNamespace": "academy-lesson-assessment",
-     "expectsBody": true,
-     "bodySizeLimit": true,
-     "contentTypeCheck": false,
-     "inputParser": "local:json",
-     "idempotency": true,
-     "transaction": true,
-     "verifiedPrincipal": true,
-     "tenantFromVerifiedContext": true,
-     "noStore": true,
-     "audit": true,
-     "redaction": true,
-     "failClosed": true,
-     "serviceIdentity": false,
-     "setsCookie": false,
-     "explicitPublicCachePolicy": false,
-     "headerBodySizeHint": true,
-     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
-    },
-    "domainOwner": "academy-lesson-assessment",
-    "testReferences": [
-     "src/tests/security/tenant-scoped-route-guards.test.ts"
-    ],
-    "requirements": {
-     "csrf": true,
-     "strictRevocation": false,
-     "rateLimit": false,
-     "bodySizeLimit": true,
-     "idempotency": true,
-     "verifiedPrincipal": true,
-     "noStore": true,
-     "audit": false,
-     "redaction": true,
-     "serviceIdentity": false
-    },
-    "findings": [],
-    "evidenceSource": {
-     "sourcePath": "src/app/api/academy-lesson-assessment/route.ts",
-     "method": "POST",
-     "resolved": true
-    }
-   }
-  },
-  {
-   "route": "/api/academy-term-progress",
-   "method": "POST",
-   "previousSourceHash": "e6adfce84dfc3fc4c3869e9e",
-   "issue": "#20",
-   "owner": "academy-platform",
-   "reason": "Only sourceHash and the projection call change on this POST (multi-tenant #20): the academy progress projection reads academy_term_progress, which is tenant-scoped, so refreshAcademyProgressProjection now takes the caller's resolved acting tenant/workspace and filters that read to the tenant the request acts in instead of folding every tenant the student is bound to into one projection. This already-migrated route now passes its resolved tenantContext tenant/workspace into the projection. Its term-assessment command authority, idempotency, CSRF and strict revocation are unchanged.",
-   "replacement": {
-    "route": "/api/academy-term-progress",
-    "method": "POST",
-    "sourcePath": "src/app/api/academy-term-progress/route.ts",
-    "sourceHash": "e72f974c9a1697ef8336c73c",
-    "delegatedTo": null,
-    "delegatedSourceHash": null,
-    "mutationMode": "active",
-    "classification": "authenticated",
-    "principalSource": "getCanonicalSession",
-    "tenantSource": "tenantContext",
-    "risk": [
-     "progress"
-    ],
-    "controls": {
-     "csrf": true,
-     "strictRevocation": true,
-     "rateLimit": true,
-     "rateLimitNamespace": "academy-term-progress-submit",
-     "expectsBody": true,
-     "bodySizeLimit": true,
-     "contentTypeCheck": false,
-     "inputParser": "local:text",
-     "idempotency": true,
-     "transaction": true,
-     "verifiedPrincipal": true,
-     "tenantFromVerifiedContext": true,
-     "noStore": true,
-     "audit": true,
-     "redaction": true,
-     "failClosed": true,
-     "serviceIdentity": false,
-     "setsCookie": false,
-     "explicitPublicCachePolicy": false,
-     "headerBodySizeHint": false,
-     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
-    },
-    "domainOwner": "academy-term-progress",
-    "testReferences": [
-     "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
-     "src/tests/security/tenant-scoped-route-guards.test.ts"
-    ],
-    "requirements": {
-     "csrf": true,
-     "strictRevocation": false,
-     "rateLimit": false,
-     "bodySizeLimit": true,
-     "idempotency": true,
-     "verifiedPrincipal": true,
-     "noStore": true,
-     "audit": false,
-     "redaction": true,
-     "serviceIdentity": false
-    },
-    "findings": [],
-    "evidenceSource": {
-     "sourcePath": "src/app/api/academy-term-progress/route.ts",
      "method": "POST",
      "resolved": true
     }

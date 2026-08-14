@@ -56,10 +56,7 @@ export async function GET(req: NextRequest) {
     const locale = parseLocale(new URL(req.url).searchParams.get("locale"));
 
     const result = await withTx((client) =>
-      refreshAcademyProgressProjection(client, tenantContext.principalId, locale, {
-        tenantId: tenantContext.tenantId,
-        workspaceId: tenantContext.workspaceId,
-      }),
+      refreshAcademyProgressProjection(client, tenantContext.principalId, locale),
     );
     if (!result.enabled) return apiError("progress_service_not_configured", 503);
     return apiOk(result.value, 200, { "Cache-Control": "no-store, max-age=0" });

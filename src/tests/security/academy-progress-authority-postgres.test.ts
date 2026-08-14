@@ -120,7 +120,7 @@ describe("Academy PostgreSQL progress authority v2", () => {
       const client = await pool!.connect();
       try {
         await client.query("BEGIN");
-        const projection = await refreshAcademyProgressProjection(client, studentId, "fa", { tenantId: "tecpey", workspaceId: "main" });
+        const projection = await refreshAcademyProgressProjection(client, studentId, "fa");
         await client.query("COMMIT");
         assert.equal(projection.state.xp, 25);
         assert.equal(projection.state.completedLessons["t1-m1-l1"]?.score, 90);
