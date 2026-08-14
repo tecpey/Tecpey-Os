@@ -18,7 +18,6 @@ import { applyDatabaseMigrationsWithLock } from "../../lib/db-migration-plan";
 
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
-const cleanupTenants = new Set<string>();
 let pool: Pool | null = null;
 
 async function withClient<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -34,7 +33,6 @@ async function seedTenantAdmin(
   tenantId: string,
   workspaceId: string,
 ): Promise<{ adminId: string }> {
-  cleanupTenants.add(tenantId);
   return withClient(async (client) => {
     await client.query(
       `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
@@ -67,22 +65,8 @@ before(async () => {
 });
 
 after(async () => {
-  if (pool) {
-    await withClient(async (client) => {
-      const tenants = [...cleanupTenants];
-      if (tenants.length === 0) return;
-
-      await client.query("DELETE FROM admin_auth_provider_evidence_events WHERE tenant_id = ANY($1::text[])", [
-        tenants,
-      ]);
-      await client.query("DELETE FROM admin_auth_provider_evidence WHERE tenant_id = ANY($1::text[])", [
-        tenants,
-      ]);
-      await client.query("DELETE FROM admin_users WHERE tenant_id = ANY($1::text[])", [tenants]);
-      await client.query("DELETE FROM platform_workspaces WHERE tenant_id = ANY($1::text[])", [tenants]);
-      await client.query("DELETE FROM platform_tenants WHERE id = ANY($1::text[])", [tenants]);
-    });
-  }
+  // Evidence events are append-only by design; the CI database is ephemeral, so
+  // this proof closes the pool without deleting the event trail it just proved.
   await pool?.end();
   pool = null;
 });
