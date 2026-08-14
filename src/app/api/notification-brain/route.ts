@@ -9,6 +9,7 @@ import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import { recordDegradedRead } from "@/lib/degraded-read";
 
 const ROUTE = "/api/notification-brain";
@@ -37,6 +38,8 @@ export async function GET(req: NextRequest) {
       recordDegradedRead(ROUTE, "tenant_context_unavailable");
       return noStore(apiOk({ authenticated: true, degraded: true, brain: fallbackNotificationBrain(locale) }));
     }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     try {
       const result = await withDb((client) => buildNotificationBrain(client, tenantContext.principalId, locale, tenantContext.tenantId));
       if (!result.enabled) {
@@ -68,6 +71,8 @@ export async function POST(req: NextRequest) {
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
     if (!tenantContext.available) return noStore(apiError("notification_brain_unavailable", 503));
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return noStore(productGate);
     try {
       const result = await withDb((client) => createBrainNotification(client, tenantContext.principalId, locale, {
         tenantId: tenantContext.tenantId,

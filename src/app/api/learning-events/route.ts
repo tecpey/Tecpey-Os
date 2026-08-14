@@ -10,6 +10,7 @@ import { withObservability } from "@/lib/observe";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 const clientAllowedEvents = new Set<LearningEventType>(["notification_opened", "lesson_viewed", "mentor_opened"]);
 const blockedServerEvents = new Set(["lesson_completed", "quiz_attempt_recorded", "mentor_challenge_answered", "simulator_decision_saved", "certificate_issued", "badge_earned", "community_rank_changed"]);
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
     if (!tenantContext.available) return noStore(apiError("learning_events_unavailable", 503));
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     try {
       const boundedBodyRequest = await readBoundedJsonRequest(req, {
         maxBytes: 48_000,

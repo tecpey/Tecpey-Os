@@ -88,3 +88,34 @@ export function getEnabledProducts(): Product[] {
 export function getProductBySlug(slug: string): Product | null {
   return Object.values(PRODUCTS).find((p) => p.slug === slug) ?? null;
 }
+
+/**
+ * Whether a tenant may be served a product (multi-tenant #20, section 3.3).
+ *
+ * Two gates, and a product needs both. `isEnabled()` is the platform flag — is
+ * this product running on this deployment at all. `products[]` is the tenant's
+ * entitlement — was this tenant provisioned with it. Neither implies the other:
+ * a platform can run Academy while a white-label tenant bought only Exchange,
+ * and a tenant entitled to Social must still not be served it on a deployment
+ * where Social is switched off.
+ *
+ * `platform_tenants.products[]` has been carried on the row, loaded into the
+ * `Tenant` type, and read by nothing since it was introduced. Until this
+ * function had a caller, a tenant provisioned without Academy was served every
+ * Academy route exactly like one that bought it.
+ *
+ * Fail-closed on both sides. An absent tenant is not entitled — the caller
+ * resolved a tenant that does not exist, which is not a reason to serve it — and
+ * an empty `products[]` means entitled to nothing, not "unspecified, so allow".
+ * The only tenant any deployment seeds is `tecpey`, and migrations 0001 and 0046
+ * both give it the full product list, so this changes nothing for it.
+ */
+export function isProductEnabledForTenant(
+  tenant: { products: readonly string[] } | null | undefined,
+  productId: ProductId,
+): boolean {
+  const product = PRODUCTS[productId];
+  if (!product || !product.isEnabled()) return false;
+  if (!tenant || !Array.isArray(tenant.products)) return false;
+  return tenant.products.includes(productId);
+}

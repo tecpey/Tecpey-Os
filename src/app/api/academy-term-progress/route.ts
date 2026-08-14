@@ -19,6 +19,7 @@ import { refreshAcademyProgressProjection } from "@/lib/academy-progress-project
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 type Queryable = {
   query: (
@@ -101,6 +102,8 @@ export async function GET(req: NextRequest) {
         requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
       });
       if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+      const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+      if (productGate) return productGate;
       const locale = cleanText(
         new URL(req.url).searchParams.get("locale") || "fa",
         10,
@@ -154,6 +157,8 @@ export async function POST(req: NextRequest) {
         requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
       });
       if (!tenantContext.available) return apiError("learning_events_unavailable", 503);
+      const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+      if (productGate) return productGate;
       const studentId = tenantContext.principalId;
 
       try {
