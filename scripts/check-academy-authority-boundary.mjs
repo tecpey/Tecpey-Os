@@ -27,6 +27,9 @@ const files = {
   projectionTests: "src/tests/security/academy-progress-projection-authority.test.ts",
   postgresTests: "src/tests/security/academy-progress-authority-postgres.test.ts",
   idempotencyTests: "src/tests/security/academy-progress-idempotency-postgres.test.ts",
+  monthlyLeaguePolicy: "src/lib/academy-monthly-league-policy.ts",
+  monthlyLeagueTests: "src/tests/security/academy-progress-monthly-league-policy.test.ts",
+  monthlyLeagueContract: "docs/academy/ACADEMY_MONTHLY_LEAGUE_POLICY_V1.md",
 };
 const content = Object.fromEntries(
   await Promise.all(
@@ -48,6 +51,35 @@ requireText("package", "npm run academy:progress:check", "release gate must exec
 requireText("package", "npm run test:academy-progress", "release gate must execute focused Academy tests");
 requireText("workflow", "Academy progress authority tests", "CI must expose focused Academy progress evidence");
 requireText("workflow", "npm run test:academy-progress", "CI must call the governed focused test command");
+
+for (const input of [
+  "assessmentAccuracy",
+  "masteryImprovement",
+  "learningConsistency",
+  "journalQuality",
+  "ruleCompliance",
+  "repairCompletion",
+]) {
+  requireText("monthlyLeaguePolicy", input, `monthly league policy is missing ${input}`);
+}
+for (const forbidden of [
+  "real or virtual PnL",
+  "trade volume",
+  "paid plan",
+  "raw completion speed",
+]) {
+  requireText("monthlyLeagueContract", forbidden, `monthly league contract must forbid ${forbidden}`);
+}
+requireText(
+  "monthlyLeaguePolicy",
+  "c_level_compliance_approval_required",
+  "cash rewards must remain approval-gated",
+);
+requireText(
+  "monthlyLeagueTests",
+  "uses dense rank so equal scores share the same place",
+  "monthly league dense-rank proof is missing",
+);
 
 for (const mutation of ["award_xp", "pass_term", "award_badge", "lesson_complete", "module_score"]) {
   rejectText("stateRoute", mutation, `generic state projection still contains mutation ${mutation}`);
