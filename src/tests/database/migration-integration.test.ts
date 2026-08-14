@@ -62,6 +62,7 @@ const REQUIRED_MIGRATIONS = [
   "0062_academy_question_bank_locale.sql",
   "0063_notification_brain_snapshot_contract.sql",
   "0064_notification_brain_snapshot_contract_repair.sql",
+  "0076_academy_credential_ledger.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -91,6 +92,9 @@ const REQUIRED_TABLES = [
   "platform_news_materialization_snapshots",
   "platform_news_impact_history_items",
   "platform_news_materialization_snapshot_items",
+  "academy_credential_records",
+  "academy_credential_events",
+  "academy_credential_visibility_events",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -147,6 +151,9 @@ const REQUIRED_COLUMNS = [
   ["platform_news_materialization_snapshots", "snapshot_hash"],
   ["platform_news_impact_history_items", "related_coin_symbols"],
   ["platform_news_materialization_snapshot_items", "position"],
+  ["academy_credential_records", "evidence_sha256"],
+  ["academy_credential_events", "idempotency_key"],
+  ["academy_credential_visibility_events", "visibility"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -182,6 +189,9 @@ const REQUIRED_INDEXES = [
   "platform_news_impact_history_priority_idx",
   "platform_news_impact_history_coin_idx",
   "platform_news_impact_history_tool_idx",
+  "academy_credential_records_profile_idx",
+  "academy_credential_events_timeline_idx",
+  "academy_credential_visibility_timeline_idx",
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -216,6 +226,11 @@ const REQUIRED_TRIGGERS = [
   "platform_news_materialization_snapshots_immutable",
   "platform_news_impact_history_items_immutable",
   "platform_news_materialization_snapshot_items_immutable",
+  "academy_credential_records_no_update",
+  "academy_credential_events_no_update",
+  "academy_credential_visibility_events_no_update",
+  "academy_credential_events_validate_transition",
+  "academy_credential_visibility_validate_actor",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
