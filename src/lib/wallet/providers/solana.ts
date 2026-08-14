@@ -183,7 +183,13 @@ export class SolanaProvider implements WalletProvider {
       ]);
       const status = result.value[0];
       if (!status) {
-        return { txHash, chainId: "solana", confirmations: 0, required: 32, status: "pending", isComplete: false };
+        return { txHash, chainId: "solana", confirmations: 0, required: 32, status: "unknown", isComplete: false };
+      }
+      if (
+        !["processed", "confirmed", "finalized"].includes(status.confirmationStatus ?? "") ||
+        (status.slot !== undefined && (!Number.isSafeInteger(status.slot) || status.slot < 0))
+      ) {
+        return { txHash, chainId: "solana", confirmations: 0, required: 32, status: "unknown", isComplete: false };
       }
       const isFinalized = status.confirmationStatus === "finalized";
       const isFailed = !!status.err;

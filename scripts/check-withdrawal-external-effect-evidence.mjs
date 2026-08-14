@@ -17,6 +17,10 @@ const files = {
   schemaTests: "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
   authorityTests: "src/tests/security/withdrawal-external-effect-authority-postgres.test.ts",
   recoveryTests: "src/tests/security/withdrawal-external-effect-recovery-postgres.test.ts",
+  providerFixtureTests: "src/tests/wallet/provider-ambiguous-rpc-fixtures.test.ts",
+  ethereumProvider: "src/lib/wallet/providers/ethereum.ts",
+  bitcoinProvider: "src/lib/wallet/providers/bitcoin.ts",
+  solanaProvider: "src/lib/wallet/providers/solana.ts",
   settlementTests: "src/tests/security/withdrawal-settlement-postgres.test.ts",
   confirmationGateTests:
     "src/tests/security/withdrawal-external-effect-confirmation-gate-postgres.test.ts",
@@ -315,6 +319,25 @@ requireText(
   "recoveryTests",
   'recoveredClaim.mode === "reconcile"',
   "expired calling lease must become reconciliation-only debt",
+);
+for (const provider of ["ethereumProvider", "bitcoinProvider", "solanaProvider"]) {
+  requireText(
+    provider,
+    'status: "unknown"',
+    "provider ambiguity must fail closed as unknown",
+  );
+}
+for (const proof of [
+  "keeps every chain unknown when the provider cannot prove transaction presence",
+  "accepts pending only when each provider returns positive presence evidence",
+  "fails malformed provider payloads closed instead of manufacturing presence",
+]) {
+  requireText("providerFixtureTests", proof, `provider RPC fixture is missing: ${proof}`);
+}
+requireText(
+  "package",
+  "src/tests/wallet/provider-ambiguous-rpc-fixtures.test.ts",
+  "provider ambiguity fixtures must execute in the withdrawal release gate",
 );
 
 for (const proof of [
