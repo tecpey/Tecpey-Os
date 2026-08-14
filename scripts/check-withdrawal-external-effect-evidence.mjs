@@ -303,6 +303,16 @@ requireText(
 );
 requireText(
   "recoveryTests",
+  "recovers a provider-present transaction",
+  "post-RPC/pre-commit crash recovery proof is missing",
+);
+requireText(
+  "recoveryTests",
+  "the executor must query the provider before mapping the ambiguous attempt to present",
+  "post-RPC recovery must exercise the production provider-observation seam",
+);
+requireText(
+  "recoveryTests",
   'recoveredClaim.mode === "reconcile"',
   "expired calling lease must become reconciliation-only debt",
 );
