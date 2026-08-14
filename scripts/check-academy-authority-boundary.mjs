@@ -28,7 +28,7 @@ const files = {
   postgresTests: "src/tests/security/academy-progress-authority-postgres.test.ts",
   idempotencyTests: "src/tests/security/academy-progress-idempotency-postgres.test.ts",
   monthlyLeaguePolicy: "src/lib/academy-monthly-league-policy.ts",
-  monthlyLeagueTests: "src/tests/security/academy-progress-monthly-league-policy.test.ts",
+  monthlyLeagueTests: "src/tests/monthly-league/policy.test.ts",
   monthlyLeagueContract: "docs/academy/ACADEMY_MONTHLY_LEAGUE_POLICY_V1.md",
 };
 const content = Object.fromEntries(
