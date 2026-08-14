@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   BarChart3,
   BellRing,
@@ -49,6 +50,23 @@ const cards = [
   { key: "notifications", label: "اعلان‌ها", icon: BellRing },
   { key: "challenges", label: "چالش‌ها", icon: Brain },
   { key: "success", label: "موفقیت چالش", icon: ShieldCheck },
+] as const;
+
+const controlLinks = [
+  {
+    href: "/command-center/control-plane",
+    label: "ماتریس کنترل تمام بخش‌ها",
+    detail: "Feature Flag، اتصال‌ها، evidence، permission، step-up و قفل‌های launch در یک نما.",
+    icon: Database,
+    status: "All controls",
+  },
+  {
+    href: "/command-center/auth-providers",
+    label: "Providerهای ورود و Social Login",
+    detail: "Google، Apple، Telegram و Email OTP با Secret، callback، domain و audit gates.",
+    icon: Fingerprint,
+    status: "OAuth gates",
+  },
 ] as const;
 
 export function CommandCenterDashboard({
@@ -207,6 +225,34 @@ export function CommandCenterDashboard({
             {error}
           </div>
         )}
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {controlLinks.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group rounded-[24px] border border-cyan-300/15 bg-[#07111e] p-5 transition hover:border-cyan-300/30 hover:bg-[#091827] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.08]">
+                      <Icon className="h-5 w-5 text-cyan-100" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-black text-white">{item.label}</h2>
+                      <p className="mt-2 text-sm font-bold leading-7 text-slate-400">{item.detail}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-2.5 py-1 text-[10px] font-black uppercase text-cyan-100">
+                    {item.status}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           {cards.map((card) => {
