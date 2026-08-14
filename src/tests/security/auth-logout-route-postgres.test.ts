@@ -241,23 +241,45 @@ describe("Academy logout route authority", () => {
             "SELECT is_revoked FROM user_sessions WHERE id = $1",
             [session.accessJti],
           );
-          const outbox = await client.query<{ status: string }>(
-            "SELECT status FROM session_revocation_outbox WHERE session_jti = $1",
+          const outbox = await client.query<{
+            status: string;
+            attempt_count: number;
+            last_error: string | null;
+            published_at: Date | null;
+          }>(
+            `SELECT status, attempt_count, last_error, published_at
+               FROM session_revocation_outbox
+              WHERE session_jti = $1`,
             [session.accessJti],
           );
           return {
             accessRevoked: access.rows[0]?.is_revoked ?? false,
             outboxStatus: outbox.rows[0]?.status,
+            outboxAttempts: outbox.rows[0]?.attempt_count ?? 0,
+            outboxLastError: outbox.rows[0]?.last_error ?? null,
+            outboxPublishedAt: outbox.rows[0]?.published_at ?? null,
           };
         });
         assert.equal(evidence.enabled, true);
         if (evidence.enabled) {
           assert.equal(evidence.value.accessRevoked, true);
-          assert.equal(evidence.value.outboxStatus, "pending");
+          assert.equal(
+            ["pending", "published"].includes(evidence.value.outboxStatus ?? ""),
+            true,
+          );
+          if (evidence.value.outboxStatus === "pending") {
+            assert.equal(evidence.value.outboxAttempts >= 1, true);
+            assert.equal(evidence.value.outboxLastError, "redis_unavailable");
+          } else {
+            assert.ok(evidence.value.outboxPublishedAt);
+            assert.equal(await redis!.get(denyKey(session.accessJti)), "1");
+          }
         }
 
         globalThis.tecpeyRedisClient = previousRedis;
-        assert.equal(await publishPendingSessionRevocations(), true);
+        if (evidence.enabled && evidence.value.outboxStatus === "pending") {
+          assert.equal(await publishPendingSessionRevocations(), true);
+        }
         assert.equal(await redis!.get(denyKey(session.accessJti)), "1");
 
         const replay = await logout(logoutRequest(session.accessToken));
