@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-simulator-decision",
+      "method": "POST",
+      "previousSourceHash": "85d54eb9f9416534e48af830",
+      "issue": "#20",
+      "owner": "academy-platform",
+      "reason": "Only sourceHash changes on this POST, from an edit to the GET handler in the same file (multi-tenant #20): the student_global reads that were still on the retired legacy student session — academy_simulator_decisions and mentor_challenge_attempts, per the classification registry — now resolve the acting tenant with resolveTenantPrincipalContext, so they read from a student the session's principal is bound to rather than by a student id that skipped the binding and strict revocation. The POST bodies, their classification, principalSource, tenantSource and every control are unchanged, verified against the effective manifest; the entry is re-pinned because the file hash moved, not because the operation did.",
+      "replacement": {
+        "route": "/api/academy-simulator-decision",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+        "sourceHash": "d7a9153bea8b38e55fd5dc4c",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-simulator-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-simulator-decision",
+        "testReferences": [
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-simulator-decision/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/mentor-challenge",
+      "method": "POST",
+      "previousSourceHash": "6947241775ca8479391e8ac6",
+      "issue": "#20",
+      "owner": "academy-platform",
+      "reason": "Only sourceHash changes on this POST, from an edit to the GET handler in the same file (multi-tenant #20): the student_global reads that were still on the retired legacy student session — academy_simulator_decisions and mentor_challenge_attempts, per the classification registry — now resolve the acting tenant with resolveTenantPrincipalContext, so they read from a student the session's principal is bound to rather than by a student id that skipped the binding and strict revocation. The POST bodies, their classification, principalSource, tenantSource and every control are unchanged, verified against the effective manifest; the entry is re-pinned because the file hash moved, not because the operation did.",
+      "replacement": {
+        "route": "/api/mentor-challenge",
+        "method": "POST",
+        "sourcePath": "src/app/api/mentor-challenge/route.ts",
+        "sourceHash": "d7c0058dc40c0caf4d81be71",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "mentor-challenge-submit",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "mentor-challenge",
+        "testReferences": [
+          "src/tests/security/degraded-read-observability.test.ts",
+          "src/tests/security/learning-events-tenant-route.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": false,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/mentor-challenge/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

@@ -6,7 +6,6 @@ import { NextRequest } from "next/server";
 
 import { DEGRADED_READ_COUNTER, recordDegradedRead } from "../../lib/degraded-read";
 import { metrics } from "../../lib/metrics";
-import { STUDENT_SESSION_COOKIE } from "../../lib/academy-session";
 import { UNIFIED_SESSION_COOKIE } from "../../lib/unified-session";
 
 // Several academy read routes deliberately answer 200 with fallback content
@@ -17,16 +16,6 @@ import { UNIFIED_SESSION_COOKIE } from "../../lib/unified-session";
 
 const ORIGINAL_DATABASE_URL = process.env.DATABASE_URL;
 const SESSION_SECRET = "tecpey-degraded-read-test-secret-32-chars";
-
-async function studentCookie(): Promise<string> {
-  const token = await new SignJWT({ role: "student" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(randomUUID())
-    .setIssuedAt()
-    .setExpirationTime("10m")
-    .sign(new TextEncoder().encode(SESSION_SECRET));
-  return `${STUDENT_SESSION_COOKIE}=${token}`;
-}
 
 // The certificate list moved onto the canonical session when it became
 // tenant-scoped, so its degraded-read case needs a unified cookie rather than
@@ -95,10 +84,13 @@ describe("Degraded read observability", () => {
   });
 
   it("marks an achievement read as degraded instead of reporting an empty record", async () => {
+    // The achievements read moved onto the canonical session when it became
+    // tenant-scoped (#20), so it needs a unified cookie rather than the retired
+    // legacy student one — the same shift the certificate case above records.
     const { GET } = await import("../../app/api/achievements/route");
     const response = await GET(
       new NextRequest("https://tecpey.ir/api/achievements?locale=fa", {
-        headers: { cookie: await studentCookie() },
+        headers: { cookie: await unifiedStudentCookie() },
       }),
     );
 

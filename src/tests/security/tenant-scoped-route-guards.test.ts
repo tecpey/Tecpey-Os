@@ -95,6 +95,75 @@ describe("Tenant-scoped route guards", () => {
       "campaign recipients must not be selected across every tenant",
     );
   });
+
+  // The student_global reads that were still on the legacy student session
+  // (classification registry, #20). Each read one of these tables by a student
+  // id that came from getStudentSessionFromRequest — no binding check, no strict
+  // revocation, no tenant — so a student bound to two tenants saw their own data
+  // under whichever tenant they opened. Each now resolves the acting tenant,
+  // which only names a student the session's principal is bound to, and reads
+  // from that bound principal.
+  const MIGRATED_GLOBAL_READS: ReadonlyArray<{ route: string; table: string }> = [
+    { route: "src/app/api/academy-simulator-decision/route.ts", table: "academy_simulator_decisions" },
+    { route: "src/app/api/achievements/route.ts", table: "student_achievements" },
+    { route: "src/app/api/mentor-challenge/route.ts", table: "mentor_challenge_attempts" },
+  ];
+
+  for (const { route, table } of MIGRATED_GLOBAL_READS) {
+    const name = route.replace("src/app/api/", "").replace("/route.ts", "");
+    it(`reads ${name} from the bound principal, not the legacy session`, async () => {
+      const text = await source(route);
+
+      // The legacy student session carried no binding and no strict revocation.
+      // It must be gone from these files entirely, so no read can slip back onto
+      // it — the same call the certificate-list migration retired.
+      assert.doesNotMatch(
+        text,
+        /getStudentSessionFromRequest/,
+        `${name} must not resolve a student from the retired legacy session`,
+      );
+      // The read resolves the acting tenant with the request in hand, so a bound
+      // white-label host is honoured and an unbound student is refused.
+      assert.match(text, /await resolveTenantPrincipalContext\(/, name);
+      assert.match(text, /request: req/, `${name} must pass the request to the resolver`);
+      assert.match(
+        text,
+        /requiredPrincipalType: "student"/,
+        `${name} must resolve the student principal`,
+      );
+      // And the student id the query keys on comes from the resolved binding,
+      // never from a session field that skipped it.
+      assert.match(
+        text,
+        /tenantContext\.principalId/,
+        `${name} must read from the bound principal id`,
+      );
+      // This is the student_global table the migration is about; the route is
+      // expected to actually read it, so the guard is pinned to the right file.
+      assert.ok(text.includes(table), `${name} must read ${table}`);
+    });
+  }
+
+  it("only reports a degraded achievements read for a genuine storage outage", async () => {
+    // A missing, revoked, or workspace-mismatched binding, or a foreign branded
+    // host, are ordinary authorization outcomes — not outages. Degrading on them
+    // would tell the student their history is coming back after a service blip
+    // and fire a false operational alert (#431 review). The route must gate the
+    // degraded report on the storage-unavailable reason specifically.
+    const text = await source("src/app/api/achievements/route.ts");
+    assert.match(
+      text,
+      /tenantContext\.reason === "binding_storage_unavailable"/,
+      "achievements must degrade only on a storage outage, not on any unavailable reason",
+    );
+    // The unconditional form the review flagged — degrading on every
+    // not-available reason — must be gone.
+    assert.doesNotMatch(
+      text,
+      /if \(!tenantContext\.available\) \{\s*recordDegradedRead/,
+      "achievements must not record degraded for every unavailable tenant context",
+    );
+  });
 });
 
 // Routes that serve a product have to check the acting tenant's entitlement
@@ -143,6 +212,7 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 
 // Routes that gate, and the product each gates on.
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
+  "src/app/api/achievements/route.ts": "academy",
   "src/app/api/academy-certificates/route.ts": "academy",
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
