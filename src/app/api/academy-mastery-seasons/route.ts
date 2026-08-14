@@ -9,6 +9,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { withObservability } from "@/lib/observe";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,8 @@ export async function GET(req: NextRequest) {
         requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
       });
       if (!tenantContext.available) return apiError("mastery_seasons_unavailable", 503);
+      const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+      if (productGate) return productGate;
 
       const searchParams = new URL(req.url).searchParams;
       if ([...searchParams.keys()].length > 0) {

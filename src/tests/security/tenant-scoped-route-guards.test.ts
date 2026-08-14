@@ -96,3 +96,53 @@ describe("Tenant-scoped route guards", () => {
     );
   });
 });
+
+// Routes that serve a product have to check the acting tenant's entitlement
+// (multi-tenant #20, section 3.3).
+//
+// platform_tenants.products[] existed for the whole programme and was read by
+// nothing, so a tenant provisioned without Academy was served every Academy
+// route exactly like one that bought it. The gate is one call, which is exactly
+// the kind of thing a new handler forgets — so the count of gates is pinned to
+// the count of resolved tenants rather than merely asserting one is present.
+
+const PRODUCT_ROUTES: ReadonlyArray<{ route: string; product: string }> = [
+  { route: "src/app/api/academy-certificates/route.ts", product: "academy" },
+  { route: "src/app/api/academy-lesson-assessment/route.ts", product: "academy" },
+  { route: "src/app/api/academy-mastery-seasons/route.ts", product: "academy" },
+  { route: "src/app/api/academy-simulator-decision/route.ts", product: "academy" },
+  { route: "src/app/api/academy-term-progress/route.ts", product: "academy" },
+  { route: "src/app/api/mentor-challenge/route.ts", product: "mentor" },
+];
+
+describe("Tenant product entitlement route guards", () => {
+  for (const { route, product } of PRODUCT_ROUTES) {
+    it(`gates ${route.replace("src/app/api/", "").replace("/route.ts", "")} on the ${product} entitlement`, async () => {
+      const text = await source(route);
+
+      const resolved = text.match(/await resolveTenantPrincipalContext\(/g) ?? [];
+      const gated = text.match(/await requireTenantProduct\(/g) ?? [];
+      assert.equal(
+        gated.length,
+        resolved.length,
+        "every handler that resolves an acting tenant must also check its entitlement",
+      );
+      assert.ok(resolved.length > 0, "this route is expected to resolve a tenant");
+
+      // The entitlement has to be read for the tenant the request acts in. A
+      // literal or a default here would gate every tenant on one tenant's
+      // purchase, which is the whole failure this guards against.
+      const calls = text.match(/requireTenantProduct\(([^)]*)\)/g) ?? [];
+      assert.equal(calls.length, gated.length);
+      for (const call of calls) {
+        assert.match(call, /tenantContext\.tenantId/, call);
+        assert.match(call, new RegExp(`"${product}"`), call);
+      }
+      assert.doesNotMatch(
+        text,
+        /requireTenantProduct\(\s*PLATFORM\./,
+        "the entitlement must not be read for the platform default tenant",
+      );
+    });
+  }
+});
