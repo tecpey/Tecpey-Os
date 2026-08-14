@@ -9,6 +9,7 @@ import {
 import {
   evidenceByProviderFromRows,
   normalizeAuthProviderEvidenceMutation,
+  normalizeAuthProviderReviewDecision,
   reviewRequestsByProviderFromRows,
 } from "@/lib/admin-auth-provider-evidence-store";
 import type { FeatureFlag } from "@/lib/feature-flags";
@@ -328,6 +329,62 @@ describe("admin auth provider control plane", () => {
     assert.equal(scoped.passkey, undefined);
   });
 
+  it("validates auth-provider review decisions before database access", () => {
+    const valid = normalizeAuthProviderReviewDecision({
+      tenantId: "tecpey",
+      workspaceId: "main",
+      actorAdminId: "00000000-0000-4000-8000-000000000001",
+      sessionId: null,
+      effectiveRoles: ["super_admin"],
+      approvalRequestId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      decisionNote: "independent reviewer verified the provider evidence package",
+    });
+
+    if ("ok" in valid) assert.fail("valid provider review decision should normalize successfully");
+    assert.equal(valid.status, "approved");
+    assert.match(valid.requestHash, /^[0-9a-f]{64}$/);
+
+    const shortNote = normalizeAuthProviderReviewDecision({
+      tenantId: "tecpey",
+      workspaceId: "main",
+      actorAdminId: "00000000-0000-4000-8000-000000000001",
+      sessionId: null,
+      effectiveRoles: ["super_admin"],
+      approvalRequestId: "11111111-1111-4111-8111-111111111111",
+      decision: "reject",
+      decisionNote: "no",
+    });
+    if (!("ok" in shortNote)) assert.fail("short provider review note must fail");
+    assert.equal(shortNote.error, "auth_provider_review_decision_reason_required");
+
+    const invalidUuid = normalizeAuthProviderReviewDecision({
+      tenantId: "tecpey",
+      workspaceId: "main",
+      actorAdminId: "00000000-0000-4000-8000-000000000001",
+      sessionId: null,
+      effectiveRoles: ["super_admin"],
+      approvalRequestId: "not-a-uuid",
+      decision: "approve",
+      decisionNote: "independent reviewer verified the provider evidence package",
+    });
+    if (!("ok" in invalidUuid)) assert.fail("invalid approval UUID must fail");
+    assert.equal(invalidUuid.error, "invalid_auth_provider_review_decision_request");
+
+    const secretLikeNote = normalizeAuthProviderReviewDecision({
+      tenantId: "tecpey",
+      workspaceId: "main",
+      actorAdminId: "00000000-0000-4000-8000-000000000001",
+      sessionId: null,
+      effectiveRoles: ["super_admin"],
+      approvalRequestId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      decisionNote: "secret=raw-provider-value must not be accepted",
+    });
+    if (!("ok" in secretLikeNote)) assert.fail("secret-like review note must fail");
+    assert.equal(secretLikeNote.error, "auth_provider_review_decision_secret_like_input");
+  });
+
   it("validates evidence mutations without accepting raw secret-like input", () => {
     const ready = normalizeAuthProviderEvidenceMutation({
       tenantId: "tecpey",
@@ -411,6 +468,7 @@ describe("admin auth provider control plane", () => {
 
   it("guards the provider evidence write route with manage permission and fresh step-up", async () => {
     const route = await readFile("src/app/api/command-center/auth-providers/route.ts", "utf8");
+    const decisionRoute = await readFile("src/app/api/command-center/auth-providers/review-requests/route.ts", "utf8");
     const getStart = route.indexOf("export async function GET");
     const patchStart = route.indexOf("export async function PATCH");
     const postStart = route.indexOf("export async function POST");
@@ -440,6 +498,18 @@ describe("admin auth provider control plane", () => {
     assert.match(postRoute, /sessionId: authorization\.principal\.sessionId/);
     assert.match(postRoute, /effectiveRoles: authorization\.principal\.roles/);
     assert.match(postRoute, /reviewRequest/);
+
+    assert.match(decisionRoute, /namespace: "command-center-auth-provider-review-decision-write"/);
+    assert.match(
+      decisionRoute,
+      /authorizeAdminRequest\(req, "admin\.roles\.manage", \{[\s\S]*stepUpWithinSeconds: 300,[\s\S]*\}\)/,
+    );
+    assert.match(decisionRoute, /readBoundedJsonRequest\(req, \{ maxBytes: 8_192 \}\)/);
+    assert.match(decisionRoute, /tenantId: authorization\.principal\.tenantId/);
+    assert.match(decisionRoute, /workspaceId: authorization\.principal\.workspaceId/);
+    assert.match(decisionRoute, /actorAdminId: authorization\.principal\.adminId/);
+    assert.match(decisionRoute, /decideAuthProviderReviewRequest\(\{/);
+    assert.doesNotMatch(decisionRoute, /clientSecret|privateKey|botToken|apiKey/);
   });
 
   it("keeps auth-provider evidence reads and writes tenant/workspace scoped", async () => {
@@ -461,6 +531,13 @@ describe("admin auth provider control plane", () => {
       store,
       /FROM admin_approval_requests request[\s\S]*left\(request\.resource_id, length\(\$1\)\) = \$1[\s\S]*request\.payload ->> 'tenantId' = \$2[\s\S]*request\.payload ->> 'workspaceId' = \$3/,
     );
+    assert.match(
+      store,
+      /WHERE request\.id = \$1::uuid[\s\S]*request\.resource_type = 'auth_provider'[\s\S]*left\(request\.resource_id, length\(\$2\)\) = \$2[\s\S]*request\.payload ->> 'tenantId' = \$3[\s\S]*request\.payload ->> 'workspaceId' = \$4[\s\S]*FOR UPDATE/,
+    );
+    assert.match(store, /requested_by <> \$3::uuid/);
+    assert.match(store, /auth_provider_review_request_self_review_forbidden/);
+    assert.match(store, /outcome: "denied"/);
     assert.doesNotMatch(store, /FROM admin_auth_provider_evidence\s+WHERE provider_id = \$1/);
     assert.doesNotMatch(store, /ON CONFLICT \(provider_id, gate_id\)/);
     assert.doesNotMatch(store, /FROM admin_approval_requests request\s+WHERE request\.resource_id = \$1/);
