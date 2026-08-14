@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import Link from "next/link";
-import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, UserRoundCheck } from "lucide-react";
+import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Loader2, Lock, ShieldCheck, Sparkles, TrendingUp, Trophy, UserRoundCheck } from "lucide-react";
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 
@@ -24,6 +24,24 @@ type Profile = {
   progress?: Record<string, unknown> | null;
 };
 type TermProgress = { term_number?: number; status?: string; percent?: number; score?: number };
+type Achievement = {
+  code: string;
+  title: string;
+  description: string;
+  category: string;
+  earned: boolean;
+  earnedAt?: string | null;
+};
+
+const achievementEnglishCopy: Record<string, { title: string; description: string }> = {
+  "first-lesson": { title: "First lesson", description: "You completed your first verified Academy learning step." },
+  "first-quiz": { title: "First assessment", description: "Your first official Academy assessment was recorded." },
+  "seven-day-streak": { title: "Seven-day consistency", description: "You returned to your learning path for seven consecutive days." },
+  "first-certificate": { title: "First certificate", description: "You earned your first verifiable Academy certificate." },
+  "risk-master": { title: "Risk mastery", description: "You demonstrated strong risk-management discipline in governed challenges." },
+  "simulator-journalist": { title: "Trading journal discipline", description: "You recorded a practice decision with reasoning, emotion and a risk plan." },
+  "community-rising": { title: "Rising contributor", description: "Your governed Academy participation earned community recognition." },
+};
 
 const fa = {
   checking: "در حال آماده‌سازی داشبورد آکادمی…",
@@ -91,22 +109,31 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [progressRows, setProgressRows] = useState<TermProgress[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [achievementsDegraded, setAchievementsDegraded] = useState(false);
 
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       try {
+        const achievementRequest = fetch(`/api/achievements?locale=${locale}`, { cache: "no-store", credentials: "include" })
+          .then((response) => response.json())
+          .catch(() => null);
         const [profileRes, progressRes] = await Promise.all([
           fetch("/api/academy-student-profile", { cache: "no-store", credentials: "include" }),
           fetch(`/api/academy-term-progress?locale=${locale}`, { cache: "no-store", credentials: "include" }),
         ]);
         const profileData = await profileRes.json().catch(() => null);
         const progressData = await progressRes.json().catch(() => null);
+        const achievementData = await achievementRequest;
         if (!active) return;
         setAuthenticated(Boolean(profileData?.authenticated));
         setProfile(profileData?.profile || null);
         setProgressRows(Array.isArray(progressData?.terms) ? progressData.terms : []);
+        const achievementAuthorityAvailable = achievementData?.authenticated === true && achievementData?.degraded !== true;
+        setAchievements(achievementAuthorityAvailable && Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
+        setAchievementsDegraded(!achievementAuthorityAvailable);
       } finally {
         if (active) setLoading(false);
       }
@@ -170,7 +197,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <Metric icon={<GraduationCap />} label={t.currentTerm} value={`${currentTermNumber} / 7`} note={currentTerm?.title || "Term"} />
               <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedTerms} ${isFa ? "ترم تکمیل‌شده" : "terms completed"}`} />
               <Metric icon={<Flame />} label={t.streak} value={`${numberOr(profile.streak_days, 1)}`} note={isFa ? "روز فعال" : "active days"} />
-              <Metric icon={<Award />} label={t.achievements} value={`${Math.max(1, completedTerms + 1)}`} note={isFa ? "نشان فعال" : "active badges"} />
+              <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
             <div className="mt-7 rounded-[30px] border border-cyan-300/15 bg-cyan-400/10 p-5">
@@ -199,6 +226,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </aside>
         </div>
 
+        <MedalCabinet locale={locale} items={achievements} degraded={achievementsDegraded} />
+
         <section className="mt-8 rounded-[38px] border border-cyan-300/15 bg-white/[0.055] p-6">
           <h2 className="text-2xl font-black">{t.terms}</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -220,6 +249,46 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         </section>
       </section>
     </main>
+  );
+}
+
+function MedalCabinet({ locale, items, degraded }: { locale: Locale; items: Achievement[]; degraded: boolean }) {
+  const isFa = locale === "fa";
+  const href = isFa ? "/academy/achievements" : "/en/academy/achievements";
+  const featured = [...items]
+    .sort((left, right) => new Date(right.earnedAt || 0).getTime() - new Date(left.earnedAt || 0).getTime())
+    .slice(0, 4);
+  return (
+    <section className="mt-8 rounded-[38px] border border-amber-300/20 bg-[linear-gradient(145deg,rgba(251,191,36,.1),rgba(255,255,255,.035))] p-6 lg:p-8" aria-labelledby="academy-medal-cabinet-title">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-3 text-amber-200"><Trophy className="h-6 w-6" aria-hidden="true" /><p className="text-xs font-black uppercase tracking-wider">Credential cabinet</p></div>
+          <h2 id="academy-medal-cabinet-title" className="mt-3 text-2xl font-black sm:text-3xl">{isFa ? "ویترین مدارک و مدال‌های من" : "My credentials and medals"}</h2>
+          <p className="mt-3 text-sm font-bold leading-7 text-slate-300">{isFa ? "فقط افتخاراتی نمایش داده می‌شوند که از شواهد رسمی آکادمی، لیگ یا مسابقه صادر شده باشند." : "Only honors issued from official Academy, league or competition evidence appear here."}</p>
+        </div>
+        <Link href={href} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition-[transform,border-color,background-color] duration-150 ease-out hover:border-amber-200/60 hover:bg-amber-300/15 active:scale-[.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />{isFa ? "مشاهده سابقه کامل" : "View full record"}
+        </Link>
+      </div>
+      {degraded ? (
+        <p role="status" className="mt-5 rounded-2xl border border-amber-300/25 bg-slate-950/45 p-4 text-sm font-bold leading-7 text-amber-100">{isFa ? "مرجع صدور موقتاً در دسترس نیست؛ برای جلوگیری از نمایش سابقه نادرست، مدال‌ها پنهان شده‌اند." : "The issuing authority is temporarily unavailable; medals are hidden to avoid showing an inaccurate record."}</p>
+      ) : featured.length ? (
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {featured.map((item) => {
+            const competitive = /league|competition|tournament|arena/i.test(`${item.category}:${item.code}`);
+            const Icon = competitive ? Trophy : Award;
+            const localized = !isFa ? achievementEnglishCopy[item.code] : null;
+            return <article key={item.code} className="rounded-[26px] border border-white/10 bg-slate-950/45 p-4">
+              <div className="flex items-center justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-amber-200/20 bg-amber-300/10 text-amber-200"><Icon className="h-5 w-5" aria-hidden="true" /></span><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-black text-slate-300">{competitive ? (isFa ? "رقابتی" : "Competition") : (isFa ? "آموزشی" : "Learning")}</span></div>
+              <h3 className="mt-4 text-base font-black leading-7">{localized?.title || item.title}</h3>
+              <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-400">{localized?.description || item.description}</p>
+            </article>;
+          })}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-[26px] border border-dashed border-white/15 bg-slate-950/35 p-6 text-center"><Award className="mx-auto h-7 w-7 text-slate-500" aria-hidden="true" /><p className="mt-3 text-sm font-black text-slate-300">{isFa ? "هنوز مدال رسمی صادر نشده؛ اولین هدف پیشنهادی در مرکز دستاوردها آماده است." : "No official medal has been issued yet; your first suggested goal is ready in the Achievement Center."}</p></div>
+      )}
+    </section>
   );
 }
 
