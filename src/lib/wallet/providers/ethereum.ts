@@ -245,12 +245,30 @@ export class EthereumProvider implements WalletProvider {
       type TxReceiptResult = { blockNumber?: string; status?: string };
       const receipt = await rpc.call<TxReceiptResult | null>("eth_getTransactionReceipt", [txHash]);
       if (!receipt) {
+        // A missing receipt alone does not prove that the node knows the
+        // transaction. That distinction is security-critical during ambiguous
+        // broadcast reconciliation: only a transaction returned by hash may be
+        // classified as provider-present/pending.
+        const transaction = await rpc.call<{ hash?: string } | null>(
+          "eth_getTransactionByHash",
+          [txHash],
+        );
+        if (!transaction || transaction.hash?.toLowerCase() !== txHash.toLowerCase()) {
+          return { txHash, chainId: this.chainId, confirmations: 0, required: 12, status: "unknown", isComplete: false };
+        }
         return { txHash, chainId: this.chainId, confirmations: 0, required: 12, status: "pending", isComplete: false };
+      }
+
+      if (!/^0x[0-9a-f]+$/i.test(receipt.blockNumber ?? "")) {
+        return { txHash, chainId: this.chainId, confirmations: 0, required: 12, status: "unknown", isComplete: false };
       }
 
       const txBlockNum = parseInt(receipt.blockNumber ?? "0x0", 16);
       type BlockResult = { number: string };
       const latest = await rpc.call<BlockResult>("eth_getBlockByNumber", ["finalized", false]);
+      if (!latest || !/^0x[0-9a-f]+$/i.test(latest.number)) {
+        return { txHash, chainId: this.chainId, confirmations: 0, required: 12, status: "unknown", isComplete: false };
+      }
       const finalizedBlock = parseInt(latest?.number ?? "0x0", 16);
       const confirmations = Math.max(0, finalizedBlock - txBlockNum + 1);
       const failed = receipt.status === "0x0";

@@ -298,6 +298,10 @@ Issue #194 is complete only when:
 - preparation, attempts, broadcast outcomes, confirmation outcomes and settlement have mandatory durable evidence;
 - ambiguity and reconciliation are first-class durable states;
 - PostgreSQL + Redis/provider-fixture adversarial tests pass;
+- Bitcoin, Ethereum/BSC/Polygon/TRON and Solana fixtures distinguish a
+  provider-proven pending transaction from a missing or malformed RPC payload;
+  missing/malformed observations remain `unknown` and cannot authorize
+  `reconciled_present`.
 - custody launch remains disabled unless #106 closes independently;
 - chain certification remains explicitly pending under #29;
 - migrations and migration idempotency pass;

@@ -327,7 +327,16 @@ export class BitcoinProvider implements WalletProvider {
     try {
       type TxResult = { confirmations?: number; blockheight?: number };
       const tx = await rpc.call<TxResult>("getrawtransaction", [txHash, true]);
-      const confs = tx.confirmations ?? 0;
+      if (
+        !tx ||
+        typeof tx.confirmations !== "number" ||
+        !Number.isSafeInteger(tx.confirmations) ||
+        tx.confirmations < 0 ||
+        (tx.blockheight !== undefined && (!Number.isSafeInteger(tx.blockheight) || tx.blockheight < 0))
+      ) {
+        return { txHash, chainId: "bitcoin", confirmations: 0, required: 6, status: "unknown", isComplete: false };
+      }
+      const confs = tx.confirmations;
       return {
         txHash, chainId: "bitcoin",
         confirmations: confs, required: 6,
