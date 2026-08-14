@@ -30,8 +30,26 @@ const integrationConfigured = Boolean(
   databaseUrl && !databaseUrl.includes("CHANGE_ME") && process.env.REDIS_URL,
 );
 
-afterEach(() => {
+afterEach(async () => {
   clearWalletProviderOverridesForTest();
+  if (!integrationConfigured) return;
+
+  const {
+    confirmationQueue,
+    recoveryQueue,
+    withdrawalDlq,
+    withdrawalQueue,
+    withdrawalQueueEvents,
+    withdrawalRetryQueue,
+  } = await import("../../lib/wallet/queue/withdrawal-queue");
+  await Promise.all([
+    withdrawalQueueEvents.close(),
+    withdrawalQueue.close(),
+    withdrawalDlq.close(),
+    withdrawalRetryQueue.close(),
+    confirmationQueue.close(),
+    recoveryQueue.close(),
+  ]);
 });
 
 function withdrawalId(): string {
