@@ -1,6 +1,5 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
-import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
@@ -54,20 +53,41 @@ export async function GET(req: NextRequest) {
   return withObservability(req, { route: ROUTE }, async () => {
   const limit = await rateLimit(req, { namespace: "mentor-challenge-read", limit: 80, windowMs: 60_000 });
   if (!limit.ok) return apiError("rate_limited", 429);
-  const session = await getStudentSessionFromRequest(req);
+  // mentor_challenge_attempts is student_global (classification registry) and was
+  // read by student_id alone, so a student bound to two tenants had their
+  // attempt history deduplicate their next question in whichever tenant they
+  // opened. The question bank itself is served to anyone — this stays a
+  // semi-public read — so the tenant is resolved and, only when it names a bound
+  // student, the student's own attempts personalize the pick. An anonymous
+  // caller, a revoked session, or a student bound only to another tenant simply
+  // gets a non-personalized question, exactly as an unauthenticated caller did.
+  const session = await getCanonicalSession(req, { strictRevocation: true });
   const url = new URL(req.url);
   const locale = cleanText(url.searchParams.get("locale") || "fa", 10) === "en" ? "en" : "fa";
   const termNumber = Math.max(1, Math.min(7, Math.round(Number(url.searchParams.get("termNumber")) || 1)));
   const lessonSlug = cleanText(url.searchParams.get("lessonSlug") || `term-${termNumber}`, 100) || `term-${termNumber}`;
   const topic = cleanText(url.searchParams.get("topic") || "", 80);
 
+  const tenantContext = await resolveTenantPrincipalContext({
+    session,
+    request: req,
+    requiredPrincipalType: "student",
+    scopes: ["academy:learning-events:read"],
+    requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+  });
+  if (tenantContext.available) {
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+  }
+  const studentId = tenantContext.available ? tenantContext.principalId : null;
+
   try {
     const result = await withDb(async (client) => {
-      const profile = session?.studentId ? await client.query(`SELECT decision_score, confidence_score, weak_topics FROM learning_brain_profiles WHERE student_id = $1::uuid LIMIT 1`, [session.studentId]) : { rows: [] };
+      const profile = studentId ? await client.query(`SELECT decision_score, confidence_score, weak_topics FROM learning_brain_profiles WHERE student_id = $1::uuid LIMIT 1`, [studentId]) : { rows: [] };
       const confidence = Number(profile.rows[0]?.confidence_score || 45);
       const difficulty = Math.max(1, Math.min(5, Math.round(termNumber >= 6 ? 4 : confidence > 80 ? termNumber + 1 : termNumber)));
-      const used = session?.studentId
-        ? await client.query(`SELECT question_id FROM mentor_challenge_attempts WHERE student_id = $1::uuid`, [session.studentId])
+      const used = studentId
+        ? await client.query(`SELECT question_id FROM mentor_challenge_attempts WHERE student_id = $1::uuid`, [studentId])
         : { rows: [] };
       const usedIds = used.rows.map((row) => row.question_id);
       const rows = await client.query(
