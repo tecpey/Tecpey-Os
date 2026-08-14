@@ -148,6 +148,10 @@ describe("Academy credential ledger cross-tenant authority", { skip: !configured
 
         await rejectsInSavepoint(client, () => event("suspended", `event:${randomUUID()}`), /must begin with issued/);
         await event("issued", `event:${randomUUID()}`);
+        await rejectsInSavepoint(client, () => event("appeal_resolved", `event:${randomUUID()}`), /requires an open appeal/);
+        await event("appeal_opened", `event:${randomUUID()}`);
+        await rejectsInSavepoint(client, () => event("appeal_opened", `event:${randomUUID()}`), /already has an open appeal/);
+        await event("appeal_resolved", `event:${randomUUID()}`);
         await event("suspended", `event:${randomUUID()}`);
         await event("reinstated", `event:${randomUUID()}`);
         await rejectsInSavepoint(client, () => event("reinstated", `event:${randomUUID()}`), /transition is invalid/);

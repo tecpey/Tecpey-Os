@@ -92,12 +92,19 @@ CREATE OR REPLACE FUNCTION tecpey_validate_academy_credential_transition()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   previous_state TEXT;
+  previous_appeal_state TEXT;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(NEW.credential_id::text));
   SELECT event_type INTO previous_state
     FROM academy_credential_events
    WHERE credential_id = NEW.credential_id
      AND event_type IN ('issued', 'suspended', 'reinstated', 'revoked')
+   ORDER BY event_sequence DESC
+   LIMIT 1;
+  SELECT event_type INTO previous_appeal_state
+    FROM academy_credential_events
+   WHERE credential_id = NEW.credential_id
+     AND event_type IN ('appeal_opened', 'appeal_resolved')
    ORDER BY event_sequence DESC
    LIMIT 1;
 
@@ -111,6 +118,10 @@ BEGIN
     RAISE EXCEPTION 'academy credential reinstatement transition is invalid' USING ERRCODE = '23514';
   ELSIF NEW.event_type = 'revoked' AND previous_state NOT IN ('issued', 'suspended', 'reinstated') THEN
     RAISE EXCEPTION 'academy credential revocation transition is invalid' USING ERRCODE = '23514';
+  ELSIF NEW.event_type = 'appeal_opened' AND previous_appeal_state = 'appeal_opened' THEN
+    RAISE EXCEPTION 'academy credential already has an open appeal' USING ERRCODE = '23514';
+  ELSIF NEW.event_type = 'appeal_resolved' AND previous_appeal_state IS DISTINCT FROM 'appeal_opened' THEN
+    RAISE EXCEPTION 'academy credential appeal resolution requires an open appeal' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
 END;
