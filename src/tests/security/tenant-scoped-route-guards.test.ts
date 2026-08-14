@@ -143,6 +143,27 @@ describe("Tenant-scoped route guards", () => {
       assert.ok(text.includes(table), `${name} must read ${table}`);
     });
   }
+
+  it("only reports a degraded achievements read for a genuine storage outage", async () => {
+    // A missing, revoked, or workspace-mismatched binding, or a foreign branded
+    // host, are ordinary authorization outcomes — not outages. Degrading on them
+    // would tell the student their history is coming back after a service blip
+    // and fire a false operational alert (#431 review). The route must gate the
+    // degraded report on the storage-unavailable reason specifically.
+    const text = await source("src/app/api/achievements/route.ts");
+    assert.match(
+      text,
+      /tenantContext\.reason === "binding_storage_unavailable"/,
+      "achievements must degrade only on a storage outage, not on any unavailable reason",
+    );
+    // The unconditional form the review flagged — degrading on every
+    // not-available reason — must be gone.
+    assert.doesNotMatch(
+      text,
+      /if \(!tenantContext\.available\) \{\s*recordDegradedRead/,
+      "achievements must not record degraded for every unavailable tenant context",
+    );
+  });
 });
 
 // Routes that serve a product have to check the acting tenant's entitlement

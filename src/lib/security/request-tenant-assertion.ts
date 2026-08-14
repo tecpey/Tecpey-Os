@@ -51,6 +51,28 @@ export type AssertedRequestTenant = {
 };
 
 /**
+ * What the request's Host header says about the acting tenant.
+ *
+ *  - `asserted`     — the host names a configured tenant domain this principal
+ *                     is bound to; that tenant acts.
+ *  - `none`         — the host names no configured domain (the default domain),
+ *                     or the directory/binding store could not be read, so the
+ *                     host asserts nothing and the caller resolves as it would
+ *                     with no custom domains at all.
+ *  - `foreign_host` — the host names a configured tenant domain this principal
+ *                     is NOT bound to. This is not "no assertion": the request
+ *                     is on someone else's branded site, and the caller must
+ *                     refuse rather than fall back to the principal's own
+ *                     tenant. For a table with no tenant column that fallback
+ *                     would otherwise serve the principal's global data under a
+ *                     tenant it has no relationship with.
+ */
+export type RequestTenantAssertion =
+  | { status: "asserted"; tenantId: string; workspaceId: string }
+  | { status: "none" }
+  | { status: "foreign_host" };
+
+/**
  * The domain directory is a full read of platform_tenant_domains, so it is
  * cached per process rather than queried per request. A newly bound domain
  * therefore takes up to one TTL to become routable, which is the intended
@@ -107,89 +129,110 @@ async function activeBindings(
   principalType: string,
   principalId: string,
 ): Promise<ActiveBinding[] | null> {
-  const result = await withDb(async (client) => {
-    const { rows } = await client.query<ActiveBinding>(
-      `SELECT binding.tenant_id, binding.workspace_id
-         FROM platform_principal_bindings binding
-         JOIN platform_workspaces workspace
-           ON workspace.id = binding.workspace_id
-          AND workspace.tenant_id = binding.tenant_id
-        WHERE binding.principal_type = $1
-          AND binding.principal_id = $2
-          AND binding.status = 'active'
-        ORDER BY
-          CASE WHEN binding.tenant_id = $3 THEN 0 ELSE 1 END,
-          binding.created_at ASC`,
-      [principalType, principalId, PLATFORM.DEFAULT_TENANT_ID],
-    );
-    return rows;
-  });
-  return result.enabled ? result.value : null;
+  try {
+    const result = await withDb(async (client) => {
+      const { rows } = await client.query<ActiveBinding>(
+        `SELECT binding.tenant_id, binding.workspace_id
+           FROM platform_principal_bindings binding
+           JOIN platform_workspaces workspace
+             ON workspace.id = binding.workspace_id
+            AND workspace.tenant_id = binding.tenant_id
+          WHERE binding.principal_type = $1
+            AND binding.principal_id = $2
+            AND binding.status = 'active'
+          ORDER BY
+            CASE WHEN binding.tenant_id = $3 THEN 0 ELSE 1 END,
+            binding.created_at ASC`,
+        [principalType, principalId, PLATFORM.DEFAULT_TENANT_ID],
+      );
+      return rows;
+    });
+    return result.enabled ? result.value : null;
+  } catch (error) {
+    // withDb reports a missing pool as unavailable but rethrows when a live pool
+    // fails to connect or the query errors. Either way the bindings are
+    // unreadable, which the caller treats as no assertion — advisory, not a
+    // hardened refusal — rather than letting the rejection escape.
+    logger.warn("[request-tenant-assertion] binding read failed", {
+      principalType,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 /**
- * Resolve the tenant the request's Host header asserts for this principal, or
- * null when nothing is asserted and the caller should resolve as it does today.
+ * Resolve what the request's Host header asserts about the acting tenant.
  *
- * Null is returned — deliberately, not as a failure — when the header names no
- * bound domain, when the directory is unavailable, or when the principal has no
- * bindings to check a hint against. In each case there is no evidence of an
- * acting tenant, and inventing one is exactly what this whole programme is
- * about not doing.
+ * `none` is returned — deliberately, not as a failure — when the header names no
+ * configured domain, or when the directory or binding store could not be read.
+ * In each case there is no trustworthy evidence about a custom domain, and the
+ * caller resolves as it would with none configured.
+ *
+ * `foreign_host` is the case that used to be folded into that same null: the
+ * host DOES name a configured tenant domain, but this principal is not bound to
+ * it. Reporting it distinctly is what lets the caller refuse rather than fall
+ * back to the principal's own tenant — the fallback that, for a table with no
+ * tenant column, would serve the principal's global rows under a stranger's
+ * brand.
  */
 export async function resolveRequestTenantAssertion(input: {
   request: HeaderCarrier | null | undefined;
   principalType: string;
   principalId: string;
-}): Promise<AssertedRequestTenant | null> {
-  if (!input.request) return null;
+}): Promise<RequestTenantAssertion> {
+  if (!input.request) return { status: "none" };
 
   const directory = await hostDirectory();
-  if (!directory) return null;
+  if (!directory) return { status: "none" };
 
   const hint = resolveTenantHostHint(
     input.request.headers.get("host"),
     directory,
   );
-  // No bound domain named this host: nothing was asserted. Skipping the binding
-  // query here is what keeps a default-domain request at its present cost.
-  if (!hint) return null;
+  // No configured domain named this host: nothing was asserted. Skipping the
+  // binding query here is what keeps a default-domain request at its present
+  // cost.
+  if (!hint) return { status: "none" };
 
   const bindings = await activeBindings(input.principalType, input.principalId);
-  if (!bindings || bindings.length === 0) return null;
+  // The binding store could not be read. The host is configured, but whether the
+  // principal is bound to it is unknowable right now, so this stays advisory
+  // rather than hardening a transient outage into a refusal.
+  if (bindings === null) return { status: "none" };
 
+  // From here the host names a configured tenant domain, so it IS asserting a
+  // tenant. The only question is whether this principal may act in it.
   const own = bindings[0];
   const resolved = resolveRequestTenant({
     hintTenantId: hint.hintTenantId,
     hintWorkspaceId: hint.hintWorkspaceId,
     hintSource: hint.hintSource,
-    sessionTenantId: own.tenant_id,
-    sessionWorkspaceId: own.workspace_id,
+    sessionTenantId: own?.tenant_id ?? "",
+    sessionWorkspaceId: own?.workspace_id ?? "",
     allowedTenantIds: bindings.map((binding) => binding.tenant_id),
     defaultTenantId: PLATFORM.DEFAULT_TENANT_ID,
     defaultWorkspaceId: PLATFORM.DEFAULT_WORKSPACE_ID,
   });
 
-  // Only "host" is an assertion. A "session" or "default" result means the hint
-  // was discarded — the host named a tenant this principal has no claim to — and
-  // the answer it would give is the one the caller reaches on its own anyway, so
-  // returning null keeps a discarded hint from hardening into a filter.
-  if (resolved.source !== "host") return null;
-
-  if (resolved.tenantId !== hint.hintTenantId) {
-    // resolveRequestTenant must never report "host" for a tenant the hint did
-    // not name. Refusing costs one request and stops a resolver bug from
-    // becoming a cross-tenant one.
-    logger.warn("[request-tenant-assertion] host source disagreed with hint", {
-      hinted: hint.hintTenantId,
-      resolved: resolved.tenantId,
-    });
-    return null;
+  // "session"/"default" means the hint was discarded — the principal is not
+  // bound to the tenant this configured host names. That is a foreign host, not
+  // an absence of assertion, so the caller must refuse rather than fall back.
+  if (resolved.source !== "host" || resolved.tenantId !== hint.hintTenantId) {
+    if (resolved.source === "host") {
+      // resolveRequestTenant must never report "host" for a tenant the hint did
+      // not name; treat a disagreement as foreign rather than trust it.
+      logger.warn("[request-tenant-assertion] host source disagreed with hint", {
+        hinted: hint.hintTenantId,
+        resolved: resolved.tenantId,
+      });
+    }
+    return { status: "foreign_host" };
   }
 
   return {
+    status: "asserted",
     tenantId: resolved.tenantId,
     workspaceId: resolved.workspaceId,
-    source: "host",
   };
 }

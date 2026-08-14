@@ -43,12 +43,17 @@ export async function GET(req: NextRequest) {
       scopes: ["academy:learning-events:read"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
-    // The student has a session but their binding could not be resolved — the
-    // directory or the binding store is unavailable, or they are bound only to
-    // another tenant. Reporting an outage beats reporting an empty shelf.
+    // The student has a session but no available tenant context. Only an outage
+    // makes an empty answer a lie: a binding that could not be read reports
+    // degraded, while an ordinary authorization outcome — no binding, a revoked
+    // one, a workspace mismatch, or a foreign branded host — is not an outage,
+    // so it reports an honest empty rather than a false service alert.
     if (!tenantContext.available) {
-      recordDegradedRead(ROUTE, "tenant_context_unavailable");
-      return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+      if (tenantContext.reason === "binding_storage_unavailable") {
+        recordDegradedRead(ROUTE, "tenant_context_unavailable");
+        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+      }
+      return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale) });
     }
     const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
     if (productGate) return productGate;

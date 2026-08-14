@@ -20,7 +20,12 @@ export type TenantPrincipalUnavailableReason =
   | "binding_missing"
   | "binding_revoked"
   | "workspace_mismatch"
-  | "principal_type_mismatch";
+  | "principal_type_mismatch"
+  // The request is on a configured tenant domain the principal is not bound to.
+  // Distinct from binding_missing: the principal may well be bound to another
+  // tenant, but not to the one whose branded host this request arrived on, so it
+  // may not act — or be read — under it.
+  | "host_tenant_mismatch";
 
 export type AvailableTenantPrincipalContext = {
   available: true;
@@ -92,37 +97,46 @@ export async function resolveBoundTenantPrincipal(input: {
     };
   }
 
-  const result = await withDb(async (client) => {
-    const selected = await client.query<BindingRow>(
-      `SELECT binding.tenant_id,
-              binding.workspace_id,
-              binding.principal_type,
-              binding.principal_id,
-              binding.status,
-              binding.source
-         FROM platform_principal_bindings binding
-         JOIN platform_workspaces workspace
-           ON workspace.id = binding.workspace_id
-          AND workspace.tenant_id = binding.tenant_id
-        WHERE binding.principal_type = $1
-          AND binding.principal_id = $2
-          AND ($3::text IS NULL OR binding.tenant_id = $3)
-        ORDER BY
-          CASE WHEN binding.tenant_id = COALESCE($3, $5) THEN 0 ELSE 1 END,
-          CASE WHEN binding.workspace_id = COALESCE($4, $6) THEN 0 ELSE 1 END,
-          binding.created_at ASC
-        LIMIT 1`,
-      [
-        input.principalType,
-        principalId,
-        input.preferredTenantId ?? null,
-        input.preferredWorkspaceId ?? null,
-        PLATFORM.DEFAULT_TENANT_ID,
-        PLATFORM.DEFAULT_WORKSPACE_ID,
-      ],
-    );
-    return selected.rows[0] ?? null;
-  });
+  let result;
+  try {
+    result = await withDb(async (client) => {
+      const selected = await client.query<BindingRow>(
+        `SELECT binding.tenant_id,
+                binding.workspace_id,
+                binding.principal_type,
+                binding.principal_id,
+                binding.status,
+                binding.source
+           FROM platform_principal_bindings binding
+           JOIN platform_workspaces workspace
+             ON workspace.id = binding.workspace_id
+            AND workspace.tenant_id = binding.tenant_id
+          WHERE binding.principal_type = $1
+            AND binding.principal_id = $2
+            AND ($3::text IS NULL OR binding.tenant_id = $3)
+          ORDER BY
+            CASE WHEN binding.tenant_id = COALESCE($3, $5) THEN 0 ELSE 1 END,
+            CASE WHEN binding.workspace_id = COALESCE($4, $6) THEN 0 ELSE 1 END,
+            binding.created_at ASC
+          LIMIT 1`,
+        [
+          input.principalType,
+          principalId,
+          input.preferredTenantId ?? null,
+          input.preferredWorkspaceId ?? null,
+          PLATFORM.DEFAULT_TENANT_ID,
+          PLATFORM.DEFAULT_WORKSPACE_ID,
+        ],
+      );
+      return selected.rows[0] ?? null;
+    });
+  } catch {
+    // withDb reports a missing pool as unavailable but rethrows when a live pool
+    // fails to connect or the query errors. A binding read that throws is an
+    // outage, not a decision — reported as such rather than escaping as a 500,
+    // so callers reach their degraded-read path instead of an unhandled error.
+    return { available: false, reason: "binding_storage_unavailable" };
+  }
   if (!result.enabled) {
     return { available: false, reason: "binding_storage_unavailable" };
   }
@@ -218,10 +232,18 @@ export async function resolveTenantPrincipalContext(input: {
       principalType: input.requiredPrincipalType,
       principalId,
     });
-    if (asserted) {
+    if (asserted.status === "asserted") {
       assertedTenantId = asserted.tenantId;
       assertedWorkspaceId = asserted.workspaceId;
+    } else if (asserted.status === "foreign_host") {
+      // The request is on a configured tenant domain this principal is not bound
+      // to. Falling back to the principal's own tenant here is exactly what
+      // leaked a tenant-less table's global rows onto a stranger's branded site,
+      // so the context is refused instead. A table WITH a tenant column would
+      // merely have filtered to the wrong tenant; refusing is correct for both.
+      return { available: false, reason: "host_tenant_mismatch" };
     }
+    // "none": the host asserts nothing, so resolution proceeds unchanged.
   }
 
   const bound = await resolveBoundTenantPrincipal({
