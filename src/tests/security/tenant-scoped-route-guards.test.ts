@@ -104,6 +104,7 @@ describe("Tenant-scoped route guards", () => {
   // which only names a student the session's principal is bound to, and reads
   // from that bound principal.
   const MIGRATED_GLOBAL_READS: ReadonlyArray<{ route: string; table: string }> = [
+    { route: "src/app/api/academy-flashcards/route.ts", table: "academy_state_documents" },
     { route: "src/app/api/academy-lesson-progress/route.ts", table: "academy_lesson_progress" },
     { route: "src/app/api/academy-simulator-decision/route.ts", table: "academy_simulator_decisions" },
     { route: "src/app/api/achievements/route.ts", table: "student_achievements" },
@@ -258,6 +259,7 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 // Routes that gate, and the product each gates on.
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/achievements/route.ts": "academy",
+  "src/app/api/academy-flashcards/route.ts": "academy",
   "src/app/api/academy-lesson-progress/route.ts": "academy",
   "src/app/api/ai-mentor/route.ts": "mentor",
   "src/app/api/academy-certificates/route.ts": "academy",
