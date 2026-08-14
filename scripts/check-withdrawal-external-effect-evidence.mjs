@@ -316,6 +316,7 @@ for (const proof of [
   requireText("schemaTests", proof, `schema adversarial proof is missing: ${proof}`);
 }
 for (const proof of [
+  "allows only one PostgreSQL-authorized RPC submission across two Redis workers",
   "allows one concurrent execution claim",
   "rolls back raw transaction, hash and intent finalization",
   "requires ambiguity reconciliation before a second durable broadcast attempt",
