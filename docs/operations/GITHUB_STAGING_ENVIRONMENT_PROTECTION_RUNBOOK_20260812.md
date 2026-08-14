@@ -4,7 +4,7 @@
 **Repository:** `tecpey/Tecpey-Os`  
 **Environment name:** `staging`  
 **Current observation:** `protection_rules: []` after current candidate promotion
-**Selected protected staging evidence target SHA:** `b55860d8444db9c1b1020f1240816a229b1a2944`
+**Selected protected staging evidence target SHA:** `5c933f2499fa84f7e71fcd3a1076ffe12cf3149e`
 
 This runbook closes the ambiguity before the protected staging workflows are
 dispatched. It does not close NOG-01 or NOG-02 by itself. It defines the minimum
@@ -82,7 +82,7 @@ manual workflows from GitHub Actions against the selected candidate SHA.
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: b55860d8444db9c1b1020f1240816a229b1a2944
+release_sha: 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e
 run_alert_probe: true
 ```
 
@@ -99,7 +99,7 @@ tecpey-staging-evidence-verification.json
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: b55860d8444db9c1b1020f1240816a229b1a2944
+release_sha: 5c933f2499fa84f7e71fcd3a1076ffe12cf3149e
 environment_source: protected_host_env_file
 ```
 
@@ -120,7 +120,7 @@ NOG-01 and NOG-02 remain open until all of the following are true:
 
 - `staging` no longer reports `protection_rules: []`;
 - the accepted runs use the selected SHA
-  `b55860d8444db9c1b1020f1240816a229b1a2944`;
+  `5c933f2499fa84f7e71fcd3a1076ffe12cf3149e`;
 - both workflows run on the `tecpey-staging` self-hosted runner;
 - both workflows complete successfully;
 - artifacts and detached digests verify offline;

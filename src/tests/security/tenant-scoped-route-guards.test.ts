@@ -104,6 +104,7 @@ describe("Tenant-scoped route guards", () => {
   // which only names a student the session's principal is bound to, and reads
   // from that bound principal.
   const MIGRATED_GLOBAL_READS: ReadonlyArray<{ route: string; table: string }> = [
+    { route: "src/app/api/academy-lesson-progress/route.ts", table: "academy_lesson_progress" },
     { route: "src/app/api/academy-simulator-decision/route.ts", table: "academy_simulator_decisions" },
     { route: "src/app/api/achievements/route.ts", table: "student_achievements" },
     { route: "src/app/api/mentor-challenge/route.ts", table: "mentor_challenge_attempts" },
@@ -168,17 +169,19 @@ describe("Tenant-scoped route guards", () => {
     );
   });
 
-  // The mentor reads signal an outage with storage:"unavailable" (the shape they
-  // already used for a storage-down read) rather than recordDegradedRead, but the
-  // same two lies must be foreclosed (#434 review): a degraded revocation
-  // authority must not be turned into a 401 that tells a valid user their profile
-  // is gone, and an unreadable binding must not be turned into an ordinary empty.
-  const MENTOR_DEGRADED_READS: ReadonlyArray<{ route: string; empty: string }> = [
+  // These student_global reads signal an outage with storage:"unavailable" (the
+  // shape they already used for a storage-down read) rather than
+  // recordDegradedRead, but the same two lies must be foreclosed (#434 review): a
+  // degraded revocation authority must not be turned into a 401/plain-empty that
+  // tells a valid user their data is gone, and an unreadable binding must not be
+  // turned into an ordinary empty.
+  const DEGRADED_DISTINCTION_READS: ReadonlyArray<{ route: string; empty: string }> = [
     { route: "src/app/api/mentor-conversations/route.ts", empty: "conversations: [], nextCursor: null" },
     { route: "src/app/api/mentor-insights/route.ts", empty: "insights: [], profile: null" },
     { route: "src/app/api/mentor-memory/route.ts", empty: "memories: []" },
+    { route: "src/app/api/academy-lesson-progress/route.ts", empty: "records: [], terms: []" },
   ];
-  for (const { route, empty } of MENTOR_DEGRADED_READS) {
+  for (const { route, empty } of DEGRADED_DISTINCTION_READS) {
     const name = route.replace("src/app/api/", "").replace("/route.ts", "");
     it(`distinguishes an outage from an empty read in ${name}`, async () => {
       const text = await source(route);
@@ -255,6 +258,8 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 // Routes that gate, and the product each gates on.
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/achievements/route.ts": "academy",
+  "src/app/api/academy-lesson-progress/route.ts": "academy",
+  "src/app/api/ai-mentor/route.ts": "mentor",
   "src/app/api/academy-certificates/route.ts": "academy",
   "src/app/api/academy-lesson-assessment/route.ts": "academy",
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
@@ -321,9 +326,13 @@ describe("Tenant product entitlement route guards", () => {
       const text = await source(route);
 
       // One gate per resolved tenant: a handler that resolves a tenant and skips
-      // the gate is exactly the omission this pins closed.
+      // the gate is exactly the omission this pins closed. Either entitlement
+      // primitive counts — requireTenantProduct returns the 403/503 response a
+      // route surfaces directly, while tenantProductVerdict returns the verdict a
+      // route needs when it degrades (e.g. AI Mentor falling back to local
+      // guidance) instead of returning that response.
       const resolved = text.match(/await resolveTenantPrincipalContext\(/g) ?? [];
-      const gated = text.match(/await requireTenantProduct\(/g) ?? [];
+      const gated = text.match(/await (?:requireTenantProduct|tenantProductVerdict)\(/g) ?? [];
       assert.ok(resolved.length > 0, "this route is expected to resolve a tenant");
       assert.equal(
         gated.length,
@@ -334,7 +343,7 @@ describe("Tenant product entitlement route guards", () => {
       // The entitlement has to be read for the tenant the request acts in. A
       // literal or a default here would gate every tenant on one tenant's
       // purchase, which is the whole failure this guards against.
-      const calls = text.match(/requireTenantProduct\(([^)]*)\)/g) ?? [];
+      const calls = text.match(/(?:requireTenantProduct|tenantProductVerdict)\(([^)]*)\)/g) ?? [];
       assert.equal(calls.length, gated.length);
       for (const call of calls) {
         assert.match(call, /tenantContext\.tenantId/, call);
@@ -342,7 +351,7 @@ describe("Tenant product entitlement route guards", () => {
       }
       assert.doesNotMatch(
         text,
-        /requireTenantProduct\(\s*PLATFORM\./,
+        /(?:requireTenantProduct|tenantProductVerdict)\(\s*PLATFORM\./,
         "the entitlement must not be read for the platform default tenant",
       );
     });
@@ -355,7 +364,7 @@ describe("Tenant product entitlement route guards", () => {
       const text = await source(route);
       assert.doesNotMatch(
         text,
-        /await requireTenantProduct\(/,
+        /await (?:requireTenantProduct|tenantProductVerdict)\(/,
         "this route now gates a product; move it from EXEMPT_REASON to GATED_PRODUCT",
       );
     });

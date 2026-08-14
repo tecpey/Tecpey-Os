@@ -4,6 +4,9 @@ import { withDb } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { apiError, apiOk } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 import {
   calculateTermLearningSummary,
   normalizeAttempts,
@@ -80,10 +83,40 @@ export async function GET(req: NextRequest) {
     });
     if (!limit.ok) return apiError("rate_limited", 429);
 
+    const noStore = { "Cache-Control": "no-store, max-age=0" } as const;
     const session = await getCanonicalSession(req, { strictRevocation: true });
     if (!session.studentId) {
-      return apiOk({ records: [], terms: [] }, 200, { "Cache-Control": "no-store, max-age=0" });
+      // A degraded revocation authority returns a guest with no studentId; that
+      // outage must not masquerade as an honest "no progress".
+      if (session.authorityDegraded) {
+        return apiOk({ records: [], terms: [], storage: "unavailable" }, 200, noStore);
+      }
+      return apiOk({ records: [], terms: [] }, 200, noStore);
     }
+    // academy_lesson_progress and academy_term_learning_progress are
+    // student_global (classification registry): keyed by student_id with no
+    // tenant column, so reading them by session.studentId alone served a
+    // student's progress on any tenant's branded host. Resolving the acting
+    // tenant confirms the binding, refuses a foreign host, and gates Academy.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    if (!tenantContext.available) {
+      // Only a binding-storage outage makes an empty answer a lie; an ordinary
+      // authorization outcome — unbound, revoked, workspace mismatch, foreign
+      // host — is an honest empty.
+      if (tenantContext.reason === "binding_storage_unavailable") {
+        return apiOk({ records: [], terms: [], storage: "unavailable" }, 200, noStore);
+      }
+      return apiOk({ records: [], terms: [] }, 200, noStore);
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const url = new URL(req.url);
     const locale = parseAcademyLocale(url.searchParams.get("locale"));
@@ -93,7 +126,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await withDb(async (client) => {
-      const values: unknown[] = [session.studentId, locale];
+      const values: unknown[] = [studentId, locale];
       const termFilter = requestedTermSlug ? "AND term_slug = $3" : "";
       if (requestedTermSlug) values.push(requestedTermSlug);
 
