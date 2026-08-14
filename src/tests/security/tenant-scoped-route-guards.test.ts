@@ -138,6 +138,9 @@ describe("Tenant-scoped route guards", () => {
         /tenantContext\.principalId/,
         `${name} must read from the bound principal id`,
       );
+      // This is the student_global table the migration is about; the route is
+      // expected to actually read it, so the guard is pinned to the right file.
+      assert.ok(text.includes(table), `${name} must read ${table}`);
     });
   }
 });
