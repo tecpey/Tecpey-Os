@@ -321,4 +321,23 @@ describe("admin auth provider control plane", () => {
     assert.match(patchRoute, /applyAuthProviderEvidenceMutation\(\{/);
     assert.doesNotMatch(patchRoute, /clientSecret|privateKey|botToken|apiKey/);
   });
+
+  it("keeps auth-provider evidence reads and writes tenant/workspace scoped", async () => {
+    const store = await readFile("src/lib/admin-auth-provider-evidence-store.ts", "utf8");
+
+    assert.match(
+      store,
+      /FROM admin_auth_provider_evidence\s+WHERE tenant_id = \$1\s+AND workspace_id = \$2\s+AND evidence_state = 'ready'/,
+    );
+    assert.match(
+      store,
+      /INSERT INTO admin_auth_provider_evidence\s+[\s\S]*ON CONFLICT \(tenant_id, workspace_id, provider_id, gate_id\)/,
+    );
+    assert.match(
+      store,
+      /INSERT INTO admin_auth_provider_evidence_events\s+[\s\S]*\(tenant_id, workspace_id, provider_id, gate_id, action, actor_admin_id,/,
+    );
+    assert.doesNotMatch(store, /FROM admin_auth_provider_evidence\s+WHERE provider_id = \$1/);
+    assert.doesNotMatch(store, /ON CONFLICT \(provider_id, gate_id\)/);
+  });
 });
