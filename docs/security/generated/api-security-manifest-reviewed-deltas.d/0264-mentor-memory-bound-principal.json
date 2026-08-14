@@ -1,0 +1,145 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/mentor-memory",
+   "method": "DELETE",
+   "previousSourceHash": "1c324bd776c5314d8263ab32",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash, tenantSource and the tenant/product controls change on these mutations (multi-tenant #20): mentor_memories is student_global per the classification registry, so the POST and DELETE were keyed by session.studentId without resolveTenantPrincipalContext, serving and mutating a student's mentor memories on any tenant's branded host with no product gate. Each now resolves the acting tenant with strict revocation, confirms the student's binding, refuses a foreign branded host, and runs the Mentor product gate before writing or deleting; a not-available outcome fails closed with 503. The bounded body, CSRF, rate limits and the student_global storage shape are unchanged. Re-pinned because the operation's tenant sourcing moved, verified against the effective manifest and the derived route-guard test.",
+   "replacement": {
+    "route": "/api/mentor-memory",
+    "method": "DELETE",
+    "sourcePath": "src/app/api/mentor-memory/route.ts",
+    "sourceHash": "77716eecce523431e5856c00",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": "tenantContext",
+    "risk": [
+     "ai-memory"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "mentor-memory-delete",
+     "expectsBody": false,
+     "bodySizeLimit": false,
+     "contentTypeCheck": false,
+     "inputParser": null,
+     "idempotency": false,
+     "transaction": true,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": null
+    },
+    "domainOwner": "mentor-memory",
+    "testReferences": [
+     "src/tests/security/auth-strict-revocation-routes.test.ts",
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": false,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/mentor-memory/route.ts",
+     "method": "DELETE",
+     "resolved": true
+    }
+   }
+  },
+  {
+   "route": "/api/mentor-memory",
+   "method": "POST",
+   "previousSourceHash": "1c324bd776c5314d8263ab32",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash, tenantSource and the tenant/product controls change on these mutations (multi-tenant #20): mentor_memories is student_global per the classification registry, so the POST and DELETE were keyed by session.studentId without resolveTenantPrincipalContext, serving and mutating a student's mentor memories on any tenant's branded host with no product gate. Each now resolves the acting tenant with strict revocation, confirms the student's binding, refuses a foreign branded host, and runs the Mentor product gate before writing or deleting; a not-available outcome fails closed with 503. The bounded body, CSRF, rate limits and the student_global storage shape are unchanged. Re-pinned because the operation's tenant sourcing moved, verified against the effective manifest and the derived route-guard test.",
+   "replacement": {
+    "route": "/api/mentor-memory",
+    "method": "POST",
+    "sourcePath": "src/app/api/mentor-memory/route.ts",
+    "sourceHash": "77716eecce523431e5856c00",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": "tenantContext",
+    "risk": [
+     "ai-memory"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "mentor-memory-write",
+     "expectsBody": true,
+     "bodySizeLimit": true,
+     "contentTypeCheck": false,
+     "inputParser": "local:text",
+     "idempotency": false,
+     "transaction": false,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+    },
+    "domainOwner": "mentor-memory",
+    "testReferences": [
+     "src/tests/security/auth-strict-revocation-routes.test.ts",
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": true,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/mentor-memory/route.ts",
+     "method": "POST",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}
