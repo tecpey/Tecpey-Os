@@ -100,10 +100,10 @@ export async function PATCH(req: NextRequest) {
       if (!limited.ok) return noStore(apiError("rate_limited", 429));
 
       // A consent write must resolve the acting tenant before it records
-      // anything: it confirms the student's binding, refuses a foreign branded
-      // host, and gates the Mentor product. Any not-available outcome fails
-      // closed rather than writing consent — and stamping an audit row — under a
-      // tenant the student may not act in.
+      // anything: it confirms the student's binding and refuses a foreign
+      // branded host. Any not-available outcome fails closed rather than writing
+      // consent — and stamping an audit row — under a tenant the student may not
+      // act in.
       const tenantContext = await resolveTenantPrincipalContext({
         session,
         request: req,
@@ -112,8 +112,6 @@ export async function PATCH(req: NextRequest) {
         requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
       });
       if (!tenantContext.available) return noStore(apiError("mentor_preferences_unavailable", 503));
-      const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
-      if (productGate) return noStore(productGate);
 
       const bounded = await readBoundedJsonRequest(req, { maxBytes: 2_048 });
       if (!bounded.ok) return noStore(apiError(bounded.error, bounded.status));
@@ -123,6 +121,19 @@ export async function PATCH(req: NextRequest) {
         typeof body.behavioralPersonalizationEnabled !== "boolean"
       ) {
         return noStore(apiError("invalid_mentor_preferences", 400));
+      }
+
+      // Consent revocation must stay reachable even when the tenant is not (or is
+      // no longer) entitled to Mentor. The Mentor execution path (/api/ai-mentor)
+      // reads this saved consent and calls the external provider while
+      // externalProviderEnabled is true, so a student must always be able to turn
+      // it off. The product gate therefore applies only to a request that would
+      // ENABLE external-provider use or behavioral personalization — you may not
+      // switch on a product the tenant is not entitled to — while a request that
+      // only disables both is always admitted (#438 review, Codex P1).
+      if (body.externalProviderEnabled || body.behavioralPersonalizationEnabled) {
+        const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+        if (productGate) return noStore(productGate);
       }
 
       const studentFingerprint = fingerprintMentorPreferenceStudent(

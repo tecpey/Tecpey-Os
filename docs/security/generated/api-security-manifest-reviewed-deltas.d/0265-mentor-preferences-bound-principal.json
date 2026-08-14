@@ -13,7 +13,7 @@
     "route": "/api/mentor-preferences",
     "method": "PATCH",
     "sourcePath": "src/app/api/mentor-preferences/route.ts",
-    "sourceHash": "d7afced8cbca4527580fa134",
+    "sourceHash": "ad7d1b975965ef80bc8d5b14",
     "delegatedTo": null,
     "delegatedSourceHash": null,
     "mutationMode": "active",

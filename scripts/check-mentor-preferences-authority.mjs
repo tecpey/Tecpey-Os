@@ -39,6 +39,11 @@ for (const invariant of [
   'requireTenantProduct(tenantContext.tenantId, "mentor")',
   "studentId: tenantContext.principalId",
   "tenantId: tenantContext.tenantId",
+  // Consent revocation must stay reachable when the tenant is not entitled to
+  // Mentor: the Mentor execution path reads this saved consent, so the write's
+  // product gate applies only to a request that ENABLES external-provider use or
+  // behavioral personalization. A pure opt-out is always admitted (#438 review).
+  "if (body.externalProviderEnabled || body.behavioralPersonalizationEnabled) {",
 ]) {
   requireText("route", invariant, `route boundary missing ${invariant}`);
 }
