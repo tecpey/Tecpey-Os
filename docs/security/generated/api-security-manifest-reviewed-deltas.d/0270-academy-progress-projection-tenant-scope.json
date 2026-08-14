@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/academy-state",
+   "method": "POST",
+   "previousSourceHash": "e20a33705d30df247701e6a0",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash changes on this deny-only POST (multi-tenant #20): the GET on this route now resolves the acting tenant, confirms the student's binding, refuses a foreign branded host and gates the Academy product before refreshing the student_global progress projection with the bound principal; the POST still returns 405 academy_state_read_only. Re-pinned because the file hash moved, not the operation.",
+   "replacement": {
+    "route": "/api/academy-state",
+    "method": "POST",
+    "sourcePath": "src/app/api/academy-state/route.ts",
+    "sourceHash": "b3041d8f1cf8d9ca413f3eac",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "deny-only",
+    "classification": "public",
+    "principalSource": null,
+    "tenantSource": null,
+    "risk": [
+     "progress"
+    ],
+    "controls": {
+     "csrf": false,
+     "strictRevocation": false,
+     "rateLimit": false,
+     "rateLimitNamespace": null,
+     "expectsBody": false,
+     "bodySizeLimit": false,
+     "contentTypeCheck": false,
+     "inputParser": null,
+     "idempotency": false,
+     "transaction": false,
+     "verifiedPrincipal": false,
+     "tenantFromVerifiedContext": false,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": false,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": null
+    },
+    "domainOwner": "academy-state",
+    "testReferences": [
+     "src/tests/security/academy-progress-client-authority.test.ts",
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": false,
+     "strictRevocation": false,
+     "rateLimit": false,
+     "bodySizeLimit": false,
+     "idempotency": false,
+     "verifiedPrincipal": false,
+     "noStore": true,
+     "audit": false,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/academy-state/route.ts",
+     "method": "POST",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}

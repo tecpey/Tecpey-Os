@@ -262,6 +262,14 @@ export async function refreshAcademyProgressProjection(
       ORDER BY updated_at ASC`,
     [studentId, locale],
   );
+  // academy_term_progress is tenant-scoped, but this projection is persisted into
+  // student_global rows (academy_state_documents ON CONFLICT (student_id, locale),
+  // academy_student_cartax ON CONFLICT (student_id)) read by cross-product
+  // surfaces. Scoping this read to one tenant would write tenant-specific state
+  // into those global rows and let the last tenant to refresh overwrite the
+  // shared projection (#445 review). The projection therefore stays a
+  // student_global aggregate; keying the persisted rows by tenant is the separate,
+  // larger change tracked for that.
   const termsResult = await client.query<TermProgressEvidence>(
     `SELECT term_number, status, score, percent, passed_at, updated_at
        FROM academy_term_progress
