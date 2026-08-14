@@ -1,0 +1,75 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/mentor-preferences",
+   "method": "PATCH",
+   "previousSourceHash": "251f7010672d958f43da4240",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash, tenantSource and the tenant/product controls change on this PATCH (multi-tenant #20): mentor_ai_preferences is student_global per the classification registry (ON CONFLICT student_id), so the consent write was keyed by session.studentId and stamped its sensitive-mutation audit with the hard-coded platform default tenant, recording every white-label student's consent under 'tecpey' with no binding check or product gate. The PATCH now resolves the acting tenant with strict revocation, confirms the student's binding, refuses a foreign branded host, gates the Mentor product, acts on the bound principal, and stamps the audit with tenantContext.tenantId; a not-available outcome fails closed with 503. The transactional consent authority, no-op semantics, bounded body and CSRF are unchanged, verified against the effective manifest and the mentor-preference authority guard.",
+   "replacement": {
+    "route": "/api/mentor-preferences",
+    "method": "PATCH",
+    "sourcePath": "src/app/api/mentor-preferences/route.ts",
+    "sourceHash": "d7afced8cbca4527580fa134",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": "tenantContext",
+    "risk": [
+     "privacy"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "mentor-preferences-write",
+     "expectsBody": true,
+     "bodySizeLimit": true,
+     "contentTypeCheck": false,
+     "inputParser": "local:bounded-json-helper",
+     "idempotency": true,
+     "transaction": false,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+    },
+    "domainOwner": "mentor-preferences",
+    "testReferences": [
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": true,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/mentor-preferences/route.ts",
+     "method": "PATCH",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}

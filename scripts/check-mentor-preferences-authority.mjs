@@ -30,7 +30,15 @@ for (const invariant of [
   "fingerprintMentorPreferenceStudent",
   "resolveSensitiveAuditCorrelation",
   "hashSensitiveAuditRequest",
-  "PLATFORM.DEFAULT_TENANT_ID",
+  // multi-tenant #20: mentor_ai_preferences is student_global, so the boundary
+  // must resolve the acting tenant (confirming the binding and refusing a
+  // foreign branded host), gate the Mentor product, act on the bound principal,
+  // and stamp the consent audit with the resolved tenant — never the platform
+  // default, which recorded every white-label student's consent under 'tecpey'.
+  "resolveTenantPrincipalContext({",
+  'requireTenantProduct(tenantContext.tenantId, "mentor")',
+  "studentId: tenantContext.principalId",
+  "tenantId: tenantContext.tenantId",
 ]) {
   requireText("route", invariant, `route boundary missing ${invariant}`);
 }
@@ -44,6 +52,9 @@ for (const forbidden of [
   "body.actorId",
   "body.tenantId",
   "body.realExchangeSignalsEnabled",
+  // The consent audit tenant must be the resolved acting tenant, not the
+  // hard-coded platform default that pinned every tenant's consent to 'tecpey'.
+  "PLATFORM.DEFAULT_TENANT_ID",
 ]) {
   rejectText("route", forbidden, `route reintroduced forbidden authority: ${forbidden}`);
 }
