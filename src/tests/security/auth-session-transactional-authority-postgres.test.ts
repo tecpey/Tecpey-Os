@@ -425,19 +425,44 @@ describe("Transactional session authority", () => {
             "SELECT is_revoked FROM user_sessions WHERE id = $1",
             [preparedAccess.jti],
           );
-          const outbox = await client.query<{ status: string }>(
-            "SELECT status FROM session_revocation_outbox WHERE session_jti = $1",
+          const outbox = await client.query<{
+            status: string;
+            attempt_count: number;
+            last_error: string | null;
+            published_at: Date | null;
+          }>(
+            `SELECT status, attempt_count, last_error, published_at
+               FROM session_revocation_outbox
+              WHERE session_jti = $1`,
             [preparedAccess.jti],
           );
           return {
             revoked: session.rows[0]?.is_revoked,
             outboxStatus: outbox.rows[0]?.status,
+            outboxAttempts: outbox.rows[0]?.attempt_count ?? 0,
+            outboxLastError: outbox.rows[0]?.last_error ?? null,
+            outboxPublishedAt: outbox.rows[0]?.published_at ?? null,
           };
         });
         assert.equal(durable.revoked, true);
-        assert.equal(durable.outboxStatus, "pending");
+        assert.equal(
+          ["pending", "published"].includes(durable.outboxStatus ?? ""),
+          true,
+        );
 
-        if (redis) {
+        if (durable.outboxStatus === "pending") {
+          assert.equal(durable.outboxAttempts >= 1, true);
+          assert.equal(durable.outboxLastError, "redis_unavailable");
+        } else {
+          assert.ok(durable.outboxPublishedAt);
+          assert.ok(redis);
+          assert.equal(
+            await redis.get(`tecpey:revoked:jti:${preparedAccess.jti}`),
+            "1",
+          );
+        }
+
+        if (redis && durable.outboxStatus === "pending") {
           globalThis.tecpeyRedisClient = redis;
           assert.equal(await publishPendingSessionRevocations(), true);
           assert.equal(
