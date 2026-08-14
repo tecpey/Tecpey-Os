@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-12T16:13:21.000Z",
+  "generatedAt": "2026-08-14T12:46:43Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "5d68865dd56331e011829749ee970d097e9b14a4",
+    "sha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
     "sourceBranch": "main",
-    "sourcePullRequest": 396,
-    "selectedAt": "2026-08-12T16:13:21Z",
-    "reason": "Promotes the controlled-launch evidence target to current main after PR #396 support install rehearsal hardening, PR #402 accepted-risk signoff verifier, PR #404 News Intelligence Graph wiring and PR #405 News Provider Readiness authority. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
+    "sourcePullRequest": 433,
+    "selectedAt": "2026-08-14T12:46:43Z",
+    "reason": "Promotes the controlled-launch evidence target to current main after PR #433 auth-provider review decision workflow, tenant-scoped dual-control approval handling and Command Center decision actions. New protected staging, recovery reconciliation, incident, accepted-risk and Go approval evidence must target this exact SHA."
   },
   "supersedes": [
     {
@@ -65,6 +65,11 @@
       "sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
       "previousRole": "current controlled-launch candidate after PR #388 provenance-aware landing growth evidence",
       "currentStatus": "superseded_by_pr_396_for_support_install_readiness_news_readiness_and_exact_candidate_evidence_refresh"
+    },
+    {
+      "sha": "5d68865dd56331e011829749ee970d097e9b14a4",
+      "previousRole": "current controlled-launch candidate after PR #396 support install readiness, news readiness and exact-candidate evidence refresh",
+      "currentStatus": "superseded_by_pr_433_for_auth_provider_review_decisions_and_new_exact_candidate_evidence_collection"
     }
   ],
   "activeInputs": {
