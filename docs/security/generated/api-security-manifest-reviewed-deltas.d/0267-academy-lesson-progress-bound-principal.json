@@ -1,0 +1,75 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/academy-lesson-progress",
+   "method": "PUT",
+   "previousSourceHash": "b35f17fd7f30c26ce3cef19a",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash changes on this deny-only PUT (multi-tenant #20): the GET read of academy_lesson_progress and academy_term_learning_progress \u2014 student_global per the classification registry \u2014 now resolves the acting tenant with resolveTenantPrincipalContext, confirms the student's binding, refuses a foreign host and gates the Academy product, so it reads from a bound principal rather than by a session student id that skipped the binding. The PUT is unchanged: it still returns 405 academy_lesson_progress_read_only. Re-pinned because the file hash moved, not the operation.",
+   "replacement": {
+    "route": "/api/academy-lesson-progress",
+    "method": "PUT",
+    "sourcePath": "src/app/api/academy-lesson-progress/route.ts",
+    "sourceHash": "5398c7273b7779d1a26616a8",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "deny-only",
+    "classification": "public",
+    "principalSource": null,
+    "tenantSource": null,
+    "risk": [
+     "progress"
+    ],
+    "controls": {
+     "csrf": false,
+     "strictRevocation": false,
+     "rateLimit": false,
+     "rateLimitNamespace": null,
+     "expectsBody": false,
+     "bodySizeLimit": false,
+     "contentTypeCheck": false,
+     "inputParser": null,
+     "idempotency": false,
+     "transaction": false,
+     "verifiedPrincipal": false,
+     "tenantFromVerifiedContext": false,
+     "noStore": true,
+     "audit": false,
+     "redaction": true,
+     "failClosed": false,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": null
+    },
+    "domainOwner": "academy-lesson-progress",
+    "testReferences": [
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": false,
+     "strictRevocation": false,
+     "rateLimit": false,
+     "bodySizeLimit": false,
+     "idempotency": false,
+     "verifiedPrincipal": false,
+     "noStore": true,
+     "audit": false,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/academy-lesson-progress/route.ts",
+     "method": "PUT",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}
