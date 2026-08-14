@@ -27,6 +27,32 @@ function readOnlyRoute(overrides = {}) {
   };
 }
 
+function addedOperation(overrides = {}) {
+  const {
+    replacement: replacementOverrides = {},
+    ...entryOverrides
+  } = overrides;
+  const replacement = {
+    route: "/api/new-operation",
+    method: "POST",
+    sourcePath: "src/app/api/new-operation/route.ts",
+    sourceHash: "c".repeat(24),
+    mutationMode: "active",
+    findings: [],
+    controls: {},
+    ...replacementOverrides,
+  };
+  return {
+    route: replacement.route,
+    method: replacement.method,
+    issue: "#428",
+    owner: "security-platform",
+    reason: "Reviewed exact additive mutating operation with full generated manifest evidence.",
+    replacement,
+    ...entryOverrides,
+  };
+}
+
 function fixture() {
   const baseline = {
     schemaVersion: 1,
@@ -64,7 +90,7 @@ function fixture() {
 describe("reviewed API security manifest delta registries", () => {
   it("merges additive operation and read-only route shards without mutation", () => {
     const value = fixture();
-    const primary = { ...value.registry, entries: [], readOnlyRoutes: [] };
+    const primary = { ...value.registry, entries: [], readOnlyRoutes: [], addedOperations: [] };
     const operationShard = structuredClone(value.registry);
     const routeShard = {
       schemaVersion: 1,
@@ -72,19 +98,28 @@ describe("reviewed API security manifest delta registries", () => {
       entries: [],
       readOnlyRoutes: [readOnlyRoute()],
     };
+    const additionShard = {
+      schemaVersion: 1,
+      baselineBlobSha: value.registry.baselineBlobSha,
+      entries: [],
+      addedOperations: [addedOperation()],
+    };
     const result = mergeReviewedManifestDeltaRegistries({
       primary,
       shards: [
         { name: "0161-example.json", registry: operationShard },
         { name: "0230-read-route.json", registry: routeShard },
+        { name: "0428-added-operation.json", registry: additionShard },
       ],
     });
 
     assert.equal(result.entries.length, 1);
     assert.deepEqual(result.entries[0], value.registry.entries[0]);
     assert.deepEqual(result.readOnlyRoutes, routeShard.readOnlyRoutes);
+    assert.deepEqual(result.addedOperations, additionShard.addedOperations);
     assert.equal(primary.entries.length, 0);
     assert.equal(primary.readOnlyRoutes.length, 0);
+    assert.equal(primary.addedOperations.length, 0);
     assert.equal(operationShard.entries.length, 1);
   });
 
@@ -173,6 +208,56 @@ describe("reviewed API security manifest deltas", () => {
     assert.deepEqual(result.readOnlyRoutes, [route]);
     assert.equal(result.manifest.totals.routeFiles, 2);
     assert.equal(value.baseline.totals.routeFiles, 1);
+  });
+
+  it("applies exact additive mutating operations and counts their route files once", () => {
+    const value = fixture();
+    value.registry.addedOperations = [
+      addedOperation({
+        replacement: {
+          method: "PATCH",
+          sourceHash: "c".repeat(24),
+        },
+      }),
+      addedOperation({
+        method: "POST",
+        replacement: {
+          method: "POST",
+          sourceHash: "d".repeat(24),
+        },
+      }),
+    ];
+
+    const result = applyReviewedManifestDeltas(value);
+    assert.equal(result.appliedCount, 3);
+    assert.equal(result.addedOperationCount, 2);
+    assert.equal(result.manifest.routes.length, 3);
+    assert.equal(result.manifest.totals.routeFiles, 2);
+    assert.equal(result.manifest.totals.mutatingOperations, 3);
+    assert.deepEqual(
+      result.manifest.routes.map((entry) => `${entry.method} ${entry.route}`),
+      ["POST /api/example", "PATCH /api/new-operation", "POST /api/new-operation"],
+    );
+  });
+
+  it("rejects additive mutating operations that already exist in the baseline", () => {
+    const value = fixture();
+    value.registry.addedOperations = [
+      addedOperation({
+        route: "/api/example",
+        method: "POST",
+        replacement: {
+          route: "/api/example",
+          method: "POST",
+          sourcePath: "src/app/api/example/route.ts",
+        },
+      }),
+    ];
+
+    assert.throws(
+      () => applyReviewedManifestDeltas(value),
+      /added_operation_target_exists:POST \/api\/example:1/,
+    );
   });
 
   it("applies an ordered chain for the same operation when every hash link is exact", () => {

@@ -32,6 +32,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/command-center/auth/bootstrap/challenge/route.ts", "req"],
   ["src/app/api/command-center/auth/bootstrap/verify/route.ts", "req"],
   ["src/app/api/command-center/auth/passkey/verify/route.ts", "req"],
+  ["src/app/api/command-center/auth-providers/route.ts", "req"],
   ["src/app/api/command-center/campaign/route.ts", "req"],
   ["src/app/api/community/profile/route.ts", "req"],
   ["src/app/api/device-token/route.ts", "req"],
