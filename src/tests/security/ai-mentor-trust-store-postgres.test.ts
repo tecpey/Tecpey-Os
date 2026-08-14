@@ -40,6 +40,34 @@ async function createStudent(client: PoolClient, label: string): Promise<string>
   return id;
 }
 
+/** Stand up a tenant and admit a student into it, the way a real onboarding would. */
+async function admitStudent(
+  client: PoolClient,
+  tenantId: string,
+  studentId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO platform_tenants (id, slug, display_name, plan, products)
+       VALUES ($1, $1, $1, 'enterprise', '{}'::text[])
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId],
+  );
+  const workspaceId = `${tenantId}-main`;
+  await client.query(
+    `INSERT INTO platform_workspaces (id, tenant_id, slug, display_name, products, settings)
+       VALUES ($1, $2, $1, $1, '{}'::text[], '{}'::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    [workspaceId, tenantId],
+  );
+  await client.query(
+    `INSERT INTO platform_principal_bindings
+       (tenant_id, workspace_id, principal_type, principal_id, status, source)
+     VALUES ($1, $2, 'student', $3, 'active', 'mentor_evidence_test')
+     ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id) DO NOTHING`,
+    [tenantId, workspaceId, studentId],
+  );
+}
+
 async function cleanupStudent(client: PoolClient, studentId: string): Promise<void> {
   await client.query("DELETE FROM mentor_conversations WHERE student_id = $1::uuid", [studentId]);
   await client.query("DELETE FROM mentor_memories WHERE student_id = $1::uuid", [studentId]);
@@ -522,6 +550,14 @@ describe("AI Mentor durable trust store", () => {
         await withClient(async (client) => {
           await client.query("BEGIN");
           try {
+            // Both tenants have to have admitted this student before either may
+            // hold evidence about them (migration 0074). That makes the
+            // assertion below stronger rather than weaker: two tenants that each
+            // legitimately admitted the same learner still keep separate rows
+            // for one request id and phase, instead of one row winning.
+            for (const tenantId of [tenantA, tenantB]) {
+              await admitStudent(client, tenantId, studentId);
+            }
             for (const [tenantId, inputHash] of [
               [tenantA, "b".repeat(64)],
               [tenantB, "c".repeat(64)],

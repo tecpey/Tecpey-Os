@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { logger } from "./logger";
 
-const FILENAME = "0074_admin_auth_provider_evidence.sql";
+const FILENAME = "0075_admin_auth_provider_evidence.sql";
 
 export const ADMIN_AUTH_PROVIDER_EVIDENCE_SQL = `
 CREATE TABLE IF NOT EXISTS admin_auth_provider_evidence (

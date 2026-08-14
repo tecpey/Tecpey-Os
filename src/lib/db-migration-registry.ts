@@ -63,6 +63,7 @@ import { runAcademyCertificateTenantMigrations } from "./db-migrate-academy-cert
 import { runNotificationCenterTenantMigrations } from "./db-migrate-notification-center-tenant";
 import { runWithdrawalEvidenceTenantMigrations } from "./db-migrate-withdrawal-evidence-tenant";
 import { runStudentTenantBindingIntegrityMigrations } from "./db-migrate-student-tenant-binding-integrity";
+import { runStudentTenantBindingTriggerMigrations } from "./db-migrate-student-tenant-binding-trigger";
 import { runAdminAuthProviderEvidenceMigrations } from "./db-migrate-admin-auth-provider-evidence";
 
 export type MigrationRegistryEntry = Readonly<{
@@ -164,7 +165,8 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(56, "migration-step-056", CANONICAL_MIGRATION_CONTENT.notificationCenterTenant, "academy-platform", "notifications", runNotificationCenterTenantMigrations),
   entry(57, "migration-step-057", CANONICAL_MIGRATION_CONTENT.withdrawalEvidenceTenant, "platform-security", "withdrawals", runWithdrawalEvidenceTenantMigrations),
   entry(58, "migration-step-058", CANONICAL_MIGRATION_CONTENT.studentTenantBindingIntegrity, "academy-platform", "academy", runStudentTenantBindingIntegrityMigrations),
-  entry(59, "migration-step-059", CANONICAL_MIGRATION_CONTENT.adminAuthProviderEvidence, "platform-security", "admin", runAdminAuthProviderEvidenceMigrations),
+  entry(59, "migration-step-059", CANONICAL_MIGRATION_CONTENT.studentTenantBindingTrigger, "academy-platform", "academy", runStudentTenantBindingTriggerMigrations),
+  entry(60, "migration-step-060", CANONICAL_MIGRATION_CONTENT.adminAuthProviderEvidence, "platform-security", "admin", runAdminAuthProviderEvidenceMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(
