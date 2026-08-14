@@ -211,6 +211,44 @@ describe("Tenant-scoped route guards", () => {
       );
     });
   }
+
+  // academy-student-profile is the identity bootstrap: its GET joins the
+  // student_global academy_student_cartax (progress, badges, XP, snapshots) onto
+  // the student's own identity row. That derived data must not be served on a
+  // branded host the student is not bound to (#20), but the pre-student
+  // onboarding discovery (email only, before a studentId or its tenant binding
+  // exists) must keep working — so the resolver is gated on an existing studentId
+  // and a not-available outcome returns an authenticated-but-empty profile.
+  it("gates the cross-tenant profile behind the acting tenant in academy-student-profile", async () => {
+    const text = await source("src/app/api/academy-student-profile/route.ts");
+    // The cartax join must be gated on the FOUND student's binding, not the
+    // session's studentId field — a returning student's session is signed with
+    // studentId:null (academy-auth) and the student is found by email, so gating
+    // only on session.studentId would leave the account-only path ungated (#446).
+    assert.match(
+      text,
+      /if \(profile\?\.id\) \{[\s\S]*resolvedPrincipalId: String\(profile\.id\)/,
+      "the cartax must be gated on the found student's binding via resolvedPrincipalId",
+    );
+    assert.match(
+      text,
+      /if \(!tenantContext\.available\)[\s\S]*return apiOk\(\{ authenticated, profile: null \}\)/,
+      "a foreign host / unbound student must be served no cross-tenant profile, not their cartax",
+    );
+    // A degraded strict-revocation authority is an outage, not a logout.
+    assert.match(
+      text,
+      /if \(session\.authorityDegraded\)/,
+      "a degraded revocation authority must be an outage, not an anonymous profile",
+    );
+    // The POST creates the student before its tenant binding is trigger-created,
+    // so it must not be forced through the student resolver.
+    assert.doesNotMatch(
+      text,
+      /export async function POST[\s\S]*resolveTenantPrincipalContext\(/,
+      "the onboarding POST must not resolve a student binding that does not exist yet",
+    );
+  });
 });
 
 // Routes that serve a product have to check the acting tenant's entitlement
@@ -269,6 +307,7 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/academy-mastery-seasons/route.ts": "academy",
   "src/app/api/academy-simulator-decision/route.ts": "academy",
   "src/app/api/academy-state/route.ts": "academy",
+  "src/app/api/academy-student-profile/route.ts": "academy",
   "src/app/api/academy-term-progress/route.ts": "academy",
   "src/app/api/learning-events/route.ts": "academy",
   "src/app/api/mentor-challenge/route.ts": "mentor",

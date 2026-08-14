@@ -1,0 +1,75 @@
+{
+ "schemaVersion": 1,
+ "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+ "entries": [
+  {
+   "route": "/api/academy-student-profile",
+   "method": "POST",
+   "previousSourceHash": "da11630e89c016ef03bcc6a4",
+   "issue": "#20",
+   "owner": "academy-platform",
+   "reason": "Only sourceHash changes on this POST (multi-tenant #20): the GET on this route now resolves the acting tenant for an authenticated student, gates the Academy product and refuses to serve the student_global academy_student_cartax join on a branded host the student is not bound to. The POST is unchanged \u2014 it is the identity bootstrap that creates the student row before its tenant binding is trigger-created (migration 0046), so it deliberately does not resolve a student binding that does not exist yet. Re-pinned because the file hash moved, not the operation.",
+   "replacement": {
+    "route": "/api/academy-student-profile",
+    "method": "POST",
+    "sourcePath": "src/app/api/academy-student-profile/route.ts",
+    "sourceHash": "7093e058c394be53d0e57421",
+    "delegatedTo": null,
+    "delegatedSourceHash": null,
+    "mutationMode": "active",
+    "classification": "authenticated",
+    "principalSource": "getCanonicalSession",
+    "tenantSource": null,
+    "risk": [
+     "privacy"
+    ],
+    "controls": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": true,
+     "rateLimitNamespace": "academy-student-profile-write",
+     "expectsBody": true,
+     "bodySizeLimit": true,
+     "contentTypeCheck": false,
+     "inputParser": "local:text",
+     "idempotency": false,
+     "transaction": true,
+     "verifiedPrincipal": true,
+     "tenantFromVerifiedContext": false,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "failClosed": true,
+     "serviceIdentity": false,
+     "setsCookie": false,
+     "explicitPublicCachePolicy": false,
+     "headerBodySizeHint": false,
+     "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+    },
+    "domainOwner": "academy-student-profile",
+    "testReferences": [
+     "src/tests/security/tenant-scoped-route-guards.test.ts"
+    ],
+    "requirements": {
+     "csrf": true,
+     "strictRevocation": true,
+     "rateLimit": false,
+     "bodySizeLimit": true,
+     "idempotency": false,
+     "verifiedPrincipal": true,
+     "noStore": true,
+     "audit": true,
+     "redaction": true,
+     "serviceIdentity": false
+    },
+    "findings": [],
+    "evidenceSource": {
+     "sourcePath": "src/app/api/academy-student-profile/route.ts",
+     "method": "POST",
+     "resolved": true
+    }
+   }
+  }
+ ],
+ "readOnlyRoutes": []
+}
