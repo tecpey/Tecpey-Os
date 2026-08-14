@@ -100,6 +100,12 @@ function RiskBadge({ risk }: { risk: AuthProviderRiskLevel }) {
   );
 }
 
+function providerActionLabel(provider: AuthProviderControl): string {
+  if (provider.status === "configured") return "فعال و read-only";
+  if (provider.adminLocked || provider.status === "locked" || provider.status === "needs_evidence") return "قفل تا تکمیل evidence";
+  return "ارسال برای بازبینی";
+}
+
 export function AuthProviderControlPanel() {
   const [snapshot, setSnapshot] = useState<AuthProviderSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -195,6 +201,12 @@ export function AuthProviderControlPanel() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/command-center/control-plane#identity"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-4 text-sm font-black text-cyan-100 transition hover:bg-cyan-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+          >
+            ماتریس کنترل‌پلین
+          </Link>
+          <Link
             href="/command-center"
             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] px-4 text-sm font-black text-cyan-100 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           >
@@ -254,6 +266,8 @@ export function AuthProviderControlPanel() {
           <div className="mt-6 grid gap-4 xl:grid-cols-2">
             {snapshot.providers.map((provider) => {
               const Icon = providerIcons[provider.id];
+              const activationLocked = provider.adminLocked || provider.status === "locked" || provider.status === "needs_evidence";
+              const activationDisabled = busyProvider === provider.id || provider.status === "configured" || activationLocked;
               return (
                 <article key={provider.id} className="rounded-[24px] border border-white/10 bg-[#030914] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -268,9 +282,7 @@ export function AuthProviderControlPanel() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <StatusBadge status={provider.status} />
-                      <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${riskClassName[provider.riskLevel]}`}>
-                        {provider.riskLevel}
-                      </span>
+                      <RiskBadge risk={provider.riskLevel} />
                     </div>
                   </div>
 
@@ -298,12 +310,18 @@ export function AuthProviderControlPanel() {
                   <button
                     type="button"
                     onClick={() => void requestEnable(provider.id)}
-                    disabled={busyProvider === provider.id || provider.status === "configured"}
+                    disabled={activationDisabled}
                     className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.08] px-4 text-sm font-black text-amber-100 transition hover:bg-amber-300/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {busyProvider === provider.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <LockKeyhole className="h-4 w-4" aria-hidden="true" />}
-                    {provider.status === "configured" ? "فعال و read-only" : "درخواست فعال‌سازی کنترل‌شده"}
+                    {providerActionLabel(provider)}
                   </button>
+
+                  {activationLocked && provider.status !== "configured" && (
+                    <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] px-3 py-2 text-xs font-bold leading-6 text-amber-100">
+                      این Provider تا تکمیل تمام evidence gateها و Step-up معتبر غیرقابل فعال‌سازی است.
+                    </p>
+                  )}
                 </article>
               );
             })}
