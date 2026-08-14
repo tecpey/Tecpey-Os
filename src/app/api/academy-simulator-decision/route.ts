@@ -1,7 +1,6 @@
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { NextRequest } from "next/server";
 import { academySimulations } from "@/data/academySimulationWorld";
-import { getStudentSessionFromRequest } from "@/lib/academy-session";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { cleanText } from "@/lib/student-cartax";
@@ -60,11 +59,29 @@ export async function GET(req: NextRequest) {
   return withObservability(req, { route: "/api/academy-simulator-decision" }, async () => {
     const limit = await rateLimit(req, { namespace: "academy-simulator-read", limit: 120, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
-    const session = await getStudentSessionFromRequest(req);
-    if (!session?.studentId) return apiOk({ completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
+    // academy_simulator_decisions is student_global (classification registry): it
+    // has no tenant column, so reading it by student_id alone served a student
+    // bound to two tenants their history in whichever tenant they opened. The
+    // read now goes through the same resolver the POST uses, so the student must
+    // be bound to the acting tenant, strict revocation applies, and the tenant
+    // is known — which is also what lets the product gate run on this GET.
+    const empty = { completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 };
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    // No bound student — anonymous, revoked, or bound only to another tenant —
+    // sees the same empty summary it always did, never another tenant's rows.
+    if (!tenantContext.available) return apiOk(empty);
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return productGate;
     try {
-      const result = await withDb((client) => summarize(client, session.studentId));
-      if (!result.enabled) return apiOk({ completed: {}, totalXp: 0, avgScore: 0, completedCount: 0 });
+      const result = await withDb((client) => summarize(client, tenantContext.principalId));
+      if (!result.enabled) return apiOk(empty);
       return apiOk({ ...result.value });
     } catch {
       return apiError("server_error", 500);

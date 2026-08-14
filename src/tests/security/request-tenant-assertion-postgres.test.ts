@@ -211,23 +211,24 @@ describe("Request tenant assertion from the Host header", () => {
       const foreignHost = `foreign-${randomUUID().slice(0, 8)}.example.com`;
       const foreignTenantId = await seedForeignTenantDomain(foreignHost);
 
-      // The security half. The Host header is attacker-controlled, and this host
-      // is a real, bound tenant domain — it is simply not this principal's. The
-      // hint must be discarded, not honored.
+      // The Host header is attacker-controlled, and this host is a real,
+      // configured tenant domain — it is simply not this principal's. The host
+      // must never move the principal into that foreign tenant.
       const context = await resolveFor(principalId, foreignHost);
       assert.notEqual(
         context.available && context.tenantId,
         foreignTenantId,
         "a host must never move a principal into a tenant it is not bound to",
       );
-      assert.equal(
-        context.available,
-        true,
-        "and the legitimate principal must still resolve its own tenant",
+      // And it must not silently fall back to the principal's own tenant either:
+      // this request arrived on someone else's branded site, and for a table
+      // with no tenant column that fallback would serve the principal's global
+      // rows under a stranger's brand. The context is refused instead (#431).
+      assert.deepEqual(
+        context,
+        { available: false, reason: "host_tenant_mismatch" },
+        "a configured foreign host is refused, not resolved to the own tenant",
       );
-      if (context.available) {
-        assert.equal(context.tenantId, PLATFORM.DEFAULT_TENANT_ID);
-      }
     },
   );
 
