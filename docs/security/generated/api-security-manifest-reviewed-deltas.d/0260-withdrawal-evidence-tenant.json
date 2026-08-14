@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/auth/withdraw",
+      "method": "POST",
+      "previousSourceHash": "2770fc0a4aa6bde69a2ce036",
+      "issue": "#20",
+      "owner": "platform-security",
+      "reason": "Withdrawal custody evidence filed under the tenant that owns the money (multi-tenant #20, roadmap 7.3, migration 0072). This operation's sourceHash is unchanged — the route source was not touched. The only difference is testReferences, which gained withdrawal-evidence-tenant-postgres.test.ts: that suite drives the POST /api/auth/withdraw admission path to prove the whole custody chain (admission, user cancellation, admin transition) files evidence under the withdrawal's own tenant rather than a hard-coded default, and that a cancellation receipt retained under the pre-migration scope still replays instead of returning 409. No control, classification, principalSource or tenantSource changed, verified by comparison against the effective manifest.",
+      "replacement": {
+        "route": "/api/auth/withdraw",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/withdraw/route.ts",
+        "sourceHash": "2770fc0a4aa6bde69a2ce036",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "credential",
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "withdraw-create",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [
+          "src/tests/security/withdrawal-admission-prebroadcast-evidence-postgres.test.ts",
+          "src/tests/security/withdrawal-admission-replay-postgres.test.ts",
+          "src/tests/security/withdrawal-admission.test.ts",
+          "src/tests/security/withdrawal-evidence-tenant-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/withdraw/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}
