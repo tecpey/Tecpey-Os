@@ -448,7 +448,7 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
   });
 
   it("fails a blocked runtime readiness query within its governed deadline", {
-    timeout: 15_000,
+    timeout: 30_000,
   }, async () => {
     await withIsolatedDatabase("readiness", async (isolatedDatabaseUrl) => {
       const pool = new Pool({ connectionString: isolatedDatabaseUrl, max: 2 });
@@ -471,9 +471,16 @@ describe("PostgreSQL migration concurrency", { skip: !databaseConfigured }, () =
         let output = "";
         spawned.stdout?.on("data", (chunk) => { output += String(chunk); });
         spawned.stderr?.on("data", (chunk) => { output += String(chunk); });
-        const code = await new Promise<number | null>((resolve, reject) => {
+        let exitTimeout: ReturnType<typeof setTimeout> | undefined;
+        const exit = new Promise<number | null>((resolve, reject) => {
+          exitTimeout = setTimeout(() => {
+            reject(new Error(`readiness_child_timeout:${output}`));
+          }, 10_000);
           spawned.once("error", reject);
           spawned.once("exit", resolve);
+        });
+        const code = await exit.finally(() => {
+          if (exitTimeout) clearTimeout(exitTimeout);
         });
         assert.equal(code, 0, output);
         assert.ok(Date.now() - startedAt < 8_000, "readiness must fail within the governed deadline");
