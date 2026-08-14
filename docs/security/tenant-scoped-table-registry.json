@@ -26,6 +26,15 @@
       "testReference": "src/tests/security/control-plane-auth-provider-evidence-cross-tenant-isolation-postgres.test.ts"
     },
     {
+      "table": "academy_credential_records",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-credential-ledger.ts",
+      "isolationModel": "tenant_id + workspace_id + generated student principal_id are bound by composite foreign keys to platform_workspaces and platform_principal_bindings; credential uniqueness includes tenant, workspace and student, so the same monthly league key remains independent across tenants while a tenant cannot attribute a credential to another tenant's workspace or an unbound student.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/security/academy-credential-ledger-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
       "table": "academy_certificates",
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-certificate-tenant.ts",
