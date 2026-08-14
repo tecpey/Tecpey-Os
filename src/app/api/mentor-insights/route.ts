@@ -6,6 +6,9 @@ import { generateMentorInsights } from "@/lib/mentor-memory";
 import { applyMentorProfileUpdate } from "@/lib/mentor-signals";
 import { apiOk, apiError } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
+import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
+import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +17,40 @@ export async function GET(req: NextRequest) {
     const limit = await rateLimit(req, { namespace: "mentor-insights", limit: 30, windowMs: 60_000 });
     if (!limit.ok) return apiError("rate_limited", 429);
 
-    const session = await getCanonicalSession(req);
-    if (!session.studentId) return apiError("academy_profile_required", 401);
-    const studentId = session.studentId;
+    const session = await getCanonicalSession(req, { strictRevocation: true });
+    if (!session.studentId) {
+      // A degraded revocation authority returns a guest session with
+      // authorityDegraded:true and no studentId. Reporting that outage as the
+      // same storage:"unavailable" this route already uses keeps it from telling
+      // a still-valid user their academy profile is gone.
+      if (session.authorityDegraded) return apiOk({ insights: [], profile: null, storage: "unavailable" });
+      return apiError("academy_profile_required", 401);
+    }
+    // mentor_insights and mentor_profiles are student_global (classification
+    // registry): no tenant column, so reading them by session.studentId alone
+    // served the student their insights on any tenant's branded host. Resolving
+    // the acting tenant confirms the binding, refuses a foreign host, and lets
+    // the Mentor product gate run on this read.
+    const tenantContext = await resolveTenantPrincipalContext({
+      session,
+      request: req,
+      requiredPrincipalType: "student",
+      scopes: ["academy:learning-events:read"],
+      requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
+    });
+    // Only an outage makes an empty answer a lie. A binding that could not be
+    // read preserves storage:"unavailable"; an ordinary authorization outcome —
+    // unbound, revoked, a workspace mismatch, or a foreign branded host — is not
+    // an outage, so it returns the honest graceful empty instead of a false alert.
+    if (!tenantContext.available) {
+      if (tenantContext.reason === "binding_storage_unavailable") {
+        return apiOk({ insights: [], profile: null, storage: "unavailable" });
+      }
+      return apiOk({ insights: [], profile: null });
+    }
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "mentor");
+    if (productGate) return productGate;
+    const studentId = tenantContext.principalId;
 
     const shouldGenerate = new URL(req.url).searchParams.get("generate") === "1";
 

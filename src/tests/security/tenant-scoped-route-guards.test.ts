@@ -107,6 +107,8 @@ describe("Tenant-scoped route guards", () => {
     { route: "src/app/api/academy-simulator-decision/route.ts", table: "academy_simulator_decisions" },
     { route: "src/app/api/achievements/route.ts", table: "student_achievements" },
     { route: "src/app/api/mentor-challenge/route.ts", table: "mentor_challenge_attempts" },
+    { route: "src/app/api/mentor-conversations/route.ts", table: "mentor_conversations" },
+    { route: "src/app/api/mentor-insights/route.ts", table: "mentor_insights" },
   ];
 
   for (const { route, table } of MIGRATED_GLOBAL_READS) {
@@ -164,6 +166,44 @@ describe("Tenant-scoped route guards", () => {
       "achievements must not record degraded for every unavailable tenant context",
     );
   });
+
+  // The mentor reads signal an outage with storage:"unavailable" (the shape they
+  // already used for a storage-down read) rather than recordDegradedRead, but the
+  // same two lies must be foreclosed (#434 review): a degraded revocation
+  // authority must not be turned into a 401 that tells a valid user their profile
+  // is gone, and an unreadable binding must not be turned into an ordinary empty.
+  const MENTOR_DEGRADED_READS: ReadonlyArray<{ route: string; empty: string }> = [
+    { route: "src/app/api/mentor-conversations/route.ts", empty: "conversations: [], nextCursor: null" },
+    { route: "src/app/api/mentor-insights/route.ts", empty: "insights: [], profile: null" },
+  ];
+  for (const { route, empty } of MENTOR_DEGRADED_READS) {
+    const name = route.replace("src/app/api/", "").replace("/route.ts", "");
+    it(`distinguishes an outage from an empty read in ${name}`, async () => {
+      const text = await source(route);
+      // A degraded revocation authority returns a guest with authorityDegraded
+      // and no studentId; that outage must be handled before the 401, not as one.
+      assert.match(
+        text,
+        /if \(session\.authorityDegraded\)/,
+        `${name} must treat a degraded revocation authority as an outage, not a 401`,
+      );
+      // And an unreadable binding must preserve the storage signal, while every
+      // ordinary authorization outcome stays an honest empty.
+      assert.match(
+        text,
+        /tenantContext\.reason === "binding_storage_unavailable"/,
+        `${name} must degrade only on a storage outage, not on any unavailable reason`,
+      );
+      // The bare unconditional empty the review flagged — collapsing every
+      // not-available reason into a plain empty with no storage signal — must be
+      // gone. The empty payload must only ever appear alongside a reason branch.
+      assert.doesNotMatch(
+        text,
+        new RegExp(`if \\(!tenantContext\\.available\\) return apiOk\\(\\{ ${empty.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\}\\)`),
+        `${name} must not collapse every unavailable tenant context into a plain empty`,
+      );
+    });
+  }
 });
 
 // Routes that serve a product have to check the acting tenant's entitlement
@@ -220,6 +260,8 @@ const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/academy-term-progress/route.ts": "academy",
   "src/app/api/learning-events/route.ts": "academy",
   "src/app/api/mentor-challenge/route.ts": "mentor",
+  "src/app/api/mentor-conversations/route.ts": "mentor",
+  "src/app/api/mentor-insights/route.ts": "mentor",
   "src/app/api/notification-brain/route.ts": "academy",
   "src/app/api/trading-arena/route.ts": "academy",
   "src/app/api/trading-arena/execution/route.ts": "academy",
