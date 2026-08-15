@@ -64,6 +64,11 @@ describe("Arena league per-trade scoring policy", () => {
     assert.ok(score.totalPoints < 0);
   });
 
+  it("rounds positive and negative half-point outcomes symmetrically", () => {
+    assert.equal(scoreArenaLeagueTrade({ ...disciplinedTrade, outcomeRMultipleBps: 500 }).outcomePoints, 1);
+    assert.equal(scoreArenaLeagueTrade({ ...disciplinedTrade, outcomeRMultipleBps: -500 }).outcomePoints, -1);
+  });
+
   it("caps monthly points in both directions", () => {
     assert.equal(aggregateArenaLeaguePoints(Array.from({ length: 100 }, () => ({ totalPoints: 100 }))), ARENA_MONTHLY_POINTS_CAP);
     assert.equal(aggregateArenaLeaguePoints(Array.from({ length: 100 }, () => ({ totalPoints: -100 }))), -ARENA_MONTHLY_POINTS_CAP);
@@ -78,5 +83,17 @@ describe("Arena league per-trade scoring policy", () => {
   it("fails closed on malformed evidence and duplicate flags", () => {
     assert.throws(() => scoreArenaLeagueTrade({ ...disciplinedTrade, riskBudgetBps: 10_001 }), /risk_budget_bps_invalid/);
     assert.throws(() => scoreArenaLeagueTrade({ ...disciplinedTrade, mentorFlags: ["over-risk", "over-risk"] }), /mentor_flags_invalid/);
+    assert.throws(
+      () => scoreArenaLeagueTrade({ ...disciplinedTrade, instrumentKind: "futures" as "spot" }),
+      /instrument_kind_invalid/,
+    );
+    assert.throws(
+      () => scoreArenaLeagueTrade({ ...disciplinedTrade, hasStopLoss: false }),
+      /stop_loss_evidence_conflict/,
+    );
+    assert.throws(
+      () => scoreArenaLeagueTrade({ ...disciplinedTrade, mentorFlags: ["no-stop-loss"] }),
+      /stop_loss_evidence_conflict/,
+    );
   });
 });

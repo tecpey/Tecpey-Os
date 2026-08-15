@@ -97,6 +97,10 @@ function multiply(points: number, multiplierBps: number): number {
   return Math.round((points * multiplierBps) / 10_000);
 }
 
+function symmetricRound(value: number): number {
+  return Math.sign(value) * Math.round(Math.abs(value));
+}
+
 function participationPoints(tradeNumberForDay: number): number {
   if (tradeNumberForDay <= ARENA_DAILY_ACTIVITY_LIMITS.fullPointTrades) return 10;
   if (tradeNumberForDay <= ARENA_DAILY_ACTIVITY_LIMITS.reducedPointTrades) return 5;
@@ -121,6 +125,9 @@ function instrumentMultipliers(input: ArenaLeagueTradeScoreInput): {
 
 export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaLeagueTradeScore {
   if (!TRADE_ID_PATTERN.test(input.tradeId)) throw new Error("arena_league_trade_id_invalid");
+  if (input.instrumentKind !== "spot" && input.instrumentKind !== "perpetual" && input.instrumentKind !== "options") {
+    throw new Error("arena_league_instrument_kind_invalid");
+  }
   exactInteger(input.tradeNumberForDay, 1, 10_000, "trade_number_for_day");
   exactInteger(input.riskBudgetBps, 0, 10_000, "risk_budget_bps");
   exactInteger(input.ruleComplianceBps, 0, 10_000, "rule_compliance_bps");
@@ -132,6 +139,9 @@ export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaL
     throw new Error("arena_league_mentor_flags_invalid");
   }
   const flags = rawFlags as ArenaLeagueTradeFlag[];
+  if (flags.includes("no-stop-loss") === input.hasStopLoss) {
+    throw new Error("arena_league_stop_loss_evidence_conflict");
+  }
 
   const reasons: string[] = [];
   const participation = participationPoints(input.tradeNumberForDay);
@@ -146,7 +156,7 @@ export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaL
   if (flags.includes("good-discipline")) { process += 6; reasons.push("good_discipline"); }
   if (flags.includes("target-hit")) { process += 4; reasons.push("target_hit"); }
 
-  const outcome = Math.max(-15, Math.min(15, Math.round(input.outcomeRMultipleBps / 1_000)));
+  const outcome = Math.max(-15, Math.min(15, symmetricRound(input.outcomeRMultipleBps / 1_000)));
   if (outcome > 0) reasons.push("bounded_positive_outcome");
   if (outcome < 0) reasons.push("bounded_negative_outcome");
 
