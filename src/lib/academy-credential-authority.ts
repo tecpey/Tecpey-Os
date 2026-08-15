@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
-import { createSmartNotification } from "@/lib/learning-os";
+import { enqueueNotificationDomainEvent } from "@/lib/notifications/domain-outbox";
 
 export type AcademyCredentialScope = {
   tenantId: string;
@@ -149,16 +149,30 @@ export async function issueAcademyCredential(
     [credentialId, input.policyVersion, evidenceSha256, input.issuedAt,
       `issued:${credentialId}`],
   );
-  await createSmartNotification(client, {
-    studentId: input.studentId,
-    scope: { tenantId: input.tenantId, workspaceId: input.workspaceId },
-    type: "achievement",
-    title: "مدال جدید در پرونده تو ثبت شد",
-    body: input.titleFa,
-    actionUrl: "/academy/profile#credentials",
-    priority: 4,
-    channels: ["in_app", "push"],
-    metadata: { credentialId, credentialType: input.credentialType, code: input.code },
+  const principal = await client.query<{ id: string; locale: "fa" | "en" }>(
+    `SELECT id, locale FROM platform_principals
+      WHERE tenant_id = $1 AND student_id = $2::uuid
+        AND status = 'active'
+      LIMIT 1 FOR SHARE`,
+    [input.tenantId, input.studentId],
+  );
+  if (!principal.rows[0]) throw new Error("academy_credential_principal_not_found");
+  await enqueueNotificationDomainEvent(client, {
+    id: `credential:${credentialId}`,
+    tenantId: input.tenantId,
+    principalId: principal.rows[0].id,
+    occurredAt: new Date(input.issuedAt).toISOString(),
+    locale: principal.rows[0].locale,
+    version: 1,
+    type: "academy.credential_issued",
+    payload: {
+      credentialId,
+      credentialType: input.credentialType,
+      titleFa: input.titleFa,
+      titleEn: input.titleEn,
+      rank: input.rank ?? null,
+      seasonKey: input.seasonKey ?? null,
+    },
   });
   return { credentialId, replayed: false };
 }

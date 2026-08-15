@@ -63,6 +63,7 @@ const REQUIRED_MIGRATIONS = [
   "0063_notification_brain_snapshot_contract.sql",
   "0064_notification_brain_snapshot_contract_repair.sql",
   "0076_academy_credential_ledger.sql",
+  "0077_academy_credential_notification.sql",
 ] as const;
 
 const REQUIRED_TABLES = [

@@ -72,6 +72,12 @@ describe("Academy credential authority", () => {
         if (sql.includes("INSERT INTO academy_credential_records")) {
           return { rows: [{ id: "00000000-0000-4000-8000-000000000010" }] };
         }
+        if (sql.includes("SELECT id, locale FROM platform_principals")) {
+          return { rows: [{ id: "00000000-0000-4000-8000-000000000030", locale: "fa" }] };
+        }
+        if (sql.includes("INSERT INTO notification_domain_outbox")) {
+          return { rows: [{ id: "00000000-0000-4000-8000-000000000020" }] };
+        }
         return { rows: [] };
       },
     } as unknown as PoolClient;
@@ -81,7 +87,8 @@ describe("Academy credential authority", () => {
       replayed: false,
     });
     assert.ok(statements.some((sql) => sql.includes("INSERT INTO academy_credential_events")));
-    assert.ok(statements.some((sql) => sql.includes("INSERT INTO notification_center")));
+    assert.ok(statements.some((sql) => sql.includes("INSERT INTO notification_domain_outbox")));
+    assert.ok(statements.some((sql) => sql.includes("student_id = $2::uuid")));
   });
 
   it("returns an exact replay without duplicating lifecycle or notification rows", async () => {
@@ -97,7 +104,7 @@ describe("Academy credential authority", () => {
     const result = await issueAcademyCredential(client, input);
     assert.equal(result.replayed, true);
     assert.equal(statements.some((sql) => sql.includes("academy_credential_events")), false);
-    assert.equal(statements.some((sql) => sql.includes("notification_center")), false);
+    assert.equal(statements.some((sql) => sql.includes("notification_domain_outbox")), false);
   });
 
   it("rejects a reused idempotency key when any immutable identity field changes", async () => {
