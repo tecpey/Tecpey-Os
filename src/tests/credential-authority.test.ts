@@ -78,7 +78,9 @@ describe("Academy credential authority", () => {
     assert.equal(calls.length, 1);
     assert.match(calls[0].sql, /record\.tenant_id = \$1 AND record\.workspace_id = \$2/);
     assert.match(calls[0].sql, /record\.student_id = \$3::uuid/);
-    assert.match(calls[0].sql, /LIMIT 240/);
+    assert.match(calls[0].sql, /ROW_NUMBER\(\) OVER/);
+    assert.match(calls[0].sql, /PARTITION BY credential_id/);
+    assert.match(calls[0].sql, /credential_event_rank <= 6/);
     assert.doesNotMatch(calls[0].sql, /metadata|evidence|actor_id/);
     assert.deepEqual(calls[0].values, [input.tenantId, input.workspaceId, input.studentId]);
   });

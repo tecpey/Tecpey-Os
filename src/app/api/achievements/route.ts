@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
       return apiOk({
         authenticated: true,
         degraded: false,
+        authorityTime: new Date().toISOString(),
         achievements: result.value.achievements,
         credentials: result.value.credentials,
         credentialHistory: result.value.credentialHistory,

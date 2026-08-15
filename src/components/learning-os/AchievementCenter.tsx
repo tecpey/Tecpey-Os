@@ -64,6 +64,7 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
 
   useEffect(() => {
     let active = true;
+    let clockTimer: number | null = null;
     Promise.all([
       fetch(`/api/achievements?locale=${locale}`, { cache: "no-store", credentials: "include" }).then((res) => res.json()),
       fetch("/api/community/profile", { cache: "no-store", credentials: "include" }).then((res) => res.ok ? res.json() : null).catch(() => null),
@@ -73,7 +74,15 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
         setItems(Array.isArray(data?.achievements) ? data.achievements : []);
         setCredentials(Array.isArray(data?.credentials) ? data.credentials : []);
         setCredentialHistory(Array.isArray(data?.credentialHistory) ? data.credentialHistory : []);
-        setAuthorityNow(Date.now());
+        const receivedAt = Date.now();
+        const serverNow = Date.parse(String(data?.authorityTime ?? ""));
+        if (Number.isFinite(serverNow)) {
+          const authorityOffset = serverNow - receivedAt;
+          setAuthorityNow(serverNow);
+          clockTimer = window.setInterval(() => {
+            setAuthorityNow(Date.now() + authorityOffset);
+          }, 30_000);
+        }
         setPublicProfile(profileData?.profile ? {
           publicProfileId: String(profileData.profile.publicProfileId ?? ""),
           visibility: profileData.profile.visibility === "public" ? "public" : "private",
@@ -82,7 +91,10 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
       })
       .catch(() => active && setDegraded(true))
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (clockTimer !== null) window.clearInterval(clockTimer);
+    };
   }, [locale]);
 
   const earned = useMemo(() => items.filter((item) => item.earned), [items]);

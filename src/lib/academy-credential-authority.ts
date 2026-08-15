@@ -83,6 +83,12 @@ export async function listOwnedAcademyCredentialHistory(
   const result = await client.query<OwnedAcademyCredentialHistoryEvent>(
     `SELECT credential_id, event_kind, state, reason, actor_type, occurred_at
        FROM (
+         SELECT history.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY credential_id
+                  ORDER BY occurred_at DESC, event_sequence DESC
+                ) AS credential_event_rank
+           FROM (
          SELECT record.id::text AS credential_id,
                 'lifecycle'::text AS event_kind,
                 event.event_type AS state,
@@ -107,8 +113,10 @@ export async function listOwnedAcademyCredentialHistory(
           WHERE record.tenant_id = $1 AND record.workspace_id = $2
             AND record.student_id = $3::uuid
        ) history
+       ) ranked_history
+      WHERE credential_event_rank <= 6
       ORDER BY occurred_at DESC, event_sequence DESC
-      LIMIT 240`,
+      `,
     [scope.tenantId, scope.workspaceId, scope.studentId],
   );
   return result.rows;
