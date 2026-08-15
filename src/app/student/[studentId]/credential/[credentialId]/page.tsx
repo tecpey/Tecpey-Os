@@ -104,7 +104,7 @@ export default async function PublicCredentialVerificationPage({ params }: Props
             </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-4 text-center dark:border-white/10 dark:bg-white/90">
-              {/* eslint-disable-next-line @next/next/no-img-element -- generated QR data URL is bounded, server-rendered and must not traverse the optimizer. */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- #458: generated QR data URL is bounded, server-rendered and must not traverse the optimizer. */}
               <img src={qrDataUrl} alt="کد QR استعلام زنده اعتبارنامه تک‌پی" width={208} height={208} className="mx-auto h-52 w-52" />
               <p className="mt-3 inline-flex items-center gap-2 text-xs font-black text-slate-700"><QrCode className="h-4 w-4" aria-hidden="true" /> اسکن برای استعلام زنده</p>
             </div>
