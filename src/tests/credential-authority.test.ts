@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { PoolClient } from "pg";
 import {
   issueAcademyCredential,
+  listOwnedAcademyCredentialHistory,
   listOwnedAcademyCredentials,
   setOwnedAcademyCredentialVisibility,
 } from "../lib/academy-credential-authority";
@@ -62,6 +63,23 @@ describe("Academy credential authority", () => {
     await listOwnedAcademyCredentials(client, input);
     assert.equal(calls.length, 1);
     assert.match(calls[0].sql, /tenant_id = \$1 AND workspace_id = \$2 AND student_id = \$3::uuid/);
+    assert.deepEqual(calls[0].values, [input.tenantId, input.workspaceId, input.studentId]);
+  });
+
+  it("returns a bounded, privacy-minimized credential history in exact owner scope", async () => {
+    const calls: Array<{ sql: string; values?: unknown[] }> = [];
+    const client = {
+      query: async (sql: string, values?: unknown[]) => {
+        calls.push({ sql, values });
+        return { rows: [] };
+      },
+    } as unknown as PoolClient;
+    await listOwnedAcademyCredentialHistory(client, input);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].sql, /record\.tenant_id = \$1 AND record\.workspace_id = \$2/);
+    assert.match(calls[0].sql, /record\.student_id = \$3::uuid/);
+    assert.match(calls[0].sql, /LIMIT 240/);
+    assert.doesNotMatch(calls[0].sql, /metadata|evidence|actor_id/);
     assert.deepEqual(calls[0].values, [input.tenantId, input.workspaceId, input.studentId]);
   });
 
@@ -128,23 +146,44 @@ describe("Academy credential authority", () => {
     const calls: Array<{ sql: string; values?: unknown[] }> = [];
     const client = { query: async (sql: string, values?: unknown[]) => {
       calls.push({ sql, values });
-      return { rows: [{ visibility: "profile" }] };
+      return { rows: [{ visibility: "profile", occurred_at: "2026-08-15T01:00:00.000Z" }] };
     } } as unknown as PoolClient;
     const result = await setOwnedAcademyCredentialVisibility(client, {
       tenantId: input.tenantId, workspaceId: input.workspaceId,
       studentId: input.studentId, credentialId: "00000000-0000-4000-8000-000000000010",
       visibility: "profile", idempotencyKey: "visibility:test:0001",
     });
-    assert.deepEqual(result, { visibility: "profile", replayed: false });
+    assert.deepEqual(result, {
+      visibility: "profile",
+      replayed: false,
+      occurredAt: "2026-08-15T01:00:00.000Z",
+    });
+    assert.match(calls[0].sql, /FROM academy_credential_current_state/);
     assert.match(calls[0].sql, /tenant_id = \$1 AND workspace_id = \$2/);
     assert.match(calls[0].sql, /student_id = \$3::uuid/);
+  });
+
+  it("permits public visibility only for an unexpired issued or reinstated credential", async () => {
+    const statements: string[] = [];
+    const client = { query: async (sql: string) => {
+      statements.push(sql);
+      return { rows: [] };
+    } } as unknown as PoolClient;
+    const result = await setOwnedAcademyCredentialVisibility(client, {
+      tenantId: input.tenantId, workspaceId: input.workspaceId,
+      studentId: input.studentId, credentialId: "00000000-0000-4000-8000-000000000010",
+      visibility: "public", idempotencyKey: "visibility:test:public",
+    });
+    assert.equal(result, null);
+    assert.match(statements[0], /lifecycle_state IN \('issued', 'reinstated'\)/);
+    assert.match(statements[0], /expires_at IS NULL OR expires_at > NOW\(\)/);
   });
 
   it("rejects a conflicting visibility replay", async () => {
     let call = 0;
     const client = { query: async () => {
       call += 1;
-      return call === 1 ? { rows: [] } : { rows: [{ visibility: "public" }] };
+      return call === 1 ? { rows: [] } : { rows: [{ visibility: "public", occurred_at: "2026-08-15T01:00:00.000Z" }] };
     } } as unknown as PoolClient;
     await assert.rejects(setOwnedAcademyCredentialVisibility(client, {
       tenantId: input.tenantId, workspaceId: input.workspaceId,
