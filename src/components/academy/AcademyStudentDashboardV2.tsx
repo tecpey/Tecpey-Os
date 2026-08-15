@@ -32,6 +32,27 @@ type Achievement = {
   earned: boolean;
   earnedAt?: string | null;
 };
+type GovernedCredential = {
+  id: string;
+  code: string;
+  credential_type: string;
+  title_fa: string;
+  title_en: string;
+  description_fa: string;
+  description_en: string;
+  lifecycle_state: string;
+  issued_at: string;
+  rank?: number | null;
+};
+type CabinetItem = {
+  key: string;
+  code: string;
+  title: string;
+  description: string;
+  category: string;
+  earnedAt?: string | null;
+  rank?: number | null;
+};
 
 const achievementEnglishCopy: Record<string, { title: string; description: string }> = {
   "first-lesson": { title: "First lesson", description: "You completed your first verified Academy learning step." },
@@ -110,6 +131,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const [profile, setProfile] = useState<Profile | null>(null);
   const [progressRows, setProgressRows] = useState<TermProgress[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [credentials, setCredentials] = useState<GovernedCredential[]>([]);
   const [achievementsDegraded, setAchievementsDegraded] = useState(false);
 
   useEffect(() => {
@@ -133,6 +155,9 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         setProgressRows(Array.isArray(progressData?.terms) ? progressData.terms : []);
         const achievementAuthorityAvailable = achievementData?.authenticated === true && achievementData?.degraded !== true;
         setAchievements(achievementAuthorityAvailable && Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
+        setCredentials(achievementAuthorityAvailable && Array.isArray(achievementData?.credentials)
+          ? achievementData.credentials.filter((item: GovernedCredential) => item.lifecycle_state === "active")
+          : []);
         setAchievementsDegraded(!achievementAuthorityAvailable);
       } finally {
         if (active) setLoading(false);
@@ -197,7 +222,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
               <Metric icon={<GraduationCap />} label={t.currentTerm} value={`${currentTermNumber} / 7`} note={currentTerm?.title || "Term"} />
               <Metric icon={<TrendingUp />} label={t.progress} value={`${overall}%`} note={`${completedTerms} ${isFa ? "ترم تکمیل‌شده" : "terms completed"}`} />
               <Metric icon={<Flame />} label={t.streak} value={`${numberOr(profile.streak_days, 1)}`} note={isFa ? "روز فعال" : "active days"} />
-              <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
+              <Metric icon={<Award />} label={t.achievements} value={achievementsDegraded ? "—" : `${achievements.length + credentials.length}`} note={isFa ? "نشان رسمی صادرشده" : "official issued badges"} />
             </div>
 
             <div className="mt-7 rounded-[30px] border border-cyan-300/15 bg-cyan-400/10 p-5">
@@ -226,7 +251,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
           </aside>
         </div>
 
-        <MedalCabinet locale={locale} items={achievements} degraded={achievementsDegraded} />
+        <MedalCabinet locale={locale} achievements={achievements} credentials={credentials} degraded={achievementsDegraded} />
 
         <section className="mt-8 rounded-[38px] border border-cyan-300/15 bg-white/[0.055] p-6">
           <h2 className="text-2xl font-black">{t.terms}</h2>
@@ -252,10 +277,27 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   );
 }
 
-function MedalCabinet({ locale, items, degraded }: { locale: Locale; items: Achievement[]; degraded: boolean }) {
+function MedalCabinet({ locale, achievements, credentials, degraded }: {
+  locale: Locale;
+  achievements: Achievement[];
+  credentials: GovernedCredential[];
+  degraded: boolean;
+}) {
   const isFa = locale === "fa";
   const href = isFa ? "/academy/achievements" : "/en/academy/achievements";
-  const featured = [...items]
+  const items: CabinetItem[] = [
+    ...credentials.map((item) => ({
+      key: `credential:${item.id}`,
+      code: item.code,
+      title: isFa ? item.title_fa : item.title_en,
+      description: isFa ? item.description_fa : item.description_en,
+      category: item.credential_type,
+      earnedAt: item.issued_at,
+      rank: item.rank,
+    })),
+    ...achievements.map((item) => ({ ...item, key: `achievement:${item.code}` })),
+  ];
+  const featured = items
     .sort((left, right) => new Date(right.earnedAt || 0).getTime() - new Date(left.earnedAt || 0).getTime())
     .slice(0, 4);
   return (
@@ -278,10 +320,11 @@ function MedalCabinet({ locale, items, degraded }: { locale: Locale; items: Achi
             const competitive = /league|competition|tournament|arena/i.test(`${item.category}:${item.code}`);
             const Icon = competitive ? Trophy : Award;
             const localized = !isFa ? achievementEnglishCopy[item.code] : null;
-            return <article key={item.code} className="rounded-[26px] border border-white/10 bg-slate-950/45 p-4">
+            return <article key={item.key} className="rounded-[26px] border border-white/10 bg-slate-950/45 p-4">
               <div className="flex items-center justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-amber-200/20 bg-amber-300/10 text-amber-200"><Icon className="h-5 w-5" aria-hidden="true" /></span><span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] font-black text-slate-300">{competitive ? (isFa ? "رقابتی" : "Competition") : (isFa ? "آموزشی" : "Learning")}</span></div>
               <h3 className="mt-4 text-base font-black leading-7">{localized?.title || item.title}</h3>
               <p className="mt-2 line-clamp-2 text-xs font-bold leading-6 text-slate-400">{localized?.description || item.description}</p>
+              {item.rank ? <p className="mt-3 text-xs font-black text-amber-200">{isFa ? `رتبه ${item.rank}` : `Rank ${item.rank}`}</p> : null}
             </article>;
           })}
         </div>
