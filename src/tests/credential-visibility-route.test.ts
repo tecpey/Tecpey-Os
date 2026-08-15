@@ -73,7 +73,7 @@ describe("Academy credential lifecycle routes", () => {
     assert.match(route, /stepUpWithinSeconds: 300/);
     assert.match(route, /readBoundedJsonRequest\(req, \{ maxBytes: 4_096 \}\)/);
     assert.match(route, /ACTION_TO_EVENT/);
-    assert.match(route, /appendAcademyCredentialLifecycleEvent\(client/);
+    assert.match(route, /appendApprovedAcademyCredentialLifecycleEvent\(client/);
     assert.match(route, /actorType: "admin"/);
     assert.match(route, /actorId: authorization\.principal\.adminId/);
     assert.match(route, /writeAdminAuditEvent\(client/);

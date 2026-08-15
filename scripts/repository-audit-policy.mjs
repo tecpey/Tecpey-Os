@@ -72,6 +72,7 @@ const DOMAIN_RULES = [
     patterns: [
       /(?:^|\/)(?:auth|session|csrf|webauthn|passkey|two-factor|2fa|admin|rbac|abac|tenant|principal|security|risk|audit)(?:[./_-]|$)/i,
       /^src\/lib\/compliance\//,
+      /^src\/lib\/c-level-control-authority\.ts$/,
       /^src\/lib\/(?:api-error|api-validation|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
@@ -260,7 +261,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 15,
+  version: 16,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
