@@ -140,7 +140,7 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
               <h2 className="text-2xl font-black text-slate-950 dark:text-white">{isFa ? "برنامه یادگیری شخصی" : "Personalized learning plan"}</h2>
               <div className="mt-6 grid gap-4">
                 {weakRules.map((rule, index) => (
-                  <Link key={rule.id} href={isFa ? rule.hrefFa : rule.hrefEn} className="group rounded-[26px] border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-cyan-300/60 hover:bg-cyan-50 dark:border-white/10 dark:bg-slate-950/40 dark:hover:bg-cyan-400/10">
+                  <Link key={rule.id} href={isFa ? rule.hrefFa : rule.hrefEn} className="group rounded-[26px] border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-cyan-300/60 hover:bg-cyan-50 dark:border-white/10 dark:bg-slate-950/40 dark:hover:bg-cyan-700/10">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-xs font-black text-cyan-600 dark:text-cyan-300">{isFa ? `اولویت ${index + 1}` : `Priority ${index + 1}`}</p>
@@ -190,8 +190,8 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
             <h2 className="text-2xl font-black text-slate-950 dark:text-white">{isFa ? "چرخه پاسخ‌گویی مربی" : "Mentor response plan"}</h2>
             <div className="mt-6 grid gap-4 md:grid-cols-4">
               {mentorRoadmapSteps.map((step, index) => (
-                <div key={step.id} className="rounded-[26px] border border-cyan-300/20 bg-cyan-500/10 p-5">
-                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-500 text-sm font-black text-white">{index + 1}</div>
+                <div key={step.id} className="rounded-[26px] border border-cyan-300/20 bg-cyan-800/10 p-5">
+                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-800 text-sm font-black text-white">{index + 1}</div>
                   <h3 className="mt-4 font-black text-slate-950 dark:text-white">{isFa ? step.titleFa : step.titleEn}</h3>
                   <p className="mt-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{isFa ? step.textFa : step.textEn}</p>
                 </div>
@@ -200,7 +200,7 @@ export function AcademyMentorCoachCenter({ locale = "fa" }: { locale?: Locale })
           </section>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href={isFa ? "/academy/ai-guide" : "/en/academy/ai-guide"} className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white">
+            <Link href={isFa ? "/academy/ai-guide" : "/en/academy/ai-guide"} className="rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white">
               {isFa ? "رفتن به مربی آموزشی" : "Open mentor"}
             </Link>
             <Link href={isFa ? "/academy/practice-lab" : "/en/academy/practice-lab"} className="rounded-2xl border border-cyan-300/30 px-5 py-3 text-sm font-black text-cyan-300">
