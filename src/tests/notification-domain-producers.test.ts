@@ -8,6 +8,7 @@ import {
   produceDomainNotification,
   type AcademyAssessmentCompletedEvent,
   type AcademyCertificateIssuedEvent,
+  type AcademyCredentialIssuedEvent,
   type AcademyLessonAvailableEvent,
   type SecurityCredentialChangedEvent,
   type SecurityNewLoginEvent,
@@ -199,6 +200,31 @@ test("controlled templates point only to existing stable product routes", () => 
   assert.equal(buildNotificationRequest(credential).actionUrl, "/academy/security");
   assert.equal(buildNotificationRequest(session).actionUrl, "/academy/security");
   assert.equal(buildNotificationRequest(supportEvent(principal)).actionUrl, "/support");
+});
+
+test("credential-issued events use governed bilingual copy and profile destination", () => {
+  const event: AcademyCredentialIssuedEvent = {
+    id: "credential:00000000-0000-4000-8000-000000000010",
+    tenantId: "tenant-a",
+    principalId: "00000000-0000-4000-8000-000000000001",
+    occurredAt: "2026-08-15T00:00:00.000Z",
+    locale: "fa",
+    version: 1,
+    type: "academy.credential_issued",
+    payload: {
+      credentialId: "00000000-0000-4000-8000-000000000010",
+      credentialType: "league_medal",
+      titleFa: "قهرمان ماه",
+      titleEn: "Monthly champion",
+      rank: 1,
+      seasonKey: "2026-08",
+    },
+  };
+  assert.deepEqual(parseNotificationProducerEvent(event), event);
+  const request = buildNotificationRequest(event);
+  assert.equal(request.actionUrl, "/academy/profile#credentials");
+  assert.equal(request.priority, 6);
+  assert.equal(request.metadata.templateId, "academy.credential-issued.v1");
 });
 
 test(
