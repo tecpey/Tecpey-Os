@@ -5,6 +5,7 @@ import type { PoolClient } from "pg";
 import { cleanText } from "@/lib/student-cartax";
 import { withDb, withTx } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { createPublicCredentialId } from "@/lib/public-credential-verification-id";
 import type { AvailableTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import {
   writeSensitiveMutationAuditTx,
@@ -175,15 +176,11 @@ function publicCredentials(value: unknown): CommunityPublicCredential[] {
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     const row = entry as Record<string, unknown>;
-    const internalId = String(row.internalId ?? "");
+    const publicId = createPublicCredentialId(String(row.internalId ?? ""));
     const issuedAt = String(row.issuedAt ?? "");
-    if (!/^[0-9a-f-]{36}$/i.test(internalId) || Number.isNaN(Date.parse(issuedAt))) return [];
+    if (!publicId || Number.isNaN(Date.parse(issuedAt))) return [];
     return [{
-      publicId: createHash("sha256")
-        .update("tecpey-public-credential-v1\0")
-        .update(internalId)
-        .digest("hex")
-        .slice(0, 24),
+      publicId,
       credentialType: cleanText(row.credentialType, 40),
       titleFa: cleanText(row.titleFa, 160),
       titleEn: cleanText(row.titleEn, 160),

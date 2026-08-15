@@ -248,13 +248,13 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "84c3dc581a854d1e0f1e83f8c024dc729fd4b644",
-      "sha256": "f0cbf09465168bb8687fb4d7da71f6e44390bc4544806e0f69044b74996291a9",
-      "lines": 281,
+      "gitObjectId": "f92152715eff78445ecda03c7649f3943d64c904",
+      "sha256": "c138adfb5e4bc38bf4f0c3820f8b990b4742f00600eb50d55aee6b3e33669d3f",
+      "lines": 282,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 281
+          "endLine": 282
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -265,7 +265,8 @@
         "2026-08-10: re-reviewed after Policy v11 added explicit routing for governed growth/news sources: content discovery modules remain product-ui Batch 10, news materialization persistence is database-persistence Batch 2, and the materialization worker is operations-runtime Batch 11. The source-path fail-closed invariant remains intact and tests cover the new explicit classifications.",
         "2026-08-12: re-reviewed after Policy v12 added explicit product-ui routing for src/lib/news-intelligence-graph.ts. The change is limited to one content intelligence module classification and the policy version constant; source-path fail-closed behavior remains intact, no runtime activation surface is added, and the new module is covered by focused content authority tests.",
         "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states.",
-        "2026-08-13: re-reviewed after Policy v14 added explicit routing for the two libraries introduced by the 2026-08-12 audit hardening. src/lib/degraded-read.ts joins operations-runtime Batch 11 alongside logger, metrics and observe because it is part of the observability signal path. src/lib/json-ld.ts joins authentication-admin-security Batch 3 alongside api-validation rather than product-ui: it renders as SEO markup, but it is the output encoder standing between schema data and dangerouslySetInnerHTML, so a regression in it is a stored-XSS vector and P1 is the truthful tier. The change is limited to two classification entries and the policy version constant; the source-path fail-closed invariant is untouched, no ordering between existing rules changed, and both new classifications are asserted in scripts/repository-audit-manifest.test.mjs."
+        "2026-08-13: re-reviewed after Policy v14 added explicit routing for the two libraries introduced by the 2026-08-12 audit hardening. src/lib/degraded-read.ts joins operations-runtime Batch 11 alongside logger, metrics and observe because it is part of the observability signal path. src/lib/json-ld.ts joins authentication-admin-security Batch 3 alongside api-validation rather than product-ui: it renders as SEO markup, but it is the output encoder standing between schema data and dangerouslySetInnerHTML, so a regression in it is a stored-XSS vector and P1 is the truthful tier. The change is limited to two classification entries and the policy version constant; the source-path fail-closed invariant is untouched, no ordering between existing rules changed, and both new classifications are asserted in scripts/repository-audit-manifest.test.mjs.",
+        "2026-08-15: re-reviewed after Policy v15 explicitly classified src/lib/public-credential-verification-id.ts as Academy Batch 4. The helper contains only bounded identifier validation, domain-separated public fingerprint derivation and canonical verification-path construction; it introduces no persistence, network, mutation or private evidence surface. Source-path fail-closed behavior and rule ordering remain unchanged."
       ],
       "findings": []
     },

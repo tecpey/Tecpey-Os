@@ -11,6 +11,10 @@ describe("Community public credential projection", () => {
       path.join(ROOT, "src/lib/community-profile-authority.ts"),
       "utf8",
     );
+    const publicIdAuthority = await readFile(
+      path.join(ROOT, "src/lib/public-credential-verification-id.ts"),
+      "utf8",
+    );
 
     assert.match(authority, /FROM academy_credential_current_state scoped/);
     assert.match(authority, /scoped\.tenant_id = profile\.tenant_id/);
@@ -25,7 +29,8 @@ describe("Community public credential projection", () => {
       /'evidence',\s*credential\.evidence/,
       "private issuance evidence must never enter the public projection",
     );
-    assert.match(authority, /tecpey-public-credential-v1\\0/);
+    assert.match(authority, /createPublicCredentialId/);
+    assert.match(publicIdAuthority, /tecpey-public-credential-v1\\0/);
     assert.doesNotMatch(authority, /export type CommunityPublicCredential = \{[\s\S]*?\n\s+id:/);
     assert.doesNotMatch(authority, /export type CommunityPublicCredential = \{[\s\S]*?\n\s+code:/);
   });

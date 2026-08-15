@@ -101,6 +101,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:academy|lesson|assessment|certificate|curriculum|quiz|flashcard)(?:[./_-]|$)/i,
       /^src\/data\/academy/i,
       /^src\/lib\/(?:learning-os|phase5-achievement-engine|spaced-repetition|student-cartax)\.ts$/,
+      /^src\/lib\/public-credential-verification-id\.ts$/,
     ],
   },
   {
@@ -259,7 +260,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 14,
+  version: 15,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],
