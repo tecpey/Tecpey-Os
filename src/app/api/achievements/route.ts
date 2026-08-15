@@ -10,6 +10,7 @@ import { recordDegradedRead } from "@/lib/degraded-read";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
+import { listOwnedAcademyCredentials } from "@/lib/academy-credential-authority";
 
 const ROUTE = "/api/achievements";
 
@@ -32,9 +33,9 @@ export async function GET(req: NextRequest) {
       // authority reports an outage instead.
       if (session.authorityDegraded) {
         recordDegradedRead(ROUTE, "session_authority_unavailable");
-        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
       }
-      return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale) });
+      return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
     }
     const tenantContext = await resolveTenantPrincipalContext({
       session,
@@ -51,22 +52,34 @@ export async function GET(req: NextRequest) {
     if (!tenantContext.available) {
       if (tenantContext.reason === "binding_storage_unavailable") {
         recordDegradedRead(ROUTE, "tenant_context_unavailable");
-        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
       }
-      return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale) });
+      return apiOk({ authenticated: false, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
     }
     const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
     if (productGate) return productGate;
     try {
-      const result = await withDb((client) => getAchievementSnapshot(client, tenantContext.principalId));
+      const result = await withDb(async (client) => ({
+        achievements: await getAchievementSnapshot(client, tenantContext.principalId),
+        credentials: await listOwnedAcademyCredentials(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId: tenantContext.principalId,
+        }),
+      }));
       if (!result.enabled) {
         recordDegradedRead(ROUTE, "storage_unavailable");
-        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+        return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
       }
-      return apiOk({ authenticated: true, degraded: false, achievements: result.value || [] });
+      return apiOk({
+        authenticated: true,
+        degraded: false,
+        achievements: result.value.achievements,
+        credentials: result.value.credentials,
+      });
     } catch (error) {
       recordDegradedRead(ROUTE, "read_failed", error);
-      return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale) });
+      return apiOk({ authenticated: true, degraded: true, achievements: fallbackAchievementSnapshot(locale), credentials: [] });
     }
   });
 }
