@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import {
   issueAcademyCredential,
   listOwnedAcademyCredentials,
+  setOwnedAcademyCredentialVisibility,
 } from "../lib/academy-credential-authority";
 
 const input = {
@@ -121,5 +122,34 @@ describe("Academy credential authority", () => {
       issueAcademyCredential(client, input),
       /academy_credential_identity_conflict/,
     );
+  });
+
+  it("writes credential visibility only through the exact owner scope", async () => {
+    const calls: Array<{ sql: string; values?: unknown[] }> = [];
+    const client = { query: async (sql: string, values?: unknown[]) => {
+      calls.push({ sql, values });
+      return { rows: [{ visibility: "profile" }] };
+    } } as unknown as PoolClient;
+    const result = await setOwnedAcademyCredentialVisibility(client, {
+      tenantId: input.tenantId, workspaceId: input.workspaceId,
+      studentId: input.studentId, credentialId: "00000000-0000-4000-8000-000000000010",
+      visibility: "profile", idempotencyKey: "visibility:test:0001",
+    });
+    assert.deepEqual(result, { visibility: "profile", replayed: false });
+    assert.match(calls[0].sql, /tenant_id = \$1 AND workspace_id = \$2/);
+    assert.match(calls[0].sql, /student_id = \$3::uuid/);
+  });
+
+  it("rejects a conflicting visibility replay", async () => {
+    let call = 0;
+    const client = { query: async () => {
+      call += 1;
+      return call === 1 ? { rows: [] } : { rows: [{ visibility: "public" }] };
+    } } as unknown as PoolClient;
+    await assert.rejects(setOwnedAcademyCredentialVisibility(client, {
+      tenantId: input.tenantId, workspaceId: input.workspaceId,
+      studentId: input.studentId, credentialId: "00000000-0000-4000-8000-000000000010",
+      visibility: "private", idempotencyKey: "visibility:test:0002",
+    }), /academy_credential_visibility_identity_conflict/);
   });
 });
