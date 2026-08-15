@@ -18,7 +18,7 @@ describe("Academy monthly league shadow policy", () => {
     assert.equal(ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT, 25);
   });
 
-  it("calculates a deterministic integer score without profit, wealth, speed or plan inputs", () => {
+  it("calculates a deterministic educational score without wealth, volume or speed inputs", () => {
     assert.deepEqual(
       calculateAcademyMonthlyLeagueScore({
         assessmentAccuracyBps: 9_000,
@@ -27,8 +27,9 @@ describe("Academy monthly league shadow policy", () => {
         journalQualityBps: 8_000,
         ruleComplianceBps: 10_000,
         repairCompletionBps: 6_000,
+        arenaTradeQualityBps: 8_500,
       }),
-      { scoreBps: 8_200, band: "gold" },
+      { scoreBps: 8_300, band: "gold" },
     );
   });
 
@@ -40,6 +41,7 @@ describe("Academy monthly league shadow policy", () => {
       journalQualityBps: 8_000,
       ruleComplianceBps: 10_000,
       repairCompletionBps: 6_000,
+      arenaTradeQualityBps: 8_500,
     };
     assert.throws(
       () => calculateAcademyMonthlyLeagueScore({ ...valid, assessmentAccuracyBps: 10_001 }),

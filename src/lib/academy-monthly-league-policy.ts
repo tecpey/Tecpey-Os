@@ -1,15 +1,16 @@
 export const ACADEMY_MONTHLY_LEAGUE_POLICY_VERSION =
-  "academy-monthly-league-shadow-v1" as const;
+  "academy-monthly-league-shadow-v2" as const;
 
 export const ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT = 25;
 
 export const ACADEMY_MONTHLY_LEAGUE_WEIGHTS = {
-  assessmentAccuracy: 2_500,
-  masteryImprovement: 2_000,
-  learningConsistency: 1_500,
-  journalQuality: 1_500,
+  assessmentAccuracy: 2_000,
+  masteryImprovement: 1_750,
+  learningConsistency: 1_250,
+  journalQuality: 1_250,
   ruleCompliance: 1_500,
-  repairCompletion: 1_000,
+  repairCompletion: 750,
+  arenaTradeQuality: 1_500,
 } as const;
 
 export type AcademyMonthlyLeagueScoreInput = {
@@ -19,6 +20,7 @@ export type AcademyMonthlyLeagueScoreInput = {
   journalQualityBps: number;
   ruleComplianceBps: number;
   repairCompletionBps: number;
+  arenaTradeQualityBps: number;
 };
 
 export type AcademyMonthlyLeagueEligibility = {
@@ -101,6 +103,7 @@ export function calculateAcademyMonthlyLeagueScore(
     journalQuality: requireBps(input.journalQualityBps, "journal_quality"),
     ruleCompliance: requireBps(input.ruleComplianceBps, "rule_compliance"),
     repairCompletion: requireBps(input.repairCompletionBps, "repair_completion"),
+    arenaTradeQuality: requireBps(input.arenaTradeQualityBps, "arena_trade_quality"),
   };
   const weighted = SCORE_KEYS.reduce(
     (sum, key) => sum + normalized[key] * ACADEMY_MONTHLY_LEAGUE_WEIGHTS[key],
