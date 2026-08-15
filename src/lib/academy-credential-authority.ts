@@ -14,6 +14,7 @@ export type AcademyCredentialType =
   | "competition_medal"
   | "league_medal"
   | "mastery_season";
+export type AcademyCredentialVisibility = "private" | "profile" | "public";
 
 export type IssueAcademyCredentialInput = AcademyCredentialScope & {
   credentialKey: string;
@@ -60,6 +61,48 @@ export async function listOwnedAcademyCredentials(
     [scope.tenantId, scope.workspaceId, scope.studentId],
   );
   return result.rows;
+}
+
+export async function setOwnedAcademyCredentialVisibility(
+  client: PoolClient,
+  input: AcademyCredentialScope & {
+    credentialId: string;
+    visibility: AcademyCredentialVisibility;
+    idempotencyKey: string;
+  },
+): Promise<{ visibility: AcademyCredentialVisibility; replayed: boolean } | null> {
+  const inserted = await client.query<{ visibility: AcademyCredentialVisibility }>(
+    `INSERT INTO academy_credential_visibility_events
+       (credential_id, visibility, actor_student_id, policy_version,
+        source, idempotency_key, metadata)
+     SELECT id, $5, $3::uuid, 'academy-credential-visibility-v1',
+            'credential_cabinet', $6, '{}'::jsonb
+       FROM academy_credential_records
+      WHERE id = $4::uuid AND tenant_id = $1 AND workspace_id = $2
+        AND student_id = $3::uuid
+     ON CONFLICT (credential_id, idempotency_key) DO NOTHING
+     RETURNING visibility`,
+    [input.tenantId, input.workspaceId, input.studentId, input.credentialId,
+      input.visibility, input.idempotencyKey],
+  );
+  if (inserted.rows[0]) return { visibility: inserted.rows[0].visibility, replayed: false };
+
+  const existing = await client.query<{ visibility: AcademyCredentialVisibility }>(
+    `SELECT event.visibility
+       FROM academy_credential_visibility_events event
+       JOIN academy_credential_records record ON record.id = event.credential_id
+      WHERE record.id = $4::uuid AND record.tenant_id = $1
+        AND record.workspace_id = $2 AND record.student_id = $3::uuid
+        AND event.idempotency_key = $5
+      FOR SHARE OF event`,
+    [input.tenantId, input.workspaceId, input.studentId, input.credentialId,
+      input.idempotencyKey],
+  );
+  if (!existing.rows[0]) return null;
+  if (existing.rows[0].visibility !== input.visibility) {
+    throw new Error("academy_credential_visibility_identity_conflict");
+  }
+  return { visibility: existing.rows[0].visibility, replayed: true };
 }
 
 /**

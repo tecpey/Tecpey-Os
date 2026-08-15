@@ -8,6 +8,7 @@ import { readFile, readdir } from "node:fs/promises";
 const directStrictFiles = [
   "src/app/api/academy-auth/route.ts",
   "src/app/api/academy-certificates/route.ts",
+  "src/app/api/academy-credential-visibility/route.ts",
   "src/app/api/academy-flashcards/route.ts",
   "src/app/api/academy-lesson-assessment/route.ts",
   "src/app/api/academy-lesson-progress/route.ts",

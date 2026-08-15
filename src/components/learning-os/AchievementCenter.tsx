@@ -27,6 +27,7 @@ type GovernedCredential = {
   lifecycle_state: string;
   rank?: number | null;
   season_key?: string | null;
+  visibility: "private" | "profile" | "public";
 };
 
 export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
@@ -34,6 +35,8 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
   const [items, setItems] = useState<Achievement[]>([]);
   const [credentials, setCredentials] = useState<GovernedCredential[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savingCredentialId, setSavingCredentialId] = useState<string | null>(null);
+  const [visibilityMessage, setVisibilityMessage] = useState<string | null>(null);
   // The API answers 200 with placeholder badges when its storage is unreachable.
   // Without this flag the page would present that placeholder set as the
   // student's real record.
@@ -58,6 +61,28 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
   const totalXp = earned.reduce((sum, item) => sum + Number(item.xp || 0), 0);
   const next = items.find((item) => !item.earned);
   const activeCredentials = credentials.filter((item) => item.lifecycle_state === "active");
+
+  async function changeVisibility(item: GovernedCredential, visibility: GovernedCredential["visibility"]) {
+    if (savingCredentialId || item.visibility === visibility) return;
+    setSavingCredentialId(item.id);
+    setVisibilityMessage(null);
+    try {
+      const response = await fetch("/api/academy-credential-visibility", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": `credential-visibility:${crypto.randomUUID()}` },
+        body: JSON.stringify({ credentialId: item.id, visibility }),
+      });
+      if (!response.ok) throw new Error("visibility_update_failed");
+      setCredentials((current) => current.map((credential) =>
+        credential.id === item.id ? { ...credential, visibility } : credential));
+      setVisibilityMessage(isFa ? "تنظیم نمایش با موفقیت ذخیره شد." : "Visibility setting saved.");
+    } catch {
+      setVisibilityMessage(isFa ? "ذخیره تنظیم نمایش انجام نشد؛ دوباره تلاش کن." : "Visibility could not be saved. Please try again.");
+    } finally {
+      setSavingCredentialId(null);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,.16),transparent_34%),#020617] px-4 py-10 text-white sm:px-6 lg:px-8" dir={isFa ? "rtl" : "ltr"}>
@@ -124,9 +149,22 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
                     {item.rank ? <span className="rounded-full border border-amber-300/20 px-3 py-1 text-amber-100">{isFa ? `رتبه ${item.rank}` : `Rank ${item.rank}`}</span> : null}
                     {item.season_key ? <span className="rounded-full border border-white/10 px-3 py-1">{item.season_key}</span> : null}
                   </div>
+                  <fieldset className="mt-5 border-t border-white/10 pt-4" disabled={savingCredentialId !== null}>
+                    <legend className="mb-2 text-xs font-black text-slate-300">{isFa ? "نمایش این مدال" : "Show this credential"}</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["private", "profile", "public"] as const).map((visibility) => {
+                        const labels = isFa
+                          ? { private: "خصوصی", profile: "پروفایل", public: "عمومی" }
+                          : { private: "Private", profile: "Profile", public: "Public" };
+                        const selected = item.visibility === visibility;
+                        return <button key={visibility} type="button" aria-pressed={selected} onClick={() => void changeVisibility(item, visibility)} className={`min-h-11 rounded-xl border px-2 text-xs font-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 disabled:cursor-wait disabled:opacity-60 ${selected ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100" : "border-white/10 bg-slate-950/30 text-slate-300 hover:border-white/25"}`}>{labels[visibility]}</button>;
+                      })}
+                    </div>
+                  </fieldset>
                 </article>
               ))}
             </div>
+            {visibilityMessage ? <p className="mt-4 text-sm font-bold text-slate-200" role="status" aria-live="polite">{visibilityMessage}</p> : null}
           </section>
         )}
 

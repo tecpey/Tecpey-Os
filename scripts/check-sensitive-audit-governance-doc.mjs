@@ -55,6 +55,7 @@ const owners = [
   "ai-platform",
   "risk-platform",
   "community-platform",
+  "academy-platform",
 ];
 for (const owner of owners) {
   requireText(
@@ -74,7 +75,7 @@ if (
   owners.some((owner) => !inventoryOwners.includes(owner))
 ) {
   failures.push(
-    `${files.inventory}: action owners must exactly equal the seven typed governance owners`,
+    `${files.inventory}: action owners must exactly equal the eight typed governance owners`,
   );
 }
 
@@ -103,14 +104,14 @@ for (const invariant of [
   );
 }
 
-if (inventory.actions.length !== 59) {
+if (inventory.actions.length !== 60) {
   failures.push(
-    `${files.inventory}: expected 59 classified actions, found ${inventory.actions.length}`,
+    `${files.inventory}: expected 60 classified actions, found ${inventory.actions.length}`,
   );
 }
-if (inventory.resources.length !== 21) {
+if (inventory.resources.length !== 22) {
   failures.push(
-    `${files.inventory}: expected 21 classified resources, found ${inventory.resources.length}`,
+    `${files.inventory}: expected 22 classified resources, found ${inventory.resources.length}`,
   );
 }
 
@@ -121,5 +122,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Sensitive audit governance map passed: 59 actions, 21 resources, seven real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.",
+  "Sensitive audit governance map passed: 60 actions, 22 resources, eight real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.",
 );
