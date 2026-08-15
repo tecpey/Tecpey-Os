@@ -149,16 +149,18 @@ export async function issueAcademyCredential(
     [credentialId, input.policyVersion, evidenceSha256, input.issuedAt,
       `issued:${credentialId}`],
   );
-  const principal = await client.query<{ locale: "fa" | "en" }>(
-    `SELECT locale FROM platform_principals
-      WHERE tenant_id = $1 AND id = $2::uuid LIMIT 1 FOR SHARE`,
+  const principal = await client.query<{ id: string; locale: "fa" | "en" }>(
+    `SELECT id, locale FROM platform_principals
+      WHERE tenant_id = $1 AND student_id = $2::uuid
+        AND status = 'active'
+      LIMIT 1 FOR SHARE`,
     [input.tenantId, input.studentId],
   );
   if (!principal.rows[0]) throw new Error("academy_credential_principal_not_found");
   await enqueueNotificationDomainEvent(client, {
     id: `credential:${credentialId}`,
     tenantId: input.tenantId,
-    principalId: input.studentId,
+    principalId: principal.rows[0].id,
     occurredAt: new Date(input.issuedAt).toISOString(),
     locale: principal.rows[0].locale,
     version: 1,

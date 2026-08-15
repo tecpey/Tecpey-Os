@@ -72,8 +72,8 @@ describe("Academy credential authority", () => {
         if (sql.includes("INSERT INTO academy_credential_records")) {
           return { rows: [{ id: "00000000-0000-4000-8000-000000000010" }] };
         }
-        if (sql.includes("SELECT locale FROM platform_principals")) {
-          return { rows: [{ locale: "fa" }] };
+        if (sql.includes("SELECT id, locale FROM platform_principals")) {
+          return { rows: [{ id: "00000000-0000-4000-8000-000000000030", locale: "fa" }] };
         }
         if (sql.includes("INSERT INTO notification_domain_outbox")) {
           return { rows: [{ id: "00000000-0000-4000-8000-000000000020" }] };
@@ -88,6 +88,7 @@ describe("Academy credential authority", () => {
     });
     assert.ok(statements.some((sql) => sql.includes("INSERT INTO academy_credential_events")));
     assert.ok(statements.some((sql) => sql.includes("INSERT INTO notification_domain_outbox")));
+    assert.ok(statements.some((sql) => sql.includes("student_id = $2::uuid")));
   });
 
   it("returns an exact replay without duplicating lifecycle or notification rows", async () => {
