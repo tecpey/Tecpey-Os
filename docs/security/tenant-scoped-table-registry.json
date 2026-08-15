@@ -8,6 +8,15 @@
   },
   "tables": [
     {
+      "table": "academy_arena_trade_score_ledger",
+      "domain": "trading-arena",
+      "sourceFile": "src/lib/db-migrate-arena-league-score-ledger.ts",
+      "isolationModel": "Every score row carries tenant_id and workspace_id from resolveTenantPrincipalContext, principal_id is constrained to student_id::text, and a deferred composite foreign key requires that exact student binding to exist in platform_principal_bindings. Source uniqueness is tenant-leading across (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version), while all ranking indexes begin with tenant_id and workspace_id, preventing cross-tenant replay or aggregation collisions.",
+      "adversarialProof": "pending",
+      "issue": "#460",
+      "isolationNote": "Schema-level ownership, tenant-leading uniqueness and the server-authoritative write path are active. This stays explicitly pending until the leaderboard read boundary lands with a PostgreSQL adversarial test proving tenant A cannot read or attribute tenant B's score rows."
+    },
+    {
       "table": "admin_auth_provider_evidence",
       "domain": "admin-security",
       "sourceFile": "src/lib/db-migrate-admin-auth-provider-evidence.ts",
