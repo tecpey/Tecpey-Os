@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, BadgeCheck, BriefcaseBusiness, CalendarDays, EyeOff, GraduationCap, Medal, ShieldCheck, Sparkles, Trophy, XCircle } from "lucide-react";
+import { Award, BadgeCheck, BriefcaseBusiness, CalendarDays, ExternalLink, EyeOff, GraduationCap, Medal, ShieldCheck, Sparkles, Trophy, XCircle } from "lucide-react";
 import { getPublicProfile } from "@/lib/community-career";
+import { publicCredentialVerificationPath } from "@/lib/public-credential-verification-id";
+
+export const dynamic = "force-dynamic";
 
 function normalize(value: string) { return String(value || "").replace(/[^A-Z0-9_.@-]/gi, "").replace(/^@/, "").slice(0, 60); }
 
@@ -113,6 +116,12 @@ export default async function StudentPublicProfilePage({ params }: { params: Pro
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 dark:border-white/10"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" /> {new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}</span>
                     {credential.seasonKey ? <span className="rounded-full border border-slate-200 px-3 py-1.5 dark:border-white/10">فصل {credential.seasonKey}</span> : null}
                   </div>
+                  <Link
+                    href={publicCredentialVerificationPath({ profileIdentifier: profile.publicProfileId, credentialId: credential.publicId }) ?? `/student/${profile.publicProfileId}`}
+                    className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-cyan-300/30 px-4 py-2.5 text-xs font-black text-cyan-700 transition-colors duration-200 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/30 dark:text-cyan-200 dark:hover:bg-cyan-400/10"
+                  >
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" /> استعلام زنده مدرک
+                  </Link>
                 </article>
               ))}
             </div>
