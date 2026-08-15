@@ -79,7 +79,7 @@ async function seedRankedPrincipal(client: PoolClient, input: {
     `INSERT INTO academy_community_reputation_scoring_consents
        (public_profile_id, tenant_id, workspace_id, principal_type, principal_id,
         student_id, enabled, revision, consent_version, consented_at)
-     VALUES ($1::uuid, $2, $3, 'student', $4, $4::uuid, TRUE, 1,
+     VALUES ($1::uuid, $2, $3, 'student', $4::text, $4::uuid, TRUE, 1,
              'community-reputation-scoring-consent-v1', NOW())`,
     [input.profileId, input.tenantId, input.workspaceId, input.studentId],
   );

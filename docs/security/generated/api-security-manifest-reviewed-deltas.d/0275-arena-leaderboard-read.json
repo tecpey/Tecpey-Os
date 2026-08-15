@@ -7,7 +7,7 @@
     {
       "route": "/api/arena/leaderboard",
       "sourcePath": "src/app/api/arena/leaderboard/route.ts",
-      "sourceHash": "2546f94202fc6788fdf9797b",
+      "sourceHash": "43c2ef9970caa451ac2e69f2",
       "issue": "#461",
       "owner": "academy-platform",
       "reason": "Reviewed authenticated read-only Arena leaderboard route. It rejects every query parameter, requires a strict canonical session, rate limiting and verified tenant/workspace/principal context, emits private no-store responses, and delegates only to the consent-bound server authority. The projection selects the latest immutable monthly, yearly and lifetime snapshots and excludes every profile without public visibility, leaderboard visibility and explicit current-version reputation-scoring consent.",

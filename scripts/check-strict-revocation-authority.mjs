@@ -19,6 +19,7 @@ const directStrictFiles = [
   "src/app/api/academy-student-profile/route.ts",
   "src/app/api/academy-term-progress/route.ts",
   "src/app/api/achievements/route.ts",
+  "src/app/api/arena/leaderboard/route.ts",
   "src/app/api/ai-mentor/route.ts",
   "src/app/api/api-keys/[id]/route.ts",
   "src/app/api/api-keys/route.ts",

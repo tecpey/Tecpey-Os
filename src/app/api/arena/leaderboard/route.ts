@@ -6,6 +6,7 @@ import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,14 @@ export async function GET(req: NextRequest) {
       limit: 60, windowMs: 60_000,
     });
     if (!limited.ok) return noStore(apiError("rate_limited", 429));
-    const context = await resolveTenantPrincipalContext({
+    const tenantContext = await resolveTenantPrincipalContext({
       session, request: req, requiredPrincipalType: "student",
       scopes: ["community:profile:read"],
       requestId: resolveSensitiveAuditCorrelation(req.headers.get("x-tecpey-request-id")),
     });
-    if (!context.available) return noStore(apiError("arena_leaderboard_unavailable", 503));
+    if (!tenantContext.available) return noStore(apiError("arena_leaderboard_unavailable", 503));
+    const productGate = await requireTenantProduct(tenantContext.tenantId, "academy");
+    if (productGate) return noStore(productGate);
     const now = new Date();
     const year = String(now.getUTCFullYear());
     const month = `${year}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -44,7 +47,9 @@ export async function GET(req: NextRequest) {
     ];
     const leaderboards = [];
     for (const window of windows) {
-      const loaded = await loadArenaLeagueLeaderboard({ context, ...window, limit: 50 });
+      const loaded = await loadArenaLeagueLeaderboard({
+        context: tenantContext, ...window, limit: 50,
+      });
       if (!loaded.available) return noStore(apiError("arena_leaderboard_unavailable", 503));
       leaderboards.push(loaded.leaderboard);
     }
