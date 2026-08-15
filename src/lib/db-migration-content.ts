@@ -80,6 +80,7 @@ import { ACADEMY_CREDENTIAL_NOTIFICATION_SQL } from "./db-migrate-academy-creden
 import { ARENA_LEAGUE_SCORE_LEDGER_SQL } from "./db-migrate-arena-league-score-ledger";
 import { ARENA_LEAGUE_RANKINGS_SQL } from "./db-migrate-arena-league-rankings";
 import { ARENA_LEAGUE_RANKING_REFRESH_SQL } from "./db-migrate-arena-league-ranking-refresh";
+import { CERTIFICATE_SHARE_EVENTS_TENANT_SQL } from "./db-migrate-certificate-share-events-tenant";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -336,5 +337,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   arenaLeagueRankingRefresh: one(
     "0080_arena_league_ranking_refresh.sql",
     ARENA_LEAGUE_RANKING_REFRESH_SQL,
+  ),
+  certificateShareEventsTenant: one(
+    "0081_certificate_share_events_tenant.sql",
+    CERTIFICATE_SHARE_EVENTS_TENANT_SQL,
   ),
 });
