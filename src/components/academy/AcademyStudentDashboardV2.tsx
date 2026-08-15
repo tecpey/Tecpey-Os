@@ -42,6 +42,7 @@ type GovernedCredential = {
   description_en: string;
   lifecycle_state: string;
   issued_at: string;
+  expires_at?: string | null;
   rank?: number | null;
 };
 type CabinetItem = {
@@ -156,7 +157,9 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
         const achievementAuthorityAvailable = achievementData?.authenticated === true && achievementData?.degraded !== true;
         setAchievements(achievementAuthorityAvailable && Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
         setCredentials(achievementAuthorityAvailable && Array.isArray(achievementData?.credentials)
-          ? achievementData.credentials.filter((item: GovernedCredential) => item.lifecycle_state === "active")
+          ? achievementData.credentials.filter((item: GovernedCredential) =>
+            (item.lifecycle_state === "issued" || item.lifecycle_state === "reinstated") &&
+            (!item.expires_at || Date.parse(item.expires_at) > Date.now()))
           : []);
         setAchievementsDegraded(!achievementAuthorityAvailable);
       } finally {

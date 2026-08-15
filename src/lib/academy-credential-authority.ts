@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { enqueueNotificationDomainEvent } from "@/lib/notifications/domain-outbox";
+import { createPublicCredentialId } from "@/lib/public-credential-verification-id";
 
 export type AcademyCredentialScope = {
   tenantId: string;
@@ -15,6 +16,15 @@ export type AcademyCredentialType =
   | "league_medal"
   | "mastery_season";
 export type AcademyCredentialVisibility = "private" | "profile" | "public";
+
+export type OwnedAcademyCredentialHistoryEvent = {
+  credential_id: string;
+  event_kind: "lifecycle" | "visibility";
+  state: string;
+  reason: string;
+  actor_type: string;
+  occurred_at: Date | string;
+};
 
 export type IssueAcademyCredentialInput = AcademyCredentialScope & {
   credentialKey: string;
@@ -60,6 +70,55 @@ export async function listOwnedAcademyCredentials(
       ORDER BY issued_at DESC, id DESC`,
     [scope.tenantId, scope.workspaceId, scope.studentId],
   );
+  return result.rows.map((row) => ({
+    ...row,
+    public_id: createPublicCredentialId(String(row.id ?? "")),
+  }));
+}
+
+export async function listOwnedAcademyCredentialHistory(
+  client: PoolClient,
+  scope: AcademyCredentialScope,
+): Promise<OwnedAcademyCredentialHistoryEvent[]> {
+  const result = await client.query<OwnedAcademyCredentialHistoryEvent>(
+    `SELECT credential_id, event_kind, state, reason, actor_type, occurred_at
+       FROM (
+         SELECT history.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY credential_id
+                  ORDER BY occurred_at DESC, event_sequence DESC
+                ) AS credential_event_rank
+           FROM (
+         SELECT record.id::text AS credential_id,
+                'lifecycle'::text AS event_kind,
+                event.event_type AS state,
+                event.reason_code AS reason,
+                event.actor_type,
+                event.occurred_at,
+                event.event_sequence
+           FROM academy_credential_events event
+           JOIN academy_credential_records record ON record.id = event.credential_id
+          WHERE record.tenant_id = $1 AND record.workspace_id = $2
+            AND record.student_id = $3::uuid
+         UNION ALL
+         SELECT record.id::text AS credential_id,
+                'visibility'::text AS event_kind,
+                event.visibility AS state,
+                event.source AS reason,
+                'student'::text AS actor_type,
+                event.occurred_at,
+                event.event_sequence
+           FROM academy_credential_visibility_events event
+           JOIN academy_credential_records record ON record.id = event.credential_id
+          WHERE record.tenant_id = $1 AND record.workspace_id = $2
+            AND record.student_id = $3::uuid
+       ) history
+       ) ranked_history
+      WHERE credential_event_rank <= 6
+      ORDER BY occurred_at DESC, event_sequence DESC
+      `,
+    [scope.tenantId, scope.workspaceId, scope.studentId],
+  );
   return result.rows;
 }
 
@@ -70,25 +129,39 @@ export async function setOwnedAcademyCredentialVisibility(
     visibility: AcademyCredentialVisibility;
     idempotencyKey: string;
   },
-): Promise<{ visibility: AcademyCredentialVisibility; replayed: boolean } | null> {
-  const inserted = await client.query<{ visibility: AcademyCredentialVisibility }>(
+): Promise<{ visibility: AcademyCredentialVisibility; replayed: boolean; occurredAt: string } | null> {
+  const inserted = await client.query<{
+    visibility: AcademyCredentialVisibility;
+    occurred_at: Date | string;
+  }>(
     `INSERT INTO academy_credential_visibility_events
        (credential_id, visibility, actor_student_id, policy_version,
         source, idempotency_key, metadata)
      SELECT id, $5, $3::uuid, 'academy-credential-visibility-v1',
             'credential_cabinet', $6, '{}'::jsonb
-       FROM academy_credential_records
+       FROM academy_credential_current_state
       WHERE id = $4::uuid AND tenant_id = $1 AND workspace_id = $2
         AND student_id = $3::uuid
+        AND ($5 <> 'public' OR (
+          lifecycle_state IN ('issued', 'reinstated')
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ))
      ON CONFLICT (credential_id, idempotency_key) DO NOTHING
-     RETURNING visibility`,
+     RETURNING visibility, occurred_at`,
     [input.tenantId, input.workspaceId, input.studentId, input.credentialId,
       input.visibility, input.idempotencyKey],
   );
-  if (inserted.rows[0]) return { visibility: inserted.rows[0].visibility, replayed: false };
+  if (inserted.rows[0]) return {
+    visibility: inserted.rows[0].visibility,
+    replayed: false,
+    occurredAt: new Date(inserted.rows[0].occurred_at).toISOString(),
+  };
 
-  const existing = await client.query<{ visibility: AcademyCredentialVisibility }>(
-    `SELECT event.visibility
+  const existing = await client.query<{
+    visibility: AcademyCredentialVisibility;
+    occurred_at: Date | string;
+  }>(
+    `SELECT event.visibility, event.occurred_at
        FROM academy_credential_visibility_events event
        JOIN academy_credential_records record ON record.id = event.credential_id
       WHERE record.id = $4::uuid AND record.tenant_id = $1
@@ -102,7 +175,11 @@ export async function setOwnedAcademyCredentialVisibility(
   if (existing.rows[0].visibility !== input.visibility) {
     throw new Error("academy_credential_visibility_identity_conflict");
   }
-  return { visibility: existing.rows[0].visibility, replayed: true };
+  return {
+    visibility: existing.rows[0].visibility,
+    replayed: true,
+    occurredAt: new Date(existing.rows[0].occurred_at).toISOString(),
+  };
 }
 
 /**

@@ -10,7 +10,10 @@ import { recordDegradedRead } from "@/lib/degraded-read";
 import { resolveSensitiveAuditCorrelation } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
 import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement";
-import { listOwnedAcademyCredentials } from "@/lib/academy-credential-authority";
+import {
+  listOwnedAcademyCredentialHistory,
+  listOwnedAcademyCredentials,
+} from "@/lib/academy-credential-authority";
 
 const ROUTE = "/api/achievements";
 
@@ -66,6 +69,11 @@ export async function GET(req: NextRequest) {
           workspaceId: tenantContext.workspaceId,
           studentId: tenantContext.principalId,
         }),
+        credentialHistory: await listOwnedAcademyCredentialHistory(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId: tenantContext.principalId,
+        }),
       }));
       if (!result.enabled) {
         recordDegradedRead(ROUTE, "storage_unavailable");
@@ -74,8 +82,10 @@ export async function GET(req: NextRequest) {
       return apiOk({
         authenticated: true,
         degraded: false,
+        authorityTime: new Date().toISOString(),
         achievements: result.value.achievements,
         credentials: result.value.credentials,
+        credentialHistory: result.value.credentialHistory,
       });
     } catch (error) {
       recordDegradedRead(ROUTE, "read_failed", error);
