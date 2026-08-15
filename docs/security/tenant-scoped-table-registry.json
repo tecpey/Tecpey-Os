@@ -12,18 +12,18 @@
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-rankings.ts",
       "isolationModel": "Every ranking row copies the snapshot tenant/workspace scope, constrains principal_id to student_id::text and requires the exact platform_principal_bindings tuple through a deferred composite foreign key. The primary identity is snapshot plus student and the only read-ready index begins with tenant_id and workspace_id; ranking rows are append-only and cannot move between snapshots or tenants.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#460",
-      "isolationNote": "Schema isolation is active; the public leaderboard API and its cross-tenant negative test are deliberately deferred to the next authority slice."
+      "testReference": "src/tests/security/arena-leaderboard-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_arena_league_snapshots",
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-rankings.ts",
       "isolationModel": "tenant_id and workspace_id are foreign-key bound to platform_workspaces and lead every period/version uniqueness rule. Provisional and finalized uniqueness are independently tenant-scoped, so two white-label workspaces can materialize the same calendar window without collision; finalized snapshots reject update and delete.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#460",
-      "isolationNote": "Schema isolation is active; materializer and read-boundary adversarial proof land before this projection is exposed."
+      "testReference": "src/tests/security/arena-leaderboard-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_arena_trade_score_ledger",

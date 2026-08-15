@@ -66,6 +66,7 @@ const REQUIRED_MIGRATIONS = [
   "0077_academy_credential_notification.sql",
   "0078_arena_league_score_ledger.sql",
   "0079_arena_league_rankings.sql",
+  "0080_arena_league_ranking_refresh.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
