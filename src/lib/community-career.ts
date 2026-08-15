@@ -95,6 +95,7 @@ export async function getCurrentPublicProfile(
     xp: loaded.profile.xp,
     streak: loaded.profile.streak,
     achievementsCount: loaded.profile.achievementsCount,
+    publicCredentials: loaded.profile.publicCredentials,
     certificatesCount: loaded.profile.certificatesCount,
     mentorScore: loaded.profile.mentorScore,
     arenaScore: loaded.profile.arenaScore,

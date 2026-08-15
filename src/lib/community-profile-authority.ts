@@ -16,6 +16,21 @@ export const COMMUNITY_PROFILE_POLICY_VERSION = "community-profile-authority-v1"
 
 export type CommunityProfileVisibility = "private" | "public";
 
+export type CommunityPublicCredential = {
+  id: string;
+  credentialType: string;
+  code: string;
+  titleFa: string;
+  titleEn: string;
+  descriptionFa: string;
+  descriptionEn: string;
+  icon: string;
+  issuer: string;
+  rank: number | null;
+  seasonKey: string | null;
+  issuedAt: string;
+};
+
 export type CommunityConsentSettings = {
   profileVisibility: CommunityProfileVisibility;
   leaderboardVisible: boolean;
@@ -36,6 +51,7 @@ export type CommunityPublicProfile = {
   xp: number;
   streak: number;
   achievementsCount: number;
+  publicCredentials: CommunityPublicCredential[];
   certificatesCount: number;
   mentorScore: number;
   arenaScore: number;
@@ -105,6 +121,7 @@ type CommunityProfileRow = {
   completed_terms: string | number | null;
   overall_progress: string | number | null;
   earned_badges: unknown;
+  public_credentials: unknown;
 };
 
 type ExistingConsentAudit = {
@@ -152,6 +169,31 @@ function normalizePublicIdentifier(value: string): string {
 
 function iso(value: Date | string | null): string | null {
   return value ? new Date(value).toISOString() : null;
+}
+
+function publicCredentials(value: unknown): CommunityPublicCredential[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const row = entry as Record<string, unknown>;
+    const id = String(row.id ?? "");
+    const issuedAt = String(row.issuedAt ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id) || Number.isNaN(Date.parse(issuedAt))) return [];
+    return [{
+      id,
+      credentialType: cleanText(row.credentialType, 40),
+      code: cleanText(row.code, 100),
+      titleFa: cleanText(row.titleFa, 160),
+      titleEn: cleanText(row.titleEn, 160),
+      descriptionFa: cleanText(row.descriptionFa, 500),
+      descriptionEn: cleanText(row.descriptionEn, 500),
+      icon: cleanText(row.icon, 32),
+      issuer: cleanText(row.issuer, 120),
+      rank: Number.isInteger(row.rank) && Number(row.rank) > 0 ? Number(row.rank) : null,
+      seasonKey: row.seasonKey ? cleanText(row.seasonKey, 120) : null,
+      issuedAt: new Date(issuedAt).toISOString(),
+    }];
+  });
 }
 
 function rowConsent(row: CommunityProfileRow): CommunityConsentSettings {
@@ -205,6 +247,7 @@ function mapProfile(row: CommunityProfileRow): CommunityOwnedProfile {
     xp,
     streak,
     achievementsCount,
+    publicCredentials: publicCredentials(row.public_credentials),
     certificatesCount: completedTerms,
     mentorScore,
     arenaScore,
@@ -246,6 +289,7 @@ function publicProjection(
     xp: profile.xp,
     streak: profile.streak,
     achievementsCount: profile.achievementsCount,
+    publicCredentials: profile.publicCredentials,
     certificatesCount: profile.certificatesCount,
     mentorScore: profile.mentorScore,
     arenaScore: profile.arenaScore,
@@ -335,7 +379,36 @@ const PROFILE_SELECT = `
          cartax.total_xp,
          cartax.completed_terms,
          cartax.overall_progress,
-         cartax.earned_badges
+         cartax.earned_badges,
+         COALESCE((
+           SELECT jsonb_agg(
+             jsonb_build_object(
+               'id', credential.id::text,
+               'credentialType', credential.credential_type,
+               'code', credential.code,
+               'titleFa', credential.title_fa,
+               'titleEn', credential.title_en,
+               'descriptionFa', credential.description_fa,
+               'descriptionEn', credential.description_en,
+               'icon', credential.icon,
+               'issuer', credential.issuer,
+               'rank', credential.rank,
+               'seasonKey', credential.season_key,
+               'issuedAt', credential.issued_at
+             ) ORDER BY credential.issued_at DESC, credential.id DESC
+           )
+           FROM (
+             SELECT scoped.*
+               FROM academy_credential_current_state scoped
+              WHERE scoped.tenant_id = profile.tenant_id
+                AND scoped.workspace_id = profile.workspace_id
+                AND scoped.student_id = profile.student_id
+                AND scoped.lifecycle_state IN ('issued', 'reinstated')
+                AND scoped.visibility = 'public'
+              ORDER BY scoped.issued_at DESC, scoped.id DESC
+              LIMIT 24
+           ) credential
+         ), '[]'::jsonb) AS public_credentials
     FROM academy_public_profiles profile
     JOIN academy_students student
       ON student.id = profile.student_id
@@ -568,7 +641,8 @@ export async function updateCommunityProfileConsent(input: {
                     NULL::int AS total_xp,
                     NULL::int AS completed_terms,
                     NULL::int AS overall_progress,
-                    '[]'::jsonb AS earned_badges`,
+                    '[]'::jsonb AS earned_badges,
+                    '[]'::jsonb AS public_credentials`,
         [
           input.context.tenantId,
           input.context.workspaceId,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, BriefcaseBusiness, EyeOff, GraduationCap, Medal, ShieldCheck, Sparkles, Trophy, XCircle } from "lucide-react";
+import { Award, BadgeCheck, BriefcaseBusiness, CalendarDays, EyeOff, GraduationCap, Medal, ShieldCheck, Sparkles, Trophy, XCircle } from "lucide-react";
 import { getPublicProfile } from "@/lib/community-career";
 
 function normalize(value: string) { return String(value || "").replace(/[^A-Z0-9_.@-]/gi, "").replace(/^@/, "").slice(0, 60); }
@@ -84,6 +84,44 @@ export default async function StudentPublicProfilePage({ params }: { params: Pro
             <h2 className="mt-4 text-2xl font-black">تمرکز بعدی</h2>
             <ul className="mt-4 space-y-3 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{profile.growthAreas.map((item) => <li key={item}>• {item}</li>)}</ul>
           </article>
+        </section>
+        <section className="rounded-[34px] border border-amber-300/20 bg-[linear-gradient(145deg,rgba(251,191,36,.10),rgba(255,255,255,.04))] p-6 shadow-sm sm:p-8" aria-labelledby="public-credentials-title">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1.5 text-xs font-black text-amber-700 dark:text-amber-200"><Award className="h-4 w-4" aria-hidden="true" /> سابقه تأییدشده</div>
+              <h2 id="public-credentials-title" className="mt-3 text-2xl font-black sm:text-3xl">مدارک و مدال‌های عمومی</h2>
+              <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-[color:var(--tp-muted)]">فقط مواردی نمایش داده می‌شوند که صاحب پروفایل صریحاً سطح نمایش عمومی را برای آن‌ها انتخاب کرده باشد.</p>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-xs font-black tabular-nums dark:border-white/10 dark:bg-white/[0.06]">{profile.publicCredentials.length} مورد عمومی</span>
+          </div>
+          {profile.publicCredentials.length > 0 ? (
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {profile.publicCredentials.map((credential) => (
+                <article key={credential.id} className="rounded-[28px] border border-amber-300/20 bg-white/90 p-5 shadow-sm dark:bg-slate-950/45">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-600 dark:text-amber-300"><Medal className="h-6 w-6" aria-hidden="true" /></span>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-black leading-7">{credential.titleFa}</h3>
+                        <p className="mt-1 text-xs font-bold text-[color:var(--tp-muted)]">{credential.issuer}</p>
+                      </div>
+                    </div>
+                    {credential.rank ? <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-black text-amber-700 dark:text-amber-200">رتبه {credential.rank}</span> : null}
+                  </div>
+                  <p className="mt-4 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{credential.descriptionFa}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--tp-muted)]">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 dark:border-white/10"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" /> {new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium" }).format(new Date(credential.issuedAt))}</span>
+                    {credential.seasonKey ? <span className="rounded-full border border-slate-200 px-3 py-1.5 dark:border-white/10">فصل {credential.seasonKey}</span> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[26px] border border-dashed border-slate-300 bg-white/60 p-6 text-center dark:border-white/15 dark:bg-slate-950/30">
+              <EyeOff className="mx-auto h-7 w-7 text-slate-400" aria-hidden="true" />
+              <p className="mt-3 text-sm font-black text-[color:var(--tp-muted)]">صاحب پروفایل هنوز مدال یا مدرکی را برای نمایش عمومی انتخاب نکرده است.</p>
+            </div>
+          )}
         </section>
         <section className="rounded-[34px] border border-slate-200 bg-white/95 p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.06]">
           <div className="flex gap-3"><EyeOff className="h-6 w-6 text-cyan-500" /><p className="text-sm font-black leading-8">این پروفایل عمومی فقط اطلاعات آموزشی و اجتماعی قابل نمایش را نشان می‌دهد؛ TecPey ID داخلی، اطلاعات تماس، ایمیل، داده خصوصی و سوابق حساس دانشجو منتشر نمی‌شود.</p></div>
