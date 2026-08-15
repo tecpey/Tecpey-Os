@@ -180,6 +180,32 @@ describe("certificate_share_events cross-tenant isolation", { skip: !configured 
     });
   });
 
+  it("binds the share's student to the tenant — a student not bound to the tenant is rejected", async () => {
+    await withClient(async (client) => {
+      const { studentId, certB } = await seed(client);
+      // A second student, bound only to the default tenant (the students table's
+      // creation trigger binds every new student there) and to NO other. certB
+      // belongs to tenant B, so a share of certB naming this stranger under
+      // tenant B satisfies the composite certificate FK — yet the stranger has no
+      // tenant-B binding, so the principal-binding FK rejects it. The row cannot
+      // associate tenant B with a learner it never admitted.
+      const strangerId = randomUUID();
+      cleanupStudents.add(strangerId);
+      await client.query(
+        `INSERT INTO academy_students (id, locale, display_name)
+           VALUES ($1::uuid, 'fa', 'Default-Only Stranger') ON CONFLICT (id) DO NOTHING`,
+        [strangerId],
+      );
+      await assert.rejects(
+        () => insertShare(client, certB, strangerId, TENANT_B, WORKSPACE_B),
+        /certificate_share_events_stu_bind_fk|foreign key/i,
+        "a share must not name a student the tenant has no binding for",
+      );
+      // certB's own owner, who IS bound to tenant B, is accepted.
+      await insertShare(client, certB, studentId, TENANT_B, WORKSPACE_B);
+    });
+  });
+
   it("follows the certificate's lifecycle — deleting a certificate cascades its shares", async () => {
     await withClient(async (client) => {
       const { studentId, certA } = await seed(client);

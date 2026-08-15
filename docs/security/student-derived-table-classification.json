@@ -8,8 +8,7 @@
   },
   "notes": {
     "arena": "The six academy_trading_arena_* tables look like per-tenant competition data, but academy_trading_arena_accounts.cycle_id is `UUID NOT NULL DEFAULT gen_random_uuid()` \u2014 a fresh id per account, not a shared competition period a tenant owns. So an arena run is per-student-session, not a tenant cohort, and partitioning it by tenant would be a product change (separate arenas per tenant for the same learner) rather than closing a leak. Classified student_global at the current design; revisit only if per-tenant arena competitions become a product requirement.",
-    "reward_ledger": "academy_reward_ledger (XP, badges) is the closest call. It is fed by global lesson completion (source_type 'official_section') and read only by student_id + locale today, so it is the learner's achievement record, not a tenant's economy. Classified student_global; a white-label customer wanting its own XP economy and leaderboard would move it to tenant_partitioned, which is a product decision, not a schema oversight.",
-    "certificate_share_events": "The one table with genuine tenant lineage: its certificate_id names a row in academy_certificates, which is already tenant-scoped and proven in tenant-scoped-table-registry.json. Its tenant is derived from that certificate rather than invented. Migration 0081 denormalises tenant_id/workspace_id onto the child and binds (certificate_id, tenant_id, workspace_id) to academy_certificates (id, tenant_id, workspace_id) as one composite FK \u2014 FK-binding certificate_id for the first time and making it structurally impossible for a share's tenant to diverge from its certificate's. Now tenant_partitioned and proven in tenant-scoped-table-registry.json."
+    "reward_ledger": "academy_reward_ledger (XP, badges) is the closest call. It is fed by global lesson completion (source_type 'official_section') and read only by student_id + locale today, so it is the learner's achievement record, not a tenant's economy. Classified student_global; a white-label customer wanting its own XP economy and leaderboard would move it to tenant_partitioned, which is a product decision, not a schema oversight."
   },
   "tables": [
     {
@@ -161,12 +160,6 @@
       "domain": "academy",
       "verdict": "student_global",
       "reason": "Reflections on closed arena trades, unique on (student_id, attempt_id, closed_trade_id); follows the per-student account. See notes.arena."
-    },
-    {
-      "table": "certificate_share_events",
-      "domain": "academy",
-      "verdict": "tenant_partitioned",
-      "reason": "Records a share of a certificate. Migration 0081 derives tenant_id/workspace_id from the parent academy_certificates and binds (certificate_id, tenant_id, workspace_id) to academy_certificates (id, tenant_id, workspace_id) as one composite FK, so certificate_id is FK-bound for the first time and a share's tenant can no longer diverge from its certificate's. Proven in tenant-scoped-table-registry.json. See notes.certificate_share_events."
     }
   ]
 }

@@ -97,6 +97,52 @@ ALTER TABLE certificate_share_events
   FOREIGN KEY (tenant_id, workspace_id)
   REFERENCES platform_workspaces (tenant_id, id) ON DELETE RESTRICT;
 
+-- The composite certificate FK binds the share's tenant to its certificate, but
+-- student_id is only globally existence-checked, so a share could still name a
+-- student the derived tenant has no binding for — the same principal-binding
+-- invariant every other tenant-scoped student table enforces via a stu_bind_fk.
+-- Bind it here too. Rows are never invented to satisfy it: a share whose tenant
+-- is not bound to its student names access that tenant was never granted, so the
+-- migration reports the offending pairs and stops rather than forging a binding.
+-- student_id is nullable (ON DELETE SET NULL when the student is removed); a NULL
+-- exempts the row under the default MATCH SIMPLE semantics, which is correct — a
+-- share whose sharer is gone still belongs to its certificate's tenant.
+DO $do$
+DECLARE
+  offenders TEXT;
+BEGIN
+  SELECT string_agg(DISTINCT s.tenant_id || '/' || s.workspace_id || '/' || s.student_id::text, ', ')
+    INTO offenders
+    FROM certificate_share_events s
+   WHERE s.student_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM platform_principal_bindings b
+        WHERE b.tenant_id = s.tenant_id
+          AND b.workspace_id = s.workspace_id
+          AND b.principal_type = 'student'
+          AND b.principal_id = s.student_id::text);
+  IF offenders IS NOT NULL THEN
+    RAISE EXCEPTION
+      'certificate_share_events holds rows whose tenant is not bound to their student: %. Each names a student that tenant has no binding for. Creating the missing binding would grant that tenant access it was never given, so this stops instead. Correct the rows or admit the students deliberately, then re-run.',
+      offenders;
+  END IF;
+END $do$;
+
+ALTER TABLE certificate_share_events
+  ADD COLUMN IF NOT EXISTS student_principal_type TEXT
+    GENERATED ALWAYS AS ('student') STORED,
+  ADD COLUMN IF NOT EXISTS student_principal_id TEXT
+    GENERATED ALWAYS AS (student_id::text) STORED;
+
+ALTER TABLE certificate_share_events
+  DROP CONSTRAINT IF EXISTS certificate_share_events_stu_bind_fk;
+ALTER TABLE certificate_share_events
+  ADD CONSTRAINT certificate_share_events_stu_bind_fk
+  FOREIGN KEY (tenant_id, workspace_id, student_principal_type, student_principal_id)
+  REFERENCES platform_principal_bindings
+    (tenant_id, workspace_id, principal_type, principal_id)
+  ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+
 CREATE INDEX IF NOT EXISTS certificate_share_events_tenant_idx
   ON certificate_share_events (tenant_id, workspace_id, certificate_id);
 `;
