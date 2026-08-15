@@ -63,12 +63,14 @@ function contractFor(testInfo) {
           {
             key: "arena",
             path: "/en/academy/trading-arena",
+            requiresSession: true,
             heading: /Learn the decision process before risking real capital/i,
             cta: /Create Academy profile|Explore the Academy/i,
           },
           {
             key: "mentor",
             path: "/en/academy/mentor-coach",
+            requiresSession: true,
             heading: /TecPey personalized AI coach/i,
             cta: /Open mentor|Practice decisions/i,
           },
@@ -88,12 +90,14 @@ function contractFor(testInfo) {
           {
             key: "arena",
             path: "/academy/trading-arena",
+            requiresSession: true,
             heading: /آرنای معاملاتی/,
             cta: /بررسی برنامه و ارسال به سرور|سناریوها|ژورنال سروری/,
           },
           {
             key: "mentor",
             path: "/academy/mentor-coach",
+            requiresSession: true,
             heading: /مربی هوشمند شخصی‌سازی‌شده تک‌پی/,
             cta: /رفتن به مربی آموزشی|تمرین تصمیم‌گیری/,
           },
@@ -211,6 +215,18 @@ async function json(route, body, status = 200) {
   });
 }
 
+async function installAcademySessionCookie(context) {
+  await context.addCookies([
+    {
+      name: "tecpey_session",
+      value: signE2eUnifiedSession(),
+      url: process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3100",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+}
+
 async function installDeterministicProductApis(context) {
   await context.route("**/api/academy-auth", (route) =>
     json(route, {
@@ -315,15 +331,6 @@ async function assertAccessibility(page, testInfo, label) {
 }
 
 test.beforeEach(async ({ context }) => {
-  await context.addCookies([
-    {
-      name: "tecpey_session",
-      value: signE2eUnifiedSession(),
-      url: process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3100",
-      httpOnly: true,
-      sameSite: "Lax",
-    },
-  ]);
   await installDeterministicProductApis(context);
 });
 
@@ -332,6 +339,11 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
 
   for (const surface of contract.surfaces) {
     const label = `${contract.locale}-${testInfo.project.metadata.formFactor}-${surface.key}`;
+    await page.context().clearCookies();
+    if (surface.requiresSession) {
+      await installAcademySessionCookie(page.context());
+    }
+
     const response = await page.goto(surface.path, { waitUntil: "domcontentloaded", timeout: 60_000 });
     expect(response?.status(), `${surface.path}: HTTP status`).toBeLessThan(400);
 
