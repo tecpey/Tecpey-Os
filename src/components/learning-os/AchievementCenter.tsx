@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Lock, Sparkles, Trophy } from "lucide-react";
+import { CheckCircle2, Lock, ShieldCheck, Sparkles, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 type Locale = "fa" | "en";
@@ -15,10 +15,24 @@ type Achievement = {
   earned: boolean;
   earnedAt?: string | null;
 };
+type GovernedCredential = {
+  id: string;
+  code: string;
+  credential_type: string;
+  title_fa: string;
+  title_en: string;
+  description_fa: string;
+  description_en: string;
+  issued_at: string;
+  lifecycle_state: string;
+  rank?: number | null;
+  season_key?: string | null;
+};
 
 export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
   const isFa = locale === "fa";
   const [items, setItems] = useState<Achievement[]>([]);
+  const [credentials, setCredentials] = useState<GovernedCredential[]>([]);
   const [loading, setLoading] = useState(true);
   // The API answers 200 with placeholder badges when its storage is unreachable.
   // Without this flag the page would present that placeholder set as the
@@ -32,6 +46,7 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
       .then((data) => {
         if (!active) return;
         setItems(Array.isArray(data?.achievements) ? data.achievements : []);
+        setCredentials(Array.isArray(data?.credentials) ? data.credentials : []);
         setDegraded(data?.degraded === true);
       })
       .catch(() => active && setDegraded(true))
@@ -42,6 +57,7 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
   const earned = useMemo(() => items.filter((item) => item.earned), [items]);
   const totalXp = earned.reduce((sum, item) => sum + Number(item.xp || 0), 0);
   const next = items.find((item) => !item.earned);
+  const activeCredentials = credentials.filter((item) => item.lifecycle_state === "active");
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,.16),transparent_34%),#020617] px-4 py-10 text-white sm:px-6 lg:px-8" dir={isFa ? "rtl" : "ltr"}>
@@ -79,6 +95,37 @@ export function AchievementCenter({ locale = "fa" }: { locale?: Locale }) {
                 <p className="mt-2 text-sm font-bold leading-7 text-slate-300">{next.description}</p>
               </div>
               <Link href="/academy/profile" className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white">{isFa ? "ادامه مسیر" : "Continue path"}</Link>
+            </div>
+          </section>
+        )}
+
+        {activeCredentials.length > 0 && (
+          <section aria-labelledby="governed-credentials-title">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-amber-200">Credential ledger</p>
+                <h2 id="governed-credentials-title" className="mt-2 text-2xl font-black">{isFa ? "مدال‌ها و مدارک رسمی" : "Official medals and credentials"}</h2>
+              </div>
+              <span className="rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs font-black text-emerald-100">
+                <ShieldCheck className="me-1 inline h-4 w-4" aria-hidden="true" />{isFa ? `${activeCredentials.length} رکورد معتبر` : `${activeCredentials.length} valid records`}
+              </span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {activeCredentials.map((item) => (
+                <article key={item.id} className="rounded-[30px] border border-amber-300/30 bg-amber-300/10 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="grid h-12 w-12 place-items-center rounded-2xl border border-amber-200/20 bg-slate-950/35 text-amber-200"><Trophy className="h-6 w-6" aria-hidden="true" /></span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-2.5 py-1 text-[11px] font-black text-emerald-100"><ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />{isFa ? "معتبر" : "Valid"}</span>
+                  </div>
+                  <h3 className="mt-4 text-xl font-black">{isFa ? item.title_fa : item.title_en}</h3>
+                  <p className="mt-3 text-sm font-bold leading-7 text-slate-300">{isFa ? item.description_fa : item.description_en}</p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-slate-300">
+                    <span className="rounded-full border border-white/10 px-3 py-1">{item.credential_type.replaceAll("_", " ")}</span>
+                    {item.rank ? <span className="rounded-full border border-amber-300/20 px-3 py-1 text-amber-100">{isFa ? `رتبه ${item.rank}` : `Rank ${item.rank}`}</span> : null}
+                    {item.season_key ? <span className="rounded-full border border-white/10 px-3 py-1">{item.season_key}</span> : null}
+                  </div>
+                </article>
+              ))}
             </div>
           </section>
         )}
