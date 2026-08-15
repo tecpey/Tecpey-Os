@@ -97,7 +97,7 @@ export default async function StudentPublicProfilePage({ params }: { params: Pro
           {profile.publicCredentials.length > 0 ? (
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {profile.publicCredentials.map((credential) => (
-                <article key={credential.id} className="rounded-[28px] border border-amber-300/20 bg-white/90 p-5 shadow-sm dark:bg-slate-950/45">
+                <article key={credential.publicId} className="rounded-[28px] border border-amber-300/20 bg-white/90 p-5 shadow-sm dark:bg-slate-950/45">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-amber-600 dark:text-amber-300"><Medal className="h-6 w-6" aria-hidden="true" /></span>

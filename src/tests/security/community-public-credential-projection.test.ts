@@ -18,12 +18,16 @@ describe("Community public credential projection", () => {
     assert.match(authority, /scoped\.student_id = profile\.student_id/);
     assert.match(authority, /scoped\.lifecycle_state IN \('issued', 'reinstated'\)/);
     assert.match(authority, /scoped\.visibility = 'public'/);
+    assert.match(authority, /scoped\.expires_at IS NULL OR scoped\.expires_at > NOW\(\)/);
     assert.match(authority, /ORDER BY scoped\.issued_at DESC, scoped\.id DESC\s+LIMIT 24/);
     assert.doesNotMatch(
       authority,
       /'evidence',\s*credential\.evidence/,
       "private issuance evidence must never enter the public projection",
     );
+    assert.match(authority, /tecpey-public-credential-v1\\0/);
+    assert.doesNotMatch(authority, /export type CommunityPublicCredential = \{[\s\S]*?\n\s+id:/);
+    assert.doesNotMatch(authority, /export type CommunityPublicCredential = \{[\s\S]*?\n\s+code:/);
   });
 
   it("renders the governed projection rather than inferring medals from a count", async () => {

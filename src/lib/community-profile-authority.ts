@@ -17,9 +17,8 @@ export const COMMUNITY_PROFILE_POLICY_VERSION = "community-profile-authority-v1"
 export type CommunityProfileVisibility = "private" | "public";
 
 export type CommunityPublicCredential = {
-  id: string;
+  publicId: string;
   credentialType: string;
-  code: string;
   titleFa: string;
   titleEn: string;
   descriptionFa: string;
@@ -176,13 +175,16 @@ function publicCredentials(value: unknown): CommunityPublicCredential[] {
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
     const row = entry as Record<string, unknown>;
-    const id = String(row.id ?? "");
+    const internalId = String(row.internalId ?? "");
     const issuedAt = String(row.issuedAt ?? "");
-    if (!/^[0-9a-f-]{36}$/i.test(id) || Number.isNaN(Date.parse(issuedAt))) return [];
+    if (!/^[0-9a-f-]{36}$/i.test(internalId) || Number.isNaN(Date.parse(issuedAt))) return [];
     return [{
-      id,
+      publicId: createHash("sha256")
+        .update("tecpey-public-credential-v1\0")
+        .update(internalId)
+        .digest("hex")
+        .slice(0, 24),
       credentialType: cleanText(row.credentialType, 40),
-      code: cleanText(row.code, 100),
       titleFa: cleanText(row.titleFa, 160),
       titleEn: cleanText(row.titleEn, 160),
       descriptionFa: cleanText(row.descriptionFa, 500),
@@ -383,9 +385,8 @@ const PROFILE_SELECT = `
          COALESCE((
            SELECT jsonb_agg(
              jsonb_build_object(
-               'id', credential.id::text,
+               'internalId', credential.id::text,
                'credentialType', credential.credential_type,
-               'code', credential.code,
                'titleFa', credential.title_fa,
                'titleEn', credential.title_en,
                'descriptionFa', credential.description_fa,
@@ -405,6 +406,7 @@ const PROFILE_SELECT = `
                 AND scoped.student_id = profile.student_id
                 AND scoped.lifecycle_state IN ('issued', 'reinstated')
                 AND scoped.visibility = 'public'
+                AND (scoped.expires_at IS NULL OR scoped.expires_at > NOW())
               ORDER BY scoped.issued_at DESC, scoped.id DESC
               LIMIT 24
            ) credential
