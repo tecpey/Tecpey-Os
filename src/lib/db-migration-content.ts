@@ -78,6 +78,7 @@ import { ADMIN_AUTH_PROVIDER_EVIDENCE_SQL } from "./db-migrate-admin-auth-provid
 import { ACADEMY_CREDENTIAL_LEDGER_SQL } from "./db-migrate-academy-credential-ledger";
 import { ACADEMY_CREDENTIAL_NOTIFICATION_SQL } from "./db-migrate-academy-credential-notification";
 import { ARENA_LEAGUE_SCORE_LEDGER_SQL } from "./db-migrate-arena-league-score-ledger";
+import { ARENA_LEAGUE_RANKINGS_SQL } from "./db-migrate-arena-league-rankings";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -326,5 +327,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   arenaLeagueScoreLedger: one(
     "0078_arena_league_score_ledger.sql",
     ARENA_LEAGUE_SCORE_LEDGER_SQL,
+  ),
+  arenaLeagueRankings: one(
+    "0079_arena_league_rankings.sql",
+    ARENA_LEAGUE_RANKINGS_SQL,
   ),
 });
