@@ -64,6 +64,7 @@ const REQUIRED_MIGRATIONS = [
   "0064_notification_brain_snapshot_contract_repair.sql",
   "0076_academy_credential_ledger.sql",
   "0077_academy_credential_notification.sql",
+  "0078_arena_league_score_ledger.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -96,6 +97,7 @@ const REQUIRED_TABLES = [
   "academy_credential_records",
   "academy_credential_events",
   "academy_credential_visibility_events",
+  "academy_arena_trade_score_ledger",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -155,6 +157,7 @@ const REQUIRED_COLUMNS = [
   ["academy_credential_records", "evidence_sha256"],
   ["academy_credential_events", "idempotency_key"],
   ["academy_credential_visibility_events", "visibility"],
+  ["academy_arena_trade_score_ledger", "source_digest"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -193,6 +196,7 @@ const REQUIRED_INDEXES = [
   "academy_credential_records_profile_idx",
   "academy_credential_events_timeline_idx",
   "academy_credential_visibility_timeline_idx",
+  "academy_arena_score_monthly_rank_idx",
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -232,6 +236,7 @@ const REQUIRED_TRIGGERS = [
   "academy_credential_visibility_events_no_update",
   "academy_credential_events_validate_transition",
   "academy_credential_visibility_validate_actor",
+  "academy_arena_trade_score_no_update",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [

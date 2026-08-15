@@ -5,6 +5,7 @@ import Decimal from "decimal.js";
 import { getCanonicalSession } from "@/lib/auth-session";
 import { apiError, apiOk, checkBodySize } from "@/lib/api-validation";
 import { getArenaMarketPriceSnapshot } from "@/lib/arena-market-price";
+import { persistNewArenaTradeScores } from "@/lib/arena-league-score-ledger";
 import { verifyCsrfOrigin } from "@/lib/csrf";
 import { withTx } from "@/lib/db";
 import { recordLearningEvent } from "@/lib/learning-os";
@@ -555,6 +556,13 @@ export async function POST(request: NextRequest) {
             JSON.stringify(applied.event),
           ],
         );
+
+        await persistNewArenaTradeScores(client, {
+          tenantId: tenantContext.tenantId,
+          workspaceId: tenantContext.workspaceId,
+          studentId,
+          attemptId: context.activeRow.id,
+        }, execution.state, applied.state);
 
         await saveDecision(client, studentId, execution.state, action);
         await recordLearningEvent(client, {
