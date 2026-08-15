@@ -83,7 +83,7 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
                 <div key={item.step} className="rounded-2xl border border-white/10 bg-white/[0.055] p-4">
                   <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-400/15 text-xs font-black text-cyan-100">{index + 1}</span>
                   <p className="mt-3 text-sm font-black text-white">{item.title}</p>
-                  <p className="mt-2 text-xs font-bold leading-6 text-slate-400">{item.text}</p>
+                  <p className="mt-2 text-xs font-bold leading-6 text-slate-300">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -96,7 +96,7 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
                   <p className="mt-3 text-sm font-bold leading-8 text-slate-300">{isFa ? nextMission.descriptionFa : nextMission.descriptionEn}</p>
                 </div>
                 <div className="flex flex-col gap-3 sm:min-w-48">
-                  <button onClick={() => completeMission(nextMission.id, nextMission.xp)} className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-400">
+                  <button onClick={() => completeMission(nextMission.id, nextMission.xp)} className="rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-600">
                     {isFa ? `ثبت تکمیل +${nextMission.xp} XP` : `Complete +${nextMission.xp} XP`}
                   </button>
                   <Link href={isFa ? nextMission.hrefFa : nextMission.hrefEn} className="rounded-2xl border border-emerald-300/25 bg-white/10 px-5 py-3 text-center text-sm font-black text-emerald-100 transition hover:bg-white/15">
@@ -120,8 +120,8 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
               <div className="mt-3 h-3 rounded-full bg-slate-800"><div className="h-3 rounded-full bg-cyan-400" style={{ width: `${progress}%` }} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><Flame className="h-5 w-5 text-orange-300" /><p className="mt-2 text-xs font-black text-slate-400">{isFa ? "Streak" : "Streak"}</p><p className="text-xl font-black text-white">{state.streak}</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><Target className="h-5 w-5 text-cyan-300" /><p className="mt-2 text-xs font-black text-slate-400">{isFa ? "Level" : "Level"}</p><p className="text-xl font-black text-white">{level.level}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><Flame className="h-5 w-5 text-orange-300" /><p className="mt-2 text-xs font-black text-slate-300">{isFa ? "Streak" : "Streak"}</p><p className="text-xl font-black text-white">{state.streak}</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4"><Target className="h-5 w-5 text-cyan-300" /><p className="mt-2 text-xs font-black text-slate-300">{isFa ? "Level" : "Level"}</p><p className="text-xl font-black text-white">{level.level}</p></div>
             </div>
             <div>
               <p className="text-sm font-black text-white">{isFa ? "Badgeها" : "Badges"}</p>
@@ -129,15 +129,15 @@ export function AcademyEngagementHub({ locale = "fa" }: { locale?: Locale }) {
                 {academyAchievements.map((badge) => {
                   const unlocked = state.xp >= badge.xp;
                   return (
-                    <div key={badge.id} className={`flex items-start gap-3 rounded-2xl border p-3 ${unlocked ? "border-amber-300/25 bg-amber-300/10" : "border-white/10 bg-white/[0.035] opacity-75"}`}>
-                      {unlocked ? <Award className="mt-1 h-5 w-5 text-amber-300" /> : <Lock className="mt-1 h-5 w-5 text-slate-500" />}
-                      <div><p className="text-sm font-black text-white">{isFa ? badge.titleFa : badge.titleEn}</p><p className="text-xs font-bold leading-6 text-slate-400">{isFa ? badge.descriptionFa : badge.descriptionEn}</p></div>
+                    <div key={badge.id} className={`flex items-start gap-3 rounded-2xl border p-3 ${unlocked ? "border-amber-300/25 bg-amber-300/10" : "border-white/10 bg-white/[0.05]"}`}>
+                      {unlocked ? <Award className="mt-1 h-5 w-5 text-amber-300" /> : <Lock className="mt-1 h-5 w-5 text-slate-300" />}
+                      <div><p className="text-sm font-black text-white">{isFa ? badge.titleFa : badge.titleEn}</p><p className="text-xs font-bold leading-6 text-slate-300">{isFa ? badge.descriptionFa : badge.descriptionEn}</p></div>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <Link href={isFa ? "/academy/final-assessment" : "/en/academy/final-assessment"} className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400">
+            <Link href={isFa ? "/academy/final-assessment" : "/en/academy/final-assessment"} className="flex items-center justify-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700">
               <CheckCircle2 className="h-4 w-4" /> {isFa ? "ارزیابی آمادگی" : "Readiness check"}
             </Link>
             <Link href={isFa ? "/academy/news-quiz" : "/en/academy/news-quiz"} className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-cyan-300/25 bg-white/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-white/15">

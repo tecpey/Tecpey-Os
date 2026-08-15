@@ -151,7 +151,7 @@ function JournalModal({
             <h3 id="arena-plan-title" className="text-lg font-black">برنامه پیش از معامله</h3>
             <p className="mt-1 text-xs font-bold text-slate-400">این داده همراه فرمان معتبر سرور ثبت و برای تحلیل رفتاری استفاده می‌شود.</p>
           </div>
-          <button type="button" onClick={onClose} disabled={busy} className="rounded-xl p-2 text-slate-500 hover:bg-white/5 hover:text-white disabled:opacity-40" aria-label="بستن">
+          <button type="button" onClick={onClose} disabled={busy} className="rounded-xl p-2 text-slate-300 hover:bg-white/5 hover:text-white disabled:opacity-40" aria-label="بستن">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -163,7 +163,7 @@ function JournalModal({
           onChange={(event) => setPlan(event.target.value.slice(0, 1_500))}
           rows={4}
           disabled={busy}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-slate-800 p-3 text-sm font-bold leading-7 text-slate-200 placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:opacity-60"
+          className="w-full resize-none rounded-2xl border border-white/10 bg-slate-800 p-3 text-sm font-bold leading-7 text-slate-200 placeholder:text-slate-300 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 disabled:opacity-60"
           placeholder="چرا وارد می‌شوم؟ کدام نشانه تحلیل را باطل می‌کند؟"
         />
 
@@ -188,7 +188,7 @@ function JournalModal({
             type="button"
             onClick={() => onSubmit({ preTradePlan: plan.trim(), emotionalState: emotion })}
             disabled={busy}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 py-3 text-sm font-black text-white hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-800 py-3 text-sm font-black text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy && <LoaderCircle className="h-4 w-4 animate-spin" />}
             ثبت برنامه و ارسال امن
@@ -321,7 +321,7 @@ function TradeForm({
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 id="arena-order-title" className="font-black">ثبت فرمان تمرینی</h2>
-            <p className="mt-1 text-xs font-bold text-slate-500">قیمت، کنترل ریسک و اجرا در سرور تعیین می‌شوند.</p>
+            <p className="mt-1 text-xs font-bold text-slate-300">قیمت، کنترل ریسک و اجرا در سرور تعیین می‌شوند.</p>
           </div>
           <ShieldCheck className="h-5 w-5 text-cyan-300" />
         </div>
@@ -336,7 +336,7 @@ function TradeForm({
               aria-pressed={draft.asset === asset}
               className={`rounded-2xl border px-3 py-3 text-sm font-black transition ${draft.asset === asset ? "border-cyan-300/40 bg-cyan-400/10 text-cyan-200" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"} disabled:opacity-50`}
             >
-              {asset}<span className="mt-1 block text-xs font-bold opacity-70">{snapshot.market ? usd(snapshot.market.prices[asset]) : "بدون قیمت"}</span>
+              {asset}<span className="mt-1 block text-xs font-bold text-slate-300">{snapshot.market ? usd(snapshot.market.prices[asset]) : "بدون قیمت"}</span>
             </button>
           ))}
         </div>
@@ -349,7 +349,7 @@ function TradeForm({
               onClick={() => update("orderType", type)}
               disabled={busy}
               aria-pressed={draft.orderType === type}
-              className={`flex-1 rounded-xl py-2 text-xs font-black ${draft.orderType === type ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-300"}`}
+              className={`flex-1 rounded-xl py-2 text-xs font-black ${draft.orderType === type ? "bg-slate-800 text-white" : "text-slate-300 hover:text-slate-300"}`}
             >
               {type === "market" ? "خرید بازار" : "خرید محدود"}
             </button>
@@ -366,7 +366,7 @@ function TradeForm({
               onChange={(event) => update("quoteAmount", event.target.value)}
               disabled={busy}
               placeholder="مثلاً 1000"
-              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-300 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
             />
           </label>
           {draft.orderType === "limit" && (
@@ -379,7 +379,7 @@ function TradeForm({
                 onChange={(event) => update("limitPrice", event.target.value)}
                 disabled={busy}
                 placeholder={selectedPrice > 0 ? String(selectedPrice) : "قیمت ورود"}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-300 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
               />
             </label>
           )}
@@ -392,7 +392,7 @@ function TradeForm({
               onChange={(event) => update("stopLoss", event.target.value)}
               disabled={busy}
               placeholder="کمتر از قیمت ورود"
-              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-300 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
             />
           </label>
           <label className="text-xs font-black text-slate-400">
@@ -404,7 +404,7 @@ function TradeForm({
               onChange={(event) => update("takeProfit", event.target.value)}
               disabled={busy}
               placeholder="بیشتر از قیمت ورود"
-              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-600 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-slate-800 px-4 py-3 text-sm font-black text-white placeholder:text-slate-300 focus:border-cyan-300/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
             />
           </label>
         </div>
@@ -459,20 +459,20 @@ function PositionCard({
         <div>
           <div className="flex items-center gap-2">
             <span className="font-black">{position.asset}</span>
-            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-black text-slate-500">LONG</span>
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-black text-slate-300">LONG</span>
           </div>
-          <p className="mt-1 text-xs font-bold text-slate-500">ورود {usd(position.entryPrice)} · {faDateTime(position.openedAt)}</p>
+          <p className="mt-1 text-xs font-bold text-slate-300">ورود {usd(position.entryPrice)} · {faDateTime(position.openedAt)}</p>
         </div>
         <div className="text-left">
-          <p className={`font-black ${hasLivePrice ? (pnl >= 0 ? "text-emerald-300" : "text-red-300") : "text-slate-500"}`}>{hasLivePrice ? signedUsd(pnl) : "—"}</p>
-          <p className={`text-xs font-bold ${hasLivePrice ? (pnl >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-600"}`}>{hasLivePrice ? percent(pnlRate) : "قیمت معتبر ناموجود"}</p>
+          <p className={`font-black ${hasLivePrice ? (pnl >= 0 ? "text-emerald-300" : "text-red-300") : "text-slate-300"}`}>{hasLivePrice ? signedUsd(pnl) : "—"}</p>
+          <p className={`text-xs font-bold ${hasLivePrice ? (pnl >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-300"}`}>{hasLivePrice ? percent(pnlRate) : "قیمت معتبر ناموجود"}</p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-slate-400 sm:grid-cols-4">
-        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-600">تعهد</span>{usd(position.quoteCommitted)}</div>
-        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-600">قیمت فعلی</span>{hasLivePrice && marketPrice ? usd(marketPrice) : "ناموجود"}</div>
-        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-600">حد ضرر</span>{position.stopLoss ? usd(position.stopLoss) : "ثبت نشده"}</div>
-        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-600">حد سود</span>{position.takeProfit ? usd(position.takeProfit) : "ثبت نشده"}</div>
+        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-300">تعهد</span>{usd(position.quoteCommitted)}</div>
+        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-300">قیمت فعلی</span>{hasLivePrice && marketPrice ? usd(marketPrice) : "ناموجود"}</div>
+        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-300">حد ضرر</span>{position.stopLoss ? usd(position.stopLoss) : "ثبت نشده"}</div>
+        <div className="rounded-xl bg-slate-900/70 p-2.5"><span className="block text-slate-300">حد سود</span>{position.takeProfit ? usd(position.takeProfit) : "ثبت نشده"}</div>
       </div>
       {position.preTradePlan && <p className="mt-3 rounded-xl border border-cyan-300/10 bg-cyan-400/5 p-3 text-xs font-bold leading-6 text-slate-300">برنامه: {position.preTradePlan}</p>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -489,7 +489,7 @@ function PendingOrderCard({ order, busy, onCancel }: { order: ArenaPendingOrderV
       <Clock3 className="h-5 w-5 text-amber-300" />
       <div className="min-w-0 flex-1">
         <p className="font-black">{order.asset} · خرید محدود @ {usd(order.limitPrice)}</p>
-        <p className="mt-1 text-xs font-bold text-slate-500">رزرو {usd(order.quoteReserved)} · {faDateTime(order.createdAt)}</p>
+        <p className="mt-1 text-xs font-bold text-slate-300">رزرو {usd(order.quoteReserved)} · {faDateTime(order.createdAt)}</p>
       </div>
       <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black text-slate-400 hover:border-red-400/30 hover:text-red-300 disabled:opacity-40">لغو سفارش</button>
     </article>
@@ -508,9 +508,9 @@ function ClosedTradeRow({ trade }: { trade: ArenaClosedTradeV2 }) {
       {pnl >= 0 ? <ArrowUpRight className="h-5 w-5 text-emerald-300" /> : <ArrowDownRight className="h-5 w-5 text-red-300" />}
       <div className="min-w-0 flex-1">
         <p className="font-black">{trade.asset} · {trade.closureReason === "manual" ? "بسته‌شدن دستی" : trade.closureReason === "stop-loss" ? "حد ضرر" : "حد سود"}</p>
-        <p className="mt-1 text-xs font-bold text-slate-500">{usd(trade.entryPrice)} → {usd(trade.exitPrice)} · {faDateTime(trade.closedAt)}</p>
+        <p className="mt-1 text-xs font-bold text-slate-300">{usd(trade.entryPrice)} → {usd(trade.exitPrice)} · {faDateTime(trade.closedAt)}</p>
       </div>
-      <div className="text-left"><p className={`font-black ${pnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signedUsd(pnl)}</p><p className="text-xs font-bold text-slate-500">{percent(trade.realizedPnlRate)}</p></div>
+      <div className="text-left"><p className={`font-black ${pnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>{signedUsd(pnl)}</p><p className="text-xs font-bold text-slate-300">{percent(trade.realizedPnlRate)}</p></div>
     </div>
   );
 }
@@ -722,7 +722,7 @@ export function TradingArenaExecutionClient() {
         <ShieldCheck className="mx-auto h-11 w-11 text-amber-200" />
         <h1 className="mt-4 text-xl font-black">ابتدا پروفایل آکادمی را کامل کنید</h1>
         <p className="mt-3 text-sm font-bold leading-7 text-slate-300">حساب آرنا، فرصت‌ها و تاریخچه اجرای شما به شناسه پایدار دانشجو متصل می‌شوند.</p>
-        <Link href="/academy/onboarding" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white hover:bg-cyan-400">ساخت یا تکمیل پروفایل</Link>
+        <Link href="/academy/onboarding" className="mt-5 inline-flex rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white hover:bg-cyan-700">ساخت یا تکمیل پروفایل</Link>
       </div>
     );
   }
@@ -733,7 +733,7 @@ export function TradingArenaExecutionClient() {
         <AlertTriangle className="mx-auto h-10 w-10 text-amber-300" />
         <h1 className="mt-4 text-xl font-black">آرنا در دسترس نیست</h1>
         <p className="mt-3 text-sm font-bold leading-7 text-slate-400">{error ?? arenaUiError("arena_execution_unavailable")}</p>
-        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> تلاش دوباره</button>
+        <button type="button" onClick={() => void loadSnapshot()} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white"><RefreshCw className="h-4 w-4" /> تلاش دوباره</button>
       </div>
     );
   }
@@ -773,16 +773,16 @@ export function TradingArenaExecutionClient() {
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="خلاصه حساب آرنا">
-        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-500">موجودی نقد</p><p className="mt-2 text-2xl font-black tabular-nums">{usd(cash)}</p><p className="mt-1 text-xs font-bold text-slate-600">رزرو سفارش: {usd(snapshot.state.reservedBalance)}</p></div>
-        <div className={`rounded-[24px] border p-5 ${equityDelta >= 0 ? "border-emerald-400/20 bg-emerald-400/5" : "border-red-400/20 bg-red-400/5"}`}><p className="text-xs font-black text-slate-500">ارزش لحظه‌ای حساب</p><p className="mt-2 text-2xl font-black tabular-nums">{usd(equity)}</p><p className={`mt-1 text-xs font-black ${equityDelta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{equityDelta >= 0 ? <ArrowUpRight className="inline h-3.5 w-3.5" /> : <ArrowDownRight className="inline h-3.5 w-3.5" />} {signedUsd(equityDelta)} · {percent(equityRate)}</p></div>
-        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-500">فرصت فعال</p><p className="mt-2 text-2xl font-black">{snapshot.activeAttempt.attemptNumber} از {snapshot.account.attemptsTotal}</p><p className="mt-1 text-xs font-bold text-slate-600">باقی‌مانده: {snapshot.account.attemptsRemaining}</p></div>
-        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-500">نسخه معتبر</p><p className="mt-2 text-2xl font-black tabular-nums">r{snapshot.revision}</p><p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-600"><ServerCog className="h-3.5 w-3.5" /> PostgreSQL authority</p></div>
+        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">موجودی نقد</p><p className="mt-2 text-2xl font-black tabular-nums">{usd(cash)}</p><p className="mt-1 text-xs font-bold text-slate-300">رزرو سفارش: {usd(snapshot.state.reservedBalance)}</p></div>
+        <div className={`rounded-[24px] border p-5 ${equityDelta >= 0 ? "border-emerald-400/20 bg-emerald-400/5" : "border-red-400/20 bg-red-400/5"}`}><p className="text-xs font-black text-slate-300">ارزش لحظه‌ای حساب</p><p className="mt-2 text-2xl font-black tabular-nums">{usd(equity)}</p><p className={`mt-1 text-xs font-black ${equityDelta >= 0 ? "text-emerald-300" : "text-red-300"}`}>{equityDelta >= 0 ? <ArrowUpRight className="inline h-3.5 w-3.5" /> : <ArrowDownRight className="inline h-3.5 w-3.5" />} {signedUsd(equityDelta)} · {percent(equityRate)}</p></div>
+        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">فرصت فعال</p><p className="mt-2 text-2xl font-black">{snapshot.activeAttempt.attemptNumber} از {snapshot.account.attemptsTotal}</p><p className="mt-1 text-xs font-bold text-slate-300">باقی‌مانده: {snapshot.account.attemptsRemaining}</p></div>
+        <div className="rounded-[24px] border border-white/10 bg-slate-900/70 p-5"><p className="text-xs font-black text-slate-300">نسخه معتبر</p><p className="mt-2 text-2xl font-black tabular-nums">r{snapshot.revision}</p><p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-300"><ServerCog className="h-3.5 w-3.5" /> PostgreSQL authority</p></div>
       </section>
 
       <section className={`rounded-2xl border p-4 ${snapshot.marketStatus === "available" ? "border-cyan-300/15 bg-cyan-400/5" : "border-amber-400/25 bg-amber-400/5"}`} aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">{snapshot.marketStatus === "available" ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <WifiOff className="h-4 w-4 text-amber-300" />}<p className="text-xs font-black text-slate-300">{snapshot.marketStatus === "available" ? "قیمت معتبر سرور فعال است" : "قیمت معتبر سرور در دسترس نیست؛ فرمان‌های قیمت‌محور متوقف‌اند"}</p></div>
-          {market && <p className="text-[11px] font-bold text-slate-500">{market.source} · {faDateTime(market.observedAt)}</p>}
+          {market && <p className="text-[11px] font-bold text-slate-300">{market.source} · {faDateTime(market.observedAt)}</p>}
         </div>
         {market && <div className="mt-3 flex gap-4 text-sm font-black"><span>BTC {usd(market.prices.BTC)}</span><span>ETH {usd(market.prices.ETH)}</span></div>}
       </section>
@@ -795,24 +795,24 @@ export function TradingArenaExecutionClient() {
 
         <div className="space-y-6">
           <section aria-labelledby="arena-open-positions">
-            <div className="mb-3 flex items-center justify-between"><h2 id="arena-open-positions" className="text-xs font-black uppercase tracking-widest text-slate-500">موقعیت‌های باز</h2><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-black text-slate-400">{snapshot.state.openPositions.length}</span></div>
-            {snapshot.state.openPositions.length > 0 ? <div className="space-y-3">{snapshot.state.openPositions.map((position) => <PositionCard key={position.id} position={position} marketPrice={market?.prices[position.asset] ?? null} marketAvailable={snapshot.marketStatus === "available"} busy={busy} onClose={() => void sendCommand({ type: "close_position", positionId: position.id, reason: "manual" })} />)}</div> : <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm font-bold text-slate-600">موقعیت بازی وجود ندارد.</div>}
+            <div className="mb-3 flex items-center justify-between"><h2 id="arena-open-positions" className="text-xs font-black uppercase tracking-widest text-slate-300">موقعیت‌های باز</h2><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-black text-slate-400">{snapshot.state.openPositions.length}</span></div>
+            {snapshot.state.openPositions.length > 0 ? <div className="space-y-3">{snapshot.state.openPositions.map((position) => <PositionCard key={position.id} position={position} marketPrice={market?.prices[position.asset] ?? null} marketAvailable={snapshot.marketStatus === "available"} busy={busy} onClose={() => void sendCommand({ type: "close_position", positionId: position.id, reason: "manual" })} />)}</div> : <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm font-bold text-slate-300">موقعیت بازی وجود ندارد.</div>}
           </section>
 
-          {snapshot.state.pendingOrders.length > 0 && <section aria-labelledby="arena-pending-orders"><div className="mb-3 flex items-center justify-between"><h2 id="arena-pending-orders" className="text-xs font-black uppercase tracking-widest text-slate-500">سفارش‌های در انتظار</h2><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-black text-slate-400">{snapshot.state.pendingOrders.length}</span></div><div className="space-y-3">{snapshot.state.pendingOrders.map((order) => <PendingOrderCard key={order.id} order={order} busy={busy} onCancel={() => void sendCommand({ type: "cancel_order", orderId: order.id })} />)}</div></section>}
+          {snapshot.state.pendingOrders.length > 0 && <section aria-labelledby="arena-pending-orders"><div className="mb-3 flex items-center justify-between"><h2 id="arena-pending-orders" className="text-xs font-black uppercase tracking-widest text-slate-300">سفارش‌های در انتظار</h2><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs font-black text-slate-400">{snapshot.state.pendingOrders.length}</span></div><div className="space-y-3">{snapshot.state.pendingOrders.map((order) => <PendingOrderCard key={order.id} order={order} busy={busy} onCancel={() => void sendCommand({ type: "cancel_order", orderId: order.id })} />)}</div></section>}
         </div>
       </div>
 
       {recentFlags.length > 0 && <section className="rounded-[24px] border border-white/10 bg-slate-900/60 p-5" aria-labelledby="arena-mentor-signals"><div className="mb-3 flex items-center gap-2"><Target className="h-5 w-5 text-violet-300" /><h2 id="arena-mentor-signals" className="font-black">سیگنال‌های رفتاری ثبت‌شده</h2></div><div className="flex flex-wrap gap-2">{recentFlags.map((flag) => <MentorFlag key={flag} flag={flag} />)}</div></section>}
 
-      {stats.total > 0 && <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="آمار معاملات بسته‌شده"><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{stats.total}</p><p className="text-xs font-bold text-slate-500">معامله بسته</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-emerald-300">{(stats.winRate * 100).toLocaleString("fa-IR", { maximumFractionDigits: 0 })}٪</p><p className="text-xs font-bold text-slate-500">نرخ برد</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-cyan-300">{(stats.disciplineRate * 100).toLocaleString("fa-IR", { maximumFractionDigits: 0 })}٪</p><p className="text-xs font-bold text-slate-500">ثبت حد ضرر</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className={`text-xl font-black ${stats.average >= 0 ? "text-emerald-300" : "text-red-300"}`}>{percent(stats.average)}</p><p className="text-xs font-bold text-slate-500">میانگین بازده</p></div></section>}
+      {stats.total > 0 && <section className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="آمار معاملات بسته‌شده"><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black">{stats.total}</p><p className="text-xs font-bold text-slate-300">معامله بسته</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-emerald-300">{(stats.winRate * 100).toLocaleString("fa-IR", { maximumFractionDigits: 0 })}٪</p><p className="text-xs font-bold text-slate-300">نرخ برد</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className="text-xl font-black text-cyan-300">{(stats.disciplineRate * 100).toLocaleString("fa-IR", { maximumFractionDigits: 0 })}٪</p><p className="text-xs font-bold text-slate-300">ثبت حد ضرر</p></div><div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-center"><p className={`text-xl font-black ${stats.average >= 0 ? "text-emerald-300" : "text-red-300"}`}>{percent(stats.average)}</p><p className="text-xs font-bold text-slate-300">میانگین بازده</p></div></section>}
 
       <section aria-labelledby="arena-recent-trades">
-        <div className="mb-3 flex items-center justify-between"><h2 id="arena-recent-trades" className="text-xs font-black uppercase tracking-widest text-slate-500">معاملات اخیر</h2><Link href="/academy/trading-arena/journal" className="text-xs font-black text-cyan-300 hover:underline">مشاهده ژورنال سروری</Link></div>
-        {snapshot.state.closedTrades.length > 0 ? <div className="space-y-2">{snapshot.state.closedTrades.slice(0, 5).map((trade) => <ClosedTradeRow key={trade.id} trade={trade} />)}</div> : <div className="rounded-[24px] border border-dashed border-white/10 p-8 text-center"><Flame className="mx-auto h-8 w-8 text-slate-700" /><p className="mt-3 font-black text-slate-500">هنوز معامله بسته‌شده‌ای وجود ندارد.</p><p className="mt-1 text-sm font-bold text-slate-600">فرمان‌ها پس از تأیید سرور در همین بخش ظاهر می‌شوند.</p></div>}
+        <div className="mb-3 flex items-center justify-between"><h2 id="arena-recent-trades" className="text-xs font-black uppercase tracking-widest text-slate-300">معاملات اخیر</h2><Link href="/academy/trading-arena/journal" className="text-xs font-black text-cyan-300 hover:underline">مشاهده ژورنال سروری</Link></div>
+        {snapshot.state.closedTrades.length > 0 ? <div className="space-y-2">{snapshot.state.closedTrades.slice(0, 5).map((trade) => <ClosedTradeRow key={trade.id} trade={trade} />)}</div> : <div className="rounded-[24px] border border-dashed border-white/10 p-8 text-center"><Flame className="mx-auto h-8 w-8 text-slate-700" /><p className="mt-3 font-black text-slate-300">هنوز معامله بسته‌شده‌ای وجود ندارد.</p><p className="mt-1 text-sm font-bold text-slate-300">فرمان‌ها پس از تأیید سرور در همین بخش ظاهر می‌شوند.</p></div>}
       </section>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-4 text-[11px] font-bold text-slate-600"><span>دوره حساب تا {faDateTime(snapshot.account.cycleEndsAt)}</span><span>آخرین state: {faDateTime(snapshot.state.updatedAt)}</span></footer>
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/5 pt-4 text-[11px] font-bold text-slate-300"><span>دوره حساب تا {faDateTime(snapshot.account.cycleEndsAt)}</span><span>آخرین state: {faDateTime(snapshot.state.updatedAt)}</span></footer>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   parseAcademyMasteryReviewDecision,
   submitAcademyMasteryGenerationDraft,
 } from "../../lib/academy-mastery-season-review-orchestrator";
+import { C_LEVEL_CONTROL_POLICY_VERSION } from "../../lib/c-level-control-authority";
 import { ACADEMY_MASTERY_SEASONS_SQL } from "../../lib/db-migrate-academy-mastery-seasons";
 import { validGeneratedMasteryDraft as validGeneratedDraft } from "./mastery-season-draft-fixture";
 
@@ -182,6 +183,23 @@ describe("Academy Mastery Seasons authority", () => {
     assert.equal(review.questionCount, 6);
     assert.ok(review.advancedObjectiveCount >= 2);
     assert.deepEqual(review.violations, []);
+  });
+
+  it("gates post-Term-7 growth content and exams behind sourced review evidence", () => {
+    const draft = validGeneratedDraft({
+      recommendedAfterTerm: 7,
+      kind: "repair",
+      signalTags: ["risk", "position-sizing", "journal"],
+    });
+    const review = reviewGeneratedAcademyMasterySeasonDraft(draft);
+
+    assert.equal(review.status, "approved");
+    assert.equal(draft.recommendedAfterTerm, 7);
+    assert.ok(draft.sources.every((source) => source.url.startsWith("https://")));
+    assert.ok(draft.missions.every((mission) => mission.questions.length >= 2));
+    assert.ok(review.questionCount >= 6);
+    assert.ok(review.advancedObjectiveCount >= 2);
+    assert.equal(review.publishCapability, "mentor_governed_automation");
   });
 
   it("rejects untrusted generated drafts before they can enter the catalog", () => {
@@ -426,6 +444,67 @@ describe("Academy Mastery Seasons authority", () => {
     );
   });
 
+  it("blocks Mentor publication without C-level approval even when Mentor evidence is strong", async () => {
+    const queries: string[] = [];
+    const client = {
+      async query(sql: string) {
+        queries.push(sql);
+        if (/SELECT id::text, tenant_id, workspace_id/.test(sql)) {
+          return {
+            rows: [{
+              id: "00000000-0000-4000-8000-000000000010",
+              tenant_id: "tecpey",
+              workspace_id: "main",
+              locale: "fa",
+              season_id: "ai-risk-scenario-season",
+              status: "approved",
+              generated_by: "mentor_ai",
+              model_name: "mentor-draft-simulator",
+              policy_version: ACADEMY_MASTERY_SEASON_GENERATION_POLICY_VERSION,
+              source_count: 2,
+              question_count: 6,
+              advanced_objective_count: 3,
+              review_summary: {},
+              draft_payload: validGeneratedDraft(),
+              generated_at: "2026-08-11T00:00:00.000Z",
+              updated_at: "2026-08-11T00:00:00.000Z",
+            }],
+          };
+        }
+        return { rows: [] };
+      },
+    };
+
+    await assert.rejects(
+      () => decideAcademyMasteryGenerationDraft(
+        client as never,
+        {
+          scope: { tenantId: "tecpey", workspaceId: "main" },
+          draftId: "00000000-0000-4000-8000-000000000010",
+          decision: "publish",
+          reviewerType: "mentor_ai",
+          reviewerId: "mentor-governor",
+          decisionNotes: "Mentor governance evidence is strong but C-level approval is intentionally missing.",
+          mentorGovernance: {
+            policyScore: 96,
+            personalizationCoverage: 88,
+            trustedNewsSourceCount: 2,
+            academyWeaknessSignalCount: 3,
+            arenaRiskSignalCount: 2,
+            forbiddenSignalCount: 0,
+            maxSourceAgeMinutes: 180,
+          },
+        },
+      ),
+      /c_level_approval_required/,
+    );
+    assert.equal(
+      queries.some((sql) => /INSERT INTO academy_mastery_season_catalog/.test(sql)),
+      false,
+      "publish must fail closed before catalog writes",
+    );
+  });
+
   it("records Mentor AI governance and publishes approved drafts to the catalog", async () => {
     const queries: Array<{ sql: string; values: unknown[] }> = [];
     const client = {
@@ -455,6 +534,29 @@ describe("Academy Mastery Seasons authority", () => {
         }
         if (/INSERT INTO academy_mastery_season_generation_reviews/.test(sql)) {
           return { rows: [{ id: "42" }] };
+        }
+        if (/FROM admin_approval_requests request/.test(sql)) {
+          return {
+            rows: [{
+              id: "33333333-3333-4333-8333-333333333333",
+              action: "academy_mastery.publish",
+              resource_type: "academy_mastery_season_generation_draft",
+              resource_id: "tecpey/main/00000000-0000-4000-8000-000000000010",
+              payload: {
+                tenantId: "tecpey",
+                workspaceId: "main",
+                controlledAction: "academy_mastery.publish",
+                resourceType: "academy_mastery_season_generation_draft",
+                resourceId: "00000000-0000-4000-8000-000000000010",
+                controlPolicyVersion: C_LEVEL_CONTROL_POLICY_VERSION,
+              },
+              requested_by: "11111111-1111-4111-8111-111111111111",
+              reviewed_by: "22222222-2222-4222-8222-222222222222",
+              reviewed_roles: ["super_admin"],
+              reviewed_at: "2026-08-11T00:30:00.000Z",
+              expires_at: "2026-08-18T00:30:00.000Z",
+            }],
+          };
         }
         if (/INSERT INTO academy_mastery_season_catalog/.test(sql)) {
           return { rows: [{ catalog_version: 3 }] };
@@ -503,26 +605,34 @@ describe("Academy Mastery Seasons authority", () => {
           maxSourceAgeMinutes: 180,
           sampledForHumanQa: true,
         },
+        cLevelApprovalRequestId: "33333333-3333-4333-8333-333333333333",
       },
     );
 
     assert.equal(result.nextStatus, "published");
     assert.equal(result.reviewId, "42");
     assert.equal(result.catalogVersion, 3);
+    assert.equal(result.cLevelApproval?.policyVersion, C_LEVEL_CONTROL_POLICY_VERSION);
     assert.ok(queries.some(({ sql }) => /academy_mastery_season_generation_reviews/.test(sql)));
     assert.ok(queries.some(({ sql }) => /academy_mastery_season_catalog/.test(sql)));
+    assert.ok(queries.some(({ sql }) => /FROM admin_approval_requests request/.test(sql)));
     assert.ok(queries.some(({ values }) => values.includes("mentor_governed_generated_v1")));
     assert.ok(queries.some(({ sql }) => /reviewer_type, reviewer_id/.test(sql)));
     assert.ok(queries.some(({ sql }) => /review_summary = review_summary \|\|/.test(sql)));
-    assert.deepEqual(queries[1].values.slice(3, 7), [
+    const reviewInsert = queries.find(({ sql }) => /INSERT INTO academy_mastery_season_generation_reviews/.test(sql));
+    assert.deepEqual(reviewInsert?.values.slice(3, 7), [
       "publish",
       "mentor_ai",
       "mentor-governor",
       ACADEMY_MASTERY_SEASON_GENERATION_POLICY_VERSION,
     ]);
     assert.equal(
-      JSON.parse(String(queries[1].values[8])).mentorGovernance.policyScore,
+      JSON.parse(String(reviewInsert?.values[8])).mentorGovernance.policyScore,
       96,
+    );
+    assert.equal(
+      JSON.parse(String(reviewInsert?.values[8])).cLevelApproval.policyVersion,
+      C_LEVEL_CONTROL_POLICY_VERSION,
     );
     const update = queries.find(({ sql }) => /UPDATE academy_mastery_season_generation_drafts/.test(sql));
     assert.equal(update?.values[3], "published");

@@ -97,6 +97,7 @@ export type SensitiveMutationAuditAction =
   | "mentor_profile.recompute"
   | "mentor.preferences.update"
   | "community.profile.consent.update"
+  | "academy.credential.lifecycle.update"
   | "academy.credential.visibility.update"
   | "api_key.create"
   | "api_key.enable"

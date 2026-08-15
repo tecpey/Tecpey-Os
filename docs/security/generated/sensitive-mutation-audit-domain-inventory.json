@@ -8,6 +8,7 @@
     { "action": "mentor_profile.recompute", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
     { "action": "mentor.preferences.update", "domainOwner": "ai-platform", "evidenceClass": "behavioral", "sensitivity": "restricted" },
     { "action": "community.profile.consent.update", "domainOwner": "community-platform", "evidenceClass": "privacy", "sensitivity": "restricted" },
+    { "action": "academy.credential.lifecycle.update", "domainOwner": "academy-platform", "evidenceClass": "credential-lifecycle", "sensitivity": "restricted" },
     { "action": "academy.credential.visibility.update", "domainOwner": "academy-platform", "evidenceClass": "privacy", "sensitivity": "restricted" },
     { "action": "api_key.create", "domainOwner": "identity-security", "evidenceClass": "credential", "sensitivity": "restricted" },
     { "action": "api_key.enable", "domainOwner": "identity-security", "evidenceClass": "credential", "sensitivity": "restricted" },

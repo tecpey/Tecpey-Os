@@ -17,7 +17,7 @@ export function AcademyWorldClassUpgrade() {
                 در آکادمی تک‌پی، یادگیری فقط خواندن چند مقاله نیست. مسیر از آموزش پایه شروع می‌شود، با آزمون و تمرین ادامه پیدا می‌کند و دانشجویان منظم و واجد شرایط می‌توانند برای دوره‌های تخصصی آنلاین یا حضوری وارد مرحله بررسی شوند.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/academy/profile" className="rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400">مشاهده پرونده یادگیری</Link>
+                <Link href="/academy/profile" className="rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700">مشاهده پرونده یادگیری</Link>
                 <Link href="/academy/simulator" className="rounded-2xl border border-cyan-300/25 bg-white/10 px-5 py-3 text-sm font-black text-cyan-100 transition hover:bg-white/15">تمرین تصمیم‌گیری بازار</Link>
                 <Link href="/academy/specialized-program" className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-5 py-3 text-sm font-black text-amber-100 transition hover:bg-amber-300/15">دوره تخصصی و مسیر دعوت</Link>
               </div>
@@ -27,7 +27,7 @@ export function AcademyWorldClassUpgrade() {
               <div className="mt-4 space-y-3">
                 {academyValueChainFa.map((item, index) => (
                   <div key={item} className="flex gap-3 rounded-2xl border border-white/10 bg-slate-950/35 p-3 text-sm font-bold leading-7 text-slate-200">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-xs font-black text-white">{index + 1}</span>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cyan-800 text-xs font-black text-white">{index + 1}</span>
                     <span>{item}</span>
                   </div>
                 ))}
@@ -69,7 +69,7 @@ export function AcademyWorldClassUpgrade() {
                 const Icon = phase.icon;
                 return (
                   <article key={phase.phase} className="rounded-[26px] border border-violet-200 bg-violet-50 p-5 dark:border-violet-300/15 dark:bg-violet-500/10">
-                    <div className="flex items-center gap-3"><Icon className="h-6 w-6 text-violet-600 dark:text-violet-300" /><span className="rounded-full bg-violet-500 px-3 py-1 text-xs font-black text-white">{phase.phase}</span></div>
+                    <div className="flex items-center gap-3"><Icon className="h-6 w-6 text-violet-600 dark:text-violet-300" /><span className="rounded-full bg-violet-800 px-3 py-1 text-xs font-black text-white">{phase.phase}</span></div>
                     <h3 className="mt-3 font-black text-slate-950 dark:text-white">{phase.title}</h3>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {phase.items.map((item) => <span key={item} className="rounded-full bg-white px-3 py-2 text-xs font-black text-violet-700 dark:bg-white/10 dark:text-violet-100">{item}</span>)}

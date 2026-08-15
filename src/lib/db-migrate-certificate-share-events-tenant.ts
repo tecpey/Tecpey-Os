@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { logger } from "./logger";
 
-const FILENAME = "0081_certificate_share_events_tenant.sql";
+const FILENAME = "0084_certificate_share_events_tenant.sql";
 
 // certificate_share_events records a share of a certificate. Its certificate_id
 // names a row in academy_certificates, which migration 0070 made tenant-scoped,

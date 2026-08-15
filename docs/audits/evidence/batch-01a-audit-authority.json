@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "73b90854128b4847d3c9b654268ddf6c00ea5575",
-      "sha256": "53ff80e3d9ef0bb5af85f8512d11417540c3381265e3099fd06ed06a65288a5e",
-      "lines": 219,
+      "gitObjectId": "353b341108faa9b21d9065855de56198fed59fd1",
+      "sha256": "13a6ac26cedd6bcde991eaa0d2fb2f7cadafef33d8dc341475c62c8fedb34932",
+      "lines": 223,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 219
+          "endLine": 223
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -93,16 +93,17 @@
         "Re-reviewed on 2026-08-13 after tenant:isolation:check gained check-request-tenant-assertion-authority.mjs (multi-tenant #20, roadmap 7.1.3). It is a read-only static guard over src/lib/security and src/tests/security sources: it runs no application code, opens no network or database connection, and mutates nothing. It was added to an existing authority chain rather than a new release step, so the release path is unchanged in shape. No dependency pin, engine constraint, override declaration or other script was touched.",
         "2026-08-15: re-reviewed after test:withdrawal-admission additionally executes src/tests/wallet/provider-ambiguous-rpc-fixtures.test.ts. The change adds one deterministic, fetch-stubbed six-chain unit fixture to an existing release-gated withdrawal test command; it adds no dependency, engine, override, real network/database access, runtime mutation path or custody activation surface.",
         "2026-08-15: re-reviewed after test:ops-recovery-authority additionally executes src/tests/wallet/rpc-client-failover.test.ts. The bounded fixture replaces simulated circuit-breaker assertions with the real RpcClient, uses only stubbed fetch endpoints, and adds no dependency, engine, override, real network/database access, runtime mutation path or custody activation surface.",
-        "2026-08-15: re-reviewed after test:academy-progress additionally executes src/tests/monthly-league/policy.test.ts. The pure integer-scoring fixture has no network, database or filesystem access, introduces no dependency, engine, override or runtime activation surface, and keeps the league policy in shadow mode."
+        "2026-08-15: re-reviewed after test:academy-progress additionally executes src/tests/monthly-league/policy.test.ts. The pure integer-scoring fixture has no network, database or filesystem access, introduces no dependency, engine, override or runtime activation surface, and keeps the league policy in shadow mode.",
+        "2026-08-15: re-reviewed after adding academy:daily-repair:assign, arena:league:credentials, arena:league:entitlements and qa:academy-arena-mentor-a11y:check. The first three are explicit operator scripts for governed Academy/Arena completion fixtures; the QA guard is a read-only static evidence check. No dependency, engine, override, release path, network access or runtime activation surface changed, and the file now has 223 lines."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 144,
+          "line": 147,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json lines 144 and 147-148 use npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json lines 147 and 150-151 use npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",
@@ -248,13 +249,13 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "f92152715eff78445ecda03c7649f3943d64c904",
-      "sha256": "c138adfb5e4bc38bf4f0c3820f8b990b4742f00600eb50d55aee6b3e33669d3f",
-      "lines": 282,
+      "gitObjectId": "f9c9d02258eaba76d0e8ee66cf2cdfdecc6a2fd7",
+      "sha256": "0a94a1bf47ef0d585d2ff35bcf992739763043f9f6fd0dff6db2e22dab6544ad",
+      "lines": 283,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 282
+          "endLine": 283
         }
       ],
       "findingDisposition": "no-confirmed-findings",
@@ -266,7 +267,8 @@
         "2026-08-12: re-reviewed after Policy v12 added explicit product-ui routing for src/lib/news-intelligence-graph.ts. The change is limited to one content intelligence module classification and the policy version constant; source-path fail-closed behavior remains intact, no runtime activation surface is added, and the new module is covered by focused content authority tests.",
         "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states.",
         "2026-08-13: re-reviewed after Policy v14 added explicit routing for the two libraries introduced by the 2026-08-12 audit hardening. src/lib/degraded-read.ts joins operations-runtime Batch 11 alongside logger, metrics and observe because it is part of the observability signal path. src/lib/json-ld.ts joins authentication-admin-security Batch 3 alongside api-validation rather than product-ui: it renders as SEO markup, but it is the output encoder standing between schema data and dangerouslySetInnerHTML, so a regression in it is a stored-XSS vector and P1 is the truthful tier. The change is limited to two classification entries and the policy version constant; the source-path fail-closed invariant is untouched, no ordering between existing rules changed, and both new classifications are asserted in scripts/repository-audit-manifest.test.mjs.",
-        "2026-08-15: re-reviewed after Policy v15 explicitly classified src/lib/public-credential-verification-id.ts as Academy Batch 4. The helper contains only bounded identifier validation, domain-separated public fingerprint derivation and canonical verification-path construction; it introduces no persistence, network, mutation or private evidence surface. Source-path fail-closed behavior and rule ordering remain unchanged."
+        "2026-08-15: re-reviewed after Policy v15 explicitly classified src/lib/public-credential-verification-id.ts as Academy Batch 4. The helper contains only bounded identifier validation, domain-separated public fingerprint derivation and canonical verification-path construction; it introduces no persistence, network, mutation or private evidence surface. Source-path fail-closed behavior and rule ordering remain unchanged.",
+        "2026-08-15: re-reviewed after Policy v16 explicitly classified src/lib/c-level-control-authority.ts as authentication-admin-security Batch 3. The helper governs C-level orchestration authority and must stay with admin/security audit evidence; source-path fail-closed behavior and existing rule ordering are preserved, and no runtime activation surface is added."
       ],
       "findings": []
     },

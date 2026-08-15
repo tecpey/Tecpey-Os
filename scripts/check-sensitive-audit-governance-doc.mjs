@@ -104,9 +104,9 @@ for (const invariant of [
   );
 }
 
-if (inventory.actions.length !== 60) {
+if (inventory.actions.length !== 61) {
   failures.push(
-    `${files.inventory}: expected 60 classified actions, found ${inventory.actions.length}`,
+    `${files.inventory}: expected 61 classified actions, found ${inventory.actions.length}`,
   );
 }
 if (inventory.resources.length !== 22) {
@@ -122,5 +122,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Sensitive audit governance map passed: 60 actions, 22 resources, eight real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.",
+  "Sensitive audit governance map passed: 61 actions, 22 resources, eight real domain owners, evidence modes, change procedure and conservative retention/access authority are synchronized.",
 );

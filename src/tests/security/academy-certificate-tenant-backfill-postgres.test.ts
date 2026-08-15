@@ -56,7 +56,7 @@ async function revertToPreMigrationShape(client: PoolClient): Promise<void> {
   await client.query(
     "ALTER TABLE academy_certificates DROP CONSTRAINT IF EXISTS academy_certificates_tenant_fk",
   );
-  // Later migrations build on these columns — 0081 exposes
+  // Later migrations build on these columns — 0084 exposes
   // academy_certificates (id, tenant_id, workspace_id) as a unique key and binds
   // certificate_share_events to it — so the columns can no longer be dropped in
   // isolation. CASCADE removes those dependents with the columns; every drop here

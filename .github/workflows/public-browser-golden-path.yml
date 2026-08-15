@@ -110,6 +110,9 @@ jobs:
       - name: Install browser QA dependencies
         run: npm ci --prefix tests/e2e --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
+      - name: Verify Academy Arena Mentor accessibility evidence harness
+        run: npm run qa:academy-arena-mentor-a11y:check
+
       - name: Validate production environment contract
         env:
           NODE_ENV: production

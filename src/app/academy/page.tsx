@@ -115,7 +115,7 @@ export default function AcademyPage() {
                 Seasonهای اختصاصی تک‌پی ضعف‌های کاربر، اخبار و ابزارهای مهم روز، رفتار تمرینی در Trading Arena و رقابت سالم هم‌سطح را به مسیر رشد دائمی تبدیل می‌کنند.
               </p>
             </div>
-            <Link href="/academy/mastery-seasons" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">
+            <Link href="/academy/mastery-seasons" className="rounded-2xl bg-cyan-800 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-700">
               مشاهده مسیر رشد بی‌پایان
             </Link>
           </div>
@@ -130,7 +130,7 @@ export default function AcademyPage() {
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">این بخش برای سؤال‌های آموزشی، امنیتی و مدیریت ریسک ساخته شده است؛ نه سیگنال خرید و فروش. پاسخ‌ها به درس‌های آکادمی و قدم بعدی یادگیری وصل می‌شوند.</p>
             </div>
             <div className="grid gap-3">
-              <Link href="/academy/onboarding" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">فعال‌سازی منتور با پروفایل آکادمی</Link>
+              <Link href="/academy/onboarding" className="rounded-2xl bg-cyan-800 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-700">فعال‌سازی منتور با پروفایل آکادمی</Link>
               <Link href="/academy/onboarding" className="rounded-2xl border border-cyan-300/25 bg-white/5 px-5 py-4 text-center text-sm font-black text-cyan-100 transition hover:bg-white/10">ساخت هویت آموزشی</Link>
             </div>
           </div>
@@ -146,7 +146,7 @@ export default function AcademyPage() {
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">پس از تکمیل ترم و قبولی در ارزیابی، گواهی شما با شناسه یکتا، QR قابل اسکن و صفحه استعلام عمومی صادر می‌شود؛ قابل چاپ، قابل اشتراک‌گذاری و مناسب رزومه آموزشی.</p>
             </div>
             <div className="grid gap-3">
-              <Link href="/academy/certificates" className="rounded-2xl bg-emerald-500 px-5 py-4 text-center text-sm font-black text-white transition hover:bg-emerald-400">مشاهده مدارک قابل استعلام</Link>
+              <Link href="/academy/certificates" className="rounded-2xl bg-emerald-700 px-5 py-4 text-center text-sm font-black text-white transition hover:bg-emerald-600">مشاهده مدارک قابل استعلام</Link>
               <Link href="/academy/hall-of-fame" className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-5 py-4 text-center text-sm font-black text-amber-100 transition hover:bg-amber-300/15">تالار افتخار آکادمی</Link>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function AcademyPage() {
               <h2 className="text-2xl font-black text-white">مربی شخصی‌سازی‌شده آکادمی</h2>
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">مربی شخصی آکادمی، پیشرفت ترم‌ها، سؤال‌های اخیر و نقاط نیازمند مرور را به قدم بعدی روشن تبدیل می‌کند تا مسیر یادگیری برای شما دقیق‌تر شود.</p>
             </div>
-            <Link href="/academy/mentor-coach" className="rounded-2xl bg-cyan-500 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-400">ورود به مربی شخصی</Link>
+            <Link href="/academy/mentor-coach" className="rounded-2xl bg-cyan-800 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-700">ورود به مربی شخصی</Link>
           </div>
         </div>
       </section>
@@ -205,7 +205,7 @@ export default function AcademyPage() {
                   ))}
                 </ul>
                 <p className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-50 p-3 dark:bg-cyan-300/10 text-xs font-black text-cyan-800 dark:text-cyan-100">{item.exam}</p>
-                <TermGateLink href={`/academy/term-${index + 1}`} termNumber={index + 1} className="mt-3 block rounded-2xl bg-cyan-500 px-3 py-2 text-center text-xs font-black text-white transition hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa">شروع آموزش و آزمون</TermGateLink>
+                <TermGateLink href={`/academy/term-${index + 1}`} termNumber={index + 1} className="mt-3 block rounded-2xl bg-cyan-800 px-3 py-2 text-center text-xs font-black text-white transition hover:bg-cyan-700" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="fa">شروع آموزش و آزمون</TermGateLink>
               </article>
             ))}
           </div>
@@ -234,7 +234,7 @@ export default function AcademyPage() {
               <MessageCircleQuestion className="mx-auto h-10 w-10 text-violet-200" />
               <p className="mt-3 text-lg font-black text-white">مشاهده سناریوی دستیار آموزشی</p>
               <p className="mt-2 text-xs font-bold leading-6 text-slate-300">سؤال‌های پرتکرار، اصول پاسخ‌گویی امن و راهنمای استفاده از مربی هوشمند</p>
-              <span className="mt-4 inline-flex rounded-2xl bg-violet-500 px-4 py-3 text-xs font-black text-white transition group-hover:bg-violet-400">ورود به بخش راهنما</span>
+              <span className="mt-4 inline-flex rounded-2xl bg-violet-800 px-4 py-3 text-xs font-black text-white transition group-hover:bg-violet-700">ورود به بخش راهنما</span>
             </Link>
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function AcademyPage() {
           <p className="mt-3 text-sm font-bold leading-8 text-slate-600 dark:text-slate-300">
             بعد از هر ترم، آزمون کوتاه فعال است تا کاربر فقط متن نخواند؛ بلکه بفهمد آیا می‌تواند مفهوم را به رفتار قابل اجرا تبدیل کند یا نه.
           </p>
-          <a href="/academy/term-1" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400">شروع مسیر از ترم اول</a>
+          <a href="/academy/term-1" className="mt-5 inline-flex rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700">شروع مسیر از ترم اول</a>
         </div>
       </section>
 

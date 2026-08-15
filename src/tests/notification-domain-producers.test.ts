@@ -2,13 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
+import { ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL } from "../lib/db-migrate-academy-credential-lifecycle-notification";
 import {
   buildNotificationRequest,
   parseNotificationProducerEvent,
   produceDomainNotification,
   type AcademyAssessmentCompletedEvent,
+  type AcademyArenaProEntitlementGrantedEvent,
   type AcademyCertificateIssuedEvent,
   type AcademyCredentialIssuedEvent,
+  type AcademyCredentialLifecycleEvent,
   type AcademyLessonAvailableEvent,
   type SecurityCredentialChangedEvent,
   type SecurityNewLoginEvent,
@@ -225,6 +228,71 @@ test("credential-issued events use governed bilingual copy and profile destinati
   assert.equal(request.actionUrl, "/academy/profile#credentials");
   assert.equal(request.priority, 6);
   assert.equal(request.metadata.templateId, "academy.credential-issued.v1");
+});
+
+test("credential lifecycle events use governed copy and profile destination", () => {
+  const event: AcademyCredentialLifecycleEvent = {
+    id: "credential-lifecycle:00000000-0000-4000-8000-000000000010:abcdef1234567890abcdef12",
+    tenantId: "tenant-a",
+    principalId: "00000000-0000-4000-8000-000000000001",
+    occurredAt: "2026-08-15T00:00:00.000Z",
+    locale: "en",
+    version: 1,
+    type: "academy.credential_lifecycle_changed",
+    payload: {
+      credentialId: "00000000-0000-4000-8000-000000000010",
+      lifecycleEvent: "suspended",
+      titleFa: "قهرمان ماه",
+      titleEn: "Monthly champion",
+      reasonCode: "policy.review",
+    },
+  };
+  assert.deepEqual(parseNotificationProducerEvent(event), event);
+  const request = buildNotificationRequest(event);
+  assert.equal(request.actionUrl, "/en/academy/profile#credentials");
+  assert.equal(request.urgency, "high");
+  assert.equal(request.priority, 7);
+  assert.equal(request.metadata.templateId, "academy.credential-lifecycle-changed.v1");
+});
+
+test("Arena Pro entitlement events use governed copy without enabling cash rewards", () => {
+  const event: AcademyArenaProEntitlementGrantedEvent = {
+    id: "arena-pro-entitlement:00000000-0000-4000-8000-000000000010",
+    tenantId: "tenant-a",
+    principalId: "00000000-0000-4000-8000-000000000001",
+    occurredAt: "2026-08-15T00:00:00.000Z",
+    locale: "fa",
+    version: 1,
+    type: "academy.arena_pro_entitlement_granted",
+    payload: {
+      grantId: "00000000-0000-4000-8000-000000000010",
+      sourceSnapshotId: "22222222-2222-4222-8222-222222222222",
+      windowType: "monthly",
+      windowKey: "2026-08",
+      rank: 1,
+      grantDays: 90,
+      startsAt: "2026-08-15T00:00:00.000Z",
+      expiresAt: "2026-11-13T00:00:00.000Z",
+    },
+  };
+
+  assert.deepEqual(parseNotificationProducerEvent(event), event);
+  assert.equal(
+    parseNotificationProducerEvent({
+      ...event,
+      payload: { ...event.payload, cashAmount: 100 },
+    }),
+    null,
+  );
+  const request = buildNotificationRequest(event);
+  assert.equal(request.actionUrl, "/academy/trading-arena");
+  assert.equal(request.priority, 7);
+  assert.equal(request.metadata.templateId, "academy.arena-pro-entitlement-granted.v1");
+  assert.equal(request.metadata.cashExecutionEnabled, false);
+  assert.match(
+    ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL,
+    /'academy\.arena_pro_entitlement_granted'/,
+  );
 });
 
 test(

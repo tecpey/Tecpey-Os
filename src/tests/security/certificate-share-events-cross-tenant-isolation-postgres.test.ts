@@ -13,7 +13,7 @@ import { PLATFORM } from "../../lib/platform-config";
 // could be read across tenants, and a dangling certificate_id could linger with
 // no owning certificate.
 //
-// Migration 0081 denormalises tenant_id/workspace_id onto the child and binds
+// Migration 0084 denormalises tenant_id/workspace_id onto the child and binds
 // (certificate_id, tenant_id, workspace_id) to academy_certificates
 // (id, tenant_id, workspace_id) as one composite foreign key. This suite proves
 // that the derived tenant cannot diverge from the certificate's, that a dangling

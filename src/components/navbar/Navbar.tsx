@@ -416,7 +416,7 @@ export default function Navbar({
               </a>
               <a
                 href={resolvedSignupHref}
-                className="rounded-full bg-blue-800 px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-blue-900 dark:bg-primary dark:hover:brightness-110"
+                className="rounded-full bg-blue-800 px-4 py-2 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-blue-900 dark:bg-blue-900 dark:hover:bg-blue-950"
               >
                 {signupLabel}
               </a>
@@ -426,13 +426,13 @@ export default function Navbar({
             <Globe2 className="mx-2 h-4 w-4 text-blue-800 dark:text-primary" />
             <Link
               href={faHref}
-              className={`rounded-full px-3 py-2 transition ${!isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`rounded-full px-3 py-2 transition ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-3 py-2 transition ${isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`rounded-full px-3 py-2 transition ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-fg/75 hover:bg-blue-800/10 hover:text-blue-800 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>
@@ -447,13 +447,13 @@ export default function Navbar({
             <Globe2 className="mx-1 h-4 w-4 text-blue-800 dark:text-primary sm:mx-2" />
             <Link
               href={faHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${!isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`rounded-full px-2 py-2 transition sm:px-3 ${!isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               FA
             </Link>
             <Link
               href={enHref}
-              className={`rounded-full px-2 py-2 transition sm:px-3 ${isEnglish ? "bg-blue-800 text-white dark:bg-primary" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
+              className={`rounded-full px-2 py-2 transition sm:px-3 ${isEnglish ? "bg-blue-800 text-white dark:bg-blue-900" : "text-slate-700 hover:bg-blue-800/10 hover:text-blue-800 dark:text-white/80 dark:hover:bg-primary/10 dark:hover:text-primary"}`}
             >
               EN
             </Link>

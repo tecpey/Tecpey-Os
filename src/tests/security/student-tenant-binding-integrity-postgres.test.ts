@@ -29,7 +29,7 @@ let pool: Pool | null = null;
 /**
  * Every table that carries a `_stu_bind_fk`, so a new one cannot be added
  * untested. Most are constrained by this migration (0073); certificate_share_events
- * gains the identical binding in its own partition migration (0081) and is proven
+ * gains the identical binding in its own partition migration (0084) and is proven
  * by certificate-share-events-cross-tenant-isolation-postgres.test.ts.
  */
 const CONSTRAINED_TABLES = [
