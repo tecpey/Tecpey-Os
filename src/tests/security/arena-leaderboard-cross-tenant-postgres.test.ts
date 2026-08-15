@@ -124,12 +124,13 @@ describe("Arena leaderboard cross-tenant PostgreSQL authority", () => {
                 trade_number_for_day, total_points, participation_points, process_points,
                 outcome_points, penalty_points, positive_multiplier_bps,
                 penalty_multiplier_bps, scoring_input, scoring_reasons, source_digest)
-             VALUES (gen_random_uuid(), $1, $2, $3, $3::uuid, $4::uuid, $5,
+             VALUES (gen_random_uuid(), $1, $2, $3::text, $8::uuid, $4::uuid, $5,
                'arena-league-scoring-v1', 'spot', '2026-01-10T12:00:00.000Z',
                1, $6, 10, 21, 0, 0, 10000, 10000,
                jsonb_build_object('ruleComplianceBps', 9000), '[]'::jsonb, $7)`,
             [score.tenantId, score.workspaceId, studentId, attemptId, score.tradeId,
-              score.points, score.tenantId === tenantA ? "a".repeat(64) : "b".repeat(64)],
+              score.points, score.tenantId === tenantA ? "a".repeat(64) : "b".repeat(64),
+              studentId],
           );
         }
         await materializeArenaLeagueRankingSnapshotTx(client, {
