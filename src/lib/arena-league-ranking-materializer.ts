@@ -225,9 +225,9 @@ export async function materializeArenaLeagueRankingSnapshotTx(client: PoolClient
       `INSERT INTO academy_arena_league_rankings
          (snapshot_id, tenant_id, workspace_id, principal_id, student_id, rank,
           points, trade_count, rule_compliance_bps, tier)
-       VALUES ($1::uuid, $2, $3, $4, $4::uuid, $5, $6, $7, $8, $9)`,
+       VALUES ($1::uuid, $2, $3, $4::text, $10::uuid, $5, $6, $7, $8, $9)`,
       [snapshotId, input.tenantId, input.workspaceId, row.studentId, row.rank,
-        row.points, row.tradeCount, row.ruleComplianceBps, row.tier],
+        row.points, row.tradeCount, row.ruleComplianceBps, row.tier, row.studentId],
     );
   }
   await client.query(

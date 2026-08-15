@@ -43,6 +43,7 @@ describe("Arena league ranking materializer", () => {
     const rankingInsert = calls.find(({ sql }) => sql.includes("INSERT INTO academy_arena_league_rankings"));
     assert.deepEqual(rankingInsert?.values?.slice(3), [
       "11111111-1111-4111-8111-111111111111", 1, 240, 12, 9200, "explorer",
+      "11111111-1111-4111-8111-111111111111",
     ]);
     assert.ok(calls.at(-1)?.sql.includes("SET status = 'finalized'"));
   });
