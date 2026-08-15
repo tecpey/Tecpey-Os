@@ -6,6 +6,19 @@ const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
 const NOW = "2026-08-15T12:00:00.000Z";
+const E2E_ACADEMY_PROFILE = {
+  id: "55555555-5555-4555-8555-555555555555",
+  student_id: "55555555-5555-4555-8555-555555555555",
+  display_name: "TecPey E2E Learner",
+  preferred_language: "fa",
+  current_term: 7,
+  completed_terms: 7,
+  xp: 1260,
+  streak: 14,
+  ranking_consent: true,
+  public_profile_consent: true,
+  profile_visibility: "public",
+};
 
 function contractFor(testInfo) {
   const locale = testInfo.project.metadata.locale === "en" ? "en" : "fa";
@@ -174,10 +187,17 @@ async function json(route, body, status = 200) {
 
 async function installDeterministicProductApis(context) {
   await context.route("**/api/academy-auth", (route) =>
-    json(route, { authenticated: false }),
+    json(route, {
+      authenticated: true,
+      account: {
+        id: "66666666-6666-4666-8666-666666666666",
+        email: "learner.e2e@tecpey.test",
+        studentId: E2E_ACADEMY_PROFILE.student_id,
+      },
+    }),
   );
   await context.route("**/api/academy-student-profile", (route) =>
-    json(route, { authenticated: false, profile: null }),
+    json(route, { authenticated: true, profile: E2E_ACADEMY_PROFILE }),
   );
   await context.route("**/api/academy/mentor-memory", (route) =>
     json(route, {
