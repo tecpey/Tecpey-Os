@@ -37,6 +37,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/command-center/auth-providers/review-requests/route.ts", "req"],
   ["src/app/api/command-center/auth-providers/route.ts", "req"],
   ["src/app/api/command-center/academy-credentials/lifecycle/route.ts", "req"],
+  ["src/app/api/command-center/c-level-approvals/route.ts", "req"],
   ["src/app/api/command-center/campaign/route.ts", "req"],
   ["src/app/api/community/profile/route.ts", "req"],
   ["src/app/api/device-token/route.ts", "req"],
