@@ -67,9 +67,12 @@ import { runStudentTenantBindingTriggerMigrations } from "./db-migrate-student-t
 import { runAdminAuthProviderEvidenceMigrations } from "./db-migrate-admin-auth-provider-evidence";
 import { runAcademyCredentialLedgerMigrations } from "./db-migrate-academy-credential-ledger";
 import { runAcademyCredentialNotificationMigrations } from "./db-migrate-academy-credential-notification";
+import { runAcademyCredentialLifecycleNotificationMigrations } from "./db-migrate-academy-credential-lifecycle-notification";
 import { runArenaLeagueScoreLedgerMigrations } from "./db-migrate-arena-league-score-ledger";
 import { runArenaLeagueRankingMigrations } from "./db-migrate-arena-league-rankings";
 import { runArenaLeagueRankingRefreshMigrations } from "./db-migrate-arena-league-ranking-refresh";
+import { runArenaEntitlementGrantMigrations } from "./db-migrate-arena-entitlement-grants";
+import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -177,6 +180,9 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(63, "migration-step-063", CANONICAL_MIGRATION_CONTENT.arenaLeagueScoreLedger, "academy-platform", "community", runArenaLeagueScoreLedgerMigrations),
   entry(64, "migration-step-064", CANONICAL_MIGRATION_CONTENT.arenaLeagueRankings, "academy-platform", "community", runArenaLeagueRankingMigrations),
   entry(65, "migration-step-065", CANONICAL_MIGRATION_CONTENT.arenaLeagueRankingRefresh, "academy-platform", "community", runArenaLeagueRankingRefreshMigrations),
+  entry(66, "migration-step-066", CANONICAL_MIGRATION_CONTENT.academyCredentialLifecycleNotification, "engagement-platform", "notifications", runAcademyCredentialLifecycleNotificationMigrations),
+  entry(67, "migration-step-067", CANONICAL_MIGRATION_CONTENT.arenaEntitlementGrants, "academy-platform", "arena", runArenaEntitlementGrantMigrations),
+  entry(68, "migration-step-068", CANONICAL_MIGRATION_CONTENT.academyDailyRepairChallenges, "academy-platform", "academy", runAcademyDailyRepairChallengeMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

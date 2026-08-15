@@ -1,9 +1,10 @@
 # TecPey Academy Monthly Mastery League — Shadow Policy v1
 
 This policy defines the deterministic scoring and reward-proposal contract for
-the post-Term-7 infinite growth path. It does not activate a public leaderboard,
-cash payment or entitlement issuance. Runtime activation requires server-backed
-snapshots, consent, cohort privacy, appeal, anti-gaming and rollout evidence.
+the post-Term-7 infinite growth path. It does not activate cash payment or any
+public financial reward. Arena Pro subscription awards may be granted only by
+the reviewed server entitlement authority after finalized snapshots, consent,
+cohort privacy, appeal-window, anti-gaming and rollout evidence are present.
 
 ## Monthly score
 
@@ -58,9 +59,10 @@ When a rank is tied, that rank's cash share is divided equally across the tied
 learners. Integer rounding always rounds down and leaves any residual basis
 points in the approved pool; a tie can therefore never over-allocate cash.
 
-Subscription awards require an idempotent entitlement authority and appeal
-window. Cash remains a proposal only and requires Finance, Compliance and the
-governed C-level approval matrix; no application worker may initiate payment.
+Subscription awards require the idempotent `arena-league-entitlement-v1`
+authority and appeal window. Cash remains a proposal only and requires Finance,
+Compliance and the governed C-level approval matrix; no application worker may
+initiate payment.
 
 ## Infinite Term 8
 

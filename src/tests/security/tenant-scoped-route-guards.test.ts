@@ -299,6 +299,7 @@ async function tenantResolvingRoutes(): Promise<string[]> {
 const GATED_PRODUCT: Readonly<Record<string, string>> = {
   "src/app/api/achievements/route.ts": "academy",
   "src/app/api/arena/leaderboard/route.ts": "academy",
+  "src/app/api/academy-credential-appeals/route.ts": "academy",
   "src/app/api/academy-credential-visibility/route.ts": "academy",
   "src/app/api/academy-flashcards/route.ts": "academy",
   "src/app/api/academy-reflections/route.ts": "academy",

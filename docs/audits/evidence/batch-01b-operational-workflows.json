@@ -99,19 +99,20 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "07b1c0814022df8d19ee5d6ecfea0bd3ece5ff93",
-      "sha256": "bec8fa003f813a7acf87441e364a3a76eace1e0b82c963a6a318913e6898069e",
-      "lines": 162,
+      "gitObjectId": "a86030238f42565b8943ee89ca5c84a49870172e",
+      "sha256": "847c9605d8652cb5951acbc64af6f002e1c2cc29fd160ad7dd003bd96a6aabcc",
+      "lines": 165,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 162
+          "endLine": 165
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Unconditional pull-request and main-push triggers, concurrency, read-only permissions, pinned service images and actions, exact-head verification, bounded test credentials, production environment validation, canonical migrations, exact build, governed browsers, unchanged-checkout verification and failure evidence were reviewed.",
-        "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path."
+        "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path.",
+        "2026-08-15: re-reviewed after adding the qa:academy-arena-mentor-a11y:check step before the production environment contract. The guard is a local read-only evidence harness check for the Academy/Arena/Mentor accessibility surfaces; workflow permissions, exact-head verification, browser execution, failure evidence upload and production activation boundaries are unchanged."
       ],
       "findings": [
         {

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
+import { requireCLevelApprovalTx } from "@/lib/c-level-control-authority";
 import { enqueueNotificationDomainEvent } from "@/lib/notifications/domain-outbox";
 import { createPublicCredentialId } from "@/lib/public-credential-verification-id";
 
@@ -16,6 +17,16 @@ export type AcademyCredentialType =
   | "league_medal"
   | "mastery_season";
 export type AcademyCredentialVisibility = "private" | "profile" | "public";
+export type AcademyCredentialLifecycleEventType =
+  | "suspended"
+  | "reinstated"
+  | "revoked"
+  | "appeal_opened"
+  | "appeal_resolved";
+export type AcademyCredentialLifecycleActorType = "student" | "admin" | "c_level";
+
+export const ACADEMY_CREDENTIAL_LIFECYCLE_POLICY_VERSION =
+  "academy-credential-lifecycle-v1";
 
 export type OwnedAcademyCredentialHistoryEvent = {
   credential_id: string;
@@ -43,6 +54,24 @@ export type IssueAcademyCredentialInput = AcademyCredentialScope & {
   rank?: number;
   pointsBps?: number;
 };
+
+export type AppendAcademyCredentialLifecycleEventInput = {
+  tenantId: string;
+  workspaceId: string;
+  credentialId: string;
+  actorType: AcademyCredentialLifecycleActorType;
+  actorId: string;
+  eventType: AcademyCredentialLifecycleEventType;
+  reasonCode: string;
+  idempotencyKey: string;
+  metadata: Record<string, unknown>;
+  occurredAt?: string;
+};
+
+export type AppendApprovedAcademyCredentialLifecycleEventInput =
+  AppendAcademyCredentialLifecycleEventInput & {
+    cLevelApprovalRequestId: string;
+  };
 
 function canonicalEvidence(value: Record<string, unknown>): string {
   const sort = (input: unknown): unknown => {
@@ -180,6 +209,163 @@ export async function setOwnedAcademyCredentialVisibility(
     replayed: true,
     occurredAt: new Date(existing.rows[0].occurred_at).toISOString(),
   };
+}
+
+export async function appendAcademyCredentialLifecycleEvent(
+  client: PoolClient,
+  input: AppendAcademyCredentialLifecycleEventInput,
+): Promise<{
+  credentialId: string;
+  lifecycleState: AcademyCredentialLifecycleEventType;
+  replayed: boolean;
+  occurredAt: string;
+} | null> {
+  const metadataJson = canonicalEvidence({
+    ...input.metadata,
+    policyVersion: ACADEMY_CREDENTIAL_LIFECYCLE_POLICY_VERSION,
+  });
+  const evidenceSha256 = createHash("sha256").update(metadataJson).digest("hex");
+  const occurredAt = input.occurredAt ?? new Date().toISOString();
+  const ownerClause = input.actorType === "student"
+    ? "AND student_id = $6::uuid"
+    : "";
+  const insertValues = input.actorType === "student"
+    ? [input.tenantId, input.workspaceId, input.credentialId, input.eventType,
+        input.actorType, input.actorId, input.reasonCode,
+        ACADEMY_CREDENTIAL_LIFECYCLE_POLICY_VERSION, evidenceSha256,
+        metadataJson, occurredAt, input.idempotencyKey]
+    : [input.tenantId, input.workspaceId, input.credentialId, input.eventType,
+        input.actorType, input.actorId, input.reasonCode,
+        ACADEMY_CREDENTIAL_LIFECYCLE_POLICY_VERSION, evidenceSha256,
+        metadataJson, occurredAt, input.idempotencyKey];
+  const inserted = await client.query<{
+    credential_id: string;
+    student_id: string;
+    title_fa: string;
+    title_en: string;
+    event_type: AcademyCredentialLifecycleEventType;
+    occurred_at: Date | string;
+  }>(
+    `WITH target AS (
+       SELECT id, student_id, title_fa, title_en
+         FROM academy_credential_current_state
+        WHERE id = $3::uuid AND tenant_id = $1 AND workspace_id = $2
+          ${ownerClause}
+     ), inserted AS (
+       INSERT INTO academy_credential_events
+          (credential_id, event_type, actor_type, actor_id, reason_code,
+           policy_version, evidence_sha256, metadata, occurred_at, idempotency_key)
+        SELECT id, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::timestamptz, $12
+          FROM target
+        ON CONFLICT (credential_id, idempotency_key) DO NOTHING
+        RETURNING credential_id, event_type, occurred_at
+     )
+     SELECT inserted.credential_id, target.student_id, target.title_fa,
+            target.title_en, inserted.event_type, inserted.occurred_at
+       FROM inserted
+       JOIN target ON target.id = inserted.credential_id`,
+    insertValues,
+  );
+  const row = inserted.rows[0];
+  if (row) {
+    const principal = await client.query<{ id: string; locale: "fa" | "en" }>(
+      `SELECT id, locale FROM platform_principals
+        WHERE tenant_id = $1 AND student_id = $2::uuid
+          AND status = 'active'
+        LIMIT 1 FOR SHARE`,
+      [input.tenantId, row.student_id],
+    );
+    if (!principal.rows[0]) throw new Error("academy_credential_principal_not_found");
+    const eventKey = createHash("sha256")
+      .update(input.idempotencyKey)
+      .digest("hex")
+      .slice(0, 24);
+    await enqueueNotificationDomainEvent(client, {
+      id: `credential-lifecycle:${input.credentialId}:${eventKey}`,
+      tenantId: input.tenantId,
+      principalId: principal.rows[0].id,
+      occurredAt: new Date(row.occurred_at).toISOString(),
+      locale: principal.rows[0].locale,
+      version: 1,
+      type: "academy.credential_lifecycle_changed",
+      payload: {
+        credentialId: input.credentialId,
+        lifecycleEvent: row.event_type,
+        titleFa: row.title_fa,
+        titleEn: row.title_en,
+        reasonCode: input.reasonCode,
+      },
+    });
+    return {
+      credentialId: input.credentialId,
+      lifecycleState: row.event_type,
+      replayed: false,
+      occurredAt: new Date(row.occurred_at).toISOString(),
+    };
+  }
+
+  const existing = await client.query<{
+    event_type: AcademyCredentialLifecycleEventType;
+    actor_type: AcademyCredentialLifecycleActorType;
+    actor_id: string;
+    reason_code: string;
+    policy_version: string;
+    evidence_sha256: string;
+    occurred_at: Date | string;
+  }>(
+    `SELECT event.event_type, event.actor_type, event.actor_id,
+            event.reason_code, event.policy_version, event.evidence_sha256,
+            event.occurred_at
+       FROM academy_credential_events event
+       JOIN academy_credential_records record ON record.id = event.credential_id
+      WHERE record.id = $3::uuid AND record.tenant_id = $1
+        AND record.workspace_id = $2
+        AND event.idempotency_key = $4
+      FOR SHARE OF event`,
+    [input.tenantId, input.workspaceId, input.credentialId, input.idempotencyKey],
+  );
+  const replay = existing.rows[0];
+  if (!replay) return null;
+  const isExactReplay = replay.event_type === input.eventType
+    && replay.actor_type === input.actorType
+    && replay.actor_id === input.actorId
+    && replay.reason_code === input.reasonCode
+    && replay.policy_version === ACADEMY_CREDENTIAL_LIFECYCLE_POLICY_VERSION
+    && replay.evidence_sha256 === evidenceSha256;
+  if (!isExactReplay) throw new Error("academy_credential_lifecycle_identity_conflict");
+  return {
+    credentialId: input.credentialId,
+    lifecycleState: replay.event_type,
+    replayed: true,
+    occurredAt: new Date(replay.occurred_at).toISOString(),
+  };
+}
+
+export async function appendApprovedAcademyCredentialLifecycleEvent(
+  client: PoolClient,
+  input: AppendApprovedAcademyCredentialLifecycleEventInput,
+): Promise<{
+  credentialId: string;
+  lifecycleState: AcademyCredentialLifecycleEventType;
+  replayed: boolean;
+  occurredAt: string;
+} | null> {
+  const cLevelApproval = await requireCLevelApprovalTx(client, {
+    tenantId: input.tenantId,
+    workspaceId: input.workspaceId,
+    action: "academy_credential.lifecycle_sensitive",
+    resourceType: "academy_credential",
+    resourceId: input.credentialId,
+    approvalRequestId: input.cLevelApprovalRequestId,
+  });
+  return appendAcademyCredentialLifecycleEvent(client, {
+    ...input,
+    actorType: "c_level",
+    metadata: {
+      ...input.metadata,
+      cLevelApproval,
+    },
+  });
 }
 
 /**

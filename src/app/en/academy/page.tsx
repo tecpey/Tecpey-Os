@@ -55,7 +55,7 @@ export default function AcademyPage() {
                 TecPey creates personalized seasons for weak-area repair, current market learning, Trading Arena discipline and healthy peer-level competition.
               </p>
             </div>
-            <Link href="/en/academy/mastery-seasons" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">
+            <Link href="/en/academy/mastery-seasons" className="rounded-2xl bg-cyan-800 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-700">
               Explore infinite learning
             </Link>
           </div>
@@ -70,7 +70,7 @@ export default function AcademyPage() {
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">After completing a term and passing its assessment, your certificate is issued with a unique ID, scannable QR and public verification page — ready to print, share and use in your learning resume.</p>
             </div>
             <div className="grid gap-3">
-              <Link href="/en/academy/certificates" className="rounded-2xl bg-emerald-500 px-5 py-4 text-center text-sm font-black text-white transition hover:bg-emerald-400">View verified certificates</Link>
+              <Link href="/en/academy/certificates" className="rounded-2xl bg-emerald-700 px-5 py-4 text-center text-sm font-black text-white transition hover:bg-emerald-600">View verified certificates</Link>
               <Link href="/en/academy/hall-of-fame" className="rounded-2xl border border-amber-300/25 bg-amber-300/10 px-5 py-4 text-center text-sm font-black text-amber-100 transition hover:bg-amber-300/15">Academy Hall of Fame</Link>
             </div>
           </div>
@@ -86,7 +86,7 @@ export default function AcademyPage() {
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">The mentor is built for learning, safety and risk questions, not buy or sell signals. Answers connect you back to Academy lessons and the next learning step.</p>
             </div>
             <div className="grid gap-3">
-              <Link href="/en/academy/ai-guide" className="rounded-2xl bg-cyan-500 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-400">Chat with AI Mentor</Link>
+              <Link href="/en/academy/ai-guide" className="rounded-2xl bg-cyan-800 px-5 py-4 text-center text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-700">Chat with AI Mentor</Link>
               <Link href="/en/academy/profile" className="rounded-2xl border border-cyan-300/25 bg-white/5 px-5 py-4 text-center text-sm font-black text-cyan-100 transition hover:bg-white/10">View learning progress</Link>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function AcademyPage() {
               <h2 className="text-2xl font-black text-white">Personalized Academy Coach</h2>
               <p className="mt-3 text-sm font-bold leading-8 text-slate-300">Your coach connects term progress, recent questions and learning gaps into a clear next step, so the mentor does more than answer isolated questions.</p>
             </div>
-            <Link href="/en/academy/mentor-coach" className="rounded-2xl bg-cyan-500 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-400">Open personal coach</Link>
+            <Link href="/en/academy/mentor-coach" className="rounded-2xl bg-cyan-800 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-700">Open personal coach</Link>
           </div>
         </div>
       </section>
@@ -108,7 +108,7 @@ export default function AcademyPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-black text-slate-950">TecPey Academy 7-term path</h2>
-            <p className="mt-4 text-sm font-bold leading-8 text-slate-600">
+            <p className="mt-4 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">
               TecPey Academy starts from basic concepts, then moves through security, exchange use, analysis, risk management and professional readiness. Each term ends with a short exam.
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function AcademyPage() {
             {academyTerms.map((item, index) => (
               <article key={item.term} className="rounded-[28px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-600">{item.term}</span>
+                  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{item.term}</span>
                   <ClipboardCheck className="h-6 w-6 text-cyan-600" />
                 </div>
                 <h3 className="mt-4 text-lg font-black leading-8 text-slate-950">{item.title}</h3>
@@ -129,7 +129,7 @@ export default function AcademyPage() {
                   ))}
                 </ul>
                 <p className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-3 text-xs font-black text-cyan-700">{item.exam}</p>
-                <TermGateLink href={`/en/academy/term-${index + 1}`} termNumber={index + 1} className="mt-3 block rounded-2xl bg-cyan-500 px-3 py-2 text-center text-xs font-black text-white transition hover:bg-cyan-400" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="en">Start lesson and quiz</TermGateLink>
+                <TermGateLink href={`/en/academy/term-${index + 1}`} termNumber={index + 1} className="mt-3 block rounded-2xl bg-cyan-800 px-3 py-2 text-center text-xs font-black text-white transition hover:bg-cyan-700" lockedClassName="bg-slate-600 hover:bg-slate-600" locale="en">Start lesson and quiz</TermGateLink>
               </article>
             ))}
           </div>
@@ -155,7 +155,7 @@ export default function AcademyPage() {
             ].map(([title, href]) => (
               <a key={href} href={href} className="rounded-[24px] border border-emerald-200 bg-white p-4 text-center transition hover:-translate-y-1 hover:bg-emerald-100">
                 <p className="text-sm font-black text-slate-950">{title}</p>
-                <span className="mt-3 inline-flex rounded-xl bg-emerald-500 px-3 py-2 text-xs font-black text-white">Start practice</span>
+                <span className="mt-3 inline-flex rounded-xl bg-emerald-700 px-3 py-2 text-xs font-black text-white">Start practice</span>
               </a>
             ))}
           </div>
@@ -191,10 +191,10 @@ export default function AcademyPage() {
           <p className="mt-3 text-sm font-bold leading-8 text-slate-600">
             Term quizzes help users verify understanding before moving forward. The goal is not memorization; it is turning knowledge into safer behavior.
           </p>
-          <a href="/en/academy/signup" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-400">Sign up and start learning</a>
+          <a href="/en/academy/signup" className="mt-5 inline-flex rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-700">Sign up and start learning</a>
         </div>
       </section>
 
-    <section className="px-4 pb-10 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/20 bg-cyan-500/10 p-6 text-center"><h2 className="text-2xl font-black text-slate-950 dark:text-white">Academy student dashboard</h2><p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">Track XP, levels, badges and your 7-term progress in one place.</p><a href="/en/academy/profile" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white">Open dashboard</a></div></section></EnglishShell>
+    <section className="px-4 pb-10 sm:px-6 lg:px-8"><div className="mx-auto max-w-7xl rounded-[30px] border border-cyan-300/20 bg-cyan-500/10 p-6 text-center"><h2 className="text-2xl font-black text-slate-950 dark:text-white">Academy student dashboard</h2><p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">Track XP, levels, badges and your 7-term progress in one place.</p><a href="/en/academy/profile" className="mt-5 inline-flex rounded-2xl bg-cyan-800 px-5 py-3 text-sm font-black text-white">Open dashboard</a></div></section></EnglishShell>
   );
 }

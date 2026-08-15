@@ -23,7 +23,7 @@ Protected CI requires exact equality between `SensitiveMutationAuditAction`, `Se
 Current registry size:
 
 ```text
-60 actions
+61 actions
 22 resources
 ```
 
@@ -61,7 +61,7 @@ Reviewed services may record bounded operational facts. Operational evidence mus
 | `ai-platform` | `mentor_conversations.migrate`, `mentor_profile.recompute`, `mentor.preferences.update` | Mentor migration, profile and preference authorities | privacy, behavioral profile and preference evidence |
 | `risk-platform` | `risk.event.*`, `risk.enforcement.*` | risk event and enforcement authorities | risk-decision provenance, application, clearing and expiry |
 | `community-platform` | `community.profile.consent.update` | Community profile and scoring-consent authorities | revisioned default-private consent and principal isolation |
-| `academy-platform` | `academy.credential.visibility.update` | Academy credential ownership and visibility authority | privacy-preserving profile disclosure, exact ownership and replay evidence |
+| `academy-platform` | `academy.credential.lifecycle.update`, `academy.credential.visibility.update` | Academy credential ownership, lifecycle and visibility authority | credential state transition provenance, privacy-preserving profile disclosure, exact ownership and replay evidence |
 
 Only these eight owners have actions in the current typed contract. CRM, scheduler and other domain-specific evidence remain governed by their own authorities until a reviewed action/resource is added to the shared typed ledger.
 
