@@ -21,9 +21,18 @@ describe("Academy credential visibility route", () => {
     assert.match(route, /scopes: \["academy:learning-events:write"\]/);
     assert.match(route, /requireTenantProduct\(tenantContext\.tenantId, "academy"\)/);
     assert.match(route, /await withTx\(/);
+    assert.match(route, /if \(!result\.enabled\).*credential_visibility_unavailable/);
+    assert.match(route, /if \(!result\.value\).*credential_not_found/);
+    assert.match(route, /\.\.\.result\.value/);
     assert.match(route, /setOwnedAcademyCredentialVisibility\(client/);
     assert.match(route, /writeSensitiveMutationAuditTx\(client/);
     assert.match(route, /action: "academy\.credential\.visibility\.update"/);
+    assert.match(route, /const UUID_PATTERN = \/\^\[0-9a-f\]\{8\}/);
+    assert.doesNotMatch(
+      route,
+      /metadata:\s*\{[^}]*replayed:/,
+      "an exact replay must preserve identical audit metadata",
+    );
     assert.doesNotMatch(route, /withDb\(/, "the mutation must not escape its audit transaction");
   });
 });

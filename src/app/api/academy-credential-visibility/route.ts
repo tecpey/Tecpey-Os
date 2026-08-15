@@ -14,6 +14,7 @@ import { requireTenantProduct } from "@/lib/security/tenant-product-entitlement"
 const ROUTE = "/api/academy-credential-visibility";
 const FIELDS = new Set(["credentialId", "visibility"]);
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,179}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function PATCH(req: NextRequest) {
   return withObservability(req, { route: `${ROUTE} PATCH` }, async () => {
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return apiError("invalid_request", 400);
     const body = value as Record<string, unknown>;
     if (Object.keys(body).length !== 2 || Object.keys(body).some((key) => !FIELDS.has(key)) ||
-      typeof body.credentialId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.credentialId) ||
+      typeof body.credentialId !== "string" || !UUID_PATTERN.test(body.credentialId) ||
       (body.visibility !== "private" && body.visibility !== "profile" && body.visibility !== "public")) {
       return apiError("invalid_request", 400);
     }
@@ -55,13 +56,14 @@ export async function PATCH(req: NextRequest) {
           actorId: tenantContext.principalId,
           action: "academy.credential.visibility.update", resourceType: "academy_credential",
           resourceId: body.credentialId as string, outcome: "success", correlationId, requestHash,
-          metadata: { visibility: body.visibility, replayed: changed.replayed,
+          metadata: { visibility: body.visibility,
             policyVersion: "academy-credential-visibility-v1" },
         });
         return changed;
       });
-      if (!result) return apiError("credential_not_found", 404);
-      return apiOk({ credentialId: body.credentialId, ...result });
+      if (!result.enabled) return apiError("credential_visibility_unavailable", 503);
+      if (!result.value) return apiError("credential_not_found", 404);
+      return apiOk({ credentialId: body.credentialId, ...result.value });
     } catch (error) {
       if (error instanceof Error && error.message === "academy_credential_visibility_identity_conflict") {
         return apiError("idempotency_conflict", 409);
