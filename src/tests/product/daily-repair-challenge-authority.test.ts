@@ -71,6 +71,56 @@ describe("Academy daily repair challenge authority", () => {
     assert.equal(evidence.conceptTag, "position-sizing");
   });
 
+  it("preserves locale and date in daily assignment idempotency keys for maximum-length scopes", async () => {
+    const calls: Array<{ sql: string; values?: unknown[] }> = [];
+    const client = {
+      query: async (sql: string, values?: unknown[]) => {
+        calls.push({ sql, values });
+        if (sql.includes("FROM academy_mastery_weakness_signals")) return result([signal]);
+        if (sql.includes("INSERT INTO academy_daily_repair_challenges")) {
+          return result([{
+            id: challengeId,
+            challenge_date: values?.[4],
+            concept_tag: values?.[8],
+            challenge_key: values?.[9],
+            question_payload: JSON.parse(String(values?.[10])),
+            expected_answer: JSON.parse(String(values?.[11])),
+            evidence_sha256: values?.[13],
+            policy_version: values?.[12],
+            created_at: "2026-08-15T00:00:00.000Z",
+          }]);
+        }
+        return result([]);
+      },
+    } as unknown as PoolClient;
+    const tenantId = `t${"a".repeat(63)}`;
+    const workspaceId = `w${"b".repeat(63)}`;
+
+    await assignDailyRepairChallengeTx(client, {
+      tenantId,
+      workspaceId,
+      studentId,
+      locale: "fa",
+      challengeDate: new Date("2026-08-15T00:00:00.000Z"),
+    });
+    await assignDailyRepairChallengeTx(client, {
+      tenantId,
+      workspaceId,
+      studentId,
+      locale: "en",
+      challengeDate: new Date("2026-08-16T00:00:00.000Z"),
+    });
+
+    const keys = calls
+      .filter(({ sql }) => sql.includes("INSERT INTO academy_daily_repair_challenges"))
+      .map(({ values }) => String(values?.[15]));
+    assert.equal(keys.length, 2);
+    assert.notEqual(keys[0], keys[1]);
+    assert.match(keys[0] ?? "", /^daily-repair:11111111-1111-4111-8111-111111111111:fa:2026-08-15:[a-f0-9]{48}$/);
+    assert.match(keys[1] ?? "", /^daily-repair:11111111-1111-4111-8111-111111111111:en:2026-08-16:[a-f0-9]{48}$/);
+    assert.ok(keys.every((key) => key.length <= 180));
+  });
+
   it("grades completion server-side and replays the same idempotency key exactly", async () => {
     let eventAnswerSha256 = "";
     const expected = {

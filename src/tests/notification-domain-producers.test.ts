@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
+import { ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL } from "../lib/db-migrate-academy-credential-lifecycle-notification";
 import {
   buildNotificationRequest,
   parseNotificationProducerEvent,
@@ -288,6 +289,10 @@ test("Arena Pro entitlement events use governed copy without enabling cash rewar
   assert.equal(request.priority, 7);
   assert.equal(request.metadata.templateId, "academy.arena-pro-entitlement-granted.v1");
   assert.equal(request.metadata.cashExecutionEnabled, false);
+  assert.match(
+    ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL,
+    /'academy\.arena_pro_entitlement_granted'/,
+  );
 });
 
 test(

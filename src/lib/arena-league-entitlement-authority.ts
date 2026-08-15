@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import {
   academyMonthlyLeagueRewardProposal,
+  ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT,
   ACADEMY_MONTHLY_LEAGUE_POLICY_VERSION,
 } from "@/lib/academy-monthly-league-policy";
 import { withTx } from "@/lib/db";
@@ -62,7 +63,7 @@ export type ArenaLeagueEntitlementResult = {
   windowKey: string;
   grantedCount: number;
   replayedCount: number;
-  skippedReason: "appeal_window_open" | "no_eligible_rankings" | null;
+  skippedReason: "appeal_window_open" | "cohort_too_small" | "no_eligible_rankings" | null;
   grants: ArenaProEntitlementGrant[];
 };
 
@@ -151,6 +152,17 @@ export async function grantArenaProEntitlementsForSnapshotTx(
   );
   const snapshot = snapshotResult.rows[0];
   if (!snapshot) return null;
+  if (Number(snapshot.participant_count) < ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT) {
+    return {
+      snapshotId: snapshot.id,
+      windowType: snapshot.window_type,
+      windowKey: snapshot.window_key,
+      grantedCount: 0,
+      replayedCount: 0,
+      skippedReason: "cohort_too_small",
+      grants: [],
+    };
+  }
   const finalizedAt = new Date(snapshot.finalized_at);
   const startsAt = addDays(finalizedAt, ARENA_LEAGUE_ENTITLEMENT_APPEAL_WINDOW_DAYS);
   if (Date.parse(startsAt) > clock.getTime()) {
@@ -341,10 +353,32 @@ export async function grantDueArenaProEntitlementsTx(
       WHERE status = 'finalized'
         AND finalized_at IS NOT NULL
         AND window_type IN ('monthly', 'yearly')
+        AND participant_count >= $4
         AND finalized_at + ($2::integer * INTERVAL '1 day') <= $3::timestamptz
+        AND EXISTS (
+          SELECT 1
+            FROM academy_arena_league_rankings ranking
+           WHERE ranking.snapshot_id = academy_arena_league_snapshots.id
+             AND ranking.tenant_id = academy_arena_league_snapshots.tenant_id
+             AND ranking.workspace_id = academy_arena_league_snapshots.workspace_id
+             AND ranking.rank <= $5
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM academy_arena_entitlement_grants grant_row
+                WHERE grant_row.tenant_id = academy_arena_league_snapshots.tenant_id
+                  AND grant_row.workspace_id = academy_arena_league_snapshots.workspace_id
+                  AND grant_row.idempotency_key = 'arena-pro:' || academy_arena_league_snapshots.id::text || ':' || ranking.student_id::text
+             )
+        )
       ORDER BY finalized_at DESC, id DESC
       LIMIT $1`,
-    [limit, ARENA_LEAGUE_ENTITLEMENT_APPEAL_WINDOW_DAYS, clock.toISOString()],
+    [
+      limit,
+      ARENA_LEAGUE_ENTITLEMENT_APPEAL_WINDOW_DAYS,
+      clock.toISOString(),
+      ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT,
+      ARENA_LEAGUE_ENTITLEMENT_MAX_RANK,
+    ],
   );
   let grantedCount = 0;
   let replayedCount = 0;

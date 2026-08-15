@@ -124,6 +124,30 @@ describe("Arena league entitlement authority", () => {
     assert.equal(calls.some((sql) => sql.includes("academy_arena_entitlement_grants")), false);
   });
 
+  it("does not grant Arena Pro for suppressed small cohorts", async () => {
+    const calls: string[] = [];
+    const client = {
+      query: async (sql: string) => {
+        calls.push(sql);
+        if (sql.includes("FROM academy_arena_league_snapshots")) {
+          return result([{ ...snapshot, participant_count: 24 }]);
+        }
+        return result([]);
+      },
+    } as unknown as PoolClient;
+
+    const granted = await grantArenaProEntitlementsForSnapshotTx(client, {
+      tenantId: "tenant-a",
+      workspaceId: "workspace-a",
+      snapshotId: snapshot.id,
+      clock: new Date("2026-02-10T00:00:00.000Z"),
+    });
+
+    assert.equal(granted?.grantedCount, 0);
+    assert.equal(granted?.skippedReason, "cohort_too_small");
+    assert.equal(calls.some((sql) => sql.includes("INSERT INTO academy_arena_entitlement_grants")), false);
+  });
+
   it("replays exact grants without changing cash disposition or expiry", async () => {
     let replayRow: Record<string, unknown> | null = null;
     const client = {
@@ -240,6 +264,9 @@ describe("Arena league entitlement authority", () => {
       5,
       ARENA_LEAGUE_ENTITLEMENT_APPEAL_WINDOW_DAYS,
       "2026-02-10T00:00:00.000Z",
+      25,
+      10,
     ]);
+    assert.match(calls[0]?.sql ?? "", /NOT EXISTS \(\s*SELECT 1\s+FROM academy_arena_entitlement_grants/);
   });
 });

@@ -114,14 +114,14 @@ function idempotencyKey(input: {
   locale: AcademyMasteryLocale;
   challengeDate: string;
 }): string {
-  return [
-    "daily-repair",
-    input.tenantId,
-    input.workspaceId,
-    input.studentId,
-    input.locale,
-    input.challengeDate,
-  ].join(":").slice(0, 180);
+  const scopeDigest = sha256(canonicalJson({
+    challengeDate: input.challengeDate,
+    locale: input.locale,
+    studentId: input.studentId,
+    tenantId: input.tenantId,
+    workspaceId: input.workspaceId,
+  })).slice(0, 48);
+  return `daily-repair:${input.studentId}:${input.locale}:${input.challengeDate}:${scopeDigest}`;
 }
 
 function questionForConcept(conceptTag: string, locale: AcademyMasteryLocale): QuizQuestion {

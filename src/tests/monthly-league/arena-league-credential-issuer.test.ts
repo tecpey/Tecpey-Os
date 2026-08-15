@@ -230,7 +230,8 @@ describe("Arena league credential issuer", () => {
       replayedCount: 0,
       skippedSnapshots: 0,
     });
-    assert.deepEqual(calls[0]?.values, [5]);
+    assert.deepEqual(calls[0]?.values, [5, 25, 3]);
+    assert.match(calls[0]?.sql ?? "", /NOT EXISTS \(\s*SELECT 1\s+FROM academy_credential_records/);
     assert.ok(calls.some(({ values }) => values?.includes(3)));
   });
 });

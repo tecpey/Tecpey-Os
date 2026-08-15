@@ -25,6 +25,20 @@ export type CLevelApprovalEvidence = {
   policyVersion: typeof C_LEVEL_CONTROL_POLICY_VERSION;
 };
 
+export type CLevelApprovalReviewDecision = "approve" | "reject";
+
+export type CLevelApprovalReviewResult = {
+  approvalRequestId: string;
+  action: CLevelControlledAction;
+  resourceType: string;
+  resourceId: string;
+  status: "approved" | "rejected";
+  reviewedByAdminId: string;
+  reviewedByRoles: string[];
+  reviewedAt: string;
+  policyVersion: typeof C_LEVEL_CONTROL_POLICY_VERSION;
+};
+
 type Queryable = Pick<PoolClient, "query">;
 
 type ApprovalRow = {
@@ -37,6 +51,17 @@ type ApprovalRow = {
   reviewed_by: string;
   reviewed_roles: unknown;
   reviewed_at: Date | string;
+  expires_at: Date | string;
+};
+
+type PendingApprovalRow = {
+  id: string;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  payload: unknown;
+  requested_by: string;
+  status: string;
   expires_at: Date | string;
 };
 
@@ -132,6 +157,101 @@ export async function requestCLevelApprovalTx(
   return {
     approvalRequestId: row.id,
     expiresAt: new Date(row.expires_at).toISOString(),
+  };
+}
+
+export async function reviewCLevelApprovalTx(
+  client: Queryable,
+  input: {
+    tenantId: string;
+    workspaceId: string;
+    approvalRequestId: string;
+    reviewerAdminId: string;
+    reviewerRoles: readonly string[];
+    decision: CLevelApprovalReviewDecision;
+    decisionNote?: string | null;
+  },
+): Promise<CLevelApprovalReviewResult> {
+  assertScope(input.tenantId, input.workspaceId);
+  const approvalRequestId = String(input.approvalRequestId ?? "").trim();
+  if (!UUID_PATTERN.test(approvalRequestId)) throw new Error("c_level_approval_request_invalid");
+  if (!UUID_PATTERN.test(input.reviewerAdminId)) throw new Error("c_level_reviewer_invalid");
+  if (!["approve", "reject"].includes(input.decision)) {
+    throw new Error("c_level_review_decision_invalid");
+  }
+
+  const requestResult = await client.query<PendingApprovalRow>(
+    `SELECT request.id::text AS id,
+            request.action,
+            request.resource_type,
+            request.resource_id,
+            request.payload,
+            request.requested_by::text AS requested_by,
+            request.status,
+            request.expires_at
+       FROM admin_approval_requests request
+      WHERE request.id = $1::uuid
+        AND request.payload ->> 'tenantId' = $2
+        AND request.payload ->> 'workspaceId' = $3
+        AND request.payload ->> 'controlPolicyVersion' = $4
+      LIMIT 1
+      FOR UPDATE`,
+    [
+      approvalRequestId,
+      input.tenantId,
+      input.workspaceId,
+      C_LEVEL_CONTROL_POLICY_VERSION,
+    ],
+  );
+  const request = requestResult.rows[0];
+  if (!request) throw new Error("c_level_approval_request_not_found");
+  assertControlledAction(request.action);
+  const payload = record(request.payload);
+  if (payload.controlledAction !== request.action) throw new Error("c_level_approval_resource_mismatch");
+  if (request.status !== "pending") throw new Error("c_level_approval_request_not_pending");
+  if (new Date(request.expires_at).getTime() <= Date.now()) throw new Error("c_level_approval_request_expired");
+  if (request.requested_by === input.reviewerAdminId) throw new Error("c_level_self_review_forbidden");
+
+  const reviewerRoles = normalizeRoles([...input.reviewerRoles]);
+  const allowedRoles = REVIEWER_ROLES[request.action];
+  if (!reviewerRoles.some((role) => allowedRoles.includes(role))) {
+    throw new Error("c_level_reviewer_role_required");
+  }
+
+  const note = String(input.decisionNote ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 1_000);
+  const status = input.decision === "approve" ? "approved" : "rejected";
+  const update = await client.query<{ reviewed_at: Date | string }>(
+    `UPDATE admin_approval_requests
+        SET status = $2,
+            reviewed_by = $3::uuid,
+            reviewed_at = NOW(),
+            payload = payload || $4::jsonb
+      WHERE id = $1::uuid
+      RETURNING reviewed_at`,
+    [
+      approvalRequestId,
+      status,
+      input.reviewerAdminId,
+      JSON.stringify({
+        reviewDecision: input.decision,
+        reviewDecisionNote: note || null,
+        reviewedByRoles: reviewerRoles,
+      }),
+    ],
+  );
+  const reviewedAt = update.rows[0]?.reviewed_at;
+  if (!reviewedAt) throw new Error("c_level_approval_review_not_recorded");
+
+  return {
+    approvalRequestId,
+    action: request.action,
+    resourceType: request.resource_type,
+    resourceId: request.resource_id,
+    status,
+    reviewedByAdminId: input.reviewerAdminId,
+    reviewedByRoles: reviewerRoles,
+    reviewedAt: new Date(reviewedAt).toISOString(),
+    policyVersion: C_LEVEL_CONTROL_POLICY_VERSION,
   };
 }
 

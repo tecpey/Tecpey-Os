@@ -6,12 +6,13 @@ import {
   type AcademyCredentialType,
 } from "@/lib/academy-credential-authority";
 import { withTx } from "@/lib/db";
+import { ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT } from "@/lib/academy-monthly-league-policy";
 import { ARENA_LEAGUE_RANKING_MATERIALIZER_VERSION } from "@/lib/arena-league-ranking-materializer";
 import type { ArenaLeagueTier } from "@/lib/arena-league-scoring-policy";
 
 export const ARENA_LEAGUE_CREDENTIAL_ISSUER_VERSION =
   "arena-league-credential-issuer-v1";
-export const ARENA_LEAGUE_CREDENTIAL_MIN_PARTICIPANTS = 25;
+export const ARENA_LEAGUE_CREDENTIAL_MIN_PARTICIPANTS = ACADEMY_MONTHLY_LEAGUE_MIN_PUBLIC_COHORT;
 export const ARENA_LEAGUE_CREDENTIAL_MAX_RANK = 10;
 
 type SnapshotRow = {
@@ -232,6 +233,10 @@ export async function issueDueArenaLeagueCredentialsTx(
     100,
     assertPositiveInteger(input.limit ?? 25, "limit"),
   );
+  const maxRank = Math.min(
+    ARENA_LEAGUE_CREDENTIAL_MAX_RANK,
+    assertPositiveInteger(input.maxRank ?? ARENA_LEAGUE_CREDENTIAL_MAX_RANK, "max_rank"),
+  );
   const snapshots = await client.query<{
     id: string;
     tenant_id: string;
@@ -242,9 +247,26 @@ export async function issueDueArenaLeagueCredentialsTx(
       WHERE status = 'finalized'
         AND finalized_at IS NOT NULL
         AND window_type IN ('monthly', 'yearly')
+        AND participant_count >= $2
+        AND EXISTS (
+          SELECT 1
+            FROM academy_arena_league_rankings ranking
+           WHERE ranking.snapshot_id = academy_arena_league_snapshots.id
+             AND ranking.tenant_id = academy_arena_league_snapshots.tenant_id
+             AND ranking.workspace_id = academy_arena_league_snapshots.workspace_id
+             AND ranking.rank <= $3
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM academy_credential_records credential
+                WHERE credential.tenant_id = academy_arena_league_snapshots.tenant_id
+                  AND credential.workspace_id = academy_arena_league_snapshots.workspace_id
+                  AND credential.student_id = ranking.student_id
+                  AND credential.credential_key = 'arena-league:' || academy_arena_league_snapshots.window_type || ':' || academy_arena_league_snapshots.window_key || ':rank:' || ranking.rank::text
+             )
+        )
       ORDER BY finalized_at DESC, id DESC
       LIMIT $1`,
-    [limit],
+    [limit, ARENA_LEAGUE_CREDENTIAL_MIN_PARTICIPANTS, maxRank],
   );
   let issuedCount = 0;
   let replayedCount = 0;
@@ -254,7 +276,7 @@ export async function issueDueArenaLeagueCredentialsTx(
       tenantId: snapshot.tenant_id,
       workspaceId: snapshot.workspace_id,
       snapshotId: snapshot.id,
-      maxRank: input.maxRank,
+      maxRank,
     });
     if (!issued || issued.skippedReason) {
       skippedSnapshots += 1;

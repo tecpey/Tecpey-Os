@@ -14,6 +14,7 @@ ALTER TABLE notification_domain_outbox
     'academy.certificate_issued',
     'academy.credential_issued',
     'academy.credential_lifecycle_changed',
+    'academy.arena_pro_entitlement_granted',
     'security.new_login',
     'security.credential_changed',
     'security.session_revoked',
