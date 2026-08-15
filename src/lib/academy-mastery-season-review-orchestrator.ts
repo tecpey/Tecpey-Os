@@ -6,6 +6,7 @@ import {
   type AcademyMasterySeasonDraftReview,
 } from "@/lib/academy-mastery-season-generation";
 import type { AcademyMasteryLocale, AcademyMasteryTenantScope } from "@/lib/academy-mastery-seasons-authority";
+import { requireCLevelApprovalTx, type CLevelApprovalEvidence } from "@/lib/c-level-control-authority";
 
 export const ACADEMY_MASTERY_REVIEW_DECISIONS = [
   "reject",
@@ -48,6 +49,7 @@ export type AcademyMasteryReviewDecisionResult = {
   previousStatus: AcademyMasteryGenerationDraftStatus;
   nextStatus: AcademyMasteryGenerationDraftStatus;
   catalogVersion?: number;
+  cLevelApproval?: CLevelApprovalEvidence | null;
 };
 
 export type AcademyMasteryMentorGovernanceEvidence = {
@@ -315,6 +317,7 @@ export async function decideAcademyMasteryGenerationDraft(
     reviewerType?: "mentor_ai";
     decisionNotes: string;
     mentorGovernance?: AcademyMasteryMentorGovernanceEvidence;
+    cLevelApprovalRequestId?: string | null;
   },
 ): Promise<AcademyMasteryReviewDecisionResult> {
   const draftId = text(input.draftId, 80);
@@ -354,6 +357,16 @@ export async function decideAcademyMasteryGenerationDraft(
   const governance = input.decision === "publish" && reviewerType === "mentor_ai"
     ? mentorGovernanceEvidence(input.mentorGovernance)
     : null;
+  const cLevelApproval = input.decision === "publish"
+    ? await requireCLevelApprovalTx(client, {
+        tenantId: input.scope.tenantId,
+        workspaceId: input.scope.workspaceId,
+        action: "academy_mastery.publish",
+        resourceType: "academy_mastery_season_generation_draft",
+        resourceId: draftId,
+        approvalRequestId: input.cLevelApprovalRequestId,
+      })
+    : null;
   const decidedAt = new Date().toISOString();
 
   const review = await client.query<{ id: string }>(
@@ -378,6 +391,7 @@ export async function decideAcademyMasteryGenerationDraft(
         questionCount: Number(current.question_count) || 0,
         advancedObjectiveCount: Number(current.advanced_objective_count) || 0,
         mentorGovernance: governance,
+        cLevelApproval,
       }),
     ],
   );
@@ -457,6 +471,7 @@ export async function decideAcademyMasteryGenerationDraft(
         nextStatus,
         catalogVersion,
         mentorGovernance: governance,
+        cLevelApproval,
         publishValidationStatus: publishReview?.status ?? null,
       }),
       publishReview?.sourceCount ?? null,
@@ -471,5 +486,6 @@ export async function decideAcademyMasteryGenerationDraft(
     previousStatus,
     nextStatus,
     catalogVersion,
+    cLevelApproval,
   };
 }

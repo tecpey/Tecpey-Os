@@ -77,8 +77,12 @@ import { STUDENT_TENANT_BINDING_TRIGGER_SQL } from "./db-migrate-student-tenant-
 import { ADMIN_AUTH_PROVIDER_EVIDENCE_SQL } from "./db-migrate-admin-auth-provider-evidence";
 import { ACADEMY_CREDENTIAL_LEDGER_SQL } from "./db-migrate-academy-credential-ledger";
 import { ACADEMY_CREDENTIAL_NOTIFICATION_SQL } from "./db-migrate-academy-credential-notification";
+import { ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL } from "./db-migrate-academy-credential-lifecycle-notification";
 import { ARENA_LEAGUE_SCORE_LEDGER_SQL } from "./db-migrate-arena-league-score-ledger";
 import { ARENA_LEAGUE_RANKINGS_SQL } from "./db-migrate-arena-league-rankings";
+import { ARENA_LEAGUE_RANKING_REFRESH_SQL } from "./db-migrate-arena-league-ranking-refresh";
+import { ARENA_ENTITLEMENT_GRANTS_SQL } from "./db-migrate-arena-entitlement-grants";
+import { ACADEMY_DAILY_REPAIR_CHALLENGES_SQL } from "./db-migrate-academy-daily-repair-challenges";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -331,5 +335,21 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   arenaLeagueRankings: one(
     "0079_arena_league_rankings.sql",
     ARENA_LEAGUE_RANKINGS_SQL,
+  ),
+  arenaLeagueRankingRefresh: one(
+    "0080_arena_league_ranking_refresh.sql",
+    ARENA_LEAGUE_RANKING_REFRESH_SQL,
+  ),
+  academyCredentialLifecycleNotification: one(
+    "0081_academy_credential_lifecycle_notification.sql",
+    ACADEMY_CREDENTIAL_LIFECYCLE_NOTIFICATION_SQL,
+  ),
+  arenaEntitlementGrants: one(
+    "0082_arena_entitlement_grants.sql",
+    ARENA_ENTITLEMENT_GRANTS_SQL,
+  ),
+  academyDailyRepairChallenges: one(
+    "0083_academy_daily_repair_challenges.sql",
+    ACADEMY_DAILY_REPAIR_CHALLENGES_SQL,
   ),
 });

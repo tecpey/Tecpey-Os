@@ -184,10 +184,10 @@ export function resolveAdminControlPlaneMatrix(input: {
       controls: [
         { id: "student_progress_read", labelFa: "مشاهده پیشرفت کاربران", labelEn: "Read student progress", surfaceFa: "Command Center Summary", surfaceEn: "Command Center Summary", status: "live", requiredPermission: "admin.roles.read", stepUpRequired: false },
         { id: "certificate_audit", labelFa: "ممیزی مدارک", labelEn: "Certificate audit", surfaceFa: "Academy Authority", surfaceEn: "Academy Authority", status: "configured", requiredPermission: "admin.roles.read", stepUpRequired: false },
-        { id: "mastery_season_control", labelFa: "کنترل فصل‌های mastery", labelEn: "Mastery season control", surfaceFa: "Academy Operations", surfaceEn: "Academy Operations", status: "planned", requiredPermission: "admin.roles.manage", stepUpRequired: true },
+        { id: "mastery_season_control", labelFa: "کنترل فصل‌های mastery", labelEn: "Mastery season control", surfaceFa: "Academy Operations", surfaceEn: "Academy Operations", status: "configured", requiredPermission: "admin.roles.manage", stepUpRequired: true, lockedReasonFa: "Mentor فقط draft/recommend می‌کند؛ publish نیازمند approval تاییدشده C-level/compliance است.", lockedReasonEn: "Mentor may only draft/recommend; publishing requires approved C-level/compliance control evidence." },
       ],
-      evidenceChecklistFa: ["Tenant isolation", "Learning event source boundary", "Certificate backfill evidence"],
-      evidenceChecklistEn: ["Tenant isolation", "Learning event source boundary", "Certificate backfill evidence"],
+      evidenceChecklistFa: ["Tenant isolation", "Learning event source boundary", "Certificate backfill evidence", "C-level approval برای publish فصل‌های generated"],
+      evidenceChecklistEn: ["Tenant isolation", "Learning event source boundary", "Certificate backfill evidence", "C-level approval for generated-season publishing"],
     },
     {
       id: "trading_arena",

@@ -12,27 +12,36 @@
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-rankings.ts",
       "isolationModel": "Every ranking row copies the snapshot tenant/workspace scope, constrains principal_id to student_id::text and requires the exact platform_principal_bindings tuple through a deferred composite foreign key. The primary identity is snapshot plus student and the only read-ready index begins with tenant_id and workspace_id; ranking rows are append-only and cannot move between snapshots or tenants.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#460",
-      "isolationNote": "Schema isolation is active; the public leaderboard API and its cross-tenant negative test are deliberately deferred to the next authority slice."
+      "testReference": "src/tests/security/arena-leaderboard-cross-tenant-postgres.test.ts"
     },
     {
       "table": "academy_arena_league_snapshots",
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-rankings.ts",
-      "isolationModel": "tenant_id and workspace_id are foreign-key bound to platform_workspaces and lead every period/version uniqueness rule. Provisional and finalized uniqueness are independently tenant-scoped, so two white-label workspaces can materialize the same calendar window without collision; finalized snapshots reject update and delete.",
-      "adversarialProof": "pending",
+      "isolationModel": "tenant_id and workspace_id are foreign-key bound to platform_workspaces and lead every period/version uniqueness rule. A tenant-scoped partial uniqueness rule permits only one in-flight provisional snapshot, while finalized immutable versions are retained and selected by tenant/workspace plus descending version; two white-label workspaces can materialize the same calendar window without collision.",
+      "adversarialProof": "proven",
       "issue": "#460",
-      "isolationNote": "Schema isolation is active; materializer and read-boundary adversarial proof land before this projection is exposed."
+      "testReference": "src/tests/security/arena-leaderboard-cross-tenant-postgres.test.ts"
+    },
+    {
+      "table": "academy_arena_entitlement_grants",
+      "domain": "trading-arena",
+      "sourceFile": "src/lib/db-migrate-arena-entitlement-grants.ts",
+      "isolationModel": "tenant_id and workspace_id lead source uniqueness, idempotency and active-entitlement lookup. Each grant constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so replaying a finalized Arena snapshot in another tenant cannot grant or extend another tenant's Arena Pro entitlement.",
+      "adversarialProof": "proven",
+      "issue": "#460",
+      "testReference": "src/tests/monthly-league/arena-league-entitlement-authority.test.ts"
     },
     {
       "table": "academy_arena_trade_score_ledger",
       "domain": "trading-arena",
       "sourceFile": "src/lib/db-migrate-arena-league-score-ledger.ts",
       "isolationModel": "Every score row carries tenant_id and workspace_id from resolveTenantPrincipalContext, principal_id is constrained to student_id::text, and a deferred composite foreign key requires that exact student binding to exist in platform_principal_bindings. Source uniqueness is tenant-leading across (tenant_id, workspace_id, attempt_id, closed_trade_id, policy_version), while all ranking indexes begin with tenant_id and workspace_id, preventing cross-tenant replay or aggregation collisions.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#460",
-      "isolationNote": "Schema-level ownership, tenant-leading uniqueness and the server-authoritative write path are active. This stays explicitly pending until the leaderboard read boundary lands with a PostgreSQL adversarial test proving tenant A cannot read or attribute tenant B's score rows."
+      "testReference": "src/tests/security/arena-leaderboard-cross-tenant-postgres.test.ts"
     },
     {
       "table": "admin_auth_provider_evidence",
@@ -57,9 +66,10 @@
       "domain": "academy",
       "sourceFile": "src/lib/db-migrate-academy-credential-ledger.ts",
       "isolationModel": "tenant_id + workspace_id + generated student principal_id are bound by composite foreign keys to platform_workspaces and platform_principal_bindings; credential uniqueness includes tenant, workspace and student, so the same monthly league key remains independent across tenants while a tenant cannot attribute a credential to another tenant's workspace or an unbound student.",
-      "adversarialProof": "pending",
+      "adversarialProof": "proven",
       "issue": "#109",
-      "isolationNote": "Composite foreign keys and tenant-leading uniqueness are enforced in migration 0076. End-to-end negative read/write proof will land with the credential authority API, whose exact scoped queries are the application boundary being proven."
+      "isolationNote": "Proven by academy-credential-cross-tenant-isolation-postgres.test.ts: it binds one student to two tenants, issues the same credential key in both, verifies scoped cabinet/history reads, and proves tenant B cannot change tenant A visibility or append tenant A lifecycle events by credential id.",
+      "testReference": "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts"
     },
     {
       "table": "academy_certificates",
@@ -151,6 +161,24 @@
       "adversarialProof": "proven",
       "issue": "#109",
       "testReference": "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts"
+    },
+    {
+      "table": "academy_daily_repair_challenges",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
+      "isolationModel": "tenant_id + workspace_id lead the one-challenge-per-day uniqueness rule, idempotency boundary and learner lookup. Each challenge constrains principal_id to student_id::text, requires the exact platform_principal_bindings tuple through a deferred composite foreign key and is append-only, so a weakness signal in one tenant cannot assign or replay a daily repair challenge in another.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
+    },
+    {
+      "table": "academy_daily_repair_challenge_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-academy-daily-repair-challenges.ts",
+      "isolationModel": "tenant_id + workspace_id lead the completion idempotency boundary and every event carries the same student principal binding as its challenge. The completion authority selects the challenge under tenant/workspace/student/locale before inserting an append-only graded event, so a second tenant cannot submit or replay completion evidence against another tenant's challenge.",
+      "adversarialProof": "proven",
+      "issue": "#109",
+      "testReference": "src/tests/product/daily-repair-challenge-authority.test.ts"
     },
     {
       "table": "academy_public_profiles",

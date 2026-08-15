@@ -66,6 +66,10 @@ const REQUIRED_MIGRATIONS = [
   "0077_academy_credential_notification.sql",
   "0078_arena_league_score_ledger.sql",
   "0079_arena_league_rankings.sql",
+  "0080_arena_league_ranking_refresh.sql",
+  "0081_academy_credential_lifecycle_notification.sql",
+  "0082_arena_entitlement_grants.sql",
+  "0083_academy_daily_repair_challenges.sql",
 ] as const;
 
 const REQUIRED_TABLES = [
@@ -101,6 +105,9 @@ const REQUIRED_TABLES = [
   "academy_arena_trade_score_ledger",
   "academy_arena_league_snapshots",
   "academy_arena_league_rankings",
+  "academy_arena_entitlement_grants",
+  "academy_daily_repair_challenges",
+  "academy_daily_repair_challenge_events",
 ] as const;
 
 const REQUIRED_COLUMNS = [
@@ -163,6 +170,12 @@ const REQUIRED_COLUMNS = [
   ["academy_arena_trade_score_ledger", "source_digest"],
   ["academy_arena_league_snapshots", "source_digest"],
   ["academy_arena_league_rankings", "tier"],
+  ["academy_arena_entitlement_grants", "expires_at"],
+  ["academy_arena_entitlement_grants", "cash_disposition"],
+  ["academy_daily_repair_challenges", "challenge_date"],
+  ["academy_daily_repair_challenges", "evidence_sha256"],
+  ["academy_daily_repair_challenge_events", "answer_sha256"],
+  ["academy_daily_repair_challenge_events", "passed"],
 ] as const;
 
 const REQUIRED_INDEXES = [
@@ -246,6 +259,9 @@ const REQUIRED_TRIGGERS = [
   "academy_arena_snapshot_finalized_immutable",
   "academy_arena_ranking_immutable",
   "academy_arena_ranking_open_snapshot_guard",
+  "academy_arena_entitlement_grants_no_update",
+  "academy_daily_repair_challenges_no_update",
+  "academy_daily_repair_challenge_events_no_update",
 ] as const;
 
 const REQUIRED_CONSTRAINTS = [
