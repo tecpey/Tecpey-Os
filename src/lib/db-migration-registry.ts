@@ -73,6 +73,7 @@ import { runArenaLeagueRankingMigrations } from "./db-migrate-arena-league-ranki
 import { runArenaLeagueRankingRefreshMigrations } from "./db-migrate-arena-league-ranking-refresh";
 import { runArenaEntitlementGrantMigrations } from "./db-migrate-arena-entitlement-grants";
 import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-daily-repair-challenges";
+import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -183,6 +184,7 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(66, "migration-step-066", CANONICAL_MIGRATION_CONTENT.academyCredentialLifecycleNotification, "engagement-platform", "notifications", runAcademyCredentialLifecycleNotificationMigrations),
   entry(67, "migration-step-067", CANONICAL_MIGRATION_CONTENT.arenaEntitlementGrants, "academy-platform", "arena", runArenaEntitlementGrantMigrations),
   entry(68, "migration-step-068", CANONICAL_MIGRATION_CONTENT.academyDailyRepairChallenges, "academy-platform", "academy", runAcademyDailyRepairChallengeMigrations),
+  entry(69, "migration-step-069", CANONICAL_MIGRATION_CONTENT.certificateShareEventsTenant, "academy-platform", "academy", runCertificateShareEventsTenantMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

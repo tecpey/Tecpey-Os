@@ -56,8 +56,13 @@ async function revertToPreMigrationShape(client: PoolClient): Promise<void> {
   await client.query(
     "ALTER TABLE academy_certificates DROP CONSTRAINT IF EXISTS academy_certificates_tenant_fk",
   );
-  await client.query("ALTER TABLE academy_certificates DROP COLUMN IF EXISTS tenant_id");
-  await client.query("ALTER TABLE academy_certificates DROP COLUMN IF EXISTS workspace_id");
+  // Later migrations build on these columns — 0084 exposes
+  // academy_certificates (id, tenant_id, workspace_id) as a unique key and binds
+  // certificate_share_events to it — so the columns can no longer be dropped in
+  // isolation. CASCADE removes those dependents with the columns; every drop here
+  // lives inside withRollback's transaction, so nothing survives the test.
+  await client.query("ALTER TABLE academy_certificates DROP COLUMN IF EXISTS tenant_id CASCADE");
+  await client.query("ALTER TABLE academy_certificates DROP COLUMN IF EXISTS workspace_id CASCADE");
   await client.query(
     `CREATE UNIQUE INDEX IF NOT EXISTS academy_certificates_active_term_idx
        ON academy_certificates (student_id, term_number) WHERE status = 'verified'`,

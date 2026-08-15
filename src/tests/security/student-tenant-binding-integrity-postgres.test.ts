@@ -26,7 +26,12 @@ const databaseUrl = process.env.DATABASE_URL?.trim();
 const configured = Boolean(databaseUrl && !databaseUrl.includes("CHANGE_ME"));
 let pool: Pool | null = null;
 
-/** Every table this migration constrains, so a new one cannot be added untested. */
+/**
+ * Every table that carries a `_stu_bind_fk`, so a new one cannot be added
+ * untested. Most are constrained by this migration (0073); certificate_share_events
+ * gains the identical binding in its own partition migration (0084) and is proven
+ * by certificate-share-events-cross-tenant-isolation-postgres.test.ts.
+ */
 const CONSTRAINED_TABLES = [
   "academy_certificates",
   "academy_learning_commands",
@@ -35,6 +40,7 @@ const CONSTRAINED_TABLES = [
   "academy_mastery_weakness_signals",
   "academy_student_mastery_profiles",
   "academy_term_progress",
+  "certificate_share_events",
   "notification_center",
 ] as const;
 

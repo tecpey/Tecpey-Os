@@ -83,6 +83,7 @@ import { ARENA_LEAGUE_RANKINGS_SQL } from "./db-migrate-arena-league-rankings";
 import { ARENA_LEAGUE_RANKING_REFRESH_SQL } from "./db-migrate-arena-league-ranking-refresh";
 import { ARENA_ENTITLEMENT_GRANTS_SQL } from "./db-migrate-arena-entitlement-grants";
 import { ACADEMY_DAILY_REPAIR_CHALLENGES_SQL } from "./db-migrate-academy-daily-repair-challenges";
+import { CERTIFICATE_SHARE_EVENTS_TENANT_SQL } from "./db-migrate-certificate-share-events-tenant";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -351,5 +352,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   academyDailyRepairChallenges: one(
     "0083_academy_daily_repair_challenges.sql",
     ACADEMY_DAILY_REPAIR_CHALLENGES_SQL,
+  ),
+  certificateShareEventsTenant: one(
+    "0084_certificate_share_events_tenant.sql",
+    CERTIFICATE_SHARE_EVENTS_TENANT_SQL,
   ),
 });

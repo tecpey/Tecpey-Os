@@ -472,6 +472,15 @@
       "adversarialProof": "proven",
       "testReference": "src/tests/security/withdrawal-external-effect-schema-postgres.test.ts",
       "issue": "#109"
+    },
+    {
+      "table": "certificate_share_events",
+      "domain": "academy",
+      "sourceFile": "src/lib/db-migrate-certificate-share-events-tenant.ts",
+      "isolationModel": "tenant_id/workspace_id are derived from the parent academy_certificates by the 0084 migration and bound as one composite FK (certificate_id, tenant_id, workspace_id) -> academy_certificates (id, tenant_id, workspace_id) ON DELETE CASCADE. certificate_id is FK-bound for the first time, so a share's tenant cannot diverge from its certificate's and a dangling certificate_id is rejected; tenant_id/workspace_id also carry platform_tenants / platform_workspaces FKs.",
+      "adversarialProof": "proven",
+      "testReference": "src/tests/security/certificate-share-events-cross-tenant-isolation-postgres.test.ts",
+      "issue": "#20"
     }
   ]
 }
