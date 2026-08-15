@@ -108,7 +108,7 @@ export default function AcademyPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-3xl font-black text-slate-950">TecPey Academy 7-term path</h2>
-            <p className="mt-4 text-sm font-bold leading-8 text-slate-700">
+            <p className="mt-4 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">
               TecPey Academy starts from basic concepts, then moves through security, exchange use, analysis, risk management and professional readiness. Each term ends with a short exam.
             </p>
           </div>

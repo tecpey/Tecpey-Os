@@ -58,7 +58,7 @@ export function EnglishHero({
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href={ctaHref}
-              className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:focus:ring-cyan-300/60"
+              className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-800 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-cyan-700 dark:bg-cyan-800 dark:hover:bg-cyan-700 dark:focus:ring-cyan-300/60"
             >
               {ctaLabel}
               <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
@@ -132,7 +132,7 @@ export function EnglishCTA({
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href={primaryHref}
-            className="group inline-flex items-center gap-2 rounded-2xl bg-cyan-700 px-7 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/25 transition hover:-translate-y-0.5 hover:bg-cyan-800 hover:shadow-2xl dark:bg-cyan-500 dark:hover:bg-cyan-400"
+            className="group inline-flex items-center gap-2 rounded-2xl bg-cyan-800 px-7 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/25 transition hover:-translate-y-0.5 hover:bg-cyan-700 hover:shadow-2xl dark:bg-cyan-800 dark:hover:bg-cyan-700"
           >
             {primaryLabel}
             <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />

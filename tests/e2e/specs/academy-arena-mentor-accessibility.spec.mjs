@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { expect, test } from "@playwright/test";
 
@@ -19,6 +20,31 @@ const E2E_ACADEMY_PROFILE = {
   public_profile_consent: true,
   profile_visibility: "public",
 };
+
+function base64Url(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function signE2eUnifiedSession() {
+  const secret = process.env.TECPEY_SESSION_SECRET || "e2e-session-secret-distinct-32-characters";
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url({ alg: "HS256", typ: "JWT" });
+  const payload = base64Url({
+    role: "unified",
+    v: 1,
+    sub: E2E_ACADEMY_PROFILE.student_id,
+    accountId: "academy:learner.e2e@tecpey.test",
+    studentId: E2E_ACADEMY_PROFILE.student_id,
+    email: "learner.e2e@tecpey.test",
+    displayName: E2E_ACADEMY_PROFILE.display_name,
+    username: "e2e-learner",
+    iat: now,
+    exp: now + 60 * 60,
+  });
+  const unsigned = `${header}.${payload}`;
+  const signature = createHmac("sha256", secret).update(unsigned).digest("base64url");
+  return `${unsigned}.${signature}`;
+}
 
 function contractFor(testInfo) {
   const locale = testInfo.project.metadata.locale === "en" ? "en" : "fa";
@@ -289,6 +315,15 @@ async function assertAccessibility(page, testInfo, label) {
 }
 
 test.beforeEach(async ({ context }) => {
+  await context.addCookies([
+    {
+      name: "tecpey_session",
+      value: signE2eUnifiedSession(),
+      url: process.env.NEXT_PUBLIC_SITE_URL || "http://127.0.0.1:3100",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
   await installDeterministicProductApis(context);
 });
 
