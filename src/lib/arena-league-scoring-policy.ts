@@ -125,11 +125,13 @@ export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaL
   exactInteger(input.riskBudgetBps, 0, 10_000, "risk_budget_bps");
   exactInteger(input.ruleComplianceBps, 0, 10_000, "rule_compliance_bps");
   exactInteger(input.outcomeRMultipleBps, -50_000, 50_000, "outcome_r_multiple_bps");
-  if (!Array.isArray(input.mentorFlags) ||
-    new Set(input.mentorFlags).size !== input.mentorFlags.length ||
-    input.mentorFlags.some((flag) => !ALL_FLAGS.has(flag))) {
+  const rawFlags: unknown = input.mentorFlags;
+  if (!Array.isArray(rawFlags) ||
+    new Set(rawFlags).size !== rawFlags.length ||
+    rawFlags.some((flag) => typeof flag !== "string" || !ALL_FLAGS.has(flag as ArenaLeagueTradeFlag))) {
     throw new Error("arena_league_mentor_flags_invalid");
   }
+  const flags = rawFlags as ArenaLeagueTradeFlag[];
 
   const reasons: string[] = [];
   const participation = participationPoints(input.tradeNumberForDay);
@@ -140,9 +142,9 @@ export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaL
   if (input.hasStopLoss) { process += 12; reasons.push("stop_loss_defined"); }
   if (input.journalCompleted) { process += 10; reasons.push("journal_completed"); }
   process += Math.round((input.ruleComplianceBps * 15) / 10_000);
-  if (input.mentorFlags.includes("proper-sizing")) { process += 15; reasons.push("proper_sizing"); }
-  if (input.mentorFlags.includes("good-discipline")) { process += 6; reasons.push("good_discipline"); }
-  if (input.mentorFlags.includes("target-hit")) { process += 4; reasons.push("target_hit"); }
+  if (flags.includes("proper-sizing")) { process += 15; reasons.push("proper_sizing"); }
+  if (flags.includes("good-discipline")) { process += 6; reasons.push("good_discipline"); }
+  if (flags.includes("target-hit")) { process += 4; reasons.push("target_hit"); }
 
   const outcome = Math.max(-15, Math.min(15, Math.round(input.outcomeRMultipleBps / 1_000)));
   if (outcome > 0) reasons.push("bounded_positive_outcome");
@@ -156,7 +158,7 @@ export function scoreArenaLeagueTrade(input: ArenaLeagueTradeScoreInput): ArenaL
     "fomo-entry": 15,
   };
   let penalty = 0;
-  for (const flag of input.mentorFlags) {
+  for (const flag of flags) {
     if (NEGATIVE_FLAGS.has(flag)) {
       penalty += flagPenalty[flag] ?? 0;
       reasons.push(flag.replaceAll("-", "_"));
