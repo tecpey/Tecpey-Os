@@ -31,6 +31,8 @@ export function LivingMobileNavigation({
     0,
     items.findIndex((item) => isActivePath(pathname, item)),
   );
+  const visualActiveIndex =
+    dir === "rtl" ? items.length - 1 - activeIndex : activeIndex;
 
   return (
     <nav
@@ -43,8 +45,8 @@ export function LivingMobileNavigation({
           className="tecpey-living-mobile-nav__halo"
           aria-hidden="true"
           style={{
-            insetInlineStart: `${(activeIndex / items.length) * 100}%`,
-            width: `${100 / items.length}%`,
+            width: `calc(100% / ${items.length})`,
+            transform: `translate3d(${visualActiveIndex * 100}%, 0, 0)`,
           }}
         >
           <span className="tecpey-living-mobile-nav__ring" />
