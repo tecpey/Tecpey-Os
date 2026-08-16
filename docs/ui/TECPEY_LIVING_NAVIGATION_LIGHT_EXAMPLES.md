@@ -60,6 +60,14 @@ Acceptance:
 - Persian labels never clip.
 - The exchange entry label remains unchanged wherever it appears: `ورود به صرافی`.
 
+Premium polish details:
+
+- The active halo must be physically centered on the icon, not the text label.
+- The label can brighten after the halo starts moving, creating a subtle "arrive then confirm" feel.
+- The bottom bar should feel like a single stable object; individual nav items should not jump or resize.
+- The active tab can show a tiny top reflection, but only if it stays below text readability thresholds.
+- On slow devices, the interaction should degrade to a crisp active color change rather than a choppy light trail.
+
 ## 2. Example B: Desktop Dashboard Sidebar Active Rail
 
 Use case:
@@ -118,6 +126,14 @@ Acceptance:
 - Financial numbers, risk warnings, and security notices remain visually dominant when needed.
 - The active sidebar item is clear for keyboard users.
 - The pattern does not create decorative cards inside the sidebar.
+
+Premium polish details:
+
+- The active rail should move as one continuous object between rows.
+- Text should not become overly bright; icon, rail, and background tint carry the active state together.
+- The sidebar should still feel enterprise-grade in dense screens.
+- Hover and active states must not compete. Active wins.
+- Collapsed sidebar state must retain the rail or icon glow without requiring visible labels.
 
 ## 3. Example C: Mentor and Smart Notification Pulse
 
@@ -192,6 +208,14 @@ Acceptance:
 - Every message has a measurable outcome.
 - Frequency cap and user preference checks are enforced.
 - The experience feels like a mentor, not a marketing blast.
+
+Premium polish details:
+
+- Pulse strength should reflect importance: mentor guidance is calm, ranking near-milestone is lighter, security uses explicit alert UI.
+- The pulse should never loop until clicked. One event, one pulse.
+- If multiple notifications arrive, they should stack by priority rather than pulsing all at once.
+- Motion and copy must agree: a calm coaching message should not use urgent motion.
+- The notification should explain itself when the trigger is not obvious, for example: `بر اساس ژورنال آرنای این هفته...`
 
 ## Implementation Priority
 
