@@ -154,7 +154,47 @@ Any PR implementing this pattern must prove:
 - The component is tested or manually verified on mobile and desktop.
 - Admin/dense operational views use the restrained variant.
 
-## 9. Product Governance
+## 9. World-Class Quality Bar
+
+This pattern must meet a premium product quality bar before being accepted into TecPey production UI.
+
+Quality requirements:
+
+- The motion must feel responsive on the first tap, not delayed.
+- The light must land exactly on the active item, with no visible off-by-one alignment.
+- The component must handle fast repeated taps without visual glitches.
+- The active state must remain correct during route loading, failed navigation, and browser back/forward.
+- The bar, rail, or capsule must not shift layout when labels change.
+- The glow must be visible on dark surfaces but never bloom over text.
+- The interaction must be calm enough for repeated daily use.
+- The implementation must avoid template-like purple/neon aesthetics and preserve TecPey blue/cyan authority.
+- The motion must still feel intentional at 1x speed and when inspected in slow motion.
+
+Rejection criteria:
+
+- `transition: all`
+- Infinite glow loops on primary navigation
+- Active state visible only through animation
+- Hover animation on touch devices
+- Layout movement caused by active state
+- Blur or glow reducing text readability
+- Animation applied to financial balances, PnL, risk warnings, or identity/security prompts
+- Decorative particles, excessive bloom, or generic crypto-casino styling
+- Any motion that makes TecPey feel less serious or less trustworthy
+
+Verification checklist:
+
+- Desktop screenshot before and after active item change.
+- Mobile screenshot before and after active item change.
+- Keyboard navigation check.
+- RTL label fit check.
+- Reduced-motion check.
+- Fast repeated tap/click check.
+- Route-loading state check where the component changes routes.
+- Contrast/readability check on active and inactive states.
+- Performance check: no layout thrash, no long main-thread animation, no avoidable repaint-heavy loops.
+
+## 10. Product Governance
 
 This pattern should be treated as part of TecPey's living-platform language:
 
