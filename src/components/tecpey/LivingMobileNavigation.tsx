@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
+import { resolveActiveIndex } from "./living-nav-active";
 
 type LivingNavItem = {
   label: string;
@@ -10,12 +11,6 @@ type LivingNavItem = {
   match: string[];
   Icon: LucideIcon;
 };
-
-function isActivePath(pathname: string, item: LivingNavItem) {
-  return item.match.some((match) =>
-    pathname === match || pathname.startsWith(`${match}/`),
-  );
-}
 
 export function LivingMobileNavigation({
   ariaLabel,
@@ -27,10 +22,8 @@ export function LivingMobileNavigation({
   dir?: "rtl" | "ltr";
 }) {
   const pathname = usePathname();
-  const activeIndex = Math.max(
-    0,
-    items.findIndex((item) => isActivePath(pathname, item)),
-  );
+  const activeIndex = resolveActiveIndex(pathname, items);
+  const hasActive = activeIndex >= 0;
   const visualActiveIndex =
     dir === "rtl" ? items.length - 1 - activeIndex : activeIndex;
 
@@ -41,22 +34,26 @@ export function LivingMobileNavigation({
       className="tecpey-living-mobile-nav fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[80] lg:hidden"
     >
       <div className="tecpey-living-mobile-nav__bar">
-        <span
-          className="tecpey-living-mobile-nav__halo"
-          aria-hidden="true"
-          style={{
-            width: `calc(100% / ${items.length})`,
-            transform: `translate3d(${visualActiveIndex * 100}%, 0, 0)`,
-          }}
-        >
-          <span className="tecpey-living-mobile-nav__ring" />
-        </span>
+        {hasActive ? (
+          <span
+            className="tecpey-living-mobile-nav__halo"
+            aria-hidden="true"
+            style={{
+              width: `calc(100% / ${items.length})`,
+              transform: `translate3d(${visualActiveIndex * 100}%, 0, 0)`,
+            }}
+          >
+            <span className="tecpey-living-mobile-nav__ring" />
+          </span>
+        ) : null}
         <div
           className="tecpey-living-mobile-nav__items"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
         >
-          {items.map((item) => {
-            const active = isActivePath(pathname, item);
+          {items.map((item, index) => {
+            // Exactly the first matching item is active, so the highlight and the
+            // halo agree and only one link carries aria-current="page".
+            const active = index === activeIndex;
             const Icon = item.Icon;
             return (
               <Link
