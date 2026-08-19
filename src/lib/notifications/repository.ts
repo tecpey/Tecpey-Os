@@ -145,6 +145,29 @@ function legacyClass(type: string): NotificationClass {
   }
 }
 
+// Command Center broadcasts are promotional re-engagement, not support. They are
+// written to notification_center with type "system" (there is no marketing type
+// on that legacy path) but carry metadata.campaign, so on migration they would
+// otherwise fall through legacyClass to product_support — a near-mandatory
+// support class the recipient cannot opt out of, letting a marketing blast
+// masquerade as transactional support. Classify any campaign-stamped legacy row
+// as the consent-gated marketing_campaign class instead.
+export function classifyLegacyNotification(
+  type: string,
+  metadata: unknown,
+): NotificationClass {
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    typeof (metadata as Record<string, unknown>).campaign === "string" &&
+    (metadata as Record<string, unknown>).campaign !== ""
+  ) {
+    return "marketing_campaign";
+  }
+  return legacyClass(type);
+}
+
 export async function migrateLegacyNotificationsForPrincipal(
   client: PoolClient,
   principal: NotificationPrincipal,
@@ -204,7 +227,7 @@ export async function migrateLegacyNotificationsForPrincipal(
       [
         principal.tenantId,
         principal.id,
-        legacyClass(item.type),
+        classifyLegacyNotification(item.type, item.metadata),
         item.id,
         item.title,
         item.body,
