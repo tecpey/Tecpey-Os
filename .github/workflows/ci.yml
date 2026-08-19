@@ -212,6 +212,9 @@ jobs:
       - name: Browser persistence guard
         run: npm run browser:persistence:check
 
+      - name: Browser persistence authority policy test
+        run: npm run test:browser-persistence
+
       - name: Admin authentication boundary guard
         run: node scripts/check-admin-auth-boundary.mjs
 
