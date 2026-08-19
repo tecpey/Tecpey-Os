@@ -3,7 +3,18 @@ import Link from "next/link";
 import { ContentShell } from "@/components/content/ContentUI";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 
-export const metadata: Metadata = { title: "مسیر ۷ ترمی آکادمی | آکادمی تک‌پی", description: "آکادمی تک‌پی از مبانی شروع می‌شود و تا امنیت، کار با صرافی، تحلیل، مدیریت ریسک و آمادگی حرفه‌ای ادامه پیدا می‌کند." };
+export const metadata: Metadata = {
+  title: "مسیر ۷ ترمی آکادمی | آکادمی تک‌پی",
+  description: "آکادمی تک‌پی از مبانی شروع می‌شود و تا امنیت، کار با صرافی، تحلیل، مدیریت ریسک و آمادگی حرفه‌ای ادامه پیدا می‌کند.",
+  alternates: {
+    canonical: "https://tecpey.ir/academy/curriculum",
+    languages: {
+      "fa-IR": "https://tecpey.ir/academy/curriculum",
+      "en-US": "https://tecpey.ir/en/academy/curriculum",
+      "x-default": "https://tecpey.ir/academy/curriculum",
+    },
+  },
+};
 
 const items = ["ترم ۱: مبانی بلاکچین و رمزارز", "ترم ۲: امنیت حساب و نگهداری دارایی", "ترم ۳ تا ۵: کار با صرافی، تکنیکال و فاندامنتال", "ترم ۶ و ۷: مدیریت سرمایه، روانشناسی و آمادگی حرفه‌ای"];
 
