@@ -327,7 +327,7 @@ Any PR touching dashboard, profile, certificates, rankings, Academy, Arena, Ment
 - Do not claim global-grade certificates unless identity, certificate ID, QR verification, and revocation paths exist.
 - Do not let ranking reward reckless trading behavior.
 - Do not send personalized notifications without consent, preference controls, frequency caps, and auditability.
-- Do not use notification hooks that promise profit, induce panic, or push reckless trading behavior.
+- Do not use notification hooks that promise profit, induce panic, or push reckless trading behavior. Enforced in CI and `release:check` by `scripts/check-notification-copy-safety.mjs` (`npm run notifications:copy-safety:check`), which scans the notification engine and re-engagement "brain" copy for profit-promise, FOMO/panic, buy/sell-signal and gambling language.
 - Do not consider any major user journey complete unless its smart notification lifecycle is defined, tested, measurable, and safe.
 - Do not ship notification changes without a clear trigger, suppression rule, personalization contract, destination route, and outcome metric.
 - Do not let admin-critical behavior exist without admin visibility or auditability.
