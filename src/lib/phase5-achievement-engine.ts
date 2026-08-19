@@ -76,6 +76,15 @@ export function fallbackAchievementSnapshot(locale: "fa" | "en" = "fa"): Achieve
   return base.map(([code, title, description, icon, category, xp], index) => ({ code, title, description, icon, category, xp, earned: index < 1, earnedAt: index < 1 ? new Date().toISOString() : null }));
 }
 
+// Days since the student's last genuine activity, driving churnRisk and
+// returnProbability. With no activity timestamp the caller treats the student
+// as long-inactive (9 days) rather than brand-new, so the engine still reaches
+// out. Pure so the re-engagement signal is testable without a database.
+export function inactiveDaysFrom(lastActivityAtMs: number, nowMs: number): number {
+  if (!lastActivityAtMs) return 9;
+  return Math.max(0, Math.floor((nowMs - lastActivityAtMs) / 86_400_000));
+}
+
 export async function buildNotificationBrain(
   client: Queryable,
   studentId: string,
@@ -95,7 +104,14 @@ export async function buildNotificationBrain(
        COUNT(*) FILTER (WHERE event_type = 'quiz_attempt_recorded')::int AS quizzes,
        COUNT(*) FILTER (WHERE event_type = 'simulator_decision_saved')::int AS simulator_events,
        COUNT(*) FILTER (WHERE event_type = 'certificate_issued')::int AS certificates,
-       MAX(created_at) AS last_event_at
+       -- The inactivity clock must reflect genuine user activity only.
+       -- createBrainNotification records a notification_opened event with
+       -- payload.generated = 'true' every time the brain *sends* a re-engagement
+       -- nudge; counting that as activity resets inactiveDays to 0, so a
+       -- genuinely inactive user looked active the moment the engine notified
+       -- them — deflating churnRisk in a self-referential loop. Exclude the
+       -- brain's own generated events from the last-activity timestamp.
+       MAX(created_at) FILTER (WHERE payload->>'generated' IS DISTINCT FROM 'true') AS last_event_at
      FROM learning_events
      WHERE student_id = $1::uuid AND tenant_id = $2`,
     [studentId, tenantId],
@@ -113,7 +129,7 @@ export async function buildNotificationBrain(
   const discipline = Number(b.discipline_score || 0);
   const confidence = Number(b.confidence_score || 0);
   const lastEventAt = s.last_event_at ? new Date(String(s.last_event_at)).getTime() : 0;
-  const inactiveDays = lastEventAt ? Math.max(0, Math.floor((Date.now() - lastEventAt) / 86_400_000)) : 9;
+  const inactiveDays = inactiveDaysFrom(lastEventAt, Date.now());
   const returnProbability = clamp(35 + learningEvents * 5 + quizzes * 7 + simulatorEvents * 8 + certificates * 12 + discipline * 0.18 - inactiveDays * 6);
   const churnRisk = clamp(100 - returnProbability + Math.max(0, inactiveDays - 2) * 8);
   const bestChannel: NotificationChannel = churnRisk > 72 ? "push" : simulatorEvents > 2 ? "in_app" : "email";
