@@ -340,7 +340,7 @@ test("accepted-risk register authority rejects placeholder thresholds in closure
 
 test("accepted-risk register authority rejects phase-only review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-16, then weekly | Disable certificate issuance",
+    "2026-08-19, then weekly | Disable certificate issuance",
     "Phase 43 | Disable certificate issuance",
   );
 
@@ -352,7 +352,7 @@ test("accepted-risk register authority rejects phase-only review dates", () => {
 
 test("accepted-risk register authority rejects event-only review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-16 before any Exchange re-scope | Disable the activating flag",
+    "2026-08-19 before any Exchange re-scope | Disable the activating flag",
     "Before any Exchange re-scope | Disable the activating flag",
   );
 
@@ -364,7 +364,7 @@ test("accepted-risk register authority rejects event-only review dates", () => {
 
 test("accepted-risk register authority rejects impossible calendar review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-16, then weekly | Disable certificate issuance",
+    "2026-08-19, then weekly | Disable certificate issuance",
     "2026-02-30, then weekly | Disable certificate issuance",
   );
 
@@ -378,8 +378,8 @@ test("accepted-risk register authority rejects stale review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8");
 
   assert.match(
-    evaluateAcceptedRiskRegisterAuthority(markdown, { referenceDate: "2026-08-17T00:00:00.000Z" }).join("\n"),
-    /R-06 review date 2026-08-16 is stale before 2026-08-17/,
+    evaluateAcceptedRiskRegisterAuthority(markdown, { referenceDate: "2026-08-20T00:00:00.000Z" }).join("\n"),
+    /R-06 review date 2026-08-19 is stale before 2026-08-20/,
   );
 });
 

@@ -56,6 +56,13 @@ async function revertToPreMigrationShape(client: PoolClient): Promise<void> {
   await client.query(
     "ALTER TABLE academy_certificates DROP CONSTRAINT IF EXISTS academy_certificates_tenant_fk",
   );
+  // The 0085 active-binding guard is a DEFERRABLE constraint trigger: every insert
+  // into academy_certificates enqueues a pending trigger event, and Postgres
+  // refuses to ALTER a table that has pending trigger events. This suite inserts a
+  // legacy certificate and then re-runs the 0070 ALTERs in one transaction, so the
+  // guard is dropped for the duration; withRollback restores it with everything
+  // else at the end of the test.
+  await client.query("DROP TRIGGER IF EXISTS tecpey_active_binding_guard ON academy_certificates");
   // Later migrations build on these columns — 0084 exposes
   // academy_certificates (id, tenant_id, workspace_id) as a unique key and binds
   // certificate_share_events to it — so the columns can no longer be dropped in
