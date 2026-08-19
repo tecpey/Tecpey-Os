@@ -38,67 +38,18 @@ const wiringFiles = {
   ci: ".github/workflows/ci.yml",
 };
 
-// Forbidden notification-copy patterns, grouped by the harm they cause.
-// Each entry is a RegExp tested against the *contents* of copy string literals.
-const FORBIDDEN = [
-  {
-    category: "profit-promise",
-    reason: "notification copy must not promise or guarantee profit",
-    patterns: [
-      /سود\s*تضمین/,
-      /تضمین\s*سود/,
-      /سود\s*قطعی/,
-      /سود\s*صددرصد/,
-      /وعده\s*سود/,
-      /بازدهی\s*تضمین/,
-      /guaranteed\s+(?:profit|return|gain)/i,
-      /risk[-\s]?free\s+(?:profit|return)/i,
-      /double\s+your\s+money/i,
-    ],
-  },
-  {
-    category: "fomo-panic",
-    reason: "notification copy must not induce panic or fear of missing out",
-    patterns: [
-      /جا\s*می[‌\s]?مون/,
-      /جا\s*می[‌\s]?مان/,
-      /جا\s*نمون/,
-      /آخرین\s*فرصت/,
-      /فرصت\s*آخر/,
-      /دیر\s*نکن/,
-      /همین\s*الان\s*وارد/,
-      /الان\s*وارد\s*شو/,
-      /منفجر/,
-      /last\s+chance/i,
-      /act\s+now/i,
-      /before\s+it['’]?s\s+too\s+late/i,
-      /don['’]?t\s+miss\s+out/i,
-    ],
-  },
-  {
-    category: "trade-signal",
-    reason: "notification copy must not push buy/sell signals",
-    patterns: [
-      /سیگنال\s*خرید/,
-      /سیگنال\s*فروش/,
-      /همین\s*الان\s*بخر/,
-      /الان\s*بفروش/,
-      /\bbuy\s+signal/i,
-      /\bsell\s+signal/i,
-    ],
-  },
-  {
-    category: "gambling-reckless",
-    reason: "notification copy must not push reckless / gambling trading behavior",
-    patterns: [
-      /بترکون/,
-      /قمار/,
-      /همه[‌\s]?چی\s*رو\s*بذار/,
-      /\ball[-\s]?in\b/i,
-      /go\s+all[-\s]?in/i,
-    ],
-  },
-];
+// Forbidden notification-copy patterns, grouped by the harm they cause. These
+// are compiled from the single source of truth shared with the runtime
+// enforcement (src/lib/notifications/copy-safety.ts), so the CI source scan and
+// the creation-boundary check can never drift apart. Each RegExp is tested
+// against the *contents* of copy string literals.
+const patternsFile = path.join(root, "src", "lib", "notifications", "copy-safety-patterns.json");
+const patternDoc = JSON.parse(await readFile(patternsFile, "utf8"));
+const FORBIDDEN = patternDoc.rules.map((rule) => ({
+  category: rule.category,
+  reason: rule.reason,
+  patterns: rule.patterns.map((source) => new RegExp(source, "i")),
+}));
 
 const failures = [];
 
@@ -232,11 +183,29 @@ requireWiring("package", "npm run notifications:copy-safety:check", "release che
 requireWiring("ci", "Notification copy-safety guard", "pull-request CI must execute the notification copy-safety check");
 requireWiring("ci", "npm run notifications:copy-safety:check", "CI copy-safety guard must use the governed npm command");
 
+// 4. Runtime enforcement: the source scan cannot see copy assembled at runtime
+//    from event payload fields, so the single governed creation boundary must
+//    also fail unsafe copy closed. Require that wiring so it cannot be removed.
+const creationSource = await readFile(
+  path.join(root, "src", "lib", "notifications", "creation.ts"),
+  "utf8",
+);
+if (!creationSource.includes("assertSafeNotificationCopy({ title: request.title, body: request.body })")) {
+  failures.push(
+    "src/lib/notifications/creation.ts: the governed creation boundary must call assertSafeNotificationCopy on title and body so runtime-assembled copy is also enforced",
+  );
+}
+if (!creationSource.includes('from "./copy-safety"')) {
+  failures.push(
+    "src/lib/notifications/creation.ts: runtime copy-safety enforcement must be imported from the shared ./copy-safety module",
+  );
+}
+
 if (failures.length) {
   console.error("Notification copy-safety check failed:\n- " + failures.join("\n- "));
   process.exit(1);
 }
 
 console.log(
-  `Notification copy-safety check passed: ${engineFiles.length + externalCopyFiles.length} copy source files carry no profit-promise, FOMO/panic, trade-signal or gambling notification copy, and the guard is wired into CI and release governance.`,
+  `Notification copy-safety check passed: ${engineFiles.length + externalCopyFiles.length} copy source files carry no profit-promise, FOMO/panic, trade-signal or gambling notification copy; the shared pattern source is enforced at the runtime creation boundary; and the guard is wired into CI and release governance.`,
 );
