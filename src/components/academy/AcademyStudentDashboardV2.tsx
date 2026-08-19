@@ -234,10 +234,11 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     {
       label: t.account,
       href: accountHref,
+      // Note: dashboardHref (the Home tab's route) is deliberately NOT matched
+      // here — it belongs to Home, and listing it would light both tabs at once.
       match: [
         accountHref,
         isFa ? "/academy/achievements" : "/en/academy/achievements",
-        dashboardHref,
       ],
       Icon: ShieldCheck,
     },
