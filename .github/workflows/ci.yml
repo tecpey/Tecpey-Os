@@ -365,6 +365,9 @@ jobs:
       - name: Notification domain outbox authority guard
         run: npm run notifications:domain:check
 
+      - name: Notification copy-safety guard
+        run: npm run notifications:copy-safety:check
+
       - name: Exchange order admission authority guard
         run: node scripts/check-exchange-order-admission.mjs
 
