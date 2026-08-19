@@ -18,10 +18,18 @@ const FILENAME = "0085_active_principal_binding_enforcement.sql";
 // discovered from the catalog so the family cannot drift. Design choices that
 // keep it from breaking legitimate flows:
 //
-//   * It is a DEFERRABLE INITIALLY DEFERRED constraint trigger, firing at COMMIT
-//     exactly like the foreign keys it complements. A transaction that inserts a
-//     child row before creating its binding and commits both together still
-//     works, as long as the binding is active by commit.
+//   * It fires IMMEDIATELY (at the end of the writing statement), not deferred to
+//     commit. Enforcing at write time is what the requirement asks for, and it
+//     sidesteps three sharp edges a deferred constraint trigger has: a deferred
+//     event still fires for a row inserted and then deleted in the same
+//     transaction (unlike a referential-integrity key, which is optimised for
+//     that) — the case that matters here, where the academy_students insert
+//     auto-creates a default community profile in the default tenant that
+//     onboarding then deletes and re-homes; a deferred event aborts an entire
+//     batch at commit if any single row is bad; and a pending deferred event
+//     blocks ALTER TABLE. The auto-binding trigger on academy_students runs
+//     before the profile/consent triggers, so by the time any child row is
+//     written its active binding already exists and the immediate check passes.
 //   * It fires on INSERT, and on UPDATE only when the binding key actually
 //     changes — mirroring foreign-key re-check semantics. Updating any other
 //     column of an existing row whose binding was later revoked is NOT blocked,
@@ -106,7 +114,6 @@ BEGIN
     EXECUTE format(
       'CREATE CONSTRAINT TRIGGER tecpey_active_binding_guard '
       'AFTER INSERT OR UPDATE ON %s '
-      'DEFERRABLE INITIALLY DEFERRED '
       'FOR EACH ROW EXECUTE FUNCTION tecpey_require_active_principal_binding()',
       child);
   END LOOP;

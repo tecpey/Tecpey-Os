@@ -185,29 +185,31 @@ describe("active principal-binding enforcement (migration 0085)", { skip: !confi
     });
   });
 
-  it("preserves the deferred flow — a child row inserted before its binding, committed together, is accepted", async () => {
+  it("allows the onboarding pattern — the auto-created default rows commit, then can be deleted and re-homed in one transaction", async () => {
     await withClient(async (client) => {
       const studentId = randomUUID();
       cleanupStudents.add(studentId);
-      // Insert the student WITHOUT relying on its default binding: use a non-default
-      // workspace binding created only later in the same transaction.
+      // academy_students' triggers create a default binding AND default community
+      // rows (public profile, scoring consent) in the default tenant. Because the
+      // guard is immediate — and the binding trigger runs before the profile/
+      // consent triggers — those auto-inserts pass at write time. Onboarding then
+      // deletes them and re-homes the student to another tenant, all in one
+      // transaction; a deferred guard would have fired at commit for the since-
+      // deleted default rows, but the immediate guard already accepted them.
       await client.query("BEGIN");
       try {
         await client.query(
           `INSERT INTO academy_students (id, locale, display_name)
-             VALUES ($1::uuid, 'fa', 'Deferred Probe') ON CONFLICT (id) DO NOTHING`,
+             VALUES ($1::uuid, 'fa', 'Onboarding Probe') ON CONFLICT (id) DO NOTHING`,
           [studentId],
         );
-        // The child row is written before the binding exists; the deferred guard
-        // must not fire until commit, by which point the active binding is present.
-        await insertTermProgress(client, studentId, 7);
         await client.query(
-          `INSERT INTO platform_principal_bindings
-             (tenant_id, workspace_id, principal_type, principal_id, status, source)
-           VALUES ($1, $2, 'student', $3, 'active', 'active-binding-test')
-           ON CONFLICT (tenant_id, workspace_id, principal_type, principal_id)
-             DO UPDATE SET status = 'active'`,
-          [TENANT, WORKSPACE, studentId],
+          "DELETE FROM academy_public_profiles WHERE student_id = $1::uuid",
+          [studentId],
+        );
+        await client.query(
+          "DELETE FROM platform_principal_bindings WHERE principal_type = 'student' AND principal_id = $1",
+          [studentId],
         );
         await client.query("COMMIT");
       } catch (error) {
@@ -215,10 +217,10 @@ describe("active principal-binding enforcement (migration 0085)", { skip: !confi
         throw error;
       }
       const { rows } = await client.query(
-        "SELECT 1 FROM academy_term_progress WHERE student_id = $1::uuid AND term_number = 7",
+        "SELECT 1 FROM academy_students WHERE id = $1::uuid",
         [studentId],
       );
-      assert.equal(rows.length, 1, "insert-child-before-binding must still commit under the deferred guard");
+      assert.equal(rows.length, 1, "the onboarding insert-then-delete transaction must commit under the immediate guard");
     });
   });
 });
