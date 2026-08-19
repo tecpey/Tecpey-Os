@@ -177,6 +177,9 @@ jobs:
       - name: Public UI interaction foundation guard
         run: npm run ui:public:check
 
+      - name: Internal route integrity guard
+        run: npm run routes:integrity:check
+
       - name: Runtime bootstrap authority guard
         run: node scripts/check-runtime-bootstrap.mjs
 
