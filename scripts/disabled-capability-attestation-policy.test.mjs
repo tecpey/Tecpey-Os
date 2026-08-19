@@ -265,3 +265,34 @@ test("disabled capability attestation rejects launch-disabled feature flag drift
   assert.match(failures, /src\/lib\/feature-flags\.ts: missing disabled-capability boundary/);
   assert.match(failures, /scripts\/validate-env\.mjs: missing disabled-capability boundary/);
 });
+
+test("disabled capability attestation rejects a new financial flag defaulting on", () => {
+  const sources = loadSources();
+  // A financial-surface flag added later, defaulting ON, is not pinned by any
+  // exact token and its env var is not yet in validate-env's forbidden list —
+  // the structural default-off check is what catches it.
+  sources["src/lib/feature-flags.ts"] = sources["src/lib/feature-flags.ts"].replace(
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },',
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },\n  "custody.enabled": { envVar: "FEATURE_CUSTODY_ENABLED", defaultEnabled: true },',
+  );
+
+  assert.match(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /financial-surface feature flag custody\.enabled \(FEATURE_CUSTODY_ENABLED\) must default to false/,
+  );
+});
+
+test("disabled capability attestation allows a non-financial flag defaulting on", () => {
+  const sources = loadSources();
+  // A non-financial flag may default ON; the structural check must not fire for
+  // it, so the invariant stays targeted at real-money/enterprise surfaces.
+  sources["src/lib/feature-flags.ts"] = sources["src/lib/feature-flags.ts"].replace(
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },',
+    '"exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },\n  "community.leaderboard.enabled": { envVar: "FEATURE_COMMUNITY_LEADERBOARD_ENABLED", defaultEnabled: true },',
+  );
+
+  assert.doesNotMatch(
+    evaluateDisabledCapabilityAttestation(sources).join("\n"),
+    /financial-surface feature flag/,
+  );
+});

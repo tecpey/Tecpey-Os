@@ -197,6 +197,46 @@ const FORBIDDEN_SWAP_CLAIMS = [
   /وارد(?:\s|ِ|‌)+معامله(?:\s|ِ|‌)+شوید/,
 ];
 
+// Any feature flag that governs a real-money or enterprise surface must default
+// OFF. REQUIRED_ACTIVATION_BOUNDARIES pins the two known financial flags by exact
+// token; this extends the same invariant structurally to the whole FLAG_CONFIG
+// table, so a financial flag added later cannot ship enabled-by-default and
+// quietly activate a launch-gated capability (its env var would not yet be in
+// validate-env.mjs's production-forbidden list either). The keyword set mirrors
+// the controlled-launch NO-GO surfaces: exchange, custody, deposits,
+// withdrawals, public financial rewards, enterprise and white-label activation.
+const FINANCIAL_FLAG_RE =
+  /exchange|marketplace|custody|withdraw|deposit|reward|enterprise|white[-_]?label|payout|fiat/i;
+
+const FLAG_CONFIG_ENTRY_RE =
+  /"([\w.]+)"\s*:\s*\{\s*envVar\s*:\s*"([^"]+)"\s*,\s*defaultEnabled\s*:\s*(true|false)\s*\}/g;
+
+function validateFeatureFlagDefaults(failures, sources) {
+  const file = "src/lib/feature-flags.ts";
+  const source = sourceFor(sources, file);
+  if (!source) {
+    failures.push(`${file}: missing feature-flag configuration for disabled-capability attestation`);
+    return;
+  }
+  let seen = 0;
+  let match;
+  FLAG_CONFIG_ENTRY_RE.lastIndex = 0;
+  while ((match = FLAG_CONFIG_ENTRY_RE.exec(source)) !== null) {
+    seen += 1;
+    const [, flag, envVar, defaultEnabled] = match;
+    if ((FINANCIAL_FLAG_RE.test(flag) || FINANCIAL_FLAG_RE.test(envVar)) && defaultEnabled !== "false") {
+      failures.push(
+        `${file}: financial-surface feature flag ${flag} (${envVar}) must default to false, found defaultEnabled: ${defaultEnabled}`,
+      );
+    }
+  }
+  if (seen === 0) {
+    failures.push(
+      `${file}: no FLAG_CONFIG entries parsed — disabled-capability attestation cannot verify feature-flag defaults`,
+    );
+  }
+}
+
 function normalized(value) {
   return String(value).replace(/\s+/g, " ");
 }
@@ -339,6 +379,7 @@ export function evaluateDisabledCapabilityAttestation(sources) {
   validateForbiddenPublicRoutes(failures, sources);
   validateSwapBoundary(failures, sources);
   validateExchangeCompareData(failures, sources);
+  validateFeatureFlagDefaults(failures, sources);
 
   const packageJson = JSON.parse(sourceFor(sources, "package.json") || "{}");
   for (const [name, command] of REQUIRED_PACKAGE_SCRIPTS) {
