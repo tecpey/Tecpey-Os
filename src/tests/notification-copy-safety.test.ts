@@ -58,6 +58,29 @@ test("assertSafeNotificationCopy allows real notification copy", () => {
   );
 });
 
+test("the automated re-engagement path enforces copy safety at its write boundary", async () => {
+  // createSmartNotification is the single notification_center write boundary for
+  // the churn brain / mentor / campaign automation. It must reject forbidden
+  // copy before it can be inserted and later drained into the governed inbox.
+  const { createSmartNotification } = await import("../lib/learning-os");
+  const client = {
+    query: async () => {
+      throw new Error("insert must never be reached for unsafe copy");
+    },
+  };
+  await assert.rejects(
+    () =>
+      createSmartNotification(client as never, {
+        studentId: "11111111-1111-4111-8111-111111111111",
+        scope: { tenantId: "tecpey", workspaceId: "main" },
+        type: "mentor" as never,
+        title: "پیشنهاد منتور",
+        body: "همین الان وارد شو تا سود قطعی را از دست ندهی",
+      }),
+    /notification_copy_unsafe/,
+  );
+});
+
 test("runtime enforcement catches payload-injected copy that the source scan cannot see", () => {
   // A credential title read from the database (not authored in source) that
   // carries a forbidden hook must still be rejected at the creation boundary.

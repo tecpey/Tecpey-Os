@@ -201,6 +201,27 @@ if (!creationSource.includes('from "./copy-safety"')) {
   );
 }
 
+// The automated re-engagement path (createSmartNotification -> notification_center:
+// the churn brain, mentor hooks, achievements and campaigns) does not pass
+// through the governed creation boundary, so it must enforce copy safety at its
+// own single write boundary. learning-os.ts itself is NOT scanned for copy
+// (it also holds quiz wrong-answer options that legitimately name banned
+// phrases), only its runtime wiring is required here.
+const learningOsSource = await readFile(
+  path.join(root, "src", "lib", "learning-os.ts"),
+  "utf8",
+);
+if (!learningOsSource.includes("assertSafeNotificationCopy({ title, body })")) {
+  failures.push(
+    "src/lib/learning-os.ts: createSmartNotification must call assertSafeNotificationCopy on title and body so the automated re-engagement path is also enforced",
+  );
+}
+if (!learningOsSource.includes('from "@/lib/notifications/copy-safety"')) {
+  failures.push(
+    "src/lib/learning-os.ts: runtime copy-safety enforcement must be imported from the shared copy-safety module",
+  );
+}
+
 if (failures.length) {
   console.error("Notification copy-safety check failed:\n- " + failures.join("\n- "));
   process.exit(1);
