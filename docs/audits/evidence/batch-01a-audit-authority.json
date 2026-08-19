@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "825ab15e5c8ba5ea7f4400a4dd79c44b6ccca97b",
-      "sha256": "df00eae5d14c5262b1a0ba83139b964b633bfa78c1cfe300d0994fbf130668b7",
-      "lines": 224,
+      "gitObjectId": "5464bf8ff4da4e63a67623ab3d7213af7e72c8c4",
+      "sha256": "7fa59509c3717f305f3b595086889c33279ccb48420d11dd30a8a27546d9c397",
+      "lines": 225,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 224
+          "endLine": 225
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -95,7 +95,8 @@
         "2026-08-15: re-reviewed after test:ops-recovery-authority additionally executes src/tests/wallet/rpc-client-failover.test.ts. The bounded fixture replaces simulated circuit-breaker assertions with the real RpcClient, uses only stubbed fetch endpoints, and adds no dependency, engine, override, real network/database access, runtime mutation path or custody activation surface.",
         "2026-08-15: re-reviewed after test:academy-progress additionally executes src/tests/monthly-league/policy.test.ts. The pure integer-scoring fixture has no network, database or filesystem access, introduces no dependency, engine, override or runtime activation surface, and keeps the league policy in shadow mode.",
         "2026-08-15: re-reviewed after adding academy:daily-repair:assign, arena:league:credentials, arena:league:entitlements and qa:academy-arena-mentor-a11y:check. The first three are explicit operator scripts for governed Academy/Arena completion fixtures; the QA guard is a read-only static evidence check. No dependency, engine, override, release path, network access or runtime activation surface changed, and the file now has 223 lines.",
-        "2026-08-19: re-reviewed after adding test:browser-persistence (node --test scripts/browser-persistence-authority-policy.test.mjs) and composing it into release:check immediately after browser:persistence:check. The new command runs one local node:test suite over the browser-persistence authority guard; it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates plus tests. The file now has 224 lines."
+        "2026-08-19: re-reviewed after adding test:browser-persistence (node --test scripts/browser-persistence-authority-policy.test.mjs) and composing it into release:check immediately after browser:persistence:check. The new command runs one local node:test suite over the browser-persistence authority guard; it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates plus tests. The file now has 224 lines.",
+        "2026-08-19: re-reviewed after adding routes:integrity:check (node scripts/qa-route-check.mjs) and composing it into release:check after ui:public:check. The command is a read-only static guard that indexes the Next.js app router pages and asserts every internal href resolves to a real route (static or dynamic segment); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 225 lines."
       ],
       "findings": [
         {
