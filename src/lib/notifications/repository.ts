@@ -244,6 +244,101 @@ export async function migrateLegacyNotificationsForPrincipal(
     inserted += result.rowCount ?? 0;
   }
 
+  inserted += await drainSecurityNotificationsForPrincipal(client, principal);
+  return inserted;
+}
+
+// Source type and correlation-key prefix under which security_notifications rows
+// (withdrawal blocked, new device, risky withdrawal, 2FA disabled, …) are drained
+// into the governed inbox. Kept as a pure helper so the correlation identity is
+// testable and stable — the drain is idempotent on it.
+export const SECURITY_NOTIFICATION_SOURCE_TYPE = "legacy_security_notification";
+
+export function securityNotificationCorrelationKey(id: string): string {
+  return `legacy:security_notifications:${id}`;
+}
+
+// Deliver persisted security events. security_notifications was written by
+// emitSecurityNotification (fire-and-forget from the withdrawal/security flows)
+// but nothing ever read it, so security-critical alerts were logged and then
+// stranded. Drain the acting account's own rows into platform_notifications —
+// the same governed inbox GET /api/notifications already serves — classified as
+// the mandatory security_critical class, idempotently by correlation key, and
+// mark the source row delivered. Scoped to principal.accountId (the auth user
+// id security_notifications.user_id carries), so it is a no-op for principals
+// with no bound account.
+async function drainSecurityNotificationsForPrincipal(
+  client: PoolClient,
+  principal: NotificationPrincipal,
+): Promise<number> {
+  if (!principal.accountId) return 0;
+
+  const pending = await client.query<{
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    read: boolean;
+    created_at: Date;
+    metadata: Record<string, unknown>;
+  }>(
+    `SELECT s.id, s.type, s.title, s.body, s.read, s.created_at, s.metadata
+       FROM security_notifications AS s
+      WHERE s.user_id = $1
+        AND NOT EXISTS (
+          SELECT 1
+            FROM platform_notifications AS migrated
+           WHERE migrated.tenant_id = $2
+             AND migrated.principal_id = $3::uuid
+             AND migrated.correlation_key =
+                 'legacy:security_notifications:' || s.id
+        )
+      ORDER BY s.created_at DESC, s.id DESC
+      LIMIT $4`,
+    [
+      principal.accountId,
+      principal.tenantId,
+      principal.id,
+      LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE,
+    ],
+  );
+
+  let inserted = 0;
+  for (const item of pending.rows) {
+    const result = await client.query(
+      `INSERT INTO platform_notifications
+        (tenant_id, principal_id, notification_class, source_type, source_id,
+         title, body, locale, action_url, urgency, priority, correlation_key,
+         policy_decision, policy_reason, scheduled_for, read_at, delivered_at,
+         metadata, created_at, updated_at)
+       VALUES
+        ($1, $2, 'security_critical', $3, $4, $5, $6, $7, NULL,
+         'critical', 9, $8, 'allow', 'legacy_migrated',
+         $9, $10, $9, $11::jsonb, $9, $9)
+       ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING`,
+      [
+        principal.tenantId,
+        principal.id,
+        SECURITY_NOTIFICATION_SOURCE_TYPE,
+        item.id,
+        item.title,
+        item.body,
+        principal.locale,
+        securityNotificationCorrelationKey(item.id),
+        item.created_at,
+        item.read ? item.created_at : null,
+        JSON.stringify({ legacyType: item.type, ...(item.metadata ?? {}) }),
+      ],
+    );
+    inserted += result.rowCount ?? 0;
+    // Mark the source row delivered — the semantics its schema documented but
+    // nothing implemented. Idempotent and safe to repeat on replay.
+    await client.query(
+      `UPDATE security_notifications SET delivered = TRUE WHERE id = $1`,
+      [item.id],
+    );
+  }
+
   return inserted;
 }
 
