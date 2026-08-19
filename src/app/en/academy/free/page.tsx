@@ -64,7 +64,7 @@ const modules = [
 
 const internalLinks = [
   ["TecPey Academy", "/en/academy"],
-  ["Curriculum", "/en/academy"],
+  ["Curriculum", "/en/academy/curriculum"],
   ["Security guide", "/en/security"],
   ["Risk simulator", "/en/academy/risk-simulator"],
   ["Free signup", "/en/academy/signup"],
