@@ -16,30 +16,27 @@ const FILENAME = "0085_active_principal_binding_enforcement.sql";
 // This closes that gap at the database. A shared constraint trigger requires an
 // ACTIVE binding at write time, on every table that carries such a foreign key,
 // discovered from the catalog so the family cannot drift. Design choices that
-// keep it from breaking legitimate flows:
+// keep it faithful to the foreign keys it complements:
 //
-//   * It fires IMMEDIATELY (at the end of the writing statement), not deferred to
-//     commit. Enforcing at write time is what the requirement asks for, and it
-//     sidesteps three sharp edges a deferred constraint trigger has: a deferred
-//     event still fires for a row inserted and then deleted in the same
-//     transaction (unlike a referential-integrity key, which is optimised for
-//     that) — the case that matters here, where the academy_students insert
-//     auto-creates a default community profile in the default tenant that
-//     onboarding then deletes and re-homes; a deferred event aborts an entire
-//     batch at commit if any single row is bad; and a pending deferred event
-//     blocks ALTER TABLE. The auto-binding trigger on academy_students runs
-//     before the profile/consent triggers, so by the time any child row is
-//     written its active binding already exists and the immediate check passes.
+//   * It is DEFERRABLE INITIALLY DEFERRED, firing at COMMIT exactly like those
+//     foreign keys. That preserves the deliberate capability, proven by
+//     student-tenant-binding-integrity, of inserting a child row before creating
+//     its binding and committing both together — the binding only has to be
+//     active by commit.
+//   * A deferred trigger, unlike a referential-integrity key, still fires for a
+//     row inserted and then deleted in the same transaction. So the function
+//     first re-checks that the row still exists (by its primary key) and skips it
+//     if not — mirroring the key's optimisation. This is the case that matters in
+//     practice: the academy_students insert auto-creates a default community
+//     profile and scoring consent in the default tenant, which onboarding then
+//     deletes and re-homes to another tenant in the same transaction.
 //   * It fires on INSERT, and on UPDATE only when the binding key actually
 //     changes — mirroring foreign-key re-check semantics. Updating any other
 //     column of an existing row whose binding was later revoked is NOT blocked,
 //     so a revoked principal's records stay administratively editable.
-//   * Existing rows are never re-validated; only new writes are gated. Revoking a
-//     binding does not retroactively reject data already written.
+//   * Existing rows are never re-validated; only new writes are gated.
 //
-// A NULL principal id (e.g. certificate_share_events.student_id after ON DELETE
-// SET NULL) names no principal, so there is nothing to enforce — matching the
-// foreign key's MATCH SIMPLE semantics.
+// A NULL binding-key column is skipped (MATCH SIMPLE), matching the foreign key.
 
 export const ACTIVE_PRINCIPAL_BINDING_ENFORCEMENT_SQL = `
 CREATE OR REPLACE FUNCTION tecpey_require_active_principal_binding()
@@ -53,6 +50,8 @@ DECLARE
   -- student_principal_type/id columns; the rest carry principal_type/id directly.
   v_ptype text := COALESCE(new_row->>'student_principal_type', new_row->>'principal_type');
   v_pid text := COALESCE(new_row->>'student_principal_id', new_row->>'principal_id');
+  pk_predicate text;
+  row_still_present boolean;
 BEGIN
   -- If any binding-key column is NULL the composite foreign key is not enforced
   -- either (MATCH SIMPLE), so there is nothing to check — e.g. a share event whose
@@ -60,6 +59,29 @@ BEGIN
   -- exist during a migration replay.
   IF v_tenant IS NULL OR v_workspace IS NULL OR v_ptype IS NULL OR v_pid IS NULL THEN
     RETURN NULL;
+  END IF;
+
+  -- This trigger is deferred, so it can fire at commit for a row that was inserted
+  -- and then deleted in the same transaction. A referential-integrity key is
+  -- optimised to skip that; mirror it by skipping when the row is no longer
+  -- present under its primary key. Compare each key column typed, so the primary
+  -- key index is used.
+  SELECT string_agg(
+           format('%I = %L::%s', a.attname, new_row->>a.attname,
+                  format_type(a.atttypid, a.atttypmod)),
+           ' AND ')
+    INTO pk_predicate
+    FROM pg_index i
+    JOIN pg_attribute a
+      ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+   WHERE i.indrelid = TG_RELID AND i.indisprimary;
+  IF pk_predicate IS NOT NULL THEN
+    EXECUTE format('SELECT EXISTS (SELECT 1 FROM %s WHERE %s)',
+                   TG_RELID::regclass, pk_predicate)
+       INTO row_still_present;
+    IF NOT row_still_present THEN
+      RETURN NULL;
+    END IF;
   END IF;
 
   -- On UPDATE, only re-validate when the binding key changed, exactly as a
@@ -114,6 +136,7 @@ BEGIN
     EXECUTE format(
       'CREATE CONSTRAINT TRIGGER tecpey_active_binding_guard '
       'AFTER INSERT OR UPDATE ON %s '
+      'DEFERRABLE INITIALLY DEFERRED '
       'FOR EACH ROW EXECUTE FUNCTION tecpey_require_active_principal_binding()',
       child);
   END LOOP;

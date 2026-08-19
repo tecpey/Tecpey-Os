@@ -220,7 +220,50 @@ describe("active principal-binding enforcement (migration 0085)", { skip: !confi
         "SELECT 1 FROM academy_students WHERE id = $1::uuid",
         [studentId],
       );
-      assert.equal(rows.length, 1, "the onboarding insert-then-delete transaction must commit under the immediate guard");
+      assert.equal(rows.length, 1, "the onboarding insert-then-delete transaction must commit under the guard");
+    });
+  });
+
+  it("preserves the deferred capability — a child row inserted before its binding, committed together, is accepted", async () => {
+    await withClient(async (client) => {
+      const studentId = randomUUID();
+      cleanupStudents.add(studentId);
+      await client.query("BEGIN");
+      try {
+        await client.query(
+          `INSERT INTO academy_students (id, locale, display_name)
+             VALUES ($1::uuid, 'fa', 'Deferred Probe') ON CONFLICT (id) DO NOTHING`,
+          [studentId],
+        );
+        // Remove the auto-created default binding so the child row below genuinely
+        // precedes its binding, then re-create it later in the same transaction.
+        await client.query(
+          "DELETE FROM academy_public_profiles WHERE student_id = $1::uuid",
+          [studentId],
+        );
+        await client.query(
+          "DELETE FROM platform_principal_bindings WHERE principal_type = 'student' AND principal_id = $1",
+          [studentId],
+        );
+        // Child row written before its binding exists — the deferred guard must not
+        // fire until commit, by which point the active binding is present.
+        await insertTermProgress(client, studentId, 8);
+        await client.query(
+          `INSERT INTO platform_principal_bindings
+             (tenant_id, workspace_id, principal_type, principal_id, status, source)
+           VALUES ($1, $2, 'student', $3, 'active', 'active-binding-test')`,
+          [TENANT, WORKSPACE, studentId],
+        );
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+      const { rows } = await client.query(
+        "SELECT 1 FROM academy_term_progress WHERE student_id = $1::uuid AND term_number = 8",
+        [studentId],
+      );
+      assert.equal(rows.length, 1, "insert-child-before-binding must still commit under the deferred guard");
     });
   });
 });
