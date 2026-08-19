@@ -172,6 +172,21 @@ export async function migrateLegacyNotificationsForPrincipal(
   client: PoolClient,
   principal: NotificationPrincipal,
 ): Promise<number> {
+  // Two legacy sources are drained into the governed inbox on read, keyed
+  // differently: notification_center by student, security_notifications by
+  // account. A principal may carry either binding (a security-only principal
+  // has no studentId at all), so drain each independently rather than gating
+  // both on the student.
+  let inserted = 0;
+  inserted += await drainNotificationCenterForPrincipal(client, principal);
+  inserted += await drainSecurityNotificationsForPrincipal(client, principal);
+  return inserted;
+}
+
+async function drainNotificationCenterForPrincipal(
+  client: PoolClient,
+  principal: NotificationPrincipal,
+): Promise<number> {
   if (!principal.studentId) return 0;
 
   const legacy = await client.query<{
@@ -244,7 +259,6 @@ export async function migrateLegacyNotificationsForPrincipal(
     inserted += result.rowCount ?? 0;
   }
 
-  inserted += await drainSecurityNotificationsForPrincipal(client, principal);
   return inserted;
 }
 
