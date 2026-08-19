@@ -204,3 +204,19 @@ This pattern should be treated as part of TecPey's living-platform language:
 - Academy and Arena use it to guide progress and current state.
 
 The pattern is not a blanket permission for decorative motion. Every use must remain trust-first, readable, fast, and purposeful.
+
+## 11. Implementation Status
+
+This document describes the full pattern. Only part of it is implemented today.
+Planned surfaces below are aspirational design intent and must not be cited as
+existing product features.
+
+| Surface | Status | Where |
+| --- | --- | --- |
+| Mobile bottom navigation | Shipped | `src/components/tecpey/LivingMobileNavigation.tsx`, mounted on `AcademyStudentDashboardV2`. Exactly one active tab is guaranteed by `src/components/tecpey/living-nav-active.ts` and covered by `src/tests/ui/living-nav-active.test.ts`. |
+| Desktop sidebar active rail | Planned | — |
+| Dashboard / segmented tabs | Planned | — |
+| Mentor & smart-notification pulse | Planned | — |
+
+When a Planned surface is built, move its row to Shipped with its file path and
+test reference, and follow the acceptance criteria and quality bar above.
