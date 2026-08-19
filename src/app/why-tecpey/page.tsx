@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { CheckCircle2, ArrowLeft } from "lucide-react";
 import { ContentHero, ContentShell } from "@/components/content/ContentUI";
@@ -6,7 +7,7 @@ import { ContentHero, ContentShell } from "@/components/content/ContentUI";
 export const metadata: Metadata = {
   title: "چرا تک‌پی؟ | تک‌پی",
   description: "دلایلی که تک‌پی را به یک مسیر قابل اعتماد برای شروع معامله رمزارز تبدیل می‌کند.",
-  alternates: { canonical: "https://tecpey.ir/why-tecpey" },
+  alternates: { canonical: "https://tecpey.ir/why-tecpey", languages: getAlternateLocales("/why-tecpey", "/en/why-tecpey") },
 };
 
 const cards = [

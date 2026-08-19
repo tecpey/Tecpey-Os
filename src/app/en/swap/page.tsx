@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 
 export const metadata: Metadata = {
   title: "Conversion Education — Launch-Gated | TecPey",
   description: "An educational entry page for users who want to review markets and understand crypto conversion before any real-money decision.",
-  alternates: { canonical: "https://tecpey.ir/en/swap" },
+  alternates: { canonical: "https://tecpey.ir/en/swap", languages: getAlternateLocales("/swap", "/en/swap") },
 };
 
 const cards = [

@@ -1,4 +1,5 @@
 import { StructuredData } from "@/components/seo/StructuredData";
+import { getAlternateLocales } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BookOpenCheck, CheckCircle2, ShieldCheck, TrendingUp, WalletCards } from "lucide-react";
@@ -7,7 +8,7 @@ import { ContentHero, ContentShell } from "@/components/content/ContentUI";
 export const metadata: Metadata = {
   title: "راهنمای شروع در تک‌پی | مسیر امن ورود به بازار رمزارز",
   description: "مسیر عملی شروع در تک‌پی: آموزش پایه، امنیت حساب، مشاهده بازار، تمرین تصمیم و ورود مرحله‌ای به معامله.",
-  alternates: { canonical: "https://tecpey.ir/start-guide" },
+  alternates: { canonical: "https://tecpey.ir/start-guide", languages: getAlternateLocales("/start-guide", "/en/start-guide") },
 };
 
 const steps = [

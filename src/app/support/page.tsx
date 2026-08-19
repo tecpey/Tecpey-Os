@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, BookOpenCheck, LifeBuoy, MailCheck, ShieldAlert } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
@@ -7,7 +8,7 @@ import { ContentShell } from "@/components/content/ContentUI";
 export const metadata: Metadata = {
   title: "مرکز پشتیبانی تک‌پی | تک‌پی",
   description: "پشتیبانی فارسی برای حساب، امنیت، کارمزد، بازار و مسیر شروع آگاهانه در تک‌پی.",
-  alternates: { canonical: "https://tecpey.ir/support" },
+  alternates: { canonical: "https://tecpey.ir/support", languages: getAlternateLocales("/support", "/en/support") },
 };
 
 const supportPaths = [

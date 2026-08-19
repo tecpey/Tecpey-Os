@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 
 export const metadata: Metadata = {
   title: "Methodology | TecPey",
   description: "How TecPey structures educational crypto content, FAQs, glossary entries and market guides.",
-  alternates: { canonical: "https://tecpey.ir/en/methodology" },
+  alternates: { canonical: "https://tecpey.ir/en/methodology", languages: getAlternateLocales("/methodology", "/en/methodology") },
 };
 
 const cards = [

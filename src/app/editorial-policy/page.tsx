@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "سیاست انتشار محتوای تک‌پی | تک‌پی",
   description: "تک‌پی برای آموزش رمزارز، امنیت، کارمزدها و راهنمای شروع معامله از اصول شفافیت، بی‌طرفی آموزشی و به‌روزرسانی منظم پیروی می‌کند.",
-  alternates: { canonical: "https://tecpey.ir/editorial-policy" },
+  alternates: { canonical: "https://tecpey.ir/editorial-policy", languages: getAlternateLocales("/editorial-policy", "/en/editorial-policy") },
 };
 
 const sections = [{ title: "محتوای آموزشی، نه وعده سود", body: "محتواهای تک‌پی برای افزایش آگاهی کاربران نوشته می‌شوند و نباید به‌عنوان توصیه مالی قطعی تلقی شوند. هدف ما کمک به تصمیم‌گیری آگاهانه است، نه ایجاد هیجان یا وعده سود." },{ title: "بازبینی و به‌روزرسانی", body: "موضوعات رمزارز سریع تغییر می‌کنند. به همین دلیل صفحات آکادمی، کارمزد، امنیت و رمزارزها باید به‌صورت دوره‌ای بررسی و در صورت نیاز اصلاح شوند." },{ title: "شفافیت در ریسک‌ها", body: "در هر محتوای آموزشی تلاش می‌کنیم علاوه بر مزایا، ریسک‌های بازار، امنیت حساب، شبکه انتقال و تصمیم‌گیری هیجانی را نیز توضیح دهیم." }];

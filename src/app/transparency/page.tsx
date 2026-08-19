@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, BadgeInfo, ReceiptText, Scale, ShieldQuestion } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
@@ -7,7 +8,7 @@ import { ContentShell } from "@/components/content/ContentUI";
 export const metadata: Metadata = {
   title: "شفافیت تک‌پی | تک‌پی",
   description: "شفافیت قیمت، کارمزد، ریسک، قوانین و مسیر پشتیبانی در تک‌پی.",
-  alternates: { canonical: "https://tecpey.ir/transparency" },
+  alternates: { canonical: "https://tecpey.ir/transparency", languages: getAlternateLocales("/transparency", "/en/transparency") },
 };
 
 const transparencyTracks = [

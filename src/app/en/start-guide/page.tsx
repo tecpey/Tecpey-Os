@@ -1,4 +1,5 @@
 import { StructuredData } from "@/components/seo/StructuredData";
+import { getAlternateLocales } from "@/lib/seo";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpenCheck, CheckCircle2, ShieldCheck, TrendingUp, WalletCards } from "lucide-react";
@@ -7,7 +8,7 @@ import { EnglishShell, EnglishHero } from "../components/EnglishUI";
 export const metadata: Metadata = {
   title: "Start guide | TecPey",
   description: "A practical path to start with crypto through education, account security, live markets, decision practice and risk management.",
-  alternates: { canonical: "https://tecpey.ir/en/start-guide" },
+  alternates: { canonical: "https://tecpey.ir/en/start-guide", languages: getAlternateLocales("/start-guide", "/en/start-guide") },
 };
 
 const steps = [
