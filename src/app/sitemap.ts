@@ -12,6 +12,7 @@ const base = "https://tecpey.ir";
 const PAGE_PRIORITIES: Record<string, number> = {
   "": 1.0,
   "/academy": 0.9,
+  "/academy/free": 0.88,
   "/markets": 0.9,
   "/security": 0.85,
   "/learn": 0.8,
@@ -25,10 +26,10 @@ const PAGE_PRIORITIES: Record<string, number> = {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticPaths = [
-    "", "/academy", "/learn", "/price", "/markets", "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide", "/trading-tools", "/crypto-news", "/llms.txt", "/llms-full.txt", "/academy/news-quiz", "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency", "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates", "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program", "/academy/community", "/academy/graduation", "/academy/achievements"
+    "", "/academy", "/academy/free", "/learn", "/price", "/markets", "/coins", "/glossary", "/faq", "/compare", "/security", "/why-tecpey", "/start-guide", "/trading-tools", "/crypto-news", "/llms.txt", "/llms-full.txt", "/academy/news-quiz", "/about", "/contact-us", "/fees", "/rules", "/privacy", "/risk-disclosure", "/transparency", "/methodology", "/editorial-policy", "/support", "/swap", "/academy/certificates", "/academy/hall-of-fame", "/academy/simulator", "/academy/specialized-program", "/academy/community", "/academy/graduation", "/academy/achievements"
   ];
   const englishPaths = [
-    "/en", "/en/academy", "/en/markets", "/en/coins", "/en/glossary", "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey", "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/academy/news-quiz", "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure", "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap", "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners"
+    "/en", "/en/academy", "/en/academy/free", "/en/markets", "/en/coins", "/en/glossary", "/en/faq", "/en/compare", "/en/compare-exchanges", "/en/security", "/en/why-tecpey", "/en/start-guide", "/en/trading-tools", "/en/crypto-news", "/en/academy/news-quiz", "/en/about", "/en/contact-us", "/en/fees", "/en/rules", "/en/privacy", "/en/risk-disclosure", "/en/transparency", "/en/methodology", "/en/editorial-policy", "/en/support", "/en/swap", "/en/business", "/en/careers", "/en/listing", "/en/media", "/en/partners"
   ];
   const traderToolSlugs = getTraderToolSlugs();
   const newsDetailEntries = await getNewsDetailSitemapEntriesFromAuthority();
