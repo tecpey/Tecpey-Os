@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "note": "Single source of truth for forbidden notification copy. Consumed at CI time by scripts/check-notification-copy-safety.mjs (source scan) and at runtime by src/lib/notifications/copy-safety.ts (creation-boundary enforcement). Governance non-negotiable: notification hooks must not promise profit, induce panic, or push reckless trading behavior. Patterns are compiled case-insensitive.",
+  "rules": [
+    {
+      "category": "profit-promise",
+      "reason": "notification copy must not promise or guarantee profit",
+      "patterns": [
+        "سود\\s*تضمین",
+        "تضمین\\s*سود",
+        "سود\\s*قطعی",
+        "سود\\s*صددرصد",
+        "وعده\\s*سود",
+        "بازدهی\\s*تضمین",
+        "guaranteed\\s+(?:profit|return|gain)",
+        "risk[-\\s]?free\\s+(?:profit|return)",
+        "double\\s+your\\s+money"
+      ]
+    },
+    {
+      "category": "fomo-panic",
+      "reason": "notification copy must not induce panic or fear of missing out",
+      "patterns": [
+        "جا\\s*می[‌\\s]?مون",
+        "جا\\s*می[‌\\s]?مان",
+        "جا\\s*نمون",
+        "آخرین\\s*فرصت",
+        "فرصت\\s*آخر",
+        "دیر\\s*نکن",
+        "همین\\s*الان\\s*وارد",
+        "الان\\s*وارد\\s*شو",
+        "منفجر",
+        "last\\s+chance",
+        "act\\s+now",
+        "before\\s+it['’]?s\\s+too\\s+late",
+        "don['’]?t\\s+miss\\s+out"
+      ]
+    },
+    {
+      "category": "trade-signal",
+      "reason": "notification copy must not push buy/sell signals",
+      "patterns": [
+        "سیگنال\\s*خرید",
+        "سیگنال\\s*فروش",
+        "همین\\s*الان\\s*بخر",
+        "الان\\s*بفروش",
+        "\\bbuy\\s+signal",
+        "\\bsell\\s+signal"
+      ]
+    },
+    {
+      "category": "gambling-reckless",
+      "reason": "notification copy must not push reckless / gambling trading behavior",
+      "patterns": [
+        "بترکون",
+        "قمار",
+        "همه[‌\\s]?چی\\s*رو\\s*بذار",
+        "\\ball[-\\s]?in\\b",
+        "go\\s+all[-\\s]?in"
+      ]
+    }
+  ]
+}

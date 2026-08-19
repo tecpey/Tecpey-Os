@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { PoolClient } from "pg";
 import type { NotificationPrincipal } from "./principal";
+import { assertSafeNotificationCopy } from "./copy-safety";
 import { evaluateNotificationPolicy } from "./policy";
 import type {
   NotificationCadence,
@@ -139,6 +140,7 @@ function validateRequest(request: InAppNotificationRequest): void {
   if (request.body.trim().length < 1 || request.body.length > 4000) {
     throw new Error("notification_body_invalid");
   }
+  assertSafeNotificationCopy({ title: request.title, body: request.body });
   if (!validInternalActionUrl(request.actionUrl)) {
     throw new Error("notification_action_url_invalid");
   }
