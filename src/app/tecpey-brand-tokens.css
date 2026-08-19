@@ -256,6 +256,140 @@
   transform: scale(0.98);
 }
 
+.tecpey-living-mobile-nav {
+  pointer-events: none;
+}
+
+.tecpey-living-mobile-nav__bar {
+  position: relative;
+  overflow: hidden;
+  min-height: 4.75rem;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 1.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent 52%),
+    rgba(5, 13, 25, 0.88);
+  box-shadow:
+    0 22px 70px rgba(2, 8, 23, 0.46),
+    0 0 44px rgba(34, 211, 238, 0.10);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  pointer-events: auto;
+}
+
+.tecpey-living-mobile-nav__bar::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.tecpey-living-mobile-nav__items {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-height: 4.75rem;
+}
+
+.tecpey-living-mobile-nav__halo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 220ms var(--tp-ease-out),
+    opacity 160ms var(--tp-ease-out);
+  will-change: transform;
+}
+
+.tecpey-living-mobile-nav__ring {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid rgba(165, 243, 252, 0.58);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(224, 250, 255, 0.28), transparent 45%),
+    rgba(34, 211, 238, 0.08);
+  box-shadow:
+    0 0 0 7px rgba(34, 211, 238, 0.08),
+    0 0 24px rgba(34, 211, 238, 0.38),
+    inset 0 0 18px rgba(34, 211, 238, 0.26);
+}
+
+.tecpey-living-mobile-nav__ring::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.14), transparent 62%);
+  pointer-events: none;
+}
+
+.tecpey-living-mobile-nav__item {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.7rem 0.35rem 0.55rem;
+  color: rgba(226, 232, 240, 0.58);
+  text-decoration: none;
+  transition:
+    color 160ms var(--tp-ease-out),
+    transform 120ms var(--tp-ease-out),
+    opacity 160ms var(--tp-ease-out);
+}
+
+.tecpey-living-mobile-nav__item:active {
+  transform: scale(0.97);
+}
+
+.tecpey-living-mobile-nav__item:focus-visible {
+  outline: 2px solid var(--tp-focus);
+  outline-offset: -0.35rem;
+  border-radius: 1.25rem;
+}
+
+.tecpey-living-mobile-nav__item[data-active="true"] {
+  color: #e0faff;
+}
+
+.tecpey-living-mobile-nav__item[data-active="true"] .tecpey-living-mobile-nav__label {
+  color: #a5f3fc;
+  opacity: 1;
+}
+
+.tecpey-living-mobile-nav__icon {
+  display: grid;
+  place-items: center;
+  min-height: 1.5rem;
+}
+
+.tecpey-living-mobile-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(226, 232, 240, 0.62);
+  font-size: 0.66rem;
+  font-weight: 950;
+  line-height: 1.2;
+  opacity: 0.78;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    color 160ms var(--tp-ease-out),
+    opacity 160ms var(--tp-ease-out);
+}
+
 .tecpey-tabular {
   font-variant-numeric: tabular-nums;
 }
@@ -271,6 +405,10 @@
   .tecpey-card.tecpey-pressable:hover {
     border-color: var(--tp-border-strong);
     box-shadow: var(--tp-shadow-panel);
+  }
+
+  .tecpey-living-mobile-nav__item:hover {
+    color: rgba(224, 250, 255, 0.88);
   }
 }
 
@@ -289,7 +427,10 @@
   .tecpey-action-primary,
   .tecpey-action-secondary,
   .tecpey-action-ghost,
-  .tecpey-motion-reveal {
+  .tecpey-motion-reveal,
+  .tecpey-living-mobile-nav__halo,
+  .tecpey-living-mobile-nav__item,
+  .tecpey-living-mobile-nav__label {
     animation: none;
     transition: none;
   }
@@ -297,7 +438,12 @@
   .tecpey-pressable:active,
   .tecpey-action-primary:active,
   .tecpey-action-secondary:active,
-  .tecpey-action-ghost:active {
+  .tecpey-action-ghost:active,
+  .tecpey-living-mobile-nav__item:active {
     transform: none;
+  }
+
+  .tecpey-living-mobile-nav__halo {
+    opacity: 0;
   }
 }
