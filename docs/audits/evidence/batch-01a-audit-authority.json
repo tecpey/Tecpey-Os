@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-07-30",
+  "reviewedAt": "2026-08-19",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "353b341108faa9b21d9065855de56198fed59fd1",
-      "sha256": "13a6ac26cedd6bcde991eaa0d2fb2f7cadafef33d8dc341475c62c8fedb34932",
-      "lines": 223,
+      "gitObjectId": "825ab15e5c8ba5ea7f4400a4dd79c44b6ccca97b",
+      "sha256": "df00eae5d14c5262b1a0ba83139b964b633bfa78c1cfe300d0994fbf130668b7",
+      "lines": 224,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 223
+          "endLine": 224
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -94,7 +94,8 @@
         "2026-08-15: re-reviewed after test:withdrawal-admission additionally executes src/tests/wallet/provider-ambiguous-rpc-fixtures.test.ts. The change adds one deterministic, fetch-stubbed six-chain unit fixture to an existing release-gated withdrawal test command; it adds no dependency, engine, override, real network/database access, runtime mutation path or custody activation surface.",
         "2026-08-15: re-reviewed after test:ops-recovery-authority additionally executes src/tests/wallet/rpc-client-failover.test.ts. The bounded fixture replaces simulated circuit-breaker assertions with the real RpcClient, uses only stubbed fetch endpoints, and adds no dependency, engine, override, real network/database access, runtime mutation path or custody activation surface.",
         "2026-08-15: re-reviewed after test:academy-progress additionally executes src/tests/monthly-league/policy.test.ts. The pure integer-scoring fixture has no network, database or filesystem access, introduces no dependency, engine, override or runtime activation surface, and keeps the league policy in shadow mode.",
-        "2026-08-15: re-reviewed after adding academy:daily-repair:assign, arena:league:credentials, arena:league:entitlements and qa:academy-arena-mentor-a11y:check. The first three are explicit operator scripts for governed Academy/Arena completion fixtures; the QA guard is a read-only static evidence check. No dependency, engine, override, release path, network access or runtime activation surface changed, and the file now has 223 lines."
+        "2026-08-15: re-reviewed after adding academy:daily-repair:assign, arena:league:credentials, arena:league:entitlements and qa:academy-arena-mentor-a11y:check. The first three are explicit operator scripts for governed Academy/Arena completion fixtures; the QA guard is a read-only static evidence check. No dependency, engine, override, release path, network access or runtime activation surface changed, and the file now has 223 lines.",
+        "2026-08-19: re-reviewed after adding test:browser-persistence (node --test scripts/browser-persistence-authority-policy.test.mjs) and composing it into release:check immediately after browser:persistence:check. The new command runs one local node:test suite over the browser-persistence authority guard; it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates plus tests. The file now has 224 lines."
       ],
       "findings": [
         {
