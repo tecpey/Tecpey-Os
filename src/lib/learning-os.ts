@@ -215,8 +215,8 @@ export async function createSmartNotification(client: Queryable, args: { student
   const body = cleanText(args.body, 500);
   // This is the single write boundary for the automated re-engagement path
   // (the churn "brain", mentor hooks, achievements and campaigns all reach
-  // notification_center through here) and, unlike createInAppNotification, it
-  // does not pass through the governed producer/policy engine — so it must
+  // notification_center through here). Unlike the governed producer/policy
+  // engine, this legacy path does not evaluate notification copy, so it must
   // enforce copy safety itself, or the governance non-negotiable is bypassed
   // for exactly the personalized copy most likely to drift toward FOMO.
   assertSafeNotificationCopy({ title, body });
