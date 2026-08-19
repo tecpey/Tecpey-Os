@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { cleanText } from "@/lib/student-cartax";
+import { assertSafeNotificationCopy } from "@/lib/notifications/copy-safety";
 import { assertRequiredDatabaseTables } from "@/lib/database-schema-contract";
 import { PLATFORM } from "@/lib/platform-config";
 
@@ -210,6 +211,15 @@ export async function recordLearningEvent(client: Queryable, args: { studentId: 
 // drain used to do (migration 0071).
 export async function createSmartNotification(client: Queryable, args: { studentId?: string | null; scope: { tenantId: string; workspaceId: string }; type: NotificationType; title: string; body: string; actionUrl?: string; priority?: number; channels?: NotificationChannel[]; metadata?: Record<string, unknown>; scheduledFor?: string }) {
   const id = randomUUID();
+  const title = cleanText(args.title, 160);
+  const body = cleanText(args.body, 500);
+  // This is the single write boundary for the automated re-engagement path
+  // (the churn "brain", mentor hooks, achievements and campaigns all reach
+  // notification_center through here). Unlike the governed producer/policy
+  // engine, this legacy path does not evaluate notification copy, so it must
+  // enforce copy safety itself, or the governance non-negotiable is bypassed
+  // for exactly the personalized copy most likely to drift toward FOMO.
+  assertSafeNotificationCopy({ title, body });
   await client.query(
     `INSERT INTO notification_center (id, tenant_id, workspace_id, student_id, type, title, body, action_url, priority, channels, metadata, scheduled_for)
      VALUES ($1, $11, $12, $2::uuid, $3, $4, $5, $6, $7, $8::text[], $9::jsonb, COALESCE($10::timestamptz, NOW()))`,
@@ -217,7 +227,7 @@ export async function createSmartNotification(client: Queryable, args: { student
     // with `column "channels" is of type text[] but expression is of type
     // jsonb`, so no notification this codebase produces was ever stored (audit
     // finding F-14). pg adapts a JS array to text[] directly.
-    [id, args.studentId || null, args.type, cleanText(args.title, 160), cleanText(args.body, 500), cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), args.channels || ["in_app"], JSON.stringify(args.metadata || {}), args.scheduledFor || null, args.scope.tenantId, args.scope.workspaceId],
+    [id, args.studentId || null, args.type, title, body, cleanText(args.actionUrl, 260) || null, Math.max(1, Math.min(5, args.priority || 1)), args.channels || ["in_app"], JSON.stringify(args.metadata || {}), args.scheduledFor || null, args.scope.tenantId, args.scope.workspaceId],
   );
   return id;
 }
