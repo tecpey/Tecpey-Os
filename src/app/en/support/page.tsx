@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowRight, BookOpenCheck, LifeBuoy, MailCheck, ShieldAlert } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
@@ -7,7 +8,7 @@ import { EnglishShell } from "../components/EnglishUI";
 export const metadata: Metadata = {
   title: "Support Center | TecPey",
   description: "Official TecPey support paths for account access, security, fees, markets and onboarding questions.",
-  alternates: { canonical: "https://tecpey.ir/en/support" },
+  alternates: { canonical: "https://tecpey.ir/en/support", languages: getAlternateLocales("/support", "/en/support") },
 };
 
 const supportPaths = [

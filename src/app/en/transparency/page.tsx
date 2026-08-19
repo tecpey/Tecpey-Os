@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowRight, BadgeInfo, ReceiptText, Scale, ShieldQuestion } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
@@ -7,7 +8,7 @@ import { EnglishShell } from "../components/EnglishUI";
 export const metadata: Metadata = {
   title: "Transparency | TecPey",
   description: "How TecPey explains pricing, fees, risk, rules and support paths before financial action.",
-  alternates: { canonical: "https://tecpey.ir/en/transparency" },
+  alternates: { canonical: "https://tecpey.ir/en/transparency", languages: getAlternateLocales("/transparency", "/en/transparency") },
 };
 
 const tracks = [

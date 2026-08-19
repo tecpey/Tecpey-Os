@@ -1,5 +1,6 @@
 
 import { ArticleSchema } from "@/components/seo/ArticleSchema";
+import { getAlternateLocales } from "@/lib/seo";
 import type { Metadata } from "next";
 import { comparePages } from "@/data/academy";
 import { ContentHero, ContentShell } from "@/components/content/ContentUI";
@@ -9,7 +10,7 @@ import { Scale, ShieldCheck, BadgePercent, Headphones } from "lucide-react";
 export const metadata: Metadata = {
   title: "مقایسه صرافی‌ها | تک‌پی با نوبیتکس، بیت‌پین و معیارهای انتخاب",
   description: "صفحات مقایسه‌ای تک‌پی برای کمک به انتخاب آگاهانه صرافی ارز دیجیتال؛ تجربه کاربری، کارمزد، امنیت، آموزش و شفافیت.",
-  alternates: { canonical: "https://tecpey.ir/compare" },
+  alternates: { canonical: "https://tecpey.ir/compare", languages: getAlternateLocales("/compare", "/en/compare") },
   keywords: ["مقایسه صرافی ارز دیجیتال", "تک پی و نوبیتکس", "تک پی و بیت پین", "بهترین صرافی ارز دیجیتال"],
 };
 

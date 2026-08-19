@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "روش‌شناسی محتوای تک‌پی | تک‌پی",
   description: "چگونه محتوای آموزشی، صفحات رمزارز، سوالات پرتکرار و مقایسه‌ها در تک‌پی تدوین و ساختاردهی می‌شوند.",
-  alternates: { canonical: "https://tecpey.ir/methodology" },
+  alternates: { canonical: "https://tecpey.ir/methodology", languages: getAlternateLocales("/methodology", "/en/methodology") },
 };
 
 const sections = [{ title: "پاسخ روشن به پرسش‌های واقعی کاربران", body: "در تک‌پی تلاش می‌کنیم پرسش‌های واقعی کاربران را با زبان ساده و شفاف پاسخ دهیم؛ از خرید تتر و امنیت حساب تا کارمزد برداشت و مقایسه صرافی‌ها." },{ title: "ساختار مناسب برای یادگیری و جست‌وجو", body: "محتوا با عنوان روشن، خلاصه کاربردی، بخش‌بندی ساده و سوالات پرتکرار نوشته می‌شود تا کاربر سریع‌تر به پاسخ برسد و مسیر تصمیم‌گیری برایش روشن‌تر شود." },{ title: "لحن انسانی و بدون اغراق", body: "تک‌پی از ادعاهای غیرقابل اثبات مثل بهترین بودن مطلق یا سود قطعی پرهیز می‌کند و به جای آن روی شفافیت، آموزش و تجربه کاربری تمرکز دارد." }];

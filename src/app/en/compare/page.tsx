@@ -1,4 +1,5 @@
 import { ArticleSchema } from "@/components/seo/ArticleSchema";
+import { getAlternateLocales } from "@/lib/seo";
 import type { Metadata } from "next";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredData";
@@ -6,7 +7,7 @@ import { StructuredData, breadcrumbSchema } from "@/components/seo/StructuredDat
 export const metadata: Metadata = {
   title: "Crypto exchange comparisons | TecPey",
   description: "Compare crypto exchanges using clearer criteria: fees, security, support, onboarding, education, transparency and user experience.",
-  alternates: { canonical: "https://tecpey.ir/en/compare" },
+  alternates: { canonical: "https://tecpey.ir/en/compare", languages: getAlternateLocales("/compare", "/en/compare") },
 };
 
 const criteria = [

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "راهنمای آموزشی تبدیل رمزارز | تک‌پی",
   description: "صفحه آموزشی تبدیل رمزارز در تک‌پی؛ مشاهده بازارها، بررسی قیمت‌ها و تمرین بدون ریسک پیش از هر تصمیم پول‌واقعی.",
-  alternates: { canonical: "https://tecpey.ir/swap" },
+  alternates: { canonical: "https://tecpey.ir/swap", languages: getAlternateLocales("/swap", "/en/swap") },
 };
 
 const features = [

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { getAlternateLocales } from "@/lib/seo";
 import { EnglishShell, EnglishHero, EnglishCard } from "../components/EnglishUI";
 
 export const metadata: Metadata = {
   title: "Why TecPey? | Crypto exchange experience",
   description: "Why TecPey focuses on live markets, security, transparent fees, user education and local support.",
-  alternates: { canonical: "https://tecpey.ir/en/why-tecpey" },
+  alternates: { canonical: "https://tecpey.ir/en/why-tecpey", languages: getAlternateLocales("/why-tecpey", "/en/why-tecpey") },
 };
 
 const cards = [
