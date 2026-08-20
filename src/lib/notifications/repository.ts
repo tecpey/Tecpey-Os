@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { Validate } from "../api-validation";
+import { NOTIFICATION_CLASS_POLICIES } from "./policy";
 import type { NotificationPrincipal } from "./principal";
 import type {
   NotificationCadence,
@@ -183,11 +184,44 @@ export async function migrateLegacyNotificationsForPrincipal(
   return inserted;
 }
 
+/**
+ * Whether the principal currently grants marketing consent.
+ *
+ * Reads the same authority the governed creation path evaluates: the latest
+ * `notification_consents` row for the marketing purpose, absent meaning refused.
+ */
+async function hasMarketingConsent(
+  client: PoolClient,
+  principalId: string,
+): Promise<boolean> {
+  const result = await client.query<{ granted: boolean }>(
+    `SELECT COALESCE((
+       SELECT c.status = 'granted'
+         FROM notification_consents c
+        WHERE c.principal_id = $1
+          AND c.purpose = 'marketing'
+        ORDER BY c.event_sequence DESC
+        LIMIT 1
+     ), FALSE) AS granted`,
+    [principalId],
+  );
+  return result.rows[0]?.granted === true;
+}
+
 async function drainNotificationCenterForPrincipal(
   client: PoolClient,
   principal: NotificationPrincipal,
 ): Promise<number> {
   if (!principal.studentId) return 0;
+
+  // marketing_campaign is the only class the policy marks consentRequired, so it
+  // is the platform's single consent gate — and this legacy drain used to walk
+  // straight past it. Every migrated row was stamped policy_decision 'allow' and
+  // given a delivered_at, so a Command Center campaign reached the inbox of a
+  // principal who had never granted marketing consent, with an audit trail
+  // asserting the policy permitted it. Classifying the row as marketing_campaign
+  // made the gap visible; it did not close it.
+  const marketingConsent = await hasMarketingConsent(client, principal.id);
 
   const legacy = await client.query<{
     id: string;
@@ -227,6 +261,21 @@ async function drainNotificationCenterForPrincipal(
 
   let inserted = 0;
   for (const item of legacy.rows) {
+    const notificationClass = classifyLegacyNotification(item.type, item.metadata);
+    const consentBlocked =
+      NOTIFICATION_CLASS_POLICIES[notificationClass].consentRequired && !marketingConsent;
+
+    // Withhold rather than skip. The row is still written so it consumes its
+    // correlation key: skipping would leave it eligible on every later drain,
+    // and a campaign backlog would occupy the batch window indefinitely while
+    // older legitimate notifications never migrated. Written without a
+    // delivered_at it stays out of the inbox, which filters on delivered_at.
+    //
+    // The decision is recorded as 'defer', not 'suppress', only because this
+    // table's CHECK constraint predates the consent gate and admits no
+    // 'suppress' value; the reason column carries the governed vocabulary. That
+    // divergence is a follow-up needing a migration, not a judgement that the
+    // notification may later be delivered without consent.
     const result = await client.query(
       `INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
@@ -236,13 +285,17 @@ async function drainNotificationCenterForPrincipal(
        VALUES
         ($1, $2, $3, 'legacy_notification_center', $4, $5, $6, $7, $8,
          CASE WHEN $9 >= 3 THEN 'high' ELSE 'normal' END,
-         LEAST(10, GREATEST(0, $9)), $10, 'allow', 'legacy_migrated',
-         $11, $12, $14, $13::jsonb, $14, $14)
+         LEAST(10, GREATEST(0, $9)), $10,
+         CASE WHEN $15 THEN 'defer' ELSE 'allow' END,
+         CASE WHEN $15 THEN 'marketing_consent_required' ELSE 'legacy_migrated' END,
+         $11, $12,
+         CASE WHEN $15::boolean THEN NULL::timestamptz ELSE $14::timestamptz END,
+         $13::jsonb, $14, $14)
        ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING`,
       [
         principal.tenantId,
         principal.id,
-        classifyLegacyNotification(item.type, item.metadata),
+        notificationClass,
         item.id,
         item.title,
         item.body,
@@ -254,6 +307,7 @@ async function drainNotificationCenterForPrincipal(
         item.read_at,
         JSON.stringify({ legacyType: item.type, ...(item.metadata ?? {}) }),
         item.created_at,
+        consentBlocked,
       ],
     );
     inserted += result.rowCount ?? 0;
