@@ -156,7 +156,24 @@
 
 ### SB-015 — `stop_limit` Orders Are Accepted, Stored, and Silently Executed as Immediate Limit Orders
 
-**Status: OPEN — confirmed against current code on 2026-08-20.**
+**Status: CLOSED — 2026-08-20, by refusal at the admission boundary.**
+
+- **Resolution:** `validatePlaceOrderRequest` now refuses `stop_limit` before any
+  other check, returning `order_type_unsupported`. The former stop-price
+  validation is deleted rather than left unreachable — validating `stopPrice` and
+  then returning `ok` was the specific behaviour that made the type look
+  supported. The `OrderType` union and the persisted `CHECK` constraint are
+  deliberately unchanged, so implementing real stop activation later does not
+  also have to re-introduce the type and migrate the constraint.
+- **Guard:** `src/tests/trading/stop-order-admission-guard.test.ts` locks the
+  refusal, that it is independent of the supplied stop price, that it precedes
+  the market-inactive and malformed-quantity checks, and that the supported
+  types are still admitted. A final assertion fails if `engine.ts` ever gains a
+  `stopPrice` / `stop_limit` / `stop_price` reference, so whoever builds stop
+  activation is forced to revisit this guard rather than leave it stranded.
+- **Verified load-bearing:** removing the refusal fails 4 of the 6 assertions.
+
+**Original record — Status: OPEN — confirmed against current code on 2026-08-20.**
 
 - **Risk:** Financial safety. `POST /api/orders` is `mutationMode: active` and
   accepts `type: "stop_limit"`. The request is validated *strictly* — `stopPrice`

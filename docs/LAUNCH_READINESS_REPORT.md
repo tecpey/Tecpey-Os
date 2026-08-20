@@ -45,7 +45,7 @@ Estimated time to launch readiness: **2-4 sprints** (Phase 39.6 + Phase 40 + Pha
 > | Performance ❌ "Not measured" | **Superseded.** A Core Web Vitals and route-budget contract is registered (`PERF-001`, `EVIDENCE_READY`); the category stands at 67%. | `config/enterprise-global-product-readiness.json` |
 > | Tron provider ❌ "Broken" | **Superseded by scope, not fixed.** There is no Tron provider; the registry ships Bitcoin, Ethereum and Solana. Tron is simply not offered. | `src/lib/wallet/providers/` |
 > | Contact forms ❌ "mailto only" | **Still accurate.** Tracked as SB-013. | `src/app/contact-us/page.tsx` |
-> | Stop-limit ❌ "Accepted but not implemented" | **Still accurate, and worse than described.** Such orders are accepted, validated, persisted, and then executed as immediate GTC limit orders with the stop condition discarded. Now tracked as **SB-015**. | `docs/SECURITY_BLOCKERS.md` → SB-015 |
+> | Stop-limit ❌ "Accepted but not implemented" | **Was accurate and worse than described — now closed.** Such orders were accepted, validated, persisted, then executed as immediate GTC limit orders with the stop condition discarded. Admission now refuses `stop_limit` with `order_type_unsupported`, guarded by tests. Tracked as **SB-015**. | `docs/SECURITY_BLOCKERS.md` → SB-015; `src/lib/trading/validation.ts` |
 >
 > ### Section 2 pass rate is obsolete
 >

@@ -31,10 +31,32 @@ export function validateMarketActive(market: Market): ValidationResult {
   return { ok: true };
 }
 
+// SB-015. `stop_limit` is a declared order type — it is in the OrderType union
+// and in the persisted CHECK constraint — but no trigger engine exists. The
+// matching engine never reads `stopPrice`: it derives
+// `isGTC = !isMarket && !isFOK && !isIOC`, which is true for a stop order, so
+// such an order would rest on the book immediately live at its limit price with
+// the stop condition silently discarded. For a protective stop that inverts the
+// user's intent, so admission must refuse it rather than accept it and behave
+// differently. The type is deliberately left in place: closing this means
+// building real stop activation, and that work should not also have to
+// re-introduce the type and migrate the constraint.
+function stopOrdersAreUnsupported(type: OrderType): boolean {
+  return type === "stop_limit";
+}
+
 export function validatePlaceOrderRequest(
   request: PlaceOrderRequest,
   market: Market,
 ): ValidationResult {
+  if (stopOrdersAreUnsupported(request.type)) {
+    return {
+      ok: false,
+      error: "order_type_unsupported",
+      detail: "stop_limit orders are not supported: no stop trigger engine exists",
+    };
+  }
+
   const marketCheck = validateMarketActive(market);
   if (!marketCheck.ok) return marketCheck;
 
@@ -110,20 +132,10 @@ export function validatePlaceOrderRequest(
     }
   }
 
-  if (request.type === "stop_limit") {
-    if (!request.stopPrice) {
-      return { ok: false, error: "stop_price_required", detail: "stopPrice is required for stop_limit orders" };
-    }
-    const stopPrice = parsePositiveOrderDecimal(request.stopPrice);
-    if (!stopPrice) return { ok: false, error: "invalid_stop_price" };
-    if (stopPrice.decimalPlaces() > market.pricePrecision) {
-      return { ok: false, error: "stop_price_precision_violation" };
-    }
-    const tick = parsePositiveOrderDecimal(market.tickSize);
-    if (!tick || !isExactIncrement(stopPrice, tick)) {
-      return { ok: false, error: "stop_price_tick_size_violation" };
-    }
-  }
+  // The former stop-price validation lived here. It is intentionally gone: it
+  // validated stopPrice for precision and tick size and then returned ok, which
+  // is what made the silent fallthrough convincing to a caller. Stop orders are
+  // now refused above, so reaching this point with one is impossible.
 
   return { ok: true };
 }
