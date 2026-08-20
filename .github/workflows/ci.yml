@@ -452,6 +452,9 @@ jobs:
       - name: Controlled launch decision authority guard
         run: npm run launch:decision:check
 
+      - name: Platform red-team code closure guard
+        run: npm run platform:redteam:closure:check
+
       - name: Enterprise global product readiness guard
         run: npm run product:global-readiness:check
 
