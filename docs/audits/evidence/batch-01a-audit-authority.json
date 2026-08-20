@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "5df0f45288b12339f1ce301501a41e98dbf0e6ac",
-      "sha256": "ba6e7a69e732e7306d60bb3218e58d1823c49cdfa6977984dbde12927720ccf8",
-      "lines": 227,
+      "gitObjectId": "63d294127cc8300489df2175210b90eeebc75f75",
+      "sha256": "364a31c5e180b30fd9d232524992fa57a4f4db88f8e2fee4a26f4037410d81ec",
+      "lines": 229,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 227
+          "endLine": 229
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -98,7 +98,8 @@
         "2026-08-19: re-reviewed after adding test:browser-persistence (node --test scripts/browser-persistence-authority-policy.test.mjs) and composing it into release:check immediately after browser:persistence:check. The new command runs one local node:test suite over the browser-persistence authority guard; it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates plus tests. The file now has 224 lines.",
         "2026-08-19: re-reviewed after adding routes:integrity:check (node scripts/qa-route-check.mjs) and composing it into release:check after ui:public:check. The command is a read-only static guard that indexes the Next.js app router pages and asserts every internal href resolves to a real route (static or dynamic segment); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 225 lines.",
         "2026-08-19: re-reviewed after adding notifications:copy-safety:check (node scripts/check-notification-copy-safety.mjs) and composing it into release:check immediately after notifications:domain:check. The command is a read-only static guard that scans the notification engine and re-engagement brain copy string/template literals for profit-promise, FOMO/panic, buy/sell-signal and gambling language (governance non-negotiable); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 226 lines.",
-        "2026-08-20: re-reviewed after adding product:global-readiness:check and wiring it into release:check. The new command runs a local read-only registry validator plus node:test negative coverage for the enterprise/global readiness baseline; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path. CI gains the same read-only guard after launch:decision:check, while existing route-integrity, browser-persistence and notification copy-safety gates remain preserved."
+        "2026-08-20: re-reviewed after adding product:global-readiness:check and wiring it into release:check. The new command runs a local read-only registry validator plus node:test negative coverage for the enterprise/global readiness baseline; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path. CI gains the same read-only guard after launch:decision:check, while existing route-integrity, browser-persistence and notification copy-safety gates remain preserved.",
+        "2026-08-20: re-reviewed after adding wallet:precision:check and test:wallet-precision, then composing both into release:check. The new guard is a local static source scan over wallet/provider financial amount handling, and the test command runs focused wallet precision fixtures; neither adds dependency, engine, override, network access, external provider execution, custody activation surface, real-money withdrawal enablement or runtime mutation path."
       ],
       "findings": [
         {
