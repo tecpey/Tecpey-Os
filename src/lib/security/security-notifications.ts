@@ -115,6 +115,20 @@ export function notifyNewDevice(userId: string, opts: {
   });
 }
 
+export function notifyTwoFactorDisabled(userId: string, opts: {
+  adminOverride: boolean;
+}): void {
+  emitSecurityNotification({
+    userId,
+    type: "2fa_disabled",
+    title: "Two-Factor Authentication Disabled",
+    body: opts.adminOverride
+      ? `Two-factor authentication on your account was disabled by an administrator. If you did not expect this, contact support and secure your account.`
+      : `Two-factor authentication on your account was disabled. If this was not you, secure your account immediately and re-enable two-factor authentication.`,
+    metadata: opts,
+  });
+}
+
 export function notifyRiskyWithdrawal(userId: string, opts: {
   withdrawalId: string; reason: string; asset: string; amount: string;
 }): void {
