@@ -502,6 +502,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 10,
     classificationRule: "product-ui",
   });
+  assert.deepEqual(classifyDomain("src/lib/organic-growth-automation.ts"), {
+    domain: "product-ui",
+    riskTier: "P2",
+    reviewBatch: 10,
+    classificationRule: "product-ui",
+  });
   assert.equal(classifyDomain("src/components/Button.tsx").reviewBatch, 10);
   assert.equal(classifyDomain("src/hooks/useLiveTicker.ts").reviewBatch, 10);
   assert.equal(classifyDomain("src/i18n/messages/fa.json").reviewBatch, 10);

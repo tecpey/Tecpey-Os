@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01a-audit-authority",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-19",
+  "reviewedAt": "2026-08-20",
   "reviewMethod": "Complete line-by-line semantic review of the deterministic repository-audit authority, including Git-object data flow, exact-head binding, fail-closed behavior, workflow permissions, action pinning, negative-test adequacy and completion-claim boundaries.",
   "residualRisks": [
     {
@@ -253,8 +253,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "f9c9d02258eaba76d0e8ee66cf2cdfdecc6a2fd7",
-      "sha256": "0a94a1bf47ef0d585d2ff35bcf992739763043f9f6fd0dff6db2e22dab6544ad",
+      "gitObjectId": "ffc20298056f2da1acb38c946f823eb4bb837d17",
+      "sha256": "e4731f8177ab210ed6eb1e29f230ff9ce6e2656b3de01423384946514fd9ece2",
       "lines": 283,
       "reviewedRanges": [
         {
@@ -272,7 +272,8 @@
         "2026-08-12: re-reviewed after Policy v13 added explicit product-ui routing for src/lib/news-provider-readiness.ts. The change is limited to one provider-readiness source classification and the policy version constant; source-path fail-closed behavior remains intact, no live provider access, credentials, or runtime enablement is introduced, and focused content tests cover ready/degraded/blocked provider states.",
         "2026-08-13: re-reviewed after Policy v14 added explicit routing for the two libraries introduced by the 2026-08-12 audit hardening. src/lib/degraded-read.ts joins operations-runtime Batch 11 alongside logger, metrics and observe because it is part of the observability signal path. src/lib/json-ld.ts joins authentication-admin-security Batch 3 alongside api-validation rather than product-ui: it renders as SEO markup, but it is the output encoder standing between schema data and dangerouslySetInnerHTML, so a regression in it is a stored-XSS vector and P1 is the truthful tier. The change is limited to two classification entries and the policy version constant; the source-path fail-closed invariant is untouched, no ordering between existing rules changed, and both new classifications are asserted in scripts/repository-audit-manifest.test.mjs.",
         "2026-08-15: re-reviewed after Policy v15 explicitly classified src/lib/public-credential-verification-id.ts as Academy Batch 4. The helper contains only bounded identifier validation, domain-separated public fingerprint derivation and canonical verification-path construction; it introduces no persistence, network, mutation or private evidence surface. Source-path fail-closed behavior and rule ordering remain unchanged.",
-        "2026-08-15: re-reviewed after Policy v16 explicitly classified src/lib/c-level-control-authority.ts as authentication-admin-security Batch 3. The helper governs C-level orchestration authority and must stay with admin/security audit evidence; source-path fail-closed behavior and existing rule ordering are preserved, and no runtime activation surface is added."
+        "2026-08-15: re-reviewed after Policy v16 explicitly classified src/lib/c-level-control-authority.ts as authentication-admin-security Batch 3. The helper governs C-level orchestration authority and must stay with admin/security audit evidence; source-path fail-closed behavior and existing rule ordering are preserved, and no runtime activation surface is added.",
+        "2026-08-20: re-reviewed after Policy v17 explicitly classified src/lib/organic-growth-automation.ts as product-ui Batch 10 beside the governed coin, news and tool growth automation modules. The helper is a pure SEO/AEO/GEO evidence-profile contract, adds no network access, persistence, financial activation surface or exchange execution path, preserves source-path fail-closed behavior, and is covered by repository-audit classification tests."
       ],
       "findings": []
     },
