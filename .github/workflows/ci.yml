@@ -335,6 +335,12 @@ jobs:
       - name: Wallet authority boundary guard
         run: node scripts/check-wallet-authority.mjs
 
+      - name: Wallet amount precision guard
+        run: npm run wallet:precision:check
+
+      - name: Wallet amount precision tests
+        run: npm run test:wallet-precision
+
       - name: Database migration authority guard
         run: npm run migrations:check
 

@@ -1,7 +1,27 @@
 // Fee Calculation Tests — Phase 38
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { getEthereumGasForTransfer } from "../../lib/wallet/fee/engine";
+import { estimateFee, getEthereumGasForTransfer } from "../../lib/wallet/fee/engine";
+
+const originalFetch = globalThis.fetch;
+const originalBtcRpcUrl = process.env.BTC_RPC_URL_1;
+
+before(() => {
+  process.env.BTC_RPC_URL_1 = "https://rpc-fixture.test/bitcoin";
+  globalThis.fetch = async (_input, init) => {
+    const payload = JSON.parse(String(init?.body)) as { method: string };
+    if (payload.method === "estimatesmartfee") {
+      return Response.json({ jsonrpc: "2.0", id: 1, result: { feerate: 0.0001 } });
+    }
+    throw new Error(`unexpected_rpc_method:${payload.method}`);
+  };
+});
+
+after(() => {
+  globalThis.fetch = originalFetch;
+  if (originalBtcRpcUrl === undefined) delete process.env.BTC_RPC_URL_1;
+  else process.env.BTC_RPC_URL_1 = originalBtcRpcUrl;
+});
 
 describe("Ethereum gas estimation", () => {
   it("returns 21000 for native ETH transfer", () => {
@@ -24,5 +44,15 @@ describe("Fee cache keys", () => {
 
   it("is distinct for different speeds", () => {
     assert.notEqual("bitcoin:economy", "bitcoin:priority");
+  });
+});
+
+describe("Bitcoin fee estimation", () => {
+  it("converts Bitcoin Core BTC/kB feerate into sats/vByte without floating point drift", async () => {
+    const estimate = await estimateFee("bitcoin", "normal");
+
+    assert.equal(estimate.details.satsPerVByte, "10");
+    assert.equal(estimate.details.totalSats, "1410");
+    assert.equal(estimate.networkFee, "0.00001410");
   });
 });

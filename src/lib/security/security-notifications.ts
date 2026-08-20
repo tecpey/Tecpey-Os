@@ -6,6 +6,7 @@
 
 import { withDb } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { toFixed } from "@/lib/trading/decimal";
 
 export type SecurityNotificationType =
   | "withdrawal_requested"
@@ -56,13 +57,14 @@ export function emitSecurityNotification(n: SecurityNotification): void {
 // ── Pre-built notification factories ─────────────────────────────────────────
 
 export function notifyWithdrawalRequested(userId: string, opts: {
-  withdrawalId: string; asset: string; amount: string; amountUsd: number; network: string;
+  withdrawalId: string; asset: string; amount: string; amountUsd: string; network: string;
 }): void {
+  const amountUsd = toFixed(opts.amountUsd, 2);
   emitSecurityNotification({
     userId,
     type: "withdrawal_requested",
     title: "Withdrawal Request Submitted",
-    body: `Your request to withdraw ${opts.amount} ${opts.asset} (~$${opts.amountUsd.toFixed(2)} USD) has been submitted and is under review.`,
+    body: `Your request to withdraw ${opts.amount} ${opts.asset} (~$${amountUsd} USD) has been submitted and is under review.`,
     metadata: opts,
   });
 }

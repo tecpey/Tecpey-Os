@@ -18,6 +18,7 @@ import type {
 import { getRpcClient } from "../rpc/client";
 import { estimateFee, getEthereumGasForTransfer } from "../fee/engine";
 import { validateAddress } from "../address/validator";
+import { formatAtomicUnits, parseAtomicOrDecimalAmountInput } from "../amount";
 
 // ── RLP Encoding ──────────────────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ export class EthereumProvider implements WalletProvider {
 
     const signingHash = await keccak256(unsignedTx);
     const networkFeeWei = maxFeeWei * gasLimit;
-    const networkFeeEth = (Number(networkFeeWei) / 1e18).toFixed(8);
+    const networkFeeEth = formatAtomicUnits(networkFeeWei, 18, 8);
 
     await saveNonce(input.fromAddress, this.chainId, nonce);
 
@@ -366,13 +367,7 @@ function rlpEncodeListRaw(encodedItems: Buffer[]): Buffer {
 
 function parseEthAmount(amount: string, tokenContract?: string): bigint {
   if (tokenContract) return BigInt(amount);
-  if (amount.includes(".")) {
-    const parts = amount.split(".");
-    const whole = BigInt(parts[0]) * BigInt("1000000000000000000");
-    const fraction = parts[1].padEnd(18, "0").slice(0, 18);
-    return whole + BigInt(fraction);
-  }
-  return BigInt(amount);
+  return parseAtomicOrDecimalAmountInput(amount, 18);
 }
 
 // ── EVM Variants ──────────────────────────────────────────────────────────────

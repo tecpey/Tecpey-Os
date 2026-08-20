@@ -4,6 +4,7 @@
 
 import { getRpcClient } from "../rpc/client";
 import type { ChainId, FeeConfig, FeeEstimate, FeeSpeed } from "../types";
+import { ceilDiv, formatAtomicUnits, multiplyByBasisPointsCeil, parseDecimalToAtomicUnits } from "../amount";
 
 const CACHE_TTL: Record<FeeSpeed, number> = {
   economy: 60_000,
@@ -31,13 +32,13 @@ function getCached(chainId: ChainId, speed: FeeSpeed): FeeEstimate | null {
 
 // ── Bitcoin ───────────────────────────────────────────────────────────────────
 
-const BTC_SPEED_MULTIPLIERS: Record<FeeSpeed, number> = {
-  economy: 0.5, normal: 1.0, fast: 1.5, priority: 2.5,
+const BTC_SPEED_MULTIPLIERS_BPS: Record<FeeSpeed, bigint> = {
+  economy: BigInt(5_000), normal: BigInt(10_000), fast: BigInt(15_000), priority: BigInt(25_000),
 };
 
 async function estimateBitcoinFee(speed: FeeSpeed, _config?: FeeConfig): Promise<FeeEstimate> {
   const rpc = getRpcClient("bitcoin");
-  let satsPerVByte = 10;
+  let satsPerVByte = BigInt(10);
 
   try {
     const blockTargets: Record<FeeSpeed, number> = {
@@ -46,15 +47,19 @@ async function estimateBitcoinFee(speed: FeeSpeed, _config?: FeeConfig): Promise
     type SmartFeeResult = { feerate?: number; errors?: string[] };
     const result = await rpc.call<SmartFeeResult>("estimatesmartfee", [blockTargets[speed]]);
     if (result.feerate) {
-      satsPerVByte = Math.ceil(result.feerate * 100_000 / 1024) * BTC_SPEED_MULTIPLIERS[speed];
+      const satsPerKvByte = parseDecimalToAtomicUnits(String(result.feerate), 8);
+      satsPerVByte = multiplyByBasisPointsCeil(
+        ceilDiv(satsPerKvByte, BigInt(1_024)),
+        BTC_SPEED_MULTIPLIERS_BPS[speed],
+      );
     }
   } catch {
-    satsPerVByte = 10 * BTC_SPEED_MULTIPLIERS[speed];
+    satsPerVByte = multiplyByBasisPointsCeil(BigInt(10), BTC_SPEED_MULTIPLIERS_BPS[speed]);
   }
 
-  const typicalVBytes = 141;
-  const networkFeeSats = Math.ceil(satsPerVByte * typicalVBytes);
-  const networkFeeBtc = (networkFeeSats / 1e8).toFixed(8);
+  const typicalVBytes = BigInt(141);
+  const networkFeeSats = satsPerVByte * typicalVBytes;
+  const networkFeeBtc = formatAtomicUnits(networkFeeSats, 8, 8);
 
   return {
     chainId: "bitcoin",
@@ -72,8 +77,8 @@ async function estimateBitcoinFee(speed: FeeSpeed, _config?: FeeConfig): Promise
 
 // ── Ethereum EIP-1559 ─────────────────────────────────────────────────────────
 
-const ETH_PRIORITY_MULTIPLIERS: Record<FeeSpeed, number> = {
-  economy: 0.5, normal: 1.0, fast: 1.5, priority: 2.5,
+const ETH_PRIORITY_MULTIPLIERS_BPS: Record<FeeSpeed, bigint> = {
+  economy: BigInt(5_000), normal: BigInt(10_000), fast: BigInt(15_000), priority: BigInt(25_000),
 };
 
 async function estimateEthereumFee(chainId: ChainId, speed: FeeSpeed): Promise<FeeEstimate> {
@@ -98,12 +103,11 @@ async function estimateEthereumFee(chainId: ChainId, speed: FeeSpeed): Promise<F
     maxPriorityFeeGwei = BigInt(2);
   }
 
-  const multiplier = ETH_PRIORITY_MULTIPLIERS[speed];
-  const adjustedPriorityGwei = BigInt(Math.ceil(Number(maxPriorityFeeGwei) * multiplier));
+  const adjustedPriorityGwei = multiplyByBasisPointsCeil(maxPriorityFeeGwei, ETH_PRIORITY_MULTIPLIERS_BPS[speed]);
   const maxFeeGwei = baseFeeGwei * BigInt(2) + adjustedPriorityGwei;
   const gasLimit = BigInt(21_000);
   const networkFeeWei = maxFeeGwei * gasLimit * BigInt(1_000_000_000);
-  const networkFeeEth = (Number(networkFeeWei) / 1e18).toFixed(8);
+  const networkFeeEth = formatAtomicUnits(networkFeeWei, 18, 8);
 
   return {
     chainId,
@@ -124,26 +128,26 @@ async function estimateEthereumFee(chainId: ChainId, speed: FeeSpeed): Promise<F
 
 async function estimateSolanaFee(speed: FeeSpeed): Promise<FeeEstimate> {
   const rpc = getRpcClient("solana");
-  let microLamportsPerCU = 1_000;
+  let microLamportsPerCU = BigInt(1_000);
 
   try {
     const result = await rpc.call<unknown>("getRecentPrioritizationFees", []);
     if (Array.isArray(result) && result.length > 0) {
-      const fees = (result as Array<{ prioritizationFee: number }>)
-        .map((r) => r.prioritizationFee)
-        .sort((a, b) => a - b);
+      const fees = (result as Array<{ prioritizationFee: number | string }>)
+        .map((r) => BigInt(String(r.prioritizationFee)))
+        .sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
       const idx = Math.floor(fees.length * (speed === "economy" ? 0.25 : speed === "normal" ? 0.5 : 0.75));
-      microLamportsPerCU = fees[idx] ?? 1_000;
+      microLamportsPerCU = fees[idx] ?? BigInt(1_000);
     }
   } catch {
-    microLamportsPerCU = 1_000;
+    microLamportsPerCU = BigInt(1_000);
   }
 
   const computeUnits = 200_000;
   const baseFeelamports = 5_000;
-  const priorityFeeLamports = Math.ceil(microLamportsPerCU * computeUnits / 1_000_000);
-  const totalLamports = baseFeelamports + priorityFeeLamports;
-  const networkFeeSol = (totalLamports / 1e9).toFixed(9);
+  const priorityFeeLamports = ceilDiv(microLamportsPerCU * BigInt(computeUnits), BigInt(1_000_000));
+  const totalLamports = BigInt(baseFeelamports) + priorityFeeLamports;
+  const networkFeeSol = formatAtomicUnits(totalLamports, 9, 9);
 
   return {
     chainId: "solana",

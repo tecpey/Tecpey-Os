@@ -22,7 +22,7 @@ describe("UTXO selection (largest-first)", () => {
       makeUtxo("bbb", BigInt(10_000)),
       makeUtxo("ccc", BigInt(100_000)),
     ];
-    const result = selectUTXOs(utxos, BigInt(20_000), 10);
+    const result = selectUTXOs(utxos, BigInt(20_000), "10");
     assert.ok(result !== null);
     assert.equal(result.inputs.length, 1);
     assert.equal(result.inputs[0].txid, "ccc");
@@ -34,14 +34,14 @@ describe("UTXO selection (largest-first)", () => {
       makeUtxo("b", BigInt(30_000)),
       makeUtxo("c", BigInt(30_000)),
     ];
-    const result = selectUTXOs(utxos, BigInt(70_000), 5);
+    const result = selectUTXOs(utxos, BigInt(70_000), "5");
     assert.ok(result !== null);
     assert.equal(result.inputs.length, 3);
   });
 
   it("returns null when insufficient funds", () => {
     const utxos = [makeUtxo("a", BigInt(1_000))];
-    const result = selectUTXOs(utxos, BigInt(50_000), 10);
+    const result = selectUTXOs(utxos, BigInt(50_000), "10");
     assert.equal(result, null);
   });
 
@@ -50,7 +50,7 @@ describe("UTXO selection (largest-first)", () => {
       makeUtxo("dust", BigInt(500)),
       makeUtxo("ok", BigInt(100_000)),
     ];
-    const result = selectUTXOs(utxos, BigInt(10_000), 5);
+    const result = selectUTXOs(utxos, BigInt(10_000), "5");
     assert.ok(result !== null);
     assert.equal(result.inputs.length, 1);
     assert.equal(result.inputs[0].txid, "ok");
@@ -58,7 +58,7 @@ describe("UTXO selection (largest-first)", () => {
 
   it("calculates fee in expected range (sats/vByte × vBytes)", () => {
     const utxos = [makeUtxo("a", BigInt(200_000))];
-    const result = selectUTXOs(utxos, BigInt(100_000), 10);
+    const result = selectUTXOs(utxos, BigInt(100_000), "10");
     assert.ok(result !== null);
     assert.ok(result.fee > BigInt(1_000) && result.fee < BigInt(2_000), `fee=${result.fee}`);
   });
@@ -67,14 +67,14 @@ describe("UTXO selection (largest-first)", () => {
     // fee for 1-in/2-out at 10 sat/vByte ≈ 1420 sats
     // input 101_500 → change = 101_500 - 100_000 - 1420 = 80 sats (dust < 546)
     const utxos = [makeUtxo("a", BigInt(101_500))];
-    const result = selectUTXOs(utxos, BigInt(100_000), 10);
+    const result = selectUTXOs(utxos, BigInt(100_000), "10");
     assert.ok(result !== null, "should find sufficient UTXO");
     assert.equal(result.change, BigInt(0), "dust should be added to fee");
   });
 
   it("totalInput == fee + target + change", () => {
     const utxos = [makeUtxo("a", BigInt(200_000))];
-    const result = selectUTXOs(utxos, BigInt(50_000), 5);
+    const result = selectUTXOs(utxos, BigInt(50_000), "5");
     assert.ok(result !== null);
     assert.equal(
       result.totalInput,
