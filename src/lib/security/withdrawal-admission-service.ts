@@ -500,7 +500,7 @@ export async function createAuthoritativeWithdrawal(
       withdrawalId: withdrawal.id,
       asset: command.asset,
       amount: command.amount,
-      amountUsd: Number(valuation.evidence.amountUsd),
+      amountUsd: valuation.evidence.amountUsd,
       network: command.network,
     });
     if (withdrawal.state === "compliance_review") {

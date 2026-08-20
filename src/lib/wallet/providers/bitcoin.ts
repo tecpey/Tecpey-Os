@@ -19,6 +19,12 @@ import type {
 } from "../types";
 import { getRpcClient } from "../rpc/client";
 import { estimateFee } from "../fee/engine";
+import {
+  ceilDiv,
+  formatAtomicUnits,
+  parseAtomicOrDecimalAmountInput,
+  parseDecimalToAtomicUnits,
+} from "../amount";
 
 const DUST_THRESHOLD_SATS = BigInt(546);
 
@@ -27,7 +33,7 @@ const DUST_THRESHOLD_SATS = BigInt(546);
 export function selectUTXOs(
   utxos: UTXO[],
   targetSats: bigint,
-  feeSatsPerVByte: number,
+  feeSatsPerVByte: string,
 ): UTXOSelection | null {
   const sorted = [...utxos].sort((a, b) => {
     if (b.value > a.value) return 1;
@@ -56,11 +62,12 @@ export function selectUTXOs(
 }
 
 // P2WPKH vBytes = base + witness/4
-function estimateTxFee(inputCount: number, outputCount: number, satsPerVByte: number): bigint {
+function estimateTxFee(inputCount: number, outputCount: number, satsPerVByte: string): bigint {
   const baseBytes = 4 + 2 + 1 + (41 * inputCount) + 1 + (31 * outputCount) + 4;
   const witnessBytes = 108 * inputCount;
-  const vBytes = Math.ceil(baseBytes + witnessBytes / 4);
-  return BigInt(Math.ceil(vBytes * satsPerVByte));
+  const vBytes = BigInt(Math.ceil(baseBytes + witnessBytes / 4));
+  const satsPerVByteMillis = parseDecimalToAtomicUnits(satsPerVByte, 3);
+  return ceilDiv(vBytes * satsPerVByteMillis, BigInt(1_000));
 }
 
 // ── Serialization ─────────────────────────────────────────────────────────────
@@ -233,7 +240,7 @@ export class BitcoinProvider implements WalletProvider {
 
     type ListUnspentResult = Array<{
       txid: string; vout: number; address: string;
-      amount: number; confirmations: number; scriptPubKey: string;
+      amount: number | string; confirmations: number; scriptPubKey: string;
     }>;
     const utxoList = await rpc.call<ListUnspentResult>("listunspent", [
       1, 9999999, [input.fromAddress],
@@ -242,7 +249,7 @@ export class BitcoinProvider implements WalletProvider {
     const utxos: UTXO[] = utxoList.map((u) => ({
       txid: u.txid,
       vout: u.vout,
-      value: BigInt(Math.round(u.amount * 1e8)),
+      value: parseDecimalToAtomicUnits(String(u.amount), 8),
       scriptPubKey: Buffer.from(u.scriptPubKey, "hex"),
       address: u.address,
       confirmations: u.confirmations,
@@ -250,7 +257,7 @@ export class BitcoinProvider implements WalletProvider {
 
     const targetSats = parseBtcAmount(input.amount);
     const feeEstimate = await this.estimateFee(input);
-    const satsPerVByte = parseFloat(String(feeEstimate.details.satsPerVByte)) || 10;
+    const satsPerVByte = feeEstimate.details.satsPerVByte ?? "10";
 
     const selection = selectUTXOs(utxos, targetSats, satsPerVByte);
     if (!selection) {
@@ -281,7 +288,7 @@ export class BitcoinProvider implements WalletProvider {
       unsignedTx,
       signingHash: sigHash,
       fromAddress: input.fromAddress,
-      fee: (Number(selection.fee) / 1e8).toFixed(8),
+      fee: formatAtomicUnits(selection.fee, 8, 8),
       feeCurrency: "BTC",
       estimatedConfirmationSeconds: 600,
       utxos: selection.inputs,
@@ -373,8 +380,7 @@ function compactToDer(compact: Buffer): Buffer {
 }
 
 function parseBtcAmount(amount: string): bigint {
-  if (amount.includes(".")) return BigInt(Math.round(parseFloat(amount) * 1e8));
-  return BigInt(amount);
+  return parseAtomicOrDecimalAmountInput(amount, 8);
 }
 
 function compressPublicKey(uncompressed: Buffer): Buffer {
