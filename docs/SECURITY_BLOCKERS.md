@@ -187,9 +187,15 @@
   example, "sell only if the price falls to X") receives an order that is live
   right now. The strict validation of `stopPrice` actively signals that the order
   type is supported, which makes silent misbehaviour more likely to be trusted.
-- **Current exposure:** contained, not fixed. Real-money Exchange activation is
-  launch-disabled (`FIN-001`), so no user can reach this path today. The defect
-  is live in code and becomes user-facing the moment the Exchange is enabled.
+- **Current exposure — corrected 2026-08-20 after review.** An earlier draft of
+  this entry called the defect "contained" because real-money Exchange activation
+  is launch-disabled (`FIN-001`). **That was wrong, and it understated the risk.**
+  `FIN-001` is a governance position, not a runtime gate: `POST /api/orders` never
+  calls `requireFeature` or `isFeatureEnabled`, no middleware gates it, and the
+  migrations seed **active** `BTCUSDT` and `ETHUSDT` markets. Any authenticated
+  principal with sufficient balance could reach the matching engine and trigger
+  the misexecution **today**. The defect was live and reachable, not deferred —
+  see SB-016, which tracks the missing runtime gate itself.
 - **Location:** `src/lib/trading/validation.ts:113-127` (accepts and validates),
   `src/lib/trading/order-command-service.ts:133` and
   `src/lib/trading/order-service.ts:55,175` (persists `stop_price`),
@@ -201,6 +207,37 @@
   negative tests. Rejecting is the smaller, safer change.
 - **Rollback:** revert the admission-boundary change only while real withdrawals
   and real-money orders remain disabled.
+
+### SB-016 — `exchange.enabled` Is Reported But Never Enforced at the API Boundary
+
+**Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
+
+- **Risk:** The entire launch posture rests on the statement that the real-money
+  Exchange is disabled. In code that statement is **display-only**.
+  `exchange.enabled` (`FEATURE_EXCHANGE_ENABLED`, `defaultEnabled: false`) is read
+  by exactly three non-test consumers: `src/lib/product-registry.ts:32-33` for
+  surface listing, and `src/lib/admin-control-plane-matrix.ts:104` for reporting
+  `launch_locked`. **No API route and no middleware enforces it.**
+- **Consequence:** `POST /api/orders` accepts and matches orders regardless of the
+  flag, against the `active` `BTCUSDT` / `ETHUSDT` markets seeded by
+  `src/lib/db-migrate.ts:598-599`. The admin control plane will report the
+  Exchange as `launch_locked` while the ordering API is in fact serving requests.
+  A governance dashboard that disagrees with runtime behaviour is worse than no
+  dashboard, because it is trusted.
+- **Scope note:** this is broader than order placement. Every surface assumed to
+  be "launch-disabled by flag" needs the same audit — a flag that is only read for
+  display cannot be cited as a control anywhere.
+- **Location:** `src/app/api/orders/route.ts` (no feature check),
+  `src/lib/feature-flags.ts:23`, `src/lib/product-registry.ts:32-33`,
+  `src/lib/admin-control-plane-matrix.ts:104`, `src/lib/db-migrate.ts:598-599`.
+- **Fix:** enforce the flag fail-closed at the admission boundary for every
+  flag-gated surface, and add a guard asserting that each launch-disabled
+  capability has a runtime refusal and not merely a registry entry. Editing the
+  route changes its manifest `sourceHash`, so this requires a reviewed-delta shard
+  carrying a tracking issue number — it is deliberately **not** bundled into the
+  SB-015 change.
+- **Rollback:** the gate is a refusal; reverting it re-opens the surface and must
+  not be done while the Exchange is meant to be disabled.
 
 ---
 
