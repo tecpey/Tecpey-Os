@@ -85,6 +85,62 @@ export function inactiveDaysFrom(lastActivityAtMs: number, nowMs: number): numbe
   return Math.max(0, Math.floor((nowMs - lastActivityAtMs) / 86_400_000));
 }
 
+export type NotificationBrainSignals = {
+  learningEvents: number;
+  quizzes: number;
+  simulatorEvents: number;
+  certificates: number;
+  discipline: number;
+  confidence: number;
+  inactiveDays: number;
+  locale: "fa" | "en";
+};
+
+// The re-engagement targeting decision, split out of the database read so the
+// scoring and hook cascade that decide *who* gets nudged, *how*, and *with what*
+// are unit-testable. A regression here silently degrades return-rate targeting —
+// e.g. nudging an engaged learner or picking the wrong channel — with no DB in
+// the loop to catch it.
+export function deriveNotificationBrainSnapshot(
+  signals: NotificationBrainSignals,
+): NotificationBrainSnapshot {
+  const {
+    learningEvents,
+    quizzes,
+    simulatorEvents,
+    certificates,
+    discipline,
+    confidence,
+    inactiveDays,
+  } = signals;
+  const isFa = signals.locale === "fa";
+  const returnProbability = clamp(35 + learningEvents * 5 + quizzes * 7 + simulatorEvents * 8 + certificates * 12 + discipline * 0.18 - inactiveDays * 6);
+  const churnRisk = clamp(100 - returnProbability + Math.max(0, inactiveDays - 2) * 8);
+  const bestChannel: NotificationChannel = churnRisk > 72 ? "push" : simulatorEvents > 2 ? "in_app" : "email";
+  const bestTimeLabel = inactiveDays >= 3 ? (isFa ? "امشب" : "tonight") : (isFa ? "بعد از ظهر" : "afternoon");
+  let nextHookType: NotificationBrainSnapshot["nextHookType"] = "learning";
+  let nextActionUrl = "/academy/profile";
+  let messageTitle = isFa ? "مسیر آکادمی منتظر توست" : "Your academy path is waiting";
+  let messageBody = isFa ? "از همان جایی که متوقف شدی ادامه بده." : "Continue from where you left off.";
+  if (confidence < 60) {
+    nextHookType = "mentor";
+    nextActionUrl = "/academy/mentor-coach";
+    messageTitle = isFa ? "منتور یک تمرین دقیق‌تر دارد" : "Your mentor has a sharper exercise";
+    messageBody = isFa ? "چند پاسخ اخیرت نشان می‌دهد یک چالش هدفمند می‌تواند کمکت کند." : "Your recent answers suggest a targeted challenge can help.";
+  } else if (simulatorEvents < 2) {
+    nextHookType = "simulator";
+    nextActionUrl = "/academy/simulator";
+    messageTitle = isFa ? "وقت محک زدن تصمیم‌هاست" : "Time to test your decisions";
+    messageBody = isFa ? "یک سناریوی تمرینی با ژورنال و بازخورد منتور آماده است." : "A practice scenario with journal and mentor feedback is ready.";
+  } else if (certificates === 0 && learningEvents >= 2) {
+    nextHookType = "achievement";
+    nextActionUrl = "/academy/certificates";
+    messageTitle = isFa ? "به اولین مدرک نزدیک شدی" : "You are close to your first certificate";
+    messageBody = isFa ? "با تکمیل آزمون ترم، مسیر صدور مدرک قابل استعلام فعال می‌شود." : "Complete the term assessment to activate certificate issuance.";
+  }
+  return { returnProbability, churnRisk, bestChannel, bestTimeLabel, nextHookType, nextActionUrl, messageTitle, messageBody };
+}
+
 export async function buildNotificationBrain(
   client: Queryable,
   studentId: string,
@@ -92,7 +148,6 @@ export async function buildNotificationBrain(
   tenantId: string = PLATFORM.DEFAULT_TENANT_ID,
 ): Promise<NotificationBrainSnapshot> {
   await assertPhase5Schema(client);
-  const isFa = locale === "fa";
   // learning_events is tenant-scoped: a student admitted into two tenants owns
   // independent learning evidence per tenant. The aggregation MUST filter by
   // tenant_id as well as student_id, or one tenant's notification brain would
@@ -130,31 +185,16 @@ export async function buildNotificationBrain(
   const confidence = Number(b.confidence_score || 0);
   const lastEventAt = s.last_event_at ? new Date(String(s.last_event_at)).getTime() : 0;
   const inactiveDays = inactiveDaysFrom(lastEventAt, Date.now());
-  const returnProbability = clamp(35 + learningEvents * 5 + quizzes * 7 + simulatorEvents * 8 + certificates * 12 + discipline * 0.18 - inactiveDays * 6);
-  const churnRisk = clamp(100 - returnProbability + Math.max(0, inactiveDays - 2) * 8);
-  const bestChannel: NotificationChannel = churnRisk > 72 ? "push" : simulatorEvents > 2 ? "in_app" : "email";
-  const bestTimeLabel = inactiveDays >= 3 ? (isFa ? "امشب" : "tonight") : (isFa ? "بعد از ظهر" : "afternoon");
-  let nextHookType: NotificationBrainSnapshot["nextHookType"] = "learning";
-  let nextActionUrl = "/academy/profile";
-  let messageTitle = isFa ? "مسیر آکادمی منتظر توست" : "Your academy path is waiting";
-  let messageBody = isFa ? "از همان جایی که متوقف شدی ادامه بده." : "Continue from where you left off.";
-  if (confidence < 60) {
-    nextHookType = "mentor";
-    nextActionUrl = "/academy/mentor-coach";
-    messageTitle = isFa ? "منتور یک تمرین دقیق‌تر دارد" : "Your mentor has a sharper exercise";
-    messageBody = isFa ? "چند پاسخ اخیرت نشان می‌دهد یک چالش هدفمند می‌تواند کمکت کند." : "Your recent answers suggest a targeted challenge can help.";
-  } else if (simulatorEvents < 2) {
-    nextHookType = "simulator";
-    nextActionUrl = "/academy/simulator";
-    messageTitle = isFa ? "وقت محک زدن تصمیم‌هاست" : "Time to test your decisions";
-    messageBody = isFa ? "یک سناریوی تمرینی با ژورنال و بازخورد منتور آماده است." : "A practice scenario with journal and mentor feedback is ready.";
-  } else if (certificates === 0 && learningEvents >= 2) {
-    nextHookType = "achievement";
-    nextActionUrl = "/academy/certificates";
-    messageTitle = isFa ? "به اولین مدرک نزدیک شدی" : "You are close to your first certificate";
-    messageBody = isFa ? "با تکمیل آزمون ترم، مسیر صدور مدرک قابل استعلام فعال می‌شود." : "Complete the term assessment to activate certificate issuance.";
-  }
-  const snapshot = { returnProbability, churnRisk, bestChannel, bestTimeLabel, nextHookType, nextActionUrl, messageTitle, messageBody };
+  const snapshot = deriveNotificationBrainSnapshot({
+    learningEvents,
+    quizzes,
+    simulatorEvents,
+    certificates,
+    discipline,
+    confidence,
+    inactiveDays,
+    locale,
+  });
   await client.query(
     `INSERT INTO notification_brain_snapshots
       (tenant_id, student_id, return_probability, churn_risk, best_channel, best_time_label, next_hook_type, next_action_url, message_title, message_body)
