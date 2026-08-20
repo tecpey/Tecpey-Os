@@ -103,6 +103,161 @@
     "requiredSlots": 700,
     "status": "BLOCKED_EXTERNAL_UNTIL_BROWSER_CAPTURE"
   },
+  "waveAExternalEvidenceTracker": {
+    "id": "WAVE-A-EXTERNAL-EVIDENCE",
+    "status": "BLOCKED_PENDING_EXTERNAL_EXECUTION",
+    "targetP0ReadinessPercentAfterClosure": 92,
+    "exactHeadRequired": true,
+    "maxEvidenceAgeDays": 14,
+    "secretRedactionRequired": true,
+    "controls": [
+      {
+        "id": "OPS-010",
+        "requiredEnvironment": "protected-staging",
+        "evidenceClass": "protected-staging-env-evidence-v1",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "npm run ops:staging:env-evidence:verify",
+        "requiredArtifacts": [
+          "tecpey-staging-scheduler-evidence.json",
+          "tecpey-staging-scheduler-evidence.json.sha256",
+          "tecpey-staging-env-evidence.json",
+          "tecpey-staging-env-evidence.json.sha256",
+          "tecpey-staging-env-evidence-verification.json"
+        ],
+        "closureCriteria": [
+          "GitHub Environment staging is protected",
+          "self-hosted runner labels include self-hosted, linux, x64 and tecpey-staging",
+          "env:check passes through the same environment source used by the staging app",
+          "artifact digest matches exact deployed head",
+          "secret values are redacted"
+        ]
+      },
+      {
+        "id": "OPS-011",
+        "requiredEnvironment": "protected-staging",
+        "evidenceClass": "protected-staging-domain-recovery-reconciliation",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "npm run ops:recovery:protected-evidence:verify",
+        "requiredArtifacts": [
+          "protected-staging-recovery-reconciliation.json",
+          "protected-staging-recovery-reconciliation.json.sha256",
+          "restore-runbook-observation.json",
+          "domain-reconciliation-summary.json"
+        ],
+        "closureCriteria": [
+          "backup restore completes from governed snapshot",
+          "Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal domains reconcile",
+          "RPO/RTO observation is recorded",
+          "rollback decision and recovery notes are attached"
+        ]
+      },
+      {
+        "id": "OPS-012",
+        "requiredEnvironment": "protected-staging",
+        "evidenceClass": "protected-staging-incident-readiness",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "npm run ops:incident-readiness:evidence:verify",
+        "requiredArtifacts": [
+          "protected-staging-incident-readiness.json",
+          "protected-staging-incident-readiness.json.sha256",
+          "critical-probe-delivery.json",
+          "runbook-acknowledgement-summary.json"
+        ],
+        "closureCriteria": [
+          "two P0 synthetic probes are delivered and acknowledged",
+          "alert routing, queue state and escalation path are recorded",
+          "critical runbooks cover staging, rollback, env, exchange-disabled and content ingestion failures",
+          "red-team observation is accepted by release owner"
+        ]
+      },
+      {
+        "id": "OPS-013",
+        "requiredEnvironment": "release-owner-signoff",
+        "evidenceClass": "accepted-risk-signoff-evidence-v1",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "npm run ops:accepted-risk:evidence:verify",
+        "requiredArtifacts": [
+          "accepted-risk-signoff-evidence.json",
+          "accepted-risk-signoff-evidence.json.sha256",
+          "risk-owner-decision-log.json"
+        ],
+        "closureCriteria": [
+          "each accepted risk has owner, expiry, mitigation and explicit non-production claim boundary",
+          "signoff does not approve public financial, custody, enterprise or global exchange GO",
+          "remaining blockers are linked to the Go matrix",
+          "decision log is immutable for the exact head"
+        ]
+      },
+      {
+        "id": "OPS-014",
+        "requiredEnvironment": "release-governance",
+        "evidenceClass": "go-approval-matrix-evidence-v1",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "npm run ops:go-approval-matrix:evidence:verify",
+        "requiredArtifacts": [
+          "go-approval-matrix-evidence.json",
+          "go-approval-matrix-evidence.json.sha256",
+          "exact-head-workflow-summary.json",
+          "owner-approval-matrix.json"
+        ],
+        "closureCriteria": [
+          "approval matrix targets the current exact main head",
+          "required GitHub Actions, staging, recovery, incident, accepted-risk and disabled-capability evidence are linked",
+          "public financial and custody claims remain blocked unless separately certified",
+          "soft-launch claim is the only permitted positive claim"
+        ]
+      },
+      {
+        "id": "QA-050",
+        "requiredEnvironment": "browser-runtime",
+        "evidenceClass": "ui-ux-screenshot-matrix-v1",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "future browser verifier: qa:screenshot-matrix:verify",
+        "requiredArtifacts": [
+          "ui-ux-screenshot-matrix.json",
+          "ui-ux-screenshot-matrix.json.sha256",
+          "desktop-fa-screenshots.zip",
+          "mobile-fa-screenshots.zip",
+          "desktop-en-screenshots.zip",
+          "mobile-en-screenshots.zip",
+          "visual-defect-triage.json"
+        ],
+        "routeCount": 175,
+        "viewports": ["desktop-fa", "mobile-fa", "desktop-en", "mobile-en"],
+        "requiredSlots": 700,
+        "closureCriteria": [
+          "all 175 routes are captured in desktop-fa, mobile-fa, desktop-en and mobile-en",
+          "auth, Academy, Arena, Mentor, coin, tool, news and public flows are represented",
+          "RTL/LTR overflow, clipping, overlap and layout-shift defects are triaged",
+          "release owner accepts zero unresolved P0/P1 visual defects"
+        ]
+      },
+      {
+        "id": "QA-051",
+        "requiredEnvironment": "browser-runtime",
+        "evidenceClass": "accessibility-runtime-evidence-v1",
+        "evidenceSchemaVersion": 1,
+        "machineVerifier": "future browser verifier: qa:a11y-runtime:verify",
+        "requiredArtifacts": [
+          "accessibility-runtime-evidence.json",
+          "accessibility-runtime-evidence.json.sha256",
+          "axe-results.json",
+          "keyboard-navigation-report.json",
+          "focus-order-report.json",
+          "contrast-report.json",
+          "reduced-motion-report.json"
+        ],
+        "requiredChecks": ["axe", "keyboard", "focus", "contrast", "reduced-motion"],
+        "zeroCriticalSeriousViolations": true,
+        "closureCriteria": [
+          "axe has zero critical or serious unresolved violations",
+          "keyboard navigation reaches all primary flows without traps",
+          "focus order is visible and deterministic across RTL and LTR",
+          "contrast and reduced-motion behavior pass runtime checks"
+        ]
+      }
+    ]
+  },
   "contentWorkflowOutputs": [
     "public_seo_aeo_geo_block",
     "product_graph_update",
