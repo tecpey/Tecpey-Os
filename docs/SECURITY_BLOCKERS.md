@@ -229,11 +229,27 @@
   work, and an enforcement table that must not drift from the product registry —
   so a future flag-carrying surface cannot ship display-only without a
   deliberate decision. Verified load-bearing: removing the gate fails 2 of 5.
-- **Residual scope — still open.** `social.enabled` and
-  `future.marketplace.enabled` also default off and are still enforcement-free.
-  They carry no mutating API surface today, which is why they are recorded as
-  `no-mutating-surface` rather than fixed. Adding one requires wiring
-  `requireFeature` at the same time.
+- **Residual scope — still open, and larger than first recorded.** An earlier
+  draft classified `social.enabled` as having no mutating surface. **That was
+  wrong**, and review caught it: `PATCH /api/community/profile` is an active
+  mutating route owned by the Social product ("Community, groups, journals, and
+  leaderboards") and carries no feature guard. Recording it as
+  `no-mutating-surface` would have made the new drift test pass while blessing
+  precisely the gap it exists to detect — a guard that launders a gap is worse
+  than no guard. It is now recorded as `unenforced-mutating-surface`.
+- **Why Social is not gated in the same change.** The community surface ships
+  live: `PeerJournals`, `ChallengeCenter`, `AchievementCenter` and
+  `CommunityCareerPanel` all reach that route, and no page checks
+  `social.enabled`. Gating it behind an off-by-default flag would take a working
+  Academy feature offline in every environment that does not set
+  `FEATURE_SOCIAL_ENABLED`. The real defect is the **contradiction** between a
+  live surface and an off-by-default product flag — either the flag should
+  default on for the shipped subset, or community should be separated from the
+  unshipped Social product. That is a product decision and is left open.
+- **`future.marketplace.enabled`** genuinely has no mutating route today and is
+  recorded as `no-mutating-surface`. `academy.enabled` and `mentor.enabled`
+  default **on**, so they make no launch claim and carry no SB-016 risk; the
+  guard asserts those defaults so the classification cannot silently invert.
 
 **Original record — Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
 

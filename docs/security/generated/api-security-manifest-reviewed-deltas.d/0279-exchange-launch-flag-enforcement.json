@@ -137,6 +137,90 @@
           "resolved": true
         }
       }
+    },
+    {
+      "route": "/api/community/profile",
+      "method": "PATCH",
+      "previousSourceHash": "3cd5809c2ecb71bdfaa29998",
+      "issue": "#502",
+      "owner": "security-platform",
+      "reason": "Test reference ledger only; the community profile route source is unchanged. The launch-flag enforcement guard reads this route to assert it is still ungated, recording it as a known unenforced mutating surface for the off-by-default social.enabled product rather than blessing the gap. Gating it is deferred because the community surface ships live and an off-by-default flag would take it offline; see SB-016.",
+      "replacement": {
+        "route": "/api/community/profile",
+        "method": "PATCH",
+        "sourcePath": "src/app/api/community/profile/route.ts",
+        "sourceHash": "3cd5809c2ecb71bdfaa29998",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": "tenantContext",
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "community-journal-challenge-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "community",
+        "testReferences": [
+          "src/tests/security/auth-strict-revocation-routes.test.ts",
+          "src/tests/security/community-challenge-host-collector.test.ts",
+          "src/tests/security/community-challenge-host-evidence.test.ts",
+          "src/tests/security/community-challenge-scheduler-installer.test.ts",
+          "src/tests/security/community-journal-challenge-client.test.ts",
+          "src/tests/security/community-journal-challenge-finalization-source-boundary.test.ts",
+          "src/tests/security/community-journal-challenge-history-client.test.ts",
+          "src/tests/security/community-journal-challenge-source-boundary.test.ts",
+          "src/tests/security/community-journal-discipline-score-client.test.ts",
+          "src/tests/security/community-journal-discipline-score-policy.test.ts",
+          "src/tests/security/community-journal-source-boundary.test.ts",
+          "src/tests/security/community-public-credential-projection.test.ts",
+          "src/tests/security/community-reputation-evidence-client.test.ts",
+          "src/tests/security/community-reputation-scoring-consent-client.test.ts",
+          "src/tests/security/community-reputation-scoring-consent.test.ts",
+          "src/tests/security/exchange-launch-flag-enforcement.test.ts",
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/community/profile/route.ts",
+          "method": "PATCH",
+          "resolved": true
+        }
+      }
     }
   ]
 }
