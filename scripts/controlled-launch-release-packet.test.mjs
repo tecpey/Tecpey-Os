@@ -338,9 +338,12 @@ test("accepted-risk register authority rejects placeholder thresholds in closure
   );
 });
 
+// These negative cases inject a malformed R-06/R-07 review date. They match the
+// current review date by pattern rather than a literal, so they stay correct as
+// the register's review dates are bumped for freshness.
 test("accepted-risk register authority rejects phase-only review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-19, then weekly | Disable certificate issuance",
+    /\d{4}-\d{2}-\d{2}, then weekly \| Disable certificate issuance/,
     "Phase 43 | Disable certificate issuance",
   );
 
@@ -352,7 +355,7 @@ test("accepted-risk register authority rejects phase-only review dates", () => {
 
 test("accepted-risk register authority rejects event-only review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-19 before any Exchange re-scope | Disable the activating flag",
+    /\d{4}-\d{2}-\d{2} before any Exchange re-scope \| Disable the activating flag/,
     "Before any Exchange re-scope | Disable the activating flag",
   );
 
@@ -364,8 +367,8 @@ test("accepted-risk register authority rejects event-only review dates", () => {
 
 test("accepted-risk register authority rejects impossible calendar review dates", () => {
   const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
-    "2026-08-19, then weekly | Disable certificate issuance",
-    "2026-02-30, then weekly | Disable certificate issuance",
+    /\d{4}-\d{2}-\d{2}(, then weekly \| Disable certificate issuance)/,
+    "2026-02-30$1",
   );
 
   assert.match(
@@ -375,11 +378,16 @@ test("accepted-risk register authority rejects impossible calendar review dates"
 });
 
 test("accepted-risk register authority rejects stale review dates", () => {
-  const markdown = readFileSync(acceptedRiskRegister, "utf8");
+  // Inject a definitely-stale review date so the case is independent of the
+  // register's current (freshness-bumped) date.
+  const markdown = readFileSync(acceptedRiskRegister, "utf8").replace(
+    /\d{4}-\d{2}-\d{2}(, then weekly \| Disable certificate issuance)/,
+    "2020-01-01$1",
+  );
 
   assert.match(
     evaluateAcceptedRiskRegisterAuthority(markdown, { referenceDate: "2026-08-20T00:00:00.000Z" }).join("\n"),
-    /R-06 review date 2026-08-19 is stale before 2026-08-20/,
+    /R-06 review date 2020-01-01 is stale before 2026-08-20/,
   );
 });
 
