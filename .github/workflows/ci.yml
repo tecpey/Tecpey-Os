@@ -195,6 +195,9 @@ jobs:
       - name: Operational recovery authority and negative tests
         run: npm run test:ops-recovery-authority
 
+      - name: Operational Red Team drill readiness guard
+        run: npm run ops:redteam:readiness:check
+
       - name: Production deployment lifecycle tests
         run: npm run test:deployment
 
