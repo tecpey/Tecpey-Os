@@ -77,3 +77,4 @@ open as their own gates:
 - launch or financial activation is claimed;
 - the external NO-GO issues are not explicitly kept outside this closure;
 - the release gate stops executing the required authority checks.
+
