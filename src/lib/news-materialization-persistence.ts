@@ -149,7 +149,7 @@ function validateSnapshot(input: PersistMaterializedNewsSnapshotInput): {
     throw new Error("news_materialization_counts_invalid");
   }
   for (const decision of snapshot.decisions) {
-    if (!validateOrganicGrowthProfile(decision.organicGrowth)) {
+    if (decision.status === "publishable" && !validateOrganicGrowthProfile(decision.organicGrowth)) {
       throw new Error("news_materialization_organic_growth_invalid");
     }
   }

@@ -150,7 +150,8 @@ function buildSummaryEn(candidate: ToolGrowthCandidate): string {
 
 function buildArticleFa(candidate: ToolGrowthCandidate): string {
   const narratives = candidate.narratives.slice(0, 3).join("، ");
-  return `${candidate.name} در دسته ${candidate.categoryFa} قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن ${candidate.useCaseFa} است. روایت‌های مرتبط با این ابزار شامل ${narratives || "تحلیل بازار"} است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.`;
+  const useCaseFa = candidate.useCaseFa.replace(/[.!؟]+$/u, "").trim();
+  return `${candidate.name} در دسته ${candidate.categoryFa} قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن ${useCaseFa} است. روایت‌های مرتبط با این ابزار شامل ${narratives || "تحلیل بازار"} است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.`;
 }
 
 function buildArticleEn(candidate: ToolGrowthCandidate): string {

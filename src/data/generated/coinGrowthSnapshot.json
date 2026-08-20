@@ -66,6 +66,52 @@
           "liquidity"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/usd-coin",
+        "canonicalUrl": "https://tecpey.ir/coins/usd-coin",
+        "title": "یو‌اس‌دی کوین (USDC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "یو‌اس‌دی کوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "یو‌اس‌دی کوین (USDC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "یو‌اس‌دی کوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت یو‌اس‌دی کوین",
+          "خرید USDC",
+          "USD Coin چیست",
+          "USDC",
+          "stablecoin",
+          "payments",
+          "liquidity"
+        ],
+        "entityTags": [
+          "coin:usdc",
+          "coin-slug:usd-coin",
+          "category:crypto",
+          "narrative:stablecoin",
+          "narrative:payments",
+          "narrative:liquidity"
+        ],
+        "internalLinks": [
+          "/coins/usd-coin",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "یو‌اس‌دی کوین (USDC) دارایی مرتبط با استیبل‌کوین دلاری است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "یو‌اس‌دی کوین (USDC) در دسته استیبل‌کوین دلاری قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت stablecoin، payments و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -123,6 +169,52 @@
           "wrapped-assets"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/wrapped-bitcoin",
+        "canonicalUrl": "https://tecpey.ir/coins/wrapped-bitcoin",
+        "title": "رپد بیت‌کوین (WBTC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "رپد بیت‌کوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "رپد بیت‌کوین (WBTC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "رپد بیت‌کوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت رپد بیت‌کوین",
+          "خرید WBTC",
+          "Wrapped Bitcoin چیست",
+          "WBTC",
+          "bitcoin",
+          "defi",
+          "wrapped-assets"
+        ],
+        "entityTags": [
+          "coin:wbtc",
+          "coin-slug:wrapped-bitcoin",
+          "category:crypto",
+          "narrative:bitcoin",
+          "narrative:defi",
+          "narrative:wrapped-assets"
+        ],
+        "internalLinks": [
+          "/coins/wrapped-bitcoin",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "رپد بیت‌کوین (WBTC) دارایی مرتبط با بیت‌کوین رپدشده است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "رپد بیت‌کوین (WBTC) در دسته بیت‌کوین رپدشده قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت bitcoin، defi و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -178,6 +270,50 @@
           "defi"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/dai",
+        "canonicalUrl": "https://tecpey.ir/coins/dai",
+        "title": "دای (DAI) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "دای را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "دای (DAI) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "دای را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت دای",
+          "خرید DAI",
+          "Dai چیست",
+          "DAI",
+          "stablecoin",
+          "defi"
+        ],
+        "entityTags": [
+          "coin:dai",
+          "coin-slug:dai",
+          "category:crypto",
+          "narrative:stablecoin",
+          "narrative:defi"
+        ],
+        "internalLinks": [
+          "/coins/dai",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "دای (DAI) دارایی مرتبط با استیبل‌کوین غیرمتمرکز است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "دای (DAI) در دسته استیبل‌کوین غیرمتمرکز قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت stablecoin، defi و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -235,6 +371,52 @@
           "tokenization"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/hedera",
+        "canonicalUrl": "https://tecpey.ir/coins/hedera",
+        "title": "هدرا (HBAR) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "هدرا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "هدرا (HBAR) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "هدرا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت هدرا",
+          "خرید HBAR",
+          "Hedera چیست",
+          "HBAR",
+          "enterprise",
+          "payments",
+          "tokenization"
+        ],
+        "entityTags": [
+          "coin:hbar",
+          "coin-slug:hedera",
+          "category:crypto",
+          "narrative:enterprise",
+          "narrative:payments",
+          "narrative:tokenization"
+        ],
+        "internalLinks": [
+          "/coins/hedera",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "هدرا (HBAR) دارایی مرتبط با شبکه دفترکل سازمانی است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "هدرا (HBAR) در دسته شبکه دفترکل سازمانی قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت enterprise، payments و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -290,6 +472,50 @@
           "ethereum"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/mantle",
+        "canonicalUrl": "https://tecpey.ir/coins/mantle",
+        "title": "منتل (MNT) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "منتل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "منتل (MNT) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "منتل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت منتل",
+          "خرید MNT",
+          "Mantle چیست",
+          "MNT",
+          "layer2",
+          "ethereum"
+        ],
+        "entityTags": [
+          "coin:mnt",
+          "coin-slug:mantle",
+          "category:crypto",
+          "narrative:layer2",
+          "narrative:ethereum"
+        ],
+        "internalLinks": [
+          "/coins/mantle",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "منتل (MNT) دارایی مرتبط با لایه دو اتریوم است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "منتل (MNT) در دسته لایه دو اتریوم قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت layer2، ethereum و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -347,6 +573,52 @@
           "gpu"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/render",
+        "canonicalUrl": "https://tecpey.ir/coins/render",
+        "title": "رندر (RENDER) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "رندر را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "رندر (RENDER) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "رندر را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت رندر",
+          "خرید RENDER",
+          "Render چیست",
+          "RENDER",
+          "ai",
+          "depin",
+          "gpu"
+        ],
+        "entityTags": [
+          "coin:render",
+          "coin-slug:render",
+          "category:gpu",
+          "narrative:ai",
+          "narrative:depin",
+          "narrative:gpu"
+        ],
+        "internalLinks": [
+          "/coins/render",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "رندر (RENDER) دارایی مرتبط با زیرساخت GPU و رندر است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "رندر (RENDER) در دسته زیرساخت GPU و رندر قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت ai، depin و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -402,6 +674,50 @@
           "agents"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/fetch-ai",
+        "canonicalUrl": "https://tecpey.ir/coins/fetch-ai",
+        "title": "فچ ای‌آی (FET) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "فچ ای‌آی را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "فچ ای‌آی (FET) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "فچ ای‌آی را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت فچ ای‌آی",
+          "خرید FET",
+          "Fetch.ai چیست",
+          "FET",
+          "ai",
+          "agents"
+        ],
+        "entityTags": [
+          "coin:fet",
+          "coin-slug:fetch-ai",
+          "category:crypto",
+          "narrative:ai",
+          "narrative:agents"
+        ],
+        "internalLinks": [
+          "/coins/fetch-ai",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "فچ ای‌آی (FET) دارایی مرتبط با هوش مصنوعی و وب۳ است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "فچ ای‌آی (FET) در دسته هوش مصنوعی و وب۳ قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت ai، agents و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -457,6 +773,50 @@
           "machine-learning"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/bittensor",
+        "canonicalUrl": "https://tecpey.ir/coins/bittensor",
+        "title": "بیت‌تنسور (TAO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "بیت‌تنسور را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "بیت‌تنسور (TAO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "بیت‌تنسور را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت بیت‌تنسور",
+          "خرید TAO",
+          "Bittensor چیست",
+          "TAO",
+          "ai",
+          "machine-learning"
+        ],
+        "entityTags": [
+          "coin:tao",
+          "coin-slug:bittensor",
+          "category:crypto",
+          "narrative:ai",
+          "narrative:machine-learning"
+        ],
+        "internalLinks": [
+          "/coins/bittensor",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "بیت‌تنسور (TAO) دارایی مرتبط با شبکه هوش مصنوعی غیرمتمرکز است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "بیت‌تنسور (TAO) در دسته شبکه هوش مصنوعی غیرمتمرکز قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت ai، machine-learning و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -512,6 +872,50 @@
           "high-throughput"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/kaspa",
+        "canonicalUrl": "https://tecpey.ir/coins/kaspa",
+        "title": "کسپا (KAS) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "کسپا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "کسپا (KAS) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "کسپا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت کسپا",
+          "خرید KAS",
+          "Kaspa چیست",
+          "KAS",
+          "pow",
+          "high-throughput"
+        ],
+        "entityTags": [
+          "coin:kas",
+          "coin-slug:kaspa",
+          "category:crypto",
+          "narrative:pow",
+          "narrative:high-throughput"
+        ],
+        "internalLinks": [
+          "/coins/kaspa",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "کسپا (KAS) دارایی مرتبط با شبکه اثبات کار است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "کسپا (KAS) در دسته شبکه اثبات کار قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت pow، high-throughput و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -567,6 +971,50 @@
           "defi"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/pyth-network",
+        "canonicalUrl": "https://tecpey.ir/coins/pyth-network",
+        "title": "پایت نتورک (PYTH) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "پایت نتورک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "پایت نتورک (PYTH) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "پایت نتورک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت پایت نتورک",
+          "خرید PYTH",
+          "Pyth Network چیست",
+          "PYTH",
+          "oracle",
+          "defi"
+        ],
+        "entityTags": [
+          "coin:pyth",
+          "coin-slug:pyth-network",
+          "category:crypto",
+          "narrative:oracle",
+          "narrative:defi"
+        ],
+        "internalLinks": [
+          "/coins/pyth-network",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "پایت نتورک (PYTH) دارایی مرتبط با اوراکل قیمت است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "پایت نتورک (PYTH) در دسته اوراکل قیمت قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت oracle، defi و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -622,6 +1070,50 @@
           "yield"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/pendle",
+        "canonicalUrl": "https://tecpey.ir/coins/pendle",
+        "title": "پندل (PENDLE) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "پندل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "پندل (PENDLE) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "پندل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت پندل",
+          "خرید PENDLE",
+          "Pendle چیست",
+          "PENDLE",
+          "defi",
+          "yield"
+        ],
+        "entityTags": [
+          "coin:pendle",
+          "coin-slug:pendle",
+          "category:defi",
+          "narrative:defi",
+          "narrative:yield"
+        ],
+        "internalLinks": [
+          "/coins/pendle",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "پندل (PENDLE) دارایی مرتبط با بازار بازده DeFi است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "پندل (PENDLE) در دسته بازار بازده DeFi قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت defi، yield و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -677,6 +1169,50 @@
           "solana"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/jupiter",
+        "canonicalUrl": "https://tecpey.ir/coins/jupiter",
+        "title": "ژوپیتر (JUP) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "ژوپیتر را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "ژوپیتر (JUP) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "ژوپیتر را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت ژوپیتر",
+          "خرید JUP",
+          "Jupiter چیست",
+          "JUP",
+          "defi",
+          "solana"
+        ],
+        "entityTags": [
+          "coin:jup",
+          "coin-slug:jupiter",
+          "category:crypto",
+          "narrative:defi",
+          "narrative:solana"
+        ],
+        "internalLinks": [
+          "/coins/jupiter",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "ژوپیتر (JUP) دارایی مرتبط با تجمیع‌گر نقدینگی سولانا است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "ژوپیتر (JUP) در دسته تجمیع‌گر نقدینگی سولانا قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت defi، solana و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -732,6 +1268,50 @@
           "data-availability"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/celestia",
+        "canonicalUrl": "https://tecpey.ir/coins/celestia",
+        "title": "سلستیا (TIA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "سلستیا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "سلستیا (TIA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "سلستیا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت سلستیا",
+          "خرید TIA",
+          "Celestia چیست",
+          "TIA",
+          "modular",
+          "data-availability"
+        ],
+        "entityTags": [
+          "coin:tia",
+          "coin-slug:celestia",
+          "category:crypto",
+          "narrative:modular",
+          "narrative:data-availability"
+        ],
+        "internalLinks": [
+          "/coins/celestia",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "سلستیا (TIA) دارایی مرتبط با داده و ماژولار بلاکچین است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "سلستیا (TIA) در دسته داده و ماژولار بلاکچین قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت modular، data-availability و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -787,6 +1367,50 @@
           "stablecoin"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/ethena",
+        "canonicalUrl": "https://tecpey.ir/coins/ethena",
+        "title": "اثنا (ENA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "اثنا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "اثنا (ENA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "اثنا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت اثنا",
+          "خرید ENA",
+          "Ethena چیست",
+          "ENA",
+          "defi",
+          "stablecoin"
+        ],
+        "entityTags": [
+          "coin:ena",
+          "coin-slug:ethena",
+          "category:defi",
+          "narrative:defi",
+          "narrative:stablecoin"
+        ],
+        "internalLinks": [
+          "/coins/ethena",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "اثنا (ENA) دارایی مرتبط با استیبل‌کوین و DeFi است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "اثنا (ENA) در دسته استیبل‌کوین و DeFi قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت defi، stablecoin و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -842,6 +1466,50 @@
           "zk"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/starknet",
+        "canonicalUrl": "https://tecpey.ir/coins/starknet",
+        "title": "استارک‌نت (STRK) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "استارک‌نت را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "استارک‌نت (STRK) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "استارک‌نت را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت استارک‌نت",
+          "خرید STRK",
+          "Starknet چیست",
+          "STRK",
+          "layer2",
+          "zk"
+        ],
+        "entityTags": [
+          "coin:strk",
+          "coin-slug:starknet",
+          "category:crypto",
+          "narrative:layer2",
+          "narrative:zk"
+        ],
+        "internalLinks": [
+          "/coins/starknet",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "استارک‌نت (STRK) دارایی مرتبط با لایه دو اتریوم است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "استارک‌نت (STRK) در دسته لایه دو اتریوم قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت layer2، zk و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -897,6 +1565,50 @@
           "layer2"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/stacks",
+        "canonicalUrl": "https://tecpey.ir/coins/stacks",
+        "title": "استکس (STX) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "استکس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "استکس (STX) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "استکس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت استکس",
+          "خرید STX",
+          "Stacks چیست",
+          "STX",
+          "bitcoin",
+          "layer2"
+        ],
+        "entityTags": [
+          "coin:stx",
+          "coin-slug:stacks",
+          "category:crypto",
+          "narrative:bitcoin",
+          "narrative:layer2"
+        ],
+        "internalLinks": [
+          "/coins/stacks",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "استکس (STX) دارایی مرتبط با لایه قرارداد هوشمند بیت‌کوین است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "استکس (STX) در دسته لایه قرارداد هوشمند بیت‌کوین قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت bitcoin، layer2 و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -952,6 +1664,50 @@
           "payments"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/algorand",
+        "canonicalUrl": "https://tecpey.ir/coins/algorand",
+        "title": "الگورند (ALGO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "الگورند را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "الگورند (ALGO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "الگورند را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت الگورند",
+          "خرید ALGO",
+          "Algorand چیست",
+          "ALGO",
+          "layer1",
+          "payments"
+        ],
+        "entityTags": [
+          "coin:algo",
+          "coin-slug:algorand",
+          "category:crypto",
+          "narrative:layer1",
+          "narrative:payments"
+        ],
+        "internalLinks": [
+          "/coins/algorand",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "الگورند (ALGO) دارایی مرتبط با شبکه قرارداد هوشمند است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "الگورند (ALGO) در دسته شبکه قرارداد هوشمند قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت layer1، payments و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1007,6 +1763,50 @@
           "web3-infra"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/the-graph",
+        "canonicalUrl": "https://tecpey.ir/coins/the-graph",
+        "title": "گراف (GRT) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "گراف را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "گراف (GRT) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "گراف را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت گراف",
+          "خرید GRT",
+          "The Graph چیست",
+          "GRT",
+          "data",
+          "web3-infra"
+        ],
+        "entityTags": [
+          "coin:grt",
+          "coin-slug:the-graph",
+          "category:crypto",
+          "narrative:data",
+          "narrative:web3-infra"
+        ],
+        "internalLinks": [
+          "/coins/the-graph",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "گراف (GRT) دارایی مرتبط با ایندکس داده بلاکچین است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "گراف (GRT) در دسته ایندکس داده بلاکچین قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت data، web3-infra و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1062,6 +1862,50 @@
           "ai"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/worldcoin",
+        "canonicalUrl": "https://tecpey.ir/coins/worldcoin",
+        "title": "ورلدکوین (WLD) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "ورلدکوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "ورلدکوین (WLD) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "ورلدکوین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت ورلدکوین",
+          "خرید WLD",
+          "Worldcoin چیست",
+          "WLD",
+          "identity",
+          "ai"
+        ],
+        "entityTags": [
+          "coin:wld",
+          "coin-slug:worldcoin",
+          "category:ai",
+          "narrative:identity",
+          "narrative:ai"
+        ],
+        "internalLinks": [
+          "/coins/worldcoin",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "ورلدکوین (WLD) دارایی مرتبط با هویت و AI است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "ورلدکوین (WLD) در دسته هویت و AI قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت identity، ai و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1117,6 +1961,50 @@
           "chain"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/cronos",
+        "canonicalUrl": "https://tecpey.ir/coins/cronos",
+        "title": "کرونوس (CRO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "کرونوس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "کرونوس (CRO) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "کرونوس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت کرونوس",
+          "خرید CRO",
+          "Cronos چیست",
+          "CRO",
+          "exchange-token",
+          "chain"
+        ],
+        "entityTags": [
+          "coin:cro",
+          "coin-slug:cronos",
+          "category:crypto",
+          "narrative:exchange-token",
+          "narrative:chain"
+        ],
+        "internalLinks": [
+          "/coins/cronos",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "کرونوس (CRO) دارایی مرتبط با توکن اکوسیستمی است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "کرونوس (CRO) در دسته توکن اکوسیستمی قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت exchange-token، chain و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1172,6 +2060,50 @@
           "liquidity"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/first-digital-usd",
+        "canonicalUrl": "https://tecpey.ir/coins/first-digital-usd",
+        "title": "فرست دیجیتال یو‌اس‌دی (FDUSD) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "فرست دیجیتال یو‌اس‌دی را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "فرست دیجیتال یو‌اس‌دی (FDUSD) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "فرست دیجیتال یو‌اس‌دی را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت فرست دیجیتال یو‌اس‌دی",
+          "خرید FDUSD",
+          "First Digital USD چیست",
+          "FDUSD",
+          "stablecoin",
+          "liquidity"
+        ],
+        "entityTags": [
+          "coin:fdusd",
+          "coin-slug:first-digital-usd",
+          "category:crypto",
+          "narrative:stablecoin",
+          "narrative:liquidity"
+        ],
+        "internalLinks": [
+          "/coins/first-digital-usd",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "فرست دیجیتال یو‌اس‌دی (FDUSD) دارایی مرتبط با استیبل‌کوین دلاری است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "فرست دیجیتال یو‌اس‌دی (FDUSD) در دسته استیبل‌کوین دلاری قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت stablecoin، liquidity و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1227,6 +2159,50 @@
           "supply-chain"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/vechain",
+        "canonicalUrl": "https://tecpey.ir/coins/vechain",
+        "title": "وی‌چین (VET) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "وی‌چین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "وی‌چین (VET) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "وی‌چین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت وی‌چین",
+          "خرید VET",
+          "VeChain چیست",
+          "VET",
+          "enterprise",
+          "supply-chain"
+        ],
+        "entityTags": [
+          "coin:vet",
+          "coin-slug:vechain",
+          "category:crypto",
+          "narrative:enterprise",
+          "narrative:supply-chain"
+        ],
+        "internalLinks": [
+          "/coins/vechain",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "وی‌چین (VET) دارایی مرتبط با زنجیره تامین و سازمانی است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "وی‌چین (VET) در دسته زنجیره تامین و سازمانی قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت enterprise، supply-chain و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1282,6 +2258,50 @@
           "cross-chain"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/thorchain",
+        "canonicalUrl": "https://tecpey.ir/coins/thorchain",
+        "title": "ثورچین (RUNE) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "ثورچین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "ثورچین (RUNE) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "ثورچین را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت ثورچین",
+          "خرید RUNE",
+          "THORChain چیست",
+          "RUNE",
+          "defi",
+          "cross-chain"
+        ],
+        "entityTags": [
+          "coin:rune",
+          "coin-slug:thorchain",
+          "category:crypto",
+          "narrative:defi",
+          "narrative:cross-chain"
+        ],
+        "internalLinks": [
+          "/coins/thorchain",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "ثورچین (RUNE) دارایی مرتبط با نقدینگی بین‌زنجیره‌ای است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "ثورچین (RUNE) در دسته نقدینگی بین‌زنجیره‌ای قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت defi، cross-chain و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1337,6 +2357,50 @@
           "smart-contracts"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/ethereum-classic",
+        "canonicalUrl": "https://tecpey.ir/coins/ethereum-classic",
+        "title": "اتریوم کلاسیک (ETC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "اتریوم کلاسیک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "اتریوم کلاسیک (ETC) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "اتریوم کلاسیک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت اتریوم کلاسیک",
+          "خرید ETC",
+          "Ethereum Classic چیست",
+          "ETC",
+          "pow",
+          "smart-contracts"
+        ],
+        "entityTags": [
+          "coin:etc",
+          "coin-slug:ethereum-classic",
+          "category:crypto",
+          "narrative:pow",
+          "narrative:smart-contracts"
+        ],
+        "internalLinks": [
+          "/coins/ethereum-classic",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "اتریوم کلاسیک (ETC) دارایی مرتبط با شبکه اثبات کار است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "اتریوم کلاسیک (ETC) در دسته شبکه اثبات کار قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت pow، smart-contracts و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1392,6 +2456,50 @@
           "payments"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/monero",
+        "canonicalUrl": "https://tecpey.ir/coins/monero",
+        "title": "مونرو (XMR) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "مونرو را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "مونرو (XMR) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "مونرو را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت مونرو",
+          "خرید XMR",
+          "Monero چیست",
+          "XMR",
+          "privacy",
+          "payments"
+        ],
+        "entityTags": [
+          "coin:xmr",
+          "coin-slug:monero",
+          "category:crypto",
+          "narrative:privacy",
+          "narrative:payments"
+        ],
+        "internalLinks": [
+          "/coins/monero",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "مونرو (XMR) دارایی مرتبط با حریم خصوصی است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "مونرو (XMR) در دسته حریم خصوصی قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت privacy، payments و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1446,6 +2554,50 @@
           "solana"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/dogwifhat",
+        "canonicalUrl": "https://tecpey.ir/coins/dogwifhat",
+        "title": "داگ‌ویف‌هت (WIF) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "داگ‌ویف‌هت را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "داگ‌ویف‌هت (WIF) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "داگ‌ویف‌هت را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت داگ‌ویف‌هت",
+          "خرید WIF",
+          "dogwifhat چیست",
+          "WIF",
+          "memecoin",
+          "solana"
+        ],
+        "entityTags": [
+          "coin:wif",
+          "coin-slug:dogwifhat",
+          "category:crypto",
+          "narrative:memecoin",
+          "narrative:solana"
+        ],
+        "internalLinks": [
+          "/coins/dogwifhat",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "داگ‌ویف‌هت (WIF) دارایی مرتبط با میم‌کوین سولانا است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "داگ‌ویف‌هت (WIF) در دسته میم‌کوین سولانا قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت memecoin، solana و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1500,6 +2652,50 @@
           "solana"
         ],
         "riskLevel": "very_high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/bonk",
+        "canonicalUrl": "https://tecpey.ir/coins/bonk",
+        "title": "بونک (BONK) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "بونک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "بونک (BONK) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "بونک را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت بونک",
+          "خرید BONK",
+          "Bonk چیست",
+          "BONK",
+          "memecoin",
+          "solana"
+        ],
+        "entityTags": [
+          "coin:bonk",
+          "coin-slug:bonk",
+          "category:crypto",
+          "narrative:memecoin",
+          "narrative:solana"
+        ],
+        "internalLinks": [
+          "/coins/bonk",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "بونک (BONK) دارایی مرتبط با میم‌کوین سولانا است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "بونک (BONK) در دسته میم‌کوین سولانا قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت memecoin، solana و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1555,6 +2751,50 @@
           "nft"
         ],
         "riskLevel": "high"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/immutable-x",
+        "canonicalUrl": "https://tecpey.ir/coins/immutable-x",
+        "title": "ایمیوتبل (IMX) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "ایمیوتبل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "ایمیوتبل (IMX) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "ایمیوتبل را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت ایمیوتبل",
+          "خرید IMX",
+          "Immutable چیست",
+          "IMX",
+          "gaming",
+          "nft"
+        ],
+        "entityTags": [
+          "coin:imx",
+          "coin-slug:immutable-x",
+          "category:nft",
+          "narrative:gaming",
+          "narrative:nft"
+        ],
+        "internalLinks": [
+          "/coins/immutable-x",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "ایمیوتبل (IMX) دارایی مرتبط با بازی و NFT است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "ایمیوتبل (IMX) در دسته بازی و NFT قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت gaming، nft و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1610,6 +2850,50 @@
           "governance"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/tezos",
+        "canonicalUrl": "https://tecpey.ir/coins/tezos",
+        "title": "تزوس (XTZ) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "تزوس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "تزوس (XTZ) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "تزوس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت تزوس",
+          "خرید XTZ",
+          "Tezos چیست",
+          "XTZ",
+          "layer1",
+          "governance"
+        ],
+        "entityTags": [
+          "coin:xtz",
+          "coin-slug:tezos",
+          "category:crypto",
+          "narrative:layer1",
+          "narrative:governance"
+        ],
+        "internalLinks": [
+          "/coins/tezos",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "تزوس (XTZ) دارایی مرتبط با شبکه قرارداد هوشمند است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "تزوس (XTZ) در دسته شبکه قرارداد هوشمند قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت layer1، governance و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1665,6 +2949,50 @@
           "media"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/theta",
+        "canonicalUrl": "https://tecpey.ir/coins/theta",
+        "title": "تتا (THETA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "تتا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "تتا (THETA) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "تتا را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت تتا",
+          "خرید THETA",
+          "Theta Network چیست",
+          "THETA",
+          "depin",
+          "media"
+        ],
+        "entityTags": [
+          "coin:theta",
+          "coin-slug:theta",
+          "category:crypto",
+          "narrative:depin",
+          "narrative:media"
+        ],
+        "internalLinks": [
+          "/coins/theta",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "تتا (THETA) دارایی مرتبط با زیرساخت رسانه و ویدئو است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "تتا (THETA) در دسته زیرساخت رسانه و ویدئو قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت depin، media و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     },
     {
@@ -1718,6 +3046,48 @@
           "layer1"
         ],
         "riskLevel": "medium"
+      },
+      "organicGrowth": {
+        "policyVersion": "tecpey-organic-growth-policy-v1",
+        "entityType": "coin",
+        "locale": "fa",
+        "canonicalPath": "/coins/eos",
+        "canonicalUrl": "https://tecpey.ir/coins/eos",
+        "title": "ایاس (EOS) چیست؟ | راهنمای رمزارز تک‌پی",
+        "metaDescription": "ایاس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "openGraphTitle": "ایاس (EOS) چیست؟ | راهنمای رمزارز تک‌پی",
+        "openGraphDescription": "ایاس را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.",
+        "twitterCard": "summary_large_image",
+        "schemaTypes": [
+          "Article",
+          "FAQPage",
+          "BreadcrumbList"
+        ],
+        "keywords": [
+          "قیمت ایاس",
+          "خرید EOS",
+          "EOS چیست",
+          "EOS",
+          "layer1"
+        ],
+        "entityTags": [
+          "coin:eos",
+          "coin-slug:eos",
+          "category:crypto",
+          "narrative:layer1"
+        ],
+        "internalLinks": [
+          "/coins/eos",
+          "/coins",
+          "/crypto-news",
+          "/academy/term-5",
+          "/academy/practice-lab",
+          "/trading-tools"
+        ],
+        "answerSummary": "ایاس (EOS) دارایی مرتبط با شبکه قرارداد هوشمند است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.",
+        "llmSummary": "ایاس (EOS) در دسته شبکه قرارداد هوشمند قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت layer1 و امنیت انتقال بررسی شود. این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.",
+        "safetyDisclaimer": "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+        "freshnessTag": "scheduled_refresh"
       }
     }
   ],

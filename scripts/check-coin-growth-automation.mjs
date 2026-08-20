@@ -5,10 +5,6 @@ const root = process.cwd();
 const snapshotPath = path.join(root, "src/data/generated/coinGrowthSnapshot.json");
 const snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
 const errors = [];
-const ORGANIC_GROWTH_POLICY_EFFECTIVE_AT = Date.parse("2026-08-16T00:00:00.000Z");
-const requiresStoredOrganicGrowth =
-  Number.isFinite(Date.parse(snapshot.generatedAt ?? "")) &&
-  Date.parse(snapshot.generatedAt) >= ORGANIC_GROWTH_POLICY_EFFECTIVE_AT;
 
 function fail(code) {
   errors.push(code);
@@ -63,16 +59,13 @@ for (const coin of snapshot.coins ?? []) {
   if (!Array.isArray(coin.useCases) || coin.useCases.length < 2) fail(`coin_growth_use_cases_missing:${coin.symbol}`);
   if (!Array.isArray(coin.risks) || coin.risks.length < 2) fail(`coin_growth_risks_missing:${coin.symbol}`);
   if (!Array.isArray(coin.faqs) || coin.faqs.length < 2) fail(`coin_growth_faqs_missing:${coin.symbol}`);
-  if (coin.organicGrowth && !validOrganicGrowth(coin.organicGrowth, {
+  if (!validOrganicGrowth(coin.organicGrowth, {
     entityType: "coin",
     locale: "fa",
     canonicalPath: `/coins/${coin.slug}`,
     symbol: coin.symbol,
   })) {
     fail(`coin_growth_organic_profile_invalid:${coin.symbol}`);
-  }
-  if (requiresStoredOrganicGrowth && !coin.organicGrowth) {
-    fail(`coin_growth_organic_profile_missing:${coin.symbol}`);
   }
 }
 

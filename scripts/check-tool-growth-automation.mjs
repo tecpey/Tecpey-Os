@@ -7,10 +7,6 @@ const coreToolsPath = path.join(root, "src/data/traderTools.json");
 const snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
 const coreTools = JSON.parse(fs.readFileSync(coreToolsPath, "utf8"));
 const errors = [];
-const ORGANIC_GROWTH_POLICY_EFFECTIVE_AT = Date.parse("2026-08-16T00:00:00.000Z");
-const requiresStoredOrganicGrowth =
-  Number.isFinite(Date.parse(snapshot.generatedAt ?? "")) &&
-  Date.parse(snapshot.generatedAt) >= ORGANIC_GROWTH_POLICY_EFFECTIVE_AT;
 
 function fail(code) {
   errors.push(code);
@@ -91,22 +87,19 @@ for (const tool of snapshot.tools ?? []) {
   if (!String(tool.articleFa ?? "").includes("توصیه مالی") && !String(tool.articleFa ?? "").includes("سیگنال")) {
     fail(`tool_growth_risk_language_missing:${tool.name}`);
   }
-  if (tool.organicGrowth?.fa && !validOrganicGrowth(tool.organicGrowth.fa, {
+  if (!validOrganicGrowth(tool.organicGrowth?.fa, {
     locale: "fa",
     canonicalPath: `/trading-tools/${slug}`,
     slug,
   })) {
     fail(`tool_growth_fa_organic_profile_invalid:${tool.name}`);
   }
-  if (tool.organicGrowth?.en && !validOrganicGrowth(tool.organicGrowth.en, {
+  if (!validOrganicGrowth(tool.organicGrowth?.en, {
     locale: "en",
     canonicalPath: `/en/trading-tools/${slug}`,
     slug,
   })) {
     fail(`tool_growth_en_organic_profile_invalid:${tool.name}`);
-  }
-  if (requiresStoredOrganicGrowth && (!tool.organicGrowth?.fa || !tool.organicGrowth?.en)) {
-    fail(`tool_growth_organic_profile_missing:${tool.name}`);
   }
 }
 

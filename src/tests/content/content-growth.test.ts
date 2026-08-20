@@ -853,6 +853,66 @@ describe("Content growth entity contract", () => {
     );
   });
 
+  it("requires organic growth evidence only for publishable materialized news decisions", async () => {
+    const decisions = buildNewsAutomationBatch([
+      {
+        locale: "en",
+        title: "Bitcoin ETF approval raises BTC and Ethereum market-data checks",
+        summary:
+          "ETF approval news can affect BTC and ETH liquidity, so users compare TradingView charts and CoinMarketCap data with risk management.",
+        sourceName: "CoinDesk",
+        sourceUrl: "https://www.coindesk.com/markets/",
+        url: "https://www.coindesk.com/markets/bitcoin-etf-approval-example",
+        publishedAt: "2026-08-09T07:00:00.000Z",
+        fetchedAt: "2026-08-09T07:05:00.000Z",
+      },
+      {
+        locale: "en",
+        title: "Generic crypto culture headline without supported entities",
+        summary: "This is broad commentary with no supported coin, tool or Academy relationship.",
+        sourceName: "Unknown Blog",
+        sourceUrl: "https://example.invalid/feed",
+        url: "https://example.invalid/news/generic",
+        publishedAt: "2026-08-09T07:00:00.000Z",
+        fetchedAt: "2026-08-09T07:05:00.000Z",
+      },
+    ]);
+    const snapshot = materializeNewsAutomationDecisions(decisions, {
+      locale: "en",
+      generatedAt: "2026-08-09T07:05:00.000Z",
+    });
+    const reviewDecision = snapshot.decisions.find((decision) => decision.status !== "publishable");
+    assert.ok(reviewDecision);
+    (reviewDecision as { organicGrowth?: unknown }).organicGrowth = undefined;
+
+    const client = new FakeNewsMaterializationClient() as unknown as PoolClient & FakeNewsMaterializationClient;
+    await assert.doesNotReject(() =>
+      persistMaterializedNewsSnapshotTx(client, {
+        snapshotId: "00000000-0000-4000-8000-000000000061",
+        idempotencyKey: "crypto-news:auto:2026-08-09T07:05:00Z:en:review-only-organic-gap",
+        sourceMode: "test",
+        snapshot,
+      }),
+    );
+
+    const publishableSnapshot = materializeNewsAutomationDecisions([decisions[0]], {
+      locale: "en",
+      generatedAt: "2026-08-09T07:05:00.000Z",
+    });
+    (publishableSnapshot.decisions[0] as { organicGrowth?: unknown }).organicGrowth = undefined;
+
+    await assert.rejects(
+      () =>
+        persistMaterializedNewsSnapshotTx(client, {
+          snapshotId: "00000000-0000-4000-8000-000000000062",
+          idempotencyKey: "crypto-news:auto:2026-08-09T07:05:00Z:en:publishable-organic-gap",
+          sourceMode: "test",
+          snapshot: publishableSnapshot,
+        }),
+      /news_materialization_organic_growth_invalid/,
+    );
+  });
+
   it("runs the news materialization worker transaction without writing empty feeds", async () => {
     const fetchedAt = "2026-08-09T07:05:00.000Z";
     const client = new FakeNewsMaterializationClient() as unknown as PoolClient & FakeNewsMaterializationClient;
