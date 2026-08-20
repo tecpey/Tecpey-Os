@@ -17,6 +17,50 @@ Estimated time to launch readiness: **2-4 sprints** (Phase 39.6 + Phase 40 + Pha
 
 ---
 
+> ## Current-state reconciliation — 2026-08-20
+>
+> This assessment is a dated Phase 39.5 snapshot. Its tables are preserved below
+> as written, but **most of the ❌ rows are no longer accurate**. Read this
+> section first; where it disagrees with a table below, this section and the
+> current code win.
+>
+> **The headline verdict still holds, for a different reason.** TecPey is still
+> **NO-GO** for public, financial and enterprise activation — but no longer
+> because of open engineering blockers. The remaining gate is **operational
+> evidence that cannot be produced inside this repository**: 7 P0 controls
+> (`OPS-010`…`OPS-014`, `QA-050`, `QA-051`) are `BLOCKED_EXTERNAL` in
+> `config/enterprise-global-product-readiness.json`. Nothing in this note claims
+> a drill, a screenshot matrix, a sign-off, or any other external evidence.
+>
+> ### What changed since 2026-07-05
+>
+> | Original row | Current state | Evidence |
+> |---|---|---|
+> | Security: "6 P0 blockers" | **All six are closed or fail-closed gated.** Per-blocker verification is in `docs/SECURITY_BLOCKERS.md` → *Current-state reconciliation*. | `sumsub.ts:82-84`, `keystore.ts:314-325`, `csrf.ts`, `admin-passkey-service.ts:140,150` |
+> | Migration runner ❌ "Schema-on-connect" | **Resolved.** 69 governed migration modules with a registry, plan and readiness contract, applied under lock. | `src/lib/db-migration-registry.ts`, `db-migration-plan.ts`, `db-migration-readiness.ts` |
+> | Structured logging ❌ "Not implemented" | **Resolved.** Structured logger with automatic redaction of secret-shaped context keys at the sink. | `src/lib/logger.ts` |
+> | Error monitoring ❌ "Not implemented" | **Partial, not resolved.** A provider switch exists and the BetterStack path is real (`fetch`-based, no extra dependency). The **Sentry path is still a stub** that falls back to logging. | `src/lib/error-tracking.ts:38` (`TODO(error-tracking)`) |
+> | Test runner ❌ "Not in package.json" · CI ❌ "Lint/typecheck/build only" · "No safety net" | **Resolved.** 268 test files and 172 npm scripts; 14 CI workflows including full-suite diagnostics, API security manifest, sensitive-mutation audit and a public browser Golden Path. Current run on this head: **828 passing, 0 failing** (301 skipped are PostgreSQL-gated and self-skip without `DATABASE_URL`). | `.github/workflows/`, `npm test` |
+> | Operations runbook ❌ · Incident response ❌ | **Resolved as documents.** Both exist; the incident *evidence* (`OPS-012`) is still external and unmet. | `docs/OPERATIONS_RUNBOOK.md`, `docs/operations/INCIDENT_READINESS_CONTRACT.md` |
+> | Performance ❌ "Not measured" | **Superseded.** A Core Web Vitals and route-budget contract is registered (`PERF-001`, `EVIDENCE_READY`); the category stands at 67%. | `config/enterprise-global-product-readiness.json` |
+> | Tron provider ❌ "Broken" | **Superseded by scope, not fixed.** There is no Tron provider; the registry ships Bitcoin, Ethereum and Solana. Tron is simply not offered. | `src/lib/wallet/providers/` |
+> | Contact forms ❌ "mailto only" | **Still accurate.** Tracked as SB-013. | `src/app/contact-us/page.tsx` |
+> | Stop-limit ❌ "Accepted but not implemented" | **Still accurate, and worse than described.** Such orders are accepted, validated, persisted, and then executed as immediate GTC limit orders with the stop condition discarded. Now tracked as **SB-015**. | `docs/SECURITY_BLOCKERS.md` → SB-015 |
+>
+> ### Section 2 pass rate is obsolete
+>
+> The "**Pass rate: 1/10 (10%)**" line below reflects July state. Against current
+> code, criteria 1, 2, 4, 5, 6, 7 and 10 pass, and criterion 3 is covered by
+> `npm run env:check`. Criteria 8 (contact forms) and 9 (performance baseline)
+> are the honest remainders — 8 is open, 9 is now contract-registered. That line
+> is retained for history and must not be quoted as current status.
+>
+> **Current authority for readiness percentages:**
+> `config/enterprise-global-product-readiness.json` — weighted product readiness
+> is **≈64%**, with 34 of 41 controls `EVIDENCE_READY` and 7 `BLOCKED_EXTERNAL`.
+
+---
+
 ## Section 1 — Launch Readiness by Dimension
 
 ### 1.1 Security
