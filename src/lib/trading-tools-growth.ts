@@ -22,6 +22,18 @@ export type RankedTraderTool = TraderTool & {
   categoryImportance: number;
 };
 
+export type TraderToolSurfaceContract = {
+  suitableFor: string[];
+  notSuitableFor: string[];
+  inputs: string[];
+  outputs: string[];
+  assumptions: string[];
+  riskNotes: string[];
+  privacyAndPermissions: string[];
+  lastVerifiedLabel: string;
+  officialLinkStatus: string;
+};
+
 const coreTraderTools = rawTools as TraderTool[];
 const automatedTraderTools = readPublishedToolGrowthRecords(toolGrowthSnapshot as ToolGrowthSnapshot);
 const traderTools = [...coreTraderTools, ...automatedTraderTools];
@@ -163,6 +175,109 @@ export function getTraderToolSlugs(): string[] {
 
 export function getTraderToolBySlug(slug: string): RankedTraderTool | undefined {
   return getRankedTraderTools().find((tool) => tool.slug === slug);
+}
+
+function toolRiskNotes(tool: RankedTraderTool, locale: ContentLocale): string[] {
+  const isEn = locale === "en";
+  const risk = tool.automation?.integrationRisk;
+  const notes = isEn
+    ? [
+        "Use this page as an educational checklist, not as a trading signal or endorsement.",
+        "Verify the official domain, pricing and permissions before leaving TecPey.",
+      ]
+    : [
+        "این صفحه چک‌لیست آموزشی است؛ سیگنال معامله یا تأیید مالی محسوب نمی‌شود.",
+        "قبل از خروج از تک‌پی، دامنه رسمی، هزینه‌ها و مجوزهای ابزار را خودتان بررسی کنید.",
+      ];
+
+  if (risk === "wallet_connection") {
+    notes.push(
+      isEn
+        ? "Wallet-connection tools require extra caution and should never receive blind signing approval."
+        : "ابزارهای متصل به کیف‌پول نیاز به احتیاط بیشتر دارند و نباید مجوز امضای کور بگیرند.",
+    );
+  }
+  if (risk === "api_key") {
+    notes.push(
+      isEn
+        ? "API-key tools must use least-privilege keys and withdrawal-disabled permissions."
+        : "ابزارهای API-key باید فقط با کلیدهای کم‌دسترسی و بدون مجوز برداشت استفاده شوند.",
+    );
+  }
+
+  return notes;
+}
+
+export function getTraderToolSurfaceContract(
+  tool: RankedTraderTool,
+  locale: ContentLocale,
+): TraderToolSurfaceContract {
+  const isEn = locale === "en";
+  const officialLinkStatus = isEn
+    ? `Official destination recorded as ${tool.domain}; outbound use remains user-verified.`
+    : `مقصد رسمی با دامنه ${tool.domain} ثبت شده است؛ استفاده بیرونی همچنان باید توسط کاربر بررسی شود.`;
+
+  return {
+    suitableFor: isEn
+      ? [
+          `Users researching ${tool.categoryEn.toLowerCase()} with a defined risk plan.`,
+          "Learners comparing official sources before making an independent decision.",
+        ]
+      : [
+          `کاربرانی که با برنامه ریسک مشخص در حال بررسی ${tool.categoryFa} هستند.`,
+          "افرادی که قبل از تصمیم مستقل، منابع رسمی و محدودیت‌ها را مقایسه می‌کنند.",
+        ],
+    notSuitableFor: isEn
+      ? [
+          "Users looking for guaranteed returns, copy-trading instructions or one-click buy/sell signals.",
+          "Any workflow that asks TecPey to approve wallet/API access automatically.",
+        ]
+      : [
+          "کاربرانی که دنبال سود تضمینی، کپی‌ترید یا سیگنال خرید/فروش یک‌کلیکی هستند.",
+          "هر فرایندی که از تک‌پی انتظار تأیید خودکار اتصال کیف‌پول یا API دارد.",
+        ],
+    inputs: isEn
+      ? [
+          "Official tool website or app store destination",
+          "User-selected market, wallet, contract, asset or watchlist context",
+        ]
+      : [
+          "وب‌سایت رسمی یا مقصد اپ‌استور/گوگل‌پلی ابزار",
+          "بازار، کیف‌پول، قرارداد، دارایی یا واچ‌لیست انتخاب‌شده توسط کاربر",
+        ],
+    outputs: isEn
+      ? [
+          "Educational comparison context",
+          "Risk questions, research prompts and related TecPey learning paths",
+        ]
+      : [
+          "زمینه آموزشی برای مقایسه",
+          "سوال‌های ریسک، سرنخ‌های تحقیق و مسیرهای آموزشی مرتبط در تک‌پی",
+        ],
+    assumptions: isEn
+      ? [
+          "TecPey does not execute actions inside the external tool.",
+          "Pricing, feature availability and incidents can change after the last verification.",
+        ]
+      : [
+          "تک‌پی داخل ابزار خارجی هیچ اقدام اجرایی انجام نمی‌دهد.",
+          "قیمت، قابلیت‌ها و سوابق رخداد ممکن است بعد از آخرین بررسی تغییر کند.",
+        ],
+    riskNotes: toolRiskNotes(tool, locale),
+    privacyAndPermissions: isEn
+      ? [
+          "Do not grant withdrawal, trade-execution or admin permissions unless a separate governed integration is approved.",
+          "External accounts, cookies, wallet addresses and API keys are outside TecPey custody.",
+        ]
+      : [
+          "بدون approval جداگانه، مجوز برداشت، اجرای معامله یا دسترسی ادمین به هیچ ابزار خارجی داده نشود.",
+          "حساب خارجی، کوکی، آدرس کیف‌پول و API key خارج از custody تک‌پی است.",
+        ],
+    lastVerifiedLabel: isEn
+      ? "Review cadence: scheduled refresh with manual approval for external activation."
+      : "چرخه بررسی: refresh زمان‌بندی‌شده با تأیید دستی برای هر فعال‌سازی خارجی.",
+    officialLinkStatus,
+  };
 }
 
 export function buildTradingToolsSchemas(locale: ContentLocale) {

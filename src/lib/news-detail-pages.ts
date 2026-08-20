@@ -41,6 +41,11 @@ export type NewsHubPageModel = {
   items: NewsImpactHistoryItem[];
 };
 
+export type NewsEditorialBoundaryCard = {
+  title: string;
+  body: string;
+};
+
 export function getNewsDetailStaticParams(locale: ContentLocale): { slug: string }[] {
   return getNewsImpactSlugs(locale).map((slug) => ({ slug }));
 }
@@ -349,4 +354,54 @@ export function getNewsDetailDisplayMeta(item: NewsImpactHistoryItem, locale: Co
             : isEn ? "Neutral context" : "زمینه خنثی",
     slug: getNewsImpactSlug(item),
   };
+}
+
+export function getNewsEditorialBoundaryCards(
+  model: NewsDetailPageModel,
+  locale: ContentLocale,
+): NewsEditorialBoundaryCard[] {
+  const isEn = locale === "en";
+  const relatedEntities = [
+    ...model.item.relatedCoinSymbols,
+    ...model.relatedTools.map((tool) => tool.name),
+  ];
+  const entityLabel = relatedEntities.length > 0 ? relatedEntities.join(", ") : isEn ? "the crypto market" : "بازار رمزارز";
+
+  return isEn
+    ? [
+        {
+          title: "Source fact",
+          body: `${model.item.sourceName} published this item at the recorded source time. TecPey links to the original URL and does not rewrite it as a trading instruction.`,
+        },
+        {
+          title: "TecPey interpretation",
+          body: `TecPey connects the item to ${entityLabel} only when the internal impact history records supported entities, source timing and a review reason.`,
+        },
+        {
+          title: "AI-assisted summary boundary",
+          body: "AI may help summarize and translate the item, but the page must keep source attribution, uncertainty and the no-signal rule visible.",
+        },
+        {
+          title: "Correction and freshness",
+          body: `The recorded-at timestamp shows when TecPey last materialized this page. Material changes require a new canonical history item or an editorial correction.`,
+        },
+      ]
+    : [
+        {
+          title: "واقعیت منبع",
+          body: `${model.item.sourceName} این خبر را در زمان ثبت‌شده منتشر کرده است. تک‌پی به URL اصلی لینک می‌دهد و آن را به دستور معامله تبدیل نمی‌کند.`,
+        },
+        {
+          title: "برداشت تک‌پی",
+          body: `تک‌پی این خبر را فقط زمانی به ${entityLabel} وصل می‌کند که history داخلی، entityهای پشتیبانی‌شده، زمان منبع و دلیل بررسی را ثبت کرده باشد.`,
+        },
+        {
+          title: "مرز خلاصه AI",
+          body: "هوش مصنوعی ممکن است در خلاصه‌سازی و ترجمه کمک کند، اما صفحه باید attribution منبع، عدم قطعیت و قانون بدون سیگنال را واضح نگه دارد.",
+        },
+        {
+          title: "اصلاح و تازگی",
+          body: "زمان ثبت در تک‌پی نشان می‌دهد این صفحه چه زمانی materialize شده است. تغییرات مهم باید با آیتم canonical جدید یا اصلاح سردبیری ثبت شوند.",
+        },
+      ];
 }

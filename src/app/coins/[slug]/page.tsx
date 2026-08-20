@@ -193,6 +193,9 @@ export default async function CoinPage({ params }: Props) {
               <p className="mt-3 text-sm leading-8 text-white/72">
                 برای مشاهده قیمت لحظه‌ای، عمق بازار و شروع معامله، وارد بخش بازارهای تک‌پی شوید. این راهنما برای شناخت بهتر رمزارز است؛ قبل از خرید، قیمت لحظه‌ای، کارمزد، شبکه انتقال و ریسک‌ها را بررسی کنید.
               </p>
+              <p className="mt-3 rounded-2xl border border-cyan-300/20 bg-white/10 p-4 text-xs font-bold leading-7 text-cyan-50">
+                این صفحه توصیه مالی، سیگنال خرید/فروش، تضمین سود یا تأیید فعال‌سازی این دارایی برای معامله واقعی نیست؛ هر عدد بازار باید با منبع، زمان ثبت و شرایط ریسک کاربر دوباره بررسی شود.
+              </p>
               <Link href="/markets" className="mt-5 inline-flex rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-black text-white">
                 مشاهده بازارها
               </Link>
