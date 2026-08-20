@@ -210,7 +210,48 @@
 
 ### SB-016 — `exchange.enabled` Is Reported But Never Enforced at the API Boundary
 
-**Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
+**Status: CLOSED for the Exchange surface — 2026-08-20, issue #502.**
+
+- **Resolution:** `POST /api/orders` now calls `requireFeature("exchange.enabled")`
+  before any request work — before CSRF, session resolution, rate-limit budget and
+  body parsing — so a launch-disabled surface refuses before acting on the
+  caller's behalf. The guard already existed in `src/lib/route-guards.ts:62` for
+  exactly this purpose and nothing had ever called it. The flag defaults to off,
+  so an unset `FEATURE_EXCHANGE_ENABLED` rejects: fail-closed.
+- **Deliberate asymmetry — cancellation is NOT gated.** Gating `DELETE
+  /api/orders/[id]` would strand resting orders, and the balance they hold,
+  whenever the Exchange is switched off. Halting a market means refusing new
+  exposure, not refusing to unwind existing exposure, so the cancel route stays
+  callable. `src/tests/security/exchange-launch-flag-enforcement.test.ts` asserts
+  this explicitly so a later change cannot "complete" the gating and trap funds.
+- **Guard:** the same test locks the fail-closed flag semantics (only an exact
+  `"true"` enables), the placement refusal, that the gate precedes all request
+  work, and an enforcement table that must not drift from the product registry —
+  so a future flag-carrying surface cannot ship display-only without a
+  deliberate decision. Verified load-bearing: removing the gate fails 2 of 5.
+- **Residual scope — still open, and larger than first recorded.** An earlier
+  draft classified `social.enabled` as having no mutating surface. **That was
+  wrong**, and review caught it: `PATCH /api/community/profile` is an active
+  mutating route owned by the Social product ("Community, groups, journals, and
+  leaderboards") and carries no feature guard. Recording it as
+  `no-mutating-surface` would have made the new drift test pass while blessing
+  precisely the gap it exists to detect — a guard that launders a gap is worse
+  than no guard. It is now recorded as `unenforced-mutating-surface`.
+- **Why Social is not gated in the same change.** The community surface ships
+  live: `PeerJournals`, `ChallengeCenter`, `AchievementCenter` and
+  `CommunityCareerPanel` all reach that route, and no page checks
+  `social.enabled`. Gating it behind an off-by-default flag would take a working
+  Academy feature offline in every environment that does not set
+  `FEATURE_SOCIAL_ENABLED`. The real defect is the **contradiction** between a
+  live surface and an off-by-default product flag — either the flag should
+  default on for the shipped subset, or community should be separated from the
+  unshipped Social product. That is a product decision and is left open.
+- **`future.marketplace.enabled`** genuinely has no mutating route today and is
+  recorded as `no-mutating-surface`. `academy.enabled` and `mentor.enabled`
+  default **on**, so they make no launch claim and carry no SB-016 risk; the
+  guard asserts those defaults so the classification cannot silently invert.
+
+**Original record — Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
 
 - **Risk:** The entire launch posture rests on the statement that the real-money
   Exchange is disabled. In code that statement is **display-only**.
