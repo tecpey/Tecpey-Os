@@ -90,24 +90,48 @@ export async function reconcileMentorProfiles(options: {
     // Candidate students: anyone whose newest signal is outside the grace window
     // and is not already reflected in their profile. The comparison is repeated
     // in needsMentorProfileRefresh so the decision stays one testable rule; SQL
-    // only narrows the scan using the existing (student_id, created_at) index.
+    // only narrows the scan.
     //
-    // Deliberately not tenant-scoped, even though learning_events is. The repair
-    // must match what the repair *does*: applyMentorProfileUpdate collects signals
-    // by student_id alone, and mentor_profiles is UNIQUE(student_id) with no
-    // tenant column. Scoping this query per tenant would surface staleness the
-    // recompute cannot express, and the sweep would repair the same student over
-    // and over without ever satisfying the condition.
+    // The signal union must be exactly the set of tables applyMentorProfileUpdate
+    // derives from — academy_term_progress, academy_trading_arena_trades,
+    // mentor_challenge_attempts and mentor_conversations. Anything narrower leaves
+    // lost updates unrepaired: the AI mentor and term-progress paths write to
+    // their own stores, so a student whose activity is a conversation would never
+    // be selected at all. Note that learning_events is deliberately absent — the
+    // recompute does not read it, and detecting staleness from a source the
+    // recompute ignores would mark profiles stale that a repair cannot settle.
+    // If a collector gains or drops a table, this union must move with it.
+    //
+    // Deliberately not tenant-scoped. The repair must match what the repair does:
+    // applyMentorProfileUpdate collects by student_id alone, and mentor_profiles
+    // is UNIQUE(student_id) with no tenant column. Scoping per tenant would
+    // surface staleness the recompute cannot express, and the sweep would repair
+    // the same student forever without converging.
     const rows = await client.query<StaleRow>(
-      `SELECT e.student_id,
+      `WITH signals AS (
+         SELECT student_id, GREATEST(
+                  COALESCE(updated_at, to_timestamp(0)),
+                  COALESCE(passed_at, to_timestamp(0)),
+                  COALESCE(completed_at, to_timestamp(0)),
+                  COALESCE(started_at, to_timestamp(0))
+                ) AS signal_at
+           FROM academy_term_progress
+         UNION ALL
+         SELECT student_id, created_at AS signal_at FROM academy_trading_arena_trades
+         UNION ALL
+         SELECT student_id, created_at AS signal_at FROM mentor_challenge_attempts
+         UNION ALL
+         SELECT student_id, created_at AS signal_at FROM mentor_conversations
+       )
+       SELECT s.student_id,
               p.updated_at AS profile_updated_at,
-              MAX(e.created_at) AS latest_signal_at
-         FROM learning_events e
-         LEFT JOIN mentor_profiles p ON p.student_id = e.student_id
-        GROUP BY e.student_id, p.updated_at
-       HAVING MAX(e.created_at) <= NOW() - ($1::bigint * INTERVAL '1 millisecond')
-          AND (p.updated_at IS NULL OR MAX(e.created_at) > p.updated_at)
-        ORDER BY MAX(e.created_at) ASC
+              MAX(s.signal_at) AS latest_signal_at
+         FROM signals s
+         LEFT JOIN mentor_profiles p ON p.student_id = s.student_id
+        GROUP BY s.student_id, p.updated_at
+       HAVING MAX(s.signal_at) <= NOW() - ($1::bigint * INTERVAL '1 millisecond')
+          AND (p.updated_at IS NULL OR MAX(s.signal_at) > p.updated_at)
+        ORDER BY MAX(s.signal_at) ASC
         LIMIT $2`,
       [graceMs, limit],
     );

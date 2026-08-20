@@ -78,6 +78,46 @@ test("the grace window is configurable without changing the rule", () => {
   );
 });
 
+test("the staleness scan covers exactly the sources the recompute reads", () => {
+  // The original version of this sweep scanned learning_events, which
+  // applyMentorProfileUpdate does not read at all. It therefore missed every
+  // real signal store — a student whose activity was a mentor conversation was
+  // never selected — while flagging staleness that no recompute could settle.
+  // Any drift between the two must fail here rather than silently un-repair
+  // whole categories of lost update.
+  const collectors = readFileSync("src/lib/mentor-signals.ts", "utf8");
+  const sweep = readFileSync("src/lib/mentor-profile-reconciliation.ts", "utf8");
+
+  const bodies = collectors
+    .split(/function collect\w*Signals/)
+    .slice(1)
+    .join("\n");
+  // Compare parsed FROM clauses on both sides, never raw substrings: a table
+  // named only in a prose comment would otherwise satisfy the check and let the
+  // very drift this test exists to catch pass unnoticed.
+  const fromTables = (source: string): Set<string> => {
+    const withoutComments = source
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("//"))
+      .join("\n");
+    return new Set([...withoutComments.matchAll(/FROM\s+([a-z_]+)/g)].map((m) => m[1]));
+  };
+
+  const readTables = fromTables(bodies);
+  assert.ok(readTables.size > 0, "expected to find the collector source tables");
+
+  const scanned = fromTables(sweep);
+  scanned.delete("signals"); // the CTE the union feeds, not a signal store
+
+  assert.deepEqual(
+    [...scanned].sort(),
+    [...readTables].sort(),
+    "the staleness scan and applyMentorProfileUpdate must read exactly the same signal stores: " +
+      "a store the recompute reads but the scan misses leaves those lost updates unrepaired, " +
+      "and a store the scan reads but the recompute ignores marks profiles stale that no repair can settle",
+  );
+});
+
 test("the repair is reachable as an operable job", () => {
   // A repair nobody can run is not a repair. Match the reconciliation idiom the
   // codebase already uses for session revocations, risk and offline sync.
