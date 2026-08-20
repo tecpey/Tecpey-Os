@@ -1,13 +1,13 @@
-const DECIMAL_PATTERN = /^(?<whole>\d+)(?:\.(?<fraction>\d+))?$/;
-const EXPONENTIAL_PATTERN = /^(?<coefficient>\d+)(?:\.(?<fraction>\d+))?[eE](?<exponent>[+-]?\d+)$/;
+const DECIMAL_PATTERN = /^(\d+)(?:\.(\d+))?$/;
+const EXPONENTIAL_PATTERN = /^(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/;
 const ATOMIC_PATTERN = /^\d+$/;
 
 function expandExponentialDecimal(value: string): string {
   const match = value.match(EXPONENTIAL_PATTERN);
-  if (!match?.groups) return value;
-  const coefficient = match.groups.coefficient;
-  const fraction = match.groups.fraction ?? "";
-  const exponent = Number.parseInt(match.groups.exponent, 10);
+  if (!match) return value;
+  const coefficient = match[1];
+  const fraction = match[2] ?? "";
+  const exponent = Number.parseInt(match[3], 10);
   const digits = `${coefficient}${fraction}`;
   const decimalIndex = coefficient.length + exponent;
   if (decimalIndex <= 0) return `0.${"0".repeat(Math.abs(decimalIndex))}${digits}`;
@@ -18,9 +18,9 @@ function expandExponentialDecimal(value: string): string {
 export function parseDecimalToAtomicUnits(value: string, decimals: number): bigint {
   const normalized = expandExponentialDecimal(value.trim());
   const match = normalized.match(DECIMAL_PATTERN);
-  if (!match?.groups) throw new Error("amount_decimal_invalid");
-  const whole = match.groups.whole.replace(/^0+(?=\d)/, "");
-  const fraction = match.groups.fraction ?? "";
+  if (!match) throw new Error("amount_decimal_invalid");
+  const whole = match[1].replace(/^0+(?=\d)/, "");
+  const fraction = match[2] ?? "";
   if (fraction.length > decimals) throw new Error("amount_decimal_precision_exceeded");
   return BigInt(`${whole}${fraction.padEnd(decimals, "0")}`);
 }

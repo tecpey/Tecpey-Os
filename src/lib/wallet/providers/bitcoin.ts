@@ -257,7 +257,7 @@ export class BitcoinProvider implements WalletProvider {
 
     const targetSats = parseBtcAmount(input.amount);
     const feeEstimate = await this.estimateFee(input);
-    const satsPerVByte = feeEstimate.details.satsPerVByte ?? "10";
+    const satsPerVByte = String(feeEstimate.details.satsPerVByte ?? "10");
 
     const selection = selectUTXOs(utxos, targetSats, satsPerVByte);
     if (!selection) {
