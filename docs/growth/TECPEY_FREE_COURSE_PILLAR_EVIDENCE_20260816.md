@@ -29,9 +29,22 @@
 Passed:
 
 - `git diff --check`
+- `node scripts/qa-route-check.mjs` (`175 pages indexed`)
+- `node scripts/check-release-gate-coverage.mjs`
+- `node scripts/check-coin-growth-automation.mjs`
+- `node scripts/check-tool-growth-automation.mjs`
+- `node scripts/check-repository-audit-authority.mjs`
+- `node scripts/repository-audit-manifest.test.mjs`
+- `node scripts/generate-repository-audit-manifest.mjs`
 - Static source check confirms both routes no longer call `redirect`.
 - Static source check confirms both routes expose direct metadata, OpenGraph, Twitter metadata, `safeJsonLd`, `Course`, `FAQPage` and `BreadcrumbList`.
 - Static source check confirms `src/app/sitemap.ts` includes `/academy/free` and `/en/academy/free`.
+
+## Audit Linkage
+
+- The free-course pillar is now connected to the shared organic-growth profile contract used by news, coin and tool automation.
+- `src/lib/organic-growth-automation.ts` is explicitly classified as product-ui Batch 10 in the repository audit policy.
+- Batch 1A audit evidence was refreshed for Policy v17 so exact-head manifest generation rejects stale or unclassified growth sources.
 
 Blocked in this sandbox:
 
