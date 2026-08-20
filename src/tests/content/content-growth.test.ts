@@ -883,7 +883,7 @@ describe("Content growth entity contract", () => {
     });
     const reviewDecision = snapshot.decisions.find((decision) => decision.status !== "publishable");
     assert.ok(reviewDecision);
-    (reviewDecision as { organicGrowth?: unknown }).organicGrowth = undefined;
+    (reviewDecision as { organicGrowth?: unknown }).organicGrowth = {};
 
     const client = new FakeNewsMaterializationClient() as unknown as PoolClient & FakeNewsMaterializationClient;
     await assert.doesNotReject(() =>
@@ -899,7 +899,7 @@ describe("Content growth entity contract", () => {
       locale: "en",
       generatedAt: "2026-08-09T07:05:00.000Z",
     });
-    (publishableSnapshot.decisions[0] as { organicGrowth?: unknown }).organicGrowth = undefined;
+    (publishableSnapshot.decisions[0] as { organicGrowth?: unknown }).organicGrowth = {};
 
     await assert.rejects(
       () =>
