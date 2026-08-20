@@ -446,6 +446,9 @@ jobs:
       - name: Controlled launch decision authority guard
         run: npm run launch:decision:check
 
+      - name: Enterprise global product readiness guard
+        run: npm run product:global-readiness:check
+
       - name: Exchange reconciliation authority guard
         run: npm run exchange:reconcile:check
 

@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "fc9c3ce01000ca93f62a5e2cbfbb98c3f851eacd",
-      "sha256": "8075289ee5abe46403271578d5164a3832c5dd55614464239e5a0e18859e67ba",
-      "lines": 226,
+      "gitObjectId": "5df0f45288b12339f1ce301501a41e98dbf0e6ac",
+      "sha256": "ba6e7a69e732e7306d60bb3218e58d1823c49cdfa6977984dbde12927720ccf8",
+      "lines": 227,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 226
+          "endLine": 227
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -97,7 +97,8 @@
         "2026-08-15: re-reviewed after adding academy:daily-repair:assign, arena:league:credentials, arena:league:entitlements and qa:academy-arena-mentor-a11y:check. The first three are explicit operator scripts for governed Academy/Arena completion fixtures; the QA guard is a read-only static evidence check. No dependency, engine, override, release path, network access or runtime activation surface changed, and the file now has 223 lines.",
         "2026-08-19: re-reviewed after adding test:browser-persistence (node --test scripts/browser-persistence-authority-policy.test.mjs) and composing it into release:check immediately after browser:persistence:check. The new command runs one local node:test suite over the browser-persistence authority guard; it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates plus tests. The file now has 224 lines.",
         "2026-08-19: re-reviewed after adding routes:integrity:check (node scripts/qa-route-check.mjs) and composing it into release:check after ui:public:check. The command is a read-only static guard that indexes the Next.js app router pages and asserts every internal href resolves to a real route (static or dynamic segment); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 225 lines.",
-        "2026-08-19: re-reviewed after adding notifications:copy-safety:check (node scripts/check-notification-copy-safety.mjs) and composing it into release:check immediately after notifications:domain:check. The command is a read-only static guard that scans the notification engine and re-engagement brain copy string/template literals for profit-promise, FOMO/panic, buy/sell-signal and gambling language (governance non-negotiable); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 226 lines."
+        "2026-08-19: re-reviewed after adding notifications:copy-safety:check (node scripts/check-notification-copy-safety.mjs) and composing it into release:check immediately after notifications:domain:check. The command is a read-only static guard that scans the notification engine and re-engagement brain copy string/template literals for profit-promise, FOMO/panic, buy/sell-signal and gambling language (governance non-negotiable); it adds no dependency, engine, override, network access, runtime mutation path or product activation surface, and release:check remains a composition of governed read-only gates. The file now has 226 lines.",
+        "2026-08-20: re-reviewed after adding product:global-readiness:check and wiring it into release:check. The new command runs a local read-only registry validator plus node:test negative coverage for the enterprise/global readiness baseline; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path. CI gains the same read-only guard after launch:decision:check, while existing route-integrity, browser-persistence and notification copy-safety gates remain preserved."
       ],
       "findings": [
         {
