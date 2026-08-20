@@ -8,6 +8,50 @@
 
 ---
 
+> ## Current-state reconciliation — 2026-08-20
+>
+> This is a dated Phase 39.5 record. The per-blocker entries below are preserved
+> as written; this section states what the **current code on `main`** actually
+> does, so a reader does not act on a July inventory. Where a note and an
+> original entry disagree, **the note and the current code win**.
+>
+> **Launch control is unchanged: still NO-GO.** Closing these engineering
+> blockers did not grant a Go decision. The current gate is operational evidence
+> (`OPS-010`…`OPS-014`, `QA-050`, `QA-051` in
+> `config/enterprise-global-product-readiness.json`), which cannot be produced
+> from inside this repository. No sign-off, drill, or external evidence is
+> claimed here.
+>
+> ### P0 status against current code
+>
+> | ID | Original claim | Verified current state | Evidence |
+> |---|---|---|---|
+> | SB-001 | CSRF gaps on state-changing routes | **Closed, with governed exceptions.** 65 of 70 governed mutating operations enforce CSRF. The 5 that do not are 4 `deny-only` operations (they reject mutations outright) plus the pre-authentication WebAuthn challenge, which carries rate-limit, body-size and audit controls instead. Manifest findings: **0**. | `src/lib/csrf.ts` (`verifyCsrfOrigin`, fail-closed without `NEXT_PUBLIC_SITE_URL`); `docs/security/generated/api-security-manifest.json`; `src/tests/security/csrf-origin-authority.test.ts`, `csrf-await-guard.test.ts` |
+> | SB-002 | Raw Admin token in cookie | **Closed.** Admin session cookies are `httpOnly`; no browser-readable admin token path remains. | `src/lib/admin-passkey-service.ts:140,150` |
+> | SB-003 | Signed API auth replay surface | **Unchanged** — already recorded below as a closure candidate; the surface remains absent. | entry below; `docs/security/SIGNED_API_AUTH_LAUNCH_POLICY.md` |
+> | SB-004 | Mock KYC in production | **Closed.** An unconfigured provider throws `kyc_not_configured` in production instead of returning a mock session. | `src/lib/compliance/sumsub.ts:82-84` |
+> | SB-005 | HSM/MPC throws at runtime | **Closed as gated, not as implemented.** In production an incomplete provider resolves to `custody_keystore_unavailable:custody_not_production_ready`, and the withdrawal worker refuses to start. Production custody signing remains **unimplemented by design**. | `src/lib/wallet/signing/keystore.ts:314-325`; `src/lib/wallet/signing/runtime-guard.ts:31` |
+> | SB-006 | Internal price-feed endpoint public | **Closed.** The route requires `server_price_feed_monitor_required` server authority and is classified `internal` / `deny-only` in the manifest. | `src/app/api/internal/price-feed-status/route.ts` |
+>
+> ### P1 / P2 status against current code
+>
+> | ID | Verified current state | Evidence |
+> |---|---|---|
+> | SB-007 | **Closed.** Production no longer degrades to a per-instance memory limiter: without Redis authority the production path returns a fail-closed `ok: false` result. | `src/lib/rate-limit.ts` (`productionFallbackResult`) |
+> | SB-008 | **Closed / bounded.** The browser-persistence guard passes with 25 classified lines across 7 production files, and quarantined legacy modules cannot become official evidence. | `npm run browser:persistence:check`; `scripts/check-browser-persistence.mjs` |
+> | SB-009 | **Closed.** Connection policy is exact-origin and fail-closed; placeholder or broad values throw rather than widening CSP. | `src/lib/security/csp-connection-policy.ts`; `src/tests/security/csp-connection-policy.test.ts` |
+> | SB-011 | **Closed.** Same authority as SB-002 — no admin credential is held in `sessionStorage` or `localStorage`. | `src/lib/admin-passkey-service.ts`; browser-persistence guard |
+> | SB-012 | **Closed at the document root.** `lang` and `dir` are resolved server-side on `<html>` before hydration. | `src/app/layout.tsx:233-234` |
+> | SB-013 | **Still open.** The contact surface is still `mailto:`-only; no server-side form handler exists. | `src/app/contact-us/page.tsx:16,17,51,61` |
+> | SB-014 | **Not verified here.** Nginx auth-zone rate limiting is deployment configuration and is not asserted by any repository gate. | `deploy/nginx/tecpey.conf` |
+>
+> ### Newly confirmed while reconciling
+>
+> `SB-015` below was found during this pass. It is **open**, and it is a
+> financial-safety defect rather than stale documentation.
+
+---
+
 ## P0 — Blocks Production Release
 
 ### SB-001 — CSRF Gaps on State-Changing Routes
@@ -109,6 +153,91 @@
 - **Location:** Historical Admin-auth inventory and browser persistence guard.
 - **Fix:** Maintain httpOnly server-owned Admin session authority.
 - **Target Phase:** 39.6
+
+### SB-015 — `stop_limit` Orders Are Accepted, Stored, and Silently Executed as Immediate Limit Orders
+
+**Status: CLOSED — 2026-08-20, by refusal at the admission boundary.**
+
+- **Resolution:** `validatePlaceOrderRequest` now refuses `stop_limit` before any
+  other check, returning `order_type_unsupported`. The former stop-price
+  validation is deleted rather than left unreachable — validating `stopPrice` and
+  then returning `ok` was the specific behaviour that made the type look
+  supported. The `OrderType` union and the persisted `CHECK` constraint are
+  deliberately unchanged, so implementing real stop activation later does not
+  also have to re-introduce the type and migrate the constraint.
+- **Guard:** `src/tests/trading/stop-order-admission-guard.test.ts` locks the
+  refusal, that it is independent of the supplied stop price, that it precedes
+  the market-inactive and malformed-quantity checks, and that the supported
+  types are still admitted. A final assertion fails if `engine.ts` ever gains a
+  `stopPrice` / `stop_limit` / `stop_price` reference, so whoever builds stop
+  activation is forced to revisit this guard rather than leave it stranded.
+- **Verified load-bearing:** removing the refusal fails 4 of the 6 assertions.
+
+**Original record — Status: OPEN — confirmed against current code on 2026-08-20.**
+
+- **Risk:** Financial safety. `POST /api/orders` is `mutationMode: active` and
+  accepts `type: "stop_limit"`. The request is validated *strictly* — `stopPrice`
+  is required and checked for tick size and price precision — and `stop_price` is
+  persisted. The matching engine then never reads it: `engine.ts` contains no
+  reference to `stopPrice`, `stop_limit`, or `stop_price`, and computes
+  `isGTC = !isMarket && !isFOK && !isIOC`, which is **true** for a stop-limit
+  order. The order therefore rests on the book and becomes **immediately live at
+  its limit price**, with the stop condition discarded.
+- **Why this is worse than rejection:** a user placing a protective stop (for
+  example, "sell only if the price falls to X") receives an order that is live
+  right now. The strict validation of `stopPrice` actively signals that the order
+  type is supported, which makes silent misbehaviour more likely to be trusted.
+- **Current exposure — corrected 2026-08-20 after review.** An earlier draft of
+  this entry called the defect "contained" because real-money Exchange activation
+  is launch-disabled (`FIN-001`). **That was wrong, and it understated the risk.**
+  `FIN-001` is a governance position, not a runtime gate: `POST /api/orders` never
+  calls `requireFeature` or `isFeatureEnabled`, no middleware gates it, and the
+  migrations seed **active** `BTCUSDT` and `ETHUSDT` markets. Any authenticated
+  principal with sufficient balance could reach the matching engine and trigger
+  the misexecution **today**. The defect was live and reachable, not deferred —
+  see SB-016, which tracks the missing runtime gate itself.
+- **Location:** `src/lib/trading/validation.ts:113-127` (accepts and validates),
+  `src/lib/trading/order-command-service.ts:133` and
+  `src/lib/trading/order-service.ts:55,175` (persists `stop_price`),
+  `src/lib/trading/engine.ts:396` (`isGTC` fallthrough; no stop handling),
+  `src/lib/db-migrate.ts:536` (`CHECK (type IN (…,'stop_limit'))`).
+- **Fix (either is acceptable, but one is required before Exchange activation):**
+  reject `stop_limit` at the admission boundary until a trigger engine exists, or
+  implement stop activation with its own resting/trigger state machine and
+  negative tests. Rejecting is the smaller, safer change.
+- **Rollback:** revert the admission-boundary change only while real withdrawals
+  and real-money orders remain disabled.
+
+### SB-016 — `exchange.enabled` Is Reported But Never Enforced at the API Boundary
+
+**Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
+
+- **Risk:** The entire launch posture rests on the statement that the real-money
+  Exchange is disabled. In code that statement is **display-only**.
+  `exchange.enabled` (`FEATURE_EXCHANGE_ENABLED`, `defaultEnabled: false`) is read
+  by exactly three non-test consumers: `src/lib/product-registry.ts:32-33` for
+  surface listing, and `src/lib/admin-control-plane-matrix.ts:104` for reporting
+  `launch_locked`. **No API route and no middleware enforces it.**
+- **Consequence:** `POST /api/orders` accepts and matches orders regardless of the
+  flag, against the `active` `BTCUSDT` / `ETHUSDT` markets seeded by
+  `src/lib/db-migrate.ts:598-599`. The admin control plane will report the
+  Exchange as `launch_locked` while the ordering API is in fact serving requests.
+  A governance dashboard that disagrees with runtime behaviour is worse than no
+  dashboard, because it is trusted.
+- **Scope note:** this is broader than order placement. Every surface assumed to
+  be "launch-disabled by flag" needs the same audit — a flag that is only read for
+  display cannot be cited as a control anywhere.
+- **Location:** `src/app/api/orders/route.ts` (no feature check),
+  `src/lib/feature-flags.ts:23`, `src/lib/product-registry.ts:32-33`,
+  `src/lib/admin-control-plane-matrix.ts:104`, `src/lib/db-migrate.ts:598-599`.
+- **Fix:** enforce the flag fail-closed at the admission boundary for every
+  flag-gated surface, and add a guard asserting that each launch-disabled
+  capability has a runtime refusal and not merely a registry entry. Editing the
+  route changes its manifest `sourceHash`, so this requires a reviewed-delta shard
+  carrying a tracking issue number — it is deliberately **not** bundled into the
+  SB-015 change.
+- **Rollback:** the gate is a refusal; reverting it re-opens the surface and must
+  not be done while the Exchange is meant to be disabled.
 
 ---
 
