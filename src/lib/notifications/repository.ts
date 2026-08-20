@@ -185,28 +185,25 @@ export async function migrateLegacyNotificationsForPrincipal(
 }
 
 /**
- * Whether the principal currently grants marketing consent.
- *
- * Reads the same authority the governed creation path evaluates: the latest
+ * Marketing consent as the governed creation path evaluates it: the latest
  * `notification_consents` row for the marketing purpose, absent meaning refused.
+ *
+ * Inlined into each migration INSERT rather than read once for the batch. A
+ * batch drains up to LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE rows, and under
+ * READ COMMITTED a revocation committed part-way through that loop is visible to
+ * every later statement — but not to a boolean captured before it began. Reading
+ * it per statement makes each row's decision atomic with its own insert, so a
+ * revocation cannot leak the campaigns still queued behind it.
  */
-async function hasMarketingConsent(
-  client: PoolClient,
-  principalId: string,
-): Promise<boolean> {
-  const result = await client.query<{ granted: boolean }>(
-    `SELECT COALESCE((
-       SELECT c.status = 'granted'
-         FROM notification_consents c
-        WHERE c.principal_id = $1
-          AND c.purpose = 'marketing'
-        ORDER BY c.event_sequence DESC
-        LIMIT 1
-     ), FALSE) AS granted`,
-    [principalId],
-  );
-  return result.rows[0]?.granted === true;
-}
+const MARKETING_CONSENT_SQL = `
+  SELECT COALESCE((
+    SELECT c.status = 'granted'
+      FROM notification_consents c
+     WHERE c.principal_id = $2
+       AND c.purpose = 'marketing'
+     ORDER BY c.event_sequence DESC
+     LIMIT 1
+  ), FALSE) AS granted`;
 
 async function drainNotificationCenterForPrincipal(
   client: PoolClient,
@@ -221,7 +218,6 @@ async function drainNotificationCenterForPrincipal(
   // principal who had never granted marketing consent, with an audit trail
   // asserting the policy permitted it. Classifying the row as marketing_campaign
   // made the gap visible; it did not close it.
-  const marketingConsent = await hasMarketingConsent(client, principal.id);
 
   const legacy = await client.query<{
     id: string;
@@ -262,8 +258,10 @@ async function drainNotificationCenterForPrincipal(
   let inserted = 0;
   for (const item of legacy.rows) {
     const notificationClass = classifyLegacyNotification(item.type, item.metadata);
-    const consentBlocked =
-      NOTIFICATION_CLASS_POLICIES[notificationClass].consentRequired && !marketingConsent;
+    // Whether the class needs consent is a static property of the class, so it is
+    // safe to decide here; whether consent is *held* is not, so that is read
+    // inside the statement below.
+    const consentRequired = NOTIFICATION_CLASS_POLICIES[notificationClass].consentRequired;
 
     // Withhold rather than skip. The row is still written so it consumes its
     // correlation key: skipping would leave it eligible on every later drain,
@@ -277,20 +275,25 @@ async function drainNotificationCenterForPrincipal(
     // divergence is a follow-up needing a migration, not a judgement that the
     // notification may later be delivered without consent.
     const result = await client.query(
-      `INSERT INTO platform_notifications
+      `WITH consent AS (${MARKETING_CONSENT_SQL}),
+            decision AS (
+              SELECT ($15::boolean AND NOT consent.granted) AS withheld FROM consent
+            )
+       INSERT INTO platform_notifications
         (tenant_id, principal_id, notification_class, source_type, source_id,
          title, body, locale, action_url, urgency, priority, correlation_key,
          policy_decision, policy_reason, scheduled_for, read_at, delivered_at,
          metadata, created_at, updated_at)
-       VALUES
-        ($1, $2, $3, 'legacy_notification_center', $4, $5, $6, $7, $8,
-         CASE WHEN $9 >= 3 THEN 'high' ELSE 'normal' END,
-         LEAST(10, GREATEST(0, $9)), $10,
-         CASE WHEN $15 THEN 'defer' ELSE 'allow' END,
-         CASE WHEN $15 THEN 'marketing_consent_required' ELSE 'legacy_migrated' END,
+       SELECT
+         $1, $2, $3, 'legacy_notification_center', $4, $5, $6, $7, $8,
+         CASE WHEN $9::int >= 3 THEN 'high' ELSE 'normal' END,
+         LEAST(10, GREATEST(0, $9::int)), $10,
+         CASE WHEN decision.withheld THEN 'defer' ELSE 'allow' END,
+         CASE WHEN decision.withheld THEN 'marketing_consent_required' ELSE 'legacy_migrated' END,
          $11, $12,
-         CASE WHEN $15::boolean THEN NULL::timestamptz ELSE $14::timestamptz END,
-         $13::jsonb, $14, $14)
+         CASE WHEN decision.withheld THEN NULL::timestamptz ELSE $14::timestamptz END,
+         $13::jsonb, $14, $14
+       FROM decision
        ON CONFLICT (tenant_id, principal_id, correlation_key) DO NOTHING`,
       [
         principal.tenantId,
@@ -307,7 +310,7 @@ async function drainNotificationCenterForPrincipal(
         item.read_at,
         JSON.stringify({ legacyType: item.type, ...(item.metadata ?? {}) }),
         item.created_at,
-        consentBlocked,
+        consentRequired,
       ],
     );
     inserted += result.rowCount ?? 0;

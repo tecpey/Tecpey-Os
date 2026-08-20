@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Pool, type PoolClient } from "pg";
 import { applyDatabaseMigrationsWithLock } from "../lib/db-migration-plan";
@@ -217,4 +218,37 @@ test("the latest consent event wins, so a revocation re-closes the gate", async 
     assert.equal(campaign.delivered_at, null, "a revoked consent must withhold the campaign");
     assert.equal(campaign.policy_reason, "marketing_consent_required");
   });
+});
+
+test("consent is evaluated inside each insert, not captured once per batch", () => {
+  // A batch drains up to LEGACY_NOTIFICATION_MIGRATION_BATCH_SIZE rows. Under
+  // READ COMMITTED a revocation committed part-way through that loop is visible
+  // to every later statement — but not to a boolean captured before the loop
+  // began, which would keep stamping the campaigns queued behind it as
+  // delivered. The decision must therefore live in the statement that performs
+  // the insert.
+  //
+  // This is asserted structurally rather than behaviourally on purpose: proving
+  // it at runtime needs a second connection committing a revocation at an exact
+  // point inside the loop, which is inherently timing-dependent. A test that
+  // cannot fail for its stated reason is worse than no test.
+  const repo = readFileSync("src/lib/notifications/repository.ts", "utf8");
+
+  // The insert's decision reads the consent CTE directly.
+  assert.match(
+    repo,
+    /decision AS \(\s*SELECT \(\$15::boolean AND NOT consent\.granted\) AS withheld FROM consent\s*\)/,
+    "the withheld decision must read consent.granted from within the insert statement",
+  );
+  assert.match(repo, /WITH consent AS \(\$\{MARKETING_CONSENT_SQL\}\)/);
+
+  // And no consent boolean is resolved before the loop.
+  const drainStart = repo.indexOf("async function drainNotificationCenterForPrincipal");
+  const loopStart = repo.indexOf("for (const item of legacy.rows)", drainStart);
+  const preamble = repo.slice(drainStart, loopStart);
+  assert.doesNotMatch(
+    preamble,
+    /purpose = 'marketing'/,
+    "consent must not be resolved once for the whole batch — a revocation would not reach the rows behind it",
+  );
 });
