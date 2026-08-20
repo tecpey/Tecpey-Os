@@ -5,6 +5,7 @@ import {
   type NewsImpactHistoryItem,
 } from "./news-impact-history";
 import type { MaterializedNewsSnapshot } from "./news-materialization";
+import { validateOrganicGrowthProfile } from "./organic-growth-automation";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH_RE = /^[0-9a-f]{64}$/;
@@ -146,6 +147,11 @@ function validateSnapshot(input: PersistMaterializedNewsSnapshotInput): {
   }
   if (snapshot.publishable + snapshot.needsReview + snapshot.rejected <= 0) {
     throw new Error("news_materialization_counts_invalid");
+  }
+  for (const decision of snapshot.decisions) {
+    if (!validateOrganicGrowthProfile(decision.organicGrowth)) {
+      throw new Error("news_materialization_organic_growth_invalid");
+    }
   }
   const historyItems = snapshot.historyItems.map(validateHistoryItem);
   const slugs = historyItems.map(getNewsImpactSlug);

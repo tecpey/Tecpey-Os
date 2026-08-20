@@ -1,5 +1,6 @@
 import type { ContentLocale } from "./content-growth";
 import type { NewsAutomationDecision, NewsAutomationDecisionStatus } from "./news-automation";
+import type { OrganicGrowthProfile } from "./organic-growth-automation";
 import {
   buildNewsIntelligenceDossier,
   rankDailyCoinDiscoveries,
@@ -70,6 +71,7 @@ export type MaterializedNewsDecisionSummary = {
   slug: string;
   status: NewsAutomationDecisionStatus;
   idempotencyKey: string;
+  organicGrowth: OrganicGrowthProfile;
   intelligence: MaterializedNewsDecisionIntelligence;
 };
 
@@ -365,6 +367,7 @@ export function materializeNewsAutomationDecisions(
       slug: decision.article.slug,
       status: decision.status,
       idempotencyKey: decision.article.idempotencyKey,
+      organicGrowth: decision.organicGrowth,
       intelligence: materializeDossier(dossier),
     })),
   };

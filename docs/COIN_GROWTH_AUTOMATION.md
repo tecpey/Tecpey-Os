@@ -8,7 +8,7 @@ TecPey can publish educational coin pages automatically, but it must not automat
 2. `npm run coins:growth:materialize` scores candidates and writes `src/data/generated/coinGrowthSnapshot.json`.
 3. `src/data/coins.ts` combines `coreCoinPages` with the published snapshot.
 4. Coin listing pages, detail pages, English pages, sitemap entries, market links, and visual assets read from the same `coinPages` source.
-5. `npm run coins:growth:check` blocks duplicate, incomplete, or exchange-enabled automated output.
+5. `npm run coins:growth:check` blocks duplicate, incomplete, exchange-enabled, or SEO/GEO/AEO-incomplete automated output.
 
 Optional deployment templates:
 
@@ -20,6 +20,7 @@ Optional deployment templates:
 - Automated status allowed: `published_content`.
 - Exchange capability allowed: `manual_review_required` only.
 - Required: HTTPS official website, non-empty identity, use cases, risks, FAQs, unique slug, unique symbol.
+- Required organic-growth package: canonical URL, Open Graph/Twitter contract, schema types, keywords, entity tags, internal links, AEO answer, LLM summary and no-advice/no-signal safety disclaimer.
 - Rejected candidates remain in the snapshot with reason and score.
 
 ## Asset Rules

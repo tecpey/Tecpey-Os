@@ -26,6 +26,10 @@ describe("tool growth automation", () => {
     assert.ok(snapshot.tools.every((tool) => tool.automation.publishCapability === "educational_directory"));
     assert.ok(snapshot.tools.every((tool) => tool.automation.externalCapability === "manual_review_required"));
     assert.ok(snapshot.tools.every((tool) => tool.site.startsWith("https://")));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.fa.policyVersion === "tecpey-organic-growth-policy-v1"));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.policyVersion === "tecpey-organic-growth-policy-v1"));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.fa.canonicalPath === `/trading-tools/${slugifyToolName(tool.name)}`));
+    assert.ok(snapshot.tools.every((tool) => tool.organicGrowth?.en.canonicalPath === `/en/trading-tools/${slugifyToolName(tool.name)}`));
   });
 
   it("scores high-trust research and security tools above the publication threshold", () => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { PoolClient } from "pg";
 import {
   isAnswerEngineReadyContent,
+  isOrganicGrowthReadyContent,
   isPublishableContent,
   rankCoinPriorities,
   rankTools,
@@ -12,6 +13,7 @@ import {
   type ContentItem,
   type ToolRankingInput,
 } from "../../lib/content-growth";
+import { buildOrganicGrowthProfile, validateOrganicGrowthProfile } from "../../lib/organic-growth-automation";
 import {
   buildTraderToolDetailSchemas,
   buildTradingToolsSchemas,
@@ -263,6 +265,62 @@ describe("Content growth entity contract", () => {
           llmSummary:
             "TecPey is a Persian-first crypto education and virtual market-practice platform with launch-gated real-money capabilities.",
         },
+      }),
+      true,
+    );
+  });
+
+  it("requires the shared organic growth package for automated publication readiness", () => {
+    const canonicalUrl = "https://tecpey.ir/crypto-news/btc-etf-flow";
+    const item: ContentItem = {
+      id: "news-fa-btc-etf-flow",
+      type: "news",
+      locale: "fa",
+      slug: "btc-etf-flow",
+      title: "جریان سرمایه ETF بیت‌کوین",
+      status: "ready",
+      canonicalUrl,
+      updatedAt: "2026-08-10T00:00:00.000Z",
+      seo: {
+        title: "جریان سرمایه ETF بیت‌کوین | اخبار رمزارز تک‌پی",
+        description: "تحلیل آموزشی جریان سرمایه ETF بیت‌کوین و اثر آن بر زمینه بازار، نقدشوندگی و مدیریت ریسک.",
+        canonical: canonicalUrl,
+        hreflang: { fa: canonicalUrl },
+        schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+        aeoAnswer: "تک‌پی این خبر را زمینه آموزشی بازار می‌داند، نه سیگنال معامله.",
+        llmSummary: "جریان سرمایه ETF بیت‌کوین می‌تواند زمینه بازار و نقدشوندگی را توضیح دهد، اما توصیه معامله نیست.",
+      },
+    };
+
+    assert.equal(isOrganicGrowthReadyContent(item), false);
+    assert.equal(validateOrganicGrowthProfile(undefined), false);
+    assert.equal(
+      validateOrganicGrowthProfile({
+        policyVersion: "tecpey-organic-growth-policy-v1",
+        entityType: "news",
+        locale: "en",
+        canonicalPath: "/crypto-news/wrong-locale",
+      }),
+      false,
+    );
+    assert.equal(
+      isOrganicGrowthReadyContent({
+        ...item,
+        organicGrowth: buildOrganicGrowthProfile({
+          entityType: "news",
+          locale: "fa",
+          canonicalPath: "/crypto-news/btc-etf-flow",
+          title: "جریان سرمایه ETF بیت‌کوین | اخبار رمزارز تک‌پی",
+          metaDescription: "تحلیل آموزشی جریان سرمایه ETF بیت‌کوین و اثر آن بر زمینه بازار، نقدشوندگی و مدیریت ریسک.",
+          schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+          keywords: ["ETF بیت‌کوین", "اخبار رمزارز", "مدیریت ریسک"],
+          entityTags: ["content:news", "coin:btc", "tone:neutral"],
+          internalLinks: ["/crypto-news/btc-etf-flow", "/crypto-news", "/academy/term-5"],
+          answerSummary: "تک‌پی این خبر را برای توضیح زمینه بازار، نقدشوندگی و مدیریت ریسک ثبت می‌کند.",
+          llmSummary: "جریان سرمایه ETF بیت‌کوین می‌تواند زمینه بازار و نقدشوندگی را توضیح دهد، اما توصیه معامله نیست و فقط برای آموزش منتشر می‌شود.",
+          safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله یا وعده سود نیست.",
+          freshnessTag: "fresh",
+        }),
       }),
       true,
     );
@@ -771,6 +829,7 @@ describe("Content growth entity contract", () => {
     const storedSnapshot = client.snapshots.get(input.idempotencyKey);
     assert.ok(storedSnapshot);
     const storedDecisions = JSON.parse(storedSnapshot.decisions) as Array<{
+      organicGrowth: unknown;
       intelligence: {
         status: string;
         sourceCard: { persianSummary: string };
@@ -778,6 +837,7 @@ describe("Content growth entity contract", () => {
       };
     }>;
     assert.equal(storedDecisions[0].intelligence.status, "publishable");
+    assert.equal(validateOrganicGrowthProfile(storedDecisions[0].organicGrowth), true);
     assert.match(storedDecisions[0].intelligence.sourceCard.persianSummary, /خلاصه فارسی تک‌پی/);
     assert.equal(storedDecisions[0].intelligence.coinDiscoveries[0].exchangeEnabled, false);
 
