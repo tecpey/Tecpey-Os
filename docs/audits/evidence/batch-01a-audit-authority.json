@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "280aca869f37c4aeb86ed6b5936b190dd6343cf4",
-      "sha256": "11b4bb049a372da0cbbaf3d1ed36e2bc911150447eda7a410a431accd6fc6cf1",
-      "lines": 232,
+      "gitObjectId": "49181f0f4e6cbfd0d057ce780bcc45d097914a65",
+      "sha256": "1c704000c6386e25ccd164a7990ec40d1b02fcb3c912e4c403afb6411014c676",
+      "lines": 234,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 232
+          "endLine": 234
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -101,16 +101,17 @@
         "2026-08-20: re-reviewed after adding product:global-readiness:check and wiring it into release:check. The new command runs a local read-only registry validator plus node:test negative coverage for the enterprise/global readiness baseline; it adds no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path. CI gains the same read-only guard after launch:decision:check, while existing route-integrity, browser-persistence and notification copy-safety gates remain preserved.",
         "2026-08-20: re-reviewed after adding wallet:precision:check and test:wallet-precision, then composing both into release:check. The new guard is a local static source scan over wallet/provider financial amount handling, and the test command runs focused wallet precision fixtures; neither adds dependency, engine, override, network access, external provider execution, custody activation surface, real-money withdrawal enablement or runtime mutation path.",
         "2026-08-20: re-reviewed after adding platform:redteam:closure:check and composing it into release:check after launch:decision:check. The new command is a local static guard over the #100 platform red-team code-closure report, package wiring and CI wiring; it explicitly keeps external NO-GO evidence issues and larger product/security programs outside the closure, adds no dependency, engine, override, network access, runtime mutation path, financial activation surface, custody activation surface, enterprise activation surface or white-label activation surface.",
-        "2026-08-20: re-reviewed after adding ops:redteam:readiness:check and test:ops-redteam-readiness, then composing the readiness guard into release:check after platform:redteam:closure:check. The new command is a local static guard over the #110 operational Red Team readiness report, recovery/incident contracts, package wiring and CI wiring; it explicitly does not close #110 or approve launch, financial activation, custody, enterprise, white-label or protected-staging claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface."
+        "2026-08-20: re-reviewed after adding ops:redteam:readiness:check and test:ops-redteam-readiness, then composing the readiness guard into release:check after platform:redteam:closure:check. The new command is a local static guard over the #110 operational Red Team readiness report, recovery/incident contracts, package wiring and CI wiring; it explicitly does not close #110 or approve launch, financial activation, custody, enterprise, white-label or protected-staging claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
+        "2026-08-20: re-reviewed after adding withdrawal:issue29:evidence:check and test:withdrawal-issue29-evidence, then composing both into release:check after withdrawals:check. The new command is a local static guard over the issue #29 withdrawal release-evidence boundary, existing wallet/external-effect/custody/runtime guards, package wiring and CI wiring; it explicitly does not close #29 or approve real-money withdrawals, production custody, HSM/MPC readiness, chain-provider certification, protected staging, enterprise, white-label or final Go claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 155,
+          "line": 160,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 155 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 160 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

@@ -258,6 +258,11 @@ jobs:
       - name: Withdrawal admission authority guard
         run: npm run withdrawals:check
 
+      - name: Withdrawal issue #29 release evidence guard
+        run: |
+          npm run withdrawal:issue29:evidence:check
+          npm run test:withdrawal-issue29-evidence
+
       - name: Withdrawal admission integration tests
         run: |
           set -o pipefail
