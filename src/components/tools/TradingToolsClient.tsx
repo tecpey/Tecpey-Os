@@ -4,6 +4,7 @@ import { X, ExternalLink, Search, Globe, ShieldCheck, Sparkles } from "lucide-re
 import {
   getFeaturedTraderTools,
   getRankedTraderTools,
+  getTraderToolSurfaceContract,
   type RankedTraderTool,
 } from "@/lib/trading-tools-growth";
 
@@ -39,6 +40,12 @@ const STR = {
     pros: "مزایا",
     cons: "محدودیت‌ها",
     tutorial: "آموزش سریع استفاده",
+    safeContract: "قرارداد استفاده امن",
+    suitableFor: "مناسب برای",
+    notSuitableFor: "نامناسب برای",
+    assumptions: "فرض‌ها و محدودیت‌ها",
+    riskNotes: "یادداشت‌های ریسک",
+    privacy: "حریم خصوصی و مجوزها",
     officialSite: "سایت رسمی",
     leaving: (host: string) => `خروج از تک‌پی به ${host}`,
     close: "بستن",
@@ -65,6 +72,12 @@ const STR = {
     pros: "Strengths",
     cons: "Limitations",
     tutorial: "Quick start",
+    safeContract: "Safe-use contract",
+    suitableFor: "Suitable for",
+    notSuitableFor: "Not suitable for",
+    assumptions: "Assumptions and limitations",
+    riskNotes: "Risk notes",
+    privacy: "Privacy and permissions",
     officialSite: "Official site",
     leaving: (host: string) => `Leave TecPey for ${host}`,
     close: "Close",
@@ -158,6 +171,16 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
 
   const platforms = active
     ? [t.web, active.ios ? "iOS" : null, active.android ? "Android" : null].filter(Boolean)
+    : [];
+  const activeContract = active ? getTraderToolSurfaceContract(active, isEn ? "en" : "fa") : null;
+  const activeContractGroups = activeContract
+    ? [
+        { label: t.suitableFor, items: activeContract.suitableFor },
+        { label: t.notSuitableFor, items: activeContract.notSuitableFor },
+        { label: t.assumptions, items: activeContract.assumptions },
+        { label: t.riskNotes, items: activeContract.riskNotes },
+        { label: t.privacy, items: activeContract.privacyAndPermissions },
+      ]
     : [];
 
   return (
@@ -374,6 +397,22 @@ export default function TradingToolsClient({ locale = "fa" }: { locale?: Locale 
                       <li key={x}>• {x}</li>
                     ))}
                   </ul>
+                </div>
+              ) : null}
+
+              {activeContract ? (
+                <div className="mt-5 rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-4">
+                  <h4 className="font-black text-cyan-100">{t.safeContract}</h4>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {activeContractGroups.map(({ label, items }) => (
+                      <div key={label} className="rounded-xl bg-white/5 p-3">
+                        <p className="text-xs font-black text-cyan-100">{label}</p>
+                        <ul className="mt-2 space-y-1.5 text-xs font-bold leading-6 text-slate-200">
+                          {items.map((item) => <li key={item}>• {item}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 

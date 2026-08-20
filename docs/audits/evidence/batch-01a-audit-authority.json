@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "49181f0f4e6cbfd0d057ce780bcc45d097914a65",
-      "sha256": "1c704000c6386e25ccd164a7990ec40d1b02fcb3c912e4c403afb6411014c676",
-      "lines": 234,
+      "gitObjectId": "c30f5ae0c7361e754cadc590c287a819c254d2ac",
+      "sha256": "ebf9bef78ce7f6645d9aaf373bfb7b1568c45026cbb3bbe4a759ad01501a05c8",
+      "lines": 236,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 234
+          "endLine": 236
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -102,7 +102,8 @@
         "2026-08-20: re-reviewed after adding wallet:precision:check and test:wallet-precision, then composing both into release:check. The new guard is a local static source scan over wallet/provider financial amount handling, and the test command runs focused wallet precision fixtures; neither adds dependency, engine, override, network access, external provider execution, custody activation surface, real-money withdrawal enablement or runtime mutation path.",
         "2026-08-20: re-reviewed after adding platform:redteam:closure:check and composing it into release:check after launch:decision:check. The new command is a local static guard over the #100 platform red-team code-closure report, package wiring and CI wiring; it explicitly keeps external NO-GO evidence issues and larger product/security programs outside the closure, adds no dependency, engine, override, network access, runtime mutation path, financial activation surface, custody activation surface, enterprise activation surface or white-label activation surface.",
         "2026-08-20: re-reviewed after adding ops:redteam:readiness:check and test:ops-redteam-readiness, then composing the readiness guard into release:check after platform:redteam:closure:check. The new command is a local static guard over the #110 operational Red Team readiness report, recovery/incident contracts, package wiring and CI wiring; it explicitly does not close #110 or approve launch, financial activation, custody, enterprise, white-label or protected-staging claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
-        "2026-08-20: re-reviewed after adding withdrawal:issue29:evidence:check and test:withdrawal-issue29-evidence, then composing both into release:check after withdrawals:check. The new command is a local static guard over the issue #29 withdrawal release-evidence boundary, existing wallet/external-effect/custody/runtime guards, package wiring and CI wiring; it explicitly does not close #29 or approve real-money withdrawals, production custody, HSM/MPC readiness, chain-provider certification, protected staging, enterprise, white-label or final Go claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface."
+        "2026-08-20: re-reviewed after adding withdrawal:issue29:evidence:check and test:withdrawal-issue29-evidence, then composing both into release:check after withdrawals:check. The new command is a local static guard over the issue #29 withdrawal release-evidence boundary, existing wallet/external-effect/custody/runtime guards, package wiring and CI wiring; it explicitly does not close #29 or approve real-money withdrawals, production custody, HSM/MPC readiness, chain-provider certification, protected staging, enterprise, white-label or final Go claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
+        "2026-08-20: re-reviewed after adding content:issue83:surface:check and test:content-issue83-surface, then composing both into release:check after coin/tool growth guards. The new command is a local static guard over News, Coins and Trader Toolbox product-surface contracts, package wiring and CI wiring; it explicitly preserves educational/no-signal/no-advice/no-external-activation boundaries, adds no dependency, engine, override, network access, runtime mutation path, exchange activation, wallet custody activation, API-key integration or financial execution surface."
       ],
       "findings": [
         {

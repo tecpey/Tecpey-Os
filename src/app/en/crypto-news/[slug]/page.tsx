@@ -6,6 +6,7 @@ import { EnglishShell } from "../../components/EnglishUI";
 import { StructuredData } from "@/components/seo/StructuredData";
 import {
   buildNewsDetailSchemas,
+  getNewsEditorialBoundaryCards,
   getNewsDetailDisplayMeta,
   getNewsDetailMetadata,
   getNewsDetailPageModelFromAuthority,
@@ -32,6 +33,7 @@ export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
 
   const { item, relatedCoins, relatedTools } = model;
   const meta = getNewsDetailDisplayMeta(item, "en");
+  const editorialBoundaryCards = getNewsEditorialBoundaryCards(model, "en");
 
   return (
     <EnglishShell>
@@ -87,6 +89,18 @@ export default async function EnglishCryptoNewsDetailPage({ params }: Props) {
                   Why this entered the history
                 </div>
                 <p className="mt-4 text-sm font-bold leading-8 text-[color:var(--tp-muted)]">{item.reasonEn}</p>
+              </section>
+
+              <section className="mt-8 rounded-[28px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                <h2 className="text-2xl font-black text-[color:var(--tp-text)]">News, interpretation and AI-summary boundary</h2>
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {editorialBoundaryCards.map((card) => (
+                    <div key={card.title} className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                      <h3 className="text-sm font-black text-cyan-700 dark:text-cyan-100">{card.title}</h3>
+                      <p className="mt-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{card.body}</p>
+                    </div>
+                  ))}
+                </div>
               </section>
 
               <section className="mt-8">

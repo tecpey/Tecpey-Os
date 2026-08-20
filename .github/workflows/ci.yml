@@ -457,6 +457,12 @@ jobs:
       - name: Tool growth automation guard
         run: npm run tools:growth:check
 
+      - name: News coins tools product surface guard
+        run: npm run content:issue83:surface:check
+
+      - name: News coins tools product surface tests
+        run: npm run test:content-issue83-surface
+
       - name: Controlled launch decision authority guard
         run: npm run launch:decision:check
 

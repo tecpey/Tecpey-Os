@@ -12,6 +12,7 @@ import {
 import {
   buildTraderToolDetailSchemas,
   getTraderToolBySlug,
+  getTraderToolSurfaceContract,
   getTraderToolSlugs,
 } from "@/lib/trading-tools-growth";
 
@@ -66,6 +67,13 @@ export default async function ToolPage({ params }: Props) {
   const rankScore = Math.round(tool.growthRank.rankScore * 100);
   const impactNews = getHighPriorityNewsForTool(tool.slug, "fa", 4);
   const pageUrl = `https://tecpey.ir/trading-tools/${tool.slug}`;
+  const contract = getTraderToolSurfaceContract(tool, "fa");
+  const contractGroups = [
+    { title: "مناسب برای", items: contract.suitableFor },
+    { title: "نامناسب برای", items: contract.notSuitableFor },
+    { title: "ورودی‌ها", items: contract.inputs },
+    { title: "خروجی‌ها", items: contract.outputs },
+  ];
 
   return (
     <ContentShell>
@@ -126,6 +134,40 @@ export default async function ToolPage({ params }: Props) {
                 </ol>
               </section>
 
+              <section className="mt-6 rounded-[26px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                <h2 className="text-xl font-black text-[color:var(--tp-text)]">قرارداد استفاده امن</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {contractGroups.map(({ title, items }) => (
+                    <div key={title} className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                      <h3 className="text-sm font-black text-cyan-700 dark:text-cyan-200">{title}</h3>
+                      <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                        {items.map((item) => <li key={item}>• {item}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4">
+                    <h3 className="text-sm font-black text-amber-700 dark:text-amber-200">فرض‌ها و محدودیت‌ها</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.assumptions.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4">
+                    <h3 className="text-sm font-black text-amber-700 dark:text-amber-200">یادداشت‌های ریسک</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.riskNotes.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4">
+                    <h3 className="text-sm font-black text-rose-700 dark:text-rose-200">ریسک حریم خصوصی و مجوزها</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.privacyAndPermissions.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
               <NewsImpactTimeline items={impactNews} locale="fa" subject={tool.name} />
 
               <div className="mt-6">
@@ -145,10 +187,14 @@ export default async function ToolPage({ params }: Props) {
                 <p className="mt-4 text-sm font-bold leading-7 text-slate-300">
                   این امتیاز برای نمایش آموزشی است و بر اساس امنیت لینک رسمی، کاربرد، اهمیت دسته و وزن سردبیری محاسبه می‌شود.
                 </p>
+                <p className="mt-3 rounded-2xl border border-cyan-300/15 bg-white/5 p-3 text-xs font-bold leading-6 text-cyan-100">
+                  {contract.lastVerifiedLabel}
+                </p>
               </section>
 
               <section className="rounded-[30px] border border-cyan-300/15 bg-white/80 p-5 dark:bg-white/[0.045]">
                 <h2 className="text-lg font-black text-[color:var(--tp-text)]">لینک رسمی و پلتفرم‌ها</h2>
+                <p className="mt-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{contract.officialLinkStatus}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {platforms.map((platform) => (
                     <span key={platform as string} className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-black text-cyan-600 dark:text-cyan-200">

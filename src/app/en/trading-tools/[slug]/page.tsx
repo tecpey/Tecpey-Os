@@ -12,6 +12,7 @@ import {
 import {
   buildTraderToolDetailSchemas,
   getTraderToolBySlug,
+  getTraderToolSurfaceContract,
   getTraderToolSlugs,
 } from "@/lib/trading-tools-growth";
 
@@ -66,6 +67,13 @@ export default async function ToolPage({ params }: Props) {
   const rankScore = Math.round(tool.growthRank.rankScore * 100);
   const impactNews = getHighPriorityNewsForTool(tool.slug, "en", 4);
   const pageUrl = `https://tecpey.ir/en/trading-tools/${tool.slug}`;
+  const contract = getTraderToolSurfaceContract(tool, "en");
+  const contractGroups = [
+    { title: "Suitable for", items: contract.suitableFor },
+    { title: "Not suitable for", items: contract.notSuitableFor },
+    { title: "Inputs", items: contract.inputs },
+    { title: "Outputs", items: contract.outputs },
+  ];
 
   return (
     <EnglishShell>
@@ -130,6 +138,40 @@ export default async function ToolPage({ params }: Props) {
                 ))}
               </section>
 
+              <section className="mt-8 rounded-[26px] border border-cyan-300/15 bg-white/70 p-5 dark:bg-white/[0.04]">
+                <h2 className="text-xl font-black text-[color:var(--tp-text)]">Safe-use contract</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {contractGroups.map(({ title, items }) => (
+                    <div key={title} className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-4">
+                      <h3 className="text-sm font-black text-cyan-700 dark:text-cyan-200">{title}</h3>
+                      <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                        {items.map((item) => <li key={item}>• {item}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4">
+                    <h3 className="text-sm font-black text-amber-700 dark:text-amber-200">Assumptions and limitations</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.assumptions.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4">
+                    <h3 className="text-sm font-black text-amber-700 dark:text-amber-200">Risk notes</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.riskNotes.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4">
+                    <h3 className="text-sm font-black text-rose-700 dark:text-rose-200">Privacy and permission risk</h3>
+                    <ul className="mt-3 space-y-2 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">
+                      {contract.privacyAndPermissions.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
               <NewsImpactTimeline items={impactNews} locale="en" subject={tool.name} />
             </article>
 
@@ -146,10 +188,14 @@ export default async function ToolPage({ params }: Props) {
                   The score is an educational display signal based on official-link completeness, usefulness, category
                   importance and editorial weighting.
                 </p>
+                <p className="mt-3 rounded-2xl border border-cyan-300/15 bg-white/5 p-3 text-xs font-bold leading-6 text-cyan-100">
+                  {contract.lastVerifiedLabel}
+                </p>
               </section>
 
               <section className="rounded-[30px] border border-cyan-300/15 bg-[color:var(--tp-card)] p-5">
                 <h2 className="text-lg font-black text-[color:var(--tp-text)]">Official links</h2>
+                <p className="mt-3 text-sm font-bold leading-7 text-[color:var(--tp-muted)]">{contract.officialLinkStatus}</p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {platforms.map((platform) => (
                     <span key={platform as string} className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-black text-cyan-700 dark:text-cyan-200">
