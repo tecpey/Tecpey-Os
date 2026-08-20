@@ -3,6 +3,7 @@ import { jwtVerify } from "jose";
 import type { PoolClient } from "pg";
 import { withDb, withTx } from "@/lib/db";
 import { revokeMultiple } from "@/lib/security/jti-store";
+import { notifyNewDevice } from "@/lib/security/security-notifications";
 import type { PreparedRefreshToken } from "@/lib/security/refresh-tokens";
 import {
   writeSensitiveMutationAuditTx,
@@ -434,6 +435,13 @@ export async function admitSessionAuthority(input: {
     };
   });
   if (!result.enabled) throw new Error("database_unavailable");
+  // A first login from a new (or reactivated) device is a security event the
+  // account owner must be able to react to — the "New Device Login Detected"
+  // alert existed but nothing ever raised it. Emit after the session commits,
+  // fire-and-forget, so it can neither block nor fail session issuance.
+  if (result.value.isNewDevice) {
+    notifyNewDevice(input.userId, { ip: input.ip, userAgent: input.deviceInfo });
+  }
   return result.value;
 }
 
