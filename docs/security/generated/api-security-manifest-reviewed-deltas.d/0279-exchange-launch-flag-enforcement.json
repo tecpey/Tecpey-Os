@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/orders",
+      "method": "POST",
+      "previousSourceHash": "dd143a694b3de44ccd1224ed",
+      "issue": "#502",
+      "owner": "security-platform",
+      "reason": "Order placement now enforces the exchange.enabled launch flag fail-closed through requireFeature before any request work. The flag was previously read only by the product registry and the admin control-plane matrix, so the control plane could report the Exchange as launch_locked while this route accepted orders against the seeded active markets. No control was weakened: the guard is additive and refuses when the flag is unset.",
+      "replacement": {
+        "route": "/api/orders",
+        "method": "POST",
+        "sourcePath": "src/app/api/orders/route.ts",
+        "sourceHash": "f57a0ccdb6661899660483f1",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "orders-place",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "orders",
+        "testReferences": [
+          "src/tests/security/exchange-launch-flag-enforcement.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/orders/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/orders/[id]",
+      "method": "DELETE",
+      "previousSourceHash": "79a6ed9bde2f1b0b1c43ece6",
+      "issue": "#502",
+      "owner": "security-platform",
+      "reason": "Test reference ledger only; the cancel route source is unchanged. The launch-flag enforcement test asserts that cancellation is deliberately NOT gated by exchange.enabled, because gating it would strand resting orders and the balance they hold whenever the Exchange is switched off. Halting a market must refuse new exposure, not refuse to unwind existing exposure.",
+      "replacement": {
+        "route": "/api/orders/[id]",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/orders/[id]/route.ts",
+        "sourceHash": "79a6ed9bde2f1b0b1c43ece6",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "financial"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "orders-cancel",
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "orders",
+        "testReferences": [
+          "src/tests/security/exchange-launch-flag-enforcement.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": true,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/orders/[id]/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    }
+  ]
+}

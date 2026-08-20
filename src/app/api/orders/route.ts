@@ -33,6 +33,7 @@ import type {
 } from "@/lib/trading/types";
 import { PLATFORM } from "@/lib/platform-config";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import { requireFeature } from "@/lib/route-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,15 @@ function finalResponse(input: {
 export async function POST(req: NextRequest) {
   return withObservability(req, { route: "/api/orders" }, async () => {
     const startedAt = Date.now();
+    // SB-016. Real-money Exchange activation is launch-gated, and this is where
+    // that gate is enforced. Before this guard, exchange.enabled was read only by
+    // the product registry and the admin control-plane matrix, so the control
+    // plane could report the Exchange as launch_locked while this route accepted
+    // orders against the seeded active markets. The flag defaults to off, so the
+    // refusal is fail-closed: an unset FEATURE_EXCHANGE_ENABLED rejects.
+    const exchangeGate = requireFeature("exchange.enabled");
+    if (exchangeGate) return exchangeGate;
+
     if (!await verifyCsrfOrigin(req)) return apiError("forbidden", 403);
 
     const session = await getCanonicalSession(req, { strictRevocation: true });

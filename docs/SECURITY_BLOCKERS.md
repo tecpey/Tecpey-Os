@@ -210,7 +210,32 @@
 
 ### SB-016 — `exchange.enabled` Is Reported But Never Enforced at the API Boundary
 
-**Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
+**Status: CLOSED for the Exchange surface — 2026-08-20, issue #502.**
+
+- **Resolution:** `POST /api/orders` now calls `requireFeature("exchange.enabled")`
+  before any request work — before CSRF, session resolution, rate-limit budget and
+  body parsing — so a launch-disabled surface refuses before acting on the
+  caller's behalf. The guard already existed in `src/lib/route-guards.ts:62` for
+  exactly this purpose and nothing had ever called it. The flag defaults to off,
+  so an unset `FEATURE_EXCHANGE_ENABLED` rejects: fail-closed.
+- **Deliberate asymmetry — cancellation is NOT gated.** Gating `DELETE
+  /api/orders/[id]` would strand resting orders, and the balance they hold,
+  whenever the Exchange is switched off. Halting a market means refusing new
+  exposure, not refusing to unwind existing exposure, so the cancel route stays
+  callable. `src/tests/security/exchange-launch-flag-enforcement.test.ts` asserts
+  this explicitly so a later change cannot "complete" the gating and trap funds.
+- **Guard:** the same test locks the fail-closed flag semantics (only an exact
+  `"true"` enables), the placement refusal, that the gate precedes all request
+  work, and an enforcement table that must not drift from the product registry —
+  so a future flag-carrying surface cannot ship display-only without a
+  deliberate decision. Verified load-bearing: removing the gate fails 2 of 5.
+- **Residual scope — still open.** `social.enabled` and
+  `future.marketplace.enabled` also default off and are still enforcement-free.
+  They carry no mutating API surface today, which is why they are recorded as
+  `no-mutating-surface` rather than fixed. Adding one requires wiring
+  `requireFeature` at the same time.
+
+**Original record — Status: OPEN — found 2026-08-20 while correcting SB-015 after review.**
 
 - **Risk:** The entire launch posture rests on the statement that the real-money
   Exchange is disabled. In code that statement is **display-only**.
