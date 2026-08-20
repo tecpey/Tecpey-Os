@@ -1,4 +1,8 @@
 import type { CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
+import {
+  buildOrganicGrowthProfile,
+  type OrganicGrowthProfile,
+} from "./organic-growth-automation";
 
 export const COIN_GROWTH_POLICY_VERSION = "tecpey-coin-growth-policy-v1";
 
@@ -14,6 +18,7 @@ export type AutomatedCoinPage = {
   risks: string[];
   seoKeywords: string[];
   faqs: { q: string; a: string }[];
+  organicGrowth: OrganicGrowthProfile;
   automation: {
     policyVersion: typeof COIN_GROWTH_POLICY_VERSION;
     score: number;
@@ -101,6 +106,47 @@ function buildIntro(candidate: CoinGrowthCandidate): string {
   return `${candidate.faName} (${candidate.symbol}) در دسته ${candidate.category} قرار می‌گیرد و برای کاربر تک‌پی باید از زاویه کاربرد واقعی، نقدشوندگی، ریسک شبکه، وضعیت روایت ${narrative || "بازار"} و امنیت انتقال بررسی شود.`;
 }
 
+function tagify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildCoinOrganicGrowthProfile(candidate: CoinGrowthCandidate): OrganicGrowthProfile {
+  const keywords = seoKeywords(candidate);
+  const intro = buildIntro(candidate);
+  const canonicalPath = `/coins/${candidate.slug}`;
+  return buildOrganicGrowthProfile({
+    entityType: "coin",
+    locale: "fa",
+    canonicalPath,
+    title: `${candidate.faName} (${candidate.symbol}) چیست؟ | راهنمای رمزارز تک‌پی`,
+    metaDescription: `${candidate.faName} را با کاربردها، ریسک‌ها، منابع رسمی، نکات انتقال و چک‌لیست آموزشی قبل از خرید یا معامله در تک‌پی بشناسید.`,
+    schemaTypes: ["Article", "FAQPage", "BreadcrumbList"],
+    keywords,
+    entityTags: [
+      `coin:${candidate.symbol.toLowerCase()}`,
+      `coin-slug:${candidate.slug}`,
+      `category:${tagify(candidate.category) || "crypto"}`,
+      ...candidate.narrative.slice(0, 4).map((tag) => `narrative:${tagify(tag)}`),
+    ],
+    internalLinks: [
+      canonicalPath,
+      "/coins",
+      "/crypto-news",
+      "/academy/term-5",
+      "/academy/practice-lab",
+      "/trading-tools",
+    ],
+    answerSummary: `${candidate.faName} (${candidate.symbol}) دارایی مرتبط با ${candidate.category} است و باید از نظر کاربرد، نقدشوندگی، منابع رسمی، ریسک شبکه و سناریوی خروج بررسی شود.`,
+    llmSummary: `${intro} این صفحه برای پاسخ‌گویی آموزشی، اتصال به خبرهای مرتبط، ابزارهای بررسی بازار و مسیرهای Academy ساخته می‌شود و نباید به عنوان پیشنهاد خرید یا فروش تفسیر شود.`,
+    safetyDisclaimer: "این صفحه توصیه مالی، سیگنال خرید/فروش یا وعده سود نیست و فقط برای آموزش، بررسی منبع رسمی و مدیریت ریسک منتشر می‌شود.",
+    freshnessTag: "scheduled_refresh",
+  });
+}
+
 export function buildAutomatedCoinPage(
   candidate: CoinGrowthCandidate,
   options: { sourceMode: CoinGrowthSnapshot["sourceMode"] },
@@ -132,6 +178,7 @@ export function buildAutomatedCoinPage(
         a: "شبکه انتقال، آدرس مقصد، کارمزد، محدودیت‌های برداشت، نقدشوندگی و امنیت حساب باید با دقت کنترل شود.",
       },
     ],
+    organicGrowth: buildCoinOrganicGrowthProfile(candidate),
     automation: {
       policyVersion: COIN_GROWTH_POLICY_VERSION,
       score,

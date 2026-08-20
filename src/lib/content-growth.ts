@@ -1,3 +1,5 @@
+import { validateOrganicGrowthProfile, type OrganicGrowthProfile } from "./organic-growth-automation";
+
 export type ContentLocale = "fa" | "en";
 
 export type ContentPublicationStatus =
@@ -37,6 +39,7 @@ export type ContentItem = {
   updatedAt: string;
   publishedAt?: string;
   seo?: SeoProfile;
+  organicGrowth?: OrganicGrowthProfile;
 };
 
 export type EntityRelationType =
@@ -165,4 +168,13 @@ export function isAnswerEngineReadyContent(item: ContentItem): boolean {
   const aeoAnswer = item.seo?.aeoAnswer?.trim() ?? "";
   const llmSummary = item.seo?.llmSummary?.trim() ?? "";
   return aeoAnswer.length >= 24 && llmSummary.length >= 48;
+}
+
+export function isOrganicGrowthReadyContent(item: ContentItem): boolean {
+  if (!isAnswerEngineReadyContent(item)) return false;
+  if (!item.organicGrowth) return false;
+  if (item.organicGrowth.locale !== item.locale) return false;
+  if (item.organicGrowth.entityType !== item.type) return false;
+  if (item.organicGrowth.canonicalUrl !== item.canonicalUrl) return false;
+  return validateOrganicGrowthProfile(item.organicGrowth);
 }

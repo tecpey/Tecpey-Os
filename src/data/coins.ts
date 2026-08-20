@@ -1,6 +1,7 @@
 
 import coinGrowthSnapshot from "@/data/generated/coinGrowthSnapshot.json";
 import { readPublishedCoinGrowthPages, type CoinGrowthSnapshot } from "@/lib/coin-growth-automation";
+import type { OrganicGrowthProfile } from "@/lib/organic-growth-automation";
 
 export type CoinPage = {
   slug: string;
@@ -14,6 +15,7 @@ export type CoinPage = {
   risks: string[];
   seoKeywords: string[];
   faqs: { q: string; a: string }[];
+  organicGrowth?: OrganicGrowthProfile;
   automation?: {
     policyVersion: string;
     score: number;

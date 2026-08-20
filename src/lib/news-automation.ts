@@ -1,4 +1,5 @@
 import {
+  isOrganicGrowthReadyContent,
   isPublishableContent,
   scoreCoinPriority,
   type CoinPriorityResult,
@@ -8,6 +9,10 @@ import {
   type SeoProfile,
 } from "./content-growth";
 import type { NewsImpactHistoryItem, NewsImpactTone } from "./news-impact-history";
+import {
+  buildOrganicGrowthProfile,
+  type OrganicGrowthProfile,
+} from "./organic-growth-automation";
 
 export type NewsSourceTier = "official" | "trusted_media" | "tecpey_editorial" | "watchlist";
 
@@ -70,6 +75,7 @@ export type NewsAutomationDecision = {
   article: NormalizedNewsArticle;
   contentItem: ContentItem;
   seo: SeoProfile;
+  organicGrowth: OrganicGrowthProfile;
   relations: EntityRelation[];
   coinImpacts: CoinPriorityResult[];
   historyItems: NewsImpactHistoryItem[];
@@ -117,6 +123,15 @@ const MARKET_IMPORTANCE: Record<string, number> = {
   SOL: 0.78,
   TON: 0.72,
   DOGE: 0.55,
+};
+
+const COIN_SLUGS: Record<string, string> = {
+  BTC: "bitcoin",
+  DOGE: "dogecoin",
+  ETH: "ethereum",
+  SOL: "solana",
+  TON: "toncoin",
+  USDT: "tether",
 };
 
 const PROHIBITED_ADVICE_PATTERNS = [
@@ -248,12 +263,69 @@ function buildSeo(article: NormalizedNewsArticle): SeoProfile {
     hreflang: {
       [article.locale]: canonical,
     },
-    schemaTypes: ["NewsArticle", "BreadcrumbList"],
+    schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
     aeoAnswer: isEn
       ? `${article.title}: TecPey frames this as educational market context, not a trading signal.`
       : `${article.title}: تک‌پی این خبر را به‌عنوان زمینه آموزشی بازار نمایش می‌دهد، نه سیگنال معامله.`,
     llmSummary: `${article.title} ${description}`.trim(),
   };
+}
+
+function newsDetailPath(article: NormalizedNewsArticle): string {
+  return `/${article.locale === "en" ? "en/" : ""}crypto-news/${article.slug}`;
+}
+
+function buildNewsOrganicGrowthProfile(article: NormalizedNewsArticle): OrganicGrowthProfile {
+  const isEn = article.locale === "en";
+  const coinLinks = article.detectedCoins.map((symbol) =>
+    isEn
+      ? `/en/coins/${COIN_SLUGS[symbol] ?? symbol.toLowerCase()}`
+      : `/coins/${COIN_SLUGS[symbol] ?? symbol.toLowerCase()}`,
+  );
+  const toolLinks = article.detectedTools.map((slug) =>
+    isEn ? `/en/trading-tools/${slug}` : `/trading-tools/${slug}`,
+  );
+  const entityTags = [
+    "content:news",
+    `locale:${article.locale}`,
+    `tone:${article.tone}`,
+    ...article.detectedCoins.map((symbol) => `coin:${symbol.toLowerCase()}`),
+    ...article.detectedTools.map((slug) => `tool:${slug}`),
+  ];
+  const safetyDisclaimer = isEn
+    ? "This automated news page is not financial advice, a trading signal or a profit promise."
+    : "این صفحه خبر خودکار توصیه مالی، سیگنال معامله یا وعده سود نیست.";
+
+  return buildOrganicGrowthProfile({
+    entityType: "news",
+    locale: article.locale,
+    canonicalPath: newsDetailPath(article),
+    title: isEn ? `${article.title} | TecPey Crypto News` : `${article.title} | اخبار رمزارز تک‌پی`,
+    metaDescription: article.summary,
+    schemaTypes: ["NewsArticle", "FAQPage", "BreadcrumbList"],
+    keywords: [
+      article.title,
+      article.sourceName,
+      "crypto news",
+      "market context",
+      ...article.detectedCoins,
+      ...article.detectedTools,
+    ],
+    entityTags,
+    internalLinks: [
+      newsDetailPath(article),
+      isEn ? "/en/crypto-news" : "/crypto-news",
+      article.relatedLessonHref,
+      ...coinLinks,
+      ...toolLinks,
+    ],
+    answerSummary: isEn
+      ? `${article.title}: TecPey records this as educational market context connected to supported coins, tools and Academy learning paths.`
+      : `${article.title}: تک‌پی این خبر را به‌عنوان زمینه آموزشی بازار و مرتبط با کوین‌ها، ابزارها و مسیرهای آکادمی ثبت می‌کند.`,
+    llmSummary: `${article.title}. ${article.summary} Source: ${article.sourceName}. ${safetyDisclaimer}`,
+    safetyDisclaimer,
+    freshnessTag: "fresh",
+  });
 }
 
 function buildRelations(article: NormalizedNewsArticle): EntityRelation[] {
@@ -348,6 +420,7 @@ export function buildNewsAutomationDecision(
   const source = sourceFor(input, sources);
   const article = normalizeNewsInput(input, sources);
   const seo = buildSeo(article);
+  const organicGrowth = buildNewsOrganicGrowthProfile(article);
   const contentItem: ContentItem = {
     id: article.id,
     type: "news",
@@ -359,9 +432,11 @@ export function buildNewsAutomationDecision(
     updatedAt: article.recordedAt,
     publishedAt: article.publishedAt,
     seo,
+    organicGrowth,
   };
   const reasons = reviewReasons(input, article, source);
   if (!isPublishableContent(contentItem)) reasons.push("missing_seo_schema");
+  if (!isOrganicGrowthReadyContent(contentItem)) reasons.push("missing_seo_schema");
   const fatal = reasons.some((reason) =>
     ["missing_required_field", "invalid_published_at", "prohibited_financial_advice", "hype_or_profit_promise"].includes(reason),
   );
@@ -391,7 +466,7 @@ export function buildNewsAutomationDecision(
           summary: article.summary,
           sourceName: article.sourceName,
           sourceUrl: article.sourceUrl,
-          newsUrl: `/${article.locale === "en" ? "en/" : ""}crypto-news/${article.slug}`,
+          newsUrl: newsDetailPath(article),
           publishedAt: article.publishedAt,
           recordedAt: article.recordedAt,
           priority: article.priority,
@@ -412,6 +487,7 @@ export function buildNewsAutomationDecision(
     article,
     contentItem,
     seo,
+    organicGrowth,
     relations,
     coinImpacts,
     historyItems,

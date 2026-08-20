@@ -32,6 +32,28 @@ const coreDomains = new Set(coreTools.map((tool) => String(tool.domain ?? "").to
 const slugs = new Set();
 const domains = new Set();
 
+function validOrganicGrowth(profile, expected) {
+  return profile &&
+    profile.policyVersion === "tecpey-organic-growth-policy-v1" &&
+    profile.entityType === "tool" &&
+    profile.locale === expected.locale &&
+    profile.canonicalPath === expected.canonicalPath &&
+    profile.canonicalUrl === `https://tecpey.ir${expected.canonicalPath}` &&
+    profile.twitterCard === "summary_large_image" &&
+    Array.isArray(profile.schemaTypes) &&
+    profile.schemaTypes.includes("FAQPage") &&
+    profile.schemaTypes.includes("BreadcrumbList") &&
+    Array.isArray(profile.keywords) &&
+    profile.keywords.length >= 3 &&
+    Array.isArray(profile.entityTags) &&
+    profile.entityTags.includes(`tool:${expected.slug}`) &&
+    Array.isArray(profile.internalLinks) &&
+    profile.internalLinks.includes(expected.canonicalPath) &&
+    String(profile.answerSummary ?? "").length >= 40 &&
+    String(profile.llmSummary ?? "").length >= 80 &&
+    /(توصیه مالی|سیگنال|financial advice|trading signal)/i.test(String(profile.safetyDisclaimer ?? ""));
+}
+
 for (const tool of snapshot.tools ?? []) {
   const slug = slugify(tool.name);
   const domain = String(tool.domain ?? "").toLowerCase();
@@ -64,6 +86,20 @@ for (const tool of snapshot.tools ?? []) {
   if (!Array.isArray(tool.tutorialFa) || tool.tutorialFa.length < 2) fail(`tool_growth_tutorial_missing:${tool.name}`);
   if (!String(tool.articleFa ?? "").includes("توصیه مالی") && !String(tool.articleFa ?? "").includes("سیگنال")) {
     fail(`tool_growth_risk_language_missing:${tool.name}`);
+  }
+  if (!validOrganicGrowth(tool.organicGrowth?.fa, {
+    locale: "fa",
+    canonicalPath: `/trading-tools/${slug}`,
+    slug,
+  })) {
+    fail(`tool_growth_fa_organic_profile_invalid:${tool.name}`);
+  }
+  if (!validOrganicGrowth(tool.organicGrowth?.en, {
+    locale: "en",
+    canonicalPath: `/en/trading-tools/${slug}`,
+    slug,
+  })) {
+    fail(`tool_growth_en_organic_profile_invalid:${tool.name}`);
   }
 }
 

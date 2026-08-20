@@ -4,6 +4,10 @@ import type {
   ToolGrowthIntegrationRisk,
   ToolGrowthRiskLevel,
 } from "@/data/toolGrowthCandidates";
+import {
+  buildOrganicGrowthProfile,
+  type OrganicGrowthProfile,
+} from "./organic-growth-automation";
 
 export const TOOL_GROWTH_POLICY_VERSION = "tecpey-tool-growth-policy-v1";
 
@@ -25,6 +29,10 @@ export type TraderToolRecord = {
   consFa: string[];
   tutorialFa: string[];
   categoryKey: string;
+  organicGrowth?: {
+    fa: OrganicGrowthProfile;
+    en: OrganicGrowthProfile;
+  };
   automation?: ToolGrowthAutomationMeta;
 };
 
@@ -142,12 +150,95 @@ function buildSummaryEn(candidate: ToolGrowthCandidate): string {
 
 function buildArticleFa(candidate: ToolGrowthCandidate): string {
   const narratives = candidate.narratives.slice(0, 3).join("، ");
-  return `${candidate.name} در دسته ${candidate.categoryFa} قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن ${candidate.useCaseFa} است. روایت‌های مرتبط با این ابزار شامل ${narratives || "تحلیل بازار"} است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.`;
+  const useCaseFa = candidate.useCaseFa.replace(/[.!؟]+$/u, "").trim();
+  return `${candidate.name} در دسته ${candidate.categoryFa} قرار می‌گیرد و برای کاربر تک‌پی زمانی ارزش دارد که در یک فرایند ریسک‌محور استفاده شود. کاربرد اصلی آن ${useCaseFa} است. روایت‌های مرتبط با این ابزار شامل ${narratives || "تحلیل بازار"} است، اما هیچ خروجی آن نباید به‌تنهایی تبدیل به سیگنال، تصمیم خرید، فروش، اتصال کیف‌پول یا دادن دسترسی API شود. تک‌پی این صفحه را برای آموزش، مقایسه منابع رسمی و ساخت چک‌لیست تصمیم‌گیری منتشر می‌کند.`;
 }
 
 function buildArticleEn(candidate: ToolGrowthCandidate): string {
   const narratives = candidate.narratives.slice(0, 3).join(", ");
   return `${candidate.name} belongs to ${candidate.categoryEn}. It is useful for TecPey users only when it is part of a risk-aware workflow. Its primary use is to ${candidate.useCaseEn.charAt(0).toLowerCase()}${candidate.useCaseEn.slice(1)} Related narratives include ${narratives || "market research"}. TecPey publishes this page for education, official-source comparison and decision-checklist building, not for trading signals, wallet connections or automated integrations.`;
+}
+
+function tagify(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildToolOrganicGrowthProfiles(candidate: ToolGrowthCandidate): {
+  fa: OrganicGrowthProfile;
+  en: OrganicGrowthProfile;
+} {
+  const slug = slugifyToolName(candidate.name);
+  const commonTags = [
+    `tool:${slug}`,
+    `domain:${tagify(candidate.domain)}`,
+    `category:${candidate.categoryKey}`,
+    `risk:${candidate.riskLevel}`,
+    ...candidate.narratives.slice(0, 4).map((tag) => `narrative:${tagify(tag)}`),
+  ];
+  const schemaTypes = ["SoftwareApplication", "FAQPage", "BreadcrumbList"];
+
+  return {
+    fa: buildOrganicGrowthProfile({
+      entityType: "tool",
+      locale: "fa",
+      canonicalPath: `/trading-tools/${slug}`,
+      title: `${candidate.name} چیست؟ | ابزار آموزشی رمزارز تک‌پی`,
+      metaDescription: `${candidate.name} را از نظر کاربرد آموزشی، لینک رسمی، مزایا، محدودیت‌ها، ریسک اتصال و چک‌لیست استفاده امن در تک‌پی بررسی کنید.`,
+      schemaTypes,
+      keywords: [
+        candidate.name,
+        candidate.domain,
+        candidate.categoryFa,
+        "ابزار ارز دیجیتال",
+        "ابزار تحلیل رمزارز",
+        ...candidate.narratives,
+      ],
+      entityTags: commonTags,
+      internalLinks: [
+        `/trading-tools/${slug}`,
+        "/trading-tools",
+        "/crypto-news",
+        "/academy/term-5",
+        "/academy/security-first",
+      ],
+      answerSummary: `${candidate.name} یک ابزار در دسته ${candidate.categoryFa} است که در تک‌پی فقط برای آموزش، مقایسه منبع رسمی و چک‌لیست تصمیم‌گیری معرفی می‌شود.`,
+      llmSummary: `${buildArticleFa(candidate)} این محتوای خودکار باید به صفحه ابزار، خبرهای مرتبط، Academy و صفحات کوین وصل شود و نباید به سیگنال معامله یا اجازه اتصال حساب تبدیل شود.`,
+      safetyDisclaimer: "این صفحه توصیه مالی، سیگنال معامله، تأیید سرمایه‌گذاری یا مجوز اتصال کیف‌پول/API نیست.",
+      freshnessTag: "scheduled_refresh",
+    }),
+    en: buildOrganicGrowthProfile({
+      entityType: "tool",
+      locale: "en",
+      canonicalPath: `/en/trading-tools/${slug}`,
+      title: `${candidate.name} guide | TecPey crypto tool education`,
+      metaDescription: `Review ${candidate.name} as an educational crypto tool with official links, benefits, limitations, safe-use steps and account-connection risk context.`,
+      schemaTypes,
+      keywords: [
+        candidate.name,
+        candidate.domain,
+        candidate.categoryEn,
+        "crypto tools",
+        "crypto research tool",
+        ...candidate.narratives,
+      ],
+      entityTags: commonTags,
+      internalLinks: [
+        `/en/trading-tools/${slug}`,
+        "/en/trading-tools",
+        "/en/crypto-news",
+        "/en/academy/term-5",
+        "/en/security",
+      ],
+      answerSummary: `${candidate.name} is a ${candidate.categoryEn} tool. TecPey lists it for education, official-source comparison and risk-aware workflow building.`,
+      llmSummary: `${buildArticleEn(candidate)} The automated page must connect to related tools, news, Academy paths and coin context without becoming a trading signal or account-connection instruction.`,
+      safetyDisclaimer: "This page is not financial advice, a trading signal, investment endorsement or permission to connect a wallet/API key.",
+      freshnessTag: "scheduled_refresh",
+    }),
+  };
 }
 
 export function buildAutomatedTraderToolRecord(
@@ -174,6 +265,7 @@ export function buildAutomatedTraderToolRecord(
     consFa: candidate.consFa,
     tutorialFa: candidate.tutorialFa,
     categoryKey: candidate.categoryKey,
+    organicGrowth: buildToolOrganicGrowthProfiles(candidate),
     automation: {
       policyVersion: TOOL_GROWTH_POLICY_VERSION,
       score,

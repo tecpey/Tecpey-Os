@@ -131,6 +131,29 @@ Each public content update should produce:
 - internal links to related Academy, coin, news, tool and glossary pages;
 - AI-readable summary that avoids advice or hype.
 
+Code-level enforcement now lives in `src/lib/organic-growth-automation.ts` under
+`tecpey-organic-growth-policy-v1`. Automated coin, tool and news publication must
+produce an `organicGrowth` package before it can be treated as publish-ready. The
+package is intentionally explicit and portable across generators:
+
+- canonical path and absolute canonical URL;
+- localized title and meta description;
+- Open Graph/Twitter readiness contract;
+- required schema types;
+- keywords and entity tags for coin/tool/news routing;
+- internal links back into Academy, coins, tools and news surfaces;
+- direct answer summary for AEO;
+- LLM summary for retrieval/citation systems;
+- safety disclaimer containing the no-financial-advice/no-signal boundary;
+- freshness mode so scheduled automation can distinguish evergreen pages from news.
+
+`ContentItem` now has an `organicGrowth` field and `isOrganicGrowthReadyContent`
+fails closed unless the content is publishable, answer-engine-ready and aligned
+with the shared organic-growth profile. Coin and tool growth snapshots persist
+this package directly. News materialization persists it in each decision summary
+so collection, translation, tagging and publication evidence can be audited before
+history items affect public coin/tool/news pages.
+
 ### Stage 4 — Quality and Safety Gate
 
 The gate rejects or queues content when:
@@ -155,6 +178,10 @@ Initial automated reject/review reasons are codified as:
 - `hype_or_profit_promise`
 - `no_supported_entity`
 - `missing_seo_schema`
+
+`missing_seo_schema` includes missing or invalid organic-growth packages. For
+automation, basic metadata is no longer enough; the generator must also carry the
+answer-engine summary, entity tags, internal-link intent and safety disclaimer.
 
 Rejected items never create public `NewsImpactHistory`. Review-only items may be stored for audit, but they must not alter public coin/tool rankings until approved.
 

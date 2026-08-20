@@ -8,7 +8,7 @@ TecPey can automatically publish educational pages for external crypto tools, bu
 2. `npm run tools:growth:materialize` scores candidates and writes `src/data/generated/toolGrowthSnapshot.json`.
 3. `src/lib/trading-tools-growth.ts` combines manually curated tools from `src/data/traderTools.json` with the published snapshot.
 4. `/trading-tools`, `/en/trading-tools`, detail routes, landing growth radar, schemas, and sitemap entries read from `getRankedTraderTools()` and `getTraderToolSlugs()`.
-5. `npm run tools:growth:check` blocks duplicate, incomplete, unsafe, or externally enabled automated output.
+5. `npm run tools:growth:check` blocks duplicate, incomplete, unsafe, externally enabled, or SEO/GEO/AEO-incomplete automated output.
 
 Optional deployment templates:
 
@@ -21,6 +21,7 @@ Optional deployment templates:
 - Publish capability allowed: `educational_directory` only.
 - External capability allowed: `manual_review_required` only.
 - Required: HTTPS official site, unique slug, unique domain, non-empty summaries, pros, limitations and tutorial steps.
+- Required organic-growth package for both `/trading-tools/[slug]` and `/en/trading-tools/[slug]`: canonical URL, Open Graph/Twitter contract, schema types, keywords, entity tags, internal links, AEO answer, LLM summary and no-advice/no-signal safety disclaimer.
 - Forbidden for automatic publication: tools whose primary automation mode is `trade_execution`.
 - Wallet connection, API-key and account-based tools can be listed only as educational pages with risk language and manual review gates.
 

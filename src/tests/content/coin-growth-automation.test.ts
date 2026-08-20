@@ -21,6 +21,10 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.automation.status === "published_content"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.exchangeCapability === "manual_review_required"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.officialWebsite.startsWith("https://")));
+    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v1"));
+    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.canonicalPath === `/coins/${coin.slug}`));
+    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.entityTags.includes(`coin:${coin.symbol.toLowerCase()}`)));
+    assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.schemaTypes.includes("FAQPage")));
   });
 
   it("scores core stablecoin and high-trend AI candidates above the publication threshold", () => {
