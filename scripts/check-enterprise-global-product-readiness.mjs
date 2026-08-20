@@ -12,6 +12,7 @@ const REQUIRED_BENCHMARKS = new Set([
   "IndexNow and URL submission",
   "Binance Developer/API model",
 ]);
+const REQUIRED_A11Y_RUNTIME_CHECKS = new Set(["axe", "keyboard", "focus", "contrast", "reduced-motion"]);
 
 function fail(message) {
   throw new Error(`enterprise global product readiness invalid: ${message}`);
@@ -33,6 +34,14 @@ function countBy(items, predicate) {
 
 function uniqueValues(items, selector) {
   return new Set(items.map(selector));
+}
+
+function setEquals(left, right) {
+  if (left.size !== right.size) return false;
+  for (const value of left) {
+    if (!right.has(value)) return false;
+  }
+  return true;
 }
 
 function assertArray(value, label) {
@@ -183,6 +192,82 @@ export function validateEnterpriseGlobalProductReadiness(registry) {
     }
   });
 
+  const waveATracker = registry.waveAExternalEvidenceTracker ?? {};
+  const blockedWaveAControlIds = new Set(
+    controls
+      .filter((control) => control.status === "BLOCKED_EXTERNAL" && control.severity === "P0" && control.nextWave === "A")
+      .map((control) => control.id),
+  );
+  const trackedWaveAControls = assertArray(waveATracker.controls, "waveAExternalEvidenceTracker.controls");
+  const trackedWaveAControlIds = uniqueValues(trackedWaveAControls, (control) => control.id);
+  collect(() => {
+    if (waveATracker.status !== "BLOCKED_PENDING_EXTERNAL_EXECUTION") {
+      fail("wave A tracker must remain blocked until external execution evidence is attached");
+    }
+    if (waveATracker.targetP0ReadinessPercentAfterClosure !== 92) {
+      fail("wave A target P0 readiness after closure must remain 92%");
+    }
+    if (waveATracker.exactHeadRequired !== true) fail("wave A evidence must require exact-head execution");
+    if (waveATracker.secretRedactionRequired !== true) fail("wave A evidence must require secret redaction");
+    if (!Number.isInteger(waveATracker.maxEvidenceAgeDays) || waveATracker.maxEvidenceAgeDays > 14) {
+      fail("wave A external evidence must expire within 14 days");
+    }
+    if (!setEquals(trackedWaveAControlIds, blockedWaveAControlIds)) {
+      fail("wave A tracker must exactly cover all seven blocked external P0 controls");
+    }
+  });
+
+  for (const control of trackedWaveAControls) {
+    collect(() => {
+      if (!blockedWaveAControlIds.has(control.id)) fail(`${control.id} is not a blocked external P0 wave A control`);
+      if (typeof control.requiredEnvironment !== "string" || control.requiredEnvironment.length < 8) {
+        fail(`${control.id} must declare a required external execution environment`);
+      }
+      if (typeof control.evidenceClass !== "string" || control.evidenceClass.length < 8) {
+        fail(`${control.id} must declare an evidence class`);
+      }
+      if (control.evidenceSchemaVersion !== 1) {
+        fail(`${control.id} must declare evidenceSchemaVersion 1`);
+      }
+      if (
+        typeof control.machineVerifier !== "string"
+        || !/^(npm run|scripts\/|future browser verifier:)/.test(control.machineVerifier)
+      ) {
+        fail(`${control.id} must declare a machine verifier command or governed future browser verifier`);
+      }
+      const artifacts = assertArray(control.requiredArtifacts, `${control.id}.requiredArtifacts`);
+      if (artifacts.length < 3) fail(`${control.id} must require at least three evidence artifacts`);
+      if (!artifacts.some((artifact) => artifact.endsWith(".sha256"))) {
+        fail(`${control.id} must require a detached sha256 evidence digest`);
+      }
+      const closureCriteria = assertArray(control.closureCriteria, `${control.id}.closureCriteria`);
+      if (closureCriteria.length < 4) fail(`${control.id} must define at least four closure criteria`);
+    });
+  }
+
+  const qa050 = trackedWaveAControls.find((control) => control.id === "QA-050");
+  collect(() => {
+    if (!qa050) fail("QA-050 must be tracked in wave A evidence controls");
+    const viewports = new Set(assertArray(qa050.viewports, "QA-050.viewports"));
+    if (!setEquals(viewports, new Set(screenshotMatrix.viewports))) {
+      fail("QA-050 viewports must match the governed screenshot evidence matrix");
+    }
+    if (qa050.routeCount !== screenshotMatrix.routeCount || qa050.requiredSlots !== screenshotMatrix.requiredSlots) {
+      fail("QA-050 route and screenshot slot counts must match the governed screenshot evidence matrix");
+    }
+  });
+
+  const qa051 = trackedWaveAControls.find((control) => control.id === "QA-051");
+  collect(() => {
+    if (!qa051) fail("QA-051 must be tracked in wave A evidence controls");
+    if (!setEquals(new Set(assertArray(qa051.requiredChecks, "QA-051.requiredChecks")), REQUIRED_A11Y_RUNTIME_CHECKS)) {
+      fail("QA-051 must require axe, keyboard, focus, contrast and reduced-motion runtime checks");
+    }
+    if (qa051.zeroCriticalSeriousViolations !== true) {
+      fail("QA-051 must require zero critical or serious unresolved accessibility violations");
+    }
+  });
+
   collect(() => {
     const outputs = assertArray(registry.contentWorkflowOutputs, "contentWorkflowOutputs");
     if (outputs.length !== 4) fail("content automation must produce exactly four governed outputs");
@@ -222,6 +307,7 @@ export function validateEnterpriseGlobalProductReadiness(registry) {
     controlEvidencePercent,
     weightedProductReadinessPercent: weightedPercent(categories),
     routeScopedJsonLdDebt: debtTotal,
+    waveAExternalEvidenceControls: trackedWaveAControls.length,
     screenshotSlotsRequired: screenshotMatrix.requiredSlots,
     decision: launchScope.currentDecision,
   };
@@ -255,7 +341,7 @@ async function main() {
   const registry = await readEnterpriseGlobalProductReadinessRegistry(args.get("registry") ?? DEFAULT_REGISTRY);
   const summary = validateEnterpriseGlobalProductReadiness(registry);
   console.log(
-    `Enterprise global product readiness check passed: ${summary.evidenceReadyControls}/${summary.totalControls} controls evidence-ready (${summary.controlEvidencePercent}%), ${summary.blockedExternalControls} external P0 blockers tracked, weighted readiness ${summary.weightedProductReadinessPercent}%, ${summary.routeScopedJsonLdDebt} route-scoped JSON-LD debt items and ${summary.screenshotSlotsRequired} screenshot slots remain governed.`,
+    `Enterprise global product readiness check passed: ${summary.evidenceReadyControls}/${summary.totalControls} controls evidence-ready (${summary.controlEvidencePercent}%), ${summary.blockedExternalControls} external P0 blockers tracked with ${summary.waveAExternalEvidenceControls} wave A evidence contracts, weighted readiness ${summary.weightedProductReadinessPercent}%, ${summary.routeScopedJsonLdDebt} route-scoped JSON-LD debt items and ${summary.screenshotSlotsRequired} screenshot slots remain governed.`,
   );
 }
 
