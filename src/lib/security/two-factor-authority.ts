@@ -10,6 +10,7 @@ import {
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
 } from "@/lib/security/sensitive-mutation-audit";
+import { notifyTwoFactorDisabled } from "@/lib/security/security-notifications";
 
 export type TwoFactorAuditContext = Pick<
   SensitiveMutationAuditEvent,
@@ -345,6 +346,14 @@ export async function disableTwoFactor(input: {
   });
 
   if (!result.enabled) throw new Error("db_unavailable");
+
+  // Post-commit, fire-and-forget: alert the account holder that 2FA is now off.
+  // Runs only after the transaction that actually disabled 2FA has committed, so
+  // a notification failure can never roll back the security mutation itself.
+  if (result.value.ok && result.value.status === "disabled") {
+    notifyTwoFactorDisabled(input.userId, { adminOverride: input.adminOverride });
+  }
+
   return result.value;
 }
 
