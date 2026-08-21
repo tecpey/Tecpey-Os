@@ -10,6 +10,10 @@
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`  
 **Environment protection setup runbook:** `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 
+## Current fail-closed staging observation
+
+The repository-controlled observation remains `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`. The last accepted observation of the GitHub `staging` Environment recorded `protection_rules: []`; therefore it is not acceptable protected-staging evidence. **NOG-01 and NOG-02 remain open** until a fresh protected execution proves otherwise. The next operator step is governed Environment protection plus the exact-candidate workflow dispatches below, not a documentation-only status change.
+
 ## Identity rule
 
 All protected staging evidence in this cycle must target the exact candidate above. Do not silently move the staging target because documentation-only or
@@ -19,7 +23,7 @@ launch-control PRs were merged. A runtime, deployment, security, bundle or launc
 
 Before dispatch, the GitHub Environment must be exactly `staging`, protection/reviewer rules must be active, and the runner must carry `self-hosted`, `linux`, `x64`, `tecpey-staging`. The runner host must have the governed non-root runtime identity and the protected environment source configured. Never paste raw secrets, database URLs, host IPs, process environments or service-manager environment output into GitHub evidence.
 
-Required protected environment variables point to the app directory, protected environment source, runtime user/group and health URL. Their values are operational configuration and are not recorded in repository evidence.
+Required protected environment variables include `TECPEY_STAGING_APP_DIR`, `TECPEY_STAGING_ENV_FILE`, `TECPEY_STAGING_RUN_USER`, `TECPEY_STAGING_RUN_GROUP`, `TECPEY_STAGING_HEALTH_URL`, and optionally `TECPEY_STAGING_ENV_CHECK_UNIT`. Their values are operational configuration and are not recorded in repository evidence.
 
 ## NOG-01 — activation/scheduler evidence
 
@@ -57,7 +61,7 @@ The accepted record contains only the environment-source mode, redacted disposit
 
 ## Acceptance sequence
 
-1. Configure protected `staging` Environment and reviewer protection.
+1. Configure protected `staging` Environment and reviewer protection using `GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`.
 2. Connect the governed `tecpey-staging` self-hosted runner.
 3. Verify the exact app checkout is `1c2172144f5a5fbe3037a262c67cb9799585c1b2` and clean.
 4. Dispatch NOG-01 workflow with the exact SHA and alert probe enabled.
