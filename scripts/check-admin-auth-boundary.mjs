@@ -4,6 +4,10 @@ import path from "node:path";
 const ROOT = path.resolve("src");
 const SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 
+// This guard matches text, so it cannot tell a file that *uses* the shared
+// credential from one that *asserts about* how it is used. The allowlist is
+// therefore only for the bootstrap implementation and for the security tests that
+// hold that implementation in place — never for a new consumer.
 const rules = [
   {
     name: "shared admin environment token",
@@ -11,6 +15,10 @@ const rules = [
     allowedFiles: new Set([
       "src/lib/admin-passkey-service.ts",
       "src/tests/security/admin-passkey-backend.test.ts",
+      // SB-002: asserts the token stays a header secret and never reaches a
+      // cookie or browser-shipped code. It strengthens this boundary rather than
+      // crossing it.
+      "src/tests/security/control-plane-cookie-opacity.test.ts",
     ]),
   },
   {
@@ -20,6 +28,7 @@ const rules = [
       "src/lib/admin-passkey-service.ts",
       "src/components/admin/AdminPasskeyAccessGate.tsx",
       "src/tests/security/admin-passkey-backend.test.ts",
+      "src/tests/security/control-plane-cookie-opacity.test.ts",
     ]),
   },
   {

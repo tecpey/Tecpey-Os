@@ -26,7 +26,7 @@
 >
 > | ID | Original claim | Verified current state | Evidence |
 > |---|---|---|---|
-> | SB-001 | CSRF gaps on state-changing routes | **Closed, with governed exceptions.** 65 of 70 governed mutating operations enforce CSRF. The 5 that do not are 4 `deny-only` operations (they reject mutations outright) plus the pre-authentication WebAuthn challenge, which carries rate-limit, body-size and audit controls instead. Manifest findings: **0**. | `src/lib/csrf.ts` (`verifyCsrfOrigin`, fail-closed without `NEXT_PUBLIC_SITE_URL`); `docs/security/generated/api-security-manifest.json`; `src/tests/security/csrf-origin-authority.test.ts`, `csrf-await-guard.test.ts` |
+> | SB-001 | CSRF gaps on state-changing routes | **Closed, with governed exceptions.** 73 of 78 governed mutating operations enforce CSRF. The 5 that do not are 4 `deny-only` operations (they reject mutations outright) plus the pre-authentication WebAuthn challenge, which accepts no caller identifier, binds to no session and carries rate-limit, body-size and audit controls instead. Manifest findings: **0**. Counted against the manifest `npm run api:security:check` regenerates, not the committed copy, which lags at 70 operations and produced the earlier 65-of-70 figure. | `src/lib/csrf.ts` (`verifyCsrfOrigin`, fail-closed without `NEXT_PUBLIC_SITE_URL`); `src/tests/security/csrf-mutation-boundary.test.ts`, `csrf-origin-authority.test.ts`, `csrf-await-guard.test.ts` |
 > | SB-002 | Raw Admin token in cookie | **Closed.** Admin session cookies are `httpOnly`; no browser-readable admin token path remains. | `src/lib/admin-passkey-service.ts:140,150` |
 > | SB-003 | Signed API auth replay surface | **Unchanged** — already recorded below as a closure candidate; the surface remains absent. | entry below; `docs/security/SIGNED_API_AUTH_LAUNCH_POLICY.md` |
 > | SB-004 | Mock KYC in production | **Closed.** An unconfigured provider throws `kyc_not_configured` in production instead of returning a mock session. | `src/lib/compliance/sumsub.ts:82-84` |
@@ -323,22 +323,28 @@
 
 ## Risk Matrix
 
-| ID | Risk | Impact | Probability | Priority / Status |
-|----|------|--------|-------------|-------------------|
-| SB-001 | CSRF gaps | High | High | P0 — open inventory |
-| SB-002 | Raw Admin token paths | High | Medium | P0 — governed replacement requires final sign-off |
-| SB-003 | Signed API replay | High if exposed | None while surface absent | P0 — closure candidate by surface elimination |
-| SB-004 | Mock KYC | High | Medium | P0 |
-| SB-005 | HSM/MPC throws | High | Medium | P0 |
-| SB-006 | Public price-feed mutation | High | Medium | P0 |
-| SB-007 | Per-instance rate limit | Medium | Medium | P1 |
-| SB-008 | Local auth in prod | High | Low | P1 |
-| SB-009 | Broad CSP | Medium | Medium | P1 |
-| SB-010 | Secret fan-out | High | Low | P1 |
-| SB-011 | Admin browser storage | High | Low | P1 |
-| SB-012 | English lang/dir | Medium | Medium | P2 |
-| SB-013 | Visual contact forms | Low | High | P3 |
-| SB-014 | Auth rate limiting | Low | Medium | P3 |
+This table is a restatement. The authority for current status is
+"P0 status against current code" and "P1 / P2 status against current code" above;
+`src/tests/security/blocker-status-agreement.test.ts` fails when the two disagree.
+Priority is the original triage tier and does not change on closure — a closed P0
+was still a P0.
+
+| ID | Risk | Impact | Probability | Priority | Status |
+|----|------|--------|-------------|----------|--------|
+| SB-001 | CSRF gaps | High | High | P0 | Closed, with governed exceptions |
+| SB-002 | Raw Admin token paths | High | Medium | P0 | Closed |
+| SB-003 | Signed API replay | High if exposed | None while surface absent | P0 | Closure candidate — surface absent |
+| SB-004 | Mock KYC | High | Medium | P0 | Closed |
+| SB-005 | HSM/MPC throws | High | Medium | P0 | Closed as gated — production signing unimplemented by design |
+| SB-006 | Public price-feed mutation | High | Medium | P0 | Closed |
+| SB-007 | Per-instance rate limit | Medium | Medium | P1 | Closed |
+| SB-008 | Local auth in prod | High | Low | P1 | Closed / bounded |
+| SB-009 | Broad CSP | Medium | Medium | P1 | Closed |
+| SB-010 | Secret fan-out | High | Low | P1 | Not reconciled — no verified-current-state row exists |
+| SB-011 | Admin browser storage | High | Low | P1 | Closed |
+| SB-012 | English lang/dir | Medium | Medium | P2 | Closed at the document root |
+| SB-013 | Visual contact forms | Low | High | P3 | Still open |
+| SB-014 | Auth rate limiting | Low | Medium | P3 | Not verified in-repo — deployment configuration |
 
 ---
 
