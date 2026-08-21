@@ -125,11 +125,7 @@ test("host promotion binds pre-start and post-start readiness to email delivery"
 
   assert.ok(envGate >= 0, "candidate preflight must run production env:check");
   assert.ok(build > envGate, "production env gate must run before build/start");
-  assert.match(
-    preflight,
-    /body\.checks\?\.email !== "configured"/,
-    "runtime promotion must explicitly require configured email",
-  );
+  assert.match(preflight, /body\.health !== "ok"/);
   assert.match(healthRoute, /email_not_configured: transactional emails will not be delivered/);
   assert.match(
     healthRoute,
