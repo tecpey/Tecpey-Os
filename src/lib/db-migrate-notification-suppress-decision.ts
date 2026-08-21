@@ -27,9 +27,43 @@ ALTER TABLE platform_notifications
   ADD CONSTRAINT platform_notifications_policy_decision_check
   CHECK (policy_decision IN ('allow', 'defer', 'digest', 'suppress', 'escalate'));
 
--- Re-label the rows the drain had to record as 'defer' only because 'suppress'
--- was unavailable. The reason string identifies them exactly, and no other code
--- path writes that pairing, so this cannot capture a genuinely deferred row.
+-- Hold the vocabulary as an invariant, not as a one-time cleanup.
+--
+-- A backfill alone would leave a window: the deployment contract runs migration
+-- before starting the new runtime, so an older process can still be serving when
+-- the UPDATE below commits. It would write 'defer' with this reason, the widened
+-- constraint would happily admit it, and that row would never be repaired. The
+-- same reappears on a rollback to a previous image, or from any future caller
+-- that has not been taught the new vocabulary.
+--
+-- Normalising on write closes all of those at once, and does it without turning
+-- a recording divergence into an outage: an older runtime's insert still
+-- succeeds, it is simply stored under the decision the policy actually made.
+-- Rejecting the pairing instead would fail those requests outright.
+CREATE OR REPLACE FUNCTION tecpey_normalize_withheld_notification_decision()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.policy_reason = 'marketing_consent_required'
+     AND NEW.policy_decision = 'defer' THEN
+    NEW.policy_decision := 'suppress';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS platform_notifications_normalize_withheld_decision
+  ON platform_notifications;
+CREATE TRIGGER platform_notifications_normalize_withheld_decision
+  BEFORE INSERT OR UPDATE OF policy_decision, policy_reason
+  ON platform_notifications
+  FOR EACH ROW
+  EXECUTE FUNCTION tecpey_normalize_withheld_notification_decision();
+
+-- Re-label rows already written as 'defer' before 'suppress' existed. The reason
+-- string identifies them exactly, and no other code path writes that pairing, so
+-- this cannot capture a genuinely deferred row.
 UPDATE platform_notifications
    SET policy_decision = 'suppress',
        updated_at = NOW()

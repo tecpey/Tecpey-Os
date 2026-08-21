@@ -327,3 +327,43 @@ test("the legacy drain never enqueues delivery itself", () => {
     );
   }
 });
+
+test("the withheld pairing is normalised on write, whoever writes it", async () => {
+  await withRolledBackTest(async (client) => {
+    const seeded = await seed(client, "normalise");
+
+    // Simulates a runtime that predates migration 0086 — an older process still
+    // serving during deployment, or a rollback to the previous image. It writes
+    // the pairing the widened constraint still admits. A one-shot backfill would
+    // have already run by then, so without the normalising trigger this row
+    // would keep the old vocabulary permanently.
+    await client.query(
+      `INSERT INTO platform_notifications
+         (tenant_id, principal_id, notification_class, source_type, source_id,
+          title, body, locale, action_url, urgency, priority, correlation_key,
+          policy_decision, policy_reason, delivered_at)
+       VALUES ($1, $2, 'marketing_campaign', 'legacy_notification_center', $3,
+               'Old runtime', 'Body', 'fa', NULL, 'normal', 1, $4,
+               'defer', 'marketing_consent_required', NULL)`,
+      [
+        (await client.query<{ tenant_id: string }>(
+          "SELECT tenant_id FROM platform_principals WHERE id = $1",
+          [seeded.principalId],
+        )).rows[0].tenant_id,
+        seeded.principalId,
+        seeded.campaignId,
+        `legacy:notification_center:old-runtime:${seeded.campaignId}`,
+      ],
+    );
+
+    const stored = await client.query<{ policy_decision: string }>(
+      `SELECT policy_decision FROM platform_notifications WHERE correlation_key = $1`,
+      [`legacy:notification_center:old-runtime:${seeded.campaignId}`],
+    );
+    assert.equal(
+      stored.rows[0].policy_decision,
+      "suppress",
+      "an older runtime's write must be normalised, not left recording the superseded vocabulary",
+    );
+  });
+});
