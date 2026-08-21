@@ -246,7 +246,12 @@ export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
     return sendViaDev(message);
   }
 
-  const provider = readiness.provider === "dev" ? "dev" : "none";
+  const provider =
+    readiness.provider === "resend" ||
+    readiness.provider === "sendgrid" ||
+    readiness.provider === "dev"
+      ? readiness.provider
+      : "none";
   logger.error("[email] Email delivery is unavailable", {
     status: readiness.status,
     provider: readiness.provider ?? "unset",
