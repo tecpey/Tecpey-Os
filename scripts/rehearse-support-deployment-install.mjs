@@ -112,7 +112,8 @@ try {
     "support:bundle:verify": "node scripts/verify-support-deployment-bundle.mjs",
     "support:install:rehearse": "node scripts/rehearse-support-deployment-install.mjs",
     "support:install:check": "node scripts/check-support-install-readiness-authority.mjs",
-    "env:check": "node scripts/validate-env.mjs && node --import tsx scripts/validate-csp-connection-env.ts",
+    "env:check":
+      "node scripts/validate-env.mjs && node --import tsx scripts/validate-csp-connection-env.ts && node --import tsx scripts/validate-alert-webhook-env.ts",
     build:
       "next build && npm run build:server",
     health: "node scripts/check-health.mjs",

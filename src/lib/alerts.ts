@@ -21,6 +21,54 @@ const SEVERITY: Record<AlertType, AlertSeverity> = {
   MIGRATION_FAILED:      "critical",
 };
 
+export type AlertWebhookStatus = "configured" | "unconfigured" | "misconfigured";
+
+// Placeholders the repository already treats as unset elsewhere. A webhook URL
+// carrying one of these is a template nobody finished, not a destination.
+const PLACEHOLDER_TOKENS = ["CHANGE_ME", "your-real", "REPLACE_WITH", "example.com"];
+
+/**
+ * Whether ALERT_WEBHOOK_URL names somewhere an alert can actually arrive.
+ *
+ * One authority, used by the environment contract and by /api/health, because the
+ * two disagreeing is the failure this exists to prevent: a preflight passing on a
+ * value the runtime then treats differently. deliverWebhook only checked that the
+ * variable was non-empty, so a placeholder produced a POST that failed into a
+ * logger.warn while health reported the webhook as configured — and R-04 makes
+ * alert delivery a precondition for any Go record.
+ */
+export function alertWebhookStatus(
+  raw: string | undefined = process.env.ALERT_WEBHOOK_URL,
+  nodeEnv: string | undefined = process.env.NODE_ENV,
+): AlertWebhookStatus {
+  const value = (raw ?? "").trim();
+  if (!value) return "unconfigured";
+
+  const lowered = value.toLowerCase();
+  if (PLACEHOLDER_TOKENS.some((token) => lowered.includes(token.toLowerCase()))) {
+    return "misconfigured";
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return "misconfigured";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "misconfigured";
+  // Plain HTTP would put alert contents — which name failing subsystems — on the
+  // wire in clear text. Matches the rule ACADEMY_LEADS_WEBHOOK_URL already follows.
+  if (nodeEnv === "production" && parsed.protocol !== "https:") return "misconfigured";
+
+  return "configured";
+}
+
+/** Throws when the alert webhook is set to something alerts cannot reach. */
+export function assertAlertWebhookUsable(): void {
+  if (alertWebhookStatus() !== "misconfigured") return;
+  throw new Error("alert_webhook_url_unusable");
+}
+
 export type AlertEvent = {
   type: AlertType;
   severity: AlertSeverity;
@@ -47,9 +95,22 @@ function isDuplicate(type: AlertType): boolean {
 // Requires ALERT_WEBHOOK_URL env var. Does not block the caller.
 async function deliverWebhook(event: AlertEvent): Promise<void> {
   const url = process.env.ALERT_WEBHOOK_URL;
-  if (!url) return;
+  const status = alertWebhookStatus(url);
+  if (status === "unconfigured") return;
+  if (status === "misconfigured") {
+    // Say so once per alert rather than letting the POST fail into a generic
+    // delivery warning. The distinction matters during an incident: "no webhook
+    // set" is a known posture, "webhook set to something unreachable" is someone
+    // believing alerts are going out.
+    logger.error("[alerts] webhook is configured but unusable", {
+      type: event.type,
+      delivered: false,
+      remedy: "set ALERT_WEBHOOK_URL to a real https endpoint",
+    });
+    return;
+  }
   try {
-    await fetch(url, {
+    await fetch(url as string, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(event),
