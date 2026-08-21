@@ -10,8 +10,7 @@ import { emailDeliveryReadiness } from "../../lib/email";
 // Ubuntu preflight tightens the otherwise-valid "unconfigured" state into a hard
 // requirement before candidate startup.
 
-const EMAIL_KEYS = [
-  "NODE_ENV",
+const EMAIL_INPUT_KEYS = [
   "EMAIL_PROVIDER",
   "RESEND_API_KEY",
   "SENDGRID_API_KEY",
@@ -19,17 +18,19 @@ const EMAIL_KEYS = [
 ] as const;
 const SUPPLIED = "unit-test-value";
 
+type EmailValidatorInput = Partial<Record<(typeof EMAIL_INPUT_KEYS)[number], string>>;
+
 function validatorRejects(
-  values: Partial<Record<(typeof EMAIL_KEYS)[number], string>>,
+  values: EmailValidatorInput,
   requireLiveEmail = false,
 ): boolean {
-  const childEnv: Record<string, string | undefined> = {
-    ...(process.env as Record<string, string | undefined>),
-    ...Object.fromEntries(EMAIL_KEYS.map((key) => [key, ""])),
+  const childEnv = {
+    ...process.env,
+    ...Object.fromEntries(EMAIL_INPUT_KEYS.map((key) => [key, ""])),
+    ...values,
     NODE_ENV: "production",
     ALERT_WEBHOOK_URL: "",
-    ...values,
-  };
+  } as NodeJS.ProcessEnv;
   const child = spawnSync(
     process.execPath,
     [
