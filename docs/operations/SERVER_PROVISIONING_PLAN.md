@@ -20,9 +20,18 @@ Every figure below is taken from the tracked contracts, not from general advice.
 | Non-root runtime user and group | `STAGING_READINESS_EVIDENCE_CONTRACT.md` |
 | GitHub self-hosted runner, labels `self-hosted, linux, x64, tecpey-staging`, inside protected Environment `staging` | `STAGING_READINESS_EVIDENCE_CONTRACT.md` |
 
-Sizing decision: **8 vCPU / 16 GB / 160 GB NVMe**. The 4/8 minimum is for a
-launch host alone; this machine also runs PostgreSQL, Redis, the CI runner and
-both environments, so the recommended tier is the floor here, not the ceiling.
+Sizing decision: the 4/8 minimum is for a launch host alone. This machine also
+runs PostgreSQL, Redis, the CI runner and both environments, so more is needed.
+
+**Purchased: 8 vCPU / 16 GB RAM / Ubuntu 24.04, hosted in Türkiye.**
+
+16 GB is workable rather than comfortable. Steady state across both environments
+is roughly 6–9 GB; `next build` adds 2–4 GB and the Playwright browsers about
+2 GB, which would exceed 16 GB if everything ran at once. **Staging therefore
+runs on demand, not continuously** — its containers come up for evidence
+collection and go down afterwards. Production stays up. If staging is later left
+running around the clock, RAM has to grow before that happens, not after the
+first out-of-memory build.
 
 ## 2. Outbound dependencies — the constraint that shapes the purchase
 
@@ -48,23 +57,27 @@ cannot reach the provider, the gate passes, `/api/health` reports
 reporting a capability it does not have — the same defect class as #516, #518,
 #520 and #525, arriving from the network instead of from the code.
 
-### Resolution: split egress
+### Resolution: host outside Iran, no relay
 
-- **Application host — inside Iran.** Serves users, runs PostgreSQL, Redis, the
-  app and the runner. Low latency for the audience, rial payment.
-- **Egress relay — small VPS outside Iran, ~2 vCPU / 2 GB.** The application
-  host routes only the third-party API calls above through it.
+The host was placed in **Türkiye**, bought from an Iranian provider in rial.
+That removes the constraint rather than working around it: the outbound
+dependencies are expected to be directly reachable, so no egress relay is
+needed, and Türkiye is geographically closer to the intended audience than a
+European region would be.
 
-This keeps user-facing latency while making the outbound dependencies real. It
-is the cheapest arrangement that does not leave a health field lying.
+**Expected, not yet verified.** Reachability is a property of the host, and this
+plan does not get to assume it. Step 3 below proves each dependency answers
+*from the server*, and until that output exists this section records an
+expectation. A laptop reaching OpenAI says nothing about the machine that will
+run the workers.
 
-Two alternatives, recorded so the choice is deliberate:
+Alternatives considered and not taken, recorded so the choice stays deliberate:
 
-- *Everything abroad, Iranian CDN in front.* Simpler egress, worse origin
-  latency, and the CDN becomes a launch dependency.
-- *Everything in Iran, no relay.* Cheapest. Mentor and email do not work, so the
-  soft-launch scope shrinks to Academy and Arena, and the email requirement in
-  `env:check` has to be confronted rather than worked around.
+- *Host inside Iran plus a small foreign egress relay.* Best user latency, one
+  more moving part, and a relay outage becomes an application outage.
+- *Host inside Iran with no relay.* Cheapest. Mentor and email do not work, so
+  the soft-launch scope shrinks to Academy and Arena and the email requirement
+  in `env:check` has to be confronted rather than worked around.
 
 ## 3. Environment separation on one host
 
