@@ -193,6 +193,34 @@ if (errorTrackingProvider) {
   }
 }
 
+// Same shape one module over. isEmailConfigured() refuses a provider whose API key
+// is missing or still a template, but neither email key appeared anywhere in this
+// file, so a deployment could clear its environment gate and then report degraded
+// health and fail every transactional send. The runtime rule and the preflight must
+// reach the same verdict for the same variables, which means the preflight has to
+// look at them at all.
+//
+// The provider→key mapping is mirrored from src/lib/email.ts;
+// src/tests/runtime/email-preflight-agreement.test.ts runs both over the same
+// matrix so the two cannot answer differently.
+const EMAIL_PROVIDER_KEYS = { resend: 'RESEND_API_KEY', sendgrid: 'SENDGRID_API_KEY' };
+const emailProvider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+if (emailProvider) {
+  if (!['resend', 'sendgrid', 'dev', 'none'].includes(emailProvider)) {
+    errors.push('EMAIL_PROVIDER must be resend, sendgrid, dev or none when set');
+  } else if (EMAIL_PROVIDER_KEYS[emailProvider]) {
+    // dev and none are deliberate postures, not misconfigurations — the same
+    // distinction alertWebhookStatus draws between "unconfigured" and "unusable".
+    const keyName = EMAIL_PROVIDER_KEYS[emailProvider];
+    const key = process.env[keyName]?.trim();
+    if (!key) {
+      errors.push(`EMAIL_PROVIDER=${emailProvider} requires ${keyName}`);
+    } else if (containsPlaceholder(key)) {
+      errors.push(`${keyName} still contains a placeholder`);
+    }
+  }
+}
+
 const trustedProxyHeader = process.env.TECPEY_TRUSTED_PROXY_HEADER?.trim().toLowerCase();
 if (trustedProxyHeader && !['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'].includes(trustedProxyHeader)) {
   errors.push('TECPEY_TRUSTED_PROXY_HEADER must be cf-connecting-ip, x-real-ip or x-forwarded-for');
