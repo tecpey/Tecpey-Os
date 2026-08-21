@@ -123,6 +123,25 @@ function faviconForDomain(domain: string): string {
   return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
 
+function normalizedDomain(value: string): string {
+  return value.trim().toLowerCase().replace(/\.$/, "");
+}
+
+function officialSiteMatchesDomain(site: string, declaredDomain: string): boolean {
+  try {
+    const url = new URL(site);
+    if (url.protocol !== "https:" || url.username || url.password) return false;
+
+    const hostname = normalizedDomain(url.hostname);
+    const domain = normalizedDomain(declaredDomain);
+    if (!hostname || !domain) return false;
+
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+  } catch {
+    return false;
+  }
+}
+
 export function scoreToolGrowthCandidate(candidate: ToolGrowthCandidate): number {
   return roundScore(
     clamp01(candidate.trendSignal) * 0.16 +
@@ -307,7 +326,7 @@ export function materializeToolGrowthSnapshot(
     let reason = "";
 
     if (!candidate.name.trim() || !slug || !domain || !candidate.site.trim()) reason = "identity_missing";
-    else if (!candidate.site.startsWith("https://")) reason = "official_source_missing";
+    else if (!officialSiteMatchesDomain(candidate.site, domain)) reason = "official_source_domain_mismatch";
     else if (!candidate.prosFa.length || !candidate.consFa.length || !candidate.tutorialFa.length) reason = "content_missing";
     else if (candidate.integrationRisk === "trade_execution") reason = "trade_execution_tool_requires_manual_review";
     else if (existingSlugs.has(slug) || existingDomains.has(domain)) reason = "already_curated";
