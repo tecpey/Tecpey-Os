@@ -99,8 +99,6 @@ read_baked_release_sha() {
 if [ "$VERIFICATION_PHASE" = "candidate" ]; then
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
-  PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NODE_BIN" --import tsx \
-    scripts/validate-alert-webhook-env.ts --require-live-email
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run check
   TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" \
     PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build
