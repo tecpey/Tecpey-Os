@@ -34,6 +34,15 @@ function packageScripts(packageJsonSource) {
   }
 }
 
+function uncommentedTableSource(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split(/\r?\n/)
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .map((line) => line.replace(/\s+\/\/.*$/, ""))
+    .join("\n");
+}
+
 /**
  * The script commands the rehearsal pins, read out of the rehearsal itself.
  *
@@ -44,7 +53,9 @@ function rehearsalPinnedScripts(rehearsalSource) {
   const table = /Object\.entries\(\{([\s\S]*?)\}\)\)\s*\{/.exec(rehearsalSource);
   if (!table) return null;
   const entries = [
-    ...table[1].matchAll(/"?([A-Za-z:][\w:.-]*)"?\s*:\s*\n?\s*"((?:[^"\\]|\\.)*)"/g),
+    ...uncommentedTableSource(table[1]).matchAll(
+      /"?([A-Za-z:][\w:.-]*)"?\s*:\s*\n?\s*"((?:[^"\\]|\\.)*)"/g,
+    ),
   ].map((match) => [match[1], match[2]]);
   return entries.length ? Object.fromEntries(entries) : null;
 }
