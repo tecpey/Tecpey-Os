@@ -25,6 +25,23 @@ const promotionPrivacy = [
   "state contains release identifiers, blocker IDs, status and policy text only",
   "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
 ];
+const promotionAfterAcceptance = [
+  "re-read main and active PRs immediately before promotion",
+  "verify selectedSha is still the newest stable runtime/security/bundle/launch-control target",
+  "atomically align CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md and generated current candidate ledger",
+  "atomically align protected-staging runbook, request and No-Go register",
+  "replace pending NOG-03/NOG-04/NOG-06 state only with genuine exact-selectedSha evidence using acceptance schema v2",
+  "run launch candidate, evidence authority, staging evidence, launch decision and full CI gates",
+];
+const requiredBeforePromotion = [
+  "re-read main immediately before final promotion commit",
+  "recollect genuine exact-head workflow evidence for the proposed exact SHA",
+  "recollect genuine runtime image digest evidence for the proposed exact SHA",
+  "recollect genuine rollback/volume-restore evidence for the proposed exact SHA",
+  "record all newly accepted evidence using acceptance schema v2 with explicit exact-SHA workflow binding",
+  "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
+  "keep protected execution blocked until the aligned promotion state is CI-valid",
+];
 
 function fixture() {
   return {
@@ -48,8 +65,9 @@ function fixture() {
             "each workflow run event is push or an explicitly governed exact-SHA dispatch",
             "each workflow completed successfully",
             "each workflow uses a distinct governed GitHub Actions run URL",
-            "each workflow record includes headSha equal to selectedSha",
+            "each workflow record includes headSha equal to selectedSha and its governed workflow path",
             "Scheduled Operational Recovery must use governed workflow_dispatch on main and resolve headSha equal to selectedSha",
+            "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568 or 60691da0e1c45d7e6c5ea9aed4558e391f38db71 are not accepted as exact-candidate evidence for selectedSha",
           ],
         },
         "NOG-03": {
@@ -61,8 +79,8 @@ function fixture() {
             "immutable image digest is recorded",
             "container evidence artifact and detached digest are recorded",
             "signature or governed verification disposition is recorded",
-            "workflow record includes headSha equal to selectedSha",
-            "artifact metadata is not copied or relabelled from historical evidence",
+            "workflow record includes headSha equal to selectedSha and refs/heads/main",
+            "artifact metadata is not copied or relabelled from the historical 9bd4ca5 candidate",
           ],
         },
         "NOG-06": {
@@ -76,13 +94,14 @@ function fixture() {
             "previous release is served after rollback",
             "PostgreSQL and Redis restore evidence is attached",
             "artifact digest and verifier disposition are recorded",
-            "workflow record includes headSha equal to selectedSha",
-            "artifact metadata is not copied or relabelled from historical evidence",
+            "workflow record includes headSha equal to selectedSha and refs/heads/main",
+            "artifact metadata is not copied or relabelled from the historical 9bd4ca5 candidate",
           ],
         },
       },
       stillOpenBlockers: [...open],
       launchDisabledBoundaries: [...boundaries],
+      promotionAfterAcceptance: [...promotionAfterAcceptance],
       privacyBoundary: [...requestPrivacy],
     },
     promotionState: {
@@ -97,6 +116,7 @@ function fixture() {
       staleAcceptedEvidence: [{ id: "NOG-03" }, { id: "NOG-04" }, { id: "NOG-06" }],
       stillOpenBlockers: [...open],
       launchDisabledBoundaries: [...boundaries],
+      requiredBeforePromotion: [...requiredBeforePromotion],
       privacyBoundary: [...promotionPrivacy],
     },
   };
@@ -190,7 +210,7 @@ test("rejects legacy acceptance schema for the next candidate", () => {
   );
 });
 
-test("rejects privacy text that reverses a prohibition while retaining all sensitive tokens", () => {
+test("rejects privacy text that reverses a prohibition while retaining sensitive tokens", () => {
   const value = fixture();
   value.request.privacyBoundary = [
     requestPrivacy[0],
@@ -211,5 +231,30 @@ test("rejects promotion-state privacy drift", () => {
   assert.match(
     candidateEvidenceRecollectionFindings(value).join("\n"),
     /promotionState\.privacyBoundary/,
+  );
+});
+
+test("rejects acceptance prose with reversed semantics even when old tokens remain", () => {
+  const value = fixture();
+  value.request.requiredEvidence["NOG-03"].acceptance[0] =
+    "container runtime image is not built from selectedSha";
+  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /NOG-03\.acceptance/);
+});
+
+test("rejects removal of a required post-acceptance promotion gate", () => {
+  const value = fixture();
+  value.request.promotionAfterAcceptance.pop();
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /request\.promotionAfterAcceptance/,
+  );
+});
+
+test("rejects removal of a required pre-promotion evidence gate", () => {
+  const value = fixture();
+  value.promotionState.requiredBeforePromotion.pop();
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /promotionState\.requiredBeforePromotion/,
   );
 });
