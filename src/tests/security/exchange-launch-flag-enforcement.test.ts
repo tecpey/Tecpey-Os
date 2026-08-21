@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { isFeatureEnabled } from "../../lib/feature-flags";
+import { FLAG_CONFIG, isFeatureEnabled } from "../../lib/feature-flags";
 import { PRODUCTS } from "../../lib/product-registry";
 
 // SB-016. The launch posture rests on the Exchange being disabled, but
@@ -17,6 +17,7 @@ import { PRODUCTS } from "../../lib/product-registry";
 
 const PLACEMENT = readFileSync("src/app/api/orders/route.ts", "utf8");
 const CANCELLATION = readFileSync("src/app/api/orders/[id]/route.ts", "utf8");
+const COMMUNITY_PROFILE = readFileSync("src/app/api/community/profile/route.ts", "utf8");
 
 // Only a flag that defaults OFF is ever cited as a launch control, so only those
 // carry the SB-016 risk: the platform claiming a surface is disabled while its
@@ -29,22 +30,22 @@ type Enforcement =
 
 const ENFORCEMENT: Record<string, Enforcement> = {
   "exchange.enabled": "route-enforced",
-  // Recorded as an open gap, not blessed. PATCH /api/community/profile is an
-  // active mutating route owned by the Social product ("Community, groups,
-  // journals, and leaderboards") and carries no feature guard. It is deliberately
-  // not gated here: the community surface ships live — PeerJournals,
-  // ChallengeCenter, AchievementCenter and CommunityCareerPanel all reach it — so
-  // gating it behind an off-by-default flag would take a working Academy feature
-  // offline. The real defect is the contradiction between a live surface and an
-  // off-by-default product flag, and resolving that is a product decision, not a
-  // mechanical one. Tracked in docs/SECURITY_BLOCKERS.md under SB-016.
-  "social.enabled": "unenforced-mutating-surface",
+  // Resolved by issue #510. The community surface that made this unenforced was
+  // never Social's to own: social.enabled gates the unshipped social-auth
+  // provider capability in the admin control plane, while community profiles and
+  // journals ship today under community.enabled. Social is now groups and
+  // leaderboards, which carry no mutating route. True because the surface moved,
+  // not because the label changed.
+  "social.enabled": "no-mutating-surface",
+  "community.enabled": "route-enforced",
   "future.marketplace.enabled": "no-mutating-surface",
   "academy.enabled": "default-on-not-a-launch-claim",
   "mentor.enabled": "default-on-not-a-launch-claim",
 };
 
-const KNOWN_UNENFORCED_ROUTES = ["src/app/api/community/profile/route.ts"];
+// Empty since issue #510 closed the last entry. Kept so a future deliberate
+// exception has a place to be recorded rather than left implicit.
+const KNOWN_UNENFORCED_ROUTES: string[] = [];
 
 test("the exchange flag is off unless explicitly enabled", () => {
   const previous = process.env.FEATURE_EXCHANGE_ENABLED;
@@ -99,23 +100,51 @@ test("cancellation stays reachable so a disabled Exchange cannot trap funds", ()
   );
 });
 
-test("every flag-carrying product surface is accounted for", () => {
-  // Guards against a future surface shipping display-only. Any product that
-  // declares a feature flag must be listed here with its enforcement decision,
-  // so adding one forces a deliberate choice rather than silent omission.
-  const flagged = Object.values(PRODUCTS).filter((product) => product.featureFlag !== null);
-  for (const product of flagged) {
-    const flag = product.featureFlag as string;
+test("every route-enforced flag actually has its guard at the route", () => {
+  // "route-enforced" is a claim about code, so it must be checked against code.
+  // Without this, the table could record a surface as enforced while the guard
+  // had been deleted — the exact failure mode SB-016 is about, one level up.
+  const ENFORCED_AT: Record<string, string> = {
+    "exchange.enabled": PLACEMENT,
+    "community.enabled": COMMUNITY_PROFILE,
+  };
+  const claimed = Object.entries(ENFORCEMENT)
+    .filter(([, decision]) => decision === "route-enforced")
+    .map(([flag]) => flag)
+    .sort();
+  assert.deepEqual(
+    claimed,
+    Object.keys(ENFORCED_AT).sort(),
+    "every flag recorded as route-enforced needs a source to check it against",
+  );
+  for (const [flag, source] of Object.entries(ENFORCED_AT)) {
     assert.ok(
-      flag in ENFORCEMENT,
-      `${product.id} declares ${flag} but has no recorded enforcement decision — see SB-016`,
+      source.includes(`requireFeature("${flag}")`),
+      `${flag} is recorded as route-enforced but its route does not call requireFeature("${flag}")`,
     );
   }
-  assert.equal(
-    Object.keys(ENFORCEMENT).length,
-    flagged.length,
-    "the enforcement table must not drift from the product registry",
+});
+
+test("every feature flag is accounted for, not only product-declared ones", () => {
+  // Guards against a future surface shipping display-only. Deliberately keyed on
+  // the flag registry rather than the product registry: community.enabled governs
+  // a live mutating route without being a product entry, so a product-only sweep
+  // would have missed exactly the flag this issue was about.
+  const declared = Object.keys(FLAG_CONFIG).sort();
+  assert.deepEqual(
+    Object.keys(ENFORCEMENT).sort(),
+    declared,
+    "the enforcement table must list every feature flag, and no flag it does not have",
   );
+
+  // A product that names a flag must still resolve to a recorded decision.
+  for (const product of Object.values(PRODUCTS)) {
+    if (product.featureFlag === null) continue;
+    assert.ok(
+      product.featureFlag in ENFORCEMENT,
+      `${product.id} declares ${product.featureFlag} but has no recorded enforcement decision — see SB-016`,
+    );
+  }
 });
 
 test("a flag recorded as off-by-default really is off by default", () => {
@@ -125,13 +154,31 @@ test("a flag recorded as off-by-default really is off by default", () => {
   const previous = process.env.FEATURE_EXCHANGE_ENABLED;
   try {
     delete process.env.FEATURE_EXCHANGE_ENABLED;
-    for (const [flag, decision] of Object.entries(ENFORCEMENT)) {
-      const expectedOn = decision === "default-on-not-a-launch-claim";
+    // A flag classified as a launch claim must actually default off; one
+    // classified as making no such claim must actually default on. Enforcement
+    // kind is orthogonal — community.enabled is route-enforced *and* defaults on,
+    // because enforcing a live surface is about making the switch real, not about
+    // claiming the surface is off.
+    const LAUNCH_CLAIM: Record<string, boolean> = {
+      "exchange.enabled": true,
+      "social.enabled": true,
+      "future.marketplace.enabled": true,
+      "academy.enabled": false,
+      "mentor.enabled": false,
+      "community.enabled": false,
+    };
+    for (const flag of Object.keys(ENFORCEMENT)) {
+      const claimsDisabled = LAUNCH_CLAIM[flag];
+      assert.equal(
+        typeof claimsDisabled,
+        "boolean",
+        `${flag} has no recorded launch-claim expectation`,
+      );
       const actual = isFeatureEnabled(flag as Parameters<typeof isFeatureEnabled>[0]);
       assert.equal(
         actual,
-        expectedOn,
-        `${flag} is recorded as "${decision}" but its default is ${actual ? "on" : "off"}`,
+        !claimsDisabled,
+        `${flag} is recorded as ${claimsDisabled ? "off-by-default" : "on-by-default"} but its default is ${actual ? "on" : "off"}`,
       );
     }
   } finally {
@@ -158,7 +205,7 @@ test("the known-unenforced surface ledger cannot grow or go stale silently", () 
     .sort();
   assert.deepEqual(
     unenforced,
-    ["social.enabled"],
+    [],
     "a new unenforced mutating surface appeared — gate it or record it deliberately (SB-016)",
   );
 });

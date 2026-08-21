@@ -45,7 +45,13 @@ export const PRODUCTS: Record<ProductId, Product> = {
     id: "social",
     slug: "social",
     displayName: "TecPey Social",
-    description: "Community, groups, journals, and leaderboards.",
+    // Groups and leaderboards only. This entry used to also claim "community"
+    // and "journals", which put the live community surface nominally under an
+    // off-by-default flag it never obeyed — while social.enabled actually gates
+    // the unshipped social-auth provider capability in the admin control plane.
+    // Community profiles and journals ship today and are governed by
+    // community.enabled instead. See issue #510 and SB-016.
+    description: "Groups and leaderboards.",
     requiredPermission: "social.view",
     featureFlag: "social.enabled",
     isEnabled: () => isFeatureEnabled("social.enabled"),

@@ -9,6 +9,7 @@ export type FeatureFlag =
   | "academy.enabled"
   | "exchange.enabled"
   | "social.enabled"
+  | "community.enabled"
   | "mentor.enabled"
   | "future.marketplace.enabled";
 
@@ -18,10 +19,17 @@ type FlagConfig = {
   defaultEnabled: boolean;
 };
 
-const FLAG_CONFIG: Record<FeatureFlag, FlagConfig> = {
+export const FLAG_CONFIG: Record<FeatureFlag, FlagConfig> = {
   "academy.enabled": { envVar: "FEATURE_ACADEMY_ENABLED", defaultEnabled: true },
   "exchange.enabled": { envVar: "FEATURE_EXCHANGE_ENABLED", defaultEnabled: false },
   "social.enabled": { envVar: "FEATURE_SOCIAL_ENABLED", defaultEnabled: false },
+  // Community profiles and journals ship today: PeerJournals, ChallengeCenter,
+  // AchievementCenter and CommunityCareerPanel all reach PATCH
+  // /api/community/profile. Defaulting this on states that fact, instead of
+  // leaving the live surface nominally owned by social.enabled — which is off by
+  // default and actually gates the unshipped social-auth provider capability.
+  // See issue #510 and SB-016.
+  "community.enabled": { envVar: "FEATURE_COMMUNITY_ENABLED", defaultEnabled: true },
   "mentor.enabled": { envVar: "FEATURE_MENTOR_ENABLED", defaultEnabled: true },
   "future.marketplace.enabled": { envVar: "FEATURE_MARKETPLACE_ENABLED", defaultEnabled: false },
 };

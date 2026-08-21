@@ -288,7 +288,7 @@ async function drainNotificationCenterForPrincipal(
          $1, $2, $3, 'legacy_notification_center', $4, $5, $6, $7, $8,
          CASE WHEN $9::int >= 3 THEN 'high' ELSE 'normal' END,
          LEAST(10, GREATEST(0, $9::int)), $10,
-         CASE WHEN decision.withheld THEN 'defer' ELSE 'allow' END,
+         CASE WHEN decision.withheld THEN 'suppress' ELSE 'allow' END,
          CASE WHEN decision.withheld THEN 'marketing_consent_required' ELSE 'legacy_migrated' END,
          $11, $12,
          CASE WHEN decision.withheld THEN NULL::timestamptz ELSE $14::timestamptz END,

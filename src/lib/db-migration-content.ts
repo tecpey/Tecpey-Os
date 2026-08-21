@@ -85,6 +85,7 @@ import { ARENA_ENTITLEMENT_GRANTS_SQL } from "./db-migrate-arena-entitlement-gra
 import { ACADEMY_DAILY_REPAIR_CHALLENGES_SQL } from "./db-migrate-academy-daily-repair-challenges";
 import { CERTIFICATE_SHARE_EVENTS_TENANT_SQL } from "./db-migrate-certificate-share-events-tenant";
 import { ACTIVE_PRINCIPAL_BINDING_ENFORCEMENT_SQL } from "./db-migrate-active-principal-binding-enforcement";
+import { NOTIFICATION_SUPPRESS_DECISION_SQL } from "./db-migrate-notification-suppress-decision";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -361,5 +362,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   activePrincipalBindingEnforcement: one(
     "0085_active_principal_binding_enforcement.sql",
     ACTIVE_PRINCIPAL_BINDING_ENFORCEMENT_SQL,
+  ),
+  notificationSuppressDecision: one(
+    "0086_notification_suppress_decision.sql",
+    NOTIFICATION_SUPPRESS_DECISION_SQL,
   ),
 });
