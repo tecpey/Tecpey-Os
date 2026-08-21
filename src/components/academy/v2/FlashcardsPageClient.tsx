@@ -72,7 +72,7 @@ export function FlashcardsPageClient() {
         <button
           onClick={() => setMode("due")}
           disabled={dueCount === 0}
-          className="flex w-full items-center gap-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 p-5 text-right hover:bg-cyan-400/10 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all"
+          className="flex w-full items-center gap-4 rounded-2xl border border-cyan-300/20 bg-cyan-400/5 p-5 text-right transition-[border-color,background-color,transform,opacity] duration-150 ease-out hover:bg-cyan-400/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           aria-label="مرور کارت‌های امروز"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/20">
@@ -90,7 +90,7 @@ export function FlashcardsPageClient() {
         <button
           onClick={() => setMode("all")}
           disabled={ALL_FLASHCARDS.length === 0}
-          className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-slate-800/60 p-5 text-right hover:bg-slate-700/60 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all"
+          className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-slate-800/60 p-5 text-right transition-[border-color,background-color,transform,opacity] duration-150 ease-out hover:bg-slate-700/60 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           aria-label="مرور همه کارت‌ها"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-700">

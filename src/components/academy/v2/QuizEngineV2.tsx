@@ -165,7 +165,7 @@ function ProgressBar({ current, total, score }: { current: number; total: number
     <div className="mb-6 flex items-center gap-3">
       <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
         <div
-          className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-500"
+          className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-700 transition-[width] duration-500"
           style={{ width: `${(current / total) * 100}%` }}
         />
       </div>
@@ -193,7 +193,7 @@ function SingleChoice({
       {options.map((opt) => {
         const isSelected = selected === opt;
         const isCorrect = opt === correct;
-        let cls = "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold transition-all focus-within:ring-2 focus-within:ring-cyan-400";
+        let cls = "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold transition-[border-color,background-color,opacity,transform] duration-150 ease-out active:scale-[0.99] focus-within:ring-2 focus-within:ring-cyan-400";
         if (!submitted) {
           cls += isSelected
             ? " border-cyan-300/60 bg-cyan-400/15"
@@ -245,7 +245,7 @@ function MultiChoice({
       {options.map((opt) => {
         const isSelected = selected.includes(opt);
         const isCorrect = correct.includes(opt);
-        let cls = "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold transition-all";
+        let cls = "flex cursor-pointer items-start gap-3 rounded-2xl border p-4 text-sm font-bold transition-[border-color,background-color,opacity,transform] duration-150 ease-out active:scale-[0.99]";
         if (!submitted) {
           cls += isSelected ? " border-cyan-300/60 bg-cyan-400/15" : " border-white/10 bg-white/[0.04] hover:border-cyan-300/30";
         } else if (isCorrect && isSelected) {
@@ -353,7 +353,7 @@ function MatchingQuestion({
           <button
             key={term}
             onClick={() => !submitted && setSelectedTerm(term === selectedTerm ? null : term)}
-            className={`w-full rounded-xl border p-3 text-right text-sm font-bold transition-all ${
+            className={`w-full rounded-xl border p-3 text-right text-sm font-bold transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.99] ${
               selectedTerm === term
                 ? "border-cyan-300/60 bg-cyan-400/15"
                 : matched[term]
@@ -374,7 +374,7 @@ function MatchingQuestion({
           <button
             key={def}
             onClick={() => { if (!submitted && selectedTerm) { onMatch(selectedTerm, def); setSelectedTerm(null); } }}
-            className={`w-full rounded-xl border p-3 text-right text-sm font-bold transition-all ${
+            className={`w-full rounded-xl border p-3 text-right text-sm font-bold transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.99] ${
               selectedTerm
                 ? "border-cyan-300/30 bg-cyan-400/5 hover:border-cyan-300/60 hover:bg-cyan-400/15"
                 : "border-white/10 bg-white/[0.05]"
@@ -413,7 +413,7 @@ function FillBlank({
           value={value}
           onChange={(e) => !submitted && onChange(e.target.value)}
           disabled={submitted}
-          className={`mx-1 min-w-32 rounded-lg border px-3 py-1 text-center font-black outline-none transition-all ${
+          className={`mx-1 min-w-32 rounded-lg border px-3 py-1 text-center font-black outline-none transition-[border-color,background-color,box-shadow] duration-150 ease-out ${
             !submitted ? "border-cyan-300/50 bg-cyan-400/10 focus:border-cyan-300" : value.toLowerCase() === correct.toLowerCase() ? "border-emerald-400/60 bg-emerald-400/10" : "border-red-400/60 bg-red-400/10"
           }`}
           placeholder="…"
@@ -656,7 +656,7 @@ export function QuizEngineV2({
         </div>
         <button
           onClick={() => dispatch({ type: "START" })}
-          className="mt-8 w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-500 py-4 font-black text-white shadow-lg shadow-cyan-500/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
+          className="mt-8 w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-700 py-4 font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,opacity] duration-150 ease-out hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
           aria-label="شروع آزمون"
         >
           شروع آزمون
@@ -756,7 +756,7 @@ export function QuizEngineV2({
         <button
           onClick={handleSubmit}
           disabled={!hasAnswer}
-          className="mt-6 w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-500 py-4 font-black text-white shadow-lg shadow-cyan-500/20 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
+          className="mt-6 w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-700 py-4 font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,opacity] duration-150 ease-out hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
           aria-label="ارسال پاسخ"
         >
           ارسال پاسخ

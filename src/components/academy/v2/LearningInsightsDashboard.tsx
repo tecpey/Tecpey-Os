@@ -141,7 +141,7 @@ function XpProgressBar({ xp, level }: { xp: number; level: number }) {
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-slate-800">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-700"
+          className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-700 transition-[width] duration-700"
           style={{ width: `${pct}%` }}
           role="progressbar"
           aria-valuenow={pct}
@@ -300,7 +300,7 @@ function DimensionBar({ label, score, trend }: { label: string; score: number; t
     <div className="flex items-center gap-3">
       <span className="w-28 shrink-0 text-xs font-bold text-slate-400 text-right">{label}</span>
       <div className="flex-1 overflow-hidden rounded-full bg-slate-800 h-2">
-        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${score}%` }} />
+        <div className={`h-full rounded-full transition-[width] duration-500 ${color}`} style={{ width: `${score}%` }} />
       </div>
       <span className="w-10 text-right text-xs font-black text-slate-300 tabular-nums">{score}</span>
       <span className={`w-4 text-xs font-black ${trendColor}`}>{trendIcon}</span>
@@ -325,7 +325,7 @@ function ReviewQueueWidget({ queue }: { queue: SmartReviewQueue }) {
         <Link
           key={item.id}
           href={item.href}
-          className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:border-cyan-300/30 hover:bg-white/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-[border-color,background-color,transform] duration-150 ease-out hover:border-cyan-300/30 hover:bg-white/[0.06] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-cyan-400"
           aria-label={item.title}
         >
           <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${

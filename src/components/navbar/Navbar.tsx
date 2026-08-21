@@ -332,7 +332,7 @@ export default function Navbar({
               {academyProfileReady ? (
                 <Link
                   href={smartCenterHref}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-violet-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:brightness-110"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-blue-700 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,filter,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                 >
                   <BrainCircuit className="h-4 w-4" /> {smartCenterLabel}
                 </Link>
@@ -524,7 +524,7 @@ export default function Navbar({
                   <Link
                     href={smartCenterHref}
                     onClick={() => setIsOpen(false)}
-                    className="rounded-2xl bg-gradient-to-l from-cyan-500 to-violet-500 p-4 text-center font-black text-white shadow-lg shadow-cyan-500/20"
+                    className="rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-700 p-4 text-center font-black text-white shadow-lg shadow-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                   >
                     {smartCenterLabel}
                   </Link>

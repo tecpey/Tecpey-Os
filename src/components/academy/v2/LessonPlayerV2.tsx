@@ -254,7 +254,7 @@ function XPProgressWidget() {
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-slate-700">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-700"
+            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-700 transition-[width] duration-700"
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -374,7 +374,7 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
         <div className="flex items-center gap-3">
           <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
             <div
-              className="h-1 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500 transition-all duration-200"
+              className="h-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-700 transition-[width] duration-200"
               style={{ width: `${readProgress}%` }}
             />
           </div>
@@ -403,7 +403,7 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
           {!alreadyCompleted ? (
             <button
               onClick={() => setPhase("knowledge-check")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-500 py-4 font-black text-white shadow-lg shadow-cyan-500/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95 transition-all"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-700 py-4 font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,opacity] duration-150 ease-out hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
               aria-label="شروع سؤالات درک مطلب"
             >
               <CheckCircle2 className="h-5 w-5" />
@@ -553,7 +553,7 @@ export function LessonPlayerV2({ lesson, onComplete, onNext }: LessonPlayerV2Pro
           {onNext && (
             <button
               onClick={onNext}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-500 py-4 font-black text-white shadow-lg shadow-cyan-500/20 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-700 py-4 font-black text-white shadow-lg shadow-cyan-500/20 transition-[transform,opacity] duration-150 ease-out hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95"
               aria-label="درس بعدی"
             >
               درس بعدی

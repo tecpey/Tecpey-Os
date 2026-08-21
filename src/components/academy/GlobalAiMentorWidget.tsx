@@ -604,7 +604,7 @@ export function GlobalAiMentorWidget() {
                       ? "Create your academy identity first so the mentor can know your display name, learning path, term progress and weak topics."
                       : "اول هویت آموزشی خودت را بساز تا منتور با نام انتخابی تو، مسیر ترم‌ها، پیشرفت و نقاط ضعف واقعی‌ات کار کند."}
                   </p>
-                  <a href={isEn ? "/en/academy/onboarding" : "/academy/onboarding"} className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-l from-cyan-500 to-violet-500 px-5 py-3 text-sm font-black text-white">
+                  <a href={isEn ? "/en/academy/onboarding" : "/academy/onboarding"} className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-700 px-5 py-3 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
                     {isEn ? "Create academy profile" : "ساخت پروفایل آکادمی"}
                   </a>
                   <p className="mt-3 text-[11px] font-bold text-slate-400">
