@@ -194,7 +194,11 @@ async function runProtectedHostEnvFileMode(context) {
     env: {
       ...process.env,
       ...parsed.values,
+      // The explicitly selected protected host file is already loaded into this
+      // child process. Pin the validator to that authority so an unrelated local
+      // .env.production in the application directory cannot replace its values.
       NODE_ENV: "production",
+      TECPEY_ENV_VALIDATION_SOURCE: "process",
     },
   });
   return {
