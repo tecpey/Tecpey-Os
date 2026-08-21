@@ -12,9 +12,9 @@
   },
   "supersededBy": {
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
-    "currentCandidateSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-    "supersededAt": "2026-08-14T16:00:49.000Z",
-    "reason": "New evidence collection must use the current main candidate after PR #437 promoted the PR #441 tenant-binding line into the active launch ledger. The historical draft packet remains incomplete and is not final Go evidence."
+    "currentCandidateSha": "e4065675473170f62f0ed4dec8641f8d77722725",
+    "supersededAt": "2026-08-21T15:35:58.000Z",
+    "reason": "New evidence collection must use the exact post-PR #523 main candidate after genuine NOG-03/NOG-04/NOG-06 exact-main recollection. This historical draft packet remains incomplete and is not final Go evidence."
   },
   "artifactIdentity": {
     "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",
@@ -22,47 +22,14 @@
     "imageDigest": null,
     "deploymentArtifactDigest": "sha256:f6e5b547081a0b64e826888b4d49412fdc080cc410c91fb1b9729a50203d2f29"
   },
-  "workflowEvidence": {
-    "ciRunUrl": null,
-    "repositoryAuditRunUrl": null,
-    "publicGoldenPathRunUrl": null,
-    "secretScanningRunUrl": null
-  },
+  "workflowEvidence": {"ciRunUrl": null, "repositoryAuditRunUrl": null, "publicGoldenPathRunUrl": null, "secretScanningRunUrl": null},
   "requiredExternalEvidence": {
-    "protectedStaging": {
-      "status": "missing_until_verified_artifact_attached",
-      "contract": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
-      "evidenceUrl": null,
-      "artifactDigest": null
-    },
-    "recoveryReconciliation": {
-      "status": "missing_until_verified_artifact_attached",
-      "contract": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
-      "evidenceUrl": null,
-      "artifactDigest": null
-    },
-    "rollbackOrForwardFix": {
-      "status": "missing_until_verified_artifact_attached",
-      "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "evidenceUrl": null,
-      "artifactDigest": null
-    },
-    "incidentReadiness": {
-      "status": "missing_until_verified_artifact_attached",
-      "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
-      "evidenceUrl": null,
-      "artifactDigest": null
-    },
-    "acceptedRisks": {
-      "status": "missing_until_verified_artifact_attached",
-      "registry": "docs/LAUNCH_ACCEPTED_RISKS.md",
-      "evidenceUrl": null
-    },
-    "approvals": {
-      "status": "missing_until_verified_artifact_attached",
-      "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
-      "evidenceUrl": null
-    }
+    "protectedStaging": {"status": "missing_until_verified_artifact_attached", "contract": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md", "evidenceUrl": null, "artifactDigest": null},
+    "recoveryReconciliation": {"status": "missing_until_verified_artifact_attached", "contract": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md", "evidenceUrl": null, "artifactDigest": null},
+    "rollbackOrForwardFix": {"status": "missing_until_verified_artifact_attached", "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md", "evidenceUrl": null, "artifactDigest": null},
+    "incidentReadiness": {"status": "missing_until_verified_artifact_attached", "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md", "evidenceUrl": null, "artifactDigest": null},
+    "acceptedRisks": {"status": "missing_until_verified_artifact_attached", "registry": "docs/LAUNCH_ACCEPTED_RISKS.md", "evidenceUrl": null},
+    "approvals": {"status": "missing_until_verified_artifact_attached", "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md", "evidenceUrl": null}
   },
   "disabledCapabilityAttestation": [
     "real-money Exchange remains NO-GO unless separately certified",
@@ -70,8 +37,5 @@
     "public financial rewards remain NO-GO unless separately certified",
     "enterprise and white-label activation remain NO-GO unless separately certified"
   ],
-  "privacyBoundary": [
-    "packet contains hashes, URLs and release identifiers only",
-    "packet must not contain raw secrets, database URLs, host IPs, customer data or logs"
-  ]
+  "privacyBoundary": ["packet contains hashes, URLs and release identifiers only", "packet must not contain raw secrets, database URLs, host IPs, customer data or logs"]
 }
