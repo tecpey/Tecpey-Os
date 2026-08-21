@@ -23,6 +23,13 @@ function validatorRejects(
   values: Partial<Record<(typeof EMAIL_KEYS)[number], string>>,
   requireLiveEmail = false,
 ): boolean {
+  const childEnv: Record<string, string | undefined> = {
+    ...(process.env as Record<string, string | undefined>),
+    ...Object.fromEntries(EMAIL_KEYS.map((key) => [key, ""])),
+    NODE_ENV: "production",
+    ALERT_WEBHOOK_URL: "",
+    ...values,
+  };
   const child = spawnSync(
     process.execPath,
     [
@@ -33,13 +40,7 @@ function validatorRejects(
     ],
     {
       encoding: "utf8",
-      env: {
-        ...process.env,
-        ...Object.fromEntries(EMAIL_KEYS.map((key) => [key, ""])),
-        NODE_ENV: "production",
-        ALERT_WEBHOOK_URL: "",
-        ...values,
-      },
+      env: childEnv,
     },
   );
   return child.status !== 0;
