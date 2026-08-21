@@ -1,15 +1,12 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-env-evidence-request",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-21T15:35:58Z",
   "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
-  "relatedBlockers": [
-    "NOG-01",
-    "NOG-02"
-  ],
+  "relatedBlockers": ["NOG-01", "NOG-02"],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-    "runtimeCandidateBaselineSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "protectedStagingEvidenceTargetSha": "e4065675473170f62f0ed4dec8641f8d77722725",
+    "runtimeCandidateBaselineSha": "e4065675473170f62f0ed4dec8641f8d77722725",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
@@ -19,55 +16,20 @@
   "requiredContext": {
     "githubEnvironment": "staging",
     "githubEnvironmentProtectionRequired": true,
-    "runnerLabels": [
-      "self-hosted",
-      "linux",
-      "x64",
-      "tecpey-staging"
-    ],
+    "runnerLabels": ["self-hosted", "linux", "x64", "tecpey-staging"],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
-    "workflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "run_alert_probe": true
-    },
+    "workflowInputs": {"release_sha": "e4065675473170f62f0ed4dec8641f8d77722725", "run_alert_probe": true},
     "envEvidenceWorkflowName": "Protected Staging Env Evidence",
-    "envEvidenceWorkflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "environment_source": "protected_host_env_file"
-    }
+    "envEvidenceWorkflowInputs": {"release_sha": "e4065675473170f62f0ed4dec8641f8d77722725", "environment_source": "protected_host_env_file"}
   },
   "privacyBoundary": {
-    "allowed": [
-      "release identifiers",
-      "workflow and artifact HTTPS URLs",
-      "artifact names",
-      "SHA-256 digests",
-      "redacted pass/fail summaries",
-      "operator and reviewer roles or names",
-      "UTC timestamps",
-      "residual risk summaries"
-    ],
-    "forbidden": [
-      "raw secrets",
-      "database URLs",
-      "host IPs",
-      "raw hostnames",
-      "raw logs",
-      "customer rows",
-      "private keys",
-      "provider payloads",
-      "prompt transcripts",
-      "credential-bearing URLs"
-    ]
+    "allowed": ["release identifiers", "workflow and artifact HTTPS URLs", "artifact names", "SHA-256 digests", "redacted pass/fail summaries", "operator and reviewer roles or names", "UTC timestamps", "residual risk summaries"],
+    "forbidden": ["raw secrets", "database URLs", "host IPs", "raw hostnames", "raw logs", "customer rows", "private keys", "provider payloads", "prompt transcripts", "credential-bearing URLs"]
   },
   "nog01": {
     "title": "Protected staging activation evidence",
     "status": "awaiting_protected_execution",
-    "requiredArtifacts": [
-      "tecpey-staging-scheduler-evidence.json",
-      "tecpey-staging-scheduler-evidence.json.sha256",
-      "tecpey-staging-evidence-verification.json"
-    ],
+    "requiredArtifacts": ["tecpey-staging-scheduler-evidence.json", "tecpey-staging-scheduler-evidence.json.sha256", "tecpey-staging-evidence-verification.json"],
     "acceptanceCriteria": [
       "workflow environment is exactly staging",
       "selected SHA is exact and belongs to main",
@@ -87,10 +49,7 @@
     "title": "Redacted protected env evidence",
     "status": "awaiting_protected_execution",
     "environmentSourcePolicy": {
-      "acceptedModes": [
-        "protected_host_env_file",
-        "service_manager_preloaded_environment"
-      ],
+      "acceptedModes": ["protected_host_env_file", "service_manager_preloaded_environment"],
       "defaultMode": "protected_host_env_file",
       "modeSelectionEvidence": "Record only the selected mode and redacted proof disposition; never print raw values, host paths containing secrets, service manager output, or process environment dumps.",
       "serviceManagerPrecondition": "If the protected environment is delivered by the service manager, env:check must run through a governed validation unit or equivalent service-managed command that uses the same environment source as the staging application. Direct operator-shell execution is rejected because it does not inherit the application service environment."
@@ -98,15 +57,8 @@
     "command": "cd \"$TECPEY_STAGING_APP_DIR\" && set -a && . \"$TECPEY_STAGING_ENV_FILE\" && set +a && NODE_ENV=production npm run env:check",
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "workflowName": "Protected Staging Env Evidence",
-    "workflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "environment_source": "protected_host_env_file"
-    },
-    "requiredArtifacts": [
-      "tecpey-staging-env-evidence.json",
-      "tecpey-staging-env-evidence.json.sha256",
-      "tecpey-staging-env-evidence-verification.json"
-    ],
+    "workflowInputs": {"release_sha": "e4065675473170f62f0ed4dec8641f8d77722725", "environment_source": "protected_host_env_file"},
+    "requiredArtifacts": ["tecpey-staging-env-evidence.json", "tecpey-staging-env-evidence.json.sha256", "tecpey-staging-env-evidence-verification.json"],
     "acceptanceCriteria": [
       "environment source is recorded as protected_host_env_file or service_manager_preloaded_environment with redacted proof disposition",
       "required public URLs are present and non-placeholder",
@@ -126,10 +78,7 @@
       "cspConnectionDisposition": "passed_or_failed",
       "failingKeyNamesOnly": [],
       "redactedSummarySha256": "sha256:<64-hex>",
-      "environmentSourceAllowedValues": [
-        "protected_host_env_file",
-        "service_manager_preloaded_environment"
-      ]
+      "environmentSourceAllowedValues": ["protected_host_env_file", "service_manager_preloaded_environment"]
     }
   },
   "rejectionConditions": [
