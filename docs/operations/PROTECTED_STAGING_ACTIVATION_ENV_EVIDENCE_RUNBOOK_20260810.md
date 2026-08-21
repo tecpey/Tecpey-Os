@@ -2,36 +2,28 @@
 
 **Status:** execution request for NOG-01 and NOG-02, not accepted evidence  
 **Decision after this runbook:** NO-GO until the protected staging run is executed and accepted  
-**Protected staging evidence target SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
-**Runtime candidate baseline SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Protected staging evidence target SHA:** `e4065675473170f62f0ed4dec8641f8d77722725`  
+**Runtime candidate baseline SHA:** `e4065675473170f62f0ed4dec8641f8d77722725`  
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
-**Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
-**Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
+**Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`  
+**Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`  
 **Environment protection setup runbook:** `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 
-This runbook is the operator-facing execution request for the first protected
-staging closure slice. It does not close either blocker by itself. It defines the
-minimum safe way to collect accepted protected staging activation evidence and
-redacted production-like environment evidence without exposing secrets.
+This runbook is the operator-facing execution request for the first protected staging closure slice. It does not close either blocker by itself. It defines the minimum safe way to collect accepted protected staging activation evidence and redacted production-like environment evidence without exposing secrets.
 
 ## Release Lineage Rule
 
 Do not silently move the staging target because documentation-only or
-launch-control PRs were merged after earlier draft packets. The selected staging
-evidence target is the current candidate in
-`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
-`9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`.
+launch-control PRs were merged after earlier draft packets. The selected staging evidence target is the current candidate in `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
 
-The deployed application checkout, workflow checkout, bundle manifest and
-`/api/health` commit must all report the same selected SHA. If staging uses any
-older draft baseline instead, the run is not accepted for this request until a
-release-owner candidate-promotion PR makes that choice explicit.
+e4065675473170f62f0ed4dec8641f8d77722725
+
+The deployed application checkout, workflow checkout, bundle manifest and `/api/health` commit must all report the same selected SHA. If staging uses any older draft baseline instead, the run is not accepted for this request until a release-owner candidate-promotion PR makes that choice explicit.
 
 ## Required Protected Context
 
-The evidence must come from the protected GitHub Environment named exactly
-`staging` and the intended self-hosted runner. The runner labels must include:
+The evidence must come from the protected GitHub Environment named exactly `staging` and the intended self-hosted runner. The runner labels must include:
 
 ```text
 self-hosted
@@ -40,36 +32,21 @@ x64
 tecpey-staging
 ```
 
-The runner must use the governed non-root runtime user and group configured for
-TecPey staging. It must not run on a generic shared runner.
+The runner must use the governed non-root runtime user and group configured for TecPey staging. It must not run on a generic shared runner.
 
 ## Execution Status Observation - 2026-08-14
 
-Current machine-readable status:
-`docs/launch/generated/protected-staging-execution-status-20260812.json`.
+Current machine-readable status: `docs/launch/generated/protected-staging-execution-status-20260812.json`.
 
 Decision: `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
 
-The latest GitHub API observation found the `staging` Environment exists, but
-its `protection_rules: []` response means it cannot yet be treated as accepted
-protected staging evidence. The protected env workflow has no observed runs, and
-the only observed scheduler evidence run was cancelled on an older SHA. NOG-01
-and NOG-02 remain open until the staging Environment has required protection
-rules/reviewers and both manual workflow runs complete successfully for the
-selected candidate SHA.
+The latest accepted repository observation found the `staging` Environment exists, but its `protection_rules: []` response means it cannot yet be treated as accepted protected staging evidence. The protected env workflow has no accepted run, and no accepted current-candidate scheduler evidence run exists. NOG-01 and NOG-02 remain open until the staging Environment has required protection rules/reviewers and both manual workflow runs complete successfully for the selected candidate SHA.
 
-Post-promotion refresh: after PR #437 advanced `main` beyond the PR #441 target and the controlled-launch candidate was rebaselined to
-`9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`, a fresh GitHub API observation still returned `protection_rules: []`, zero protected env evidence
-runs, and no accepted current-candidate scheduler evidence run. Follow
-`docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
-before dispatching either workflow.
+Post-promotion refresh: the controlled-launch candidate is now `e4065675473170f62f0ed4dec8641f8d77722725` after PR #523 and genuine exact-main NOG-03/NOG-04/NOG-06 recollection. This does not change the protected-staging observation or close NOG-01/NOG-02. Follow `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md` before dispatching either protected-staging workflow.
 
 ## Required Environment Inputs
 
-These values must be configured as protected GitHub Environment variables or
-private host files according to `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`.
-Do not paste any raw value into the pull request, issue, job summary or evidence
-manifest.
+These values must be configured as protected GitHub Environment variables or private host files according to `docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md`. Do not paste any raw value into the pull request, issue, job summary or evidence manifest.
 
 | Input | Source | Evidence allowed |
 |---|---|---|
@@ -92,7 +69,7 @@ Run the protected staging evidence workflow for the selected SHA:
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: e4065675473170f62f0ed4dec8641f8d77722725
 run_alert_probe: true
 ```
 
@@ -122,13 +99,11 @@ Run the protected env evidence workflow for the selected SHA:
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: e4065675473170f62f0ed4dec8641f8d77722725
 environment_source: protected_host_env_file
 ```
 
-Use `environment_source: service_manager_preloaded_environment` only when the
-governed service-manager validation unit described below is installed and
-reviewed. The workflow must upload all of these artifacts:
+Use `environment_source: service_manager_preloaded_environment` only when the governed service-manager validation unit described below is installed and reviewed. The workflow must upload all of these artifacts:
 
 ```text
 tecpey-staging-env-evidence.json
@@ -136,19 +111,13 @@ tecpey-staging-env-evidence.json.sha256
 tecpey-staging-env-evidence-verification.json
 ```
 
-The workflow executes the production-like environment check from the immutable
-deployed release directory on protected staging with an accepted protected
-environment source: either the protected host env file loaded or the
-service-manager preloaded environment verified. The raw environment and raw logs
-must not be uploaded.
+The workflow executes the production-like environment check from the immutable deployed release directory on protected staging with an accepted protected environment source: either the protected host env file loaded or the service-manager preloaded environment verified. The raw environment and raw logs must not be uploaded.
 
-Use exactly one of the following two modes and record that selected mode in the
-manifest. Do not record a combined source value.
+Use exactly one of the following two modes and record that selected mode in the manifest. Do not record a combined source value.
 
 ### Mode A: protected host env file
 
-Use this mode only when `TECPEY_STAGING_ENV_FILE` points to the governed
-protected host env file.
+Use this mode only when `TECPEY_STAGING_ENV_FILE` points to the governed protected host env file.
 
 ```bash
 cd "$TECPEY_STAGING_APP_DIR"
@@ -166,11 +135,7 @@ npm run env:check
 
 ### Mode B: service-manager preloaded environment
 
-Use this mode only when the service manager provides the protected environment to
-the running staging application and a governed validation unit or equivalent
-service-managed command runs `npm run env:check` inside that same environment.
-The operator shell must not execute `npm run env:check` directly for this mode,
-because it does not inherit the application service environment.
+Use this mode only when the service manager provides the protected environment to the running staging application and a governed validation unit or equivalent service-managed command runs `npm run env:check` inside that same environment. The operator shell must not execute `npm run env:check` directly for this mode, because it does not inherit the application service environment.
 
 Minimum service-manager bridge shape:
 
@@ -188,16 +153,9 @@ sudo systemctl show "$TECPEY_STAGING_ENV_CHECK_UNIT" \
   --value
 ```
 
-If the host does not provide a governed service-manager validation unit or
-equivalent service-managed command using the same environment source as the
-staging application, do not use `service_manager_preloaded_environment`. Fall
-back to `protected_host_env_file` or reject NOG-02 until an executable bridge is
-installed and reviewed. A run that exports only `NODE_ENV` is not acceptable for
-NOG-02 because it does not validate the private production-like staging
-configuration.
+If the host does not provide a governed service-manager validation unit or equivalent service-managed command using the same environment source as the staging application, do not use `service_manager_preloaded_environment`. Fall back to `protected_host_env_file` or reject NOG-02 until an executable bridge is installed and reviewed. A run that exports only `NODE_ENV` is not acceptable for NOG-02 because it does not validate the private production-like staging configuration.
 
-The accepted redacted result must prove that the following checks passed without
-printing values:
+The accepted redacted result must prove that the following checks passed without printing values:
 
 | Check family | Accepted evidence |
 |---|---|
@@ -224,21 +182,18 @@ The accepted NOG-02 artifact must record only:
 - UTC collection window;
 - residual risk summary.
 
-If `env:check` fails, record only the failing key names and policy class. Do not
-record raw values, URLs, database DSNs, bearer tokens, private keys or stack
-traces.
+If `env:check` fails, record only the failing key names and policy class. Do not record raw values, URLs, database DSNs, bearer tokens, private keys or stack traces.
 
 ## Evidence Manifest Fields
 
-The final launch evidence manifest may reference this run only after these
-fields are known:
+The final launch evidence manifest may reference this run only after these fields are known:
 
 ```json
 {
   "nog01": {
     "status": "accepted_or_rejected",
     "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/<id>",
-    "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "selectedSha": "e4065675473170f62f0ed4dec8641f8d77722725",
     "artifactName": "tecpey-staging-scheduler-evidence.json",
     "artifactSha256": "sha256:<64-hex>",
     "verifierDisposition": "passed_or_failed",
@@ -247,7 +202,7 @@ fields are known:
   },
   "nog02": {
     "status": "accepted_or_rejected",
-    "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "selectedSha": "e4065675473170f62f0ed4dec8641f8d77722725",
     "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",
@@ -277,7 +232,4 @@ Reject the slice and keep `NOG-01` and `NOG-02` open if any of these occur:
 
 ## Resulting Decision
 
-When this runbook is executed and accepted, only `NOG-01` and `NOG-02` may move
-from open to accepted. The release remains NO-GO until recovery, rollback,
-incident readiness, accepted-risk sign-off, approval matrix and gated capability
-evidence are accepted or explicitly kept launch-disabled.
+When this runbook is executed and accepted, only `NOG-01` and `NOG-02` may move from open to accepted. The release remains NO-GO until protected-staging recovery reconciliation, incident readiness, accepted-risk sign-off and the approval matrix are accepted. NOG-03, NOG-04 and NOG-06 already have exact-candidate evidence for the current SHA; their acceptance does not waive the remaining blockers or activate any launch-disabled capability.
