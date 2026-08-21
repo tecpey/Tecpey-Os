@@ -23,3 +23,7 @@ Claude or another agent may advance `main` while this work is in progress. Re-re
 ## Evidence truth boundary
 
 This checkpoint intentionally does not modify `current-controlled-launch-candidate.json` yet. Promotion is blocked until the repository can either attach genuine exact-head evidence for the new candidate or represent NOG-03/NOG-04/NOG-06 as pending without weakening their authority checks. This prevents a mechanically consistent but evidentially false release ledger.
+
+## Current coordination state
+
+PR #517 was automatically closed when the branch was temporarily synchronized exactly to `main`; after restoring this checkpoint commit it must be reopened before implementation continues. This is coordination state only, not release evidence.
