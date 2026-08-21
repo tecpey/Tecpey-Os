@@ -1,97 +1,163 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { isEmailConfigured } from "../../lib/email";
+import { emailDeliveryReadiness } from "../../lib/email";
 
-// Review finding on #520. The PR gave the placeholder rule one owner, but left the
-// email variables outside the preflight's field of view entirely: neither
-// RESEND_API_KEY nor SENDGRID_API_KEY appeared in validate-env.mjs. So
-// EMAIL_PROVIDER=resend with RESEND_API_KEY=CHANGE_ME cleared the environment gate
-// and then reported degraded health and failed every transactional send — the same
-// preflight/runtime divergence, one level up.
-//
-// Unifying the rule is not enough when the two sides disagree about which variables
-// the rule applies to. This runs both over one matrix.
+// Review finding on #520: a deployment gate must not accept a delivery posture
+// that the runtime later reports as unavailable. The validator below imports the
+// same runtime authority used by sendEmail()/isEmailConfigured(), and the governed
+// Ubuntu preflight tightens the otherwise-valid "unconfigured" state into a hard
+// requirement before candidate startup.
 
-const EMAIL_KEYS = ["EMAIL_PROVIDER", "RESEND_API_KEY", "SENDGRID_API_KEY"] as const;
-const ORIGINAL = Object.fromEntries(EMAIL_KEYS.map((k) => [k, process.env[k]]));
-
+const EMAIL_KEYS = [
+  "NODE_ENV",
+  "EMAIL_PROVIDER",
+  "RESEND_API_KEY",
+  "SENDGRID_API_KEY",
+  "ALERT_WEBHOOK_URL",
+] as const;
 const SUPPLIED = "unit-test-value";
 
-/** The preflight's email verdict, read from its own output rather than re-derived. */
-function preflightRejects(env: Partial<Record<(typeof EMAIL_KEYS)[number], string>>): boolean {
-  const child = spawnSync(process.execPath, ["scripts/validate-env.mjs"], {
-    encoding: "utf8",
-    // Start from a clean slate for the email variables so a developer's own .env
-    // cannot decide the result, and keep PATH so node resolves its own imports.
-    env: { ...process.env, ...Object.fromEntries(EMAIL_KEYS.map((k) => [k, ""])), ...env },
-  });
-  const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
-  // Scoped to the email lines on purpose: this environment legitimately fails other
-  // required-variable checks, and those must not be read as an email verdict.
-  return /EMAIL_PROVIDER|RESEND_API_KEY|SENDGRID_API_KEY/.test(output);
+function validatorRejects(
+  values: Partial<Record<(typeof EMAIL_KEYS)[number], string>>,
+  requireLiveEmail = false,
+): boolean {
+  const child = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "scripts/validate-alert-webhook-env.ts",
+      ...(requireLiveEmail ? ["--require-live-email"] : []),
+    ],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        ...Object.fromEntries(EMAIL_KEYS.map((key) => [key, ""])),
+        NODE_ENV: "production",
+        ALERT_WEBHOOK_URL: "",
+        ...values,
+      },
+    },
+  );
+  return child.status !== 0;
 }
 
-function runtimeConfigured(env: Partial<Record<(typeof EMAIL_KEYS)[number], string>>): boolean {
-  try {
-    for (const key of EMAIL_KEYS) delete process.env[key];
-    for (const [key, value] of Object.entries(env)) process.env[key] = value;
-    return isEmailConfigured();
-  } finally {
-    for (const key of EMAIL_KEYS) {
-      const previous = ORIGINAL[key];
-      if (previous === undefined) delete process.env[key];
-      else process.env[key] = previous;
-    }
-  }
-}
-
-// Each row is a deployment someone could actually configure.
-const DELIVERING = [
-  { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
-  { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: SUPPLIED },
-  { EMAIL_PROVIDER: " resend ", RESEND_API_KEY: SUPPLIED },
-  { EMAIL_PROVIDER: "SendGrid", SENDGRID_API_KEY: SUPPLIED },
-  { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" },
-  { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "your-real-key-here" },
-  { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: "REPLACE_WITH_KEY" },
-  { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "   " },
-  { EMAIL_PROVIDER: "resend" },
-  { EMAIL_PROVIDER: "sendgrid", RESEND_API_KEY: SUPPLIED },
-] as const;
-
-test("the preflight clears exactly the configurations the runtime calls configured", () => {
-  // The property, stated once: when a delivering provider is selected, a preflight
-  // pass must mean email will actually work. Anything else lets a gate vouch for a
-  // path that rejects every message.
-  for (const env of DELIVERING) {
-    const rejected = preflightRejects(env);
-    const configured = runtimeConfigured(env);
+test("production env gate rejects explicit non-delivering and invalid email configurations", () => {
+  for (const values of [
+    { EMAIL_PROVIDER: "dev" },
+    { EMAIL_PROVIDER: "none" },
+    { EMAIL_PROVIDER: "mailgun" },
+    { EMAIL_PROVIDER: "resend" },
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "   " },
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" },
+    { EMAIL_PROVIDER: "sendgrid" },
+    { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: "REPLACE_WITH_KEY" },
+  ]) {
     assert.equal(
-      rejected,
-      !configured,
-      `preflight ${rejected ? "rejects" : "accepts"} but runtime reports ${configured ? "configured" : "unconfigured"}: ${JSON.stringify(env)}`,
+      validatorRejects(values),
+      true,
+      `production env gate must reject ${JSON.stringify(values)}`,
     );
   }
 });
 
-test("dev and none are postures, not misconfigurations", () => {
-  // isEmailConfigured() is false for both because neither delivers, but neither is
-  // an error: refusing to deploy a staging environment that logs its mail would be
-  // the gate lying in the other direction. Same distinction alertWebhookStatus
-  // draws between "unconfigured" and "misconfigured".
-  for (const provider of ["dev", "none", "DEV", " none "]) {
+test("production env gate accepts only usable live provider credentials when one is selected", () => {
+  for (const values of [
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
+    { EMAIL_PROVIDER: " sendgrid ", SENDGRID_API_KEY: SUPPLIED },
+  ]) {
     assert.equal(
-      preflightRejects({ EMAIL_PROVIDER: provider }),
+      validatorRejects(values),
       false,
-      `${provider} is a deliberate posture and must not fail the preflight`,
+      `production env gate must accept ${JSON.stringify(values)}`,
     );
-    assert.equal(runtimeConfigured({ EMAIL_PROVIDER: provider }), false);
   }
-  assert.equal(preflightRejects({}), false, "an unset provider must not fail the preflight");
+
+  // The generic env contract may describe an email-unconfigured environment; the
+  // governed host candidate gate below is what turns live delivery into a launch
+  // requirement before startup.
+  assert.equal(validatorRejects({}), false);
 });
 
-test("an unknown provider is refused rather than silently ignored", () => {
-  // Previously it fell through to dev and mail vanished into the log.
-  assert.equal(preflightRejects({ EMAIL_PROVIDER: "mailgun" }), true);
+test("governed candidate preflight requires live email before candidate startup", () => {
+  for (const values of [
+    {},
+    { EMAIL_PROVIDER: "dev" },
+    { EMAIL_PROVIDER: "none" },
+    { EMAIL_PROVIDER: "mailgun" },
+    { EMAIL_PROVIDER: "resend" },
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" },
+  ]) {
+    assert.equal(
+      validatorRejects(values, true),
+      true,
+      `strict candidate gate must reject ${JSON.stringify(values)}`,
+    );
+  }
+
+  for (const values of [
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
+    { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: SUPPLIED },
+  ]) {
+    assert.equal(
+      validatorRejects(values, true),
+      false,
+      `strict candidate gate must accept ${JSON.stringify(values)}`,
+    );
+  }
+});
+
+test("non-production keeps deliberate dev, none and unset postures without claiming live delivery", () => {
+  assert.deepEqual(
+    emailDeliveryReadiness({ NODE_ENV: "development", EMAIL_PROVIDER: "dev" }),
+    {
+      status: "development",
+      provider: "dev",
+      mode: "simulated",
+      reason: "development_provider",
+    },
+  );
+  assert.deepEqual(
+    emailDeliveryReadiness({ NODE_ENV: "test", EMAIL_PROVIDER: "none" }),
+    {
+      status: "unconfigured",
+      provider: "none",
+      mode: "disabled",
+      reason: "delivery_disabled",
+    },
+  );
+  assert.deepEqual(
+    emailDeliveryReadiness({ NODE_ENV: "development" }),
+    {
+      status: "development",
+      provider: "dev",
+      mode: "simulated",
+      reason: "development_default",
+    },
+  );
+});
+
+test("host promotion binds pre-start and post-start checks to live email readiness", () => {
+  const source = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
+  const genericEnvGate = source.indexOf('"$SYSTEMD_NPM_BIN" run env:check');
+  const strictEmailGate = source.indexOf("--require-live-email");
+  const build = source.indexOf('"$SYSTEMD_NPM_BIN" run build');
+
+  assert.ok(genericEnvGate >= 0, "candidate preflight must run env:check");
+  assert.ok(strictEmailGate > genericEnvGate, "strict email gate must follow generic env validation");
+  assert.ok(build > strictEmailGate, "strict email gate must run before the production build/start path");
+  assert.match(
+    source,
+    /body\.checks\?\.email !== "configured"/,
+    "runtime promotion must explicitly require configured email even if overall health semantics change",
+  );
+});
+
+test("validator consumes the runtime authority instead of re-implementing provider/key rules", () => {
+  const source = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
+  assert.match(source, /emailDeliveryReadiness/);
+  assert.doesNotMatch(source, /RESEND_API_KEY|SENDGRID_API_KEY/);
 });
