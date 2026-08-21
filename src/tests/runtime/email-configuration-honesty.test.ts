@@ -86,7 +86,7 @@ test("production classifies every non-delivering posture explicitly", () => {
     emailDeliveryReadiness({ NODE_ENV: "production", EMAIL_PROVIDER: "mailgun" }),
     {
       status: "misconfigured",
-      provider: "mailgun",
+      provider: "unsupported",
       mode: "blocked",
       reason: "unsupported_provider",
     },
