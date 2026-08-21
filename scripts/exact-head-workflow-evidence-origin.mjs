@@ -22,10 +22,6 @@ export async function exactHeadWorkflowEvidenceOriginFindings({
   const findings = [];
   if (evidence?.schemaVersion !== 2) return findings;
 
-  if (typeof token !== "string" || token.length === 0) {
-    findings.push("schema v2 exact-head evidence origin verification requires GITHUB_TOKEN");
-    return findings;
-  }
   if (typeof fetchImpl !== "function") {
     findings.push("schema v2 exact-head evidence origin verification requires fetch");
     return findings;
@@ -39,17 +35,19 @@ export async function exactHeadWorkflowEvidenceOriginFindings({
       continue;
     }
 
+    const headers = {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": API_VERSION,
+    };
+    if (typeof token === "string" && token.length > 0) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     let response;
     try {
       response = await fetchImpl(
         `https://api.github.com/repos/${REPOSITORY}/actions/runs/${runId}`,
-        {
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${token}`,
-            "X-GitHub-Api-Version": API_VERSION,
-          },
-        },
+        { headers },
       );
     } catch (error) {
       findings.push(
