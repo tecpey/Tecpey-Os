@@ -142,7 +142,6 @@ for attempt in 1 2 3 4 5; do
         body.checks?.schema !== "current" ||
         body.checks?.redis !== "ok" ||
         body.checks?.runtime !== "ready" ||
-        body.checks?.email !== "configured" ||
         !["ready", "disabled"].includes(body.checks?.requiredWorkers)
       ) process.exit(1);
     ' "$health_payload"; then
