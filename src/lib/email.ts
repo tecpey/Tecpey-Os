@@ -24,6 +24,8 @@ export type EmailDeliveryEnvironment = {
   SENDGRID_API_KEY?: string;
 };
 
+type SafeEmailProvider = "resend" | "sendgrid" | "dev" | "none" | "unsupported" | null;
+
 export type EmailDeliveryReadiness =
   | {
       status: "configured";
@@ -45,7 +47,7 @@ export type EmailDeliveryReadiness =
     }
   | {
       status: "misconfigured";
-      provider: string | null;
+      provider: SafeEmailProvider;
       mode: "blocked";
       reason:
         | "unsupported_provider"
@@ -77,6 +79,11 @@ function isUsableKey(raw: string | undefined): boolean {
  * The same decision is consumed by the send path, /api/health (through
  * isEmailConfigured) and the production preflight. This prevents a deployment
  * gate from vouching for a delivery path that the runtime later refuses.
+ *
+ * Arbitrary provider input is never returned. A credential accidentally pasted
+ * into EMAIL_PROVIDER must not become a value in logs, health diagnostics or
+ * deployment output, so unknown input is collapsed to the fixed "unsupported"
+ * marker at this boundary.
  */
 export function emailDeliveryReadiness(
   env: EmailDeliveryEnvironment = process.env,
@@ -160,7 +167,7 @@ export function emailDeliveryReadiness(
 
   return {
     status: "misconfigured",
-    provider,
+    provider: "unsupported",
     mode: "blocked",
     reason: "unsupported_provider",
   };
