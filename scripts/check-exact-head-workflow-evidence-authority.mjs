@@ -54,6 +54,33 @@ const [evidence, register, candidate, packet, checklist, packageJson] = await Pr
 ]);
 
 const selectedSha = candidate.currentCandidate?.sha;
+
+// Preserve critical launch-decision sentinels directly in this authority surface.
+// Detailed schema validation is delegated to the policy module below, while these
+// checks keep the parent controlled-launch decision guard fail-closed across refactors.
+requireEqual("evidence.evidenceClass", evidence.evidenceClass, "exact-head-workflow-evidence");
+requireEqual(
+  "evidence.decision",
+  evidence.decision,
+  "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY",
+);
+if (evidence.schemaVersion === 1) {
+  requireEqual(
+    "evidence.workflowEvidence.operationalRecoveryRunUrl",
+    evidence.workflowEvidence?.operationalRecoveryRunUrl,
+    null,
+  );
+} else if (evidence.schemaVersion === 2) {
+  const operationalRecoveryRun = evidence.workflowRuns?.find(
+    (run) => run?.name === "Scheduled Operational Recovery",
+  );
+  requireEqual(
+    "Scheduled Operational Recovery.runUrl",
+    operationalRecoveryRun?.runUrl,
+    evidence.workflowEvidence?.operationalRecoveryRunUrl,
+  );
+}
+
 failures.push(...exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }));
 failures.push(
   ...(await exactHeadWorkflowEvidenceOriginFindings({
