@@ -1,4 +1,4 @@
-import type { CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
+import { coinGrowthCandidates, type CoinGrowthCandidate } from "@/data/coinGrowthCandidates";
 import {
   buildOrganicGrowthProfile,
   type OrganicGrowthProfile,
@@ -26,6 +26,7 @@ export type AutomatedCoinPage = {
     sourceMode: "curated_seed" | "provider_snapshot";
     exchangeCapability: "manual_review_required";
     officialWebsite: string;
+    officialHost?: string;
     docs?: string;
     narratives: string[];
     riskLevel: CoinGrowthCandidate["riskLevel"];
@@ -42,6 +43,7 @@ export type CoinGrowthRejectedCandidate = {
 export type CoinGrowthSnapshot = {
   schemaVersion: 1;
   policyVersion: typeof COIN_GROWTH_POLICY_VERSION;
+  hostPinVersion?: 1;
   generatedAt: string;
   sourceMode: "curated_seed" | "provider_snapshot";
   publishThreshold: number;
@@ -78,6 +80,42 @@ function clamp01(value: number): number {
 
 function roundScore(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function normalizeHost(value: string | null | undefined): string {
+  return value?.trim().toLowerCase().replace(/\.$/, "") ?? "";
+}
+
+function officialHostForUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    const hostname = normalizeHost(url.hostname);
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+function officialWebsiteMatchesPinnedHost(website: string, pinnedHost: string | null | undefined): boolean {
+  const hostname = officialHostForUrl(website);
+  const canonicalHost = normalizeHost(pinnedHost);
+  if (!hostname || !canonicalHost) return false;
+  return hostname === canonicalHost || hostname.endsWith(`.${canonicalHost}`);
+}
+
+function legacyPinnedHostForCoin(coin: AutomatedCoinPage): string | null {
+  const symbol = coin.symbol.trim().toUpperCase();
+  const slug = coin.slug.trim().toLowerCase();
+  const candidate = coinGrowthCandidates.find(
+    (item) => item.symbol.trim().toUpperCase() === symbol && item.slug.trim().toLowerCase() === slug,
+  );
+  if (!candidate) return null;
+
+  const trustedHost = officialHostForUrl(candidate.officialWebsite);
+  if (!trustedHost) return null;
+  if (!officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, trustedHost)) return null;
+  return trustedHost;
 }
 
 export function scoreCoinGrowthCandidate(candidate: CoinGrowthCandidate): number {
@@ -152,6 +190,7 @@ export function buildAutomatedCoinPage(
   options: { sourceMode: CoinGrowthSnapshot["sourceMode"] },
 ): AutomatedCoinPage {
   const score = scoreCoinGrowthCandidate(candidate);
+  const officialHost = officialHostForUrl(candidate.officialWebsite) ?? "";
 
   return {
     slug: candidate.slug,
@@ -186,6 +225,7 @@ export function buildAutomatedCoinPage(
       sourceMode: options.sourceMode,
       exchangeCapability: "manual_review_required",
       officialWebsite: candidate.officialWebsite,
+      officialHost,
       docs: candidate.docs,
       narratives: candidate.narrative,
       riskLevel: candidate.riskLevel,
@@ -219,7 +259,7 @@ export function materializeCoinGrowthSnapshot(
     let reason = "";
 
     if (!symbol || !slug || !candidate.name.trim() || !candidate.faName.trim()) reason = "identity_missing";
-    else if (!candidate.officialWebsite.startsWith("https://")) reason = "official_source_missing";
+    else if (!officialHostForUrl(candidate.officialWebsite)) reason = "official_source_invalid";
     else if (existingSymbols.has(symbol) || existingSlugs.has(slug)) reason = "already_curated";
     else if (seenSymbols.has(symbol) || seenSlugs.has(slug)) reason = "duplicate_candidate";
     else if (score < publishThreshold) reason = "score_below_publish_threshold";
@@ -245,6 +285,7 @@ export function materializeCoinGrowthSnapshot(
   return {
     schemaVersion: 1,
     policyVersion: COIN_GROWTH_POLICY_VERSION,
+    hostPinVersion: 1,
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     sourceMode,
     publishThreshold,
@@ -263,9 +304,17 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
   if (snapshot.schemaVersion !== 1) return [];
   if (snapshot.policyVersion !== COIN_GROWTH_POLICY_VERSION) return [];
   if (snapshot.stats.exchangeEnabled !== 0) return [];
-  return snapshot.coins.filter(
-    (coin) =>
-      coin.automation.status === "published_content" &&
-      coin.automation.exchangeCapability === "manual_review_required",
-  );
+
+  const strictPinnedHosts = snapshot.hostPinVersion === 1;
+
+  return snapshot.coins.filter((coin) => {
+    if (coin.automation.status !== "published_content") return false;
+    if (coin.automation.exchangeCapability !== "manual_review_required") return false;
+
+    const pinnedHost = strictPinnedHosts
+      ? coin.automation.officialHost
+      : legacyPinnedHostForCoin(coin);
+
+    return officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, pinnedHost);
+  });
 }
