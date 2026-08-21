@@ -2,7 +2,7 @@ import { apiOk } from "@/lib/api-validation";
 import { isEmailConfigured } from "@/lib/email";
 import { checkDbHealth } from "@/lib/db";
 import { getAllFlags } from "@/lib/feature-flags";
-import { isErrorTrackingConfigured } from "@/lib/error-tracking";
+import { errorTrackingStatus } from "@/lib/error-tracking";
 import { emitAlert } from "@/lib/alerts";
 import { getRedisPubSub } from "@/lib/redis-pubsub";
 import { getRuntimeReadiness } from "@/lib/runtime-readiness";
@@ -145,7 +145,7 @@ export async function GET(request: Request) {
     },
     featureFlags: flags,
     observability: {
-      errorTracking: isErrorTrackingConfigured() ? "configured" : "unconfigured",
+      errorTracking: errorTrackingStatus(),
       alertWebhook: process.env.ALERT_WEBHOOK_URL ? "configured" : "unconfigured",
     },
     ...(warnings.length > 0 ? { warnings } : {}),
