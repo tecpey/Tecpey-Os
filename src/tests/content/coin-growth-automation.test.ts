@@ -108,4 +108,26 @@ describe("coin growth automation", () => {
     mutated.coins[0]!.automation.officialWebsite = "https://trusted.example@evil.test/phish";
     assert.equal(readPublishedCoinGrowthPages(mutated).length, 0);
   });
+
+  it("fails closed without crashing when legacy snapshot host metadata is absent", () => {
+    const snapshot = materializeCoinGrowthSnapshot(
+      [{
+        ...coinGrowthCandidates[0],
+        symbol: "LEGACY",
+        slug: "legacy-host-example",
+        name: "Legacy Host Example",
+        faName: "نمونه قدیمی دامنه",
+        officialWebsite: "https://trusted.example/project",
+      }],
+      { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
+    );
+
+    const legacySnapshot = structuredClone(snapshot) as unknown as {
+      coins: Array<{ automation: Record<string, unknown> }>;
+    };
+    delete legacySnapshot.coins[0]!.automation.officialHost;
+
+    assert.doesNotThrow(() => readPublishedCoinGrowthPages(legacySnapshot as never));
+    assert.equal(readPublishedCoinGrowthPages(legacySnapshot as never).length, 0);
+  });
 });
