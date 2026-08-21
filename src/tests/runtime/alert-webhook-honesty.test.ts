@@ -88,3 +88,18 @@ test("every consumer reads the one authority instead of re-deciding", () => {
   const validator = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
   assert.match(validator, /import \{ alertWebhookStatus \} from "\.\.\/src\/lib\/alerts"/);
 });
+
+test("the support-bundle rehearsal expects the env:check command that actually exists", () => {
+  // The rehearsal pins env:check as an exact string, and it runs in a different
+  // workflow than the one gating this branch — so extending the command left CI
+  // green here while every support bundle built from the commit would fail
+  // rehearsal before upload. Nothing tied the two together, which is why it broke.
+  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+  const rehearsal = readFileSync("scripts/rehearse-support-deployment-install.mjs", "utf8");
+  const command = pkg.scripts["env:check"];
+  assert.ok(command, "env:check must exist");
+  assert.ok(
+    rehearsal.includes(command),
+    `the rehearsal pins a different env:check than package.json defines.\n  package.json: ${command}`,
+  );
+});
