@@ -10,18 +10,19 @@ import { emailDeliveryReadiness, isEmailConfigured, sendEmail } from "../../lib/
 
 const KEYS = ["NODE_ENV", "EMAIL_PROVIDER", "RESEND_API_KEY", "SENDGRID_API_KEY"] as const;
 const SUPPLIED = "unit-test-value";
-const ORIGINAL = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
+const mutableProcessEnv = process.env as Record<string, string | undefined>;
+const ORIGINAL = Object.fromEntries(KEYS.map((k) => [k, mutableProcessEnv[k]]));
 
 function withEnv<T>(values: Partial<Record<(typeof KEYS)[number], string>>, run: () => T): T {
   try {
-    for (const key of KEYS) delete process.env[key];
-    for (const [key, value] of Object.entries(values)) process.env[key] = value;
+    for (const key of KEYS) delete mutableProcessEnv[key];
+    for (const [key, value] of Object.entries(values)) mutableProcessEnv[key] = value;
     return run();
   } finally {
     for (const key of KEYS) {
       const previous = ORIGINAL[key];
-      if (previous === undefined) delete process.env[key];
-      else process.env[key] = previous;
+      if (previous === undefined) delete mutableProcessEnv[key];
+      else mutableProcessEnv[key] = previous;
     }
   }
 }
