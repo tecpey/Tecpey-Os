@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-evidence-recollection-request",
-  "generatedAt": "2026-08-21T10:50:00Z",
+  "generatedAt": "2026-08-21T12:15:00Z",
   "issue": 515,
   "decision": "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
-  "selectedSha": "0ec1468d90869401cea8ccb2b9271de14f228792",
+  "selectedSha": "cbbdebe0b09801c314ed0b048c6ed19873d23300",
   "sourceBranch": "main",
-  "sourcePullRequest": 521,
+  "sourcePullRequest": 522,
   "protectedExecutionAllowed": false,
   "requiredEvidence": {
     "NOG-04": {
@@ -28,7 +28,7 @@
         "each workflow run event is push or an explicitly governed exact-SHA dispatch",
         "each workflow completed successfully",
         "each workflow uses a distinct governed GitHub Actions run URL",
-        "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c or 6145c03bdee9da4d06b781175a60b63d38cba568 are not accepted as exact-candidate evidence for selectedSha"
+        "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568 or 60691da0e1c45d7e6c5ea9aed4558e391f38db71 are not accepted as exact-candidate evidence for selectedSha"
       ]
     },
     "NOG-03": {
