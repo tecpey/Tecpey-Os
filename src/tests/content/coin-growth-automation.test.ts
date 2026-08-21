@@ -17,12 +17,13 @@ describe("coin growth automation", () => {
     });
 
     assert.equal(snapshot.schemaVersion, 1);
+    assert.equal(snapshot.hostPinVersion, 1);
     assert.equal(snapshot.stats.exchangeEnabled, 0);
     assert.ok(snapshot.stats.publishedContent >= 30);
     assert.ok(snapshot.coins.every((coin) => coin.automation.status === "published_content"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.exchangeCapability === "manual_review_required"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.officialWebsite.startsWith("https://")));
-    assert.ok(snapshot.coins.every((coin) => coin.automation.officialHost.length > 0));
+    assert.ok(snapshot.coins.every((coin) => (coin.automation.officialHost?.length ?? 0) > 0));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v1"));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.canonicalPath === `/coins/${coin.slug}`));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.entityTags.includes(`coin:${coin.symbol.toLowerCase()}`)));
@@ -95,6 +96,7 @@ describe("coin growth automation", () => {
     });
 
     assert.equal(snapshot.stats.publishedContent, 1);
+    assert.equal(snapshot.hostPinVersion, 1);
     assert.equal(snapshot.coins[0]?.automation.officialHost, "trusted.example");
     assert.equal(readPublishedCoinGrowthPages(snapshot).length, 1);
 
@@ -109,25 +111,48 @@ describe("coin growth automation", () => {
     assert.equal(readPublishedCoinGrowthPages(mutated).length, 0);
   });
 
-  it("fails closed without crashing when legacy snapshot host metadata is absent", () => {
+  it("migrates the checked-in legacy shape through curated candidate host pins", () => {
+    const snapshot = materializeCoinGrowthSnapshot(coinGrowthCandidates, {
+      generatedAt: "2026-08-10T12:29:21.460Z",
+      existingSymbols: coreCoinPages.map((coin) => coin.symbol),
+      existingSlugs: coreCoinPages.map((coin) => coin.slug),
+    });
+
+    const legacySnapshot = structuredClone(snapshot) as unknown as {
+      hostPinVersion?: number;
+      coins: Array<{
+        automation: {
+          officialWebsite: string;
+          officialHost?: string;
+        };
+      }>;
+    };
+    delete legacySnapshot.hostPinVersion;
+    for (const coin of legacySnapshot.coins) delete coin.automation.officialHost;
+
+    assert.equal(readPublishedCoinGrowthPages(legacySnapshot as never).length, snapshot.coins.length);
+
+    legacySnapshot.coins[0]!.automation.officialWebsite = "https://evil.test/phish";
+    assert.equal(readPublishedCoinGrowthPages(legacySnapshot as never).length, snapshot.coins.length - 1);
+  });
+
+  it("fails closed when a new host-pinned snapshot loses its pin metadata", () => {
     const snapshot = materializeCoinGrowthSnapshot(
       [{
         ...coinGrowthCandidates[0],
-        symbol: "LEGACY",
-        slug: "legacy-host-example",
-        name: "Legacy Host Example",
-        faName: "نمونه قدیمی دامنه",
+        symbol: "PIN2",
+        slug: "pinned-host-required",
+        name: "Pinned Host Required",
+        faName: "پین دامنه الزامی",
         officialWebsite: "https://trusted.example/project",
       }],
       { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
     );
 
-    const legacySnapshot = structuredClone(snapshot) as unknown as {
-      coins: Array<{ automation: Record<string, unknown> }>;
-    };
-    delete legacySnapshot.coins[0]!.automation.officialHost;
+    delete snapshot.coins[0]!.automation.officialHost;
 
-    assert.doesNotThrow(() => readPublishedCoinGrowthPages(legacySnapshot as never));
-    assert.equal(readPublishedCoinGrowthPages(legacySnapshot as never).length, 0);
+    assert.equal(snapshot.hostPinVersion, 1);
+    assert.doesNotThrow(() => readPublishedCoinGrowthPages(snapshot));
+    assert.equal(readPublishedCoinGrowthPages(snapshot).length, 0);
   });
 });
