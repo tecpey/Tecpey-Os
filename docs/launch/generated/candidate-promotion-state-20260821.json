@@ -12,6 +12,7 @@
     "reason": "PR #522 changed support-bundle rehearsal pin authority and fail-closed readiness checks after PR #521. New exact-candidate release evidence must therefore target the post-#522 main SHA or a later explicitly refreshed stable main SHA."
   },
   "protectedExecutionAllowed": false,
+  "requiredAcceptanceSchemaVersion": 2,
   "staleAcceptedEvidence": [
     {
       "id": "NOG-03",
@@ -46,6 +47,7 @@
     "recollect genuine exact-head workflow evidence for the proposed exact SHA",
     "recollect genuine runtime image digest evidence for the proposed exact SHA",
     "recollect genuine rollback/volume-restore evidence for the proposed exact SHA",
+    "record all newly accepted evidence using acceptance schema v2 with explicit exact-SHA workflow binding",
     "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
     "keep protected execution blocked until the aligned promotion state is CI-valid"
   ],
