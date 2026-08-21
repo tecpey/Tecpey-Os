@@ -25,14 +25,30 @@ Set `TECPEY_IMAGE_DIGEST` (a reviewed `sha256:...` release digest),
 approved secret manager. Compose rejects absent values and contains no defaults.
 PostgreSQL and authenticated Redis run only on the internal backend network.
 
-1. Build the exact release image.
+Production email delivery is a readiness requirement for a governed candidate.
+`EMAIL_PROVIDER` must resolve to `resend` or `sendgrid`, and the selected provider
+must have a non-empty, non-placeholder credential. `dev`, `none`, unknown
+providers, missing credentials, whitespace-only credentials and template values
+are rejected before candidate startup. Non-production environments may retain
+explicit development/disabled postures, but those postures are never promoted as
+production-ready and never become a successful production send fallback.
+
+1. Build the exact release image only after the governed candidate preflight has
+   accepted live email delivery readiness.
 2. Run the one-shot `migrate` service after PostgreSQL and Redis are healthy.
 3. Start `tecpey-web` only after migration exits successfully.
 4. Route traffic only when `/api/health` returns HTTP 200 with PostgreSQL `ok`,
-   schema `current`, Redis `ok`, runtime `ready`, and required workers either
-   `ready` or governed `disabled`.
+   schema `current`, Redis `ok`, runtime `ready`, email `configured`, and required
+   workers either `ready` or governed `disabled`.
 5. Use `/api/health?probe=live` only for process liveness. It does not authorize
    traffic.
+
+The email readiness decision has one runtime authority shared by the actual send
+path, health reporting and the production preflight. A validator may not
+re-implement provider/key semantics independently. The pre-start gate and the
+post-start readiness check are deliberately redundant: a future health-summary
+change cannot silently remove the explicit requirement that
+`checks.email === "configured"` before promotion.
 
 Redis authentication is mandatory even on the isolated private backend network.
 TLS must be terminated by the approved private network/service mesh when traffic
