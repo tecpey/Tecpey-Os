@@ -20,10 +20,10 @@ const SUPPLIED = "unit-test-value";
 type EmailValidatorInput = Partial<Record<(typeof EMAIL_INPUT_KEYS)[number], string>>;
 type TestNodeEnv = "development" | "production" | "test";
 
-function validatorRejects(
+function runValidator(
   values: EmailValidatorInput,
   nodeEnv: TestNodeEnv = "production",
-): boolean {
+) {
   const childEnv = {
     ...process.env,
     ...Object.fromEntries(EMAIL_INPUT_KEYS.map((key) => [key, ""])),
@@ -31,7 +31,7 @@ function validatorRejects(
     NODE_ENV: nodeEnv,
     ALERT_WEBHOOK_URL: "",
   } as NodeJS.ProcessEnv;
-  const child = spawnSync(
+  return spawnSync(
     process.execPath,
     ["--import", "tsx", "scripts/validate-alert-webhook-env.ts"],
     {
@@ -39,7 +39,13 @@ function validatorRejects(
       env: childEnv,
     },
   );
-  return child.status !== 0;
+}
+
+function validatorRejects(
+  values: EmailValidatorInput,
+  nodeEnv: TestNodeEnv = "production",
+): boolean {
+  return runValidator(values, nodeEnv).status !== 0;
 }
 
 test("production env gate rejects every non-delivering email posture", () => {
@@ -117,6 +123,36 @@ test("non-production keeps deliberate dev, none and unset postures without claim
   );
 });
 
+test("unsupported provider input is redacted at the readiness boundary and in validator output", () => {
+  const arbitrary = "credential-accidentally-pasted-as-provider";
+  assert.deepEqual(
+    emailDeliveryReadiness({ NODE_ENV: "production", EMAIL_PROVIDER: arbitrary }),
+    {
+      status: "misconfigured",
+      provider: "unsupported",
+      mode: "blocked",
+      reason: "unsupported_provider",
+    },
+  );
+
+  const child = runValidator({ EMAIL_PROVIDER: arbitrary });
+  const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
+  assert.notEqual(child.status, 0);
+  assert.doesNotMatch(output, new RegExp(arbitrary));
+  assert.match(output, /provider=unsupported/);
+});
+
+test("production validator binds email decisions to .env.production rather than inherited shell values", () => {
+  const source = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
+  assert.match(source, /existsSync\(environmentPath\)/);
+  assert.match(source, /EMAIL_PROVIDER: file\.EMAIL_PROVIDER/);
+  assert.match(source, /RESEND_API_KEY: file\.RESEND_API_KEY/);
+  assert.match(source, /SENDGRID_API_KEY: file\.SENDGRID_API_KEY/);
+  assert.doesNotMatch(source, /EMAIL_PROVIDER: file\.EMAIL_PROVIDER\s*\?\?/);
+  assert.doesNotMatch(source, /RESEND_API_KEY: file\.RESEND_API_KEY\s*\?\?/);
+  assert.doesNotMatch(source, /SENDGRID_API_KEY: file\.SENDGRID_API_KEY\s*\?\?/);
+});
+
 test("host promotion binds pre-start and post-start readiness to email delivery", () => {
   const preflight = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
   const healthRoute = readFileSync("src/app/api/health/route.ts", "utf8");
@@ -129,13 +165,14 @@ test("host promotion binds pre-start and post-start readiness to email delivery"
   assert.match(healthRoute, /email_not_configured: transactional emails will not be delivered/);
   assert.match(
     healthRoute,
-    /warnings\.length > 0\s*\? "degraded"/,
-    "production health must not report ok while email is unavailable",
+    /isProduction && email !== "configured"/,
+    "production email must be an HTTP readiness dependency, not a warning-only field",
   );
 });
 
-test("validator consumes the runtime authority instead of re-implementing provider/key rules", () => {
+test("validator consumes the runtime authority instead of re-implementing provider decisions", () => {
   const source = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
-  assert.match(source, /emailDeliveryReadiness/);
-  assert.doesNotMatch(source, /RESEND_API_KEY|SENDGRID_API_KEY/);
+  assert.match(source, /emailDeliveryReadiness\(serviceEnv, serviceEnv\.NODE_ENV\)/);
+  assert.doesNotMatch(source, /EMAIL_PROVIDER\s*===/);
+  assert.doesNotMatch(source, /\[\s*["']resend["']\s*,\s*["']sendgrid["']/);
 });
