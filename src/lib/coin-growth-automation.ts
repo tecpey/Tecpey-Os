@@ -26,6 +26,7 @@ export type AutomatedCoinPage = {
     sourceMode: "curated_seed" | "provider_snapshot";
     exchangeCapability: "manual_review_required";
     officialWebsite: string;
+    officialHost: string;
     docs?: string;
     narratives: string[];
     riskLevel: CoinGrowthCandidate["riskLevel"];
@@ -78,6 +79,28 @@ function clamp01(value: number): number {
 
 function roundScore(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+function normalizeHost(value: string): string {
+  return value.trim().toLowerCase().replace(/\.$/, "");
+}
+
+function officialHostForUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    const hostname = normalizeHost(url.hostname);
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+function officialWebsiteMatchesPinnedHost(website: string, pinnedHost: string): boolean {
+  const hostname = officialHostForUrl(website);
+  const canonicalHost = normalizeHost(pinnedHost);
+  if (!hostname || !canonicalHost) return false;
+  return hostname === canonicalHost || hostname.endsWith(`.${canonicalHost}`);
 }
 
 export function scoreCoinGrowthCandidate(candidate: CoinGrowthCandidate): number {
@@ -152,6 +175,7 @@ export function buildAutomatedCoinPage(
   options: { sourceMode: CoinGrowthSnapshot["sourceMode"] },
 ): AutomatedCoinPage {
   const score = scoreCoinGrowthCandidate(candidate);
+  const officialHost = officialHostForUrl(candidate.officialWebsite) ?? "";
 
   return {
     slug: candidate.slug,
@@ -186,6 +210,7 @@ export function buildAutomatedCoinPage(
       sourceMode: options.sourceMode,
       exchangeCapability: "manual_review_required",
       officialWebsite: candidate.officialWebsite,
+      officialHost,
       docs: candidate.docs,
       narratives: candidate.narrative,
       riskLevel: candidate.riskLevel,
@@ -219,7 +244,7 @@ export function materializeCoinGrowthSnapshot(
     let reason = "";
 
     if (!symbol || !slug || !candidate.name.trim() || !candidate.faName.trim()) reason = "identity_missing";
-    else if (!candidate.officialWebsite.startsWith("https://")) reason = "official_source_missing";
+    else if (!officialHostForUrl(candidate.officialWebsite)) reason = "official_source_invalid";
     else if (existingSymbols.has(symbol) || existingSlugs.has(slug)) reason = "already_curated";
     else if (seenSymbols.has(symbol) || seenSlugs.has(slug)) reason = "duplicate_candidate";
     else if (score < publishThreshold) reason = "score_below_publish_threshold";
@@ -266,6 +291,7 @@ export function readPublishedCoinGrowthPages(snapshot: CoinGrowthSnapshot): Auto
   return snapshot.coins.filter(
     (coin) =>
       coin.automation.status === "published_content" &&
-      coin.automation.exchangeCapability === "manual_review_required",
+      coin.automation.exchangeCapability === "manual_review_required" &&
+      officialWebsiteMatchesPinnedHost(coin.automation.officialWebsite, coin.automation.officialHost),
   );
 }
