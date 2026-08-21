@@ -1,80 +1,33 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "go-approval-matrix-evidence-request",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-21T15:35:58Z",
   "decision": "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
   "executionState": "blocked_pending_final_go_approval_matrix",
-  "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "selectedSha": "e4065675473170f62f0ed4dec8641f8d77722725",
   "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "requestPath": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   "blocker": "NOG-09",
   "status": "open",
-  "notAcceptedForBlockers": [
-    "NOG-01",
-    "NOG-02",
-    "NOG-05",
-    "NOG-07",
-    "NOG-08",
-    "NOG-09"
-  ],
+  "notAcceptedForBlockers": ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"],
   "requiredEnvironment": "release-control",
-  "prerequisiteBlockers": [
-    "NOG-01",
-    "NOG-02",
-    "NOG-05",
-    "NOG-07",
-    "NOG-08"
-  ],
+  "prerequisiteBlockers": ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08"],
   "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
   "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
-  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- <artifact.json> --expected-sha 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- <artifact.json> --expected-sha e4065675473170f62f0ed4dec8641f8d77722725",
   "authorityGuard": "scripts/check-go-approval-matrix-evidence-authority.mjs",
   "requiredArtifact": {
     "schemaVersion": 1,
     "authority": "tecpey-go-approval-matrix-v1",
     "evidenceClass": "controlled-soft-launch-go-approval-matrix",
     "environment": "release-control",
-    "sourceSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "sourceSha": "e4065675473170f62f0ed4dec8641f8d77722725",
     "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
-    "allowedSurfaces": [
-      "public-fa-en",
-      "academy",
-      "mentor",
-      "virtual-trading-arena"
-    ],
-    "disabledSurfaces": [
-      "real-money-exchange",
-      "custody-deposits-withdrawals",
-      "public-financial-rewards",
-      "enterprise-white-label"
-    ],
-    "requiredPrerequisiteBlockers": [
-      "NOG-01",
-      "NOG-02",
-      "NOG-03",
-      "NOG-04",
-      "NOG-05",
-      "NOG-06",
-      "NOG-07",
-      "NOG-08",
-      "NOG-10",
-      "NOG-11",
-      "NOG-12"
-    ],
-    "approvalRoles": [
-      "CEO",
-      "CTO or Chief Architect",
-      "Security",
-      "Product",
-      "Compliance",
-      "SRE",
-      "QA"
-    ],
-    "approvalEvidence": {
-      "requiredForEveryRole": true,
-      "allowedEvidenceUrlPattern": "https://github.com/tecpey/Tecpey-Os/(pull|issues|actions/runs|commit|blob)/...",
-      "requiredDigest": "sha256"
-    },
+    "allowedSurfaces": ["public-fa-en", "academy", "mentor", "virtual-trading-arena"],
+    "disabledSurfaces": ["real-money-exchange", "custody-deposits-withdrawals", "public-financial-rewards", "enterprise-white-label"],
+    "requiredPrerequisiteBlockers": ["NOG-01", "NOG-02", "NOG-03", "NOG-04", "NOG-05", "NOG-06", "NOG-07", "NOG-08", "NOG-10", "NOG-11", "NOG-12"],
+    "approvalRoles": ["CEO", "CTO or Chief Architect", "Security", "Product", "Compliance", "SRE", "QA"],
+    "approvalEvidence": {"requiredForEveryRole": true, "allowedEvidenceUrlPattern": "https://github.com/tecpey/Tecpey-Os/(pull|issues|actions/runs|commit|blob)/...", "requiredDigest": "sha256"},
     "approvalConditions": [
       "exact candidate SHA approved",
       "controlled public FA/EN, Academy, Mentor and virtual Arena only",
@@ -86,21 +39,9 @@
     "finalDisposition": "approved_for_controlled_soft_launch"
   },
   "guardCommands": [
-    {
-      "name": "launch:go-approval-matrix-evidence:check",
-      "command": "node scripts/check-go-approval-matrix-evidence-authority.mjs",
-      "disposition": "pass_no_acceptance_without_verified_matrix"
-    },
-    {
-      "name": "ops:go-approval-matrix:evidence:verify",
-      "command": "node scripts/verify-go-approval-matrix-evidence.mjs <artifact.json> --expected-sha 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "disposition": "required_for_final_artifact"
-    },
-    {
-      "name": "test:go-approval-matrix-evidence",
-      "command": "node --test scripts/go-approval-matrix-evidence.test.mjs",
-      "disposition": "pass"
-    }
+    {"name": "launch:go-approval-matrix-evidence:check", "command": "node scripts/check-go-approval-matrix-evidence-authority.mjs", "disposition": "pass_no_acceptance_without_verified_matrix"},
+    {"name": "ops:go-approval-matrix:evidence:verify", "command": "node scripts/verify-go-approval-matrix-evidence.mjs <artifact.json> --expected-sha e4065675473170f62f0ed4dec8641f8d77722725", "disposition": "required_for_final_artifact"},
+    {"name": "test:go-approval-matrix-evidence", "command": "node --test scripts/go-approval-matrix-evidence.test.mjs", "disposition": "pass"}
   ],
   "acceptanceBoundary": [
     "NOG-09 is not accepted by this request because the final Go approval matrix is still missing.",
@@ -109,17 +50,7 @@
     "Every prerequisite blocker except NOG-09 must have accepted evidence URL and digest before the matrix can pass.",
     "The approval matrix can approve only controlled public FA/EN, Academy, Mentor and virtual Arena scope; real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label remain disabled or separately blocked."
   ],
-  "notAcceptedAs": [
-    "protected staging evidence",
-    "production-like environment evidence",
-    "recovery reconciliation evidence",
-    "incident readiness evidence",
-    "accepted-risk owner sign-off",
-    "real-money Exchange activation",
-    "custody or withdrawal activation",
-    "enterprise or white-label activation",
-    "final Go approval matrix"
-  ],
+  "notAcceptedAs": ["protected staging evidence", "production-like environment evidence", "recovery reconciliation evidence", "incident readiness evidence", "accepted-risk owner sign-off", "real-money Exchange activation", "custody or withdrawal activation", "enterprise or white-label activation", "final Go approval matrix"],
   "privacyBoundary": [
     "request and final evidence contain release identifiers, role identities, repository URLs, SHA-256 digests and dispositions only",
     "final evidence must not contain raw secrets, database URLs, host IPs, raw logs, customer data, provider payloads, private keys, webhook URLs or prompt transcripts"
