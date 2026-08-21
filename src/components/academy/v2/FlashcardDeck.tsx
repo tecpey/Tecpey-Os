@@ -95,7 +95,7 @@ function FlashcardFace({
       {/* Card body — flip on click */}
       <button
         onClick={onFlip}
-        className={`relative h-64 w-full overflow-hidden rounded-[28px] border border-white/10 bg-slate-800/80 p-6 text-center shadow-2xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+        className={`relative h-64 w-full overflow-hidden rounded-[28px] border border-white/10 bg-slate-800/80 p-6 text-center shadow-2xl transition-[border-color,background-color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
           flipped ? "border-cyan-300/30 bg-slate-800" : "hover:border-white/20"
         }`}
         aria-label={flipped ? "مشاهده سؤال" : "نمایش جواب"}
@@ -120,13 +120,13 @@ function FlashcardFace({
 
         {/* Flip indicator */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
-          <div className={`h-1 w-8 rounded-full transition-all ${flipped ? "bg-cyan-400" : "bg-slate-700"}`} />
+          <div className={`h-1 w-8 rounded-full transition-colors duration-150 ${flipped ? "bg-cyan-400" : "bg-slate-700"}`} />
         </div>
       </button>
 
       {/* Grade buttons — only visible after flip */}
       <div
-        className={`mt-5 transition-all duration-300 ${
+        className={`mt-5 transition-[opacity,transform] duration-200 ease-out ${
           flipped ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
         }`}
       >
@@ -136,7 +136,7 @@ function FlashcardFace({
             <button
               key={grade}
               onClick={() => onGrade(grade)}
-              className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-xs font-black transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95 ${color}`}
+              className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 text-xs font-black transition-[border-color,background-color,color,transform] duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-cyan-400 active:scale-95 ${color}`}
               aria-label={`ارزیابی: ${label}`}
             >
               <span>{label}</span>

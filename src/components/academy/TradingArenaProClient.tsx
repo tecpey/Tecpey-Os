@@ -326,7 +326,7 @@ export function TradingArenaProClient({ locale = "fa" }: { locale?: Locale }) {
                   {isFa ? "ثبت روی سرور انجام نشد؛ نوشته‌های فرم حفظ شده‌اند. دوباره تلاش کن." : "Server save failed; your form was preserved. Retry when ready."}
                 </div>
               )}
-              <button type="button" onClick={submitTrade} disabled={saving || !entryReason.trim() || !plan.trim()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-violet-500 px-5 py-4 text-sm font-black text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-300">
+              <button type="button" onClick={submitTrade} disabled={saving || !entryReason.trim() || !plan.trim()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-700 px-5 py-4 text-sm font-black text-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-300">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} {isFa ? "ثبت امن در حساب و ارسال برای منتور" : "Save to account and send to Mentor"}
               </button>
             </div>

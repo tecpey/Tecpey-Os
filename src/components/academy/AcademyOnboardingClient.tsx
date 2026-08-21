@@ -340,7 +340,7 @@ export function AcademyOnboardingClient({
             <button
               onClick={submit}
               disabled={saving}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-violet-500 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-cyan-500 to-blue-700 px-6 py-4 text-sm font-black text-white shadow-xl shadow-cyan-500/20 transition-[transform,background-color,box-shadow] duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

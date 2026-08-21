@@ -135,7 +135,7 @@ function ReviewItem({ item }: { item: ReviewQueueItem }) {
   return (
     <Link
       href={item.href}
-      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:border-cyan-300/30 hover:bg-white/[0.06] transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400"
+      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-[border-color,background-color,transform] duration-150 ease-out hover:border-cyan-300/30 hover:bg-white/[0.06] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-cyan-400"
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-800">
         {icons[item.type]}
@@ -385,7 +385,7 @@ export function MentorV2() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 rounded-xl py-2 text-xs font-black transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              className={`flex-1 rounded-xl py-2 text-xs font-black transition-[background-color,color,box-shadow] duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
                 activeTab === tab ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"
               }`}
               aria-pressed={activeTab === tab}

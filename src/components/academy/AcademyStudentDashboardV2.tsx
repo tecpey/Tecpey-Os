@@ -269,7 +269,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
                   <h1 className="mt-1 text-3xl font-black sm:text-4xl">{t.hello} {displayName} 👋</h1>
                 </div>
               </div>
-              <Link href={smartHref} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-violet-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20">
+              <Link href={smartHref} className="inline-flex items-center gap-2 rounded-full bg-gradient-to-l from-cyan-500 to-blue-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
                 <BrainCircuit className="h-4 w-4" /> {t.smart}
               </Link>
             </div>
