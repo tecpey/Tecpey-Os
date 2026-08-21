@@ -1,55 +1,46 @@
 # Controlled Launch Candidate Promotion — Issue #515
 
-**Status:** Phase 2 exact-main evidence recollection for the post-PR #523 candidate; not launch evidence
+**Status:** exact-main NOG-03/NOG-04/NOG-06 evidence recollected and terminal promotion prepared; overall launch remains NO-GO
 
-**Current accepted candidate with historical exact-candidate evidence:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Current exact candidate:** `e4065675473170f62f0ed4dec8641f8d77722725`  
+**Candidate source:** `main` after PR #523  
+**Historical previously accepted candidate:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`  
+**Protected evidence collection for the promoted candidate:** permitted after this promotion passes CI  
+**Overall launch decision:** NO-GO
 
-**Current exact main / proposed next candidate:** `e4065675473170f62f0ed4dec8641f8d77722725`
+## Exact-candidate evidence now attached
 
-**Proposed candidate source:** `main` after PR #523
+NOG-04 is backed by schema-v2 exact-head workflow evidence for all nine governed runs on `e4065675473170f62f0ed4dec8641f8d77722725`, including `Scheduled Operational Recovery` via governed `workflow_dispatch` on `main`.
 
-**Protected execution during promotion:** blocked
+NOG-03 is backed by the exact-main `Container Supply Chain` publish/attest/sign run, immutable image digest and container-release signature-verification artifact metadata for the same SHA.
 
-The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability, alert-delivery, production-email readiness, support-bundle readiness and exact-candidate launch-control changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected and verified.
+NOG-06 is backed by the exact-main `Ephemeral staging rollback and volume restore` job: the candidate image was served, the previous release was served after rollback, PostgreSQL/Redis restore evidence was attached, and the recovery result is bound to the exact selected SHA.
 
-## Two-phase fail-closed promotion
+The canonical evidence paths are:
 
-Phase 1 installed the machine-readable promotion guard and blocked protected execution while preserving historical evidence binding to the old candidate.
+- `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
+- `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
+- `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
 
-Phase 2 now targets the exact post-PR #523 main commit `e4065675473170f62f0ed4dec8641f8d77722725`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
+## Terminal promotion boundary
 
-PR #523 added governed exact-main discovery on push and a terminal promotion state. This branch is therefore evidence/ledger-only: it must not modify runtime, deployment, security, bundle or launch-control behavior while the exact candidate is being recollected.
+The human and JSON candidate ledgers, protected-staging request/runbook/register and remaining evidence requests are aligned to the selected SHA. `docs/launch/generated/candidate-promotion-state-20260821.json` records the terminal `promoted_exact_candidate_evidence` state and `docs/launch/generated/candidate-evidence-recollection-request-20260821.json` records genuine acceptance of NOG-03/NOG-04/NOG-06 recollection.
 
-The human/JSON candidate ledger and protected-staging target may move only after genuine exact-head workflow, runtime-image and rollback/volume-restore evidence exists for the proposed SHA and all authority checks pass.
-
-## Required implementation
-
-1. Re-read `main` and active PRs immediately before final promotion. If any agent advances runtime/deployment/security/bundle/launch-control behavior, refresh the proposed SHA first.
-2. Recollect genuine exact-head workflow evidence for `e4065675473170f62f0ed4dec8641f8d77722725` before NOG-04 can be accepted there.
-3. Recollect genuine runtime image digest evidence for the same exact SHA before NOG-03 can be accepted there.
-4. Recollect genuine rollback/volume-restore evidence for the same exact SHA before NOG-06 can be accepted there.
-5. Only after 2-4, atomically align the human and machine-readable candidate ledgers, protected-staging activation runbook, protected-staging evidence request and No-Go register to the same exact SHA.
-6. Do not rewrite historical workflow URLs, image digests, rollback artifacts, timestamps or accepted evidence to pretend that they were produced for the new candidate.
-7. NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open until real accepted evidence exists.
-8. Real-money Exchange, custody/deposits/withdrawals, enterprise, white-label and public rewards remain launch-disabled/NO-GO under their existing gates.
-9. Candidate-lineage, launch-decision, exact-head evidence, runtime-image, rollback, staging-evidence and full CI gates must pass on the exact promotion head before merge.
+This is not a Go decision. NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open. Real-money Exchange, custody/deposits/withdrawals, enterprise, white-label and public rewards remain launch-disabled.
 
 ## Evidence truth boundary
 
-PR-head evidence from PR #523 (`46c41cfd8ef912766ba6f7aaa3a7accbe4b83f81`) validates the launch-control hardening PR but is not exact-candidate evidence for the squash-merge commit `e4065675473170f62f0ed4dec8641f8d77722725` and must not be substituted for it.
+PR-head evidence from PR #523 (`46c41cfd8ef912766ba6f7aaa3a7accbe4b83f81`) validates that PR but is not exact-candidate evidence for its squash-merge commit. The accepted evidence used here comes from genuine GitHub Actions runs whose `head_sha` is `e4065675473170f62f0ed4dec8641f8d77722725` and whose governed origin is verified.
 
-Likewise, historical accepted evidence attached to `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` remains historical and must not be relabelled.
+Historical evidence for `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` remains historical and is not relabelled.
 
-## Guard now enforced
+## Final pre-merge rule
 
-`scripts/check-controlled-launch-candidate-lineage.mjs` validates the two-phase promotion state. It requires:
+Immediately before this evidence-only promotion PR is made Ready or merged:
 
-- the proposed SHA to be a different exact 40-character SHA from the currently accepted candidate;
-- `protectedExecutionAllowed` to remain `false` while promotion is pending;
-- NOG-03/NOG-04/NOG-06 to be explicitly identified as stale accepted evidence requiring recollection;
-- NOG-01/02/05/07/08/09 to remain open;
-- real-money and expanded-scope capability boundaries to remain disabled.
+1. Re-read `main` and active PRs.
+2. Confirm no runtime, deployment, security, bundle or launch-control behavior has advanced beyond `e4065675473170f62f0ed4dec8641f8d77722725`.
+3. Confirm every workflow on the final PR head is successful and no unresolved review thread exists.
+4. Merge only with the exact expected PR head.
 
-## Parallel-safety rule
-
-Another agent may advance `main` while this work is in progress. Re-read `main` immediately before any final promotion commit. If runtime, deployment, security, bundle or launch-control behavior changed, target the newer stable exact SHA rather than this checkpoint SHA.
+A later evidence-only documentation merge may preserve this runtime candidate under the candidate identity rule; any later runtime/deployment/security/bundle/launch-control change requires a new promotion cycle.
