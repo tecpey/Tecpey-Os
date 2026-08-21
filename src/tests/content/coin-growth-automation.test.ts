@@ -4,6 +4,7 @@ import { coinGrowthCandidates } from "@/data/coinGrowthCandidates";
 import { coreCoinPages } from "@/data/coins";
 import {
   materializeCoinGrowthSnapshot,
+  readPublishedCoinGrowthPages,
   scoreCoinGrowthCandidate,
 } from "@/lib/coin-growth-automation";
 
@@ -21,6 +22,7 @@ describe("coin growth automation", () => {
     assert.ok(snapshot.coins.every((coin) => coin.automation.status === "published_content"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.exchangeCapability === "manual_review_required"));
     assert.ok(snapshot.coins.every((coin) => coin.automation.officialWebsite.startsWith("https://")));
+    assert.ok(snapshot.coins.every((coin) => coin.automation.officialHost.length > 0));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.policyVersion === "tecpey-organic-growth-policy-v1"));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.canonicalPath === `/coins/${coin.slug}`));
     assert.ok(snapshot.coins.every((coin) => coin.organicGrowth.entityTags.includes(`coin:${coin.symbol.toLowerCase()}`)));
@@ -52,5 +54,58 @@ describe("coin growth automation", () => {
 
     assert.equal(snapshot.stats.publishedContent, 0);
     assert.equal(snapshot.rejected[0]?.reason, "already_curated");
+  });
+
+  it("rejects unsafe official website URLs before materialization", () => {
+    const base = {
+      ...coinGrowthCandidates[0],
+      symbol: "SAFE",
+      slug: "safe-link-example",
+      name: "Safe Link Example",
+      faName: "نمونه لینک امن",
+    };
+
+    for (const officialWebsite of [
+      "http://trusted.example/insecure",
+      "https://user:pass@trusted.example/path",
+      "https://",
+    ]) {
+      const snapshot = materializeCoinGrowthSnapshot([{ ...base, officialWebsite }], {
+        generatedAt: "2026-08-21T00:00:00.000Z",
+        publishThreshold: 0,
+      });
+
+      assert.equal(snapshot.stats.publishedContent, 0, officialWebsite);
+      assert.equal(snapshot.rejected[0]?.reason, "official_source_invalid", officialWebsite);
+    }
+  });
+
+  it("pins the materialized official host and revalidates it when reading snapshots", () => {
+    const base = {
+      ...coinGrowthCandidates[0],
+      symbol: "PIN",
+      slug: "pinned-host-example",
+      name: "Pinned Host Example",
+      faName: "نمونه دامنه پین‌شده",
+      officialWebsite: "https://trusted.example/project",
+    };
+    const snapshot = materializeCoinGrowthSnapshot([base], {
+      generatedAt: "2026-08-21T00:00:00.000Z",
+      publishThreshold: 0,
+    });
+
+    assert.equal(snapshot.stats.publishedContent, 1);
+    assert.equal(snapshot.coins[0]?.automation.officialHost, "trusted.example");
+    assert.equal(readPublishedCoinGrowthPages(snapshot).length, 1);
+
+    const mutated = structuredClone(snapshot);
+    mutated.coins[0]!.automation.officialWebsite = "https://trusted.example.evil.test/phish";
+    assert.equal(readPublishedCoinGrowthPages(mutated).length, 0);
+
+    mutated.coins[0]!.automation.officialWebsite = "https://research.trusted.example/path";
+    assert.equal(readPublishedCoinGrowthPages(mutated).length, 1);
+
+    mutated.coins[0]!.automation.officialWebsite = "https://trusted.example@evil.test/phish";
+    assert.equal(readPublishedCoinGrowthPages(mutated).length, 0);
   });
 });
