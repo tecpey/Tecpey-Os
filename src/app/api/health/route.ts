@@ -81,14 +81,16 @@ export async function GET(request: Request) {
   if (redis.status === "unavailable") warnings.push("redis_unavailable: cannot reach Redis");
   if (email === "unconfigured" && isProduction) warnings.push("email_not_configured: transactional emails will not be delivered");
 
-  // Production must fail closed when a critical persistence/distributed-state
-  // dependency is unavailable or missing. Returning HTTP 200 in this state can
-  // keep an unhealthy instance behind a load balancer and route financial or
-  // authenticated traffic to it.
+  // Production must fail closed when a dependency required for a healthy
+  // promoted runtime is unavailable or missing. Transactional email is a
+  // production readiness dependency: preflight refuses an unusable provider,
+  // and the post-start health endpoint must make the same decision visible to
+  // Compose/load-balancer curl --fail probes rather than returning HTTP 200.
   const criticalDependencyFailure =
     db.status !== "ok" ||
     db.schema?.status !== "current" ||
     (isProduction && redis.status !== "ok") ||
+    (isProduction && email !== "configured") ||
     (isProduction && (runtime.phase !== "ready" || runtime.requiredWorkers === "starting"));
 
   const overall = criticalDependencyFailure
