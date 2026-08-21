@@ -105,14 +105,26 @@ test("rejects Scheduled Operational Recovery unless it is a governed dispatch", 
   assert.match(findings(value).join("\n"), /Scheduled Operational Recovery\.event/);
 });
 
-test("rejects a duplicate run URL across different workflows", () => {
+test("rejects a duplicate run ID across different workflows", () => {
   const value = fixture(2);
   const firstField = Object.keys(WORKFLOW_CONTRACT)[0];
   const secondField = Object.keys(WORKFLOW_CONTRACT)[1];
   value.workflowEvidence[secondField] = value.workflowEvidence[firstField];
   value.workflowRuns.find((run) => run.name === WORKFLOW_CONTRACT[secondField].name).runUrl =
     value.workflowEvidence[firstField];
-  assert.match(findings(value).join("\n"), /duplicate GitHub Actions run URL/);
+  assert.match(findings(value).join("\n"), /duplicate GitHub Actions run ID/);
+});
+
+test("rejects the same run ID disguised by a trailing slash", () => {
+  const value = fixture(2);
+  const fields = Object.keys(WORKFLOW_CONTRACT);
+  const firstField = fields[0];
+  const secondField = fields[1];
+  const sameRunWithSlash = `${value.workflowEvidence[firstField]}/`;
+  value.workflowEvidence[secondField] = sameRunWithSlash;
+  value.workflowRuns.find((run) => run.name === WORKFLOW_CONTRACT[secondField].name).runUrl =
+    sameRunWithSlash;
+  assert.match(findings(value).join("\n"), /duplicate GitHub Actions run ID/);
 });
 
 test("rejects a missing v2 operational recovery record", () => {

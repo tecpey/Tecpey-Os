@@ -1,4 +1,4 @@
-const RUN_URL = /^https:\/\/github\.com\/tecpey\/Tecpey-Os\/actions\/runs\/[1-9][0-9]*\/?$/;
+const RUN_URL = /^https:\/\/github\.com\/tecpey\/Tecpey-Os\/actions\/runs\/([1-9][0-9]*)\/?$/;
 
 export const WORKFLOW_CONTRACT = Object.freeze({
   ciRunUrl: { name: "CI", path: ".github/workflows/ci.yml", event: "push" },
@@ -37,8 +37,18 @@ function exactSet(findings, label, actual, expected) {
   }
 }
 
+export function governedRunId(value) {
+  if (typeof value !== "string") return null;
+  return RUN_URL.exec(value)?.[1] ?? null;
+}
+
+export function canonicalGovernedRunUrl(value) {
+  const runId = governedRunId(value);
+  return runId ? `https://github.com/tecpey/Tecpey-Os/actions/runs/${runId}` : null;
+}
+
 function requireRunUrl(findings, label, value) {
-  if (typeof value !== "string" || !RUN_URL.test(value)) {
+  if (!governedRunId(value)) {
     findings.push(`${label}: expected governed tecpey/Tecpey-Os GitHub Actions run URL`);
   }
 }
@@ -79,7 +89,7 @@ export function exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }) {
     expectedNames,
   );
 
-  const seenUrls = new Set();
+  const seenRunIds = new Set();
   for (const [field, contract] of Object.entries(WORKFLOW_CONTRACT)) {
     const value = evidence?.workflowEvidence?.[field];
     if (contract.v2Only && !v2) {
@@ -88,11 +98,12 @@ export function exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }) {
     }
 
     requireRunUrl(findings, `evidence.workflowEvidence.${field}`, value);
-    if (typeof value === "string") {
-      if (seenUrls.has(value)) {
-        findings.push(`evidence.workflowEvidence.${field}: duplicate GitHub Actions run URL`);
+    const runId = governedRunId(value);
+    if (runId) {
+      if (seenRunIds.has(runId)) {
+        findings.push(`evidence.workflowEvidence.${field}: duplicate GitHub Actions run ID ${runId}`);
       }
-      seenUrls.add(value);
+      seenRunIds.add(runId);
     }
 
     const matchingRuns = Array.isArray(runs)

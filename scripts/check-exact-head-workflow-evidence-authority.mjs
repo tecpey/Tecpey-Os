@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { exactHeadWorkflowEvidenceFindings } from "./exact-head-workflow-evidence-policy.mjs";
+import { exactHeadWorkflowEvidenceOriginFindings } from "./exact-head-workflow-evidence-origin.mjs";
 
 const files = {
   evidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
@@ -54,6 +55,13 @@ const [evidence, register, candidate, packet, checklist, packageJson] = await Pr
 
 const selectedSha = candidate.currentCandidate?.sha;
 failures.push(...exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }));
+failures.push(
+  ...(await exactHeadWorkflowEvidenceOriginFindings({
+    evidence,
+    selectedSha,
+    token: process.env.GITHUB_TOKEN,
+  })),
+);
 
 requireEqual("register.stagingEvidenceTargetSha", register.stagingEvidenceTargetSha, selectedSha);
 requireEqual("register.exactHeadWorkflowEvidence", register.exactHeadWorkflowEvidence, files.evidence);
