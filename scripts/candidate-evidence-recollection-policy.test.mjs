@@ -10,6 +10,7 @@ import {
 const oldSha = "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913";
 const newSha = "cbbdebe0b09801c314ed0b048c6ed19873d23300";
 const open = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const recollected = ["NOG-03", "NOG-04", "NOG-06"];
 const boundaries = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -17,6 +18,11 @@ const boundaries = [
   "white-label",
   "public rewards",
 ];
+const evidencePaths = {
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+};
 const requestPrivacy = [
   "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
   "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
@@ -41,6 +47,14 @@ const requiredBeforePromotion = [
   "record all newly accepted evidence using acceptance schema v2 with explicit exact-SHA workflow binding",
   "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
   "keep protected execution blocked until the aligned promotion state is CI-valid",
+];
+const promotionCompletedChecks = [
+  "exact-head workflow evidence schema v2 accepted for the selected SHA",
+  "runtime image digest evidence accepted for the selected SHA",
+  "rollback and volume-restore evidence accepted for the selected SHA",
+  "candidate and protected-staging lineage aligned to the selected SHA",
+  "remaining operational blockers remain open",
+  "real-money and expanded-scope launch boundaries remain disabled",
 ];
 
 function fixture() {
@@ -122,6 +136,27 @@ function fixture() {
   };
 }
 
+function promotedFixture() {
+  const value = fixture();
+  value.request.decision = "NO_GO_NOG_03_04_06_RECOLLECTED_AND_ACCEPTED";
+  value.request.protectedExecutionAllowed = true;
+  for (const blocker of recollected) {
+    value.request.requiredEvidence[blocker].status = "accepted_exact_selected_sha_evidence";
+  }
+  value.request.acceptedEvidence = recollected.map((id) => ({ id, evidence: evidencePaths[id] }));
+
+  value.promotionState.status = "promoted_exact_candidate_evidence";
+  value.promotionState.currentAcceptedCandidateSha = newSha;
+  value.promotionState.protectedExecutionAllowed = true;
+  value.promotionState.staleAcceptedEvidence = [];
+  value.promotionState.acceptedRecollectedEvidence = recollected.map((id) => ({
+    id,
+    evidence: evidencePaths[id],
+  }));
+  value.promotionState.promotionCompletedChecks = [...promotionCompletedChecks];
+  return value;
+}
+
 function canonicalGeneratedFiles() {
   return [
     "current-controlled-launch-candidate.json",
@@ -133,6 +168,10 @@ function canonicalGeneratedFiles() {
 
 test("accepts the exact fail-closed recollection contract", () => {
   assert.deepEqual(candidateEvidenceRecollectionFindings(fixture()), []);
+});
+
+test("accepts a terminal promoted state only with exact recollected evidence", () => {
+  assert.deepEqual(candidateEvidenceRecollectionFindings(promotedFixture()), []);
 });
 
 test("accepts exactly the canonical dated recollection files", () => {
@@ -190,6 +229,33 @@ test("rejects reopening protected execution during recollection", () => {
     candidateEvidenceRecollectionFindings(value).join("\n"),
     /protectedExecutionAllowed/,
   );
+});
+
+test("rejects a promoted state that leaves protected execution blocked", () => {
+  const value = promotedFixture();
+  value.promotionState.protectedExecutionAllowed = false;
+  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /protectedExecutionAllowed/);
+});
+
+test("rejects promoted evidence that is missing an accepted blocker", () => {
+  const value = promotedFixture();
+  value.request.acceptedEvidence.pop();
+  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /request\.acceptedEvidence/);
+});
+
+test("rejects promoted evidence path substitution", () => {
+  const value = promotedFixture();
+  value.promotionState.acceptedRecollectedEvidence[0].evidence = "docs/launch/generated/fake.json";
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /acceptedRecollectedEvidence\.NOG-03\.evidence/,
+  );
+});
+
+test("rejects promoted state without the full completion checklist", () => {
+  const value = promotedFixture();
+  value.promotionState.promotionCompletedChecks.pop();
+  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /promotionCompletedChecks/);
 });
 
 test("rejects silent removal of a launch-disabled boundary", () => {
