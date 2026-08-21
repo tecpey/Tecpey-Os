@@ -19,16 +19,18 @@ const EMAIL_INPUT_KEYS = [
 const SUPPLIED = "unit-test-value";
 
 type EmailValidatorInput = Partial<Record<(typeof EMAIL_INPUT_KEYS)[number], string>>;
+type TestNodeEnv = "development" | "production" | "test";
 
 function validatorRejects(
   values: EmailValidatorInput,
   requireLiveEmail = false,
+  nodeEnv: TestNodeEnv = "production",
 ): boolean {
   const childEnv = {
     ...process.env,
     ...Object.fromEntries(EMAIL_INPUT_KEYS.map((key) => [key, ""])),
     ...values,
-    NODE_ENV: "production",
+    NODE_ENV: nodeEnv,
     ALERT_WEBHOOK_URL: "",
   } as NodeJS.ProcessEnv;
   const child = spawnSync(
@@ -110,9 +112,28 @@ test("governed candidate preflight requires live email before candidate startup"
       `strict candidate gate must accept ${JSON.stringify(values)}`,
     );
   }
+
+  // Strict promotion semantics win even if the shell inherited a non-production
+  // NODE_ENV; this guards against a caller accidentally weakening the pre-start gate.
+  assert.equal(validatorRejects({ EMAIL_PROVIDER: "dev" }, true, "test"), true);
 });
 
-test("non-production keeps deliberate dev, none and unset postures without claiming live delivery", () => {
+test("generic validator preserves deliberate non-production modes", () => {
+  for (const values of [{}, { EMAIL_PROVIDER: "dev" }, { EMAIL_PROVIDER: "none" }]) {
+    assert.equal(
+      validatorRejects(values, false, "test"),
+      false,
+      `non-production env:check must preserve ${JSON.stringify(values)}`,
+    );
+  }
+  assert.equal(
+    validatorRejects({ EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" }, false, "development"),
+    true,
+    "placeholder live credentials remain invalid in every environment",
+  );
+});
+
+test("non-production readiness distinguishes simulation, disablement and default development", () => {
   assert.deepEqual(
     emailDeliveryReadiness({ NODE_ENV: "development", EMAIL_PROVIDER: "dev" }),
     {
