@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { emailDeliveryReadiness } from "../../lib/email";
 
@@ -16,13 +18,20 @@ const EMAIL_INPUT_KEYS = [
   "ALERT_WEBHOOK_URL",
 ] as const;
 const SUPPLIED = "unit-test-value";
+const VALIDATOR_PATH = resolve("scripts/validate-alert-webhook-env.ts");
+const NODE_MODULES_PATH = resolve("node_modules");
 
 type EmailValidatorInput = Partial<Record<(typeof EMAIL_INPUT_KEYS)[number], string>>;
 type TestNodeEnv = "development" | "production" | "test";
+type ValidatorRunOptions = {
+  cwd?: string;
+  validationSource?: "auto" | "process" | "project-production-file";
+};
 
 function runValidator(
   values: EmailValidatorInput,
   nodeEnv: TestNodeEnv = "production",
+  options: ValidatorRunOptions = {},
 ) {
   const childEnv = {
     ...process.env,
@@ -30,11 +39,13 @@ function runValidator(
     ...values,
     NODE_ENV: nodeEnv,
     ALERT_WEBHOOK_URL: "",
+    TECPEY_ENV_VALIDATION_SOURCE: options.validationSource ?? "",
   } as NodeJS.ProcessEnv;
   return spawnSync(
     process.execPath,
-    ["--import", "tsx", "scripts/validate-alert-webhook-env.ts"],
+    ["--import", "tsx", VALIDATOR_PATH],
     {
+      cwd: options.cwd ?? process.cwd(),
       encoding: "utf8",
       env: childEnv,
     },
@@ -44,8 +55,17 @@ function runValidator(
 function validatorRejects(
   values: EmailValidatorInput,
   nodeEnv: TestNodeEnv = "production",
+  options: ValidatorRunOptions = {},
 ): boolean {
-  return runValidator(values, nodeEnv).status !== 0;
+  return runValidator(values, nodeEnv, options).status !== 0;
+}
+
+function tempProject(t: test.TestContext, productionEnv: string): string {
+  const root = mkdtempSync(join(tmpdir(), "tecpey-email-env-authority-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  symlinkSync(NODE_MODULES_PATH, join(root, "node_modules"), "dir");
+  writeFileSync(join(root, ".env.production"), productionEnv, "utf8");
+  return root;
 }
 
 test("production env gate rejects every non-delivering email posture", () => {
@@ -142,15 +162,75 @@ test("unsupported provider input is redacted at the readiness boundary and in va
   assert.match(output, /provider=unsupported/);
 });
 
-test("production validator binds email decisions to .env.production rather than inherited shell values", () => {
-  const source = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
-  assert.match(source, /existsSync\(environmentPath\)/);
-  assert.match(source, /EMAIL_PROVIDER: file\.EMAIL_PROVIDER/);
-  assert.match(source, /RESEND_API_KEY: file\.RESEND_API_KEY/);
-  assert.match(source, /SENDGRID_API_KEY: file\.SENDGRID_API_KEY/);
-  assert.doesNotMatch(source, /EMAIL_PROVIDER: file\.EMAIL_PROVIDER\s*\?\?/);
-  assert.doesNotMatch(source, /RESEND_API_KEY: file\.RESEND_API_KEY\s*\?\?/);
-  assert.doesNotMatch(source, /SENDGRID_API_KEY: file\.SENDGRID_API_KEY\s*\?\?/);
+test("candidate file authority forces production and cannot be rescued by inherited shell credentials", (t) => {
+  const root = tempProject(
+    t,
+    [
+      "NODE_ENV=development",
+      "EMAIL_PROVIDER=none",
+      "",
+    ].join("\n"),
+  );
+  const child = runValidator(
+    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
+    "development",
+    { cwd: root, validationSource: "project-production-file" },
+  );
+  const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
+  assert.notEqual(child.status, 0, "candidate .env.production must be judged with production semantics");
+  assert.match(output, /disabled_provider_forbidden_in_production/);
+});
+
+test("explicit process authority wins over an unrelated local .env.production", async (t) => {
+  await t.test("selected protected env is rejected even when local file is live", (subtest) => {
+    const root = tempProject(
+      subtest,
+      [
+        "NODE_ENV=production",
+        "EMAIL_PROVIDER=resend",
+        `RESEND_API_KEY=${SUPPLIED}`,
+        "",
+      ].join("\n"),
+    );
+    const child = runValidator(
+      { EMAIL_PROVIDER: "none" },
+      "production",
+      { cwd: root, validationSource: "process" },
+    );
+    assert.notEqual(child.status, 0);
+  });
+
+  await t.test("selected protected env is accepted even when local file is stale", (subtest) => {
+    const root = tempProject(
+      subtest,
+      [
+        "NODE_ENV=production",
+        "EMAIL_PROVIDER=none",
+        "",
+      ].join("\n"),
+    );
+    const child = runValidator(
+      { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: SUPPLIED },
+      "production",
+      { cwd: root, validationSource: "process" },
+    );
+    assert.equal(child.status, 0, child.stderr);
+  });
+});
+
+test("governed callers pin production and staging source authority before env:check", () => {
+  const preflight = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
+  const collector = readFileSync("scripts/collect-protected-staging-env-evidence.mjs", "utf8");
+  const envGate = preflight.indexOf('"$SYSTEMD_NPM_BIN" run env:check');
+  const productionBinding = preflight.indexOf(
+    "NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file",
+  );
+  const parsedValues = collector.indexOf("...parsed.values");
+  const stagingBinding = collector.indexOf('TECPEY_ENV_VALIDATION_SOURCE: "process"');
+
+  assert.ok(productionBinding >= 0 && productionBinding < envGate);
+  assert.ok(parsedValues >= 0 && stagingBinding > parsedValues);
+  assert.match(collector, /NODE_ENV: "production"/);
 });
 
 test("host promotion binds pre-start and post-start readiness to email delivery", () => {
@@ -162,6 +242,7 @@ test("host promotion binds pre-start and post-start readiness to email delivery"
   assert.ok(envGate >= 0, "candidate preflight must run production env:check");
   assert.ok(build > envGate, "production env gate must run before build/start");
   assert.match(preflight, /body\.health !== "ok"/);
+  assert.match(preflight, /body\.checks\?\.email !== "configured"/);
   assert.match(healthRoute, /email_not_configured: transactional emails will not be delivered/);
   assert.match(
     healthRoute,
@@ -172,7 +253,7 @@ test("host promotion binds pre-start and post-start readiness to email delivery"
 
 test("validator consumes the runtime authority instead of re-implementing provider decisions", () => {
   const source = readFileSync("scripts/validate-alert-webhook-env.ts", "utf8");
-  assert.match(source, /emailDeliveryReadiness\(serviceEnv, serviceEnv\.NODE_ENV\)/);
+  assert.match(source, /emailDeliveryReadiness\(effectiveEnv, effectiveEnv\.NODE_ENV\)/);
   assert.doesNotMatch(source, /EMAIL_PROVIDER\s*===/);
   assert.doesNotMatch(source, /\[\s*["']resend["']\s*,\s*["']sendgrid["']/);
 });
