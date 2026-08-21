@@ -39,7 +39,7 @@ function runValidator(
     ...values,
     NODE_ENV: nodeEnv,
     ALERT_WEBHOOK_URL: "",
-    TECPEY_ENV_VALIDATION_SOURCE: options.validationSource ?? "",
+    ...(options.validationSource ? { TECPEY_ENV_VALIDATION_SOURCE: options.validationSource } : {}),
   } as NodeJS.ProcessEnv;
   return spawnSync(
     process.execPath,
@@ -225,11 +225,16 @@ test("governed callers pin production and staging source authority before env:ch
   const productionBinding = preflight.indexOf(
     "NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file",
   );
+  const inheritedClear = collector.indexOf("...clearedSelectedEnvironmentKeys()");
   const parsedValues = collector.indexOf("...parsed.values");
   const stagingBinding = collector.indexOf('TECPEY_ENV_VALIDATION_SOURCE: "process"');
+  const serviceManagerEnvironmentProbe = collector.indexOf('"--property=Environment"');
+  const serviceManagerBinding = collector.indexOf("TECPEY_ENV_VALIDATION_SOURCE=process");
 
   assert.ok(productionBinding >= 0 && productionBinding < envGate);
+  assert.ok(inheritedClear >= 0 && inheritedClear < parsedValues);
   assert.ok(parsedValues >= 0 && stagingBinding > parsedValues);
+  assert.ok(serviceManagerEnvironmentProbe >= 0 && serviceManagerBinding > serviceManagerEnvironmentProbe);
   assert.match(collector, /NODE_ENV: "production"/);
 });
 
