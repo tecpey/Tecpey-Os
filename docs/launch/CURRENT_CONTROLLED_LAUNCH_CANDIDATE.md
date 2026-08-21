@@ -54,6 +54,8 @@ NOG-03, NOG-04 and NOG-06 are accepted only for those exact-candidate properties
 | Accepted risks | Accepted-risk owner sign-off evidence for NOG-08 is still missing; `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` and `scripts/verify-accepted-risk-signoff-evidence.mjs` remain authoritative. |
 | Final approvals | The Go approval matrix in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` remains required for NOG-09 and must pass `scripts/verify-go-approval-matrix-evidence.mjs`. |
 
+The accepted-risk owner sign-off evidence remains missing for NOG-08; this ledger records the requirement only and does not treat owner approval as present.
+
 ## Disabled-scope authority
 
 Disabled-capability attestation evidence is accepted only for the controlled-launch disabled boundary. The **disabled-capability attestation for NOG-10/NOG-11/NOG-12** does not certify or enable those capabilities. **Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12** means real-money Exchange stays launch-disabled, custody/deposits/withdrawals stay product-disabled, and enterprise, white-label and public financial rewards stay disabled.
