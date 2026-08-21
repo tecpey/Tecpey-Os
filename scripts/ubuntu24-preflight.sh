@@ -98,7 +98,11 @@ read_baked_release_sha() {
 
 if [ "$VERIFICATION_PHASE" = "candidate" ]; then
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund
-  PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
+  # A governed candidate is production by authority, even if the candidate file
+  # accidentally omits NODE_ENV or contains a weaker value. Bind validation to
+  # this checkout's .env.production instead of inherited operator-shell values.
+  NODE_ENV=production TECPEY_ENV_VALIDATION_SOURCE=project-production-file \
+    PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run check
   TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" \
     PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build
@@ -142,6 +146,7 @@ for attempt in 1 2 3 4 5; do
         body.checks?.schema !== "current" ||
         body.checks?.redis !== "ok" ||
         body.checks?.runtime !== "ready" ||
+        body.checks?.email !== "configured" ||
         !["ready", "disabled"].includes(body.checks?.requiredWorkers)
       ) process.exit(1);
     ' "$health_payload"; then
