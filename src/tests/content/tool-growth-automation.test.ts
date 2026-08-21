@@ -4,6 +4,7 @@ import rawTools from "@/data/traderTools.json";
 import { toolGrowthCandidates, type ToolGrowthCandidate } from "@/data/toolGrowthCandidates";
 import {
   materializeToolGrowthSnapshot,
+  readPublishedToolGrowthRecords,
   scoreToolGrowthCandidate,
   slugifyToolName,
   type TraderToolRecord,
@@ -107,5 +108,33 @@ describe("tool growth automation", () => {
       assert.equal(snapshot.stats.publishedContent, 0, site);
       assert.equal(snapshot.rejected[0]?.reason, "official_source_domain_mismatch", site);
     }
+  });
+
+  it("revalidates official-domain integrity when reading a published snapshot", () => {
+    const base: ToolGrowthCandidate = {
+      ...toolGrowthCandidates[0],
+      name: "Snapshot Read Integrity Example",
+      domain: "trusted.example",
+      site: "https://research.trusted.example/path",
+      integrationRisk: "none",
+    };
+    const snapshot = materializeToolGrowthSnapshot([base], {
+      generatedAt: "2026-08-21T00:00:00.000Z",
+      publishThreshold: 0,
+    });
+
+    assert.equal(readPublishedToolGrowthRecords(snapshot).length, 1);
+
+    const tampered = structuredClone(snapshot);
+    tampered.tools[0].site = "https://trusted.example.evil.test/phish";
+    assert.equal(readPublishedToolGrowthRecords(tampered).length, 0);
+
+    const userinfo = structuredClone(snapshot);
+    userinfo.tools[0].site = "https://trusted.example@evil.test/phish";
+    assert.equal(readPublishedToolGrowthRecords(userinfo).length, 0);
+
+    const insecure = structuredClone(snapshot);
+    insecure.tools[0].site = "http://trusted.example/insecure";
+    assert.equal(readPublishedToolGrowthRecords(insecure).length, 0);
   });
 });

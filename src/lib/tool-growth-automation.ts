@@ -376,6 +376,7 @@ export function readPublishedToolGrowthRecords(snapshot: ToolGrowthSnapshot): Au
     (tool) =>
       tool.automation.status === "published_content" &&
       tool.automation.publishCapability === "educational_directory" &&
-      tool.automation.externalCapability === "manual_review_required",
+      tool.automation.externalCapability === "manual_review_required" &&
+      officialSiteMatchesDomain(tool.site, tool.domain),
   );
 }
