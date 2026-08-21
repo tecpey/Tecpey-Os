@@ -5,13 +5,42 @@ const root = process.cwd();
 const snapshotPath = path.join(root, "src/data/generated/coinGrowthSnapshot.json");
 const snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"));
 const errors = [];
+const LEGACY_HOST_PIN_GENERATED_AT = "2026-08-10T12:29:21.460Z";
 
 function fail(code) {
   errors.push(code);
 }
 
+function normalizeHost(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/\.$/, "");
+}
+
+function officialHostForUrl(value) {
+  try {
+    const url = new URL(String(value ?? ""));
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    const hostname = normalizeHost(url.hostname);
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+function officialWebsiteMatchesPinnedHost(website, pinnedHost) {
+  const hostname = officialHostForUrl(website);
+  const canonicalHost = normalizeHost(pinnedHost);
+  if (!hostname || !canonicalHost) return false;
+  return hostname === canonicalHost || hostname.endsWith(`.${canonicalHost}`);
+}
+
 if (snapshot.schemaVersion !== 1) fail("coin_growth_schema_version_invalid");
 if (snapshot.policyVersion !== "tecpey-coin-growth-policy-v1") fail("coin_growth_policy_version_invalid");
+if (snapshot.hostPinVersion !== undefined && snapshot.hostPinVersion !== 1) {
+  fail("coin_growth_host_pin_version_invalid");
+}
+if (snapshot.hostPinVersion === undefined && snapshot.generatedAt !== LEGACY_HOST_PIN_GENERATED_AT) {
+  fail("coin_growth_legacy_host_pin_snapshot_unrecognized");
+}
 if (snapshot.stats?.exchangeEnabled !== 0) fail("coin_growth_exchange_auto_enable_forbidden");
 if (!Array.isArray(snapshot.coins)) fail("coin_growth_coins_invalid");
 if (!Array.isArray(snapshot.rejected)) fail("coin_growth_rejected_invalid");
@@ -53,9 +82,18 @@ for (const coin of snapshot.coins ?? []) {
   if (coin.automation?.exchangeCapability !== "manual_review_required") {
     fail(`coin_growth_exchange_gate_invalid:${coin.symbol}`);
   }
-  if (!String(coin.automation?.officialWebsite ?? "").startsWith("https://")) {
-    fail(`coin_growth_official_source_missing:${coin.symbol}`);
+
+  const officialHost = officialHostForUrl(coin.automation?.officialWebsite);
+  if (!officialHost) fail(`coin_growth_official_source_invalid:${coin.symbol}`);
+
+  if (snapshot.hostPinVersion === 1) {
+    if (!normalizeHost(coin.automation?.officialHost)) {
+      fail(`coin_growth_official_host_missing:${coin.symbol}`);
+    } else if (!officialWebsiteMatchesPinnedHost(coin.automation?.officialWebsite, coin.automation?.officialHost)) {
+      fail(`coin_growth_official_host_mismatch:${coin.symbol}`);
+    }
   }
+
   if (!Array.isArray(coin.useCases) || coin.useCases.length < 2) fail(`coin_growth_use_cases_missing:${coin.symbol}`);
   if (!Array.isArray(coin.risks) || coin.risks.length < 2) fail(`coin_growth_risks_missing:${coin.symbol}`);
   if (!Array.isArray(coin.faqs) || coin.faqs.length < 2) fail(`coin_growth_faqs_missing:${coin.symbol}`);
