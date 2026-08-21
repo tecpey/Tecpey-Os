@@ -4,26 +4,26 @@
 
 **Current accepted candidate with historical exact-candidate evidence:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
 
-**Current exact main / proposed next candidate:** `87592ef2d985ca7a5e4e4809ed821bfd12b0f515`
+**Current exact main / proposed next candidate:** `0ec1468d90869401cea8ccb2b9271de14f228792`
 
-**Proposed candidate source:** `main` after PR #518
+**Proposed candidate source:** `main` after PR #521
 
 **Protected execution during promotion:** blocked
 
-The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability and alert-delivery changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected.
+The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability, alert-delivery and production-email readiness changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected.
 
 ## Two-phase fail-closed promotion
 
 Phase 1 installed the machine-readable promotion guard and blocked protected execution while preserving historical evidence binding to the old candidate.
 
-Phase 2 now targets the exact post-PR #518 main commit `87592ef2d985ca7a5e4e4809ed821bfd12b0f515`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
+Phase 2 now targets the exact post-PR #521 main commit `0ec1468d90869401cea8ccb2b9271de14f228792`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
 
 The human/JSON candidate ledger and protected-staging target may move only after genuine exact-head workflow, runtime-image and rollback/volume-restore evidence exists for the proposed SHA and all authority checks pass.
 
 ## Required implementation
 
 1. Re-read `main` immediately before final promotion. If Claude or another agent advances runtime/deployment/security/bundle/launch-control behavior, refresh the proposed SHA first.
-2. Recollect genuine exact-head workflow evidence for `87592ef2d985ca7a5e4e4809ed821bfd12b0f515` before NOG-04 can be accepted there.
+2. Recollect genuine exact-head workflow evidence for `0ec1468d90869401cea8ccb2b9271de14f228792` before NOG-04 can be accepted there.
 3. Recollect genuine runtime image digest evidence for the same exact SHA before NOG-03 can be accepted there.
 4. Recollect genuine rollback/volume-restore evidence for the same exact SHA before NOG-06 can be accepted there.
 5. Only after 2-4, atomically align the human and machine-readable candidate ledgers, protected-staging activation runbook, protected-staging evidence request and No-Go register to the same exact SHA.
@@ -34,7 +34,7 @@ The human/JSON candidate ledger and protected-staging target may move only after
 
 ## Evidence truth boundary
 
-The PR-head evidence from PR #518 (`6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c`) is useful validation of the code change, but it is not exact-candidate evidence for the squash-merge commit `87592ef2d985ca7a5e4e4809ed821bfd12b0f515` and must not be substituted for it.
+The PR-head evidence from PR #518 (`6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c`) and PR #521 (`6145c03bdee9da4d06b781175a60b63d38cba568`) is useful validation of those code changes, but it is not exact-candidate evidence for the squash-merge commit `0ec1468d90869401cea8ccb2b9271de14f228792` and must not be substituted for it.
 
 Likewise, historical accepted evidence attached to `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` remains historical and must not be relabelled.
 
