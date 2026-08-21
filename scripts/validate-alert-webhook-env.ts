@@ -8,7 +8,6 @@ import { emailDeliveryReadiness } from "../src/lib/email";
 // preflight and runtime cannot drift independently.
 loadEnvConfig(process.cwd(), false);
 
-const requireLiveEmail = process.argv.includes("--require-live-email");
 let failed = false;
 
 const alertStatus = alertWebhookStatus(process.env.ALERT_WEBHOOK_URL, "production");
@@ -22,21 +21,20 @@ if (alertStatus === "misconfigured") {
   console.log(`TecPey alert webhook validation passed (${alertStatus}).`);
 }
 
-// Generic env:check follows the process environment so deliberate dev/none modes
-// remain valid outside production. The governed candidate preflight opts into the
-// stricter production contract with --require-live-email before any candidate is
-// built or started.
-const emailEnvironment = requireLiveEmail ? "production" : process.env.NODE_ENV;
-const emailStatus = emailDeliveryReadiness(process.env, emailEnvironment);
+// Production env:check is itself the pre-start launch boundary. It must never
+// approve a candidate whose runtime will report transactional email unavailable.
+// Non-production keeps deliberate dev/none/unset postures for local/test use.
+const emailStatus = emailDeliveryReadiness(process.env, process.env.NODE_ENV);
+const isProduction = (process.env.NODE_ENV ?? "").trim().toLowerCase() === "production";
 const emailMustFail =
   emailStatus.status === "misconfigured" ||
-  (requireLiveEmail && emailStatus.status !== "configured");
+  (isProduction && emailStatus.status !== "configured");
 
 if (emailMustFail) {
   console.error(
     `TecPey email delivery validation failed: status=${emailStatus.status}; ` +
       `provider=${emailStatus.provider ?? "unset"}; reason=${emailStatus.reason ?? "none"}. ` +
-      "Production promotion requires resend or sendgrid with a usable non-placeholder credential.",
+      "Production requires resend or sendgrid with a usable non-placeholder credential.",
   );
   failed = true;
 } else {
