@@ -161,6 +161,27 @@ for (let i = 0; i < signingSecrets.length; i += 1) {
   }
 }
 
+// ERROR_TRACKING_PROVIDER names a provider, which is not the same as one that can
+// deliver. "sentry" is accepted by the runtime but its capture function is a stub
+// that forwards nothing, so setting it produced local logs while /api/health
+// reported error tracking as "configured" — and the deployment contract routes
+// traffic on that response. Reject the inert selection here, at the boundary that
+// runs before anything is deployed, rather than discovering it during an incident.
+const ERROR_TRACKING_UNIMPLEMENTED = ['sentry'];
+const errorTrackingProvider = process.env.ERROR_TRACKING_PROVIDER?.trim().toLowerCase();
+if (errorTrackingProvider) {
+  if (!['sentry', 'betterstack'].includes(errorTrackingProvider)) {
+    errors.push('ERROR_TRACKING_PROVIDER must be sentry or betterstack when set');
+  } else if (ERROR_TRACKING_UNIMPLEMENTED.includes(errorTrackingProvider)) {
+    errors.push(
+      `ERROR_TRACKING_PROVIDER=${errorTrackingProvider} is not implemented and forwards nothing: ` +
+        'install and initialise the provider SDK, or use betterstack',
+    );
+  } else if (errorTrackingProvider === 'betterstack' && !process.env.BETTERSTACK_SOURCE_TOKEN?.trim()) {
+    errors.push('ERROR_TRACKING_PROVIDER=betterstack requires BETTERSTACK_SOURCE_TOKEN');
+  }
+}
+
 const trustedProxyHeader = process.env.TECPEY_TRUSTED_PROXY_HEADER?.trim().toLowerCase();
 if (trustedProxyHeader && !['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'].includes(trustedProxyHeader)) {
   errors.push('TECPEY_TRUSTED_PROXY_HEADER must be cf-connecting-ip, x-real-ip or x-forwarded-for');
