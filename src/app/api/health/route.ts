@@ -3,6 +3,7 @@ import { isEmailConfigured } from "@/lib/email";
 import { checkDbHealth } from "@/lib/db";
 import { getAllFlags } from "@/lib/feature-flags";
 import { errorTrackingStatus } from "@/lib/error-tracking";
+import { alertWebhookStatus } from "@/lib/alerts";
 import { emitAlert } from "@/lib/alerts";
 import { getRedisPubSub } from "@/lib/redis-pubsub";
 import { getRuntimeReadiness } from "@/lib/runtime-readiness";
@@ -146,7 +147,7 @@ export async function GET(request: Request) {
     featureFlags: flags,
     observability: {
       errorTracking: errorTrackingStatus(),
-      alertWebhook: process.env.ALERT_WEBHOOK_URL ? "configured" : "unconfigured",
+      alertWebhook: alertWebhookStatus(),
     },
     ...(warnings.length > 0 ? { warnings } : {}),
   }, criticalDependencyFailure ? 503 : 200, { "Cache-Control": "no-store, max-age=0" });
