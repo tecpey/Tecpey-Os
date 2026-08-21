@@ -19,3 +19,7 @@ The previous candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after
 ## Parallel-safety rule
 
 Claude or another agent may advance `main` while this work is in progress. Re-read `main` immediately before any final promotion commit. If runtime, deployment, security, bundle or launch-control behavior changed, target the newer stable exact SHA rather than this checkpoint SHA.
+
+## Evidence truth boundary
+
+This checkpoint intentionally does not modify `current-controlled-launch-candidate.json` yet. Promotion is blocked until the repository can either attach genuine exact-head evidence for the new candidate or represent NOG-03/NOG-04/NOG-06 as pending without weakening their authority checks. This prevents a mechanically consistent but evidentially false release ledger.
