@@ -18,7 +18,12 @@ type Provider = "sentry" | "betterstack" | "none";
 const UNIMPLEMENTED_PROVIDERS: readonly Provider[] = ["sentry"];
 
 function getProvider(): Provider {
-  const val = (process.env.ERROR_TRACKING_PROVIDER ?? "").toLowerCase();
+  // Trim as well as lowercase, and trim in exactly the way the environment
+  // contract does. A quoted .env value like " betterstack " used to pass
+  // validation and then resolve to "none" at runtime — the deployment check going
+  // green while the process forwarded nothing, which is the same class of lie
+  // this module exists to remove.
+  const val = (process.env.ERROR_TRACKING_PROVIDER ?? "").trim().toLowerCase();
   if (val === "sentry" || val === "betterstack") return val as Provider;
   return "none";
 }

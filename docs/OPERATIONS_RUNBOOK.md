@@ -24,7 +24,7 @@ Before any production deployment, verify:
 | `RESEND_API_KEY` | If `EMAIL_PROVIDER=resend` | Resend.com API key |
 | `TECPEY_BUILD_COMMIT_SHA` | **Build only** | Exact Git SHA baked into the compiled artifact; never set through runtime EnvironmentFile |
 | `NEXT_PUBLIC_BUILD_VERSION` | Recommended | Semver/build number |
-| `ERROR_TRACKING_PROVIDER` | Recommended | `betterstack` or `sentry` |
+| `ERROR_TRACKING_PROVIDER` | Recommended | `betterstack` only. `sentry` is declared but not implemented — its capture path forwards nothing, so `npm run env:check` rejects it. Requires `BETTERSTACK_SOURCE_TOKEN`. |
 | `ALERT_WEBHOOK_URL` | Recommended | Legacy application alert webhook for health alerts |
 | `TECPEY_OPS_ALERT_WEBHOOK_URL` | **Controlled launch required** | Approved ops alert webhook used by staging scheduler and alert delivery drills |
 
@@ -47,7 +47,7 @@ curl -s https://tecpey.ir/api/health | jq '.checks, .warnings'
 - [ ] `NEXT_PUBLIC_SITE_URL` is `https://` (triggers `Secure` cookie flag)
 - [ ] CSP headers present — check `Content-Security-Policy` in response
 - [ ] `X-Frame-Options: DENY` in response headers
-- [ ] Error tracking configured (`ERROR_TRACKING_PROVIDER=betterstack` or `sentry`)
+- [ ] Error tracking configured (`ERROR_TRACKING_PROVIDER=betterstack` with `BETTERSTACK_SOURCE_TOKEN`; `sentry` is not implemented and is rejected by preflight)
 - [ ] Alert webhook configured (`ALERT_WEBHOOK_URL`)
 - [ ] Ops alert webhook configured and probe-tested (`TECPEY_OPS_ALERT_WEBHOOK_URL`)
 - [ ] Immutable build commit is baked by the governed build (`TECPEY_BUILD_COMMIT_SHA`)

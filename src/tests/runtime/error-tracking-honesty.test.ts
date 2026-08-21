@@ -81,3 +81,38 @@ test("the health route reports the three-state status, not a boolean", () => {
     "health must not collapse an inert provider back into a configured/unconfigured boolean",
   );
 });
+
+test("a non-canonical provider value resolves the same way everywhere", () => {
+  // A quoted .env value like " betterstack " used to pass the environment
+  // contract, which trims, and then resolve to "none" at runtime, which did not.
+  // The deployment check went green while the process forwarded nothing — the
+  // same class of lie this module exists to remove, one layer down.
+  withProvider(" betterstack ", () => {
+    assert.equal(errorTrackingStatus(), "configured");
+    assert.equal(isErrorTrackingConfigured(), true);
+  });
+  withProvider("  SENTRY  ", () => {
+    assert.equal(errorTrackingStatus(), "misconfigured");
+    assert.throws(
+      () => assertErrorTrackingProviderOperational(),
+      /error_tracking_provider_not_implemented:sentry/,
+    );
+  });
+});
+
+test("the operator runbook does not recommend a provider preflight rejects", () => {
+  // An operator following the runbook must not be sent into a configuration the
+  // governed preflight refuses. Documentation that contradicts an enforced gate
+  // wastes an incident-time hour finding out.
+  const runbook = readFileSync("docs/OPERATIONS_RUNBOOK.md", "utf8");
+  const providerLines = runbook
+    .split("\n")
+    .filter((line) => line.includes("ERROR_TRACKING_PROVIDER"));
+  assert.ok(providerLines.length > 0, "the runbook must document the provider setting");
+  for (const line of providerLines) {
+    assert.ok(
+      !/`sentry`(?!.*(not implemented|reject))/i.test(line),
+      `the runbook still offers sentry as a usable value: ${line}`,
+    );
+  }
+});
