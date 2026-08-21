@@ -20,27 +20,10 @@ on:
       - scripts/exact-head-workflow-evidence-origin.mjs
       - scripts/exact-head-workflow-evidence-origin.test.mjs
       - scripts/check-exact-head-workflow-evidence-authority.mjs
+      - scripts/check-controlled-launch-candidate-lineage.mjs
       - .github/workflows/candidate-evidence-recollection-authority.yml
   push:
     branches: [main]
-    paths:
-      - docs/launch/generated/candidate-evidence-recollection-request-*.json
-      - docs/launch/generated/candidate-promotion-state-*.json
-      - docs/launch/generated/exact-head-workflow-evidence-*.json
-      - docs/launch/generated/current-controlled-launch-candidate.json
-      - docs/launch/generated/protected-staging-no-go-register-*.json
-      - docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_*.md
-      - docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md
-      - package.json
-      - scripts/candidate-evidence-recollection-policy.mjs
-      - scripts/candidate-evidence-recollection-policy.test.mjs
-      - scripts/check-candidate-evidence-recollection-authority.mjs
-      - scripts/exact-head-workflow-evidence-policy.mjs
-      - scripts/exact-head-workflow-evidence-policy.test.mjs
-      - scripts/exact-head-workflow-evidence-origin.mjs
-      - scripts/exact-head-workflow-evidence-origin.test.mjs
-      - scripts/check-exact-head-workflow-evidence-authority.mjs
-      - .github/workflows/candidate-evidence-recollection-authority.yml
 
 permissions:
   contents: read
@@ -83,10 +66,9 @@ jobs:
         run: node scripts/check-exact-head-workflow-evidence-authority.mjs
 
   evidence-discovery:
-    name: Temporary exact-main evidence discovery
-    if: ${{ github.event_name == 'pull_request' }}
+    name: Governed exact-main evidence discovery
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: write
@@ -94,13 +76,15 @@ jobs:
       - name: Checkout exact source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Discover governed runs and dispatch exact-main operational recovery if missing
         env:
           GITHUB_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
           node --input-type=module <<'NODE'
           import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -108,7 +92,7 @@ jobs:
           const request = JSON.parse(
             await readFile("docs/launch/generated/candidate-evidence-recollection-request-20260821.json", "utf8"),
           );
-          const selectedSha = request.selectedSha;
+          const selectedSha = process.env.EVENT_NAME === "push" ? process.env.PUSH_SHA : request.selectedSha;
           const repository = process.env.REPOSITORY;
           const token = process.env.GITHUB_TOKEN;
           const api = "https://api.github.com";
@@ -156,15 +140,22 @@ jobs:
             return page.workflow_runs ?? [];
           }
 
+          function matchingRuns(allRuns, name, expected) {
+            return allRuns
+              .filter(
+                (run) =>
+                  run.name === name &&
+                  run.path === expected.path &&
+                  run.event === expected.event &&
+                  run.head_sha === selectedSha &&
+                  run.head_branch === "main",
+              )
+              .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+          }
+
           let allRuns = await listRuns();
-          let recovery = allRuns.find(
-            (run) =>
-              run.name === "Scheduled Operational Recovery" &&
-              run.path === ".github/workflows/operational-recovery.yml" &&
-              run.event === "workflow_dispatch" &&
-              run.head_sha === selectedSha &&
-              run.head_branch === "main",
-          );
+          const recoveryContract = contract.get("Scheduled Operational Recovery");
+          let recovery = matchingRuns(allRuns, "Scheduled Operational Recovery", recoveryContract)[0] ?? null;
           let dispatchedRecovery = false;
 
           if (!recovery) {
@@ -174,64 +165,75 @@ jobs:
               headers: { "Content-Type": "application/json" },
             });
             dispatchedRecovery = true;
-            for (let attempt = 0; attempt < 12 && !recovery; attempt += 1) {
-              await new Promise((resolve) => setTimeout(resolve, 5000));
-              allRuns = await listRuns();
-              recovery = allRuns.find(
-                (run) =>
-                  run.name === "Scheduled Operational Recovery" &&
-                  run.path === ".github/workflows/operational-recovery.yml" &&
-                  run.event === "workflow_dispatch" &&
-                  run.head_sha === selectedSha &&
-                  run.head_branch === "main",
-              );
-            }
-            if (!recovery) {
-              throw new Error("workflow_dispatch was accepted but exact-main recovery run did not appear within 60 seconds");
-            }
           }
 
-          const selectedRuns = [];
-          for (const [name, expected] of contract) {
-            const matches = allRuns.filter(
-              (run) =>
-                run.name === name &&
-                run.path === expected.path &&
-                run.event === expected.event &&
-                run.head_sha === selectedSha &&
-                run.head_branch === "main",
-            );
-            matches.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
-            const run = matches[0] ?? null;
-            selectedRuns.push({
-              name,
-              expectedPath: expected.path,
-              expectedEvent: expected.event,
-              matchCount: matches.length,
-              run: run
-                ? {
-                    id: run.id,
-                    runNumber: run.run_number,
-                    event: run.event,
-                    status: run.status,
-                    conclusion: run.conclusion,
-                    workflowPath: run.path,
-                    headSha: run.head_sha,
-                    headBranch: run.head_branch,
-                    runUrl: run.html_url,
-                    createdAt: run.created_at,
-                    updatedAt: run.updated_at,
-                  }
-                : null,
+          let selectedRuns = [];
+          let allComplete = false;
+          for (let attempt = 0; attempt < 144 && !allComplete; attempt += 1) {
+            if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 5000));
+            allRuns = await listRuns();
+            selectedRuns = [...contract].map(([name, expected]) => {
+              const matches = matchingRuns(allRuns, name, expected);
+              const run = matches[0] ?? null;
+              return { name, expected, matches, run };
             });
+            allComplete = selectedRuns.every(
+              ({ run }) => run?.status === "completed" && typeof run?.conclusion === "string",
+            );
           }
 
-          const container = selectedRuns.find((entry) => entry.name === "Container Supply Chain")?.run;
-          let containerArtifacts = [];
-          let containerJobs = [];
-          if (container) {
-            const artifacts = await gh(`/repos/${repository}/actions/runs/${container.id}/artifacts?per_page=100`);
-            containerArtifacts = (artifacts.artifacts ?? []).map((artifact) => ({
+          const missing = selectedRuns.filter(({ run }) => !run).map(({ name }) => name);
+          if (missing.length > 0) {
+            throw new Error(`missing exact-main governed workflow runs: ${missing.join(", ")}`);
+          }
+          const unfinished = selectedRuns
+            .filter(({ run }) => run.status !== "completed")
+            .map(({ name, run }) => `${name}:${run.status}`);
+          if (unfinished.length > 0) {
+            throw new Error(`exact-main governed workflows did not complete in time: ${unfinished.join(", ")}`);
+          }
+          const unsuccessful = selectedRuns
+            .filter(({ run }) => run.conclusion !== "success")
+            .map(({ name, run }) => `${name}:${run.conclusion}`);
+          if (unsuccessful.length > 0) {
+            throw new Error(`exact-main governed workflows were not successful: ${unsuccessful.join(", ")}`);
+          }
+
+          const normalizedRuns = selectedRuns.map(({ name, expected, matches, run }) => ({
+            name,
+            expectedPath: expected.path,
+            expectedEvent: expected.event,
+            matchCount: matches.length,
+            run: {
+              id: run.id,
+              runNumber: run.run_number,
+              runAttempt: run.run_attempt,
+              event: run.event,
+              status: run.status,
+              conclusion: run.conclusion,
+              workflowPath: run.path,
+              headSha: run.head_sha,
+              headBranch: run.head_branch,
+              runUrl: run.html_url,
+              createdAt: run.created_at,
+              updatedAt: run.updated_at,
+            },
+          }));
+
+          const container = normalizedRuns.find((entry) => entry.name === "Container Supply Chain")?.run;
+          const recoveryRun = normalizedRuns.find((entry) => entry.name === "Scheduled Operational Recovery")?.run;
+
+          const containerArtifactsPage = await gh(
+            `/repos/${repository}/actions/runs/${container.id}/artifacts?per_page=100`,
+          );
+          const containerJobsPage = await gh(`/repos/${repository}/actions/runs/${container.id}/jobs?per_page=100`);
+          const recoveryArtifactsPage = await gh(
+            `/repos/${repository}/actions/runs/${recoveryRun.id}/artifacts?per_page=100`,
+          );
+          const recoveryJobsPage = await gh(`/repos/${repository}/actions/runs/${recoveryRun.id}/jobs?per_page=100`);
+
+          const normalizeArtifacts = (artifacts) =>
+            artifacts.map((artifact) => ({
               id: artifact.id,
               name: artifact.name,
               sizeInBytes: artifact.size_in_bytes,
@@ -240,8 +242,8 @@ jobs:
               expiresAt: artifact.expires_at,
               digest: artifact.digest ?? null,
             }));
-            const jobs = await gh(`/repos/${repository}/actions/runs/${container.id}/jobs?per_page=100`);
-            containerJobs = (jobs.jobs ?? []).map((job) => ({
+          const normalizeJobs = (jobs) =>
+            jobs.map((job) => ({
               id: job.id,
               name: job.name,
               status: job.status,
@@ -249,40 +251,20 @@ jobs:
               startedAt: job.started_at,
               completedAt: job.completed_at,
             }));
-          }
-
-          const recoveryArtifacts = await gh(
-            `/repos/${repository}/actions/runs/${recovery.id}/artifacts?per_page=100`,
-          );
-          const recoveryJobs = await gh(`/repos/${repository}/actions/runs/${recovery.id}/jobs?per_page=100`);
 
           const output = {
             schemaVersion: 1,
-            evidenceClass: "temporary-exact-main-run-discovery",
+            evidenceClass: "governed-exact-main-run-discovery",
             selectedSha,
             verifiedMainHead: branch.commit.sha,
+            sourceEvent: process.env.EVENT_NAME,
             dispatchedRecovery,
             generatedAt: new Date().toISOString(),
-            selectedRuns,
-            containerArtifacts,
-            containerJobs,
-            recoveryArtifacts: (recoveryArtifacts.artifacts ?? []).map((artifact) => ({
-              id: artifact.id,
-              name: artifact.name,
-              sizeInBytes: artifact.size_in_bytes,
-              expired: artifact.expired,
-              createdAt: artifact.created_at,
-              expiresAt: artifact.expires_at,
-              digest: artifact.digest ?? null,
-            })),
-            recoveryJobs: (recoveryJobs.jobs ?? []).map((job) => ({
-              id: job.id,
-              name: job.name,
-              status: job.status,
-              conclusion: job.conclusion,
-              startedAt: job.started_at,
-              completedAt: job.completed_at,
-            })),
+            selectedRuns: normalizedRuns,
+            containerArtifacts: normalizeArtifacts(containerArtifactsPage.artifacts ?? []),
+            containerJobs: normalizeJobs(containerJobsPage.jobs ?? []),
+            recoveryArtifacts: normalizeArtifacts(recoveryArtifactsPage.artifacts ?? []),
+            recoveryJobs: normalizeJobs(recoveryJobsPage.jobs ?? []),
           };
 
           await mkdir("artifacts/exact-main-run-discovery", { recursive: true });
@@ -291,11 +273,17 @@ jobs:
             `${JSON.stringify(output, null, 2)}\n`,
             "utf8",
           );
-          console.log(JSON.stringify({
-            selectedSha,
-            dispatchedRecovery,
-            governedRunIds: selectedRuns.map((entry) => [entry.name, entry.run?.id ?? null]),
-          }, null, 2));
+          console.log(
+            JSON.stringify(
+              {
+                selectedSha,
+                dispatchedRecovery,
+                governedRunIds: normalizedRuns.map((entry) => [entry.name, entry.run.id]),
+              },
+              null,
+              2,
+            ),
+          );
           NODE
 
       - name: Upload bounded exact-main run discovery
@@ -304,4 +292,4 @@ jobs:
           name: exact-main-run-discovery-${{ github.run_id }}
           path: artifacts/exact-main-run-discovery/discovery.json
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
