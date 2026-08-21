@@ -122,6 +122,12 @@ test("a legacy campaign is withheld from a principal without marketing consent",
     const campaign = await migratedRow(client, seeded.principalId, seeded.campaignId);
     assert.ok(campaign, "the campaign row must still be written so it cannot be reprocessed forever");
     assert.equal(campaign.notification_class, "marketing_campaign");
+    // The decision must be the one the governed policy actually returns. Before
+    // migration 0086 the inbox CHECK had no 'suppress', so the drain recorded
+    // 'defer' — which reads as "will be delivered later" rather than "withheld
+    // by policy", the same reason string meaning two different things depending
+    // on which table you read.
+    assert.equal(campaign.policy_decision, "suppress");
     assert.equal(campaign.policy_reason, "marketing_consent_required");
     assert.equal(
       campaign.delivered_at,
@@ -216,6 +222,7 @@ test("the latest consent event wins, so a revocation re-closes the gate", async 
     const campaign = await migratedRow(client, seeded.principalId, seeded.campaignId);
     assert.ok(campaign);
     assert.equal(campaign.delivered_at, null, "a revoked consent must withhold the campaign");
+    assert.equal(campaign.policy_decision, "suppress");
     assert.equal(campaign.policy_reason, "marketing_consent_required");
   });
 });
