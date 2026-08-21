@@ -32,6 +32,7 @@ import {
   resolveSensitiveAuditCorrelation,
 } from "@/lib/security/sensitive-mutation-audit";
 import { resolveTenantPrincipalContext } from "@/lib/security/tenant-principal-context";
+import { requireFeature } from "@/lib/route-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -365,6 +366,14 @@ export async function PATCH(req: NextRequest) {
     req,
     { route: "/api/community/profile PATCH" },
     async () => {
+      // SB-016: a flag that is only read for display is not a control. This route
+      // mutates community profile, journal-challenge and reputation-consent state,
+      // so the flag that owns the surface is enforced here rather than merely
+      // reported. community.enabled defaults on because the surface ships today —
+      // the refusal exists so switching it off actually closes the route.
+      const communityGate = requireFeature("community.enabled");
+      if (communityGate) return noStore(communityGate);
+
       if (!await verifyCsrfOrigin(req)) return noStore(apiError("forbidden", 403));
       const session = await getCanonicalSession(req, { strictRevocation: true });
       if (!session.studentId) {

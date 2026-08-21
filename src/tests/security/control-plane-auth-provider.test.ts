@@ -18,6 +18,7 @@ const LAUNCH_SAFE_FLAGS: Record<FeatureFlag, boolean> = {
   "academy.enabled": true,
   "exchange.enabled": false,
   "social.enabled": false,
+  "community.enabled": true,
   "mentor.enabled": true,
   "future.marketplace.enabled": false,
 };
@@ -25,6 +26,7 @@ const LAUNCH_SAFE_FLAGS: Record<FeatureFlag, boolean> = {
 const SOCIAL_LOGIN_REVIEW_FLAGS: Record<FeatureFlag, boolean> = {
   ...LAUNCH_SAFE_FLAGS,
   "social.enabled": true,
+  "community.enabled": true,
 };
 
 const COMPLETE_EVIDENCE: Record<AuthProviderEvidenceGateId, boolean> = {

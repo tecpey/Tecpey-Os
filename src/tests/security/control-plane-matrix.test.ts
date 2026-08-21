@@ -10,6 +10,7 @@ const LAUNCH_SAFE_FLAGS: Record<FeatureFlag, boolean> = {
   "academy.enabled": true,
   "exchange.enabled": false,
   "social.enabled": false,
+  "community.enabled": true,
   "mentor.enabled": true,
   "future.marketplace.enabled": false,
 };

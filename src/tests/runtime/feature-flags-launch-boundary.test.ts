@@ -7,6 +7,7 @@ const FLAG_ENV = [
   "FEATURE_ACADEMY_ENABLED",
   "FEATURE_EXCHANGE_ENABLED",
   "FEATURE_SOCIAL_ENABLED",
+  "FEATURE_COMMUNITY_ENABLED",
   "FEATURE_MENTOR_ENABLED",
   "FEATURE_MARKETPLACE_ENABLED",
 ];
@@ -42,6 +43,10 @@ describe("controlled launch feature flags", () => {
       "academy.enabled": true,
       "exchange.enabled": false,
       "social.enabled": false,
+      // Community profiles and journals ship today, so the launch-safe snapshot
+      // reports this on. It is enforced at PATCH /api/community/profile, which
+      // makes switching it off a real refusal rather than a display change.
+      "community.enabled": true,
       "mentor.enabled": true,
       "future.marketplace.enabled": false,
     });
