@@ -19,7 +19,7 @@ import {
   getCustodyLaunchStatus,
 } from "./src/lib/wallet/custody-launch-policy";
 import { assertDatabaseReadyForRuntime } from "./src/lib/db";
-import { setRuntimeReadiness } from "./src/lib/runtime-readiness";
+import { requiredWorkerReadiness, setRuntimeReadiness } from "./src/lib/runtime-readiness";
 import { drainRuntime } from "./src/lib/runtime-shutdown";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
@@ -186,7 +186,12 @@ async function main(): Promise<void> {
 
   setRuntimeReadiness({
     phase: "ready",
-    requiredWorkers: custodyStatus.workerEnabled ? "ready" : "disabled",
+    // Read from the module handle, which is assigned only after the workers
+    // actually started, rather than from the flag that merely asks for them.
+    requiredWorkers: requiredWorkerReadiness(
+      custodyStatus.workerEnabled,
+      withdrawalWorkers !== null,
+    ),
   });
   await listen();
   const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
