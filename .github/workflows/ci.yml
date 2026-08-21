@@ -94,6 +94,12 @@ jobs:
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
       REDIS_URL: redis://localhost:6379
+      # A production contract without a delivering email provider is not a
+      # production contract: /api/health reports degraded and the promotion loop
+      # refuses the candidate. Nothing here sends mail — the value only has to be
+      # a key the environment contract accepts.
+      EMAIL_PROVIDER: resend
+      RESEND_API_KEY: ci-not-a-real-key
 
     steps:
       - name: Checkout

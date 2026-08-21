@@ -19,12 +19,20 @@ const ORIGINAL = Object.fromEntries(EMAIL_KEYS.map((k) => [k, process.env[k]]));
 const SUPPLIED = "unit-test-value";
 
 /** The preflight's email verdict, read from its own output rather than re-derived. */
-function preflightRejects(env: Partial<Record<(typeof EMAIL_KEYS)[number], string>>): boolean {
+function preflightRejects(
+  env: Partial<Record<(typeof EMAIL_KEYS)[number], string>>,
+  nodeEnv = "development",
+): boolean {
   const child = spawnSync(process.execPath, ["scripts/validate-env.mjs"], {
     encoding: "utf8",
     // Start from a clean slate for the email variables so a developer's own .env
     // cannot decide the result, and keep PATH so node resolves its own imports.
-    env: { ...process.env, ...Object.fromEntries(EMAIL_KEYS.map((k) => [k, ""])), ...env },
+    env: {
+      ...process.env,
+      ...Object.fromEntries(EMAIL_KEYS.map((k) => [k, ""])),
+      NODE_ENV: nodeEnv,
+      ...env,
+    } as NodeJS.ProcessEnv,
   });
   const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
   // Scoped to the email lines on purpose: this environment legitimately fails other
@@ -75,23 +83,51 @@ test("the preflight clears exactly the configurations the runtime calls configur
   }
 });
 
-test("dev and none are postures, not misconfigurations", () => {
-  // isEmailConfigured() is false for both because neither delivers, but neither is
-  // an error: refusing to deploy a staging environment that logs its mail would be
-  // the gate lying in the other direction. Same distinction alertWebhookStatus
-  // draws between "unconfigured" and "misconfigured".
+test("dev and none are postures outside production", () => {
+  // isEmailConfigured() is false for both because neither delivers, but outside
+  // production neither is an error: refusing a staging environment that logs its
+  // mail would be the gate lying in the other direction. Same distinction
+  // alertWebhookStatus draws between "unconfigured" and "misconfigured".
   for (const provider of ["dev", "none", "DEV", " none "]) {
     assert.equal(
       preflightRejects({ EMAIL_PROVIDER: provider }),
       false,
-      `${provider} is a deliberate posture and must not fail the preflight`,
+      `${provider} is a deliberate posture outside production`,
     );
     assert.equal(runtimeConfigured({ EMAIL_PROVIDER: provider }), false);
   }
-  assert.equal(preflightRejects({}), false, "an unset provider must not fail the preflight");
+  assert.equal(preflightRejects({}), false, "an unset provider is not an error outside production");
+});
+
+test("in production a non-delivering provider is refused before the candidate starts", () => {
+  // Review finding on the first version of this fix, and it was right. In
+  // production isEmailConfigured() is false for dev, none and unset alike;
+  // /api/health then adds email_not_configured to its warnings, overall health
+  // becomes "degraded", and scripts/ubuntu24-preflight.sh promotes only on
+  // body.health === "ok". So the deployment fails either way — the only question
+  // is whether it fails at the environment gate or after the candidate has been
+  // built and started. There is nothing to trade off.
+  for (const provider of ["dev", "none", "DEV", " none "]) {
+    assert.equal(
+      preflightRejects({ EMAIL_PROVIDER: provider }, "production"),
+      true,
+      `${provider} delivers nothing and must not clear the production gate`,
+    );
+  }
+  assert.equal(
+    preflightRejects({}, "production"),
+    true,
+    "an unset provider leaves production health degraded just as dev does",
+  );
+  assert.equal(
+    preflightRejects({ EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED }, "production"),
+    false,
+    "a delivering provider with a real key must still clear the production gate",
+  );
 });
 
 test("an unknown provider is refused rather than silently ignored", () => {
   // Previously it fell through to dev and mail vanished into the log.
   assert.equal(preflightRejects({ EMAIL_PROVIDER: "mailgun" }), true);
+  assert.equal(preflightRejects({ EMAIL_PROVIDER: "mailgun" }, "production"), true);
 });

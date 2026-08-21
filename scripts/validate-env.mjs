@@ -204,21 +204,30 @@ if (errorTrackingProvider) {
 // src/tests/runtime/email-preflight-agreement.test.ts runs both over the same
 // matrix so the two cannot answer differently.
 const EMAIL_PROVIDER_KEYS = { resend: 'RESEND_API_KEY', sendgrid: 'SENDGRID_API_KEY' };
-const emailProvider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
-if (emailProvider) {
-  if (!['resend', 'sendgrid', 'dev', 'none'].includes(emailProvider)) {
-    errors.push('EMAIL_PROVIDER must be resend, sendgrid, dev or none when set');
-  } else if (EMAIL_PROVIDER_KEYS[emailProvider]) {
-    // dev and none are deliberate postures, not misconfigurations — the same
-    // distinction alertWebhookStatus draws between "unconfigured" and "unusable".
-    const keyName = EMAIL_PROVIDER_KEYS[emailProvider];
-    const key = process.env[keyName]?.trim();
-    if (!key) {
-      errors.push(`EMAIL_PROVIDER=${emailProvider} requires ${keyName}`);
-    } else if (containsPlaceholder(key)) {
-      errors.push(`${keyName} still contains a placeholder`);
-    }
+const emailProvider = process.env.EMAIL_PROVIDER?.trim().toLowerCase() ?? '';
+if (emailProvider && !['resend', 'sendgrid', 'dev', 'none'].includes(emailProvider)) {
+  // Previously an unknown value fell through to dev and the mail vanished into the log.
+  errors.push('EMAIL_PROVIDER must be resend, sendgrid, dev or none when set');
+} else if (EMAIL_PROVIDER_KEYS[emailProvider]) {
+  const keyName = EMAIL_PROVIDER_KEYS[emailProvider];
+  const key = process.env[keyName]?.trim();
+  if (!key) {
+    errors.push(`EMAIL_PROVIDER=${emailProvider} requires ${keyName}`);
+  } else if (containsPlaceholder(key)) {
+    errors.push(`${keyName} still contains a placeholder`);
   }
+} else if (process.env.NODE_ENV === 'production') {
+  // dev, none and unset are legitimate postures elsewhere — the distinction
+  // alertWebhookStatus draws between "unconfigured" and "unusable" — but not here.
+  // In production isEmailConfigured() is false for all three, /api/health adds
+  // email_not_configured to its warnings, and overall health becomes "degraded";
+  // scripts/ubuntu24-preflight.sh promotes only on body.health === "ok". So a
+  // non-delivering provider is not a posture in production, it is a deployment that
+  // fails after the candidate has already been built and started. Say so here.
+  errors.push(
+    `EMAIL_PROVIDER must be resend or sendgrid in production (got ${emailProvider || 'unset'}): ` +
+      'a non-delivering provider leaves /api/health degraded and the promotion loop refuses the candidate',
+  );
 }
 
 const trustedProxyHeader = process.env.TECPEY_TRUSTED_PROXY_HEADER?.trim().toLowerCase();

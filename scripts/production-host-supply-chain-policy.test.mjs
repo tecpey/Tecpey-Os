@@ -977,6 +977,7 @@ test("production template fails unchanged and passes after complete governed rep
     REDIS_URL: "redis://:test-password@redis:6379",
     UPSTASH_REDIS_REST_URL: "https://rate-limit-redis.example.invalid",
     UPSTASH_REDIS_REST_TOKEN: "test-rate-limit-token",
+    RESEND_API_KEY: "test-email-key",
   };
   const configured = sources.environmentTemplate
     .split(/\r?\n/)

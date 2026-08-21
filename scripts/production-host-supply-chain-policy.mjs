@@ -342,7 +342,13 @@ export function productionHostSupplyChainFindings({
   );
 
   requireText(findings, preflight, LOCKFILE_INSTALL, "Ubuntu preflight must use the exact lockfile");
-  requireText(findings, preflight, '"$SYSTEMD_NPM_BIN" run env:check', "Ubuntu preflight must validate the production environment");
+  // Four controls in validate-env.mjs are gated on NODE_ENV === 'production': the
+  // ban on environment-backed wallet private keys, the legacy-auth sunset, the https
+  // requirement for ACADEMY_LEADS_WEBHOOK_URL and the email provider check. The
+  // production template supplies that mode, but validate-env.mjs merges the file with
+  // `??=`, so an ambient NODE_ENV in the deploying shell takes precedence and weakens
+  // all four without any error. Pin the mode, not just the command.
+  requireText(findings, preflight, 'NODE_ENV=production PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check', "Ubuntu preflight must validate the production environment in production mode");
   requireText(findings, preflight, '"$SYSTEMD_NPM_BIN" run check', "Ubuntu preflight must run static quality gates");
   requireText(findings, preflight, BAKED_BUILD_COMMAND, "Ubuntu preflight must bind the production build to the exact candidate");
   requireText(findings, preflight, EXACT_MIGRATION_COMMAND, "Ubuntu preflight must load the candidate environment for migration");

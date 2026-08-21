@@ -98,7 +98,13 @@ read_baked_release_sha() {
 
 if [ "$VERIFICATION_PHASE" = "candidate" ]; then
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" ci --no-audit --no-fund
-  PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
+  # validate-env.mjs gates four controls on NODE_ENV === 'production': the ban on
+  # environment-backed wallet private keys, the legacy-auth sunset, the https
+  # requirement for ACADEMY_LEADS_WEBHOOK_URL and the email provider check. It
+  # normally gets that from .env.production, but it loads that file with `??=`, so an
+  # ambient NODE_ENV in the deploying shell wins and silently weakens all four. State
+  # it on the command instead of inheriting it, the way CI already does.
+  NODE_ENV=production PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run env:check
   PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run check
   TECPEY_BUILD_COMMIT_SHA="$expected_release_sha" \
     PATH="$SYSTEMD_COMMAND_PATH" "$SYSTEMD_NPM_BIN" run build
