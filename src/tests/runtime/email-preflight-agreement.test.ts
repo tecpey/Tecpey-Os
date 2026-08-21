@@ -5,10 +5,9 @@ import test from "node:test";
 import { emailDeliveryReadiness } from "../../lib/email";
 
 // Review finding on #520: a deployment gate must not accept a delivery posture
-// that the runtime later reports as unavailable. The validator below imports the
-// same runtime authority used by sendEmail()/isEmailConfigured(), and the governed
-// Ubuntu preflight tightens the otherwise-valid "unconfigured" state into a hard
-// requirement before candidate startup.
+// that the runtime later reports as unavailable. The validator imports the same
+// runtime authority used by sendEmail()/isEmailConfigured(), and production
+// env:check itself refuses every non-delivering posture before candidate start.
 
 const EMAIL_INPUT_KEYS = [
   "EMAIL_PROVIDER",
@@ -23,7 +22,6 @@ type TestNodeEnv = "development" | "production" | "test";
 
 function validatorRejects(
   values: EmailValidatorInput,
-  requireLiveEmail = false,
   nodeEnv: TestNodeEnv = "production",
 ): boolean {
   const childEnv = {
@@ -35,12 +33,7 @@ function validatorRejects(
   } as NodeJS.ProcessEnv;
   const child = spawnSync(
     process.execPath,
-    [
-      "--import",
-      "tsx",
-      "scripts/validate-alert-webhook-env.ts",
-      ...(requireLiveEmail ? ["--require-live-email"] : []),
-    ],
+    ["--import", "tsx", "scripts/validate-alert-webhook-env.ts"],
     {
       encoding: "utf8",
       env: childEnv,
@@ -49,8 +42,9 @@ function validatorRejects(
   return child.status !== 0;
 }
 
-test("production env gate rejects explicit non-delivering and invalid email configurations", () => {
+test("production env gate rejects every non-delivering email posture", () => {
   for (const values of [
+    {},
     { EMAIL_PROVIDER: "dev" },
     { EMAIL_PROVIDER: "none" },
     { EMAIL_PROVIDER: "mailgun" },
@@ -68,7 +62,7 @@ test("production env gate rejects explicit non-delivering and invalid email conf
   }
 });
 
-test("production env gate accepts only usable live provider credentials when one is selected", () => {
+test("production env gate accepts only usable live provider credentials", () => {
   for (const values of [
     { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
     { EMAIL_PROVIDER: " sendgrid ", SENDGRID_API_KEY: SUPPLIED },
@@ -79,61 +73,21 @@ test("production env gate accepts only usable live provider credentials when one
       `production env gate must accept ${JSON.stringify(values)}`,
     );
   }
-
-  // The generic env contract may describe an email-unconfigured environment; the
-  // governed host candidate gate below is what turns live delivery into a launch
-  // requirement before startup.
-  assert.equal(validatorRejects({}), false);
 });
 
-test("governed candidate preflight requires live email before candidate startup", () => {
-  for (const values of [
-    {},
-    { EMAIL_PROVIDER: "dev" },
-    { EMAIL_PROVIDER: "none" },
-    { EMAIL_PROVIDER: "mailgun" },
-    { EMAIL_PROVIDER: "resend" },
-    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" },
-  ]) {
+test("non-production keeps deliberate dev, none and unset postures without claiming live delivery", () => {
+  for (const [environment, values] of [
+    ["development", { EMAIL_PROVIDER: "dev" }],
+    ["test", { EMAIL_PROVIDER: "none" }],
+    ["development", {}],
+  ] as const) {
     assert.equal(
-      validatorRejects(values, true),
-      true,
-      `strict candidate gate must reject ${JSON.stringify(values)}`,
-    );
-  }
-
-  for (const values of [
-    { EMAIL_PROVIDER: "resend", RESEND_API_KEY: SUPPLIED },
-    { EMAIL_PROVIDER: "sendgrid", SENDGRID_API_KEY: SUPPLIED },
-  ]) {
-    assert.equal(
-      validatorRejects(values, true),
+      validatorRejects(values, environment),
       false,
-      `strict candidate gate must accept ${JSON.stringify(values)}`,
+      `${environment} validator must preserve deliberate non-delivering posture ${JSON.stringify(values)}`,
     );
   }
 
-  // Strict promotion semantics win even if the shell inherited a non-production
-  // NODE_ENV; this guards against a caller accidentally weakening the pre-start gate.
-  assert.equal(validatorRejects({ EMAIL_PROVIDER: "dev" }, true, "test"), true);
-});
-
-test("generic validator preserves deliberate non-production modes", () => {
-  for (const values of [{}, { EMAIL_PROVIDER: "dev" }, { EMAIL_PROVIDER: "none" }]) {
-    assert.equal(
-      validatorRejects(values, false, "test"),
-      false,
-      `non-production env:check must preserve ${JSON.stringify(values)}`,
-    );
-  }
-  assert.equal(
-    validatorRejects({ EMAIL_PROVIDER: "resend", RESEND_API_KEY: "CHANGE_ME" }, false, "development"),
-    true,
-    "placeholder live credentials remain invalid in every environment",
-  );
-});
-
-test("non-production readiness distinguishes simulation, disablement and default development", () => {
   assert.deepEqual(
     emailDeliveryReadiness({ NODE_ENV: "development", EMAIL_PROVIDER: "dev" }),
     {
@@ -163,19 +117,24 @@ test("non-production readiness distinguishes simulation, disablement and default
   );
 });
 
-test("host promotion binds pre-start and post-start checks to live email readiness", () => {
-  const source = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
-  const genericEnvGate = source.indexOf('"$SYSTEMD_NPM_BIN" run env:check');
-  const strictEmailGate = source.indexOf("--require-live-email");
-  const build = source.indexOf('"$SYSTEMD_NPM_BIN" run build');
+test("host promotion binds pre-start and post-start readiness to email delivery", () => {
+  const preflight = readFileSync("scripts/ubuntu24-preflight.sh", "utf8");
+  const healthRoute = readFileSync("src/app/api/health/route.ts", "utf8");
+  const envGate = preflight.indexOf('"$SYSTEMD_NPM_BIN" run env:check');
+  const build = preflight.indexOf('"$SYSTEMD_NPM_BIN" run build');
 
-  assert.ok(genericEnvGate >= 0, "candidate preflight must run env:check");
-  assert.ok(strictEmailGate > genericEnvGate, "strict email gate must follow generic env validation");
-  assert.ok(build > strictEmailGate, "strict email gate must run before the production build/start path");
+  assert.ok(envGate >= 0, "candidate preflight must run production env:check");
+  assert.ok(build > envGate, "production env gate must run before build/start");
   assert.match(
-    source,
+    preflight,
     /body\.checks\?\.email !== "configured"/,
-    "runtime promotion must explicitly require configured email even if overall health semantics change",
+    "runtime promotion must explicitly require configured email",
+  );
+  assert.match(healthRoute, /email_not_configured: transactional emails will not be delivered/);
+  assert.match(
+    healthRoute,
+    /warnings\.length > 0\s*\? "degraded"/,
+    "production health must not report ok while email is unavailable",
   );
 });
 
