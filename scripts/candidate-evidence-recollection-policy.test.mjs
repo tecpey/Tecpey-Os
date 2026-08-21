@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { candidateEvidenceRecollectionFindings, REQUIRED_WORKFLOWS } from "./candidate-evidence-recollection-policy.mjs";
+import {
+  ACTIVE_RECOLLECTION_FILES,
+  candidateEvidenceRecollectionFileSelectionFindings,
+  candidateEvidenceRecollectionFindings,
+  REQUIRED_WORKFLOWS,
+} from "./candidate-evidence-recollection-policy.mjs";
 
 const oldSha = "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913";
 const newSha = "cbbdebe0b09801c314ed0b048c6ed19873d23300";
 const open = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
-const boundaries = ["real-money Exchange", "custody/deposits/withdrawals", "enterprise", "white-label", "public rewards"];
+const boundaries = [
+  "real-money Exchange",
+  "custody/deposits/withdrawals",
+  "enterprise",
+  "white-label",
+  "public rewards",
+];
+const requestPrivacy = [
+  "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
+  "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
+];
+const promotionPrivacy = [
+  "state contains release identifiers, blocker IDs, status and policy text only",
+  "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
+];
 
 function fixture() {
   return {
@@ -64,9 +83,7 @@ function fixture() {
       },
       stillOpenBlockers: [...open],
       launchDisabledBoundaries: [...boundaries],
-      privacyBoundary: [
-        "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
-      ],
+      privacyBoundary: [...requestPrivacy],
     },
     promotionState: {
       schemaVersion: 1,
@@ -80,12 +97,49 @@ function fixture() {
       staleAcceptedEvidence: [{ id: "NOG-03" }, { id: "NOG-04" }, { id: "NOG-06" }],
       stillOpenBlockers: [...open],
       launchDisabledBoundaries: [...boundaries],
+      privacyBoundary: [...promotionPrivacy],
     },
   };
 }
 
+function canonicalGeneratedFiles() {
+  return [
+    "current-controlled-launch-candidate.json",
+    ACTIVE_RECOLLECTION_FILES.request,
+    ACTIVE_RECOLLECTION_FILES.promotionState,
+    "exact-head-workflow-evidence-20260812.json",
+  ];
+}
+
 test("accepts the exact fail-closed recollection contract", () => {
   assert.deepEqual(candidateEvidenceRecollectionFindings(fixture()), []);
+});
+
+test("accepts exactly the canonical dated recollection files", () => {
+  assert.deepEqual(
+    candidateEvidenceRecollectionFileSelectionFindings(canonicalGeneratedFiles()),
+    [],
+  );
+});
+
+test("rejects an additional dated recollection request", () => {
+  const files = canonicalGeneratedFiles();
+  files.push("candidate-evidence-recollection-request-20260822.json");
+  assert.match(
+    candidateEvidenceRecollectionFileSelectionFindings(files).join("\n"),
+    /active recollection request files/,
+  );
+});
+
+test("rejects replacement of the active promotion-state filename", () => {
+  const files = canonicalGeneratedFiles().filter(
+    (name) => name !== ACTIVE_RECOLLECTION_FILES.promotionState,
+  );
+  files.push("candidate-promotion-state-20260822.json");
+  assert.match(
+    candidateEvidenceRecollectionFileSelectionFindings(files).join("\n"),
+    /active promotion state files/,
+  );
 });
 
 test("rejects a request retargeted away from the proposed candidate", () => {
@@ -103,23 +157,59 @@ test("rejects removal of Scheduled Operational Recovery", () => {
 test("rejects weakening exact-SHA binding", () => {
   const value = fixture();
   value.request.requiredEvidence["NOG-06"].requireExactSelectedSha = false;
-  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /NOG-06\.requireExactSelectedSha/);
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /NOG-06\.requireExactSelectedSha/,
+  );
 });
 
 test("rejects reopening protected execution during recollection", () => {
   const value = fixture();
   value.request.protectedExecutionAllowed = true;
-  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /protectedExecutionAllowed/);
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /protectedExecutionAllowed/,
+  );
 });
 
 test("rejects silent removal of a launch-disabled boundary", () => {
   const value = fixture();
   value.promotionState.launchDisabledBoundaries.pop();
-  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /launchDisabledBoundaries/);
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /launchDisabledBoundaries/,
+  );
 });
 
 test("rejects legacy acceptance schema for the next candidate", () => {
   const value = fixture();
   value.request.requiredAcceptanceSchemaVersion = 1;
-  assert.match(candidateEvidenceRecollectionFindings(value).join("\n"), /requiredAcceptanceSchemaVersion/);
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /requiredAcceptanceSchemaVersion/,
+  );
+});
+
+test("rejects privacy text that reverses a prohibition while retaining all sensitive tokens", () => {
+  const value = fixture();
+  value.request.privacyBoundary = [
+    requestPrivacy[0],
+    "record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
+  ];
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /request\.privacyBoundary/,
+  );
+});
+
+test("rejects promotion-state privacy drift", () => {
+  const value = fixture();
+  value.promotionState.privacyBoundary = [
+    promotionPrivacy[0],
+    "sensitive evidence may include raw logs when convenient",
+  ];
+  assert.match(
+    candidateEvidenceRecollectionFindings(value).join("\n"),
+    /promotionState\.privacyBoundary/,
+  );
 });
