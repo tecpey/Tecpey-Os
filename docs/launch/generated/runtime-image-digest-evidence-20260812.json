@@ -1,57 +1,54 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "runtime-image-digest-evidence",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-21T18:42:52Z",
   "decision": "NOG_03_ACCEPTED_FOR_EXACT_CANDIDATE_RUNTIME_IMAGE_IDENTITY",
   "relatedBlocker": "NOG-03",
   "releaseCandidate": {
-    "sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "sha": "1c2172144f5a5fbe3037a262c67cb9799585c1b2",
     "sourceBranch": "main",
     "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "containerImage": {
     "registryReference": "ghcr.io/tecpey/tecpey-os",
-    "imageDigest": "sha256:09d764d67a4bc8cdfe00003a04c9b91611e9df982759d84358e2bc38a00d71ca",
+    "imageDigest": "sha256:0657f2d686091f1bd3d52a8da2676ec67ca3607a81e0ddfbf7fc59127a686dda",
     "digestSource": "container-release artifact image-digest.txt"
   },
   "workflowEvidence": {
     "workflowName": "Container Supply Chain",
-    "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181531",
-    "workflowRunId": 31816181531,
+    "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32513738633",
+    "workflowRunId": 32513738633,
     "workflowRunConclusion": "success",
     "workflowTrigger": "push",
     "workflowRef": "refs/heads/main",
-    "workflowSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "workflowSha": "1c2172144f5a5fbe3037a262c67cb9799585c1b2",
     "workflowRunAttempt": 1
   },
   "artifactEvidence": {
     "containerRelease": {
-      "artifactId": 9225280038,
-      "artifactName": "container-release-9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "artifactDigest": "sha256:dfc566344a95ba0bce648b7ee62857e6bc59e975eaccbf8751e4bf25f5b2fa7d",
-      "contains": [
-        "image-digest.txt",
-        "signature-verification.json"
-      ],
-      "expiresAt": "2026-11-12T15:47:02Z"
+      "artifactId": 9458164754,
+      "artifactName": "container-release-1c2172144f5a5fbe3037a262c67cb9799585c1b2",
+      "artifactDigest": "sha256:c6a72b6f1a84600ca3bf40c5049d46c4bf81a3cb88e14e0b36c5ba29c4d41f40",
+      "contains": ["image-digest.txt", "signature-verification.json"],
+      "expiresAt": "2026-11-19T18:30:54Z"
     },
     "containerSupplyChain": {
-      "artifactId": 9225191056,
-      "artifactName": "container-supply-chain-9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "artifactDigest": "sha256:546426957e3ded190c4731fb63d2bbad38ee77aca38b4f8ff8f723c5b88cdafd",
-      "expiresAt": "2026-09-13T15:50:33Z"
+      "artifactId": 9458077449,
+      "artifactName": "container-supply-chain-1c2172144f5a5fbe3037a262c67cb9799585c1b2",
+      "artifactDigest": "sha256:d35429e91c8d22385b945cb7c1d23b1a1e5242432695999bf7ee2f34856a00be",
+      "expiresAt": "2026-09-20T18:34:23Z"
     },
     "containerRecovery": {
-      "artifactId": 9225169699,
-      "artifactName": "container-recovery-9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-      "artifactDigest": "sha256:614170e3add047bdee55545374cb685b3b773e607b0e21ead8ddec7031f89f04",
-      "expiresAt": "2026-09-13T15:49:53Z"
+      "artifactId": 9458055179,
+      "artifactName": "container-recovery-1c2172144f5a5fbe3037a262c67cb9799585c1b2",
+      "artifactDigest": "sha256:fd215398983603c2e3ce83fd27e1e0652ac4b93d99ed51621d46a6629a3c9bde",
+      "expiresAt": "2026-09-20T18:33:39Z"
     },
     "spdxSbom": {
-      "artifactId": 9225178297,
-      "artifactName": "tecpey-ci_9bd4ca5ec22e99e2d7deb192826ef8c018ee4913.spdx.json",
-      "artifactDigest": "sha256:b053d6488951673ab00490b24d9cb29174f60dc49b6154bc95b4074a0ee25ea8",
-      "expiresAt": "2026-11-12T15:47:02Z"
+      "artifactId": 9458064431,
+      "artifactName": "tecpey-ci_1c2172144f5a5fbe3037a262c67cb9799585c1b2.spdx.json",
+      "artifactDigest": "sha256:a1343e7bc43e2fd6668f5a70096f909b6248f3389e423be2d8cd741dce4047ef",
+      "expiresAt": "2026-11-19T18:30:54Z"
     }
   },
   "signatureVerification": {
@@ -59,11 +56,11 @@
     "issuer": "https://token.actions.githubusercontent.com",
     "subject": "https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main",
     "dockerReference": "ghcr.io/tecpey/tecpey-os",
-    "dockerManifestDigest": "sha256:09d764d67a4bc8cdfe00003a04c9b91611e9df982759d84358e2bc38a00d71ca",
+    "dockerManifestDigest": "sha256:0657f2d686091f1bd3d52a8da2676ec67ca3607a81e0ddfbf7fc59127a686dda",
     "githubWorkflowName": "Container Supply Chain",
     "githubWorkflowRepository": "tecpey/Tecpey-Os",
     "githubWorkflowRef": "refs/heads/main",
-    "githubWorkflowSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "githubWorkflowSha": "1c2172144f5a5fbe3037a262c67cb9799585c1b2",
     "githubWorkflowTrigger": "push"
   },
   "privacyBoundary": {
@@ -75,19 +72,7 @@
   },
   "acceptance": {
     "acceptedFor": "immutable runtime image digest for NOG-03 only",
-    "doesNotClose": [
-      "NOG-01",
-      "NOG-02",
-      "NOG-04",
-      "NOG-05",
-      "NOG-06",
-      "NOG-07",
-      "NOG-08",
-      "NOG-09",
-      "NOG-10",
-      "NOG-11",
-      "NOG-12"
-    ],
-    "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_ACCEPTED_PROTECTED_STAGING_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_EXISTS"
+    "doesNotClose": ["NOG-01", "NOG-02", "NOG-04", "NOG-05", "NOG-06", "NOG-07", "NOG-08", "NOG-09", "NOG-10", "NOG-11", "NOG-12"],
+    "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_ACCEPTED_PROTECTED_STAGING_RECOVERY_INCIDENT_RISK_AND_APPROVAL_EVIDENCE_EXISTS"
   }
 }
