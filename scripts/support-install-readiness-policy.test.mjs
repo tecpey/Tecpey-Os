@@ -48,6 +48,26 @@ test("policy rejects rehearsal that executes bundled install commands", () => {
   );
 });
 
+test("policy rejects a required rehearsal pin that only exists in a comment", () => {
+  const commentedHealthPin = sources.rehearsal.replace(
+    '    health: "node scripts/check-health.mjs",',
+    '    // health: "node scripts/check-health.mjs",',
+  );
+  assert.notEqual(
+    commentedHealthPin,
+    sources.rehearsal,
+    "fixture must contain an active health pin",
+  );
+  const mutated = {
+    ...sources,
+    rehearsal: commentedHealthPin,
+  };
+  assert.match(
+    supportInstallReadinessFindings(mutated).join("\n"),
+    /support install rehearsal must pin the health script/,
+  );
+});
+
 test("policy rejects handoff that skips candidate migration before runtime", () => {
   const mutated = {
     ...sources,
