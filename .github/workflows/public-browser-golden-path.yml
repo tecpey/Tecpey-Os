@@ -65,6 +65,8 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379
       UPSTASH_REDIS_REST_URL: http://127.0.0.1:3199
       UPSTASH_REDIS_REST_TOKEN: deterministic-browser-qa-redis-rest-token
+      EMAIL_PROVIDER: resend
+      RESEND_API_KEY: e2e-email-delivery-fixture
       TECPEY_REAL_WITHDRAWALS_ENABLED: "0"
       TECPEY_CUSTODY_KILL_SWITCH: "1"
       TECPEY_E2E_RUNTIME_MODE: production

@@ -94,6 +94,8 @@ jobs:
       UPSTASH_REDIS_REST_URL: https://ci-placeholder.upstash.io
       UPSTASH_REDIS_REST_TOKEN: ci-placeholder-redis-rest-token
       REDIS_URL: redis://localhost:6379
+      EMAIL_PROVIDER: resend
+      RESEND_API_KEY: ci-email-delivery-fixture
 
     steps:
       - name: Checkout

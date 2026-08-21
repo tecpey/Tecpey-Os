@@ -9,6 +9,12 @@ const SOURCES = new Set([
   "protected_host_env_file",
   "service_manager_preloaded_environment",
 ]);
+const SELECTED_ENVIRONMENT_KEYS = [
+  "ALERT_WEBHOOK_URL",
+  "EMAIL_PROVIDER",
+  "RESEND_API_KEY",
+  "SENDGRID_API_KEY",
+];
 const FAILURE_KEY_PATTERN = /\b[A-Z][A-Z0-9_]{2,}\b/g;
 const PUBLIC_FAILURE_PATTERNS = [
   /^NEXT_PUBLIC_/,
@@ -56,6 +62,10 @@ function releaseSha() {
     throw new Error("protected_staging_env_evidence_sha_invalid");
   }
   return value;
+}
+
+function clearedSelectedEnvironmentKeys() {
+  return Object.fromEntries(SELECTED_ENVIRONMENT_KEYS.map((key) => [key, ""]));
 }
 
 async function parseProtectedEnvFile(filePath) {
@@ -193,8 +203,13 @@ async function runProtectedHostEnvFileMode(context) {
     timeoutMs: 180_000,
     env: {
       ...process.env,
+      ...clearedSelectedEnvironmentKeys(),
       ...parsed.values,
+      // The explicitly selected protected host file is already loaded into this
+      // child process. Pin the validator to that authority so an unrelated local
+      // .env.production in the application directory cannot replace its values.
       NODE_ENV: "production",
+      TECPEY_ENV_VALIDATION_SOURCE: "process",
     },
   });
   return {
@@ -204,6 +219,8 @@ async function runProtectedHostEnvFileMode(context) {
       envFileLoaded: true,
       loadedKeyCount: parsed.loadedKeyCount,
       loadedKeyDigest: parsed.loadedKeyDigest,
+      validationSource: "process",
+      inheritedSelectedKeysCleared: true,
     },
   };
 }
@@ -213,6 +230,31 @@ async function runServiceManagerMode() {
   if (!/^[A-Za-z0-9_.@:-]{3,160}\.service$/.test(unit)) {
     throw new Error("protected_staging_env_check_unit_invalid");
   }
+
+  const environment = await runCommand(
+    "sudo",
+    ["systemctl", "show", unit, "--property=Environment", "--value"],
+    { timeoutMs: 30_000 },
+  );
+  const authorityPinned =
+    environment.ok && /(?:^|\s)TECPEY_ENV_VALIDATION_SOURCE=process(?:\s|$)/.test(environment.output);
+  if (!authorityPinned) {
+    return {
+      commandResult: {
+        ok: false,
+        code: 1,
+        signal: null,
+        output: "TECPEY_ENV_VALIDATION_SOURCE_REQUIRED",
+      },
+      sourceProof: {
+        disposition: "failed",
+        unitClass: "governed_env_check_unit",
+        unitNameDigest: `sha256:${createHash("sha256").update(unit).digest("hex")}`,
+        validationSource: "missing",
+      },
+    };
+  }
+
   const start = await runCommand("sudo", ["systemctl", "start", unit], { timeoutMs: 180_000 });
   const show = await runCommand(
     "sudo",
@@ -239,6 +281,7 @@ async function runServiceManagerMode() {
       disposition: passed ? "passed" : "failed",
       unitClass: "governed_env_check_unit",
       unitNameDigest: `sha256:${createHash("sha256").update(unit).digest("hex")}`,
+      validationSource: "process",
     },
   };
 }

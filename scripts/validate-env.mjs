@@ -110,13 +110,24 @@ const optional = [
   'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 
+// Mirrored by ENV_PLACEHOLDER_TOKENS in src/lib/env-placeholders.ts, which runtime
+// code reads so a value this preflight clears is not one the process then refuses.
+// The duplication is deliberate — this script runs on plain node with no TypeScript
+// loader — and src/tests/runtime/env-placeholder-authority.test.ts fails if the two
+// lists or their matching rules drift apart.
 const badTokens = ['CHANGE_ME', 'your-real', 'admin-de', 'wss-dem', 'REPLACE_WITH'];
+
+// Case-insensitive: an operator who lowercased a template has not thereby supplied
+// a credential, and the runtime already reads it that way.
+const containsPlaceholder = (value) =>
+  badTokens.some((token) => value.toLowerCase().includes(token.toLowerCase()));
+
 const errors = [];
 
 for (const key of required) {
   const value = process.env[key];
   if (!value) errors.push(`${key} is missing`);
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (value && containsPlaceholder(value)) {
     errors.push(`${key} still contains a placeholder`);
   }
 }
@@ -182,6 +193,34 @@ if (errorTrackingProvider) {
   }
 }
 
+// Same shape one module over. isEmailConfigured() refuses a provider whose API key
+// is missing or still a template, but neither email key appeared anywhere in this
+// file, so a deployment could clear its environment gate and then report degraded
+// health and fail every transactional send. The runtime rule and the preflight must
+// reach the same verdict for the same variables, which means the preflight has to
+// look at them at all.
+//
+// The provider→key mapping is mirrored from src/lib/email.ts;
+// src/tests/runtime/email-preflight-agreement.test.ts runs both over the same
+// matrix so the two cannot answer differently.
+const EMAIL_PROVIDER_KEYS = { resend: 'RESEND_API_KEY', sendgrid: 'SENDGRID_API_KEY' };
+const emailProvider = process.env.EMAIL_PROVIDER?.trim().toLowerCase();
+if (emailProvider) {
+  if (!['resend', 'sendgrid', 'dev', 'none'].includes(emailProvider)) {
+    errors.push('EMAIL_PROVIDER must be resend, sendgrid, dev or none when set');
+  } else if (EMAIL_PROVIDER_KEYS[emailProvider]) {
+    // dev and none are deliberate postures, not misconfigurations — the same
+    // distinction alertWebhookStatus draws between "unconfigured" and "unusable".
+    const keyName = EMAIL_PROVIDER_KEYS[emailProvider];
+    const key = process.env[keyName]?.trim();
+    if (!key) {
+      errors.push(`EMAIL_PROVIDER=${emailProvider} requires ${keyName}`);
+    } else if (containsPlaceholder(key)) {
+      errors.push(`${keyName} still contains a placeholder`);
+    }
+  }
+}
+
 const trustedProxyHeader = process.env.TECPEY_TRUSTED_PROXY_HEADER?.trim().toLowerCase();
 if (trustedProxyHeader && !['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for'].includes(trustedProxyHeader)) {
   errors.push('TECPEY_TRUSTED_PROXY_HEADER must be cf-connecting-ip, x-real-ip or x-forwarded-for');
@@ -193,7 +232,7 @@ if (process.env.TECPEY_TRUSTED_PROXY_HOPS && (!Number.isInteger(trustedProxyHops
 
 for (const key of optional) {
   const value = process.env[key];
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (value && containsPlaceholder(value)) {
     errors.push(`${key} still contains a placeholder`);
   }
 }

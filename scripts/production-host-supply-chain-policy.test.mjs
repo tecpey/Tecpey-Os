@@ -45,6 +45,7 @@ const healthyPayload = {
     schema: "current",
     redis: "ok",
     runtime: "ready",
+    email: "configured",
     requiredWorkers: "ready",
   },
 };
@@ -715,6 +716,16 @@ test("real preflight fails closed for every unavailable readiness class", async 
           ...healthyPayload,
           health: "unhealthy",
           checks: { ...healthyPayload.checks, runtime: "starting" },
+        },
+      },
+    ],
+    [
+      "email unready despite otherwise healthy payload",
+      {
+        curlSuccessAfter: 1,
+        healthPayload: {
+          ...healthyPayload,
+          checks: { ...healthyPayload.checks, email: "unconfigured" },
         },
       },
     ],

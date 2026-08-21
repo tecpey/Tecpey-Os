@@ -37,6 +37,28 @@ coordinated rate-limiting credentials. Replace every `REPLACE_WITH` value
 through the approved secret/configuration manager before verification. The
 candidate gate rejects an unchanged or incomplete template.
 
+A governed production candidate must also have live transactional email before
+it can be built or promoted:
+
+```env
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=SECRET_FROM_APPROVED_MANAGER
+```
+
+or:
+
+```env
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=SECRET_FROM_APPROVED_MANAGER
+```
+
+`EMAIL_PROVIDER=dev`, `EMAIL_PROVIDER=none`, unknown providers, missing keys,
+whitespace-only keys and placeholder credentials are not production-ready. The
+candidate preflight checks this before the build/start path, and runtime
+promotion independently requires `/api/health` to report
+`checks.email == "configured"`. Never paste the credential into tickets,
+screenshots, chat, logs or committed files.
+
 For the Compose path, the approved secret values must preserve these internal
 service hosts:
 
@@ -102,6 +124,7 @@ Expected:
 - Build: pass
 - Readiness endpoint: HTTP 200 only after PostgreSQL, the canonical migration
   plan, Redis, runtime bootstrap, and required workers are ready
+- Email readiness: `checks.email` is `configured` before promotion
 - Nginx: `200 OK`
 - API key: server-side only
 
@@ -120,7 +143,9 @@ checkout in an isolated path such as
 `.env.production`, and verify the candidate there:
 
 - Node.js major `22`;
-- npm major `10`, matching the repository engine and CI contract.
+- npm major `10`, matching the repository engine and CI contract;
+- live email provider readiness (`resend` or `sendgrid` with an approved usable
+  credential), enforced before build/start.
 
 ```bash
 export EXPECTED_RELEASE_SHA='EXACT_40_CHARACTER_RELEASE_SHA'
@@ -149,18 +174,20 @@ bash scripts/ubuntu24-preflight.sh runtime
 
 All three phases reject tracked or untracked source changes. Candidate build and
 migration refuse the live systemd working tree. The candidate phase fails on
-environment, static-check, or production-build errors. The migration phase
-loads the approved candidate `.env.production` explicitly with Node's
-`--env-file` support and fails unless the compiled migration authority reaches
-the current schema. The runtime phase fails on an unhealthy service or a baked
-artifact commit that differs from the isolated candidate. Runtime environment
-variables cannot override this build identity.
+environment, live-email readiness, static-check, or production-build errors. The
+migration phase loads the approved candidate `.env.production` explicitly with
+Node's `--env-file` support and fails unless the compiled migration authority
+reaches the current schema. The runtime phase fails on an unhealthy service, an
+email check other than `configured`, or a baked artifact commit that differs
+from the isolated candidate. Runtime environment variables cannot override this
+build identity.
 
 ## 7. Operational checklist
 
 - Enable UFW and Fail2Ban.
 - Use HTTPS only.
 - Keep `.env.production` outside version control.
+- Configure and test the selected live email provider before candidate promotion.
 - Rotate the test OpenAI key before production.
 - Back up PostgreSQL daily.
 - Retain the exact image digest and deployment evidence.

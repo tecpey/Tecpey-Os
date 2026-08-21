@@ -1,3 +1,4 @@
+import { containsEnvPlaceholder } from "./env-placeholders";
 import { logger } from "./logger";
 
 export type AlertType =
@@ -23,9 +24,11 @@ const SEVERITY: Record<AlertType, AlertSeverity> = {
 
 export type AlertWebhookStatus = "configured" | "unconfigured" | "misconfigured";
 
-// Placeholders the repository already treats as unset elsewhere. A webhook URL
-// carrying one of these is a template nobody finished, not a destination.
-const PLACEHOLDER_TOKENS = ["CHANGE_ME", "your-real", "REPLACE_WITH", "example.com"];
+// Beyond the environment contract's template markers, a reserved-for-documentation
+// domain is never a real destination. Kept local because it is a fact about URLs,
+// not about unfinished env values — ENV_PLACEHOLDER_TOKENS must stay exactly the
+// preflight's list so the two cannot drift.
+const NON_DESTINATION_HOSTS = ["example.com"];
 
 /**
  * Whether ALERT_WEBHOOK_URL names somewhere an alert can actually arrive.
@@ -45,7 +48,7 @@ export function alertWebhookStatus(
   if (!value) return "unconfigured";
 
   const lowered = value.toLowerCase();
-  if (PLACEHOLDER_TOKENS.some((token) => lowered.includes(token.toLowerCase()))) {
+  if (containsEnvPlaceholder(value) || NON_DESTINATION_HOSTS.some((host) => lowered.includes(host))) {
     return "misconfigured";
   }
 
