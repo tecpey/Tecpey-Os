@@ -1,0 +1,51 @@
+name: Candidate Evidence Recollection Authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - docs/launch/generated/candidate-evidence-recollection-request-*.json
+      - docs/launch/generated/candidate-promotion-state-*.json
+      - scripts/candidate-evidence-recollection-policy.mjs
+      - scripts/candidate-evidence-recollection-policy.test.mjs
+      - scripts/check-candidate-evidence-recollection-authority.mjs
+      - .github/workflows/candidate-evidence-recollection-authority.yml
+  push:
+    branches: [main]
+    paths:
+      - docs/launch/generated/candidate-evidence-recollection-request-*.json
+      - docs/launch/generated/candidate-promotion-state-*.json
+      - scripts/candidate-evidence-recollection-policy.mjs
+      - scripts/candidate-evidence-recollection-policy.test.mjs
+      - scripts/check-candidate-evidence-recollection-authority.mjs
+      - .github/workflows/candidate-evidence-recollection-authority.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-evidence-recollection-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    name: Fail-closed exact-candidate recollection contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Mutation-test recollection authority
+        run: node --test scripts/candidate-evidence-recollection-policy.test.mjs
+
+      - name: Verify current recollection contract
+        run: node scripts/check-candidate-evidence-recollection-authority.mjs
