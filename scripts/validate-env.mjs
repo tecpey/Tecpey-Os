@@ -110,13 +110,24 @@ const optional = [
   'TECPEY_CRM_WEBHOOK_SECRET',
 ];
 
+// Mirrored by ENV_PLACEHOLDER_TOKENS in src/lib/env-placeholders.ts, which runtime
+// code reads so a value this preflight clears is not one the process then refuses.
+// The duplication is deliberate — this script runs on plain node with no TypeScript
+// loader — and src/tests/runtime/env-placeholder-authority.test.ts fails if the two
+// lists or their matching rules drift apart.
 const badTokens = ['CHANGE_ME', 'your-real', 'admin-de', 'wss-dem', 'REPLACE_WITH'];
+
+// Case-insensitive: an operator who lowercased a template has not thereby supplied
+// a credential, and the runtime already reads it that way.
+const containsPlaceholder = (value) =>
+  badTokens.some((token) => value.toLowerCase().includes(token.toLowerCase()));
+
 const errors = [];
 
 for (const key of required) {
   const value = process.env[key];
   if (!value) errors.push(`${key} is missing`);
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (value && containsPlaceholder(value)) {
     errors.push(`${key} still contains a placeholder`);
   }
 }
@@ -193,7 +204,7 @@ if (process.env.TECPEY_TRUSTED_PROXY_HOPS && (!Number.isInteger(trustedProxyHops
 
 for (const key of optional) {
   const value = process.env[key];
-  if (value && badTokens.some((token) => value.includes(token))) {
+  if (value && containsPlaceholder(value)) {
     errors.push(`${key} still contains a placeholder`);
   }
 }

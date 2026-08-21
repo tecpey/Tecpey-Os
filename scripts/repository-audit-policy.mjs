@@ -153,7 +153,7 @@ const DOMAIN_RULES = [
       /^ecosystem\.config\./,
       /(?:^|\/)(?:operations|deployment|runtime|bootstrap|readiness|health|recovery|backup|restore|observability)(?:[./_-]|$)/i,
       /^src\/lib\/ops\//,
-      /^src\/lib\/(?:alerts|degraded-read|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
+      /^src\/lib\/(?:alerts|degraded-read|env-placeholders|error-tracking|event-bus|logger|metrics|observe|socket|trace)\.ts$/,
       /^src\/lib\/news-materialization-worker\.ts$/,
       /^src\/lib\/ws\//,
       /^server\.ts$/,
@@ -261,7 +261,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 17,
+  version: 18,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

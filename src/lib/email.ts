@@ -1,3 +1,4 @@
+import { containsEnvPlaceholder } from "./env-placeholders";
 import { logger } from "./logger";
 
 export type EmailMessage = {
@@ -24,7 +25,11 @@ function normalizeRecipients(to: string | string[]): string[] {
 
 async function sendViaResend(message: EmailMessage): Promise<EmailResult> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return { ok: false, provider: "resend", error: "RESEND_API_KEY not set" };
+  // Same rule isEmailConfigured() reports on. If sending accepted a key that
+  // health calls unusable, the two would describe different systems: health
+  // warning that email is down while every send still burned a round-trip to
+  // collect a 401 the caller sees only as a generic HTTP error.
+  if (!isUsableKey(key)) return { ok: false, provider: "resend", error: "RESEND_API_KEY not set" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -53,7 +58,7 @@ async function sendViaResend(message: EmailMessage): Promise<EmailResult> {
 
 async function sendViaSendGrid(message: EmailMessage): Promise<EmailResult> {
   const key = process.env.SENDGRID_API_KEY;
-  if (!key) return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY not set" };
+  if (!isUsableKey(key)) return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY not set" };
   try {
     const personalizations = normalizeRecipients(message.to).map((email) => ({ to: [{ email }] }));
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -98,7 +103,7 @@ function sendViaDev(message: EmailMessage): EmailResult {
  * Returns EmailResult — callers must check result.ok and handle failures.
  */
 export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
-  const provider = (process.env.EMAIL_PROVIDER ?? "").toLowerCase();
+  const provider = resolveEmailProvider();
 
   if (provider === "resend") return sendViaResend(message);
   if (provider === "sendgrid") return sendViaSendGrid(message);
@@ -113,9 +118,42 @@ export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
   return sendViaDev(message);
 }
 
+/**
+ * Whether an API key is something the provider could actually accept.
+ *
+ * Placeholder detection comes from the environment contract rather than a local
+ * list, so a value the deployment preflight calls unfinished is not one this
+ * module calls a credential.
+ */
+function isUsableKey(raw: string | undefined): boolean {
+  const value = (raw ?? "").trim();
+  if (!value) return false;
+  return !containsEnvPlaceholder(value);
+}
+
+/**
+ * The single place EMAIL_PROVIDER is interpreted.
+ *
+ * sendEmail and isEmailConfigured each used to lowercase the variable
+ * independently, and neither trimmed it. A quoted .env value like " resend "
+ * therefore selected no provider while /api/health reported email as
+ * unconfigured — consistent by luck, since both were wrong in the same way, but
+ * any future caller resolving it correctly would have disagreed with both.
+ */
+function resolveEmailProvider(): string {
+  return (process.env.EMAIL_PROVIDER ?? "").trim().toLowerCase();
+}
+
+/**
+ * Whether email can actually be sent.
+ *
+ * /api/health reports this, and the deployment contract routes traffic on that
+ * response, so a placeholder API key answering true would let the health signal
+ * vouch for a delivery path that rejects every message.
+ */
 export function isEmailConfigured(): boolean {
-  const provider = (process.env.EMAIL_PROVIDER ?? "").toLowerCase();
-  if (provider === "resend") return Boolean(process.env.RESEND_API_KEY);
-  if (provider === "sendgrid") return Boolean(process.env.SENDGRID_API_KEY);
+  const provider = resolveEmailProvider();
+  if (provider === "resend") return isUsableKey(process.env.RESEND_API_KEY);
+  if (provider === "sendgrid") return isUsableKey(process.env.SENDGRID_API_KEY);
   return false;
 }
