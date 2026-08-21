@@ -34,6 +34,45 @@ function packageScripts(packageJsonSource) {
   }
 }
 
+function uncommentedTableSource(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split(/\r?\n/)
+    .filter((line) => !line.trimStart().startsWith("//"))
+    .map((line) => line.replace(/\s+\/\/.*$/, ""))
+    .join("\n");
+}
+
+/**
+ * The script commands the rehearsal pins, read out of the rehearsal itself.
+ *
+ * Returns null when the table cannot be found, which is treated as a finding: a
+ * rehearsal whose pins cannot be inspected cannot be cross-checked either.
+ */
+function rehearsalPinnedScripts(rehearsalSource) {
+  const table = /Object\.entries\(\{([\s\S]*?)\}\)\)\s*\{/.exec(rehearsalSource);
+  if (!table) return null;
+  const entries = [
+    ...uncommentedTableSource(table[1]).matchAll(
+      /"?([A-Za-z:][\w:.-]*)"?\s*:\s*\n?\s*"((?:[^"\\]|\\.)*)"/g,
+    ),
+  ].map((match) => [match[1], match[2]]);
+  return entries.length ? Object.fromEntries(entries) : null;
+}
+
+// Names only. The commands themselves live in package.json and the pins live in
+// the rehearsal; repeating the commands here would make this a third copy of the
+// same facts, which is the drift this check exists to catch.
+const REHEARSAL_MUST_PIN = [
+  "support:bundle",
+  "support:bundle:verify",
+  "support:install:rehearse",
+  "support:install:check",
+  "env:check",
+  "build",
+  "health",
+];
+
 export function supportInstallReadinessFindings({
   packageJson,
   bundleCreator,
@@ -45,15 +84,32 @@ export function supportInstallReadinessFindings({
 }) {
   const findings = [];
   const scripts = packageScripts(packageJson);
-  const requiredScripts = {
-    "support:bundle": "bash scripts/create-support-deployment-bundle.sh",
-    "support:bundle:verify": "node scripts/verify-support-deployment-bundle.mjs",
-    "support:install:rehearse": "node scripts/rehearse-support-deployment-install.mjs",
-    "support:install:check": "node scripts/check-support-install-readiness-authority.mjs",
-  };
-  for (const [scriptName, command] of Object.entries(requiredScripts)) {
-    if (scripts[scriptName] !== command) {
-      findings.push(`package.json script ${scriptName} must be exactly: ${command}`);
+
+  // The rehearsal fails a support bundle when package.json does not match its
+  // pinned commands exactly, and it runs only in a workflow_dispatch workflow. So
+  // editing one of those scripts breaks every bundle with nothing on a branch
+  // saying so — which is how extending env:check in #518 nearly shipped. That one
+  // pin was then guarded on its own; the other six were not. Cross-check the whole
+  // table here, where branch CI already reads both files.
+  const pinned = rehearsalPinnedScripts(rehearsal);
+  if (!pinned) {
+    findings.push(
+      "support install rehearsal must pin package.json scripts in an inspectable table",
+    );
+  } else {
+    for (const name of REHEARSAL_MUST_PIN) {
+      if (!(name in pinned)) {
+        findings.push(`support install rehearsal must pin the ${name} script`);
+      }
+    }
+    for (const [name, command] of Object.entries(pinned)) {
+      if (scripts[name] !== command) {
+        findings.push(
+          `package.json script ${name} has drifted from the support bundle rehearsal pin.\n` +
+            `  rehearsal expects: ${command}\n` +
+            `  package.json has:  ${scripts[name] ?? "(missing)"}`,
+        );
+      }
     }
   }
 

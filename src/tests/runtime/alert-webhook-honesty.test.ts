@@ -89,17 +89,9 @@ test("every consumer reads the one authority instead of re-deciding", () => {
   assert.match(validator, /import \{ alertWebhookStatus \} from "\.\.\/src\/lib\/alerts"/);
 });
 
-test("the support-bundle rehearsal expects the env:check command that actually exists", () => {
-  // The rehearsal pins env:check as an exact string, and it runs in a different
-  // workflow than the one gating this branch — so extending the command left CI
-  // green here while every support bundle built from the commit would fail
-  // rehearsal before upload. Nothing tied the two together, which is why it broke.
-  const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-  const rehearsal = readFileSync("scripts/rehearse-support-deployment-install.mjs", "utf8");
-  const command = pkg.scripts["env:check"];
-  assert.ok(command, "env:check must exist");
-  assert.ok(
-    rehearsal.includes(command),
-    `the rehearsal pins a different env:check than package.json defines.\n  package.json: ${command}`,
-  );
-});
+// The env:check pin used to be checked here, added when extending that command
+// nearly broke every support bundle. It guarded one of the rehearsal's seven pins
+// and left six unwatched — the instance, not the class. The check now lives in
+// scripts/support-install-readiness-policy.mjs, which already receives both
+// package.json and the rehearsal and covers the whole table. Keeping a private
+// copy of one row here is the duplication those checks exist to prevent.
