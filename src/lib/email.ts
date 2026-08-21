@@ -17,6 +17,13 @@ export type EmailResult = {
   error?: string;
 };
 
+export type EmailDeliveryEnvironment = {
+  NODE_ENV?: string;
+  EMAIL_PROVIDER?: string;
+  RESEND_API_KEY?: string;
+  SENDGRID_API_KEY?: string;
+};
+
 export type EmailDeliveryReadiness =
   | {
       status: "configured";
@@ -72,10 +79,7 @@ function isUsableKey(raw: string | undefined): boolean {
  * gate from vouching for a delivery path that the runtime later refuses.
  */
 export function emailDeliveryReadiness(
-  env: Pick<
-    NodeJS.ProcessEnv,
-    "NODE_ENV" | "EMAIL_PROVIDER" | "RESEND_API_KEY" | "SENDGRID_API_KEY"
-  > = process.env,
+  env: EmailDeliveryEnvironment = process.env,
   runtimeEnvironment = env.NODE_ENV,
 ): EmailDeliveryReadiness {
   const provider = normalizeProvider(env.EMAIL_PROVIDER);
