@@ -54,6 +54,10 @@ NOG-03, NOG-04 and NOG-06 are accepted only for those exact-candidate properties
 | Accepted risks | Accepted-risk owner sign-off evidence for NOG-08 is still missing; `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` and `scripts/verify-accepted-risk-signoff-evidence.mjs` remain authoritative. |
 | Final approvals | The Go approval matrix in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` remains required for NOG-09 and must pass `scripts/verify-go-approval-matrix-evidence.mjs`. |
 
+## Disabled-scope authority
+
+Disabled-capability attestation evidence is accepted only for the controlled-launch disabled boundary. The **disabled-capability attestation for NOG-10/NOG-11/NOG-12** does not certify or enable those capabilities. **Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12** means real-money Exchange stays launch-disabled, custody/deposits/withdrawals stay product-disabled, and enterprise, white-label and public financial rewards stay disabled.
+
 ## Decision
 
 This exact candidate permits protected evidence collection after the promotion gates pass. It does not move TecPey to Go. Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.
