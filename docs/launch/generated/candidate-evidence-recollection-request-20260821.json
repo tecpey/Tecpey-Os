@@ -8,6 +8,7 @@
   "sourceBranch": "main",
   "sourcePullRequest": 522,
   "protectedExecutionAllowed": false,
+  "requiredAcceptanceSchemaVersion": 2,
   "requiredEvidence": {
     "NOG-04": {
       "status": "pending_recollection",
@@ -28,6 +29,8 @@
         "each workflow run event is push or an explicitly governed exact-SHA dispatch",
         "each workflow completed successfully",
         "each workflow uses a distinct governed GitHub Actions run URL",
+        "each workflow record includes headSha equal to selectedSha and its governed workflow path",
+        "Scheduled Operational Recovery must use governed workflow_dispatch on main and resolve headSha equal to selectedSha",
         "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568 or 60691da0e1c45d7e6c5ea9aed4558e391f38db71 are not accepted as exact-candidate evidence for selectedSha"
       ]
     },
@@ -40,6 +43,7 @@
         "immutable image digest is recorded",
         "container evidence artifact and detached digest are recorded",
         "signature or governed verification disposition is recorded",
+        "workflow record includes headSha equal to selectedSha and refs/heads/main",
         "artifact metadata is not copied or relabelled from the historical 9bd4ca5 candidate"
       ]
     },
@@ -54,6 +58,7 @@
         "previous release is served after rollback",
         "PostgreSQL and Redis restore evidence is attached",
         "artifact digest and verifier disposition are recorded",
+        "workflow record includes headSha equal to selectedSha and refs/heads/main",
         "artifact metadata is not copied or relabelled from the historical 9bd4ca5 candidate"
       ]
     }
@@ -78,7 +83,7 @@
     "verify selectedSha is still the newest stable runtime/security/bundle/launch-control target",
     "atomically align CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md and generated current candidate ledger",
     "atomically align protected-staging runbook, request and No-Go register",
-    "replace pending NOG-03/NOG-04/NOG-06 state only with genuine exact-selectedSha evidence",
+    "replace pending NOG-03/NOG-04/NOG-06 state only with genuine exact-selectedSha evidence using acceptance schema v2",
     "run launch candidate, evidence authority, staging evidence, launch decision and full CI gates"
   ],
   "privacyBoundary": [
