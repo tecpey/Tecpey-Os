@@ -17,7 +17,7 @@ export const REQUIRED_WORKFLOWS = [
   "Scheduled Operational Recovery",
 ];
 
-const REQUIRED_STALE = ["NOG-03", "NOG-04", "NOG-06"];
+const REQUIRED_RECOLLECTED = ["NOG-03", "NOG-04", "NOG-06"];
 const REQUIRED_OPEN = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_BOUNDARIES = [
   "real-money Exchange",
@@ -26,6 +26,11 @@ const REQUIRED_BOUNDARIES = [
   "white-label",
   "public rewards",
 ];
+const ACCEPTED_EVIDENCE_PATHS = Object.freeze({
+  "NOG-03": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+  "NOG-04": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  "NOG-06": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+});
 const REQUIRED_NOG04_ACCEPTANCE = [
   "each workflow run is bound to selectedSha",
   "each workflow run event is push or an explicitly governed exact-SHA dispatch",
@@ -69,6 +74,14 @@ const REQUIRED_BEFORE_PROMOTION = [
   "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
   "keep protected execution blocked until the aligned promotion state is CI-valid",
 ];
+const REQUIRED_COMPLETED_CHECKS = [
+  "exact-head workflow evidence schema v2 accepted for the selected SHA",
+  "runtime image digest evidence accepted for the selected SHA",
+  "rollback and volume-restore evidence accepted for the selected SHA",
+  "candidate and protected-staging lineage aligned to the selected SHA",
+  "remaining operational blockers remain open",
+  "real-money and expanded-scope launch boundaries remain disabled",
+];
 const REQUIRED_REQUEST_PRIVACY = [
   "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
   "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts",
@@ -111,32 +124,7 @@ function matchingGeneratedFiles(generatedFilenames, prefix) {
   );
 }
 
-export function candidateEvidenceRecollectionFileSelectionFindings(generatedFilenames) {
-  const findings = [];
-  if (!Array.isArray(generatedFilenames)) {
-    findings.push("generated evidence inventory: expected filename array");
-    return findings;
-  }
-
-  exactSet(
-    findings,
-    "active recollection request files",
-    matchingGeneratedFiles(generatedFilenames, "candidate-evidence-recollection-request-"),
-    [ACTIVE_RECOLLECTION_FILES.request],
-  );
-  exactSet(
-    findings,
-    "active promotion state files",
-    matchingGeneratedFiles(generatedFilenames, "candidate-promotion-state-"),
-    [ACTIVE_RECOLLECTION_FILES.promotionState],
-  );
-
-  return findings;
-}
-
-export function candidateEvidenceRecollectionFindings({ request, promotionState }) {
-  const findings = [];
-
+function validateCommonRequest(findings, request, promotionState) {
   requireEqual(findings, "request.schemaVersion", request?.schemaVersion, 1);
   requireEqual(
     findings,
@@ -145,14 +133,7 @@ export function candidateEvidenceRecollectionFindings({ request, promotionState 
     "controlled-launch-candidate-evidence-recollection-request",
   );
   requireEqual(findings, "request.issue", request?.issue, 515);
-  requireEqual(
-    findings,
-    "request.decision",
-    request?.decision,
-    "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
-  );
   requireEqual(findings, "request.sourceBranch", request?.sourceBranch, "main");
-  requireEqual(findings, "request.protectedExecutionAllowed", request?.protectedExecutionAllowed, false);
   requireEqual(findings, "request.requiredAcceptanceSchemaVersion", request?.requiredAcceptanceSchemaVersion, 2);
   requireSha(findings, "request.selectedSha", request?.selectedSha);
 
@@ -164,13 +145,6 @@ export function candidateEvidenceRecollectionFindings({ request, promotionState 
     "controlled-launch-candidate-promotion-state",
   );
   requireEqual(findings, "promotionState.issue", promotionState?.issue, 515);
-  requireEqual(findings, "promotionState.status", promotionState?.status, "pending_evidence_recollection");
-  requireEqual(
-    findings,
-    "promotionState.protectedExecutionAllowed",
-    promotionState?.protectedExecutionAllowed,
-    false,
-  );
   requireEqual(
     findings,
     "promotionState.requiredAcceptanceSchemaVersion",
@@ -189,10 +163,6 @@ export function candidateEvidenceRecollectionFindings({ request, promotionState 
     promotionState?.proposedCandidate?.sourceBranch,
     "main",
   );
-
-  if (promotionState?.currentAcceptedCandidateSha === promotionState?.proposedCandidate?.sha) {
-    findings.push("promotionState.proposedCandidate.sha: must differ from historical accepted candidate");
-  }
   requireEqual(
     findings,
     "request.selectedSha",
@@ -231,20 +201,8 @@ export function candidateEvidenceRecollectionFindings({ request, promotionState 
     promotionState?.launchDisabledBoundaries,
     REQUIRED_BOUNDARIES,
   );
-  exactSet(
-    findings,
-    "promotionState.staleAcceptedEvidence",
-    promotionState?.staleAcceptedEvidence?.map((entry) => entry?.id),
-    REQUIRED_STALE,
-  );
 
-  for (const blocker of ["NOG-03", "NOG-04", "NOG-06"]) {
-    requireEqual(
-      findings,
-      `request.requiredEvidence.${blocker}.status`,
-      request?.requiredEvidence?.[blocker]?.status,
-      "pending_recollection",
-    );
+  for (const blocker of REQUIRED_RECOLLECTED) {
     requireEqual(
       findings,
       `request.requiredEvidence.${blocker}.requireExactSelectedSha`,
@@ -309,6 +267,147 @@ export function candidateEvidenceRecollectionFindings({ request, promotionState 
     promotionState?.privacyBoundary,
     REQUIRED_PROMOTION_PRIVACY,
   );
+}
+
+function validatePending(findings, request, promotionState) {
+  requireEqual(
+    findings,
+    "request.decision",
+    request?.decision,
+    "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
+  );
+  requireEqual(findings, "request.protectedExecutionAllowed", request?.protectedExecutionAllowed, false);
+  requireEqual(findings, "promotionState.status", promotionState?.status, "pending_evidence_recollection");
+  requireEqual(
+    findings,
+    "promotionState.protectedExecutionAllowed",
+    promotionState?.protectedExecutionAllowed,
+    false,
+  );
+  if (promotionState?.currentAcceptedCandidateSha === promotionState?.proposedCandidate?.sha) {
+    findings.push("promotionState.proposedCandidate.sha: must differ from historical accepted candidate");
+  }
+  exactSet(
+    findings,
+    "promotionState.staleAcceptedEvidence",
+    promotionState?.staleAcceptedEvidence?.map((entry) => entry?.id),
+    REQUIRED_RECOLLECTED,
+  );
+  for (const blocker of REQUIRED_RECOLLECTED) {
+    requireEqual(
+      findings,
+      `request.requiredEvidence.${blocker}.status`,
+      request?.requiredEvidence?.[blocker]?.status,
+      "pending_recollection",
+    );
+  }
+}
+
+function validatePromoted(findings, request, promotionState) {
+  requireEqual(
+    findings,
+    "request.decision",
+    request?.decision,
+    "NO_GO_NOG_03_04_06_RECOLLECTED_AND_ACCEPTED",
+  );
+  requireEqual(findings, "request.protectedExecutionAllowed", request?.protectedExecutionAllowed, true);
+  requireEqual(
+    findings,
+    "promotionState.status",
+    promotionState?.status,
+    "promoted_exact_candidate_evidence",
+  );
+  requireEqual(
+    findings,
+    "promotionState.protectedExecutionAllowed",
+    promotionState?.protectedExecutionAllowed,
+    true,
+  );
+  requireEqual(
+    findings,
+    "promotionState.currentAcceptedCandidateSha",
+    promotionState?.currentAcceptedCandidateSha,
+    promotionState?.proposedCandidate?.sha,
+  );
+  exactSet(findings, "promotionState.staleAcceptedEvidence", promotionState?.staleAcceptedEvidence ?? [], []);
+
+  for (const blocker of REQUIRED_RECOLLECTED) {
+    requireEqual(
+      findings,
+      `request.requiredEvidence.${blocker}.status`,
+      request?.requiredEvidence?.[blocker]?.status,
+      "accepted_exact_selected_sha_evidence",
+    );
+  }
+
+  const requestAccepted = request?.acceptedEvidence;
+  exactSet(
+    findings,
+    "request.acceptedEvidence",
+    Array.isArray(requestAccepted) ? requestAccepted.map((entry) => entry?.id) : requestAccepted,
+    REQUIRED_RECOLLECTED,
+  );
+  const promotionAccepted = promotionState?.acceptedRecollectedEvidence;
+  exactSet(
+    findings,
+    "promotionState.acceptedRecollectedEvidence",
+    Array.isArray(promotionAccepted) ? promotionAccepted.map((entry) => entry?.id) : promotionAccepted,
+    REQUIRED_RECOLLECTED,
+  );
+  for (const blocker of REQUIRED_RECOLLECTED) {
+    requireEqual(
+      findings,
+      `request.acceptedEvidence.${blocker}.evidence`,
+      requestAccepted?.find((entry) => entry?.id === blocker)?.evidence,
+      ACCEPTED_EVIDENCE_PATHS[blocker],
+    );
+    requireEqual(
+      findings,
+      `promotionState.acceptedRecollectedEvidence.${blocker}.evidence`,
+      promotionAccepted?.find((entry) => entry?.id === blocker)?.evidence,
+      ACCEPTED_EVIDENCE_PATHS[blocker],
+    );
+  }
+  exactSet(
+    findings,
+    "promotionState.promotionCompletedChecks",
+    promotionState?.promotionCompletedChecks,
+    REQUIRED_COMPLETED_CHECKS,
+  );
+}
+
+export function candidateEvidenceRecollectionFileSelectionFindings(generatedFilenames) {
+  const findings = [];
+  if (!Array.isArray(generatedFilenames)) {
+    findings.push("generated evidence inventory: expected filename array");
+    return findings;
+  }
+
+  exactSet(
+    findings,
+    "active recollection request files",
+    matchingGeneratedFiles(generatedFilenames, "candidate-evidence-recollection-request-"),
+    [ACTIVE_RECOLLECTION_FILES.request],
+  );
+  exactSet(
+    findings,
+    "active promotion state files",
+    matchingGeneratedFiles(generatedFilenames, "candidate-promotion-state-"),
+    [ACTIVE_RECOLLECTION_FILES.promotionState],
+  );
+
+  return findings;
+}
+
+export function candidateEvidenceRecollectionFindings({ request, promotionState }) {
+  const findings = [];
+  validateCommonRequest(findings, request, promotionState);
+
+  if (promotionState?.status === "promoted_exact_candidate_evidence") {
+    validatePromoted(findings, request, promotionState);
+  } else {
+    validatePending(findings, request, promotionState);
+  }
 
   return findings;
 }

@@ -4,26 +4,26 @@
 
 **Current accepted candidate with historical exact-candidate evidence:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
 
-**Current exact main / proposed next candidate:** `cbbdebe0b09801c314ed0b048c6ed19873d23300`
+**Current exact main / proposed next candidate:** `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8`
 
-**Proposed candidate source:** `main` after PR #522
+**Proposed candidate source:** `main` after PR #519
 
 **Protected execution during promotion:** blocked
 
-The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability, alert-delivery, production-email readiness and support-bundle readiness changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected.
+The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability, alert-delivery, production-email readiness, support-bundle readiness and exact-candidate evidence-authority changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected.
 
 ## Two-phase fail-closed promotion
 
 Phase 1 installed the machine-readable promotion guard and blocked protected execution while preserving historical evidence binding to the old candidate.
 
-Phase 2 now targets the exact post-PR #522 main commit `cbbdebe0b09801c314ed0b048c6ed19873d23300`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
+Phase 2 now targets the exact post-PR #519 main commit `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
 
 The human/JSON candidate ledger and protected-staging target may move only after genuine exact-head workflow, runtime-image and rollback/volume-restore evidence exists for the proposed SHA and all authority checks pass.
 
 ## Required implementation
 
 1. Re-read `main` immediately before final promotion. If Claude or another agent advances runtime/deployment/security/bundle/launch-control behavior, refresh the proposed SHA first.
-2. Recollect genuine exact-head workflow evidence for `cbbdebe0b09801c314ed0b048c6ed19873d23300` before NOG-04 can be accepted there.
+2. Recollect genuine exact-head workflow evidence for `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8` before NOG-04 can be accepted there.
 3. Recollect genuine runtime image digest evidence for the same exact SHA before NOG-03 can be accepted there.
 4. Recollect genuine rollback/volume-restore evidence for the same exact SHA before NOG-06 can be accepted there.
 5. Only after 2-4, atomically align the human and machine-readable candidate ledgers, protected-staging activation runbook, protected-staging evidence request and No-Go register to the same exact SHA.
@@ -34,7 +34,7 @@ The human/JSON candidate ledger and protected-staging target may move only after
 
 ## Evidence truth boundary
 
-The PR-head evidence from PR #518 (`6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c`), PR #521 (`6145c03bdee9da4d06b781175a60b63d38cba568`) and PR #522 (`60691da0e1c45d7e6c5ea9aed4558e391f38db71`) is useful validation of those code changes, but it is not exact-candidate evidence for the squash-merge commit `cbbdebe0b09801c314ed0b048c6ed19873d23300` and must not be substituted for it.
+The PR-head evidence from PR #518 (`6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c`), PR #521 (`6145c03bdee9da4d06b781175a60b63d38cba568`), PR #522 (`60691da0e1c45d7e6c5ea9aed4558e391f38db71`) and PR #519 (`45819fc35e715128edb5d8df532c0b2d51c0b046`) is useful validation of those code changes, but it is not exact-candidate evidence for the post-#519 `main` commit `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8` and must not be substituted for it.
 
 Likewise, historical accepted evidence attached to `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` remains historical and must not be relabelled.
 

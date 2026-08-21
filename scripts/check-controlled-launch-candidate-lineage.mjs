@@ -14,6 +14,15 @@ const paths = {
 
 const shaPattern = /^[0-9a-f]{40}$/;
 const failures = [];
+const RECOLLECTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06"];
+const OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const DISABLED_BOUNDARIES = [
+  "real-money Exchange",
+  "custody/deposits/withdrawals",
+  "enterprise",
+  "white-label",
+  "public rewards",
+];
 
 async function text(path) {
   return readFile(path, "utf8");
@@ -57,6 +66,20 @@ function requireContains(path, source, token, reason) {
 function requireArrayIncludes(label, values, expected) {
   if (!Array.isArray(values) || !values.includes(expected)) {
     failures.push(`${label}: missing ${expected}`);
+  }
+}
+
+function requireArrayExact(label, values, expected) {
+  if (!Array.isArray(values)) {
+    failures.push(`${label}: expected array`);
+    return;
+  }
+  if (new Set(values).size !== values.length) {
+    failures.push(`${label}: duplicate entries are forbidden`);
+  }
+  const valueSet = new Set(values);
+  if (values.length !== expected.length || expected.some((value) => !valueSet.has(value))) {
+    failures.push(`${label}: expected exactly ${expected.join(", ")}`);
   }
 }
 
@@ -215,11 +238,6 @@ requireArrayIncludes(
   "service_manager_preloaded_environment",
 );
 
-// Two-phase promotion guard. While evidence for a newer runtime/security head is
-// being recollected, the previously accepted candidate remains the historical
-// evidence authority, but protected execution must be blocked. This prevents a
-// stale exact-candidate packet from being used merely because its internal
-// lineage files are mutually consistent.
 requireEqual(`${paths.promotionState}: schemaVersion`, promotionState.schemaVersion, 1);
 requireEqual(
   `${paths.promotionState}: evidenceClass`,
@@ -227,14 +245,9 @@ requireEqual(
   "controlled-launch-candidate-promotion-state",
 );
 requireEqual(
-  `${paths.promotionState}: status`,
-  promotionState.status,
-  "pending_evidence_recollection",
-);
-requireEqual(
-  `${paths.promotionState}: protectedExecutionAllowed`,
-  promotionState.protectedExecutionAllowed,
-  false,
+  `${paths.promotionState}: requiredAcceptanceSchemaVersion`,
+  promotionState.requiredAcceptanceSchemaVersion,
+  2,
 );
 
 const acceptedCandidateSha = requireSha(
@@ -245,51 +258,20 @@ const proposedCandidateSha = requireSha(
   `${paths.promotionState}: proposedCandidate.sha`,
   promotionState.proposedCandidate?.sha,
 );
-
-if (currentSha && acceptedCandidateSha) {
-  requireEqual(
-    `${paths.promotionState}: currentAcceptedCandidateSha`,
-    acceptedCandidateSha,
-    currentSha,
-  );
-}
-if (currentSha && proposedCandidateSha) {
-  requireNotEqual(
-    `${paths.promotionState}: proposedCandidate.sha`,
-    proposedCandidateSha,
-    currentSha,
-  );
-}
 requireEqual(
   `${paths.promotionState}: proposedCandidate.sourceBranch`,
   promotionState.proposedCandidate?.sourceBranch,
   "main",
 );
 
-const staleEvidenceIds = Array.isArray(promotionState.staleAcceptedEvidence)
-  ? promotionState.staleAcceptedEvidence.map((entry) => entry?.id)
-  : [];
-for (const blocker of ["NOG-03", "NOG-04", "NOG-06"]) {
-  requireArrayIncludes(
-    `${paths.promotionState}: staleAcceptedEvidence`,
-    staleEvidenceIds,
-    blocker,
-  );
-}
-for (const blocker of ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"]) {
+for (const blocker of OPEN_BLOCKERS) {
   requireArrayIncludes(
     `${paths.promotionState}: stillOpenBlockers`,
     promotionState.stillOpenBlockers,
     blocker,
   );
 }
-for (const boundary of [
-  "real-money Exchange",
-  "custody/deposits/withdrawals",
-  "enterprise",
-  "white-label",
-  "public rewards",
-]) {
+for (const boundary of DISABLED_BOUNDARIES) {
   requireArrayIncludes(
     `${paths.promotionState}: launchDisabledBoundaries`,
     promotionState.launchDisabledBoundaries,
@@ -297,9 +279,101 @@ for (const boundary of [
   );
 }
 
+if (promotionState.status === "promoted_exact_candidate_evidence") {
+  requireEqual(
+    `${paths.promotionState}: protectedExecutionAllowed`,
+    promotionState.protectedExecutionAllowed,
+    true,
+  );
+  if (currentSha && acceptedCandidateSha) {
+    requireEqual(
+      `${paths.promotionState}: currentAcceptedCandidateSha`,
+      acceptedCandidateSha,
+      currentSha,
+    );
+  }
+  if (currentSha && proposedCandidateSha) {
+    requireEqual(
+      `${paths.promotionState}: proposedCandidate.sha`,
+      proposedCandidateSha,
+      currentSha,
+    );
+  }
+  requireArrayExact(
+    `${paths.promotionState}: staleAcceptedEvidence`,
+    promotionState.staleAcceptedEvidence ?? [],
+    [],
+  );
+  requireArrayExact(
+    `${paths.promotionState}: acceptedRecollectedEvidence`,
+    Array.isArray(promotionState.acceptedRecollectedEvidence)
+      ? promotionState.acceptedRecollectedEvidence.map((entry) => entry?.id)
+      : promotionState.acceptedRecollectedEvidence,
+    RECOLLECTED_BLOCKERS,
+  );
+  requireArrayExact(
+    `${paths.jsonLedger}: acceptedEvidence recollected blockers`,
+    RECOLLECTED_BLOCKERS.filter((blocker) =>
+      jsonLedger.acceptedEvidence?.some((entry) => entry?.id === blocker && entry?.status === "accepted"),
+    ),
+    RECOLLECTED_BLOCKERS,
+  );
+  requireArrayExact(
+    `${paths.protectedStagingRegister}: acceptedEvidence recollected blockers`,
+    RECOLLECTED_BLOCKERS.filter((blocker) =>
+      protectedStagingRegister.acceptedEvidence?.some((entry) => entry?.id === blocker),
+    ),
+    RECOLLECTED_BLOCKERS,
+  );
+  for (const blocker of RECOLLECTED_BLOCKERS) {
+    requireEqual(
+      `${paths.protectedStagingRegister}: ${blocker}.status`,
+      protectedStagingRegister.blockers?.find((entry) => entry.id === blocker)?.status,
+      "accepted",
+    );
+  }
+} else {
+  requireEqual(
+    `${paths.promotionState}: status`,
+    promotionState.status,
+    "pending_evidence_recollection",
+  );
+  requireEqual(
+    `${paths.promotionState}: protectedExecutionAllowed`,
+    promotionState.protectedExecutionAllowed,
+    false,
+  );
+  if (currentSha && acceptedCandidateSha) {
+    requireEqual(
+      `${paths.promotionState}: currentAcceptedCandidateSha`,
+      acceptedCandidateSha,
+      currentSha,
+    );
+  }
+  if (currentSha && proposedCandidateSha) {
+    requireNotEqual(
+      `${paths.promotionState}: proposedCandidate.sha`,
+      proposedCandidateSha,
+      currentSha,
+    );
+  }
+  const staleEvidenceIds = Array.isArray(promotionState.staleAcceptedEvidence)
+    ? promotionState.staleAcceptedEvidence.map((entry) => entry?.id)
+    : [];
+  requireArrayExact(
+    `${paths.promotionState}: staleAcceptedEvidence`,
+    staleEvidenceIds,
+    RECOLLECTED_BLOCKERS,
+  );
+}
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
+} else if (promotionState.status === "promoted_exact_candidate_evidence") {
+  console.log(
+    `Controlled launch candidate lineage passed for promoted candidate ${jsonLedger.currentCandidate.sha}; protected evidence collection may proceed while remaining launch blockers stay NO-GO.`,
+  );
 } else {
   console.log(
     `Controlled launch candidate lineage passed for ${jsonLedger.currentCandidate.sha}; proposed promotion ${promotionState.proposedCandidate.sha} remains fail-closed pending evidence recollection.`,
