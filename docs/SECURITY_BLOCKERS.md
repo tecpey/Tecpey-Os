@@ -229,7 +229,21 @@
   work, and an enforcement table that must not drift from the product registry —
   so a future flag-carrying surface cannot ship display-only without a
   deliberate decision. Verified load-bearing: removing the gate fails 2 of 5.
-- **Residual scope — still open, and larger than first recorded.** An earlier
+- **Residual scope — CLOSED 2026-08-21, issue #510.** The community surface was
+  never Social's to own. `social.enabled` gates the unshipped social-auth provider
+  capability in `admin-control-plane-matrix.ts`; community profiles and journals
+  ship today. Simply defaulting `social.enabled` on would therefore have unlocked
+  genuinely launch-locked admin surfaces — the obvious fix was the wrong one. The
+  two capabilities are now separated: `community.enabled` (default **on**, matching
+  what ships) governs the community surface and is enforced fail-closed at
+  `PATCH /api/community/profile`; `social.enabled` keeps gating social auth and
+  stays off by default, and its product entry no longer claims community or
+  journals. The enforcement ledger now enumerates **every** feature flag rather
+  than only product-declared ones — a product-only sweep would have missed
+  `community.enabled` entirely — and asserts that each `route-enforced` claim has
+  a matching `requireFeature` call in the route it names.
+
+- **Original residual record — superseded by the entry above.** An earlier
   draft classified `social.enabled` as having no mutating surface. **That was
   wrong**, and review caught it: `PATCH /api/community/profile` is an active
   mutating route owned by the Social product ("Community, groups, journals, and
