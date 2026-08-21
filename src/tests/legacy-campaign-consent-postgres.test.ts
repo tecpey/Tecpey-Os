@@ -293,10 +293,30 @@ test("the legacy drain never enqueues delivery itself", () => {
   // The behavioural check above can only observe today's data. This pins the
   // structural reason it holds, so the invariant fails loudly at the point
   // someone changes it rather than silently at runtime.
+  //
+  // Scoped to the drain bodies rather than the whole module on purpose: an
+  // unrelated repository function that legitimately enqueues delivery does not
+  // break this invariant, and a guard that fails on it would be noise pushing
+  // someone to weaken or delete the guard instead of heeding it.
   const repo = readFileSync("src/lib/notifications/repository.ts", "utf8");
-  assert.doesNotMatch(
-    repo,
-    /INSERT INTO notification_outbox/,
-    "the drain must not enqueue delivery: withheld campaigns stay unread only while no outbox row exists for them",
-  );
+
+  const drainBody = (name: string): string => {
+    const start = repo.indexOf(`async function ${name}(`);
+    assert.ok(start > 0, `${name} must exist for this invariant to mean anything`);
+    const next = repo.indexOf("\nasync function ", start + 1);
+    const exported = repo.indexOf("\nexport ", start + 1);
+    const ends = [next, exported].filter((index) => index > 0);
+    return repo.slice(start, ends.length > 0 ? Math.min(...ends) : repo.length);
+  };
+
+  for (const name of [
+    "drainNotificationCenterForPrincipal",
+    "drainSecurityNotificationsForPrincipal",
+  ]) {
+    assert.doesNotMatch(
+      drainBody(name),
+      /INSERT INTO notification_outbox/,
+      `${name} must not enqueue delivery: withheld campaigns stay unread only while no outbox row exists for them`,
+    );
+  }
 });
