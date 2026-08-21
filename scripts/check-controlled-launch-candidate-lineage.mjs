@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 const paths = {
   humanLedger: "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
   jsonLedger: "docs/launch/generated/current-controlled-launch-candidate.json",
+  promotionState: "docs/launch/generated/candidate-promotion-state-20260821.json",
   protectedStagingRequest:
     "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
   protectedStagingRegister:
@@ -41,6 +42,12 @@ function requireEqual(label, actual, expected) {
   }
 }
 
+function requireNotEqual(label, actual, unexpected) {
+  if (actual === unexpected) {
+    failures.push(`${label}: must differ from ${unexpected}`);
+  }
+}
+
 function requireContains(path, source, token, reason) {
   if (!source.includes(token)) {
     failures.push(`${path}: ${reason}`);
@@ -57,12 +64,14 @@ const [
   humanLedger,
   protectedStagingRunbook,
   jsonLedger,
+  promotionState,
   protectedStagingRequest,
   protectedStagingRegister,
 ] = await Promise.all([
   text(paths.humanLedger),
   text(paths.protectedStagingRunbook),
   json(paths.jsonLedger),
+  json(paths.promotionState),
   json(paths.protectedStagingRequest),
   json(paths.protectedStagingRegister),
 ]);
@@ -206,11 +215,93 @@ requireArrayIncludes(
   "service_manager_preloaded_environment",
 );
 
+// Two-phase promotion guard. While evidence for a newer runtime/security head is
+// being recollected, the previously accepted candidate remains the historical
+// evidence authority, but protected execution must be blocked. This prevents a
+// stale exact-candidate packet from being used merely because its internal
+// lineage files are mutually consistent.
+requireEqual(`${paths.promotionState}: schemaVersion`, promotionState.schemaVersion, 1);
+requireEqual(
+  `${paths.promotionState}: evidenceClass`,
+  promotionState.evidenceClass,
+  "controlled-launch-candidate-promotion-state",
+);
+requireEqual(
+  `${paths.promotionState}: status`,
+  promotionState.status,
+  "pending_evidence_recollection",
+);
+requireEqual(
+  `${paths.promotionState}: protectedExecutionAllowed`,
+  promotionState.protectedExecutionAllowed,
+  false,
+);
+
+const acceptedCandidateSha = requireSha(
+  `${paths.promotionState}: currentAcceptedCandidateSha`,
+  promotionState.currentAcceptedCandidateSha,
+);
+const proposedCandidateSha = requireSha(
+  `${paths.promotionState}: proposedCandidate.sha`,
+  promotionState.proposedCandidate?.sha,
+);
+
+if (currentSha && acceptedCandidateSha) {
+  requireEqual(
+    `${paths.promotionState}: currentAcceptedCandidateSha`,
+    acceptedCandidateSha,
+    currentSha,
+  );
+}
+if (currentSha && proposedCandidateSha) {
+  requireNotEqual(
+    `${paths.promotionState}: proposedCandidate.sha`,
+    proposedCandidateSha,
+    currentSha,
+  );
+}
+requireEqual(
+  `${paths.promotionState}: proposedCandidate.sourceBranch`,
+  promotionState.proposedCandidate?.sourceBranch,
+  "main",
+);
+
+const staleEvidenceIds = Array.isArray(promotionState.staleAcceptedEvidence)
+  ? promotionState.staleAcceptedEvidence.map((entry) => entry?.id)
+  : [];
+for (const blocker of ["NOG-03", "NOG-04", "NOG-06"]) {
+  requireArrayIncludes(
+    `${paths.promotionState}: staleAcceptedEvidence`,
+    staleEvidenceIds,
+    blocker,
+  );
+}
+for (const blocker of ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"]) {
+  requireArrayIncludes(
+    `${paths.promotionState}: stillOpenBlockers`,
+    promotionState.stillOpenBlockers,
+    blocker,
+  );
+}
+for (const boundary of [
+  "real-money Exchange",
+  "custody/deposits/withdrawals",
+  "enterprise",
+  "white-label",
+  "public rewards",
+]) {
+  requireArrayIncludes(
+    `${paths.promotionState}: launchDisabledBoundaries`,
+    promotionState.launchDisabledBoundaries,
+    boundary,
+  );
+}
+
 if (failures.length > 0) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
 } else {
   console.log(
-    `Controlled launch candidate lineage passed for ${jsonLedger.currentCandidate.sha}.`,
+    `Controlled launch candidate lineage passed for ${jsonLedger.currentCandidate.sha}; proposed promotion ${promotionState.proposedCandidate.sha} remains fail-closed pending evidence recollection.`,
   );
 }

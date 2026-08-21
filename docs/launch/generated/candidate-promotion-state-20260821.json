@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "controlled-launch-candidate-promotion-state",
+  "generatedAt": "2026-08-21T06:55:00Z",
+  "issue": 515,
+  "status": "pending_evidence_recollection",
+  "currentAcceptedCandidateSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "proposedCandidate": {
+    "sha": "7329c3d9d8a615f106a5cf80ddd1343743f5a509",
+    "sourceBranch": "main",
+    "sourcePullRequest": 516,
+    "reason": "PR #516 changed runtime observability, health signalling and production environment validation after the previously accepted controlled-launch candidate. New protected-staging and release-control evidence must target this exact newer runtime/security head or a later explicitly refreshed stable main SHA."
+  },
+  "protectedExecutionAllowed": false,
+  "staleAcceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "reason": "runtime image digest evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-04",
+      "reason": "exact-head workflow URL evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-06",
+      "reason": "rollback and volume-restore evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    }
+  ],
+  "stillOpenBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
+  "launchDisabledBoundaries": [
+    "real-money Exchange",
+    "custody/deposits/withdrawals",
+    "enterprise",
+    "white-label",
+    "public rewards"
+  ],
+  "requiredBeforePromotion": [
+    "re-read main immediately before final promotion commit",
+    "recollect genuine exact-head workflow evidence for the proposed exact SHA",
+    "recollect genuine runtime image digest evidence for the proposed exact SHA",
+    "recollect genuine rollback/volume-restore evidence for the proposed exact SHA",
+    "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
+    "keep protected execution blocked until the aligned promotion state is CI-valid"
+  ],
+  "privacyBoundary": [
+    "state contains release identifiers, blocker IDs, status and policy text only",
+    "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ]
+}
