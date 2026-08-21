@@ -252,3 +252,71 @@ test("consent is evaluated inside each insert, not captured once per batch", () 
     "consent must not be resolved once for the whole batch — a revocation would not reach the rows behind it",
   );
 });
+
+test("a withheld campaign has no outbox row that could later deliver it", async () => {
+  await withRolledBackTest(async (client) => {
+    const seeded = await seed(client, "no-outbox");
+
+    const principal = await resolveNotificationPrincipal(client, {
+      accountId: null,
+      studentId: seeded.studentId,
+      email: null,
+      locale: "fa",
+    });
+    await migrateLegacyNotificationsForPrincipal(client, principal);
+
+    // Withholding relies on delivered_at staying NULL, but a trigger
+    // (notification_outbox_publish_in_app) sets delivered_at as soon as an
+    // in-app outbox row for the notification reaches provider_accepted. The
+    // gate therefore also depends on the drain creating no outbox row — an
+    // invariant that currently holds only because the drain never touches that
+    // table. If a later change starts enqueuing legacy notifications for
+    // delivery, the withheld campaign would silently become deliverable and the
+    // consent bypass would reopen.
+    const outbox = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+         FROM notification_outbox o
+         JOIN platform_notifications n ON n.id = o.notification_id
+        WHERE n.principal_id = $1
+          AND n.notification_class = 'marketing_campaign'`,
+      [seeded.principalId],
+    );
+    assert.equal(
+      outbox.rows[0].count,
+      "0",
+      "a withheld campaign must have no outbox row: the delivery trigger would set delivered_at and reopen the consent bypass",
+    );
+  });
+});
+
+test("the legacy drain never enqueues delivery itself", () => {
+  // The behavioural check above can only observe today's data. This pins the
+  // structural reason it holds, so the invariant fails loudly at the point
+  // someone changes it rather than silently at runtime.
+  //
+  // Scoped to the drain bodies rather than the whole module on purpose: an
+  // unrelated repository function that legitimately enqueues delivery does not
+  // break this invariant, and a guard that fails on it would be noise pushing
+  // someone to weaken or delete the guard instead of heeding it.
+  const repo = readFileSync("src/lib/notifications/repository.ts", "utf8");
+
+  const drainBody = (name: string): string => {
+    const start = repo.indexOf(`async function ${name}(`);
+    assert.ok(start > 0, `${name} must exist for this invariant to mean anything`);
+    const next = repo.indexOf("\nasync function ", start + 1);
+    const exported = repo.indexOf("\nexport ", start + 1);
+    const ends = [next, exported].filter((index) => index > 0);
+    return repo.slice(start, ends.length > 0 ? Math.min(...ends) : repo.length);
+  };
+
+  for (const name of [
+    "drainNotificationCenterForPrincipal",
+    "drainSecurityNotificationsForPrincipal",
+  ]) {
+    assert.doesNotMatch(
+      drainBody(name),
+      /INSERT INTO notification_outbox/,
+      `${name} must not enqueue delivery: withheld campaigns stay unread only while no outbox row exists for them`,
+    );
+  }
+});
