@@ -12,10 +12,41 @@ export type EmailMessage = {
 
 export type EmailResult = {
   ok: boolean;
-  provider: "resend" | "sendgrid" | "dev";
+  provider: "resend" | "sendgrid" | "dev" | "none";
   messageId?: string;
   error?: string;
 };
+
+export type EmailDeliveryReadiness =
+  | {
+      status: "configured";
+      provider: "resend" | "sendgrid";
+      mode: "live";
+      reason: null;
+    }
+  | {
+      status: "development";
+      provider: "dev";
+      mode: "simulated";
+      reason: "development_provider" | "development_default";
+    }
+  | {
+      status: "unconfigured";
+      provider: "none" | null;
+      mode: "disabled";
+      reason: "delivery_disabled" | "provider_not_configured";
+    }
+  | {
+      status: "misconfigured";
+      provider: string | null;
+      mode: "blocked";
+      reason:
+        | "unsupported_provider"
+        | "provider_key_missing"
+        | "provider_key_placeholder"
+        | "development_provider_forbidden_in_production"
+        | "disabled_provider_forbidden_in_production";
+    };
 
 const DEFAULT_FROM = process.env.EMAIL_FROM || "TecPey <noreply@tecpey.ir>";
 
@@ -23,12 +54,116 @@ function normalizeRecipients(to: string | string[]): string[] {
   return Array.isArray(to) ? to : [to];
 }
 
+function normalizeProvider(raw: string | undefined): string {
+  return (raw ?? "").trim().toLowerCase();
+}
+
+function isUsableKey(raw: string | undefined): boolean {
+  const value = (raw ?? "").trim();
+  if (!value) return false;
+  return !containsEnvPlaceholder(value);
+}
+
+/**
+ * Single authority for email-delivery readiness.
+ *
+ * The same decision is consumed by the send path, /api/health (through
+ * isEmailConfigured) and the production preflight. This prevents a deployment
+ * gate from vouching for a delivery path that the runtime later refuses.
+ */
+export function emailDeliveryReadiness(
+  env: Pick<
+    NodeJS.ProcessEnv,
+    "NODE_ENV" | "EMAIL_PROVIDER" | "RESEND_API_KEY" | "SENDGRID_API_KEY"
+  > = process.env,
+  runtimeEnvironment = env.NODE_ENV,
+): EmailDeliveryReadiness {
+  const provider = normalizeProvider(env.EMAIL_PROVIDER);
+  const isProduction = normalizeProvider(runtimeEnvironment) === "production";
+
+  if (provider === "resend" || provider === "sendgrid") {
+    const key = provider === "resend" ? env.RESEND_API_KEY : env.SENDGRID_API_KEY;
+    const trimmed = (key ?? "").trim();
+    if (!trimmed) {
+      return {
+        status: "misconfigured",
+        provider,
+        mode: "blocked",
+        reason: "provider_key_missing",
+      };
+    }
+    if (containsEnvPlaceholder(trimmed)) {
+      return {
+        status: "misconfigured",
+        provider,
+        mode: "blocked",
+        reason: "provider_key_placeholder",
+      };
+    }
+    return { status: "configured", provider, mode: "live", reason: null };
+  }
+
+  if (!provider) {
+    if (isProduction) {
+      return {
+        status: "unconfigured",
+        provider: null,
+        mode: "disabled",
+        reason: "provider_not_configured",
+      };
+    }
+    return {
+      status: "development",
+      provider: "dev",
+      mode: "simulated",
+      reason: "development_default",
+    };
+  }
+
+  if (provider === "dev") {
+    if (isProduction) {
+      return {
+        status: "misconfigured",
+        provider,
+        mode: "blocked",
+        reason: "development_provider_forbidden_in_production",
+      };
+    }
+    return {
+      status: "development",
+      provider: "dev",
+      mode: "simulated",
+      reason: "development_provider",
+    };
+  }
+
+  if (provider === "none") {
+    if (isProduction) {
+      return {
+        status: "misconfigured",
+        provider,
+        mode: "blocked",
+        reason: "disabled_provider_forbidden_in_production",
+      };
+    }
+    return {
+      status: "unconfigured",
+      provider: "none",
+      mode: "disabled",
+      reason: "delivery_disabled",
+    };
+  }
+
+  return {
+    status: "misconfigured",
+    provider,
+    mode: "blocked",
+    reason: "unsupported_provider",
+  };
+}
+
 async function sendViaResend(message: EmailMessage): Promise<EmailResult> {
   const key = process.env.RESEND_API_KEY;
-  // Same rule isEmailConfigured() reports on. If sending accepted a key that
-  // health calls unusable, the two would describe different systems: health
-  // warning that email is down while every send still burned a round-trip to
-  // collect a 401 the caller sees only as a generic HTTP error.
   if (!isUsableKey(key)) return { ok: false, provider: "resend", error: "RESEND_API_KEY not set" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -97,63 +232,34 @@ function sendViaDev(message: EmailMessage): EmailResult {
 }
 
 /**
- * Send an email via the configured provider.
- * Provider is selected by EMAIL_PROVIDER env var (resend | sendgrid | dev | none).
- * Defaults to "dev" in non-production environments and logs the message.
- * Returns EmailResult — callers must check result.ok and handle failures.
+ * Send an email through the delivery mode selected by the shared readiness
+ * authority. Production never falls back to a simulated success.
  */
 export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
-  const provider = resolveEmailProvider();
+  const readiness = emailDeliveryReadiness();
 
-  if (provider === "resend") return sendViaResend(message);
-  if (provider === "sendgrid") return sendViaSendGrid(message);
-
-  // In production with no provider configured, log an error and return failure
-  // rather than silently discarding emails.
-  if (process.env.NODE_ENV === "production" && provider !== "none") {
-    logger.error("[email] EMAIL_PROVIDER is not configured in production. Set EMAIL_PROVIDER=resend or EMAIL_PROVIDER=sendgrid and configure the corresponding API key.");
-    return { ok: false, provider: "dev", error: "email_provider_not_configured" };
+  if (readiness.status === "configured") {
+    return readiness.provider === "resend" ? sendViaResend(message) : sendViaSendGrid(message);
   }
 
-  return sendViaDev(message);
+  if (readiness.status === "development") {
+    return sendViaDev(message);
+  }
+
+  const provider = readiness.provider === "dev" ? "dev" : "none";
+  logger.error("[email] Email delivery is unavailable", {
+    status: readiness.status,
+    provider: readiness.provider ?? "unset",
+    reason: readiness.reason,
+  });
+  return {
+    ok: false,
+    provider,
+    error: readiness.reason,
+  };
 }
 
-/**
- * Whether an API key is something the provider could actually accept.
- *
- * Placeholder detection comes from the environment contract rather than a local
- * list, so a value the deployment preflight calls unfinished is not one this
- * module calls a credential.
- */
-function isUsableKey(raw: string | undefined): boolean {
-  const value = (raw ?? "").trim();
-  if (!value) return false;
-  return !containsEnvPlaceholder(value);
-}
-
-/**
- * The single place EMAIL_PROVIDER is interpreted.
- *
- * sendEmail and isEmailConfigured each used to lowercase the variable
- * independently, and neither trimmed it. A quoted .env value like " resend "
- * therefore selected no provider while /api/health reported email as
- * unconfigured — consistent by luck, since both were wrong in the same way, but
- * any future caller resolving it correctly would have disagreed with both.
- */
-function resolveEmailProvider(): string {
-  return (process.env.EMAIL_PROVIDER ?? "").trim().toLowerCase();
-}
-
-/**
- * Whether email can actually be sent.
- *
- * /api/health reports this, and the deployment contract routes traffic on that
- * response, so a placeholder API key answering true would let the health signal
- * vouch for a delivery path that rejects every message.
- */
+/** Whether a live delivery provider with a usable credential is configured. */
 export function isEmailConfigured(): boolean {
-  const provider = resolveEmailProvider();
-  if (provider === "resend") return isUsableKey(process.env.RESEND_API_KEY);
-  if (provider === "sendgrid") return isUsableKey(process.env.SENDGRID_API_KEY);
-  return false;
+  return emailDeliveryReadiness().status === "configured";
 }
