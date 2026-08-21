@@ -81,8 +81,8 @@ function roundScore(value: number): number {
   return Math.round(value * 10000) / 10000;
 }
 
-function normalizeHost(value: string): string {
-  return value.trim().toLowerCase().replace(/\.$/, "");
+function normalizeHost(value: string | null | undefined): string {
+  return value?.trim().toLowerCase().replace(/\.$/, "") ?? "";
 }
 
 function officialHostForUrl(value: string): string | null {
@@ -96,7 +96,7 @@ function officialHostForUrl(value: string): string | null {
   }
 }
 
-function officialWebsiteMatchesPinnedHost(website: string, pinnedHost: string): boolean {
+function officialWebsiteMatchesPinnedHost(website: string, pinnedHost: string | null | undefined): boolean {
   const hostname = officialHostForUrl(website);
   const canonicalHost = normalizeHost(pinnedHost);
   if (!hostname || !canonicalHost) return false;
