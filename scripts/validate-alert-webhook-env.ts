@@ -22,7 +22,12 @@ if (alertStatus === "misconfigured") {
   console.log(`TecPey alert webhook validation passed (${alertStatus}).`);
 }
 
-const emailStatus = emailDeliveryReadiness(process.env, "production");
+// Generic env:check follows the process environment so deliberate dev/none modes
+// remain valid outside production. The governed candidate preflight opts into the
+// stricter production contract with --require-live-email before any candidate is
+// built or started.
+const emailEnvironment = requireLiveEmail ? "production" : process.env.NODE_ENV;
+const emailStatus = emailDeliveryReadiness(process.env, emailEnvironment);
 const emailMustFail =
   emailStatus.status === "misconfigured" ||
   (requireLiveEmail && emailStatus.status !== "configured");
