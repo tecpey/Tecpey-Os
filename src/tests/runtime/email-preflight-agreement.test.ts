@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { emailDeliveryReadiness } from "../../lib/email";
 
 // Review finding on #520: a deployment gate must not accept a delivery posture
@@ -60,7 +60,7 @@ function validatorRejects(
   return runValidator(values, nodeEnv, options).status !== 0;
 }
 
-function tempProject(t: test.TestContext, productionEnv: string): string {
+function tempProject(t: TestContext, productionEnv: string): string {
   const root = mkdtempSync(join(tmpdir(), "tecpey-email-env-authority-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   symlinkSync(NODE_MODULES_PATH, join(root, "node_modules"), "dir");
