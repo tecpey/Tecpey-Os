@@ -1,101 +1,18 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-21T18:42:52Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "sha": "1c2172144f5a5fbe3037a262c67cb9799585c1b2",
     "sourceBranch": "main",
-    "sourcePullRequest": 437,
-    "selectedAt": "2026-08-14T16:00:49Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the PR #437 squash-merge commit on main after the PR #441 tenant-binding candidate was promoted. The runtime tree remains the PR #441 candidate line, but every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
+    "sourcePullRequest": 525,
+    "selectedAt": "2026-08-21T18:42:52Z",
+    "reason": "Selects the exact post-PR #525 main commit after genuine exact-head workflow, immutable runtime-image, and rollback/volume-restore evidence was recollected for that SHA."
   },
   "supersedes": [
-    {
-      "sha": "03e77790630dac737a2d4cc4636b97e80de48ab3",
-      "previousRole": "runtime baseline in first draft RC evidence packet",
-      "currentStatus": "historical_draft_baseline_only"
-    },
-    {
-      "sha": "a8d494f12618cc6b36c0eeae40a7b7b212754fbf",
-      "previousRole": "protected staging evidence target after PR 358",
-      "currentStatus": "superseded_for_new_protected_staging_collection"
-    },
-    {
-      "sha": "f64593e773642e33f5afc1c7baf9351de9e43500",
-      "previousRole": "support bundle workflow before hardening",
-      "currentStatus": "historical_handoff_baseline_only"
-    },
-    {
-      "sha": "3ef67b816a4d3a0ab6c1f369aceb0063c641aedc",
-      "previousRole": "current controlled-launch candidate after PR 367 support bundle hardening",
-      "currentStatus": "superseded_by_pr_373_for_new_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "7390afa2ba8509d0f46733b98d966928cb07b231",
-      "previousRole": "current controlled-launch candidate after PR 373 tenant-isolation proof coverage",
-      "currentStatus": "superseded_by_pr_376_for_new_protected_staging_and_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "2ab89cb920b2087aa83de23aaef9745ca6b873c9",
-      "previousRole": "current controlled-launch candidate after PR 376 protected staging env evidence automation",
-      "currentStatus": "superseded_by_pr_378_for_new_exact_head_workflow_and_protected_staging_evidence_collection"
-    },
-    {
-      "sha": "8a569aaa1ce7c99215a27acf86c078f4db0b494e",
-      "previousRole": "main after PR 377 staging evidence ledger promotion",
-      "currentStatus": "superseded_by_pr_378_for_exact_head_full_suite_evidence_collection"
-    },
-    {
-      "sha": "db1f761d8fb543d1a3619ace901434b4636eeb4d",
-      "previousRole": "current controlled-launch candidate after PR 378 exact-head Full Suite evidence collection",
-      "currentStatus": "superseded_by_pr_380_for_new_exact_head_workflow_and_protected_staging_evidence_collection"
-    },
-    {
-      "sha": "866ff092828b15ef0e64c3508bf4904c6d22ba52",
-      "previousRole": "current controlled-launch candidate after PR 380 exact-head Full Suite hardening",
-      "currentStatus": "superseded_by_pr_382_for_new_product_truth_and_protected_staging_evidence_collection"
-    },
-    {
-      "sha": "70894e0430ed4796016c9a0952dde8de06bc788a",
-      "previousRole": "current controlled-launch candidate after PR 382 product-truth route guarding",
-      "currentStatus": "superseded_by_pr_388_for_new_academy_ui_growth_protected_staging_and_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "55f2e92bb8238de17e0809fe54c389476517f57b",
-      "previousRole": "current controlled-launch candidate after PR #388 provenance-aware landing growth evidence",
-      "currentStatus": "superseded_by_pr_396_for_support_install_readiness_news_readiness_and_exact_candidate_evidence_refresh"
-    },
-    {
-      "sha": "5d68865dd56331e011829749ee970d097e9b14a4",
-      "previousRole": "current controlled-launch candidate after PR #396 support install readiness, news readiness and exact-candidate evidence refresh",
-      "currentStatus": "superseded_by_pr_433_for_auth_provider_review_decisions_and_new_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "c2b5e58f23881635ebf507827158550a44d3f9b5",
-      "previousRole": "current controlled-launch candidate after PR #433 auth-provider review decisions and exact-candidate evidence refresh",
-      "currentStatus": "superseded_by_pr_435_for_new_current_main_protected_staging_and_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "92ccb8f18ac28232a2c1cb6cece09de52aa424f0",
-      "previousRole": "current controlled-launch candidate after PR #435 strict readiness audit and candidate-evidence promotion",
-      "currentStatus": "superseded_by_pr_434_for_mentor_tenant_binding_and_new_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "389c1fed2682b73db7d46ab36a9e992cc9ba9a1d",
-      "previousRole": "current controlled-launch candidate after PR #434 Mentor conversation and insight tenant-binding security fix",
-      "currentStatus": "superseded_by_pr_436_pr_438_pr_439_for_current_main_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "b55860d8444db9c1b1020f1240816a229b1a2944",
-      "previousRole": "current controlled-launch candidate after PR #439 concurrent authority CI/full-suite hardening",
-      "currentStatus": "superseded_by_pr_440_pr_441_for_current_main_exact_candidate_evidence_collection"
-    },
-    {
-      "sha": "5c933f2499fa84f7e71fcd3a1076ffe12cf3149e",
-      "previousRole": "current controlled-launch candidate after PR #441 Academy lesson-progress tenant-binding and PR #437 evidence-ledger promotion base",
-      "currentStatus": "superseded_by_pr_437_for_new_current_main_exact_candidate_evidence_collection"
-    }
+    {"sha":"9bd4ca5ec22e99e2d7deb192826ef8c018ee4913","previousRole":"previously accepted exact candidate after PR #437","currentStatus":"historical_exact_candidate_evidence_only"},
+    {"sha":"e4065675473170f62f0ed4dec8641f8d77722725","previousRole":"post-PR #523 exact-main candidate prepared by stale PR #524","currentStatus":"superseded_by_post_pr_525_exact_candidate_evidence_recollection"}
   ],
   "activeInputs": {
     "humanLedger": "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
@@ -128,36 +45,12 @@
     "Go approval matrix for the current candidate that passes scripts/verify-go-approval-matrix-evidence.mjs"
   ],
   "acceptedEvidence": [
-    {
-      "id": "NOG-03",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-04",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-06",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-10",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-11",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-12",
-      "status": "accepted",
-      "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"
-    }
+    {"id":"NOG-03","status":"accepted","evidence":"docs/launch/generated/runtime-image-digest-evidence-20260812.json"},
+    {"id":"NOG-04","status":"accepted","evidence":"docs/launch/generated/exact-head-workflow-evidence-20260812.json"},
+    {"id":"NOG-06","status":"accepted","evidence":"docs/launch/generated/rollback-volume-restore-evidence-20260812.json"},
+    {"id":"NOG-10","status":"accepted","evidence":"docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"},
+    {"id":"NOG-11","status":"accepted","evidence":"docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"},
+    {"id":"NOG-12","status":"accepted","evidence":"docs/launch/generated/disabled-capability-attestation-evidence-20260812.json"}
   ],
   "privacyBoundary": [
     "candidate ledgers contain release identifiers, paths, status and authority references only",
