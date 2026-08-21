@@ -77,4 +77,35 @@ describe("tool growth automation", () => {
     assert.equal(snapshot.stats.publishedContent, 0);
     assert.equal(snapshot.rejected[0]?.reason, "trade_execution_tool_requires_manual_review");
   });
+
+  it("binds automated outbound links to the declared official domain", () => {
+    const base: ToolGrowthCandidate = {
+      ...toolGrowthCandidates[0],
+      name: "Official Link Integrity Example",
+      domain: "trusted.example",
+      integrationRisk: "none",
+    };
+
+    const valid = materializeToolGrowthSnapshot(
+      [{ ...base, site: "https://research.trusted.example/path" }],
+      { generatedAt: "2026-08-21T00:00:00.000Z", publishThreshold: 0 },
+    );
+    assert.equal(valid.stats.publishedContent, 1);
+    assert.equal(valid.rejected.length, 0);
+
+    for (const site of [
+      "https://trusted.example.evil.test/phish",
+      "https://trusted.example@evil.test/phish",
+      "http://trusted.example/insecure",
+      "https://",
+    ]) {
+      const snapshot = materializeToolGrowthSnapshot([{ ...base, site }], {
+        generatedAt: "2026-08-21T00:00:00.000Z",
+        publishThreshold: 0,
+      });
+
+      assert.equal(snapshot.stats.publishedContent, 0, site);
+      assert.equal(snapshot.rejected[0]?.reason, "official_source_domain_mismatch", site);
+    }
+  });
 });
