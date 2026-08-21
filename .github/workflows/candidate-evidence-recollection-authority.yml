@@ -1,0 +1,83 @@
+name: Candidate Evidence Recollection Authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - docs/launch/generated/candidate-evidence-recollection-request-*.json
+      - docs/launch/generated/candidate-promotion-state-*.json
+      - docs/launch/generated/exact-head-workflow-evidence-*.json
+      - docs/launch/generated/current-controlled-launch-candidate.json
+      - docs/launch/generated/protected-staging-no-go-register-*.json
+      - docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_*.md
+      - docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md
+      - package.json
+      - scripts/candidate-evidence-recollection-policy.mjs
+      - scripts/candidate-evidence-recollection-policy.test.mjs
+      - scripts/check-candidate-evidence-recollection-authority.mjs
+      - scripts/exact-head-workflow-evidence-policy.mjs
+      - scripts/exact-head-workflow-evidence-policy.test.mjs
+      - scripts/exact-head-workflow-evidence-origin.mjs
+      - scripts/exact-head-workflow-evidence-origin.test.mjs
+      - scripts/check-exact-head-workflow-evidence-authority.mjs
+      - .github/workflows/candidate-evidence-recollection-authority.yml
+  push:
+    branches: [main]
+    paths:
+      - docs/launch/generated/candidate-evidence-recollection-request-*.json
+      - docs/launch/generated/candidate-promotion-state-*.json
+      - docs/launch/generated/exact-head-workflow-evidence-*.json
+      - docs/launch/generated/current-controlled-launch-candidate.json
+      - docs/launch/generated/protected-staging-no-go-register-*.json
+      - docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_*.md
+      - docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md
+      - package.json
+      - scripts/candidate-evidence-recollection-policy.mjs
+      - scripts/candidate-evidence-recollection-policy.test.mjs
+      - scripts/check-candidate-evidence-recollection-authority.mjs
+      - scripts/exact-head-workflow-evidence-policy.mjs
+      - scripts/exact-head-workflow-evidence-policy.test.mjs
+      - scripts/exact-head-workflow-evidence-origin.mjs
+      - scripts/exact-head-workflow-evidence-origin.test.mjs
+      - scripts/check-exact-head-workflow-evidence-authority.mjs
+      - .github/workflows/candidate-evidence-recollection-authority.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: candidate-evidence-recollection-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    name: Fail-closed exact-candidate recollection contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Mutation-test recollection and exact-head evidence authorities
+        run: >-
+          node --test
+          scripts/candidate-evidence-recollection-policy.test.mjs
+          scripts/exact-head-workflow-evidence-policy.test.mjs
+          scripts/exact-head-workflow-evidence-origin.test.mjs
+
+      - name: Verify current recollection contract
+        run: node scripts/check-candidate-evidence-recollection-authority.mjs
+
+      - name: Verify current exact-head evidence authority
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-exact-head-workflow-evidence-authority.mjs

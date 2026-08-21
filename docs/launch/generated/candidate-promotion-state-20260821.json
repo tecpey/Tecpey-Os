@@ -1,17 +1,18 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-21T06:55:00Z",
+  "generatedAt": "2026-08-21T12:15:00Z",
   "issue": 515,
   "status": "pending_evidence_recollection",
   "currentAcceptedCandidateSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
   "proposedCandidate": {
-    "sha": "7329c3d9d8a615f106a5cf80ddd1343743f5a509",
+    "sha": "cbbdebe0b09801c314ed0b048c6ed19873d23300",
     "sourceBranch": "main",
-    "sourcePullRequest": 516,
-    "reason": "PR #516 changed runtime observability, health signalling and production environment validation after the previously accepted controlled-launch candidate. New protected-staging and release-control evidence must target this exact newer runtime/security head or a later explicitly refreshed stable main SHA."
+    "sourcePullRequest": 522,
+    "reason": "PR #522 changed support-bundle rehearsal pin authority and fail-closed readiness checks after PR #521. New exact-candidate release evidence must therefore target the post-#522 main SHA or a later explicitly refreshed stable main SHA."
   },
   "protectedExecutionAllowed": false,
+  "requiredAcceptanceSchemaVersion": 2,
   "staleAcceptedEvidence": [
     {
       "id": "NOG-03",
@@ -46,6 +47,7 @@
     "recollect genuine exact-head workflow evidence for the proposed exact SHA",
     "recollect genuine runtime image digest evidence for the proposed exact SHA",
     "recollect genuine rollback/volume-restore evidence for the proposed exact SHA",
+    "record all newly accepted evidence using acceptance schema v2 with explicit exact-SHA workflow binding",
     "atomically align human and JSON candidate ledgers, protected-staging request/runbook/register and evidence-authority checks",
     "keep protected execution blocked until the aligned promotion state is CI-valid"
   ],

@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { exactHeadWorkflowEvidenceFindings } from "./exact-head-workflow-evidence-policy.mjs";
+import { exactHeadWorkflowEvidenceOriginFindings } from "./exact-head-workflow-evidence-origin.mjs";
 
 const files = {
   evidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
@@ -7,17 +9,6 @@ const files = {
   packet: "docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md",
   checklist: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
   packageJson: "package.json",
-};
-
-const requiredWorkflowEvidence = {
-  ciRunUrl: "CI",
-  fullSuiteRunUrl: "Full Suite Diagnostics",
-  apiSecurityRunUrl: "API Security Manifest",
-  sensitiveMutationRunUrl: "Sensitive Mutation Audit",
-  repositoryAuditRunUrl: "Repository Audit Manifest",
-  publicGoldenPathRunUrl: "Public Browser Golden Path",
-  containerSupplyChainRunUrl: "Container Supply Chain",
-  secretScanningRunUrl: "Full History Secret Scanning",
 };
 
 const failures = [];
@@ -53,29 +44,6 @@ function requireText(path, source, token, reason) {
   }
 }
 
-function requireGitHubRunUrl(label, value) {
-  if (typeof value !== "string") {
-    failures.push(`${label}: expected GitHub Actions run URL`);
-    return;
-  }
-  let parsed;
-  try {
-    parsed = new URL(value);
-  } catch {
-    failures.push(`${label}: expected absolute URL`);
-    return;
-  }
-  if (
-    parsed.protocol !== "https:" ||
-    parsed.hostname !== "github.com" ||
-    parsed.search ||
-    parsed.hash ||
-    !/^\/tecpey\/Tecpey-Os\/actions\/runs\/[1-9][0-9]*\/?$/.test(parsed.pathname)
-  ) {
-    failures.push(`${label}: expected governed tecpey/Tecpey-Os GitHub Actions run URL`);
-  }
-}
-
 const [evidence, register, candidate, packet, checklist, packageJson] = await Promise.all([
   json(files.evidence),
   json(files.register),
@@ -86,20 +54,64 @@ const [evidence, register, candidate, packet, checklist, packageJson] = await Pr
 ]);
 
 const selectedSha = candidate.currentCandidate?.sha;
-requireEqual("evidence.schemaVersion", evidence.schemaVersion, 1);
+
+// Preserve critical launch-decision sentinels directly in this authority surface.
+// Detailed schema validation is delegated to the policy module below, while these
+// checks keep the parent controlled-launch decision guard fail-closed across refactors.
 requireEqual("evidence.evidenceClass", evidence.evidenceClass, "exact-head-workflow-evidence");
-requireEqual("evidence.decision", evidence.decision, "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY");
-requireEqual("evidence.selectedSha", evidence.selectedSha, selectedSha);
+requireEqual(
+  "evidence.decision",
+  evidence.decision,
+  "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY",
+);
+if (evidence.schemaVersion === 1) {
+  requireEqual(
+    "evidence.workflowEvidence.operationalRecoveryRunUrl",
+    evidence.workflowEvidence?.operationalRecoveryRunUrl,
+    null,
+  );
+} else if (evidence.schemaVersion === 2) {
+  const operationalRecoveryRun = evidence.workflowRuns?.find(
+    (run) => run?.name === "Scheduled Operational Recovery",
+  );
+  requireEqual(
+    "Scheduled Operational Recovery.runUrl",
+    operationalRecoveryRun?.runUrl,
+    evidence.workflowEvidence?.operationalRecoveryRunUrl,
+  );
+}
+
+failures.push(...exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }));
+failures.push(
+  ...(await exactHeadWorkflowEvidenceOriginFindings({
+    evidence,
+    selectedSha,
+    token: process.env.GITHUB_TOKEN,
+  })),
+);
+
 requireEqual("register.stagingEvidenceTargetSha", register.stagingEvidenceTargetSha, selectedSha);
 requireEqual("register.exactHeadWorkflowEvidence", register.exactHeadWorkflowEvidence, files.evidence);
-requireEqual("candidate.activeInputs.exactHeadWorkflowEvidence", candidate.activeInputs?.exactHeadWorkflowEvidence, files.evidence);
+requireEqual(
+  "candidate.activeInputs.exactHeadWorkflowEvidence",
+  candidate.activeInputs?.exactHeadWorkflowEvidence,
+  files.evidence,
+);
 
 const blocker = register.blockers?.find((entry) => entry.id === "NOG-04");
 requireEqual("NOG-04.status", blocker?.status, "accepted");
 requireEqual("NOG-04.executionState", blocker?.executionState, "accepted_exact_head_workflow_urls");
 requireEqual("NOG-04.evidence", blocker?.evidence, files.evidence);
-requireArrayIncludes("register.acceptedEvidence", register.acceptedEvidence?.map((entry) => entry.id), "NOG-04");
-requireArrayIncludes("candidate.acceptedEvidence", candidate.acceptedEvidence?.map((entry) => entry.id), "NOG-04");
+requireArrayIncludes(
+  "register.acceptedEvidence",
+  register.acceptedEvidence?.map((entry) => entry.id),
+  "NOG-04",
+);
+requireArrayIncludes(
+  "candidate.acceptedEvidence",
+  candidate.acceptedEvidence?.map((entry) => entry.id),
+  "NOG-04",
+);
 requireArrayIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-04");
 
 for (const blockerId of ["NOG-01", "NOG-02"]) {
@@ -112,25 +124,6 @@ for (const blockerId of ["NOG-01", "NOG-02"]) {
   );
   requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blockerId);
 }
-
-const seenUrls = new Set();
-for (const [field, workflowName] of Object.entries(requiredWorkflowEvidence)) {
-  const value = evidence.workflowEvidence?.[field];
-  requireGitHubRunUrl(`evidence.workflowEvidence.${field}`, value);
-  if (seenUrls.has(value)) {
-    failures.push(`evidence.workflowEvidence.${field}: duplicate GitHub Actions run URL`);
-  }
-  seenUrls.add(value);
-
-  const run = evidence.workflowRuns?.find((candidateRun) => candidateRun.name === workflowName);
-  requireEqual(`${workflowName}.runUrl`, run?.runUrl, value);
-  requireEqual(`${workflowName}.status`, run?.status, "completed");
-  requireEqual(`${workflowName}.conclusion`, run?.conclusion, "success");
-  requireEqual(`${workflowName}.event`, run?.event, "push");
-}
-
-requireEqual("evidence.workflowEvidence.operationalRecoveryRunUrl", evidence.workflowEvidence?.operationalRecoveryRunUrl, null);
-requireArrayIncludes("evidence.remainingFinalManifestGaps", evidence.remainingFinalManifestGaps, "operational recovery/reconciliation evidence and digest");
 
 for (const invariant of [
   files.evidence,
@@ -176,4 +169,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Exact-head workflow evidence authority passed for ${selectedSha}.`);
+console.log(
+  `Exact-head workflow evidence authority passed for ${selectedSha} using schema v${evidence.schemaVersion}.`,
+);
