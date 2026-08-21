@@ -36,7 +36,8 @@ function parseServiceEnvFile(source: string): Record<string, string> {
 }
 
 function requestedValidationSource(): ValidationSource | null {
-  const raw = (process.env.TECPEY_ENV_VALIDATION_SOURCE ?? "auto").trim();
+  const configured = process.env.TECPEY_ENV_VALIDATION_SOURCE?.trim();
+  const raw = configured || "auto";
   return VALIDATION_SOURCES.has(raw as ValidationSource) ? raw as ValidationSource : null;
 }
 
