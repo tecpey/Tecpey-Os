@@ -1,6 +1,7 @@
 name: CI
 
 permissions:
+  actions: read
   contents: read
 
 on:
