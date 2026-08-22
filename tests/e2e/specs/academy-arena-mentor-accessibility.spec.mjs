@@ -390,25 +390,55 @@ async function captureFocusOrder(page, viewport, surface) {
 
 /**
  * Reduced motion is a runtime behaviour, not a stylesheet claim: emulate the
- * preference and confirm nothing is still animating. A page that ignores the
- * setting is unusable for someone who set it because motion makes them ill.
+ * preference and confirm nothing still moves. A page that ignores the setting is
+ * unusable for someone who set it because motion makes them ill.
+ *
+ * The threshold is the global reduced-motion reset in src/app/globals.css,
+ * which collapses every animation and transition to 0.01ms. Anything still
+ * running longer than a frame has escaped that reset — an inline style, or a
+ * rule with its own !important — and is a finding, because the reset is what
+ * makes the preference apply to the whole page rather than to a list of class
+ * names someone has to remember to extend.
+ *
+ * No reload: emulateMedia re-evaluates the media query live, which is what a
+ * real user toggling the OS setting experiences, and reloading every surface
+ * doubled this spec's navigations for no additional evidence.
  */
 async function assertReducedMotion(page, viewport, surface) {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-  const moving = await page.evaluate(() =>
-    [...document.querySelectorAll("*")].filter((element) => {
+  const moving = await page.evaluate(() => {
+    const longEnough = (value) =>
+      String(value).split(",").some((part) => parseFloat(part) > 0.05);
+    const offenders = [];
+    for (const element of document.querySelectorAll("*")) {
       const style = getComputedStyle(element);
-      const duration = (value) =>
-        value.split(",").some((part) => parseFloat(part) > 0.05);
-      return (
-        (style.animationName !== "none" && duration(style.animationDuration)) ||
-        duration(style.transitionDuration)
-      );
-    }).length,
-  );
-  recordCheck("reducedMotion", viewport, surface, moving === 0, { animatedElements: moving });
-  expect(moving, `${surface}: elements still animate under prefers-reduced-motion: reduce`).toBe(0);
+      if (style.animationName !== "none" && longEnough(style.animationDuration)) {
+        offenders.push({
+          selector: element.tagName.toLowerCase(),
+          reason: `animation ${style.animationName} ${style.animationDuration}`,
+        });
+        continue;
+      }
+      if (longEnough(style.transitionDuration)) {
+        offenders.push({
+          selector: element.tagName.toLowerCase(),
+          reason: `transition ${style.transitionProperty} ${style.transitionDuration}`,
+        });
+      }
+    }
+    // The count is the whole population; the sample is only there so a failure
+    // says which elements without carrying a thousand records into evidence.
+    return { count: offenders.length, sample: offenders.slice(0, 10) };
+  });
+
+  recordCheck("reducedMotion", viewport, surface, moving.count === 0, {
+    animatedElements: moving.count,
+    offenders: moving.sample,
+  });
+  expect(
+    moving.sample,
+    `${surface}: ${moving.count} elements still move under prefers-reduced-motion: reduce`,
+  ).toEqual([]);
   await page.emulateMedia({ reducedMotion: null });
 }
 
