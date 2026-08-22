@@ -47,7 +47,14 @@ const outputLimit = 240_000;
 // just that test gracefully. Kept as a true last-resort backstop: 5×90s + 60s.
 const perTestTimeoutMs = 90_000;
 const maxTestsPerProject = 5;
-const projectTimeoutMs = perTestTimeoutMs * maxTestsPerProject + 60_000;
+// The QA-050 capture is a different order of work: 175 full-page screenshots in
+// a single test, which sets its own 30-minute Playwright timeout. Without this
+// the backstop below would SIGKILL the project at 8.5 minutes — long before the
+// capture could finish — and the opt-in path would be unable to complete at all.
+const captureScreenshotMatrix = process.env.TECPEY_CAPTURE_SCREENSHOT_MATRIX === "1";
+const screenshotMatrixBudgetMs = captureScreenshotMatrix ? 35 * 60_000 : 0;
+const projectTimeoutMs =
+  perTestTimeoutMs * maxTestsPerProject + 60_000 + screenshotMatrixBudgetMs;
 const projects = [
   "chromium-fa-mobile",
   "chromium-en-desktop",

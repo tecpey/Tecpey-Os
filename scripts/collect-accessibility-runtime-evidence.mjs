@@ -84,6 +84,27 @@ if (shardShas.size > 1) {
   process.exit(1);
 }
 
+// The commit the bundle claims has to be the commit the checks actually ran at.
+// Shards agreeing with each other is not enough: four shards from an older run,
+// collected after checking out a newer commit, would be stamped with the new
+// head and become an exact-head bundle the verifier accepts.
+const sourceCommitSha = headSha();
+const [shardSha] = [...shardShas];
+if (shardSha === "(none)") {
+  console.error(
+    "Shards do not record the commit they were captured at. Set TECPEY_EVIDENCE_SHA " +
+      "for the run; a bundle cannot be bound to a head the run never saw.",
+  );
+  process.exit(1);
+}
+if (shardSha !== sourceCommitSha) {
+  console.error(
+    `Shards were captured at ${shardSha} but HEAD is ${sourceCommitSha}. ` +
+      "Re-run the accessibility spec at this commit rather than relabelling older shards.",
+  );
+  process.exit(1);
+}
+
 // Fail here rather than emit a bundle the verifier will reject: a partial run is
 // a fact about the run, and it should surface where it happened.
 const missing = REQUIRED_VIEWPORTS.filter((viewport) => !seenViewports.has(viewport));
@@ -108,7 +129,7 @@ const root = {
   schemaVersion: 1,
   evidenceClass: "accessibility-runtime-evidence-v1",
   generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
-  sourceCommitSha: headSha(),
+  sourceCommitSha,
   viewports: [...REQUIRED_VIEWPORTS],
   checks: Object.fromEntries(
     Object.entries(REQUIRED_CHECKS).map(([check, artifact]) => [
