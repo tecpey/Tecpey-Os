@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-execution-status-observation",
-  "observedAt": "2026-08-22T17:26:34.000Z",
+  "observedAt": "2026-08-22T18:51:53.000Z",
   "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
-    "protectedStagingEvidenceTargetSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+    "currentMainSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "protectedStagingEvidenceTargetSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
-    "mergedPullRequest": 531,
-    "mergedPullRequestTitle": "docs(launch): refresh accepted-risk review dates",
-    "mergeCommitSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+    "mergedPullRequest": 534,
+    "mergedPullRequestTitle": "ci(launch): grant actions read to decision authority",
+    "mergeCommitSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
     "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate rebaselined to the PR #531 squash-merge commit on main after accepted-risk freshness was repaired and exact-main NOG-03/NOG-04/NOG-06 evidence was recollected; protected staging and redacted env evidence remain unexecuted for this target"
+    "targetShaDisposition": "candidate rebaselined to the PR #534 squash-merge commit on main after the decision authority received read-only Actions metadata permission and exact-main NOG-03/NOG-04/NOG-06 evidence was recollected; protected staging and redacted env evidence remain unexecuted for this target"
   },
   "observationSource": {
     "githubApi": [
@@ -71,8 +71,8 @@
   },
   "requiredBeforeAcceptance": [
     "Configure GitHub Environment staging with required protection rules/reviewers before treating it as protected staging evidence.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha e35586cc325f42adbdf2366d120ae89056e19d30 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha e35586cc325f42adbdf2366d120ae89056e19d30 with one accepted environment_source.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3 with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3 with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
   "decisionAfterObservation": "NOG-01 and NOG-02 remain open; no accepted protected staging or redacted env evidence exists for the selected candidate."

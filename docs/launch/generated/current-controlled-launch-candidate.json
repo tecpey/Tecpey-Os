@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-22T17:26:34Z",
+  "generatedAt": "2026-08-22T18:51:53Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+    "sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
     "sourceBranch": "main",
-    "sourcePullRequest": 531,
-    "selectedAt": "2026-08-22T17:26:34Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the PR #531 squash-merge commit on main after accepted-risk freshness was repaired and exact-main NOG-03/NOG-04/NOG-06 evidence was recollected. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
+    "sourcePullRequest": 534,
+    "selectedAt": "2026-08-22T18:51:53Z",
+    "reason": "Rebaselines the controlled-launch evidence target to the PR #534 squash-merge commit on main after the decision authority received read-only Actions metadata permission and Candidate Evidence Recollection Authority #81 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
   },
   "supersedes": [
     {
@@ -100,6 +100,11 @@
       "sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
       "previousRole": "current controlled-launch candidate after PR #437 protected-staging evidence ledger promotion",
       "currentStatus": "superseded_by_pr_531_for_current_main_exact_candidate_evidence_recollection"
+    },
+    {
+      "sha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+      "previousRole": "current controlled-launch candidate after PR #531 accepted-risk freshness repair and exact-candidate evidence refresh",
+      "currentStatus": "superseded_by_pr_534_for_current_main_exact_candidate_evidence_recollection"
     }
   ],
   "activeInputs": {
@@ -137,60 +142,62 @@
       "id": "NOG-03",
       "status": "accepted",
       "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
-      "imageDigest": "sha256:281a0f9eaf82f60765fe8f83f85a838c8e6bbc8871a7f33c1a74d20155a16f09",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372565",
-      "containerReleaseArtifactDigest": "sha256:79c9c8b5f4fd8f5061eaa4216bf894a0c386f3b0bbd1c91e03bdb8027158c425"
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "imageDigest": "sha256:37a403cc4d8f046470d34ac868b299d817b677c55d3b2ad886ead84fea468e4f",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643448",
+      "containerReleaseArtifactDigest": "sha256:ce629903f989de1a192514073a80b3b3e7d3a13ace0ed0c23e66307bafefc483"
     },
     {
       "id": "NOG-04",
       "status": "accepted",
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
       "workflowEvidence": {
-        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372604",
-        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372521",
-        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372558",
-        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372560",
-        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372544",
-        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372519",
-        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372565",
-        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372539",
-        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587377732"
+        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643341",
+        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643369",
+        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643379",
+        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643431",
+        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643412",
+        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643370",
+        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643448",
+        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643399",
+        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591650543"
       }
     },
     {
       "id": "NOG-06",
       "status": "accepted",
       "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
-      "previousReleaseSha": "915c0dce2d59424ffcc19a79f080b9b7ca00f393",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32587372565",
-      "rollbackJobId": 97065704167,
-      "containerRecoveryArtifact": "container-recovery-e35586cc325f42adbdf2366d120ae89056e19d30",
-      "containerRecoveryArtifactDigest": "sha256:70005700948ee76f7c95757d9d7190ddd9ca8c11d531ca0abfc01a8da2586dd6"
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "previousReleaseSha": "708dc52c676a697f359c32fca18aa40785350ef4",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643448",
+      "rollbackJobId": 97076309827,
+      "containerRecoveryArtifact": "container-recovery-c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "containerRecoveryArtifactDigest": "sha256:b67669b75a3006b21749b82e946fe123ff31f64ae7adbc68b49a862e23d13eb3"
     },
     {
       "id": "NOG-10",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30"
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3"
     },
     {
       "id": "NOG-11",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30"
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3"
     },
     {
       "id": "NOG-12",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30"
+      "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3"
     }
   ],
   "privacyBoundary": [
     "candidate ledgers contain release identifiers, paths, status and authority references only",
     "final evidence must not contain raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
-  ]
+  ],
+  "currentMainShaAfterAcceptedRiskFreshnessReviewMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+  "currentMainShaAfterDecisionAuthorityPermissionsMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3"
 }

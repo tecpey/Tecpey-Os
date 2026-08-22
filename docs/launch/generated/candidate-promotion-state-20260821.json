@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-22T17:26:34Z",
+  "generatedAt": "2026-08-22T18:51:53Z",
   "issue": 515,
   "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+  "currentAcceptedCandidateSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
   "proposedCandidate": {
-    "sha": "e35586cc325f42adbdf2366d120ae89056e19d30",
+    "sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
     "sourceBranch": "main",
-    "sourcePullRequest": 531,
-    "reason": "PR #531 advanced main to e35586cc325f42adbdf2366d120ae89056e19d30 and Candidate Evidence Recollection Authority #70 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
+    "sourcePullRequest": 534,
+    "reason": "PR #534 advanced main to c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3 and Candidate Evidence Recollection Authority #81 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
   },
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,

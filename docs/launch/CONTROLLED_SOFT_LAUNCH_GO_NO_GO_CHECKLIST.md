@@ -1,7 +1,7 @@
 # Controlled Soft Launch Go/No-Go Checklist
 
 **Status:** NO-GO until every blocking row below has accepted evidence  
-**Current candidate SHA:** `e35586cc325f42adbdf2366d120ae89056e19d30`
+**Current candidate SHA:** `c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3`
 **Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`  
 **Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`  

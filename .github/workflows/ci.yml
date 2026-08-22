@@ -1,6 +1,7 @@
 name: CI
 
 permissions:
+  actions: read
   contents: read
 
 on:
@@ -465,9 +466,38 @@ jobs:
       - name: News coins tools product surface tests
         run: npm run test:content-issue83-surface
 
-      - name: Controlled launch decision authority guard
+      - name: Exact-head workflow evidence origin guard
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ github.token }}
+        run: npm run launch:workflow-evidence:check
+
+      - name: Trusted PR exact-head workflow evidence origin guard
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git init ../trusted-source
+          git -C ../trusted-source remote add origin "https://github.com/${{ github.repository }}.git"
+          git -C ../trusted-source fetch --no-tags --depth=1 origin "$TRUSTED_BASE_SHA"
+          git -C ../trusted-source checkout --detach FETCH_HEAD
+          for path in \
+            docs/launch/generated/exact-head-workflow-evidence-20260812.json \
+            docs/launch/generated/protected-staging-no-go-register-20260810.json \
+            docs/launch/generated/current-controlled-launch-candidate.json \
+            docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md \
+            docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md \
+            package.json
+          do
+            cp "$path" "../trusted-source/$path"
+          done
+          cd ../trusted-source
+          node scripts/check-exact-head-workflow-evidence-authority.mjs
+
+      - name: Controlled launch decision authority guard
+        env:
+          TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only
         run: npm run launch:decision:check
 
       - name: Platform red-team code closure guard
