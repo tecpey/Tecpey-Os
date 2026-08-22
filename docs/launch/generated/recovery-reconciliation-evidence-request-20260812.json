@@ -7,7 +7,7 @@
     "NOG-05"
   ],
   "status": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
-  "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
   "environment": "protected-staging",
   "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   "operatorRunbook": "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",

@@ -1,32 +1,19 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-22T17:20:00Z",
+  "generatedAt": "2026-08-22T17:26:34Z",
   "issue": 515,
-  "status": "pending_evidence_recollection",
-  "currentAcceptedCandidateSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "status": "promoted_exact_candidate_evidence",
+  "currentAcceptedCandidateSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
   "proposedCandidate": {
     "sha": "e35586cc325f42adbdf2366d120ae89056e19d30",
     "sourceBranch": "main",
     "sourcePullRequest": 531,
-    "reason": "PR #531 advanced main to e35586cc325f42adbdf2366d120ae89056e19d30 with an accountable accepted-risk freshness review after the 915c0dc recollection target became stale. The replacement two-phase cycle now targets exact current main so genuine NOG-03/NOG-04/NOG-06 evidence can be recollected while main remains fixed, without weakening the exact-main drift guard."
+    "reason": "PR #531 advanced main to e35586cc325f42adbdf2366d120ae89056e19d30 and Candidate Evidence Recollection Authority #70 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
   },
-  "protectedExecutionAllowed": false,
+  "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
-  "staleAcceptedEvidence": [
-    {
-      "id": "NOG-03",
-      "reason": "runtime image digest evidence is bound to a previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
-    },
-    {
-      "id": "NOG-04",
-      "reason": "exact-head workflow URL evidence is bound to a previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
-    },
-    {
-      "id": "NOG-06",
-      "reason": "rollback and volume-restore evidence is bound to a previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
-    }
-  ],
+  "staleAcceptedEvidence": [],
   "stillOpenBlockers": [
     "NOG-01",
     "NOG-02",
@@ -54,5 +41,27 @@
   "privacyBoundary": [
     "state contains release identifiers, blocker IDs, status and policy text only",
     "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ],
+  "acceptedRecollectedEvidence": [
+    {
+      "id": "NOG-03",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-04",
+      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-06",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
+    }
+  ],
+  "promotionCompletedChecks": [
+    "exact-head workflow evidence schema v2 accepted for the selected SHA",
+    "runtime image digest evidence accepted for the selected SHA",
+    "rollback and volume-restore evidence accepted for the selected SHA",
+    "candidate and protected-staging lineage aligned to the selected SHA",
+    "remaining operational blockers remain open",
+    "real-money and expanded-scope launch boundaries remain disabled"
   ]
 }

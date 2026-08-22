@@ -2,8 +2,8 @@
 
 **Status:** execution request for NOG-01 and NOG-02, not accepted evidence  
 **Decision after this runbook:** NO-GO until the protected staging run is executed and accepted  
-**Protected staging evidence target SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
-**Runtime candidate baseline SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Protected staging evidence target SHA:** `e35586cc325f42adbdf2366d120ae89056e19d30`
+**Runtime candidate baseline SHA:** `e35586cc325f42adbdf2366d120ae89056e19d30`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Related blocker IDs:** `NOG-01`, `NOG-02`  
 **Generated request:** `docs/launch/generated/protected-staging-env-evidence-request-20260810.json`
@@ -21,7 +21,7 @@ Do not silently move the staging target because documentation-only or
 launch-control PRs were merged after earlier draft packets. The selected staging
 evidence target is the current candidate in
 `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`:
-`9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`.
+`e35586cc325f42adbdf2366d120ae89056e19d30`.
 
 The deployed application checkout, workflow checkout, bundle manifest and
 `/api/health` commit must all report the same selected SHA. If staging uses any
@@ -43,7 +43,7 @@ tecpey-staging
 The runner must use the governed non-root runtime user and group configured for
 TecPey staging. It must not run on a generic shared runner.
 
-## Execution Status Observation - 2026-08-14
+## Execution Status Observation - 2026-08-22
 
 Current machine-readable status:
 `docs/launch/generated/protected-staging-execution-status-20260812.json`.
@@ -58,9 +58,8 @@ and NOG-02 remain open until the staging Environment has required protection
 rules/reviewers and both manual workflow runs complete successfully for the
 selected candidate SHA.
 
-Post-promotion refresh: after PR #437 advanced `main` beyond the PR #441 target and the controlled-launch candidate was rebaselined to
-`9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`, a fresh GitHub API observation still returned `protection_rules: []`, zero protected env evidence
-runs, and no accepted current-candidate scheduler evidence run. Follow
+Post-promotion refresh: after PR #531 advanced `main` and the controlled-launch candidate was rebaselined to
+`e35586cc325f42adbdf2366d120ae89056e19d30`, protected staging and redacted env evidence still remain unexecuted for this exact candidate. Follow
 `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 before dispatching either workflow.
 
@@ -92,7 +91,7 @@ Run the protected staging evidence workflow for the selected SHA:
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: e35586cc325f42adbdf2366d120ae89056e19d30
 run_alert_probe: true
 ```
 
@@ -122,7 +121,7 @@ Run the protected env evidence workflow for the selected SHA:
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: e35586cc325f42adbdf2366d120ae89056e19d30
 environment_source: protected_host_env_file
 ```
 
@@ -238,7 +237,7 @@ fields are known:
   "nog01": {
     "status": "accepted_or_rejected",
     "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/<id>",
-    "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
     "artifactName": "tecpey-staging-scheduler-evidence.json",
     "artifactSha256": "sha256:<64-hex>",
     "verifierDisposition": "passed_or_failed",
@@ -247,7 +246,7 @@ fields are known:
   },
   "nog02": {
     "status": "accepted_or_rejected",
-    "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
     "environmentSource": "<exactly_one_of:protected_host_env_file|service_manager_preloaded_environment>",
     "environmentSourceProofDisposition": "passed_or_failed",
     "envCheckDisposition": "passed_or_failed",
