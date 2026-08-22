@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { REQUIRED_VIEWPORTS, screenshotMatrixShape } from "./screenshot-matrix-routes.mjs";
+import { writeStoreOnlyZip } from "./store-only-zip.mjs";
 
 function argumentValue(flag, fallback) {
   const found = process.argv.find((argument) => argument.startsWith(`${flag}=`));
@@ -76,6 +77,26 @@ if (shardShas.size > 1) {
   fail(`Shards name ${shardShas.size} different commits (${[...shardShas].join(", ")}).`);
 }
 
+// The commit the bundle claims has to be the commit the captures were taken at,
+// not whatever the working tree happens to be on now. Stamping the current head
+// over shards from an older run turns stale captures into an exact-head bundle
+// that the verifier would accept — the shards agree with each other, so nothing
+// upstream of this notices.
+const sourceCommitSha = headSha();
+const [shardSha] = [...shardShas];
+if (shardSha === "(none)") {
+  fail(
+    "Shards do not record the commit they were captured at. Set TECPEY_EVIDENCE_SHA " +
+      "for the capture run; a bundle cannot be bound to a head the captures never saw.",
+  );
+}
+if (shardSha !== sourceCommitSha) {
+  fail(
+    `Shards were captured at ${shardSha} but HEAD is ${sourceCommitSha}. ` +
+      "Re-run the capture at this commit rather than relabelling older captures.",
+  );
+}
+
 const missing = Object.keys(REQUIRED_VIEWPORTS).filter((viewport) => !seenViewports.has(viewport));
 if (missing.length > 0) {
   fail(
@@ -86,15 +107,43 @@ if (missing.length > 0) {
 
 mkdirSync(directory, { recursive: true });
 
+// The four archives the control names. Built here rather than shelled out to
+// `zip`, so the evidence does not depend on which binaries a host happens to
+// have, and digested so the manifest binds to the bytes rather than to a
+// filename.
+const archives = {};
+for (const viewport of Object.keys(REQUIRED_VIEWPORTS)) {
+  const forViewport = slots.filter((slot) => slot.viewport === viewport);
+  const entries = forViewport
+    .filter((slot) => typeof slot.image === "string")
+    .map((slot) => ({
+      name: path.basename(slot.image),
+      path: path.join(directory, slot.image),
+    }));
+  if (entries.length !== forViewport.length) {
+    fail(`${viewport}: every slot must name the image file it captured`);
+  }
+  const archiveName = `${viewport}-screenshots.zip`;
+  try {
+    archives[viewport] = {
+      archive: archiveName,
+      ...writeStoreOnlyZip(path.join(directory, archiveName), entries),
+    };
+  } catch (error) {
+    fail(`${viewport}: could not archive the captured images — ${error.message}`);
+  }
+}
+
 const shape = screenshotMatrixShape();
 const root = {
   schemaVersion: 1,
   evidenceClass: "ui-ux-screenshot-matrix-v1",
   generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
-  sourceCommitSha: headSha(),
+  sourceCommitSha,
   routeCount: shape.routeCount,
   requiredSlots: shape.requiredSlots,
   viewports: Object.keys(REQUIRED_VIEWPORTS),
+  archives,
   slots: slots.sort((left, right) =>
     `${left.route}@${left.viewport}`.localeCompare(`${right.route}@${right.viewport}`),
   ),
@@ -108,9 +157,14 @@ writeFileSync(
   "utf8",
 );
 
+const archivedImages = Object.values(archives).reduce(
+  (total, entry) => total + entry.entryCount,
+  0,
+);
 console.log(
   `Screenshot matrix assembled in ${directory}: ${slots.length} of ` +
-    `${shape.requiredSlots} slots across ${seenViewports.size} viewports. ` +
-    "The image archives and visual-defect-triage.json are produced by the capture " +
-    "run and reviewed separately; this bundle records what was photographed.",
+    `${shape.requiredSlots} slots across ${seenViewports.size} viewports, ` +
+    `${archivedImages} images in ${Object.keys(archives).length} archives, ` +
+    `captured at ${sourceCommitSha}. visual-defect-triage.json is the reviewers' ` +
+    "record and is not generated here.",
 );

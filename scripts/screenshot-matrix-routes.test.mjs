@@ -86,22 +86,29 @@ test("every dynamic route resolves to something requestable", () => {
   }
 });
 
-test("a redirecting sample declares where it lands", () => {
-  // Capturing /student/[studentId] unauthenticated photographs the sign-in
-  // page. That is a real surface, but filing it as the student dashboard would
-  // be a screenshot labelled as something it is not.
-  for (const pattern of [
-    "/student/[studentId]",
-    "/student/[studentId]/credential/[credentialId]",
-    "/academy/ai-guide/[slug]",
-  ]) {
-    const sample = DYNAMIC_ROUTE_SAMPLES[pattern];
-    assert.equal(
-      typeof sample?.expectRedirectTo,
-      "string",
-      `${pattern} redirects but does not declare where`,
-    );
-  }
+test("a sample declares whatever the route actually does", () => {
+  // These declarations were originally guesses and were wrong. What each route
+  // does was read from its page component:
+  //
+  //   /academy/ai-guide/[slug]  redirect("/academy/ai-guide#mentor-chat")
+  //   /.../credential/[...]     notFound() when the credential is unknown -> 404
+  //   /student/[studentId]      renders an in-place "unavailable" state at 200
+  //
+  // A declaration is only worth having if it matches the code, so this asserts
+  // the shape of each rather than that they all redirect.
+  assert.equal(
+    DYNAMIC_ROUTE_SAMPLES["/academy/ai-guide/[slug]"].expectRedirectTo,
+    "/academy/ai-guide",
+  );
+  assert.equal(
+    DYNAMIC_ROUTE_SAMPLES["/student/[studentId]/credential/[credentialId]"].expectStatus,
+    404,
+  );
+
+  // The public profile neither redirects nor 404s, so it declares nothing and
+  // is held to the default 200.
+  const profile = DYNAMIC_ROUTE_SAMPLES["/student/[studentId]"];
+  assert.equal(typeof profile, "string");
 });
 
 test("static routes are their own capture target", () => {

@@ -18,6 +18,8 @@ import {
 import { screenshotMatrixFindings } from "./ui-ux-screenshot-matrix-policy.mjs";
 
 const ROOT_ARTIFACT = "ui-ux-screenshot-matrix.json";
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 const TRIAGE_ARTIFACT = "visual-defect-triage.json";
 
 function argumentValue(flag, fallback) {
@@ -81,6 +83,79 @@ const rootDigestBytes = await readBytes(`${ROOT_ARTIFACT}.sha256`);
 if (rootDigestBytes === null) failures.push(`${ROOT_ARTIFACT}.sha256 is missing from ${directory}`);
 const triage = parse(await readBytes(TRIAGE_ARTIFACT), TRIAGE_ARTIFACT);
 
+// Bind the manifest to the images it describes.
+//
+// Everything above this point reads JSON, and a manifest that only has to agree
+// with itself is a spreadsheet, not evidence: a bundle with every PNG deleted
+// or replaced would have verified. Each slot's digest and byte count is checked
+// against the file it names, and each archive against the digest recorded for
+// it, so the numbers have to be true of bytes that exist.
+async function bindSlotsToImages(matrix) {
+  const bound = [];
+  if (!matrix || !Array.isArray(matrix.slots)) return bound;
+
+  for (const slot of matrix.slots) {
+    const key = `${slot?.route}@${slot?.viewport}`;
+    if (typeof slot?.image !== "string" || !slot.image) {
+      bound.push(`${key}: no image file is named, so the digest binds to nothing`);
+      continue;
+    }
+    const resolved = path.resolve(directory, slot.image);
+    if (!resolved.startsWith(path.resolve(directory) + path.sep)) {
+      bound.push(`${key}: image path escapes the evidence directory`);
+      continue;
+    }
+    const bytes = await readBytes(slot.image);
+    if (bytes === null) {
+      bound.push(`${key}: ${slot.image} is missing — the slot describes an image that is not here`);
+      continue;
+    }
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    if (digest !== slot.sha256) {
+      bound.push(`${key}: ${slot.image} does not match the recorded digest`);
+    }
+    if (bytes.byteLength !== slot.bytes) {
+      bound.push(
+        `${key}: ${slot.image} is ${bytes.byteLength} bytes, recorded as ${slot.bytes}`,
+      );
+    }
+    if (!bytes.subarray(0, 8).equals(PNG_MAGIC)) {
+      bound.push(`${key}: ${slot.image} is not a PNG`);
+    }
+  }
+  return bound;
+}
+
+async function bindArchives(matrix) {
+  const bound = [];
+  const declared = matrix?.archives;
+  if (!declared || typeof declared !== "object") {
+    return ["archives must record the four screenshot archives the control names"];
+  }
+  for (const viewport of Object.keys(REQUIRED_VIEWPORTS)) {
+    const entry = declared[viewport];
+    if (!entry || typeof entry.archive !== "string") {
+      bound.push(`archives.${viewport} is missing`);
+      continue;
+    }
+    const bytes = await readBytes(entry.archive);
+    if (bytes === null) {
+      bound.push(`${entry.archive} is missing from ${directory}`);
+      continue;
+    }
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    if (digest !== entry.sha256) bound.push(`${entry.archive} does not match its recorded digest`);
+    if (bytes.byteLength !== entry.bytes) {
+      bound.push(`${entry.archive} is ${bytes.byteLength} bytes, recorded as ${entry.bytes}`);
+    }
+    if (!bytes.subarray(0, 4).equals(ZIP_MAGIC)) bound.push(`${entry.archive} is not a zip archive`);
+  }
+  return bound;
+}
+
+failures.push(...(await bindSlotsToImages(root)));
+failures.push(...(await bindArchives(root)));
+
 failures.push(
   ...screenshotMatrixFindings({
     root,
@@ -111,6 +186,7 @@ if (failures.length > 0) {
   console.log(
     `Screenshot matrix evidence (QA-050) verified: ${root.slots.length} slots across ` +
       `${root.routeCount} routes and ${root.viewports.length} viewports, every capture a ` +
-      `distinct 200, zero unresolved P0/P1 visual defects, bound to ${root.sourceCommitSha}.`,
+      `distinct image matching its recorded digest and declared status, four archives bound ` +
+      `to their bytes, zero unresolved P0/P1 visual defects, at ${root.sourceCommitSha}.`,
   );
 }

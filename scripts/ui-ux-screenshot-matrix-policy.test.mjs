@@ -72,7 +72,7 @@ test("a slot that never rendered is refused", () => {
   const input = bundle();
   input.root.slots[0].httpStatus = 404;
   assert.ok(
-    screenshotMatrixFindings(input).some((f) => f.includes("HTTP 404, not 200")),
+    screenshotMatrixFindings(input).some((f) => f.includes("HTTP 404, not the declared 200")),
   );
 });
 
@@ -94,8 +94,9 @@ test("one image cannot be filed under several slots", () => {
 });
 
 test("two routes that both redirect to the same page may share an image", () => {
-  // Not every repeat is a lie: /student/... and its credential child both land
-  // on sign-in and genuinely produce the same picture.
+  // Not every repeat is a lie. Two routes that both redirect to the same page
+  // genuinely produce one picture, so the rule turns on whether both declared
+  // that destination rather than on the bytes alone.
   const input = bundle();
   const shared = slotDigest("/shared", "desktop-fa");
   for (const index of [0, 4]) {
@@ -217,5 +218,52 @@ test("the policy age limit is the one the launch registry governs", () => {
   assert.equal(
     registry.waveAExternalEvidenceTracker.maxEvidenceAgeDays,
     MAX_EVIDENCE_AGE_DAYS,
+  );
+});
+
+test("a P0 or P1 defect filed as accepted is not resolved", () => {
+  // "Accepted" is a decision to live with the defect, not a fix. Rejecting only
+  // `open` would let a P0 be filed as accepted while the verifier announced
+  // zero unresolved defects — the criterion answering a question nobody asked.
+  for (const severity of ["P0", "P1"]) {
+    const input = bundle();
+    input.triage.defects = [{ severity, route: "/academy", status: "accepted" }];
+    assert.ok(
+      screenshotMatrixFindings(input).some((f) => f.includes("is accepted, not resolved")),
+      `${severity} accepted was allowed to pass`,
+    );
+  }
+
+  // Lower severities may be accepted; that is what the status is for.
+  const accepted = bundle();
+  accepted.triage.defects = [{ severity: "P2", route: "/markets", status: "accepted" }];
+  assert.deepEqual(screenshotMatrixFindings(accepted), []);
+});
+
+test("a route may declare a non-200 status, but only the one it declared", () => {
+  // An unknown credential id really is a 404, and that page is a public surface
+  // worth photographing. Declaring it is what stops an accidental 404 elsewhere
+  // from being waved through.
+  const declared = bundle();
+  declared.root.slots[0].expectStatus = 404;
+  declared.root.slots[0].httpStatus = 404;
+  assert.deepEqual(screenshotMatrixFindings(declared), []);
+
+  const mismatched = bundle();
+  mismatched.root.slots[0].expectStatus = 404;
+  mismatched.root.slots[0].httpStatus = 500;
+  assert.ok(
+    screenshotMatrixFindings(mismatched).some((f) =>
+      f.includes("HTTP 500, not the declared 404"),
+    ),
+  );
+
+  // And a slot that declares nothing still has to be a 200.
+  const undeclared = bundle();
+  undeclared.root.slots[1].httpStatus = 404;
+  assert.ok(
+    screenshotMatrixFindings(undeclared).some((f) =>
+      f.includes("HTTP 404, not the declared 200"),
+    ),
   );
 });

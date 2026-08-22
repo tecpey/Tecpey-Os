@@ -177,8 +177,17 @@ export function screenshotMatrixFindings({
     seen.set(key, true);
 
     // What the browser did. A screenshot cannot say any of this about itself.
-    if (slot.httpStatus !== 200) {
-      findings.push(`${key}: captured with HTTP ${slot.httpStatus}, not 200`);
+    //
+    // A route may legitimately answer with something other than 200 — an
+    // unknown credential id really is a 404, and that not-found page is a
+    // public surface worth photographing. The status it is allowed to return is
+    // declared per route, so an accidental 404 somewhere else is still a
+    // finding rather than being waved through.
+    const expectedStatus = Number.isInteger(slot.expectStatus) ? slot.expectStatus : 200;
+    if (slot.httpStatus !== expectedStatus) {
+      findings.push(
+        `${key}: captured with HTTP ${slot.httpStatus}, not the declared ${expectedStatus}`,
+      );
     }
     const landed = typeof slot.finalUrl === "string" ? slot.finalUrl : null;
     if (!landed) {
@@ -268,9 +277,18 @@ export function screenshotMatrixFindings({
         if (!["open", "resolved", "accepted"].includes(defect.status)) {
           findings.push(`${at}.status must be open, resolved or accepted`);
         }
-        if ((defect.severity === "P0" || defect.severity === "P1") && defect.status === "open") {
+        // The closure criterion is zero *unresolved* P0/P1 defects, and
+        // "accepted" is not resolved — it is a decision to live with the
+        // defect. Rejecting only `open` would let a P0 be filed as accepted
+        // and still have the verifier announce zero unresolved defects, which
+        // is the criterion answering a question it was not asked. Lower
+        // severities may be accepted; these two have to be fixed.
+        if (
+          (defect.severity === "P0" || defect.severity === "P1") &&
+          defect.status !== "resolved"
+        ) {
           findings.push(
-            `${at}: ${defect.severity} defect on ${defect.route} is unresolved — QA-050 closes on zero`,
+            `${at}: ${defect.severity} defect on ${defect.route} is ${defect.status}, not resolved — QA-050 closes on zero`,
           );
         }
       }

@@ -80,19 +80,20 @@ export const DYNAMIC_ROUTE_SAMPLES = {
     url: "/academy/ai-guide/mentor-chat",
     expectRedirectTo: "/academy/ai-guide",
   },
-  // Authenticated surfaces. An unauthenticated capture lands on the sign-in
-  // page, which is a real thing a visitor sees and worth a screenshot — but it
-  // is not a picture of the student dashboard, so it is declared, not implied.
-  "/student/[studentId]": {
-    url: "/student/qa-050-sample-student",
-    expectRedirectTo: "/signin",
-  },
+  // Public profile, not an authenticated one: an unknown id renders an
+  // in-place "profile unavailable" state at 200 rather than redirecting.
+  "/student/[studentId]": "/student/qa-050-sample-student",
+  // This one calls notFound() when the credential does not exist, so an
+  // unknown id is a genuine 404. The not-found page is still a public surface
+  // worth photographing, so the status is declared rather than the slot being
+  // dropped — and declaring it is what stops an accidental 404 elsewhere from
+  // passing as a capture.
   "/student/[studentId]/credential/[credentialId]": {
     url: "/student/qa-050-sample-student/credential/qa-050-sample-credential",
-    expectRedirectTo: "/signin",
+    expectStatus: 404,
   },
   // Certificate verification renders a "not found" state for an unknown id
-  // rather than redirecting, and that state is itself a public surface.
+  // rather than calling notFound(), so this one really is a 200.
   "/verify/[certificateId]": "/verify/qa-050-sample-certificate",
 };
 
