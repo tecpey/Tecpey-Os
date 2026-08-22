@@ -17,6 +17,17 @@ const COMMIT_SHA = /^[a-f0-9]{40}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 
+/**
+ * How long a bundle stays evidence.
+ *
+ * `waveAExternalEvidenceTracker.maxEvidenceAgeDays` in
+ * config/enterprise-global-product-readiness.json declares 14 days, but nothing
+ * enforced it here: a bundle from an unchanged commit verified forever, so a
+ * control could rest on a browser run from months ago. The two values are held
+ * together by a test rather than by a comment.
+ */
+export const MAX_EVIDENCE_AGE_DAYS = 14;
+
 /** The Playwright projects in tests/e2e/playwright.config.mjs. */
 export const REQUIRED_VIEWPORTS = [
   "chromium-en-desktop",
@@ -118,6 +129,8 @@ function checkRecords(report) {
  * @param reports     { axe, keyboard, focus, contrast, reducedMotion } parsed
  * @param digestOf    (checkName) => sha256 of that report's bytes on disk
  * @param expectedSha the exact commit the evidence must be bound to, or null
+ * @param now         the instant to age the bundle against
+ * @param maxAgeDays  how old the bundle may be, in days
  */
 export function accessibilityRuntimeEvidenceFindings({
   root,
@@ -125,6 +138,8 @@ export function accessibilityRuntimeEvidenceFindings({
   reports,
   digestOf,
   expectedSha = null,
+  now = new Date(),
+  maxAgeDays = MAX_EVIDENCE_AGE_DAYS,
 }) {
   const findings = [];
 
@@ -138,6 +153,17 @@ export function accessibilityRuntimeEvidenceFindings({
   }
   if (!ISO_INSTANT.test(String(root.generatedAt ?? ""))) {
     findings.push("generatedAt must be an ISO-8601 UTC instant");
+  } else {
+    const ageDays = (now.getTime() - Date.parse(root.generatedAt)) / 86_400_000;
+    if (ageDays > maxAgeDays) {
+      findings.push(
+        `evidence is ${Math.floor(ageDays)} days old — the governed limit is ${maxAgeDays}`,
+      );
+    }
+    if (ageDays < -1) {
+      // A bundle dated in the future is not fresh, it is wrong.
+      findings.push(`generatedAt ${root.generatedAt} is in the future`);
+    }
   }
   if (!COMMIT_SHA.test(String(root.sourceCommitSha ?? ""))) {
     findings.push("sourceCommitSha must be a 40-character commit sha");

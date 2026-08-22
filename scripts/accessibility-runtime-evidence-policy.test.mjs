@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
+  MAX_EVIDENCE_AGE_DAYS,
   REQUIRED_CHECKS,
   REQUIRED_VIEWPORTS,
   accessibilityRuntimeEvidenceFindings,
 } from "./accessibility-runtime-evidence-policy.mjs";
 
 const SHA = "a".repeat(40);
+const NOW = new Date("2026-08-22T12:00:00.000Z");
 const DIGEST = "b".repeat(64);
 
 // The observation each check has to carry alongside its verdict.
@@ -34,7 +37,7 @@ function bundle(overrides = {}) {
   const root = {
     schemaVersion: 1,
     evidenceClass: "accessibility-runtime-evidence-v1",
-    generatedAt: "2026-08-21T12:00:00.000Z",
+    generatedAt: NOW.toISOString().replace(/\.\d{3}Z$/, ".000Z"),
     sourceCommitSha: SHA,
     viewports: [...REQUIRED_VIEWPORTS],
     checks: Object.fromEntries(
@@ -55,6 +58,7 @@ function bundle(overrides = {}) {
     reports,
     digestOf: () => DIGEST,
     expectedSha: SHA,
+    now: NOW,
     ...overrides,
   };
 }
@@ -227,4 +231,45 @@ test("a malformed bundle fails closed rather than throwing", () => {
     "accessibility-runtime-evidence.json is missing or not an object",
   ]);
   assert.ok(accessibilityRuntimeEvidenceFindings({ root: {} }).length > 0);
+});
+
+test("evidence expires at the governed age", () => {
+  // The registry declares maxEvidenceAgeDays and nothing enforced it, so a
+  // bundle from an unchanged commit verified forever — a control resting on a
+  // browser run from months ago.
+  const stale = bundle();
+  stale.root.generatedAt = new Date(
+    NOW.getTime() - (MAX_EVIDENCE_AGE_DAYS + 1) * 86_400_000,
+  ).toISOString().replace(/\.\d{3}Z$/, ".000Z");
+  assert.ok(
+    accessibilityRuntimeEvidenceFindings(stale).some((f) => f.includes("governed limit")),
+    "stale evidence was accepted",
+  );
+
+  const justInside = bundle();
+  justInside.root.generatedAt = new Date(
+    NOW.getTime() - (MAX_EVIDENCE_AGE_DAYS - 1) * 86_400_000,
+  ).toISOString().replace(/\.\d{3}Z$/, ".000Z");
+  assert.deepEqual(accessibilityRuntimeEvidenceFindings(justInside), []);
+});
+
+test("evidence dated in the future is not fresh, it is wrong", () => {
+  const input = bundle();
+  input.root.generatedAt = new Date(NOW.getTime() + 5 * 86_400_000)
+    .toISOString()
+    .replace(/\.\d{3}Z$/, ".000Z");
+  assert.ok(
+    accessibilityRuntimeEvidenceFindings(input).some((f) => f.includes("in the future")),
+  );
+});
+
+test("the policy age limit is the one the launch registry governs", () => {
+  // Two places holding the same number is how they drift.
+  const registry = JSON.parse(
+    readFileSync("config/enterprise-global-product-readiness.json", "utf8"),
+  );
+  assert.equal(
+    registry.waveAExternalEvidenceTracker.maxEvidenceAgeDays,
+    MAX_EVIDENCE_AGE_DAYS,
+  );
 });

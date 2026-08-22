@@ -316,6 +316,22 @@ function recordCheck(check, viewport, surface, passed, extra = {}) {
   evidenceRecords[check].push({ viewport, surface, passed, ...extra });
 }
 
+// Which run a shard belongs to.
+//
+// The shard directory is not cleared between runs, so a rerun that dies before
+// one project finishes leaves that project's previous shard on disk. Without a
+// run identity the collector would merge it with the new ones and stamp the
+// result with the current commit — a complete, verifiable-looking bundle for a
+// matrix that never completed. The runner exports one id for all four projects;
+// a spec invoked outside it gets a per-process id, which the collector refuses
+// because the four shards then disagree. Either way a partial matrix cannot be
+// laundered into evidence.
+const RUN_ID =
+  process.env.TECPEY_A11Y_RUN_ID ??
+  `unbound-${process.pid}-${Date.now().toString(36)}`;
+const SOURCE_COMMIT_SHA =
+  process.env.TECPEY_EVIDENCE_SHA ?? process.env.NEXT_PUBLIC_GIT_COMMIT ?? null;
+
 function writeEvidenceShard(viewport) {
   // Resolved from this file, not from process.cwd(): the collector reads a fixed
   // path under the repository root, and which directory Playwright happened to
@@ -325,7 +341,16 @@ function writeEvidenceShard(viewport) {
   mkdirSync(directory, { recursive: true });
   writeFileSync(
     path.join(directory, `${viewport}.json`),
-    `${JSON.stringify({ viewport, records: evidenceRecords }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        viewport,
+        runId: RUN_ID,
+        sourceCommitSha: SOURCE_COMMIT_SHA,
+        records: evidenceRecords,
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
 }
@@ -351,7 +376,31 @@ async function captureFocusOrder(page, viewport, surface) {
     const stop = await page.evaluate(() => {
       const element = document.activeElement;
       if (!element || element === document.body) return null;
-      const style = getComputedStyle(element);
+
+      // The focus ring itself: a control you can reach but cannot see you have
+      // reached is not keyboard accessible.
+      //
+      // This compares the element against itself unfocused rather than looking
+      // for an outline or asking `:focus-visible`. The pseudo-class reports that
+      // the browser considers the element keyboard-focused, which is true of
+      // every stop on this walk whether or not a single pixel changes — testing
+      // it would have recorded a focus indicator on a control styled
+      // `outline: none`. A rendered difference is the only thing a user can
+      // actually see.
+      const INDICATOR_PROPERTIES = [
+        "outlineStyle", "outlineWidth", "outlineColor", "outlineOffset",
+        "boxShadow", "borderColor", "borderWidth", "backgroundColor",
+        "color", "textDecorationLine",
+      ];
+      const snapshot = () => {
+        const style = getComputedStyle(element);
+        return INDICATOR_PROPERTIES.map((property) => style[property]).join("|");
+      };
+      const focused = snapshot();
+      element.blur();
+      const unfocused = snapshot();
+      element.focus();
+
       return {
         tag: element.tagName.toLowerCase(),
         label:
@@ -359,12 +408,7 @@ async function captureFocusOrder(page, viewport, surface) {
           element.textContent?.trim().replace(/\s+/g, " ").slice(0, 60) ||
           null,
         domIndex: [...document.querySelectorAll("*")].indexOf(element),
-        // The focus ring itself: a control you can reach but cannot see you
-        // have reached is not keyboard accessible.
-        focusVisible:
-          style.outlineStyle !== "none" ||
-          style.boxShadow !== "none" ||
-          element.matches(":focus-visible"),
+        focusVisible: focused !== unfocused,
       };
     });
     if (stop === null) break;

@@ -7,6 +7,7 @@
 // produced it is gone, which is what separates evidence from a green CI badge.
 
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -24,7 +25,27 @@ function argumentValue(flag, fallback) {
 const directory = path.resolve(
   argumentValue("--evidence-dir", "artifacts/accessibility-runtime"),
 );
-const expectedSha = argumentValue("--expected-sha", process.env.TECPEY_EVIDENCE_SHA ?? null);
+// Exact-head binding is not optional, so it cannot depend on the caller
+// remembering to pass it.
+//
+// This defaulted to null, which meant that running the command the ledger names
+// — with no extra environment — checked only that sourceCommitSha looked like a
+// sha. A bundle collected against any other commit would have verified, while
+// the wave A tracker requires exact-head execution. The head is derived here
+// instead, and a repository that cannot report one fails rather than falling
+// back to accepting anything.
+function repositoryHead() {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
+const expectedSha = argumentValue(
+  "--expected-sha",
+  process.env.TECPEY_EVIDENCE_SHA ?? repositoryHead(),
+);
 
 async function readBytes(name) {
   try {
@@ -48,6 +69,13 @@ function parse(bytes, name, failures) {
 }
 
 const failures = [];
+
+if (!expectedSha) {
+  failures.push(
+    "no expected commit could be determined — pass --expected-sha or set " +
+      "TECPEY_EVIDENCE_SHA; evidence that is not bound to an exact head is not evidence",
+  );
+}
 
 const rootBytes = await readBytes(ROOT_ARTIFACT);
 const root = parse(rootBytes, ROOT_ARTIFACT, failures);

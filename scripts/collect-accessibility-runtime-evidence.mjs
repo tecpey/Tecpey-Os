@@ -40,13 +40,48 @@ try {
 
 const merged = Object.fromEntries(Object.keys(REQUIRED_CHECKS).map((name) => [name, []]));
 const seenViewports = new Set();
+const runIds = new Set();
+const shardShas = new Set();
 
 for (const name of shardNames.sort()) {
   const shard = JSON.parse(readFileSync(path.join(shardDirectory, name), "utf8"));
   seenViewports.add(shard.viewport);
+  runIds.add(shard.runId ?? "(none)");
+  shardShas.add(shard.sourceCommitSha ?? "(none)");
   for (const check of Object.keys(REQUIRED_CHECKS)) {
     merged[check].push(...(shard.records?.[check] ?? []));
   }
+}
+
+// The shard directory is not cleared between runs. A rerun that dies before one
+// project finishes leaves that project's previous shard behind, and merging it
+// with the new ones would produce a complete-looking bundle for a matrix that
+// never completed — then stamp it with the current commit. Every shard has to
+// name the same run.
+if (runIds.size > 1) {
+  console.error(
+    `Shards come from ${runIds.size} different runs (${[...runIds].join(", ")}). ` +
+      "A bundle assembled from more than one run describes no run that happened. " +
+      `Clear ${shardDirectory} and re-run the accessibility spec.`,
+  );
+  process.exit(1);
+}
+
+const [runId] = [...runIds];
+if (runId === "(none)" || runId.startsWith("unbound-")) {
+  console.error(
+    "Shards carry no shared run identifier. The spec was run outside " +
+      "tests/e2e/run-public-e2e.mjs, which is what binds the four projects into " +
+      "one run, so these shards cannot be shown to describe a single matrix.",
+  );
+  process.exit(1);
+}
+
+if (shardShas.size > 1) {
+  console.error(
+    `Shards name ${shardShas.size} different commits (${[...shardShas].join(", ")}).`,
+  );
+  process.exit(1);
 }
 
 // Fail here rather than emit a bundle the verifier will reject: a partial run is
