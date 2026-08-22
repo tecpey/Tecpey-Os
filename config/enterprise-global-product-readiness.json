@@ -237,7 +237,7 @@
         "requiredEnvironment": "browser-runtime",
         "evidenceClass": "accessibility-runtime-evidence-v1",
         "evidenceSchemaVersion": 1,
-        "machineVerifier": "future browser verifier: qa:a11y-runtime:verify",
+        "machineVerifier": "npm run qa:a11y-runtime:verify",
         "requiredArtifacts": [
           "accessibility-runtime-evidence.json",
           "accessibility-runtime-evidence.json.sha256",

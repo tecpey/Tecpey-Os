@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHmac } from "node:crypto";
+import path from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 const require = createRequire(import.meta.url);
@@ -287,6 +289,9 @@ async function expectKeyboardReachable(page, label) {
   expect(active, `${label}: Tab did not reach an interactive element`).not.toBeNull();
   expect(active?.visible, `${label}: focused element is not visible`).toBe(true);
   expect(active?.inViewport, `${label}: focused element is outside the viewport`).toBe(true);
+  // Returned so the QA-051 record can carry what was observed. A record that
+  // hard-codes its own result proves only that the line was reached.
+  return active;
 }
 
 async function expectPrimaryTargetSize(page, surface) {
@@ -300,15 +305,120 @@ async function expectPrimaryTargetSize(page, surface) {
   expect(box?.height ?? 0, `${surface.path}: primary target is too short`).toBeGreaterThanOrEqual(32);
 }
 
-async function assertAccessibility(page, testInfo, label) {
+// ── QA-051 evidence recording ────────────────────────────────────────────────
+// The checks below already ran; until now they only produced Playwright
+// attachments, which live inside a report rather than as something anyone can
+// verify afterwards. Each project writes one shard, and
+// scripts/collect-accessibility-runtime-evidence.mjs assembles them.
+const evidenceRecords = { axe: [], keyboard: [], focus: [], contrast: [], reducedMotion: [] };
+
+function recordCheck(check, viewport, surface, passed, extra = {}) {
+  evidenceRecords[check].push({ viewport, surface, passed, ...extra });
+}
+
+function writeEvidenceShard(viewport) {
+  // Resolved from this file, not from process.cwd(): the collector reads a fixed
+  // path under the repository root, and which directory Playwright happened to
+  // be launched from is not something the evidence location should depend on.
+  const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
+  const directory = path.join(repositoryRoot, "artifacts/accessibility-runtime/shards");
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    path.join(directory, `${viewport}.json`),
+    `${JSON.stringify({ viewport, records: evidenceRecords }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+/** How far to walk the tab ring. Long enough to leave the header behind. */
+const FOCUS_ORDER_DEPTH = 15;
+
+/**
+ * Walk the tab ring and record what focus actually visited, in order.
+ *
+ * Reachability and order are different properties: a page can hand focus to
+ * every control and still hand them over in an order that has nothing to do
+ * with the reading order, which is what a positive tabindex does. The DOM index
+ * of each stop is recorded so the artifact carries the order a reviewer would
+ * have to re-derive otherwise, and monotonicity is asserted because nothing in
+ * this codebase sets a positive tabindex.
+ */
+async function captureFocusOrder(page, viewport, surface) {
+  await page.evaluate(() => document.activeElement?.blur?.());
+  const stops = [];
+  for (let step = 0; step < FOCUS_ORDER_DEPTH; step += 1) {
+    await page.keyboard.press("Tab");
+    const stop = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!element || element === document.body) return null;
+      const style = getComputedStyle(element);
+      return {
+        tag: element.tagName.toLowerCase(),
+        label:
+          element.getAttribute("aria-label") ||
+          element.textContent?.trim().replace(/\s+/g, " ").slice(0, 60) ||
+          null,
+        domIndex: [...document.querySelectorAll("*")].indexOf(element),
+        // The focus ring itself: a control you can reach but cannot see you
+        // have reached is not keyboard accessible.
+        focusVisible:
+          style.outlineStyle !== "none" ||
+          style.boxShadow !== "none" ||
+          element.matches(":focus-visible"),
+      };
+    });
+    if (stop === null) break;
+    stops.push(stop);
+  }
+
+  const distinct = new Set(stops.map((stop) => stop.domIndex));
+  const ordered = stops.every(
+    (stop, index) => index === 0 || stop.domIndex >= stops[index - 1].domIndex,
+  );
+  const allVisible = stops.every((stop) => stop.focusVisible);
+
+  recordCheck("focus", viewport, surface, distinct.size >= 3 && ordered && allVisible, {
+    stops,
+    distinctStops: distinct.size,
+    followsDomOrder: ordered,
+  });
+
+  expect(distinct.size, `${surface}: tab focus is trapped on too few controls`).toBeGreaterThanOrEqual(3);
+  expect(ordered, `${surface}: tab order does not follow document order`).toBe(true);
+  expect(allVisible, `${surface}: a focused control renders no focus indicator`).toBe(true);
+}
+
+/**
+ * Reduced motion is a runtime behaviour, not a stylesheet claim: emulate the
+ * preference and confirm nothing is still animating. A page that ignores the
+ * setting is unusable for someone who set it because motion makes them ill.
+ */
+async function assertReducedMotion(page, viewport, surface) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  const moving = await page.evaluate(() =>
+    [...document.querySelectorAll("*")].filter((element) => {
+      const style = getComputedStyle(element);
+      const duration = (value) =>
+        value.split(",").some((part) => parseFloat(part) > 0.05);
+      return (
+        (style.animationName !== "none" && duration(style.animationDuration)) ||
+        duration(style.transitionDuration)
+      );
+    }).length,
+  );
+  recordCheck("reducedMotion", viewport, surface, moving === 0, { animatedElements: moving });
+  expect(moving, `${surface}: elements still animate under prefers-reduced-motion: reduce`).toBe(0);
+  await page.emulateMedia({ reducedMotion: null });
+}
+
+const AXE_RULE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+async function assertAccessibility(page, testInfo, label, viewport, surface) {
   await page.addScriptTag({ content: axeSource });
-  const results = await page.evaluate(async () =>
-    window.axe.run(document, {
-      runOnly: {
-        type: "tag",
-        values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
-      },
-    }),
+  const results = await page.evaluate(
+    async (tags) => window.axe.run(document, { runOnly: { type: "tag", values: tags } }),
+    AXE_RULE_TAGS,
   );
 
   await testInfo.attach(`${label}-axe-results`, {
@@ -319,6 +429,21 @@ async function assertAccessibility(page, testInfo, label) {
   const blocking = results.violations.filter(
     (violation) => violation.impact === "critical" || violation.impact === "serious",
   );
+  // Recorded before the assertion so a failing run still leaves evidence of what
+  // it found, rather than only of the fact that it stopped.
+  recordCheck("axe", viewport, surface, blocking.length === 0, {
+    ruleTags: AXE_RULE_TAGS,
+    criticalOrSeriousCount: blocking.length,
+    violationIds: results.violations.map((violation) => violation.id),
+  });
+
+  // Contrast is one axe rule, but QA-051 asks for it as its own report, so it is
+  // extracted rather than re-measured — one engine, two views of the same run.
+  const contrast = results.violations.filter((violation) => violation.id === "color-contrast");
+  recordCheck("contrast", viewport, surface, contrast.length === 0, {
+    contrastViolations: contrast.length,
+  });
+
   expect(
     blocking.map(({ id, impact, help, nodes }) => ({
       id,
@@ -336,6 +461,7 @@ test.beforeEach(async ({ context }) => {
 
 test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibility evidence", async ({ page }, testInfo) => {
   const contract = contractFor(testInfo);
+  const viewport = testInfo.project.name;
 
   for (const surface of contract.surfaces) {
     const label = `${contract.locale}-${testInfo.project.metadata.formFactor}-${surface.key}`;
@@ -353,7 +479,18 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
 
     await expectNoHorizontalOverflow(page, surface.path);
     await expectPrimaryTargetSize(page, surface);
-    await expectKeyboardReachable(page, surface.path);
+
+    // QA-051 names keyboard and focus separately, and they are separate
+    // properties: reaching every control says nothing about the order focus
+    // reaches them in, or whether you can see where it went.
+    const reached = await expectKeyboardReachable(page, surface.path);
+    recordCheck("keyboard", viewport, surface.path, reached !== null, {
+      firstStop: reached?.label ?? null,
+      firstStopTag: reached?.tag ?? null,
+      visible: reached?.visible ?? false,
+      inViewport: reached?.inViewport ?? false,
+    });
+    await captureFocusOrder(page, viewport, surface.path);
 
     await page.screenshot({ fullPage: true }).then((screenshot) =>
       testInfo.attach(`${label}-screenshot`, {
@@ -361,6 +498,9 @@ test("Academy, Arena and Mentor surfaces pass mobile/desktop RTL-LTR accessibili
         contentType: "image/png",
       }),
     );
-    await assertAccessibility(page, testInfo, label);
+    await assertAccessibility(page, testInfo, label, viewport, surface.path);
+    await assertReducedMotion(page, viewport, surface.path);
   }
+
+  writeEvidenceShard(viewport);
 });

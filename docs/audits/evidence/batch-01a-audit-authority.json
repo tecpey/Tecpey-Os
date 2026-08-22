@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "519300da202e81e8af3182b02c1a86f004561ac8",
-      "sha256": "f132ec521bf93d5fb5188f6758f1ab836e423b032a95a5725c8dbeb9afbec433",
-      "lines": 237,
+      "gitObjectId": "b72bec3a231759ab93d59ceebe8bafe91229efbc",
+      "sha256": "b9d019101701b4aa006573e5be65a8b4d36906891c88d7b26518a91ef5f853bb",
+      "lines": 240,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 237
+          "endLine": 240
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -104,7 +104,8 @@
         "2026-08-20: re-reviewed after adding ops:redteam:readiness:check and test:ops-redteam-readiness, then composing the readiness guard into release:check after platform:redteam:closure:check. The new command is a local static guard over the #110 operational Red Team readiness report, recovery/incident contracts, package wiring and CI wiring; it explicitly does not close #110 or approve launch, financial activation, custody, enterprise, white-label or protected-staging claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
         "2026-08-20: re-reviewed after adding withdrawal:issue29:evidence:check and test:withdrawal-issue29-evidence, then composing both into release:check after withdrawals:check. The new command is a local static guard over the issue #29 withdrawal release-evidence boundary, existing wallet/external-effect/custody/runtime guards, package wiring and CI wiring; it explicitly does not close #29 or approve real-money withdrawals, production custody, HSM/MPC readiness, chain-provider certification, protected staging, enterprise, white-label or final Go claims, and adds no dependency, engine, override, network access, runtime mutation path or activation surface.",
         "2026-08-20: re-reviewed after adding content:issue83:surface:check and test:content-issue83-surface, then composing both into release:check after coin/tool growth guards. The new command is a local static guard over News, Coins and Trader Toolbox product-surface contracts, package wiring and CI wiring; it explicitly preserves educational/no-signal/no-advice/no-external-activation boundaries, adds no dependency, engine, override, network access, runtime mutation path, exchange activation, wallet custody activation, API-key integration or financial execution surface.",
-        "2026-08-20: re-reviewed after adding mentor:profiles:repair. The command runs scripts/reconcile-mentor-profiles.ts, a bounded read-then-recompute sweep that reuses the existing idempotent applyMentorProfileUpdate authority; it opens no new transaction semantics, adds no dependency, and is not wired into release:check because it is an operational repair job in the same class as auth:revocations:repair, risk:repair and offline:reconcile. No dependency pin, engine constraint, override declaration or release-authority command changed, and the file grows by one script line."
+        "2026-08-20: re-reviewed after adding mentor:profiles:repair. The command runs scripts/reconcile-mentor-profiles.ts, a bounded read-then-recompute sweep that reuses the existing idempotent applyMentorProfileUpdate authority; it opens no new transaction semantics, adds no dependency, and is not wired into release:check because it is an operational repair job in the same class as auth:revocations:repair, risk:repair and offline:reconcile. No dependency pin, engine constraint, override declaration or release-authority command changed, and the file grows by one script line.",
+        "2026-08-22: re-reviewed after adding qa:a11y-runtime:collect, qa:a11y-runtime:verify and test:a11y-runtime-evidence (QA-051). The collect command merges per-Playwright-project evidence shards from the local artifacts directory and writes only there; the verify command reads that bundle and validates it offline against scripts/accessibility-runtime-evidence-policy.mjs; the test command runs one local node:test suite over that policy. None is wired into release:check, because the evidence they operate on can only be produced by a browser run on the protected staging host. They add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and the file now has 240 lines."
       ],
       "findings": [
         {
