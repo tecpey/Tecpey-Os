@@ -1,6 +1,7 @@
 name: CI
 
 permissions:
+  actions: read
   contents: read
 
 on:
@@ -466,6 +467,8 @@ jobs:
         run: npm run test:content-issue83-surface
 
       - name: Controlled launch decision authority guard
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run launch:decision:check
 
       - name: Platform red-team code closure guard
