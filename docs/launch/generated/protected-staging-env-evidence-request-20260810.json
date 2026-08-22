@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-env-evidence-request",
-  "generatedAt": "2026-08-22T18:51:53Z",
+  "generatedAt": "2026-08-22T19:26:23Z",
   "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-    "runtimeCandidateBaselineSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "protectedStagingEvidenceTargetSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+    "runtimeCandidateBaselineSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
@@ -27,12 +27,12 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "release_sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
       "run_alert_probe": true
     },
     "envEvidenceWorkflowName": "Protected Staging Env Evidence",
     "envEvidenceWorkflowInputs": {
-      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "release_sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
       "environment_source": "protected_host_env_file"
     }
   },
@@ -99,7 +99,7 @@
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "workflowName": "Protected Staging Env Evidence",
     "workflowInputs": {
-      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+      "release_sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
       "environment_source": "protected_host_env_file"
     },
     "requiredArtifacts": [

@@ -96,6 +96,7 @@ jobs:
 
   evidence-discovery:
     name: Governed exact-main evidence discovery
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
