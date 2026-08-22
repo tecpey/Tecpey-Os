@@ -3,33 +3,29 @@
   "evidenceClass": "protected-staging-execution-status-observation",
   "observedAt": "2026-08-14T16:00:49.000Z",
   "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
-  "relatedBlockers": [
-    "NOG-01",
-    "NOG-02"
-  ],
+  "relatedBlockers": ["NOG-01", "NOG-02"],
   "releaseLineage": {
-    "currentMainSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-    "protectedStagingEvidenceTargetSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "currentMainSha": "915c0dce2d59424ffcc19a79f080b9b7ca00f393",
+    "protectedStagingEvidenceTargetSha": "c154702f9c927df971dc08787c939357956be97d",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
-    "mergedPullRequest": 437,
-    "mergedPullRequestTitle": "docs(launch): promote current candidate after PR #441",
-    "mergeCommitSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-    "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate rebaselined to the PR #437 squash-merge commit on main; previous PR #441 target remains the parent/previous-release SHA for rollback evidence"
+    "mergedPullRequest": 528,
+    "mergedPullRequestTitle": "docs(launch): retarget c154 evidence recollection",
+    "mergeCommitSha": "915c0dce2d59424ffcc19a79f080b9b7ca00f393",
+    "targetShaUnchanged": true,
+    "targetShaDisposition": "documentation-only launch-control recollection merge preserved c154702f9c927df971dc08787c939357956be97d as the protected staging evidence target"
   },
   "observationSource": {
     "githubApi": [
-      "GET /repos/tecpey/Tecpey-Os/environments/staging",
-      "GET /repos/tecpey/Tecpey-Os/actions/workflows/protected-staging-env-evidence.yml/runs",
-      "GET /repos/tecpey/Tecpey-Os/actions/workflows/staging-community-challenge-scheduler-evidence.yml/runs"
+      "historical observation: GET /repos/tecpey/Tecpey-Os/environments/staging",
+      "historical observation: GET protected-staging-env-evidence workflow runs",
+      "historical observation: GET staging-community-challenge-scheduler-evidence workflow runs"
     ],
     "localTooling": [
-      "gh CLI unavailable",
-      "workflow_dispatch write action unavailable in connector",
-      "GitHub Environment protection-rule mutation unavailable in connector",
-      "repository self-hosted runner listing returned 403 to the integration"
+      "latest accepted repository observation still records no protected staging evidence",
+      "GitHub Environment protection-rule mutation is not performed by repository evidence code",
+      "self-hosted staging runner proof remains external to repository-only checks"
     ]
   },
   "githubEnvironment": {
@@ -71,8 +67,8 @@
   },
   "requiredBeforeAcceptance": [
     "Configure GitHub Environment staging with required protection rules/reviewers before treating it as protected staging evidence.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913 with one accepted environment_source.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha c154702f9c927df971dc08787c939357956be97d with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha c154702f9c927df971dc08787c939357956be97d with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
   "decisionAfterObservation": "NOG-01 and NOG-02 remain open; no accepted protected staging or redacted env evidence exists for the selected candidate."

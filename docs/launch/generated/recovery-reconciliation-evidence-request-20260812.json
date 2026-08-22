@@ -1,21 +1,16 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-recovery-reconciliation-evidence-request",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-21T20:54:37Z",
   "decision": "NO_GO_RECOVERY_RECONCILIATION_EVIDENCE_MISSING",
-  "relatedBlockers": [
-    "NOG-05"
-  ],
+  "relatedBlockers": ["NOG-05"],
   "status": "blocked_pending_protected_staging_restore_and_domain_reconciliation",
-  "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "selectedSha": "c154702f9c927df971dc08787c939357956be97d",
   "environment": "protected-staging",
   "authority": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   "operatorRunbook": "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
   "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
-  "prerequisiteBlockers": [
-    "NOG-01",
-    "NOG-02"
-  ],
+  "prerequisiteBlockers": ["NOG-01", "NOG-02"],
   "requiredDomains": [
     "Academy",
     "Trading Arena",
@@ -29,11 +24,7 @@
     "evidenceClass": "protected-staging-domain-recovery-reconciliation",
     "environment": "protected-staging",
     "finalDisposition": "accepted",
-    "privacyBoundary": [
-      "counts-and-hashes-only",
-      "no-raw-rows",
-      "no-secrets-or-connection-urls"
-    ]
+    "privacyBoundary": ["counts-and-hashes-only", "no-raw-rows", "no-secrets-or-connection-urls"]
   },
   "privacyBoundary": [
     "counts and hashes only",

@@ -1,53 +1,41 @@
 # Controlled Launch Candidate Promotion — Issue #515
 
-**Status:** Phase 2 evidence-recollection checkpoint; not launch evidence
+**Status:** terminal exact-candidate promotion prepared; not Go approval  
+**Current accepted candidate target:** `c154702f9c927df971dc08787c939357956be97d`  
+**Candidate source:** `main` after PR #527  
+**Protected execution after promotion gates pass:** allowed for evidence collection only
 
-**Current accepted candidate with historical exact-candidate evidence:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+## Completed repository-side promotion
 
-**Current exact main / proposed next candidate:** `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8`
+PR #527 advanced `main` from the post-#525 candidate `1c2172144f5a5fbe3037a262c67cb9799585c1b2` to exact `c154702f9c927df971dc08787c939357956be97d`. PR #528 then installed the fail-closed recollection request for that exact SHA without relabelling historical evidence.
 
-**Proposed candidate source:** `main` after PR #519
+Genuine exact-SHA evidence has now been recollected for:
 
-**Protected execution during promotion:** blocked
+- **NOG-04:** schema-v2 GitHub Actions origin evidence for all nine governed workflows, including Scheduled Operational Recovery by governed `workflow_dispatch`;
+- **NOG-03:** immutable GHCR runtime-image digest, release artifact metadata and Cosign verification from exact-main Container Supply Chain;
+- **NOG-06:** exact-candidate rollback plus synthetic PostgreSQL/Redis volume-restore evidence, artifact digest and verifier-bound recovery result.
 
-The previous accepted candidate `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` is stale after post-#437 runtime, security, notification, outbound-link, observability, alert-delivery, production-email readiness, support-bundle readiness and exact-candidate evidence-authority changes. Protected-staging or final release evidence MUST NOT be collected against that stale candidate. The proposed candidate is recorded separately in `docs/launch/generated/candidate-promotion-state-20260821.json`; it is not treated as accepted until genuine exact-SHA evidence is recollected.
-
-## Two-phase fail-closed promotion
-
-Phase 1 installed the machine-readable promotion guard and blocked protected execution while preserving historical evidence binding to the old candidate.
-
-Phase 2 now targets the exact post-PR #519 main commit `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8`. The recollection request is `docs/launch/generated/candidate-evidence-recollection-request-20260821.json`.
-
-The human/JSON candidate ledger and protected-staging target may move only after genuine exact-head workflow, runtime-image and rollback/volume-restore evidence exists for the proposed SHA and all authority checks pass.
-
-## Required implementation
-
-1. Re-read `main` immediately before final promotion. If Claude or another agent advances runtime/deployment/security/bundle/launch-control behavior, refresh the proposed SHA first.
-2. Recollect genuine exact-head workflow evidence for `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8` before NOG-04 can be accepted there.
-3. Recollect genuine runtime image digest evidence for the same exact SHA before NOG-03 can be accepted there.
-4. Recollect genuine rollback/volume-restore evidence for the same exact SHA before NOG-06 can be accepted there.
-5. Only after 2-4, atomically align the human and machine-readable candidate ledgers, protected-staging activation runbook, protected-staging evidence request and No-Go register to the same exact SHA.
-6. Do not rewrite historical workflow URLs, image digests, rollback artifacts, timestamps or accepted evidence to pretend that they were produced for the new candidate.
-7. NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open until real accepted evidence exists.
-8. Real-money Exchange, custody/deposits/withdrawals, enterprise, white-label and public rewards remain launch-disabled/NO-GO under their existing gates.
-9. Candidate-lineage, launch-decision, exact-head evidence, runtime-image, rollback, staging-evidence and full CI gates must pass on the exact promotion head before merge.
+The human and JSON candidate ledgers, protected-staging request/runbooks, No-Go register, recovery/incident/risk/approval requests and execution-status target are aligned to the same exact SHA.
 
 ## Evidence truth boundary
 
-The PR-head evidence from PR #518 (`6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c`), PR #521 (`6145c03bdee9da4d06b781175a60b63d38cba568`), PR #522 (`60691da0e1c45d7e6c5ea9aed4558e391f38db71`) and PR #519 (`45819fc35e715128edb5d8df532c0b2d51c0b046`) is useful validation of those code changes, but it is not exact-candidate evidence for the post-#519 `main` commit `5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8` and must not be substituted for it.
+Historical evidence for `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`, `e4065675473170f62f0ed4dec8641f8d77722725` and `1c2172144f5a5fbe3037a262c67cb9799585c1b2` remains historical. No workflow URL, image digest, rollback artifact or timestamp from another SHA is relabelled as evidence for the selected candidate.
 
-Likewise, historical accepted evidence attached to `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913` remains historical and must not be relabelled.
+The selected candidate has real exact-main evidence generated by GitHub Actions. The runtime-image origin verifier remains fail-closed and schema-v2 GitHub origin verification still requires the governed `GITHUB_TOKEN`.
 
-## Guard now enforced
+## Remaining No-Go gates
 
-`scripts/check-controlled-launch-candidate-lineage.mjs` validates the two-phase promotion state. It requires:
+NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open until real accepted evidence exists. Specifically, protected staging activation/env validation, protected recovery reconciliation, incident drill evidence, externally attributable accepted-risk owner sign-off, and the final independent Go approval matrix are still required.
 
-- the proposed SHA to be a different exact 40-character SHA from the currently accepted candidate;
-- `protectedExecutionAllowed` to remain `false` while promotion is pending;
-- NOG-03/NOG-04/NOG-06 to be explicitly identified as stale accepted evidence requiring recollection;
-- NOG-01/02/05/07/08/09 to remain open;
-- real-money and expanded-scope capability boundaries to remain disabled.
+Real-money Exchange, custody/deposits/withdrawals, enterprise, white-label and public financial rewards remain launch-disabled. NOG-10/NOG-11/NOG-12 are accepted only as disabled-scope attestations, not activation approval.
 
-## Parallel-safety rule
+## Final repository gate before merge
 
-Claude or another agent may advance `main` while this work is in progress. Re-read `main` immediately before any final promotion commit. If runtime, deployment, security, bundle or launch-control behavior changed, target the newer stable exact SHA rather than this checkpoint SHA.
+Before merging the promotion PR:
+
+1. Re-read `main` and active PRs; if runtime/deployment/security/bundle/launch-control behavior advanced, do not merge stale.
+2. Require candidate-lineage, exact-head origin, runtime-image, rollback/restore, protected-staging request/status, launch-decision and full CI gates to pass on the final PR head.
+3. Require all review threads to be resolved.
+4. Merge with exact expected head SHA only after every required check is green.
+
+After that merge, Issue #515's repository-side candidate-promotion work is complete. The next phase is protected staging/server execution for the exact selected SHA; it remains NO-GO until the external evidence chain is genuinely completed.

@@ -1,31 +1,23 @@
-# GitHub Staging Environment Protection Runbook - 2026-08-12
+# GitHub Staging Environment Protection Runbook — 2026-08-22
 
 **Status:** operator setup prerequisite for NOG-01 and NOG-02, not accepted launch evidence  
 **Repository:** `tecpey/Tecpey-Os`  
 **Environment name:** `staging`  
-**Current observation:** `protection_rules: []` after current candidate promotion
-**Selected protected staging evidence target SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Last accepted observation:** `protection_rules: []`  
+**Selected protected staging evidence target SHA:** `c154702f9c927df971dc08787c939357956be97d`
 
-This runbook closes the ambiguity before the protected staging workflows are
-dispatched. It does not close NOG-01 or NOG-02 by itself. It defines the minimum
-GitHub Environment and runner setup that must exist before the evidence
-workflows can produce accepted artifacts.
+This runbook defines the minimum GitHub Environment and self-hosted runner setup required before protected-staging workflows can produce accepted evidence. It does not close NOG-01 or NOG-02 by itself.
 
-## Why This Exists
+## Current fail-closed boundary
 
-The latest GitHub API observation confirms that the `staging` Environment
-exists, but it has no protection rules:
+The last repository-recorded GitHub Environment observation showed:
 
 ```text
-GET /repos/tecpey/Tecpey-Os/environments/staging
 protection_rules: []
 can_admins_bypass: true
 ```
 
-With that state, a successful workflow run would still be rejected as protected
-staging evidence because no reviewer gate or equivalent environment protection
-is observed. Do not dispatch the evidence workflows until the environment is
-protected and the self-hosted runner is available.
+Until a fresh operator-side observation proves protection rules/reviewers are configured, preserve `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`. A successful unprotected workflow is not accepted as protected-staging evidence.
 
 ## Required Setup
 
@@ -35,9 +27,9 @@ Configure the GitHub Environment named exactly `staging`:
 |---|---|
 | Environment name | `staging` |
 | Required reviewers | At least one release-owner reviewer; two reviewers preferred when available |
-| Admin bypass | Disable if the GitHub plan allows it; otherwise record `can_admins_bypass: true` as residual risk |
-| Deployment branches | Restrict to `main` when available; otherwise rely on workflow SHA validation and record the branch-policy residual risk |
-| Environment variables | Configure only the named variables below; do not store raw secrets in documents |
+| Admin bypass | Disable if the GitHub plan allows it; otherwise record the residual risk without bypassing review |
+| Deployment branches | Restrict to `main` when available; otherwise enforce exact-SHA validation and record branch-policy residual risk |
+| Environment variables | Configure only governed names; never store raw values in repository evidence |
 | Self-hosted runner | Online runner with labels `self-hosted`, `linux`, `x64`, `tecpey-staging` |
 
 Required Environment variables:
@@ -53,36 +45,22 @@ TECPEY_STAGING_RUN_GROUP
 TECPEY_STAGING_HEALTH_URL
 ```
 
-Set `TECPEY_STAGING_ENV_CHECK_UNIT` only when NOG-02 uses
-`service_manager_preloaded_environment`. If that unit is not installed and
-reviewed, use `protected_host_env_file`.
+Set `TECPEY_STAGING_ENV_CHECK_UNIT` only when NOG-02 uses `service_manager_preloaded_environment`. Otherwise use `protected_host_env_file`.
 
 ## Forbidden Material
 
-Never put these values in GitHub comments, PR bodies, issue text, workflow
-summaries, artifacts, screenshots or repo files:
+Never place raw `DATABASE_URL`, host IP/private hostname, `.env` contents, private keys, signing/webhook/API secrets, bearer tokens, customer rows, provider payloads or raw logs in GitHub comments, PRs, issues, workflow summaries, screenshots or repository evidence.
 
-- raw `DATABASE_URL`;
-- raw host IPs or private hostnames;
-- raw `.env` file contents;
-- private keys, signing secrets, webhook secrets, API keys or bearer tokens;
-- customer rows, user identifiers, provider payloads or raw logs.
-
-Evidence may record only pass/fail dispositions, selected SHA, artifact names,
-detached SHA-256 digests, workflow HTTPS URLs, UTC timestamps, reviewer roles
-and residual risk notes.
+Evidence may record only bounded pass/fail dispositions, selected SHA, artifact identifiers, detached SHA-256 digests, governed workflow HTTPS URLs, UTC timestamps, reviewer roles and residual-risk notes.
 
 ## Dispatch Order
-
-After the Environment protection and runner setup are complete, dispatch these
-manual workflows from GitHub Actions against the selected candidate SHA.
 
 ### NOG-01
 
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: c154702f9c927df971dc08787c939357956be97d
 run_alert_probe: true
 ```
 
@@ -99,12 +77,11 @@ tecpey-staging-evidence-verification.json
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: c154702f9c927df971dc08787c939357956be97d
 environment_source: protected_host_env_file
 ```
 
-Use `service_manager_preloaded_environment` only after the governed validation
-unit is installed and reviewed.
+Use `service_manager_preloaded_environment` only after the governed validation unit is installed and reviewed.
 
 Accepted artifact set:
 
@@ -119,13 +96,12 @@ tecpey-staging-env-evidence-verification.json
 NOG-01 and NOG-02 remain open until all of the following are true:
 
 - `staging` no longer reports `protection_rules: []`;
-- the accepted runs use the selected SHA
-  `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`;
-- both workflows run on the `tecpey-staging` self-hosted runner;
+- Required reviewers/protection are observed before dispatch;
+- accepted runs use exact SHA `c154702f9c927df971dc08787c939357956be97d`;
+- both workflows run on the `self-hosted`, `linux`, `x64`, `tecpey-staging` runner;
 - both workflows complete successfully;
-- artifacts and detached digests verify offline;
+- artifacts and detached digests verify;
 - evidence contains no forbidden material;
-- an operator and reviewer record the accepted run URLs and residual risks.
+- independent operator/reviewer roles record accepted run URLs and residual risks.
 
-If any item above is missing, preserve the final decision as
-`NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
+If any item is missing, keep `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
