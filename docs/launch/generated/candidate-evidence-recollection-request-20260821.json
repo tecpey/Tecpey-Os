@@ -1,19 +1,29 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-evidence-recollection-request",
-  "generatedAt": "2026-08-22T02:41:30Z",
+  "generatedAt": "2026-08-22T17:20:00Z",
   "issue": 515,
   "decision": "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
-  "selectedSha": "915c0dce2d59424ffcc19a79f080b9b7ca00f393",
+  "selectedSha": "e35586cc325f42adbdf2366d120ae89056e19d30",
   "sourceBranch": "main",
-  "sourcePullRequest": 528,
+  "sourcePullRequest": 531,
   "protectedExecutionAllowed": false,
   "requiredAcceptanceSchemaVersion": 2,
   "requiredEvidence": {
     "NOG-04": {
       "status": "pending_recollection",
       "requireExactSelectedSha": true,
-      "requiredWorkflows": ["CI", "Full Suite Diagnostics", "API Security Manifest", "Sensitive Mutation Audit", "Repository Audit Manifest", "Public Browser Golden Path", "Container Supply Chain", "Full History Secret Scanning", "Scheduled Operational Recovery"],
+      "requiredWorkflows": [
+        "CI",
+        "Full Suite Diagnostics",
+        "API Security Manifest",
+        "Sensitive Mutation Audit",
+        "Repository Audit Manifest",
+        "Public Browser Golden Path",
+        "Container Supply Chain",
+        "Full History Secret Scanning",
+        "Scheduled Operational Recovery"
+      ],
       "acceptance": [
         "each workflow run is bound to selectedSha",
         "each workflow run event is push or an explicitly governed exact-SHA dispatch",
@@ -53,8 +63,21 @@
       ]
     }
   },
-  "stillOpenBlockers": ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"],
-  "launchDisabledBoundaries": ["real-money Exchange", "custody/deposits/withdrawals", "enterprise", "white-label", "public rewards"],
+  "stillOpenBlockers": [
+    "NOG-01",
+    "NOG-02",
+    "NOG-05",
+    "NOG-07",
+    "NOG-08",
+    "NOG-09"
+  ],
+  "launchDisabledBoundaries": [
+    "real-money Exchange",
+    "custody/deposits/withdrawals",
+    "enterprise",
+    "white-label",
+    "public rewards"
+  ],
   "promotionAfterAcceptance": [
     "re-read main and active PRs immediately before promotion",
     "verify selectedSha is still the newest stable runtime/security/bundle/launch-control target",
