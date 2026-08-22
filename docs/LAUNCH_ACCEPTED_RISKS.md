@@ -13,7 +13,7 @@
 >
 > **Controlled-launch closure update (2026-08-09).** The table below records the exact temporary thresholds, owners and rollback triggers for the controlled education/Mentor/virtual Arena scope only. This closes the placeholder-decision debt for the narrow controlled launch packet, but it does **not** close protected staging, recovery/restore, rollback/forward-fix, compliance, real-money Exchange or custody evidence. Historical placeholder text in the original Phase 39.5 rows is superseded by this closure matrix for controlled-launch decisions.
 >
-> **Controlled-launch review freshness refresh (2026-08-22).** The review dates below were refreshed after the 2026-08-21 window expired. This preserves the fail-closed NOG-08 authority check and does **not** accept NOG-08, does **not** replace owner sign-off evidence, and does **not** approve any Go decision or real-money/custody/enterprise/white-label/public-reward surface.
+> **Controlled-launch accountable review refresh (2026-08-22).** `@tecpey` re-reviewed the controlled-launch closure matrix in PR #531 after the 2026-08-21 freshness window expired. The Review date column now records the next accountable review deadline after that re-review; it is not owner sign-off evidence, does **not** accept NOG-08, does **not** replace the required owner approval artifact, and does **not** approve any Go decision or real-money/custody/enterprise/white-label/public-reward surface. R-08 was re-reviewed early on 2026-08-22 and remains on its biweekly cadence.
 
 ## Controlled Launch Reconciliation Addendum — 2026-08-08
 
