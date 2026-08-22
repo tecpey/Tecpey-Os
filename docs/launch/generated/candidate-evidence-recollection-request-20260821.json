@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-evidence-recollection-request",
-  "generatedAt": "2026-08-21T20:55:00Z",
+  "generatedAt": "2026-08-22T18:51:53Z",
   "issue": 515,
-  "decision": "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
-  "selectedSha": "c154702f9c927df971dc08787c939357956be97d",
+  "decision": "NO_GO_NOG_03_04_06_RECOLLECTED_AND_ACCEPTED",
+  "selectedSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
   "sourceBranch": "main",
-  "sourcePullRequest": 527,
-  "protectedExecutionAllowed": false,
+  "sourcePullRequest": 534,
+  "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
   "requiredEvidence": {
     "NOG-04": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "requiredWorkflows": [
         "CI",
@@ -35,7 +35,7 @@
       ]
     },
     "NOG-03": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "workflow": "Container Supply Chain",
       "acceptance": [
@@ -48,7 +48,7 @@
       ]
     },
     "NOG-06": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "workflow": "Container Supply Chain",
       "job": "Ephemeral staging rollback and volume restore",
@@ -89,5 +89,19 @@
   "privacyBoundary": [
     "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
     "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ],
+  "acceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-04",
+      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-06",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
+    }
   ]
 }

@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-env-evidence-request",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-22T18:51:53Z",
   "decision": "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "protectedStagingEvidenceTargetSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
-    "runtimeCandidateBaselineSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+    "protectedStagingEvidenceTargetSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "runtimeCandidateBaselineSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
     "targetPromotionPolicy": "All new protected staging evidence must use the current candidate ledger. Any new selected SHA must be explicitly promoted by the release owner before evidence collection continues."
   },
@@ -27,12 +27,12 @@
     ],
     "workflowName": "Staging Community Challenge Scheduler Evidence",
     "workflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
       "run_alert_probe": true
     },
     "envEvidenceWorkflowName": "Protected Staging Env Evidence",
     "envEvidenceWorkflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
       "environment_source": "protected_host_env_file"
     }
   },
@@ -99,7 +99,7 @@
     "serviceManagerCommandShape": "cd \"$TECPEY_STAGING_APP_DIR\" && sudo systemctl start \"$TECPEY_STAGING_ENV_CHECK_UNIT\" && sudo systemctl show \"$TECPEY_STAGING_ENV_CHECK_UNIT\" --property=Result --property=ExecMainStatus --property=ExecMainCode --value",
     "workflowName": "Protected Staging Env Evidence",
     "workflowInputs": {
-      "release_sha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+      "release_sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
       "environment_source": "protected_host_env_file"
     },
     "requiredArtifacts": [
@@ -144,5 +144,5 @@
     "env:check fails, cannot run with the protected staging env file loaded, or cannot run through a governed service-manager validation unit/equivalent command that uses the same environment source as the staging application",
     "evidence contains forbidden sensitive material"
   ],
-  "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_ROLLBACK_INCIDENT_RISK_APPROVAL_AND_GATED_CAPABILITY_EVIDENCE_IS_ACCEPTED"
+  "decisionAfterAcceptance": "NO_GO_REMAINS_UNTIL_RECOVERY_RECONCILIATION_INCIDENT_RISK_AND_APPROVAL_EVIDENCE_IS_ACCEPTED"
 }
