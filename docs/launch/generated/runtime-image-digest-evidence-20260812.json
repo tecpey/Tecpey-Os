@@ -1,58 +1,58 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "runtime-image-digest-evidence",
-  "generatedAt": "2026-08-22T18:51:53Z",
+  "generatedAt": "2026-08-22T19:26:23Z",
   "decision": "NOG_03_ACCEPTED_FOR_EXACT_CANDIDATE_RUNTIME_IMAGE_IDENTITY",
   "relatedBlocker": "NOG-03",
   "releaseCandidate": {
-    "sha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
     "sourceBranch": "main",
-    "sourcePullRequest": 534,
+    "sourcePullRequest": 530,
     "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "containerImage": {
     "registryReference": "ghcr.io/tecpey/tecpey-os",
-    "imageDigest": "sha256:37a403cc4d8f046470d34ac868b299d817b677c55d3b2ad886ead84fea468e4f",
+    "imageDigest": "sha256:caf5420acf62579b7d694ee8d5ecb86f8ffa09898e1333aed9dda85b289357fc",
     "digestSource": "container-release artifact image-digest.txt"
   },
   "workflowEvidence": {
     "workflowName": "Container Supply Chain",
-    "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32591643448",
-    "workflowRunId": 32591643448,
+    "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321084",
+    "workflowRunId": 32593321084,
     "workflowRunConclusion": "success",
     "workflowTrigger": "push",
     "workflowRef": "refs/heads/main",
-    "workflowSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "workflowSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
     "workflowRunAttempt": 1
   },
   "artifactEvidence": {
     "containerRelease": {
-      "artifactId": 9480553534,
-      "artifactName": "container-release-c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "artifactDigest": "sha256:ce629903f989de1a192514073a80b3b3e7d3a13ace0ed0c23e66307bafefc483",
+      "artifactId": 9480968291,
+      "artifactName": "container-release-ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "artifactDigest": "sha256:9daa0c8c76bb2d5e04d011f98fafce80106c59a8a7d590b898024b5019074d21",
       "contains": [
         "image-digest.txt",
         "signature-verification.json"
       ],
-      "expiresAt": "2026-11-20T18:44:47Z"
+      "expiresAt": "2026-11-20T19:18:26Z"
     },
     "containerSupplyChain": {
-      "artifactId": 9480518986,
-      "artifactName": "container-supply-chain-c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "artifactDigest": "sha256:72906a9b8e1fe7a28aefb28099cfd8a8b23a784515f847bbc227d0101a6e9fca",
-      "expiresAt": "2026-09-21T18:48:34Z"
+      "artifactId": 9480935623,
+      "artifactName": "container-supply-chain-ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "artifactDigest": "sha256:732a52a212487bd5cdf66cb00f12040af7fd21ab3d1170dff7d3420b9ebec981",
+      "expiresAt": "2026-09-21T19:21:50Z"
     },
     "containerRecovery": {
-      "artifactId": 9480507580,
-      "artifactName": "container-recovery-c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "artifactDigest": "sha256:b67669b75a3006b21749b82e946fe123ff31f64ae7adbc68b49a862e23d13eb3",
-      "expiresAt": "2026-09-21T18:47:42Z"
+      "artifactId": 9480931491,
+      "artifactName": "container-recovery-ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "artifactDigest": "sha256:8f3f349949718c7c5b7253473ad8f93ce102e92215eabd7f866a0d2d24612a75",
+      "expiresAt": "2026-09-21T19:21:31Z"
     },
     "spdxSbom": {
-      "artifactId": 9480513721,
-      "artifactName": "tecpey-ci_c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3.spdx.json",
-      "artifactDigest": "sha256:9516168868fb64a63f1f783bb20e67634e2c786eb4f0b901bb42e2dd0cfb0f1c",
-      "expiresAt": "2026-11-20T18:44:47Z"
+      "artifactId": 9480931601,
+      "artifactName": "tecpey-ci_ed11e5e596e1b08b16feb493bb41a1cacb324f6e.spdx.json",
+      "artifactDigest": "sha256:158f580e76ae8586ab21ce6934919c890f21845ccd667f8d76376b4d609bd9bb",
+      "expiresAt": "2026-11-20T19:18:26Z"
     }
   },
   "signatureVerification": {
@@ -60,11 +60,11 @@
     "issuer": "https://token.actions.githubusercontent.com",
     "subject": "https://github.com/tecpey/Tecpey-Os/.github/workflows/container-supply-chain.yml@refs/heads/main",
     "dockerReference": "ghcr.io/tecpey/tecpey-os",
-    "dockerManifestDigest": "sha256:37a403cc4d8f046470d34ac868b299d817b677c55d3b2ad886ead84fea468e4f",
+    "dockerManifestDigest": "sha256:caf5420acf62579b7d694ee8d5ecb86f8ffa09898e1333aed9dda85b289357fc",
     "githubWorkflowName": "Container Supply Chain",
     "githubWorkflowRepository": "tecpey/Tecpey-Os",
     "githubWorkflowRef": "refs/heads/main",
-    "githubWorkflowSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+    "githubWorkflowSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
     "githubWorkflowTrigger": "push"
   },
   "privacyBoundary": {

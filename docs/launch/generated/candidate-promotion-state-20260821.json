@@ -1,38 +1,19 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-22T19:24:05Z",
+  "generatedAt": "2026-08-22T19:26:23Z",
   "issue": 515,
-  "status": "pending_evidence_recollection",
-  "currentAcceptedCandidateSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
+  "status": "promoted_exact_candidate_evidence",
+  "currentAcceptedCandidateSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
   "proposedCandidate": {
     "sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
     "sourceBranch": "main",
-    "sourcePullRequest": null,
-    "reason": "main advanced to ed11e5e596e1b08b16feb493bb41a1cacb324f6e after the c0e9 evidence promotion. No exact ed11 NOG-03/NOG-04/NOG-06 evidence is accepted yet, so promotion remains fail-closed until genuine exact-main recollection is completed and accepted."
+    "sourcePullRequest": 530,
+    "reason": "PR #530 advanced main to ed11e5e596e1b08b16feb493bb41a1cacb324f6e and Candidate Evidence Recollection Authority #83 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
   },
-  "protectedExecutionAllowed": false,
+  "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
-  "staleAcceptedEvidence": [
-    {
-      "id": "NOG-03",
-      "previousAcceptedCandidateSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-      "reason": "accepted runtime image evidence is bound to c0e9, not the proposed ed11 main SHA"
-    },
-    {
-      "id": "NOG-04",
-      "previousAcceptedCandidateSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-      "reason": "accepted workflow evidence is bound to c0e9, not the proposed ed11 main SHA"
-    },
-    {
-      "id": "NOG-06",
-      "previousAcceptedCandidateSha": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
-      "reason": "accepted rollback evidence is bound to c0e9, not the proposed ed11 main SHA"
-    }
-  ],
+  "staleAcceptedEvidence": [],
   "stillOpenBlockers": [
     "NOG-01",
     "NOG-02",
@@ -60,5 +41,27 @@
   "privacyBoundary": [
     "state contains release identifiers, blocker IDs, status and policy text only",
     "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ],
+  "acceptedRecollectedEvidence": [
+    {
+      "id": "NOG-03",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-04",
+      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-06",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
+    }
+  ],
+  "promotionCompletedChecks": [
+    "exact-head workflow evidence schema v2 accepted for the selected SHA",
+    "runtime image digest evidence accepted for the selected SHA",
+    "rollback and volume-restore evidence accepted for the selected SHA",
+    "candidate and protected-staging lineage aligned to the selected SHA",
+    "remaining operational blockers remain open",
+    "real-money and expanded-scope launch boundaries remain disabled"
   ]
 }
