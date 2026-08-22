@@ -41,9 +41,7 @@ function contractByRunId(evidence) {
 function mockFetchFor(evidence, overridesByRunId = new Map()) {
   const contracts = contractByRunId(evidence);
   return async (url, options) => {
-    if (options?.headers?.Authorization !== undefined) {
-      assert.equal(options.headers.Authorization, "Bearer test-token");
-    }
+    assert.equal(options?.headers?.Authorization, "Bearer test-token");
     assert.equal(options?.headers?.["X-GitHub-Api-Version"], "2022-11-28");
     const runId = String(url).split("/").at(-1);
     const contract = contracts.get(runId);
@@ -97,16 +95,18 @@ test("historical schema v1 does not introduce live GitHub dependency", async () 
   );
 });
 
-test("accepts schema v2 verification without exposing a GitHub token", async () => {
+test("rejects schema v2 verification without GitHub token", async () => {
   const evidence = fixture();
-  assert.deepEqual(
-    await exactHeadWorkflowEvidenceOriginFindings({
-      evidence,
-      selectedSha,
-      token: "",
-      fetchImpl: mockFetchFor(evidence),
-    }),
-    [],
+  assert.match(
+    (
+      await exactHeadWorkflowEvidenceOriginFindings({
+        evidence,
+        selectedSha,
+        token: "",
+        fetchImpl: mockFetchFor(evidence),
+      })
+    ).join("\n"),
+    /requires GITHUB_TOKEN/,
   );
 });
 
