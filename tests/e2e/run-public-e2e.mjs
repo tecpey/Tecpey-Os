@@ -31,6 +31,9 @@ const runtimeRedisUrl =
     : process.env.REDIS_URL || "";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
+// Identifies this invocation across the per-project Playwright processes. See
+// where it is passed into the child environment for what it protects.
+const runId = `${process.pid.toString(36)}-${Date.now().toString(36)}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
 const outputLimit = 240_000;
 // Playwright's own per-test timeout is 90s (playwright.config.mjs). This value
@@ -186,6 +189,11 @@ async function runPlaywrightProject(project, onOutput) {
         ...process.env,
         TECPEY_E2E_BASE_URL: baseURL,
         TECPEY_E2E_PROJECT: project,
+        // One identifier shared by all four projects of this invocation. The
+        // QA-051 collector refuses to merge shards that do not name the same
+        // run, which is what stops a shard left behind by an earlier, partial
+        // run from being folded into a later bundle.
+        TECPEY_A11Y_RUN_ID: runId,
       },
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
