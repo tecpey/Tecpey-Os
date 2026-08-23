@@ -442,6 +442,9 @@ jobs:
       - name: Staging scheduler evidence tests
         run: npm run test:ops-staging-evidence
 
+      - name: Protected recovery reconciliation evidence authority guard
+        run: npm run launch:recovery-reconciliation-evidence:check
+
       - name: Accepted-risk signoff evidence authority guard
         run: npm run launch:accepted-risk-evidence:check
 

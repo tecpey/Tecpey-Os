@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-recovery-reconciliation-execution-status-observation",
+  "observedAt": "2026-08-23T18:59:34.000Z",
+  "acceptedAt": "2026-08-23T18:59:34.000Z",
+  "decision": "NO_GO_NOG_05_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "relatedBlockers": [
+    "NOG-05"
+  ],
+  "releaseLineage": {
+    "currentMainSha": "a1cec3e412fad729fa2e7a86c7f5a10602d5174d",
+    "workflowDefinitionHeadSha": "a1cec3e412fad729fa2e7a86c7f5a10602d5174d",
+    "protectedStagingEvidenceTargetSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "runtimeCandidatePreserved": true,
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
+  },
+  "workflow": {
+    "name": "Protected Staging Recovery Reconciliation Evidence",
+    "path": ".github/workflows/protected-staging-recovery-reconciliation-evidence.yml",
+    "event": "workflow_dispatch",
+    "githubEnvironment": "staging",
+    "evidenceEnvironment": "protected-staging",
+    "runId": 32659459702,
+    "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32659459702",
+    "jobId": 97243296235,
+    "runConclusion": "success",
+    "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "operator": "github:tecpey",
+    "independentReviewer": "github:xrayman6zfm-ux",
+    "independentReviewConfirmed": true
+  },
+  "artifact": {
+    "id": 9498352217,
+    "name": "protected-staging-recovery-reconciliation-79c48a16cb685a88315a44e103b3758cf7845d65",
+    "zipDigest": "sha256:e55f5eb887bde6d15d41f955d7a39345fa5f0472c4ef688c3d54b98203fd1e69",
+    "evidenceFile": "protected-staging-recovery-reconciliation-79c48a16cb685a88315a44e103b3758cf7845d65.json",
+    "evidenceFileDigest": "sha256:889d976dfbc5d07ebc77842fc6ac98112bb4317abb4cccd458ef0237efa5d633",
+    "createdAt": "2026-08-23T18:54:40Z",
+    "expiresAt": "2026-09-22T18:54:38Z",
+    "detachedDigestDisposition": "verified",
+    "offlineVerifierDisposition": "passed",
+    "contentDisposition": "json_and_sha256sums_only",
+    "disposition": "accepted_exact_candidate_artifact_and_detached_digest"
+  },
+  "recovery": {
+    "authority": "tecpey-protected-recovery-reconciliation-v1",
+    "evidenceClass": "protected-staging-domain-recovery-reconciliation",
+    "sourceSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "imageDigest": "sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69",
+    "migrationPlanHash": "f01698c5978d60f3f40200003286d0545980edc84fe840aa0e2b4a8ab6195696",
+    "backupBoundaryId": "protected-79c48a16cb68-20260823T185426512Z",
+    "backupDigest": "sha256:1791310c9f2a69b8f2974c4203fda196314b073dd1df6b69e2622d8b7f8b4974",
+    "measuredRtoSeconds": 5,
+    "maximumRtoSeconds": 900,
+    "rtoDisposition": "passed",
+    "rpoDisposition": "all_acknowledged_domain_state_before_backup_present_after_restore",
+    "finalDisposition": "accepted"
+  },
+  "domainReconciliation": {
+    "academy": {
+      "disposition": "accepted",
+      "tablesCovered": 5,
+      "records": 0
+    },
+    "tradingArena": {
+      "disposition": "accepted",
+      "tablesCovered": 6,
+      "records": 0
+    },
+    "mentorAi": {
+      "disposition": "accepted",
+      "tablesCovered": 5,
+      "records": 0
+    },
+    "exchangeLedger": {
+      "disposition": "accepted",
+      "tablesCovered": 8,
+      "records": 0,
+      "financialChecks": 5,
+      "financialDivergences": 0
+    },
+    "notificationsOperationalJobs": {
+      "disposition": "accepted",
+      "tablesCovered": 10,
+      "records": 55
+    },
+    "tenantPrincipalIsolation": {
+      "disposition": "accepted",
+      "tablesCovered": 52,
+      "records": 1,
+      "tenantRegistryTables": 52,
+      "orphanTenantRows": 0,
+      "orphanWorkspaceRows": 0,
+      "principalBindingMismatches": 0
+    }
+  },
+  "verification": [
+    "workflow checkout used the merged recovery authority SHA",
+    "active staging working directory and health commit matched the exact runtime candidate SHA",
+    "independent reviewer identity differed from the release operator",
+    "PostgreSQL and Redis restores ran only against private ephemeral local targets",
+    "all six launch domains reconciled by counts and deterministic hashes",
+    "financial conservation and tenant-principal drift checks reported zero divergences",
+    "downloaded artifact ZIP digest matched GitHub artifact metadata",
+    "detached SHA-256 verified the canonical evidence JSON bytes",
+    "repository offline verifier passed for the exact candidate SHA"
+  ],
+  "privacyBoundary": {
+    "countsAndHashesOnly": true,
+    "rawRowsRecorded": false,
+    "rawSecretsRecorded": false,
+    "connectionUrlsRecorded": false,
+    "hostIdentifiersRecorded": false,
+    "rawLogsRecorded": false
+  },
+  "decisionAfterObservation": "NOG-05 is accepted only for exact runtime candidate 79c48a16cb685a88315a44e103b3758cf7845d65. Controlled soft launch remains NO-GO until NOG-07, NOG-08 and NOG-09 are accepted."
+}

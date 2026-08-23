@@ -31,7 +31,7 @@ const REQUIRED_SOURCE_FILES = [
 
 const REQUIRED_ACCEPTED_BLOCKERS = ["NOG-10", "NOG-11", "NOG-12"];
 const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-09"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-07", "NOG-09"];
 const EVIDENCE_PATH = files.evidence;
 
 async function collectPublicSourceFiles(root) {
