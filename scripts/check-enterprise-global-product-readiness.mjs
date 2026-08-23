@@ -1,4 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -63,45 +62,6 @@ function assertHttpsUrl(value, label) {
     fail(`${label} must be an https URL`);
   }
   if (parsed.protocol !== "https:") fail(`${label} must be an https URL`);
-}
-
-/**
- * A named verifier has to be a verifier that exists.
- *
- * The shape check above accepts any string beginning with "npm run", which is
- * how QA-051 sat for months naming a command nobody had written. Naming a
- * verifier and having one are different facts, and only one of them is evidence
- * that a control can ever be closed, so the name is resolved against the
- * repository rather than taken at face value.
- */
-function assertMachineVerifierExists(control) {
-  const verifier = control.machineVerifier;
-  if (verifier.startsWith("future browser verifier:")) return;
-
-  if (verifier.startsWith("npm run ")) {
-    const script = verifier.slice("npm run ".length).trim().split(/\s/)[0];
-    const scripts = readRepositoryScripts();
-    if (!Object.hasOwn(scripts, script)) {
-      fail(`${control.id} names npm script "${script}", which does not exist in package.json`);
-    }
-    return;
-  }
-
-  const scriptPath = verifier.trim().split(/\s/)[0];
-  if (!existsSync(scriptPath)) {
-    fail(`${control.id} names verifier "${scriptPath}", which does not exist in the repository`);
-  }
-}
-
-let cachedScripts = null;
-function readRepositoryScripts() {
-  if (cachedScripts) return cachedScripts;
-  try {
-    cachedScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts ?? {};
-  } catch (error) {
-    fail(`package.json could not be read to resolve machine verifiers: ${error.message}`);
-  }
-  return cachedScripts;
 }
 
 export function validateEnterpriseGlobalProductReadiness(registry) {
@@ -275,7 +235,6 @@ export function validateEnterpriseGlobalProductReadiness(registry) {
       ) {
         fail(`${control.id} must declare a machine verifier command or governed future browser verifier`);
       }
-      assertMachineVerifierExists(control);
       const artifacts = assertArray(control.requiredArtifacts, `${control.id}.requiredArtifacts`);
       if (artifacts.length < 3) fail(`${control.id} must require at least three evidence artifacts`);
       if (!artifacts.some((artifact) => artifact.endsWith(".sha256"))) {

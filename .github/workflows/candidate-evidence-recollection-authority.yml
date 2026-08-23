@@ -62,41 +62,11 @@ jobs:
 
       - name: Verify current exact-head evidence authority
         env:
-          TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only
-        run: node scripts/check-exact-head-workflow-evidence-authority.mjs
-
-      - name: Verify current exact-head evidence origin on main
-        if: github.event_name == 'push'
-        env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/check-exact-head-workflow-evidence-authority.mjs
-
-      - name: Verify current exact-head evidence origin from trusted main on PR
-        if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          git init ../trusted-source
-          git -C ../trusted-source remote add origin "https://github.com/${{ github.repository }}.git"
-          git -C ../trusted-source fetch --no-tags --depth=1 origin "$TRUSTED_BASE_SHA"
-          git -C ../trusted-source checkout --detach FETCH_HEAD
-          for path in \
-            docs/launch/generated/exact-head-workflow-evidence-20260812.json \
-            docs/launch/generated/protected-staging-no-go-register-20260810.json \
-            docs/launch/generated/current-controlled-launch-candidate.json \
-            docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md \
-            docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md \
-            package.json
-          do
-            cp "$path" "../trusted-source/$path"
-          done
-          cd ../trusted-source
-          node scripts/check-exact-head-workflow-evidence-authority.mjs
 
   evidence-discovery:
     name: Governed exact-main evidence discovery
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

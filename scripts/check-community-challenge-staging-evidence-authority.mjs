@@ -108,6 +108,8 @@ for (const invariant of [
   "--porcelain",
   "systemctl",
   "--property=UnitFileState",
+  "--property=NextElapseUSecMonotonic",
+  "nextElapseMonotonic",
   "expectedSha256",
   "installedSha256",
   "matchesExpected",

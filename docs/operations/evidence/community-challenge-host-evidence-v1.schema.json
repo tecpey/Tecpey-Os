@@ -193,6 +193,7 @@
         "subState",
         "unitFileState",
         "nextElapseAt",
+        "nextElapseMonotonic",
         "lastTriggerAt",
         "expectedSha256",
         "installedSha256",
@@ -215,6 +216,17 @@
             { "$ref": "#/$defs/timestamp" }
           ]
         },
+        "nextElapseMonotonic": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[A-Za-z0-9 .:+_-]+$"
+            }
+          ]
+        },
         "lastTriggerAt": {
           "oneOf": [
             { "type": "null" },
@@ -233,6 +245,7 @@
           "properties": {
             "kind": { "const": "service" },
             "nextElapseAt": { "type": "null" },
+            "nextElapseMonotonic": { "type": "null" },
             "lastTriggerAt": { "type": "null" }
           }
         }
@@ -245,9 +258,25 @@
           "properties": {
             "kind": { "const": "timer" },
             "enabled": { "const": true },
-            "active": { "const": true },
-            "nextElapseAt": { "$ref": "#/$defs/timestamp" }
-          }
+            "active": { "const": true }
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "nextElapseAt": { "$ref": "#/$defs/timestamp" }
+              }
+            },
+            {
+              "properties": {
+                "nextElapseMonotonic": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "pattern": "^[A-Za-z0-9 .:+_-]+$"
+                }
+              }
+            }
+          ]
         }
       ]
     },

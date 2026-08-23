@@ -1,19 +1,32 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-22T19:26:23Z",
+  "generatedAt": "2026-08-21T14:58:00Z",
   "issue": 515,
-  "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+  "status": "pending_evidence_recollection",
+  "currentAcceptedCandidateSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
   "proposedCandidate": {
-    "sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+    "sha": "5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8",
     "sourceBranch": "main",
-    "sourcePullRequest": 530,
-    "reason": "PR #530 advanced main to ed11e5e596e1b08b16feb493bb41a1cacb324f6e and Candidate Evidence Recollection Authority #83 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
+    "sourcePullRequest": 519,
+    "reason": "PR #519 changed exact-candidate recollection and evidence-origin authority after PR #522. Genuine NOG-03/NOG-04/NOG-06 evidence must therefore target the post-#519 main SHA 5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8 unless a later runtime/security/bundle/launch-control change advances main before acceptance."
   },
-  "protectedExecutionAllowed": true,
+  "protectedExecutionAllowed": false,
   "requiredAcceptanceSchemaVersion": 2,
-  "staleAcceptedEvidence": [],
+  "staleAcceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "reason": "runtime image digest evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-04",
+      "reason": "exact-head workflow URL evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    },
+    {
+      "id": "NOG-06",
+      "reason": "rollback and volume-restore evidence is bound to the previous exact candidate and must be recollected for the proposed candidate before acceptance can move"
+    }
+  ],
   "stillOpenBlockers": [
     "NOG-01",
     "NOG-02",
@@ -41,27 +54,5 @@
   "privacyBoundary": [
     "state contains release identifiers, blocker IDs, status and policy text only",
     "no secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
-  ],
-  "acceptedRecollectedEvidence": [
-    {
-      "id": "NOG-03",
-      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-04",
-      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
-    },
-    {
-      "id": "NOG-06",
-      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
-    }
-  ],
-  "promotionCompletedChecks": [
-    "exact-head workflow evidence schema v2 accepted for the selected SHA",
-    "runtime image digest evidence accepted for the selected SHA",
-    "rollback and volume-restore evidence accepted for the selected SHA",
-    "candidate and protected-staging lineage aligned to the selected SHA",
-    "remaining operational blockers remain open",
-    "real-money and expanded-scope launch boundaries remain disabled"
   ]
 }

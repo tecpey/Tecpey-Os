@@ -1040,31 +1040,6 @@ html:lang(en-US),
 
 /* ── Reduced motion ──────────────────────────────────────────── */
 
-/*
- * Honour the preference everywhere, not just where someone remembered to.
- *
- * The enumerated rule below covers the animations that existed when it was
- * written. Every Tailwind `transition-*` utility, every component-scoped
- * transition and anything added since keeps moving, because a list of class
- * names only protects the class names on the list. A runtime check of /academy
- * found 120 elements still animating under `prefers-reduced-motion: reduce`.
- *
- * Near-zero durations rather than `animation: none`: an element that fades in
- * from `opacity: 0` and then has its animation removed outright never becomes
- * visible. Letting the animation run instantaneously keeps its end state and
- * removes the motion, which is the whole of what the preference asks for.
- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-up,
   .animate-fade-in,

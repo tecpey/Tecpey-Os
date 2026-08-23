@@ -31,9 +31,6 @@ const runtimeRedisUrl =
     : process.env.REDIS_URL || "";
 const host = "127.0.0.1";
 const baseURL = process.env.TECPEY_E2E_BASE_URL ?? `http://${host}:${port}`;
-// Identifies this invocation across the per-project Playwright processes. See
-// where it is passed into the child environment for what it protects.
-const runId = `${process.pid.toString(36)}-${Date.now().toString(36)}`;
 const serverScript = runtimeMode === "production" ? "start" : "dev";
 const outputLimit = 240_000;
 // Playwright's own per-test timeout is 90s (playwright.config.mjs). This value
@@ -47,14 +44,7 @@ const outputLimit = 240_000;
 // just that test gracefully. Kept as a true last-resort backstop: 5×90s + 60s.
 const perTestTimeoutMs = 90_000;
 const maxTestsPerProject = 5;
-// The QA-050 capture is a different order of work: 175 full-page screenshots in
-// a single test, which sets its own 30-minute Playwright timeout. Without this
-// the backstop below would SIGKILL the project at 8.5 minutes — long before the
-// capture could finish — and the opt-in path would be unable to complete at all.
-const captureScreenshotMatrix = process.env.TECPEY_CAPTURE_SCREENSHOT_MATRIX === "1";
-const screenshotMatrixBudgetMs = captureScreenshotMatrix ? 35 * 60_000 : 0;
-const projectTimeoutMs =
-  perTestTimeoutMs * maxTestsPerProject + 60_000 + screenshotMatrixBudgetMs;
+const projectTimeoutMs = perTestTimeoutMs * maxTestsPerProject + 60_000;
 const projects = [
   "chromium-fa-mobile",
   "chromium-en-desktop",
@@ -196,11 +186,6 @@ async function runPlaywrightProject(project, onOutput) {
         ...process.env,
         TECPEY_E2E_BASE_URL: baseURL,
         TECPEY_E2E_PROJECT: project,
-        // One identifier shared by all four projects of this invocation. The
-        // QA-051 collector refuses to merge shards that do not name the same
-        // run, which is what stops a shard left behind by an earlier, partial
-        // run from being folded into a later bundle.
-        TECPEY_A11Y_RUN_ID: runId,
       },
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],

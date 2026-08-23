@@ -1,11 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import { enumerateRoutePatterns } from './screenshot-matrix-routes.mjs';
 
-// One enumeration, shared with the QA-050 screenshot matrix. This used to walk
-// src/app itself, which meant two modules independently decided what "a route"
-// is — and the launch ledger's 175 agreed with them only by coincidence.
-const pages = new Set(enumerateRoutePatterns());
+const appDir = path.join(process.cwd(), 'src/app');
+const pages = new Set();
+function walk(dir) {
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) walk(full);
+    else if (item.name === 'page.tsx') {
+      let route = '/' + path.relative(appDir, path.dirname(full)).replaceAll(path.sep, '/');
+      if (route === '/.') route = '/';
+      pages.add(route);
+    }
+  }
+}
+walk(appDir);
 const missing = [];
 function routeExists(href) {
   const route = (href.split(/[?#]/)[0].replace(/\/$/, '') || '/');

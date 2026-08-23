@@ -12,11 +12,6 @@ const files = {
 };
 
 const failures = [];
-const originVerificationMode =
-  process.argv.includes("--static-only") ||
-  process.env.TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION === "static-only"
-    ? "static-only"
-    : "required";
 
 async function read(path) {
   return readFile(path, "utf8");
@@ -87,15 +82,13 @@ if (evidence.schemaVersion === 1) {
 }
 
 failures.push(...exactHeadWorkflowEvidenceFindings({ evidence, selectedSha }));
-if (originVerificationMode === "required") {
-  failures.push(
-    ...(await exactHeadWorkflowEvidenceOriginFindings({
-      evidence,
-      selectedSha,
-      token: process.env.GITHUB_TOKEN,
-    })),
-  );
-}
+failures.push(
+  ...(await exactHeadWorkflowEvidenceOriginFindings({
+    evidence,
+    selectedSha,
+    token: process.env.GITHUB_TOKEN,
+  })),
+);
 
 requireEqual("register.stagingEvidenceTargetSha", register.stagingEvidenceTargetSha, selectedSha);
 requireEqual("register.exactHeadWorkflowEvidence", register.exactHeadWorkflowEvidence, files.evidence);
