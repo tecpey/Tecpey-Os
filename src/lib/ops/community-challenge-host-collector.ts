@@ -46,6 +46,7 @@ export type CommunityChallengeHostCollectorOptions = {
 
 export type CommunityChallengeHostCollectorDependencies = {
   lstat(filePath: string): Promise<Stats>;
+  realpath(filePath: string): Promise<string>;
   readFile(filePath: string): Promise<string>;
   readdir(directory: string): Promise<Array<{
     name: string;
@@ -375,7 +376,26 @@ export async function collectCommunityChallengeHostEvidence(
     "host_evidence_state_directory",
   );
   await classifyPath(deps, options.systemdDirectory, "directory", false, "host_evidence_systemd_directory");
-  const npmStat = await deps.lstat(options.npmBinary);
+  let npmPathStat: Stats;
+  let resolvedNpmBinary: string;
+  try {
+    npmPathStat = await deps.lstat(options.npmBinary);
+    resolvedNpmBinary = absolute(
+      await deps.realpath(options.npmBinary),
+      "host_evidence_npm_binary_invalid",
+    );
+  } catch {
+    throw new Error("host_evidence_npm_binary_invalid");
+  }
+  if (!npmPathStat.isFile() && !npmPathStat.isSymbolicLink()) {
+    throw new Error("host_evidence_npm_binary_invalid");
+  }
+  let npmStat: Stats;
+  try {
+    npmStat = await deps.lstat(resolvedNpmBinary);
+  } catch {
+    throw new Error("host_evidence_npm_binary_invalid");
+  }
   if (npmStat.isSymbolicLink() || !npmStat.isFile() || (npmStat.mode & 0o111) === 0) {
     throw new Error("host_evidence_npm_binary_invalid");
   }

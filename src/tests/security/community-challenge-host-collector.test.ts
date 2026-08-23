@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -123,6 +124,7 @@ async function fixture() {
   let clock = 0;
   const deps: CommunityChallengeHostCollectorDependencies = {
     lstat,
+    realpath,
     readFile: (filePath) => readFile(filePath, "utf8"),
     readdir: (directory) => readdir(directory, { withFileTypes: true }),
     runCommand: async (command, args) => {
@@ -267,6 +269,50 @@ describe("Community challenge host evidence collector", () => {
     await assert.rejects(
       collectCommunityChallengeHostEvidence(test.options, test.deps),
       /host_evidence_environment_file_permissions/,
+    );
+  });
+
+  it("accepts an executable npm symlink and rejects unsafe targets", async () => {
+    const valid = await fixture();
+    const npmLink = path.join(valid.root, "npm-link");
+    await symlink(valid.options.npmBinary, npmLink);
+    for (const unit of [
+      "tecpey-community-challenge-finalizer.service",
+      "tecpey-ops-alert-delivery.service",
+    ]) {
+      const unitPath = path.join(valid.options.systemdDirectory, unit);
+      await writeFile(
+        unitPath,
+        (await readFile(unitPath, "utf8")).replaceAll(valid.options.npmBinary, npmLink),
+      );
+    }
+    const evidence = await collectCommunityChallengeHostEvidence({
+      ...valid.options,
+      npmBinary: npmLink,
+    }, valid.deps);
+    assert.equal(evidence.systemd.finalizerService.matchesExpected, true);
+    assert.equal(evidence.systemd.alertDeliveryService.matchesExpected, true);
+
+    await rm(valid.options.npmBinary);
+    await assert.rejects(
+      collectCommunityChallengeHostEvidence({
+        ...valid.options,
+        npmBinary: npmLink,
+      }, valid.deps),
+      /host_evidence_npm_binary_invalid/,
+    );
+
+    const nonExecutable = await fixture();
+    const nonExecutableTarget = path.join(nonExecutable.root, "npm-noexec");
+    const nonExecutableLink = path.join(nonExecutable.root, "npm-noexec-link");
+    await writeFile(nonExecutableTarget, "#!/bin/sh\nexit 0\n", { mode: 0o644 });
+    await symlink(nonExecutableTarget, nonExecutableLink);
+    await assert.rejects(
+      collectCommunityChallengeHostEvidence({
+        ...nonExecutable.options,
+        npmBinary: nonExecutableLink,
+      }, nonExecutable.deps),
+      /host_evidence_npm_binary_invalid/,
     );
   });
 
