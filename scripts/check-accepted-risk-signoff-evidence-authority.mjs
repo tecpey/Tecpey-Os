@@ -4,7 +4,7 @@ import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-
 const EVIDENCE_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
 const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const REQUIRED_OPEN_BLOCKERS = ["NOG-07", "NOG-08", "NOG-09"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-08", "NOG-09"];
 const REQUIRED_RISK_CONDITIONS = [
   "exact candidate SHA accepted",
   "controlled public FA/EN, Academy, Mentor and virtual Arena only",
@@ -274,6 +274,7 @@ requireAnyText("packet", source.packet, [
   "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
   "Go remains blocked by recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
   "Go remains blocked by incident readiness, accepted-risk owner sign-off and approval evidence.",
+  "Go remains blocked by accepted-risk owner sign-off and approval evidence.",
 ]);
 
 for (const invariant of [
@@ -288,6 +289,7 @@ requireAnyText("checklist", source.checklist, [
   "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.",
   "Go remains blocked by recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.",
   "Go remains blocked by incident readiness, accepted-risk owner sign-off and approvals.",
+  "Go remains blocked by accepted-risk owner sign-off and approvals.",
 ]);
 
 for (const forbidden of [

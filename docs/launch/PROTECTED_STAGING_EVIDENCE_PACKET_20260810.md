@@ -1,7 +1,7 @@
 # Protected Staging Evidence Packet - 2026-08-10
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
-**Decision:** NO-GO until incident, accepted-risk owner sign-off and approval evidence is accepted
+**Decision:** NO-GO until accepted-risk owner sign-off and approval evidence is accepted
 **Staging evidence target SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Runtime candidate baseline:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
@@ -16,6 +16,7 @@
 **NOG-05 recovery reconciliation request:** `docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json`
 **NOG-05 recovery reconciliation execution status:** `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`
 **NOG-07 incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
+**NOG-07 incident readiness execution status:** `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 **Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
@@ -38,7 +39,7 @@ evidence must match that same SHA.
 
 | Scope | Decision | Reason |
 |---|---|---|
-| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | NOG-01/NOG-02 protected staging and redacted env evidence and NOG-05 protected recovery reconciliation are accepted for the exact runtime candidate. Incident readiness, accepted-risk owner sign-off and approvals are not yet accepted. The NOG-08 guard is prepared but does not close the blocker without externally attributable owner approval; the NOG-09 guard is prepared but does not close the blocker without a verified Go approval matrix. |
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | NOG-01/NOG-02 protected staging and redacted env evidence, NOG-05 protected recovery reconciliation and NOG-07 protected incident readiness are accepted for the exact runtime candidate. Accepted-risk owner sign-off and approvals are not yet accepted. The NOG-08 guard is prepared but does not close the blocker without externally attributable owner approval; the NOG-09 guard is prepared but does not close the blocker without a verified Go approval matrix. |
 | Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
 | Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
 | Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
@@ -47,13 +48,13 @@ evidence must match that same SHA.
 
 | ID | Blocker | Closure action | Authority | Launch impact |
 |---|---|---|---|---|
-| NOG-01 | Protected staging activation evidence is accepted | Accepted exact-candidate scheduler, health, systemd, alert probe, artifact and detached digest evidence from run `32648754664`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-07/NOG-08/NOG-09 |
-| NOG-02 | Production-like environment configuration evidence is accepted | Accepted redacted protected-host `env:check` evidence, artifact and detached digest from run `32644937055`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-07/NOG-08/NOG-09 |
+| NOG-01 | Protected staging activation evidence is accepted | Accepted exact-candidate scheduler, health, systemd, alert probe, artifact and detached digest evidence from run `32648754664`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-08/NOG-09 |
+| NOG-02 | Production-like environment configuration evidence is accepted | Accepted redacted protected-host `env:check` evidence, artifact and detached digest from run `32644937055`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-08/NOG-09 |
 | NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: `sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
 | NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
-| NOG-05 | Backup, restore and recovery reconciliation evidence is accepted | Accepted exact-candidate protected staging restore and count/hash reconciliation for Academy, Arena, Mentor AI, Exchange ledger, notifications/jobs and tenant/principal isolation from run `32659459702`; artifact ZIP digest, detached digest and offline verifier passed. | docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json | Accepted; Go still blocked by NOG-07/NOG-08/NOG-09 |
+| NOG-05 | Backup, restore and recovery reconciliation evidence is accepted | Accepted exact-candidate protected staging restore and count/hash reconciliation for Academy, Arena, Mentor AI, Exchange ledger, notifications/jobs and tenant/principal isolation from run `32659459702`; artifact ZIP digest, detached digest and offline verifier passed. | docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json | Accepted; Go still blocked by NOG-08/NOG-09 |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
-| NOG-07 | Incident readiness evidence is missing | Run two synthetic critical alert probes, prove latency under five minutes, zero pending/quarantine, record P0 acknowledgement drill, and pass `scripts/verify-incident-readiness-evidence.mjs`. | docs/launch/generated/incident-readiness-evidence-request-20260812.json | Blocks support readiness |
+| NOG-07 | Incident readiness evidence is accepted | Accepted two exact-candidate protected staging P0 alert probes, zero pending/quarantine, incident commander and SRE acknowledgements, seven failure-mode runbook digests, independent review, artifact and detached digests from run `32663989309`. | docs/launch/generated/protected-incident-readiness-execution-status-20260823.json | Accepted; Go still blocked by NOG-08/NOG-09 |
 | NOG-08 | Accepted-risk owner sign-off evidence is missing | Attach externally attributable owner approval evidence for the exact candidate. The current guard checks the risk-register structure, stale review dates and final artifact verifier wiring, but NOG-08 remains open until sign-off evidence passes `scripts/verify-accepted-risk-signoff-evidence.mjs`. | docs/launch/generated/accepted-risk-signoff-evidence-20260812.json | Blocks executive decision until owner sign-off evidence is attached |
 | NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes `scripts/verify-go-approval-matrix-evidence.mjs`. | docs/launch/generated/go-approval-matrix-evidence-request-20260812.json | Blocks Go record |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
@@ -67,7 +68,6 @@ open. They do not replace the machine verifiers or evidence artifacts.
 
 | ID | Tracking issue | Scope |
 |---|---|---|
-| NOG-07 | https://github.com/tecpey/Tecpey-Os/issues/408 | Protected incident readiness drill |
 | NOG-08 | https://github.com/tecpey/Tecpey-Os/issues/409 | Accepted-risk owner sign-off evidence |
 | NOG-09 | https://github.com/tecpey/Tecpey-Os/issues/410 | Final Go approval matrix |
 
@@ -123,7 +123,7 @@ Both downloaded ZIP digests matched GitHub metadata, both detached SHA-256
 files verified their canonical evidence JSON bytes, and both offline verifier
 summaries passed. PR #547 supplied governed private-CA trust for the scheduler
 workflow without changing the runtime candidate. Controlled launch remains
-NO-GO because NOG-07, NOG-08 and NOG-09 remain open.
+NO-GO because NOG-08 and NOG-09 remain open.
 
 ## Runtime Image Evidence - 2026-08-23
 
@@ -211,18 +211,30 @@ workflow ran.
 The canonical acceptance observation is
 `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`.
 
-## Incident Readiness Evidence Request - 2026-08-12
+## Protected Incident Readiness Evidence - 2026-08-23
 
-Incident readiness evidence request: NOG-07 remains open. The machine-readable request in
-`docs/launch/generated/incident-readiness-evidence-request-20260812.json`
-defines the protected staging artifact that must be attached before incident
-readiness can be considered for release-owner acceptance. The final artifact
-must pass `scripts/verify-incident-readiness-evidence.mjs` for the exact
-candidate SHA and must include two accepted P0 synthetic alert probes under five
-minutes, zero pending/quarantine counts, P0 acknowledgement by incident
-commander and SRE owner, independent review, and accepted runbook coverage for
-DB, Redis, migration, alert delivery, provider, worker and reconciliation
-failures.
+NOG-07 is accepted for exact runtime candidate
+`79c48a16cb685a88315a44e103b3758cf7845d65`. PR #553 supplied the merged
+protected incident-readiness authority at workflow-definition SHA
+`7a8e2cb83b51ee375f732bc72703cab2b11cb74c`, and independent reviewer
+`github:xrayman6zfm-ux` approved the protected staging deployment before the
+workflow ran.
+
+| Field | Evidence |
+|---|---|
+| Governed run | `https://github.com/tecpey/Tecpey-Os/actions/runs/32663989309` (job `97254429079`, success) |
+| Artifact | `protected-staging-incident-readiness-79c48a16cb685a88315a44e103b3758cf7845d65`, ID `9500016153` |
+| Artifact ZIP digest | `sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5` |
+| Evidence JSON digest | `sha256:e5f0682f3c9ad88b12241136c6f3b24ec01f44b1c4ca4edd4e181e30306ea1c0` |
+| Alert probes | Two accepted P0 probes; observed maximum delivery latency `1s` under the `300s` maximum; pending and quarantine counts remained zero |
+| Acknowledgement drill | Outside-support-window target `3600s`; incident commander and SRE acknowledgements both recorded at `0s` latency |
+| Runbook coverage | Accepted deterministic digests for database, Redis, migration, alert delivery, provider, worker and reconciliation failure modes |
+| Verification | GitHub ZIP digest matched, detached SHA-256 passed, and `scripts/verify-incident-readiness-evidence.mjs` passed offline for the exact candidate |
+| Privacy | Redacted timing, counts, digests and role identities only; no secrets, connection URLs, host identifiers, raw logs or customer data |
+
+The canonical acceptance observation is
+`docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`.
+NOG-08 and NOG-09 remain open.
 
 ## Disabled Capability Attestation Evidence - 2026-08-12
 
@@ -276,9 +288,9 @@ SHA.
 Owner sign-off evidence for NOG-08 is still missing. This evidence does not
 approve a Go decision and does not substitute protected staging activation,
 production-like env evidence, recovery reconciliation, incident readiness,
-accepted-risk owner sign-off or the Go approval matrix. NOG-01/NOG-02/NOG-05
-are already accepted; Go remains blocked by incident readiness, accepted-risk
-owner sign-off and approval evidence.
+accepted-risk owner sign-off or the Go approval matrix. NOG-01/NOG-02/NOG-05/
+NOG-07 are already accepted; Go remains blocked by accepted-risk owner sign-off
+and approval evidence.
 
 ## Go Approval Matrix Evidence Request - 2026-08-12
 

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "protected-incident-readiness-execution-status-observation",
+  "observedAt": "2026-08-23T20:56:33.000Z",
+  "acceptedAt": "2026-08-23T20:56:33.000Z",
+  "decision": "NO_GO_NOG_07_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "relatedBlockers": [
+    "NOG-07"
+  ],
+  "releaseLineage": {
+    "currentMainSha": "7a8e2cb83b51ee375f732bc72703cab2b11cb74c",
+    "workflowDefinitionHeadSha": "7a8e2cb83b51ee375f732bc72703cab2b11cb74c",
+    "protectedStagingEvidenceTargetSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "runtimeCandidatePreserved": true,
+    "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
+  },
+  "workflow": {
+    "name": "Protected Staging Incident Readiness Evidence",
+    "path": ".github/workflows/protected-staging-incident-readiness-evidence.yml",
+    "event": "workflow_dispatch",
+    "githubEnvironment": "staging",
+    "evidenceEnvironment": "protected-staging",
+    "runId": 32663989309,
+    "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32663989309",
+    "jobId": 97254429079,
+    "runConclusion": "success",
+    "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "operator": "github:tecpey",
+    "incidentCommander": "github:tecpey",
+    "sreOwner": "github:tecpey",
+    "independentReviewer": "github:xrayman6zfm-ux",
+    "independentReviewConfirmed": true,
+    "acknowledgementsConfirmed": true
+  },
+  "artifact": {
+    "id": 9500016153,
+    "name": "protected-staging-incident-readiness-79c48a16cb685a88315a44e103b3758cf7845d65",
+    "zipDigest": "sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5",
+    "evidenceFile": "protected-staging-incident-readiness-79c48a16cb685a88315a44e103b3758cf7845d65.json",
+    "evidenceFileDigest": "sha256:e5f0682f3c9ad88b12241136c6f3b24ec01f44b1c4ca4edd4e181e30306ea1c0",
+    "createdAt": "2026-08-23T20:56:33Z",
+    "expiresAt": "2026-09-22T20:56:31Z",
+    "detachedDigestDisposition": "verified",
+    "offlineVerifierDisposition": "passed",
+    "contentDisposition": "json_and_sha256sums_only",
+    "disposition": "accepted_exact_candidate_artifact_and_detached_digest"
+  },
+  "incidentReadiness": {
+    "authority": "tecpey-incident-readiness-v1",
+    "evidenceClass": "protected-staging-incident-readiness",
+    "sourceSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "supportWindow": {
+      "timezone": "Asia/Tehran",
+      "dailyStart": "09:00",
+      "dailyEnd": "23:00",
+      "coverage": "every-day-controlled-launch"
+    },
+    "alertProbeCount": 2,
+    "maximumAllowedLatencySeconds": 300,
+    "observedMaximumLatencySeconds": 1,
+    "deliveryChannelDigest": "0e38dce81d82c9d1433d20a776b8e59372b6638873a9856e82b2ef998b91ae2d",
+    "alertProbes": [
+      {
+        "triggeredAt": "2026-08-23T20:55:59.630Z",
+        "deliveredAt": "2026-08-23T20:56:00.685Z",
+        "latencySeconds": 1,
+        "pendingAlertCountAfterProbe": 0,
+        "quarantineCountAfterProbe": 0,
+        "disposition": "accepted"
+      },
+      {
+        "triggeredAt": "2026-08-23T20:56:00.688Z",
+        "deliveredAt": "2026-08-23T20:56:01.107Z",
+        "latencySeconds": 0,
+        "pendingAlertCountAfterProbe": 0,
+        "quarantineCountAfterProbe": 0,
+        "disposition": "accepted"
+      }
+    ],
+    "alertQueueState": {
+      "checkedAt": "2026-08-23T20:56:01.112Z",
+      "pendingAlertCount": 0,
+      "quarantineCount": 0,
+      "queryDigest": "f733aa33783a21b71883e462dd6eba866950a15bcf3a3f9f56f81376f87658f2"
+    },
+    "acknowledgementDrill": {
+      "drillId": "p0-ack-drill-06df2b61-3b42-4674-9a6b-a5d44396d6e0",
+      "severity": "P0",
+      "declaredAt": "2026-08-23T20:17:07.000Z",
+      "supportWindowContext": "outside-support-window",
+      "ackTargetSeconds": 3600,
+      "incidentCommander": "github:tecpey",
+      "incidentCommanderAcknowledgedAt": "2026-08-23T20:17:07.000Z",
+      "incidentCommanderLatencySeconds": 0,
+      "sreOwner": "github:tecpey",
+      "sreAcknowledgedAt": "2026-08-23T20:17:07.000Z",
+      "sreLatencySeconds": 0,
+      "disposition": "accepted"
+    },
+    "runbookCoverage": {
+      "database": "349387b6d77d2af4e0ecf157cd9deccfe6801c8b28ad0c8e6dfafae89c8cd5c2",
+      "redis": "3287c79aa22e9ebe9a3ff5e95be0cae86be1b6c00d91b14887f45a3116056961",
+      "migration": "d21b89f627f8d7ab8c54ce52bdf9d799d79e80265e689b4f6a2029680ff3480c",
+      "alertDelivery": "0c079d2a0409dca55092439d47ad660ef091b241c5e7f6f6a40e58e0dc1f3306",
+      "provider": "ba708b8278c266da87c6c2f5a1be90f6e4340d6a692771f8fe2ef3dee8331f44",
+      "worker": "1f5fadc42bc062a1bc0bbdae9430ef3257c468423a72f02bd0f8e54b5ffeb1e9",
+      "reconciliation": "d18cab5200304c8cee9e1c2ead0e0919a78360b548194da44510556accbd4f62"
+    },
+    "finalDisposition": "accepted"
+  },
+  "verification": [
+    "workflow checkout used the merged incident readiness authority SHA",
+    "active staging health commit matched the exact runtime candidate SHA",
+    "independent reviewer identity differed from the release operator",
+    "two protected staging synthetic P0 probes were delivered within five minutes",
+    "alert queue pending and quarantine counts were zero after both probes",
+    "incident commander and SRE acknowledgements met the outside-support-window target",
+    "all seven required failure-mode runbooks were covered by deterministic digests",
+    "downloaded artifact ZIP digest matched GitHub artifact metadata",
+    "detached SHA-256 verified the canonical evidence JSON bytes",
+    "repository offline verifier passed for the exact candidate SHA"
+  ],
+  "privacyBoundary": {
+    "redactedEvidenceOnly": true,
+    "rawSecretsRecorded": false,
+    "connectionUrlsRecorded": false,
+    "hostIdentifiersRecorded": false,
+    "rawLogsRecorded": false,
+    "customerDataRecorded": false
+  },
+  "decisionAfterObservation": "NOG-07 is accepted only for exact runtime candidate 79c48a16cb685a88315a44e103b3758cf7845d65. Controlled soft launch remains NO-GO until NOG-08 and NOG-09 are accepted."
+}
