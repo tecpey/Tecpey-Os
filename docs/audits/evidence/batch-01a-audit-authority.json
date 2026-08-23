@@ -41,13 +41,13 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "aa0d4ea0edc40bcd068e9b218ed622d5249dcb5b",
-      "sha256": "b00f7b80a4ee1fcf579b5b2e6625f11fb2040978ed0dc1c0c2ac124b92971ebc",
-      "lines": 245,
+      "gitObjectId": "1133870321e44b9f7d97f7669aa2cdffcf418d56",
+      "sha256": "d1deca70c4ed2fa4f2440e61fee7b7ca37340837506b58349e287758570c2713",
+      "lines": 246,
       "reviewedRanges": [
         {
           "startLine": 1,
-          "endLine": 245
+          "endLine": 246
         }
       ],
       "findingDisposition": "confirmed-findings-recorded",
@@ -109,16 +109,17 @@
         "2026-08-22: re-reviewed after adding qa:screenshot-matrix:collect, qa:screenshot-matrix:verify and test:screenshot-matrix (QA-050). The collect command merges per-viewport capture shards from the local artifacts directory and writes only there; the verify command reads that bundle and validates it offline against scripts/ui-ux-screenshot-matrix-policy.mjs and the route authority; the test command runs two local node:test suites over the route authority and the policy. None is wired into release:check, because the evidence they operate on can only be produced by a browser capture run on the protected staging host, and the capture spec itself is opt-in behind TECPEY_CAPTURE_SCREENSHOT_MATRIX. They add no dependency, engine, override, network access, runtime mutation path, product activation surface or secret-printing path, and the file now has 243 lines.",
         "2026-08-23: re-reviewed after routing the four explicitly server-only operational CLI entrypoints through the isolated scripts/runtime-stubs module path and the react-server condition, and wiring the focused runtime regression test into test:ops-staging-evidence. Next.js, mixed client/server tests and general test commands keep their existing module resolution and conditions. The change adds no dependency, engine, override, external network access, product activation surface or secret-printing path; the existing operational commands retain their prior mutation boundaries, and the file remains 243 lines.",
         "2026-08-23: re-reviewed after adding ops:recovery:protected-evidence:collect and the collector policy test to test:ops-recovery-authority. The collector runs only under the protected staging workflow, imports pg from the exact active release, writes accepted output only after isolated PostgreSQL/Redis cleanup, adds no dependency/engine/override/activation surface, and preserves release:check composition. The file now has 244 lines.",
-        "2026-08-23: re-reviewed after adding launch:recovery-reconciliation-evidence:check and composing it into launch:decision:check. The command is a local read-only authority guard over the exact-candidate protected recovery status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, and preserves fail-closed NO-GO on NOG-07/NOG-08/NOG-09. The file now has 245 lines."
+        "2026-08-23: re-reviewed after adding launch:recovery-reconciliation-evidence:check and composing it into launch:decision:check. The command is a local read-only authority guard over the exact-candidate protected recovery status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, and preserves fail-closed NO-GO on NOG-07/NOG-08/NOG-09. The file now has 245 lines.",
+        "2026-08-23: re-reviewed after adding ops:incident-readiness:evidence:collect and extending test:incident-readiness-evidence. The collector is reachable only through the protected staging workflow, uses the existing isolated server-only CLI runtime, persists two synthetic critical operational alerts through the governed spool/webhook path, emits only counts, timings, role identities and hashes, and fails closed on queue drift, acknowledgement latency, reviewer dependence or runbook gaps. The command adds no dependency, engine or override and does not enable any product, exchange, custody or real-money capability. The file now has 246 lines."
       ],
       "findings": [
         {
           "id": "B01A-P2-002",
           "severity": "P2",
-          "line": 161,
+          "line": 163,
           "attackPath": "A developer invoking install:safe or ci:safe transitively runs npm:registry:fix, which changes persistent npm registry configuration and removes proxy settings outside the repository.",
           "affectedInvariant": "Repository convenience commands should not silently mutate persistent host package-manager configuration.",
-          "evidence": "package.json line 161 uses npm config set/delete before repository-scoped install commands.",
+          "evidence": "package.json line 163 uses npm config set/delete before repository-scoped install commands.",
           "fixOwner": "developer-experience",
           "verificationRequirement": "Replace persistent npm config mutation with command-scoped registry/proxy inputs or an explicit opt-in repair command, then prove normal ci:safe execution leaves user npm configuration unchanged.",
           "disposition": "tracked-debt",

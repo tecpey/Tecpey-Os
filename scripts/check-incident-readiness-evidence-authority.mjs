@@ -24,6 +24,11 @@ const files = {
   operationsRunbook: "docs/OPERATIONS_RUNBOOK.md",
   verifier: "scripts/verify-incident-readiness-evidence.mjs",
   verifierTest: "scripts/incident-readiness-evidence.test.mjs",
+  serverOnlyRuntimeTest: "scripts/server-only-cli-runtime-policy.test.mjs",
+  collector: "scripts/collect-protected-incident-readiness-evidence.ts",
+  collectorPolicy: "scripts/protected-incident-readiness-collector-policy.mjs",
+  collectorPolicyTest: "scripts/protected-incident-readiness-collector-policy.test.mjs",
+  workflow: ".github/workflows/protected-staging-incident-readiness-evidence.yml",
   packageJson: "package.json",
 };
 
@@ -79,6 +84,21 @@ requireEqual("request.selectedSha", request.selectedSha, candidate.currentCandid
 requireEqual("request.blocker", request.blocker, "NOG-07");
 requireEqual("request.status", request.status, "open");
 requireEqual("request.requiredEnvironment", request.requiredEnvironment, "protected-staging");
+requireEqual(
+  "request.executionWorkflow",
+  request.executionWorkflow,
+  ".github/workflows/protected-staging-incident-readiness-evidence.yml",
+);
+requireEqual(
+  "request.collector",
+  request.collector,
+  "scripts/collect-protected-incident-readiness-evidence.ts",
+);
+requireEqual(
+  "request.collectorCommand",
+  request.collectorCommand,
+  "npm run ops:incident-readiness:evidence:collect",
+);
 requireEqual("request.verifier", request.verifier, "scripts/verify-incident-readiness-evidence.mjs");
 requireEqual("request.requiredArtifact.authority", request.requiredArtifact?.authority, "tecpey-incident-readiness-v1");
 requireEqual("request.requiredArtifact.evidenceClass", request.requiredArtifact?.evidenceClass, "protected-staging-incident-readiness");
@@ -151,13 +171,40 @@ for (const mode of REQUIRED_RUNBOOK_MODES) {
 
 for (const [name, command] of [
   ["launch:incident-readiness-evidence:check", "node scripts/check-incident-readiness-evidence-authority.mjs"],
+  [
+    "ops:incident-readiness:evidence:collect",
+    "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-protected-incident-readiness-evidence.ts",
+  ],
   ["ops:incident-readiness:evidence:verify", "node scripts/verify-incident-readiness-evidence.mjs"],
-  ["test:incident-readiness-evidence", "node --test scripts/incident-readiness-evidence.test.mjs"],
 ]) {
   requireEqual(`package ${name}`, packageJson.scripts?.[name], command);
+  if (name === "ops:incident-readiness:evidence:collect") continue;
   const guard = request.guardCommands?.find((entry) => entry.name === name);
   requireEqual(`request guard ${name}`, guard?.command.startsWith(command), true);
 }
+requireText(
+  "package test:incident-readiness-evidence",
+  packageJson.scripts?.["test:incident-readiness-evidence"] ?? "",
+  "scripts/incident-readiness-evidence.test.mjs",
+);
+requireText(
+  "package test:incident-readiness-evidence",
+  packageJson.scripts?.["test:incident-readiness-evidence"] ?? "",
+  "scripts/protected-incident-readiness-collector-policy.test.mjs",
+);
+requireText(
+  "package test:incident-readiness-evidence",
+  packageJson.scripts?.["test:incident-readiness-evidence"] ?? "",
+  "scripts/server-only-cli-runtime-policy.test.mjs",
+);
+const verifierTestGuard = request.guardCommands?.find(
+  (entry) => entry.name === "test:incident-readiness-evidence",
+);
+requireEqual(
+  "request guard test:incident-readiness-evidence",
+  verifierTestGuard?.command.startsWith("node --test scripts/incident-readiness-evidence.test.mjs"),
+  true,
+);
 
 if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run launch:incident-readiness-evidence:check")) {
   failures.push("package.json: launch:decision:check must enforce incident readiness evidence authority");
@@ -168,6 +215,9 @@ if (!packageJson.scripts?.["launch:decision:check"]?.includes("npm run test:inci
 
 for (const invariant of [
   REQUEST_PATH,
+  ".github/workflows/protected-staging-incident-readiness-evidence.yml",
+  "scripts/collect-protected-incident-readiness-evidence.ts",
+  "npm run ops:incident-readiness:evidence:collect",
   "scripts/verify-incident-readiness-evidence.mjs",
   "tecpey-incident-readiness-v1",
   "protected-staging-incident-readiness",
@@ -205,6 +255,61 @@ for (const invariant of [
   "rejects missing runbook coverage",
 ]) {
   requireText("verifier test", source.verifierTest, invariant);
+}
+
+for (const invariant of [
+  "Protected Staging Incident Readiness Evidence",
+  "workflow_dispatch",
+  "environment: staging",
+  "runs-on: [self-hosted, linux, x64, tecpey-staging]",
+  "independent_review_confirmed",
+  "acknowledgements_confirmed",
+  "Verify authority, runtime and acknowledged participants",
+  "Run protected P0 alert and acknowledgement drill",
+  "npm run ops:incident-readiness:evidence:collect",
+  "verify-incident-readiness-evidence.mjs",
+  "sha256sum --check SHA256SUMS",
+  "Pending/quarantine after probes",
+]) {
+  requireText("protected incident workflow", source.workflow, invariant);
+}
+
+for (const invariant of [
+  "enqueueOperationalAlert",
+  "deliverOperationalAlerts",
+  "incident-readiness-verification",
+  "synthetic-critical-alert",
+  "authority_unavailable",
+  "summary.selected !== 1",
+  "incident_initial_queue_state_invalid",
+  "incident_final_queue_state_invalid",
+  "buildRunbookCoverage",
+  "verifyIncidentReadinessEvidence",
+  "no-secrets-or-connection-urls",
+  "incident_reviewer_must_be_independent",
+]) {
+  requireText("protected incident collector", source.collector, invariant);
+}
+
+for (const invariant of [
+  "RUNBOOK_SECTIONS",
+  "supportWindowContext",
+  "acknowledgementTargetSeconds",
+  "acknowledgementLatencySeconds",
+  "extractRunbookSection",
+  "queueStateDigest",
+]) {
+  requireText("protected incident collector policy", source.collectorPolicy, invariant);
+  requireText("protected incident collector policy test", source.collectorPolicyTest, invariant);
+}
+
+for (const invariant of [
+  '"ops:incident-readiness:evidence:collect"',
+  "collect-protected-incident-readiness-evidence.ts",
+  "incident collector resolves every server-only import",
+  '"error":"tecpey_incident_acknowledgements_confirmed_required"',
+]) {
+  requireText("server-only incident runtime test", source.serverOnlyRuntimeTest, invariant);
 }
 
 for (const invariant of [
