@@ -150,12 +150,22 @@ for (const blocker of register.blockers.filter((entry) => ["NOG-01", "NOG-02"].i
   requireEqual(
     `${blocker.id}.executionState`,
     blocker.executionState,
+    "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+  );
+  requireEqual(
+    `${blocker.id}.currentObservationState`,
+    blocker.currentObservationState,
     "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
   );
 }
 requireEqual(
   "register.executionRequests[0].status",
   register.executionRequests?.[0]?.status,
+  "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+);
+requireEqual(
+  "register.executionRequests[0].currentObservationState",
+  register.executionRequests?.[0]?.currentObservationState,
   "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
 );
 
