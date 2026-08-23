@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "incident-readiness-evidence-request",
-  "generatedAt": "2026-08-23T12:17:12Z",
+  "generatedAt": "2026-08-23T13:35:01Z",
   "decision": "NO_GO_NOG_07_INCIDENT_READINESS_EVIDENCE_REQUIRED",
   "executionState": "blocked_pending_protected_staging_incident_drill",
-  "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+  "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
   "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "requestPath": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
   "blocker": "NOG-07",
@@ -24,14 +24,14 @@
   ],
   "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
   "verifier": "scripts/verify-incident-readiness-evidence.mjs",
-  "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 159c315cb26677edfa5b05c1708c93bed316ebe9",
+  "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 79c48a16cb685a88315a44e103b3758cf7845d65",
   "authorityGuard": "scripts/check-incident-readiness-evidence-authority.mjs",
   "requiredArtifact": {
     "schemaVersion": 1,
     "authority": "tecpey-incident-readiness-v1",
     "evidenceClass": "protected-staging-incident-readiness",
     "environment": "protected-staging",
-    "sourceSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+    "sourceSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "supportWindow": {
       "timezone": "Asia/Tehran",
       "dailyStart": "09:00",
@@ -80,7 +80,7 @@
     },
     {
       "name": "ops:incident-readiness:evidence:verify",
-      "command": "node scripts/verify-incident-readiness-evidence.mjs <artifact.json> --expected-sha 159c315cb26677edfa5b05c1708c93bed316ebe9",
+      "command": "node scripts/verify-incident-readiness-evidence.mjs <artifact.json> --expected-sha 79c48a16cb685a88315a44e103b3758cf7845d65",
       "disposition": "required_for_final_artifact"
     },
     {

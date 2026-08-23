@@ -2,8 +2,8 @@
 
 **Packet status:** DRAFT operational evidence scaffold, not final Go approval  
 **Decision:** NO-GO until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted
-**Staging evidence target SHA:** `159c315cb26677edfa5b05c1708c93bed316ebe9`
-**Runtime candidate baseline:** `159c315cb26677edfa5b05c1708c93bed316ebe9`
+**Staging evidence target SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
+**Runtime candidate baseline:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Evidence branch:** `agent/protected-staging-rebaseline-pr437`
 **Evidence register JSON:** `docs/launch/generated/protected-staging-no-go-register-20260810.json`  
@@ -24,10 +24,10 @@ RC evidence packet. It converts the remaining NO-GO decision into an execution
 register that can be closed one blocker at a time.
 
 The staging evidence target is the current candidate selected in
-`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #543 repaired
-safe npm symlink validation in the staging host evidence collector and Candidate
-Evidence Recollection Authority #103 accepted exact-main NOG-03/NOG-04/NOG-06
-evidence. Older PR #541, PR #539, PR
+`docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #545 aligned
+the staging host collector with the live health migration readiness contract and
+Candidate Evidence Recollection Authority #106 accepted exact-main
+NOG-03/NOG-04/NOG-06 evidence. Older PR #541, PR #539, PR
 #437/#441, 915c/c154 and e355 recollection SHAs remain historical draft
 baselines only.
 Any staging deployment must record which SHA was deployed, and health/runtime
@@ -48,7 +48,7 @@ evidence must match that same SHA.
 |---|---|---|---|---|
 | NOG-01 | Protected staging activation evidence is missing | Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary. | docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md | Blocks controlled soft launch Go |
 | NOG-02 | Production-like environment configuration is not proven | Run `env:check` in protected staging with redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values. | docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md | Blocks final packet |
-| NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `159c315cb26677edfa5b05c1708c93bed316ebe9`: `sha256:c3701822d072ed72bfd4a03e47974d6623cb4157f2c8ec46d2d06d784182580b`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
+| NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: `sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
 | NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
 | NOG-05 | Backup, restore and recovery reconciliation evidence is missing | Execute protected staging restore and domain reconciliation for Academy, Arena, Mentor, Exchange ledger, notifications/jobs and tenant/principal isolation; final evidence must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. | docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md | Blocks restore trust |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
@@ -110,11 +110,11 @@ both `required_reviewers` and `branch_policy`, with administrator bypass
 disabled. Reviewer identities are intentionally not recorded. This satisfies
 the environment-protection prerequisite, but does not close NOG-01 or NOG-02.
 
-Protected Staging Env Evidence run `32636694094` succeeded only for the now-superseded exact candidate
-`80223ac41e6200c25b65777a4a98b5f2e90f56a1`; it is not promoted or reused for a later candidate. Staging Community Challenge Scheduler Evidence run `32636743667` failed closed for that same SHA before artifact publication with
-`host_evidence_npm_binary_invalid`. PR #543 fixed only safe npm symlink target
-validation. The selected candidate is now
-`159c315cb26677edfa5b05c1708c93bed316ebe9`. NOG-01 and NOG-02 remain open until
+Protected Staging Env Evidence run `32641299129` succeeded only for the now-superseded exact candidate
+`159c315cb26677edfa5b05c1708c93bed316ebe9`; it is not promoted or reused for a later candidate. Staging Community Challenge Scheduler Evidence run `32641669277` failed closed for that same SHA before artifact publication with
+`host_evidence_health_contract_invalid`. PR #545 aligned the live readiness value
+`migrations.status=current` with evidence schema v1 normalization. The selected candidate is now
+`79c48a16cb685a88315a44e103b3758cf7845d65`. NOG-01 and NOG-02 remain open until
 that exact immutable release is deployed and both governed workflows complete
 successfully with verifier-passed artifacts and detached digests.
 
@@ -124,13 +124,13 @@ NOG-03 is accepted for immutable runtime image identity only.
 
 | Field | Evidence |
 |---|---|
-| Candidate SHA | `159c315cb26677edfa5b05c1708c93bed316ebe9` |
+| Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
 | Image | `ghcr.io/tecpey/tecpey-os` |
-| Image digest | `sha256:c3701822d072ed72bfd4a03e47974d6623cb4157f2c8ec46d2d06d784182580b` |
-| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585` |
-| Release artifact | `container-release-159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Release artifact digest | `sha256:12210c49a6a4f64dbf411679c7ee16b78bcb773a193b1388433e6f19f8df7354` |
-| Signature verification | Cosign verification records issuer `https://token.actions.githubusercontent.com`, subject `.github/workflows/container-supply-chain.yml@refs/heads/main`, workflow SHA `159c315cb26677edfa5b05c1708c93bed316ebe9`, and docker manifest digest matching the image digest above. |
+| Image digest | `sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69` |
+| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165` |
+| Release artifact | `container-release-79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Release artifact digest | `sha256:3c2e1b271db1807b1a5ce8c9a8738b98f3fc5d418de925b6e7d9e59946bb77f5` |
+| Signature verification | Cosign verification records issuer `https://token.actions.githubusercontent.com`, subject `.github/workflows/container-supply-chain.yml@refs/heads/main`, workflow SHA `79c48a16cb685a88315a44e103b3758cf7845d65`, and docker manifest digest matching the image digest above. |
 
 This closes only the immutable runtime image digest blocker. It did not close
 protected staging, redacted env evidence, recovery reconciliation, incident
@@ -143,15 +143,15 @@ NOG-04 is accepted for exact-head workflow URL attachment only.
 
 | Workflow | Run | Disposition |
 |---|---|---|
-| CI | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445559` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Full Suite Diagnostics | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445562` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| API Security Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445589` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Sensitive Mutation Audit | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445571` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Repository Audit Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445560` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Public Browser Golden Path | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445584` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Container Supply Chain | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Full History Secret Scanning | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445593` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Scheduled Operational Recovery | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638452349` | success on `159c315cb26677edfa5b05c1708c93bed316ebe9` |
+| CI | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393215` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Full Suite Diagnostics | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393181` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| API Security Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393195` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Sensitive Mutation Audit | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393170` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Repository Audit Manifest | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393172` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Public Browser Golden Path | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393275` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Container Supply Chain | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Full History Secret Scanning | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393159` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Scheduled Operational Recovery | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642401435` | success on `79c48a16cb685a88315a44e103b3758cf7845d65` |
 
 This closes only the exact-head workflow URL blocker. The scheduled recovery
 dispatch is accepted as a governed exact-main workflow URL; protected staging
@@ -165,15 +165,15 @@ PostgreSQL/Redis volume-restore mechanics only.
 
 | Field | Evidence |
 |---|---|
-| Candidate SHA | `159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Previous release SHA | `87db5f7df7df2f8885fc2d9a60d1a97a5d93f683` |
-| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585` |
-| Rollback job | `Ephemeral staging rollback and volume restore`, job `97191627420`, success |
-| Recovery artifact | `container-recovery-159c315cb26677edfa5b05c1708c93bed316ebe9` |
-| Recovery artifact digest | `sha256:20dae3cd3d8d4ecdf05b3186cea328c94cf174b37fddff2438c09118e711a740` |
+| Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Previous release SHA | `a5b55caf281fe05cd891cf408c5b0ad192d0085a` |
+| Container Supply Chain run | `https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165` |
+| Rollback job | `Ephemeral staging rollback and volume restore`, job `97201386369`, success |
+| Recovery artifact | `container-recovery-79c48a16cb685a88315a44e103b3758cf7845d65` |
+| Recovery artifact digest | `sha256:90dda7310c917da6e2d09864e16445124391a9111925211f55034dc276ba4204` |
 | Rollback result | candidate image served, previous-release image served after rollback |
 | Volume-restore verifier | `scripts/verify-operational-recovery-evidence.mjs` passed for the candidate SHA |
-| RTO sample | synthetic CI recovery completed in `5176ms` under the `300s` maximum |
+| RTO sample | synthetic CI recovery completed in `6765ms` under the `300s` maximum |
 
 This closes only the rollback/volume-restore mechanics blocker. The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release. Protected
 staging activation and redacted env evidence remain under NOG-01/NOG-02, and
@@ -211,7 +211,7 @@ controlled public launch.
 
 | Field | Evidence |
 |---|---|
-| Candidate SHA | `159c315cb26677edfa5b05c1708c93bed316ebe9` |
+| Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
 | Evidence artifact | `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json` |
 | Authority guard | `scripts/check-gated-capability-evidence-authority.mjs` |
 | Product-truth guard | `npm run launch:disabled-capabilities:check` |
@@ -236,7 +236,7 @@ NOG-08 remains open until owner sign-off evidence is attached.
 
 | Field | Evidence |
 |---|---|
-| Candidate SHA | `159c315cb26677edfa5b05c1708c93bed316ebe9` |
+| Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
 | Evidence artifact | `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` |
 | Authority guard | `scripts/check-accepted-risk-signoff-evidence-authority.mjs` |
 | Final artifact verifier | `scripts/verify-accepted-risk-signoff-evidence.mjs` |
@@ -270,7 +270,7 @@ NOG-09 remains open until the final matrix passes
 
 | Field | Evidence |
 |---|---|
-| Candidate SHA | `159c315cb26677edfa5b05c1708c93bed316ebe9` |
+| Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
 | Evidence request | `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` |
 | Authority guard | `scripts/check-go-approval-matrix-evidence-authority.mjs` |
 | Verifier | `scripts/verify-go-approval-matrix-evidence.mjs` |
