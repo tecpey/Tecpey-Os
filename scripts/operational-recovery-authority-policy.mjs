@@ -11,6 +11,12 @@ export const RECOVERY_MIGRATION_TRIGGER_PATHS = [
   "src/lib/db-migrate*.ts",
   "src/lib/db-migration-*.ts",
 ];
+export const PROTECTED_RECOVERY_TRIGGER_PATHS = [
+  "scripts/collect-protected-recovery-reconciliation-evidence.mjs",
+  "scripts/protected-recovery-reconciliation-collector-policy.mjs",
+  "scripts/protected-recovery-reconciliation-collector-policy.test.mjs",
+  ".github/workflows/protected-staging-recovery-reconciliation-evidence.yml",
+];
 
 export function evaluateOperationalRecoveryAuthority(source) {
   const failures = [];
@@ -19,6 +25,10 @@ export function evaluateOperationalRecoveryAuthority(source) {
     recovery,
     verifier,
     protectedVerifier,
+    protectedCollector,
+    protectedCollectorPolicy,
+    protectedCollectorTest,
+    protectedWorkflow,
     runbook,
     reconciliation,
     packageJson,
@@ -38,6 +48,135 @@ export function evaluateOperationalRecoveryAuthority(source) {
   ]) {
     requireText(failures, workflow, token, `scheduled workflow is missing ${token}`);
   }
+
+  for (const token of [
+    "workflow_dispatch:",
+    "release_sha:",
+    "reviewer_external_identity:",
+    "independent_review_confirmed:",
+    "environment: staging",
+    "runs-on: [self-hosted, linux, x64, tecpey-staging]",
+    "timeout-minutes: 30",
+    "cancel-in-progress: false",
+    "contents: read",
+    "ref: ${{ github.sha }}",
+    "persist-credentials: false",
+    "git -C authority merge-base --is-ancestor",
+    "systemctl show tecpey-staging.service --property=WorkingDirectory --value",
+    "protected_staging_runtime_identity_invalid",
+    "NODE_EXTRA_CA_CERTS",
+    "collect-protected-recovery-reconciliation-evidence.mjs",
+    "verify-protected-recovery-reconciliation-evidence.mjs",
+    "sha256sum --check SHA256SUMS",
+    "retention-days: 30",
+  ]) {
+    requireText(
+      failures,
+      protectedWorkflow,
+      token,
+      `protected staging recovery workflow is missing ${token}`,
+    );
+  }
+  reject(
+    failures,
+    protectedWorkflow,
+    /uses:\s+[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+@(?![0-9a-f]{40}\b)/,
+    "protected staging recovery workflow contains a mutable action reference",
+  );
+  reject(
+    failures,
+    protectedWorkflow,
+    /continue-on-error:\s*true/,
+    "protected staging recovery workflow must fail closed",
+  );
+  reject(
+    failures,
+    protectedWorkflow,
+    /(?:DATABASE_URL|REDIS_URL).*\b(?:echo|printf)\b|\b(?:echo|printf)\b.*(?:DATABASE_URL|REDIS_URL)/,
+    "protected staging recovery workflow must not print connection material",
+  );
+
+  for (const token of [
+    "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY",
+    "SELECT pg_export_snapshot() AS snapshot",
+    "--format=custom",
+    "--snapshot=${snapshot}",
+    "--exit-on-error",
+    "postgres_isolated_restore",
+    "redis_rdb_backup",
+    "startIsolatedRedis",
+    "redis_source_restore_mismatch",
+    "runtime_migration_plan_hash_mismatch",
+    "postgres_restored_plan_hash_mismatch",
+    "assertSummariesMatch",
+    "tenantInvariantCounts",
+    "assertFinancialInvariantCounts",
+    "reviewer_must_be_independent",
+    "independent_review_not_confirmed",
+    "counts-and-hashes-only",
+    "no-raw-rows",
+    "no-secrets-or-connection-urls",
+    "verifyProtectedRecoveryReconciliationEvidence",
+    "evidence_directory_symlink_escape",
+    "protected_restore_rto_exceeded",
+  ]) {
+    requireText(
+      failures,
+      protectedCollector,
+      token,
+      `protected staging recovery collector is missing ${token}`,
+    );
+  }
+  reject(
+    failures,
+    protectedCollector,
+    /console\.(?:log|error)\([^\n]*(?:databaseUrl|redisUrl|DATABASE_URL|REDIS_URL)/,
+    "protected staging recovery collector must not log connection material",
+  );
+  reject(
+    failures,
+    protectedCollector,
+    /\b(?:DROP\s+DATABASE|FLUSHALL|FLUSHDB)\b/i,
+    "protected staging recovery collector must not mutate active authorities",
+  );
+
+  for (const token of [
+    "DOMAIN_TABLES",
+    "academy",
+    "tradingArena",
+    "mentorAi",
+    "exchangeLedger",
+    "notificationsOperationalJobs",
+    "FINANCIAL_INVARIANT_QUERIES",
+    "tableFingerprintQuery",
+    "md5(to_jsonb(candidate_row)::text)",
+    "assertTenantRegistryCoverage",
+    "tenant_registry_runtime_drift",
+    "assertFinancialInvariantCounts",
+    "financial_invariant_divergence",
+    "combinedBackupDigest",
+  ]) {
+    requireText(
+      failures,
+      protectedCollectorPolicy,
+      token,
+      `protected staging recovery collector policy is missing ${token}`,
+    );
+  }
+  for (const token of [
+    "rejects identifier injection",
+    "source/restore drift",
+    "tenant registry drift",
+    "requires every financial invariant",
+    "both backup payloads",
+  ]) {
+    requireText(
+      failures,
+      protectedCollectorTest,
+      token,
+      `protected staging recovery collector tests are missing ${token}`,
+    );
+  }
   if (!/\n  schedule:\s*\n/.test(workflow)) {
     failures.push("scheduled workflow is missing schedule:");
   }
@@ -47,6 +186,14 @@ export function evaluateOperationalRecoveryAuthority(source) {
       workflow,
       `- ${migrationPath}`,
       `scheduled workflow does not run for migration input ${migrationPath}`,
+    );
+  }
+  for (const protectedPath of PROTECTED_RECOVERY_TRIGGER_PATHS) {
+    requireText(
+      failures,
+      workflow,
+      `- ${protectedPath}`,
+      `scheduled workflow does not run for protected recovery authority ${protectedPath}`,
     );
   }
   reject(
@@ -152,8 +299,14 @@ export function evaluateOperationalRecoveryAuthority(source) {
   requireText(
     failures,
     packageJson,
-    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs && NODE_ENV=test node --import tsx --test src/tests/wallet/rpc-client-failover.test.ts"',
+    '"test:ops-recovery-authority": "npm run ops:recovery:check && node --test scripts/operational-recovery-authority-policy.test.mjs scripts/operational-recovery-evidence.test.mjs scripts/protected-recovery-reconciliation-evidence.test.mjs scripts/protected-recovery-reconciliation-collector-policy.test.mjs && NODE_ENV=test node --import tsx --test src/tests/wallet/rpc-client-failover.test.ts"',
     "package scripts must expose negative authority tests",
+  );
+  requireText(
+    failures,
+    packageJson,
+    '"ops:recovery:protected-evidence:collect": "node scripts/collect-protected-recovery-reconciliation-evidence.mjs"',
+    "package scripts must expose the protected recovery evidence collector",
   );
   requireText(
     failures,

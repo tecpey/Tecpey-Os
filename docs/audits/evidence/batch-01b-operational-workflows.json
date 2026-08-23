@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-07-30",
+  "reviewedAt": "2026-08-23",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -69,17 +69,18 @@
     },
     {
       "path": ".github/workflows/operational-recovery.yml",
-      "gitObjectId": "5d2970736b63fc42f4d256a9dadd1ea5284bfb8c",
-      "sha256": "ce72bab731d059eaa31dea958235c3b548b702f466639c9c470138d19bff9b51",
-      "lines": 95,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 95 }],
+      "gitObjectId": "f4ff11e0631fa41a8bb0c9943d9d9a7f50740ea5",
+      "sha256": "34137d5d118db9deaa9caf3c26179370b65578b08e4dcdd3616512b1e540bb1d",
+      "lines": 99,
+      "reviewedRanges": [{ "startLine": 1, "endLine": 99 }],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Pull-request, weekly and manual triggers; read-only permissions; non-cancelling concurrency; exact-head checkout; pinned actions; governed recovery authority; exact migration-image identity; bounded RPO/RTO inputs; PostgreSQL and Redis restore; and always-uploaded evidence were reviewed.",
         "No confirmed defect was found in this file; the remaining staging and production-host activation boundary is recorded as residual risk rather than represented as completed.",
         "2026-08-08: re-reviewed after adding docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
         "2026-08-12: re-reviewed after adding scripts/verify-protected-recovery-reconciliation-evidence.mjs and scripts/protected-recovery-reconciliation-evidence.test.mjs to the pull_request path filter. Trigger coverage only; permissions, checkout, action pins, recovery authority command, exact migration-image identity, RPO/RTO inputs, service restore steps, evidence upload and mutation boundary are unchanged.",
-        "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries."
+        "2026-08-15: re-reviewed after adding an exact-lock npm ci --ignore-scripts dependency install before the recovery authority test. The step is required for the new TypeScript RpcClient fixture, retains read-only repository permissions and pinned actions, executes no lifecycle scripts, and does not alter the Docker restore, RPO/RTO, evidence-upload or production activation boundaries.",
+        "2026-08-23: re-reviewed after adding the protected staging recovery collector, collector policy/test and governed workflow to pull-request trigger coverage. Trigger-only change; exact-head checkout, pinned actions, read-only permissions, synthetic restore, RPO/RTO checks and artifact boundary remain unchanged. The file now has 99 lines."
       ],
       "findings": []
     },

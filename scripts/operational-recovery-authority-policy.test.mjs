@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
   evaluateOperationalRecoveryAuthority,
+  PROTECTED_RECOVERY_TRIGGER_PATHS,
   RECOVERY_MIGRATION_TRIGGER_PATHS,
 } from "./operational-recovery-authority-policy.mjs";
 
@@ -15,6 +16,10 @@ const files = {
   recovery: "scripts/test-container-volume-recovery.sh",
   verifier: "scripts/verify-operational-recovery-evidence.mjs",
   protectedVerifier: "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
+  protectedCollector: "scripts/collect-protected-recovery-reconciliation-evidence.mjs",
+  protectedCollectorPolicy: "scripts/protected-recovery-reconciliation-collector-policy.mjs",
+  protectedCollectorTest: "scripts/protected-recovery-reconciliation-collector-policy.test.mjs",
+  protectedWorkflow: ".github/workflows/protected-staging-recovery-reconciliation-evidence.yml",
   runbook: "docs/operations/OPERATIONAL_RECOVERY_DRILLS.md",
   reconciliation: "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
   packageJson: "package.json",
@@ -81,6 +86,20 @@ test("rejects omission of every migration artifact input from pull-request trigg
   }
 });
 
+test("rejects omission of protected recovery authority from pull-request triggers", () => {
+  for (const protectedPath of PROTECTED_RECOVERY_TRIGGER_PATHS) {
+    const workflow = valid.workflow.replace(`      - ${protectedPath}\n`, "");
+    const failures = evaluateOperationalRecoveryAuthority({ ...valid, workflow });
+    assert.equal(
+      failures.includes(
+        `scheduled workflow does not run for protected recovery authority ${protectedPath}`,
+      ),
+      true,
+      protectedPath,
+    );
+  }
+});
+
 test("rejects a mutable action and a non-failing drill", () => {
   const workflow = valid.workflow
     .replace(
@@ -122,6 +141,59 @@ test("rejects weakening protected recovery reconciliation evidence verification"
   );
   assert.equal(
     failures.includes("protected recovery verifier is missing forbidRawMaterial"),
+    true,
+  );
+});
+
+test("rejects a mutable action or dependent-review bypass in protected staging recovery", () => {
+  const protectedWorkflow = valid.protectedWorkflow
+    .replace(
+      "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "actions/checkout@v4",
+    )
+    .replace("independent_review_confirmed:", "review_optional:");
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, protectedWorkflow });
+  assert.equal(
+    failures.includes("protected staging recovery workflow contains a mutable action reference"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery workflow is missing independent_review_confirmed:"),
+    true,
+  );
+});
+
+test("rejects weakening isolated restore, source/restore comparison or privacy controls", () => {
+  const protectedCollector = valid.protectedCollector
+    .replace("SELECT pg_export_snapshot() AS snapshot", "SELECT now() AS snapshot")
+    .replaceAll("assertSummariesMatch", "acceptUncomparedRestore")
+    .replace("no-raw-rows", "raw-rows-allowed");
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, protectedCollector });
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing SELECT pg_export_snapshot() AS snapshot"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing assertSummariesMatch"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing no-raw-rows"),
+    true,
+  );
+});
+
+test("rejects removing tenant drift and financial conservation from collector policy", () => {
+  const protectedCollectorPolicy = valid.protectedCollectorPolicy
+    .replaceAll("tenant_registry_runtime_drift", "tenant_registry_drift_ignored")
+    .replaceAll("assertFinancialInvariantCounts", "ignoreFinancialInvariantCounts");
+  const failures = evaluateOperationalRecoveryAuthority({ ...valid, protectedCollectorPolicy });
+  assert.equal(
+    failures.includes("protected staging recovery collector policy is missing tenant_registry_runtime_drift"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector policy is missing assertFinancialInvariantCounts"),
     true,
   );
 });

@@ -58,12 +58,40 @@ domain-level row counts, domain-level query digests, and the privacy boundary
 The repository-owned ephemeral CI restore verifier remains necessary but is not
 accepted as protected staging domain reconciliation evidence.
 
+## Governed protected-staging collector
+
+The manually dispatched `Protected Staging Recovery Reconciliation Evidence`
+workflow is the only repository-owned collector authorized to produce this
+evidence class. It runs on the protected `tecpey-staging` runner and requires the
+exact active release SHA, a reviewer GitHub identity different from the workflow
+actor, explicit independent-review confirmation, and approval for the `staging`
+environment.
+
+The collector never restores into the active staging database or Redis service.
+It exports a PostgreSQL `REPEATABLE READ` snapshot, downloads a Redis RDB, creates
+a random temporary PostgreSQL database, and starts an unprivileged Redis process
+bound only to a temporary Unix socket. It then compares deterministic table
+counts and row hashes between source and restore, verifies the current migration
+plan hash, executes the exchange financial-conservation queries, and proves that
+the 52-table tenant registry exactly matches runtime tenant-scoped tables. Both
+temporary restore targets are removed before an accepted artifact is written.
+
+The artifact contains only aggregate counts, SHA-256/MD5 digests, bounded UTC
+windows, participant identities, and accepted dispositions. Database URLs,
+Redis URLs, command output, source rows, dump files, RDB files, and host
+identifiers never leave the runner. Any unavailable tool, permission failure,
+schema drift, count/digest mismatch, tenant/principal orphan, financial delta,
+Redis key-count drift, cleanup failure, or RTO breach fails closed and produces
+no accepted JSON evidence.
+
 ## Required queries
 
-The exact SQL may evolve with migrations, but each query set must cover the
-domain concepts named in the matrix. Owners must version query changes with the
-same pull request that changes the underlying schema, and protected staging
-evidence must cite the query version that was run.
+The governed query membership is versioned in
+`scripts/protected-recovery-reconciliation-collector-policy.mjs`. The exact SQL
+may evolve with migrations, but each query set must cover the domain concepts
+named in the matrix. Owners must version query changes with the same pull request
+that changes the underlying schema. The artifact's deterministic `queryDigest`
+binds the table membership, source counts, and row digests that were run.
 
 The recovery authority check intentionally treats this file as launch-critical.
 Deleting a domain row, weakening halt conditions, or removing the no-raw-data
