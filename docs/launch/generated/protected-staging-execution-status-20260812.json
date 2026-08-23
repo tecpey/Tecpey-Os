@@ -36,7 +36,7 @@
     "exists": true,
     "protectionRulesCount": 0,
     "canAdminsBypass": true,
-    "protectionDisposition": "failed_no_protection_rules_observed_at_promotion_time"
+    "protectionDisposition": "failed_no_protection_rules_observed"
   },
   "workflows": {
     "protectedStagingEnvEvidence": {
