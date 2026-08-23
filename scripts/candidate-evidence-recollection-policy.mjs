@@ -18,7 +18,7 @@ export const REQUIRED_WORKFLOWS = [
 ];
 
 const REQUIRED_RECOLLECTED = ["NOG-03", "NOG-04", "NOG-06"];
-const REQUIRED_OPEN = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const REQUIRED_OPEN = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",

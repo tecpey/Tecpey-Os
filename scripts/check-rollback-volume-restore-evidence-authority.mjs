@@ -46,6 +46,13 @@ function requireText(path, source, token, reason) {
   }
 }
 
+function requireAnyText(path, source, tokens, reason) {
+  const normalizedSource = source.replace(/\s+/g, " ");
+  if (!tokens.some((token) => normalizedSource.includes(token.replace(/\s+/g, " ")))) {
+    failures.push(`${path}: ${reason}`);
+  }
+}
+
 function requireSha(label, value) {
   if (typeof value !== "string" || !SHA.test(value)) {
     failures.push(`${label}: expected 40-character git SHA`);
@@ -141,10 +148,22 @@ requireArrayIncludes("candidate.acceptedEvidence", candidate.acceptedEvidence?.m
 requireArrayIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-06");
 
 for (const blockerId of ["NOG-01", "NOG-02", "NOG-05"]) {
-  const entry = register.blockers?.find((candidateBlocker) => candidateBlocker.id === blockerId);
-  requireEqual(`${blockerId}.status`, entry?.status, "open");
   requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blockerId);
 }
+const protectedStagingStatuses = ["NOG-01", "NOG-02"].map(
+  (blockerId) => register.blockers?.find((entry) => entry.id === blockerId)?.status,
+);
+const protectedStagingOpen = protectedStagingStatuses.every((status) => status === "open");
+const protectedStagingAccepted = protectedStagingStatuses.every((status) => status === "accepted");
+if (!protectedStagingOpen && !protectedStagingAccepted) {
+  failures.push(
+    `NOG-01/NOG-02 statuses must transition atomically as both open or both accepted, got ${JSON.stringify(
+      protectedStagingStatuses,
+    )}`,
+  );
+}
+const nog05 = register.blockers?.find((entry) => entry.id === "NOG-05");
+requireEqual("NOG-05.status", nog05?.status, "open");
 
 requireEqual("evidence.observedVia.workflow", evidence.observedVia?.workflow, "Container Supply Chain");
 requireEqual("evidence.observedVia.workflowPath", evidence.observedVia?.workflowPath, ".github/workflows/container-supply-chain.yml");
@@ -221,12 +240,21 @@ for (const invariant of [
 ]) {
   requireText(files.packet, packet, invariant, `packet is missing NOG-06 invariant: ${invariant}`);
 }
-for (const invariant of [
+requireText(
+  files.checklist,
+  checklist,
   "Exact-candidate rollback and synthetic PostgreSQL/Redis volume-restore evidence is accepted for NOG-06",
-  "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
-]) {
-  requireText(files.checklist, checklist, invariant, `checklist is missing NOG-06 boundary: ${invariant}`);
-}
+  "checklist is missing the accepted NOG-06 evidence boundary",
+);
+requireAnyText(
+  files.checklist,
+  checklist,
+  [
+    "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
+    "NO-GO remains until recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
+  ],
+  "checklist is missing a coherent pre/post protected-staging NOG-06 boundary",
+);
 requireText(
   files.packageJson,
   JSON.stringify(packageJson),

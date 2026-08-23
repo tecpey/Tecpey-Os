@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-23T13:35:01Z",
+  "generatedAt": "2026-08-23T15:40:25Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
     "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "sourceBranch": "main",
     "sourcePullRequest": 545,
     "selectedAt": "2026-08-23T13:35:01Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the PR #545 protected staging health migration contract fix after Candidate Evidence Recollection Authority #106 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
+    "reason": "Rebaselines the controlled-launch evidence target to the PR #545 protected staging health migration contract fix after Candidate Evidence Recollection Authority #106 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. PR #547 changed only governed workflow private-CA trust and preserved this runtime candidate. Exact-candidate NOG-01/NOG-02 protected staging evidence is now accepted; recovery reconciliation, incident, accepted-risk and Go approval artifacts must still target this exact runtime SHA."
   },
   "supersedes": [
     {
@@ -136,6 +136,7 @@
     "humanLedger": "docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md",
     "protectedStagingRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
     "protectedStagingRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
+    "protectedStagingExecutionStatus": "docs/launch/generated/protected-staging-execution-status-20260812.json",
     "noGoRegister": "docs/launch/generated/protected-staging-no-go-register-20260810.json",
     "runtimeImageDigestEvidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
     "exactHeadWorkflowEvidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
@@ -156,13 +157,31 @@
     "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
   ],
   "requiredNextEvidence": [
-    "protected staging NOG-01/NOG-02 evidence for the current candidate",
     "protected staging recovery reconciliation evidence that passes scripts/verify-protected-recovery-reconciliation-evidence.mjs",
     "incident readiness evidence that passes scripts/verify-incident-readiness-evidence.mjs",
     "accepted-risk owner sign-off evidence for the current candidate that passes scripts/verify-accepted-risk-signoff-evidence.mjs",
     "Go approval matrix for the current candidate that passes scripts/verify-go-approval-matrix-evidence.mjs"
   ],
   "acceptedEvidence": [
+    {
+      "id": "NOG-01",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/protected-staging-execution-status-20260812.json",
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32648754664",
+      "artifactName": "tecpey-staging-scheduler-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
+      "artifactDigest": "sha256:ea3cfb4bbd188988063d31e393556aebb4ea9359e9c96d2b9a68de44b14dde4d"
+    },
+    {
+      "id": "NOG-02",
+      "status": "accepted",
+      "evidence": "docs/launch/generated/protected-staging-execution-status-20260812.json",
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32644937055",
+      "artifactName": "tecpey-staging-env-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
+      "artifactDigest": "sha256:bd8cd520526d7520883218697dad9af9eec1dcbe8eca7db163493d5dd254f5d5",
+      "environmentSource": "protected_host_env_file"
+    },
     {
       "id": "NOG-03",
       "status": "accepted",
@@ -199,7 +218,7 @@
       "rollbackJobId": 97201386369,
       "containerRecoveryArtifact": "container-recovery-79c48a16cb685a88315a44e103b3758cf7845d65",
       "containerRecoveryArtifactDigest": "sha256:90dda7310c917da6e2d09864e16445124391a9111925211f55034dc276ba4204",
-      "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
+      "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation and redacted env evidence are accepted under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     },
     {
       "id": "NOG-10",
@@ -230,5 +249,6 @@
   "currentMainShaAfterGovernanceRestorePr539Merge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
   "currentMainShaAfterServerOnlyRuntimeFixPr541Merge": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
   "currentMainShaAfterSafeNpmSymlinkHostEvidencePr543Merge": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-  "currentMainShaAfterHealthMigrationContractPr545Merge": "79c48a16cb685a88315a44e103b3758cf7845d65"
+  "currentMainShaAfterHealthMigrationContractPr545Merge": "79c48a16cb685a88315a44e103b3758cf7845d65",
+  "currentMainShaAfterPrivateCaTrustPr547Merge": "313e1f6234ac13e0fd8ed55a14867edfb30926e4"
 }

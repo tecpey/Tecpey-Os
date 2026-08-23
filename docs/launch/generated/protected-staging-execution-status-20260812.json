@@ -1,34 +1,46 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-execution-status-observation",
-  "observedAt": "2026-08-23T13:35:01.000Z",
-  "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
+  "observedAt": "2026-08-23T15:40:25.000Z",
+  "decision": "NO_GO_NOG_01_NOG_02_ACCEPTED_REMAINING_BLOCKERS_OPEN",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "currentMainSha": "313e1f6234ac13e0fd8ed55a14867edfb30926e4",
     "protectedStagingEvidenceTargetSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "runtimeCandidatePreserved": true,
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
-  "postMergeObservation": {
-    "mergedPullRequest": 545,
-    "mergedPullRequestTitle": "fix(ops): align staging health migration contract",
-    "mergeCommitSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-    "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate rebaselined to the PR #545 protected staging health migration contract fix; staging protection is present, while acceptance remains blocked until the exact candidate release is deployed and both governed workflows succeed"
+  "runtimeDeployment": {
+    "releaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "workingDirectory": "/srv/tecpey/releases/79c48a16cb685a88315a44e103b3758cf7845d65",
+    "serviceActiveState": "active",
+    "serviceSubState": "running",
+    "healthCommitSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "healthDisposition": "passed_app_database_redis_migrations_current",
+    "deploymentDisposition": "accepted_exact_candidate_immutable_release"
+  },
+  "workflowDefinitionLineage": {
+    "privateCaTrustPullRequest": 547,
+    "privateCaTrustMergeSha": "313e1f6234ac13e0fd8ed55a14867edfb30926e4",
+    "runtimeCandidateChanged": false,
+    "disposition": "workflow_only_fix_preserved_exact_runtime_candidate"
   },
   "observationSource": {
     "githubApi": [
       "GET /repos/tecpey/Tecpey-Os/environments/staging",
-      "GET /repos/tecpey/Tecpey-Os/actions/workflows/protected-staging-env-evidence.yml/runs",
-      "GET /repos/tecpey/Tecpey-Os/actions/workflows/staging-community-challenge-scheduler-evidence.yml/runs"
+      "GET /repos/tecpey/Tecpey-Os/actions/runs/32644937055",
+      "GET /repos/tecpey/Tecpey-Os/actions/runs/32648754664",
+      "GET /repos/tecpey/Tecpey-Os/actions/artifacts/9494655047/zip",
+      "GET /repos/tecpey/Tecpey-Os/actions/artifacts/9495616024/zip"
     ],
-    "localTooling": [
-      "GitHub connector and authenticated GitHub UI available for governed observation and dispatch",
-      "staging protection rules observed without recording reviewer identities",
-      "Protected Staging Env Evidence run 32641299129 succeeded and Staging Community Challenge Scheduler Evidence run 32641669277 failed closed with host_evidence_health_contract_invalid only for superseded candidate 159c315cb26677edfa5b05c1708c93bed316ebe9; neither run nor artifact is accepted for 79c48a16cb685a88315a44e103b3758cf7845d65",
+    "verification": [
+      "both accepted workflow runs completed successfully for selected release SHA 79c48a16cb685a88315a44e103b3758cf7845d65",
+      "both downloaded artifact ZIP SHA-256 digests matched GitHub artifact metadata",
+      "both detached SHA-256 files verified the canonical evidence JSON bytes",
+      "both offline verifier summaries reported ok=true",
       "raw runner names, host identifiers, secrets and raw environment values are intentionally not recorded"
     ]
   },
@@ -48,29 +60,42 @@
       "name": "Protected Staging Env Evidence",
       "path": ".github/workflows/protected-staging-env-evidence.yml",
       "state": "active",
-      "totalRunsObserved": 3,
-      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641299129",
-      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
-      "latestRunConclusion": "success",
-      "latestRejectedCandidateSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-      "rejectionReason": "successful_evidence_bound_to_superseded_candidate_not_reusable",
-      "acceptedRunUrl": null,
-      "acceptedArtifactName": null,
-      "disposition": "blocked_no_accepted_current_candidate_run"
+      "acceptedForBlocker": "NOG-02",
+      "acceptedRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32644937055",
+      "workflowDefinitionHeadSha": "e4a3e0e1c31329fc77bb1a9b2901918b093eb32b",
+      "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "runConclusion": "success",
+      "environmentSource": "protected_host_env_file",
+      "environmentSourceProofDisposition": "passed",
+      "envCheckDisposition": "passed",
+      "artifactId": 9494655047,
+      "acceptedArtifactName": "tecpey-staging-env-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
+      "artifactDigest": "sha256:bd8cd520526d7520883218697dad9af9eec1dcbe8eca7db163493d5dd254f5d5",
+      "artifactCreatedAt": "2026-08-23T14:20:53Z",
+      "artifactExpiresAt": "2026-08-30T14:20:51Z",
+      "detachedDigestDisposition": "verified",
+      "offlineVerifierDisposition": "passed",
+      "disposition": "accepted_exact_candidate_artifact_and_detached_digest"
     },
     "stagingCommunityChallengeSchedulerEvidence": {
       "name": "Staging Community Challenge Scheduler Evidence",
       "path": ".github/workflows/staging-community-challenge-scheduler-evidence.yml",
       "state": "active",
-      "totalRunsObserved": 4,
-      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641669277",
-      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
-      "latestRunConclusion": "failure",
-      "latestRejectedCandidateSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-      "rejectionReason": "host_evidence_health_contract_invalid_before_artifact_publication",
-      "acceptedRunUrl": null,
-      "acceptedArtifactName": null,
-      "disposition": "blocked_no_accepted_current_candidate_run"
+      "acceptedForBlocker": "NOG-01",
+      "acceptedRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32648754664",
+      "workflowDefinitionHeadSha": "313e1f6234ac13e0fd8ed55a14867edfb30926e4",
+      "selectedReleaseSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "runConclusion": "success",
+      "alertProbeDelivered": true,
+      "latestGovernedSchedulerRunDisposition": "passed",
+      "artifactId": 9495616024,
+      "acceptedArtifactName": "tecpey-staging-scheduler-evidence-79c48a16cb685a88315a44e103b3758cf7845d65",
+      "artifactDigest": "sha256:ea3cfb4bbd188988063d31e393556aebb4ea9359e9c96d2b9a68de44b14dde4d",
+      "artifactCreatedAt": "2026-08-23T15:32:47Z",
+      "artifactExpiresAt": "2026-08-30T15:32:45Z",
+      "detachedDigestDisposition": "verified",
+      "offlineVerifierDisposition": "passed",
+      "disposition": "accepted_exact_candidate_artifact_and_detached_digest"
     }
   },
   "privacyBoundary": {
@@ -80,11 +105,12 @@
     "runnerNamesRecorded": false,
     "rawLogsRecorded": false
   },
-  "requiredBeforeAcceptance": [
-    "Deploy an immutable release directory for exact candidate 79c48a16cb685a88315a44e103b3758cf7845d65 on staging and align the governed current-release pointer to it.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 79c48a16cb685a88315a44e103b3758cf7845d65 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha 79c48a16cb685a88315a44e103b3758cf7845d65 with one accepted environment_source.",
-    "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
+  "acceptanceVerificationCompleted": [
+    "exact immutable release deployed and health commit matched selected SHA",
+    "Protected Staging Env Evidence succeeded for the selected release SHA",
+    "Staging Community Challenge Scheduler Evidence succeeded with run_alert_probe=true for the selected release SHA",
+    "both artifact ZIP digests and detached evidence digests verified",
+    "both offline verifier summaries passed"
   ],
-  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: staging protection is present, the most recent protected env success and scheduler failure are bound only to superseded candidate 159c315cb26677edfa5b05c1708c93bed316ebe9, and no accepted deployment or governed workflow evidence exists yet for 79c48a16cb685a88315a44e103b3758cf7845d65."
+  "decisionAfterObservation": "NOG-01 and NOG-02 are accepted only for exact runtime candidate 79c48a16cb685a88315a44e103b3758cf7845d65. Controlled soft launch remains NO-GO until NOG-05, NOG-07, NOG-08 and NOG-09 are accepted."
 }

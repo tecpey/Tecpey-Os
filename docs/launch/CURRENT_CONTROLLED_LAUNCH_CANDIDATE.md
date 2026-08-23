@@ -9,6 +9,7 @@
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
 **Rollback/volume-restore evidence:** `docs/launch/generated/rollback-volume-restore-evidence-20260812.json`
+**Protected staging execution evidence:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
@@ -29,6 +30,13 @@ image and rollback/volume-restore evidence for:
 ```text
 79c48a16cb685a88315a44e103b3758cf7845d65
 ```
+
+PR #547 changed only the governed scheduler-evidence workflow's private-CA
+trust handling and did not change the runtime candidate. The immutable release
+above was deployed on protected staging, and both governed evidence workflows
+then succeeded for that exact release. Their downloaded artifact ZIP digests,
+detached evidence digests and offline verifier summaries were independently
+verified before NOG-01/NOG-02 acceptance.
 
 Using the prior PR #441, PR #439, PR #434, PR #435 or PR #433 candidate for new
 staging/support evidence would make the final evidence packet stale before
@@ -84,7 +92,7 @@ execution.
 | --- | --- |
 | Exact-head workflows | Accepted for NOG-04 in `docs/launch/generated/exact-head-workflow-evidence-20260812.json`. |
 | Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
-| Protected staging | NOG-01/NOG-02 evidence collected on protected staging for this SHA. |
+| Protected staging | Accepted for NOG-01/NOG-02 in `docs/launch/generated/protected-staging-execution-status-20260812.json`: scheduler evidence run `32648754664` and redacted env evidence run `32644937055`, both bound to this exact runtime SHA with verified artifact and detached digests. |
 | Recovery and rollback | Rollback/volume-restore mechanics accepted for NOG-06; protected staging recovery reconciliation remains required for NOG-05 and must pass `scripts/verify-protected-recovery-reconciliation-evidence.mjs`. |
 | Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA; NOG-07 remains open until `docs/launch/generated/incident-readiness-evidence-request-20260812.json` is satisfied and the final protected-staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
@@ -103,6 +111,6 @@ candidate only records the prepared risk-register/freshness guard and final
 owner sign-off verifier; it does not approve a Go decision or close NOG-08.
 
 **Current decision: NO-GO until this exact candidate has complete accepted
-protected staging, recovery reconciliation, incident, accepted-risk owner
-sign-off and approval evidence that passes
+recovery reconciliation, incident, accepted-risk owner sign-off and approval
+evidence that passes
 `scripts/verify-go-approval-matrix-evidence.mjs`.**
