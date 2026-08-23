@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-no-go-register",
-  "generatedAt": "2026-08-23T07:13:39Z",
+  "generatedAt": "2026-08-23T09:01:03Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
-  "stagingEvidenceTargetSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-  "runtimeCandidateBaselineSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+  "stagingEvidenceTargetSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+  "runtimeCandidateBaselineSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
   "currentMainShaAfterRcPacketMerge": "c652cf0a5c57bba1e20a072c7b0874cc6a97b61f",
   "currentMainShaAfterRuntimeDigestEvidenceMerge": "74537d362188714aa07d3dd157d7dfc529854e98",
   "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
@@ -24,6 +24,7 @@
       "title": "Protected staging activation evidence is missing",
       "status": "open",
       "executionState": "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+      "currentObservationState": "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
       "closureAction": "Run protected GitHub Environment `staging` on the intended self-hosted runner and attach the accepted artifact, detached digest and verifier summary.",
       "authority": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
       "executionRequest": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
@@ -36,6 +37,7 @@
       "title": "Production-like environment configuration is not proven",
       "status": "open",
       "executionState": "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+      "currentObservationState": "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
       "closureAction": "Run `env:check` in protected staging with either the protected host env file loaded or the service-manager preloaded environment verified, then preserve redacted evidence for required URLs, secrets presence, proxy trust and `DATABASE_URL` without exposing values.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md",
       "executionRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
@@ -47,12 +49,12 @@
       "id": "NOG-03",
       "title": "Immutable runtime image digest is recorded",
       "status": "accepted",
-      "acceptedAt": "2026-08-23T07:13:39Z",
+      "acceptedAt": "2026-08-23T09:01:03Z",
       "executionState": "accepted_exact_candidate_container_release_digest",
       "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-      "imageDigest": "sha256:68c8b5c1ba65980671a9e293bfcc06621c70350521f3b0f5ea829c57a3b0997a",
-      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115",
-      "artifactDigest": "sha256:d533d242eb151215d590bbd70968624f504750360a17413ad72e8d565dee713e",
+      "imageDigest": "sha256:452231e499d320c4bcd32fa0be24303e48df4e2d0e0f3597c2ce5aafed7ffddb",
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718",
+      "artifactDigest": "sha256:7b481a867a353da9fc5dc9cf65a6ea251295f90a74654a1fcf95031a5f706338",
       "closureAction": "Accepted for immutable runtime image identity only; preserve the container release artifact and signature verification for the exact staging target SHA.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       "launchImpact": "Exact release identity recorded; Go remains blocked by remaining operational evidence"
@@ -62,13 +64,13 @@
       "id": "NOG-04",
       "title": "Exact-head workflow URLs are attached for the current candidate",
       "status": "accepted",
-      "acceptedAt": "2026-08-23T07:13:39Z",
+      "acceptedAt": "2026-08-23T09:01:03Z",
       "executionState": "accepted_exact_head_workflow_urls",
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
       "closureAction": "Accepted exact-head GitHub Actions run URLs for CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain, Full History Secret Scanning and Scheduled Operational Recovery on the staging target SHA.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       "launchImpact": "Exact-head workflow URL evidence recorded; Go remains blocked by protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence",
-      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115"
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718"
     },
     {
       "order": 5,
@@ -92,13 +94,13 @@
       "id": "NOG-06",
       "title": "Rollback and volume-restore evidence is attached for the current candidate",
       "status": "accepted",
-      "acceptedAt": "2026-08-23T07:13:39Z",
+      "acceptedAt": "2026-08-23T09:01:03Z",
       "executionState": "accepted_ephemeral_rollback_volume_restore",
       "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
       "closureAction": "Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics.",
       "authority": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       "launchImpact": "Rollback and volume-restore mechanics recorded; Go remains blocked by protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence",
-      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115"
+      "workflowRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718"
     },
     {
       "order": 7,
@@ -195,12 +197,13 @@
         "NOG-02"
       ],
       "status": "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+      "currentObservationState": "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
       "operatorRunbook": "docs/operations/PROTECTED_STAGING_ACTIVATION_ENV_EVIDENCE_RUNBOOK_20260810.md",
       "environmentProtectionRunbook": "docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
       "machineReadableRequest": "docs/launch/generated/protected-staging-env-evidence-request-20260810.json",
       "executionStatusObservation": "docs/launch/generated/protected-staging-execution-status-20260812.json",
       "requiredEnvironment": "staging",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
       "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/365",
       "privacyBoundary": "redacted evidence only"
@@ -214,7 +217,7 @@
       "machineReadableRequest": "docs/launch/generated/recovery-reconciliation-evidence-request-20260812.json",
       "verifier": "scripts/verify-protected-recovery-reconciliation-evidence.mjs",
       "requiredEnvironment": "protected-staging",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02"
@@ -231,7 +234,7 @@
       "machineReadableRequest": "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
       "verifier": "scripts/verify-incident-readiness-evidence.mjs",
       "requiredEnvironment": "protected-staging",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02"
@@ -248,7 +251,7 @@
       "machineReadableRequest": "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
       "verifier": "scripts/verify-accepted-risk-signoff-evidence.mjs",
       "requiredEnvironment": "release-control",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "trackingIssue": "https://github.com/tecpey/Tecpey-Os/issues/409",
       "privacyBoundary": "release identifiers, risk IDs, owner identities, repository URLs, SHA-256 digests and dispositions only"
     },
@@ -261,7 +264,7 @@
       "machineReadableRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
       "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
       "requiredEnvironment": "release-control",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "prerequisiteBlockers": [
         "NOG-01",
         "NOG-02",
@@ -278,26 +281,26 @@
       "id": "NOG-03",
       "status": "accepted",
       "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-      "imageDigest": "sha256:68c8b5c1ba65980671a9e293bfcc06621c70350521f3b0f5ea829c57a3b0997a",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115",
-      "containerReleaseArtifactDigest": "sha256:d533d242eb151215d590bbd70968624f504750360a17413ad72e8d565dee713e"
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+      "imageDigest": "sha256:452231e499d320c4bcd32fa0be24303e48df4e2d0e0f3597c2ce5aafed7ffddb",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718",
+      "containerReleaseArtifactDigest": "sha256:7b481a867a353da9fc5dc9cf65a6ea251295f90a74654a1fcf95031a5f706338"
     },
     {
       "id": "NOG-04",
       "status": "accepted",
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "workflowEvidence": {
-        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736126",
-        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736094",
-        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736116",
-        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736120",
-        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736104",
-        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736107",
-        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115",
-        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736117",
-        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624743010"
+        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263694",
+        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263738",
+        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263715",
+        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263735",
+        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263716",
+        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263695",
+        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718",
+        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263708",
+        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629270384"
       },
       "remainingBoundary": "Protected staging and env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     },
@@ -305,19 +308,19 @@
       "id": "NOG-06",
       "status": "accepted",
       "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-      "previousReleaseSha": "fc67fbab308540962dc3cdcae833a2560bfb4f4b",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115",
-      "rollbackJobId": 97158183852,
-      "containerRecoveryArtifact": "container-recovery-38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-      "containerRecoveryArtifactDigest": "sha256:c9d9e3eb69f5059e25b05fbe0723513c081367ca9ec6284c18deeb580448ed55",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+      "previousReleaseSha": "82a414a95c2e1f8c98e66bde02720e65c0da7c3d",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718",
+      "rollbackJobId": 97169375052,
+      "containerRecoveryArtifact": "container-recovery-80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+      "containerRecoveryArtifactDigest": "sha256:1d21d8e3a1783df3639be83146574d56bcdab8d4d9da265ea9d2ffbb2d852715",
       "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     },
     {
       "id": "NOG-10",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "executionState": "accepted_launch_disabled_attestation",
       "remainingBoundary": "Real-money Exchange activation remains NO-GO until separate financial reconciliation, provider and ambiguous-result recovery evidence is accepted."
     },
@@ -325,7 +328,7 @@
       "id": "NOG-11",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "executionState": "accepted_launch_disabled_attestation",
       "remainingBoundary": "Custody, deposits and withdrawals remain NO-GO until separate HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence is accepted."
     },
@@ -333,7 +336,7 @@
       "id": "NOG-12",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "executionState": "accepted_launch_disabled_attestation",
       "remainingBoundary": "Enterprise, white-label and public rewards remain outside controlled-launch scope until separate activation approval is accepted."
     }
@@ -379,6 +382,7 @@
   "currentMainShaAfterProtectedStagingLedgerPr437Merge": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
   "currentMainShaAfterAcceptedRiskFreshnessReviewMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
   "currentMainShaAfterDecisionAuthorityPermissionsMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-  "currentMainShaAfterGovernanceRestorePr539Merge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768"
+  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+  "currentMainShaAfterGovernanceRestorePr539Merge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+  "currentMainShaAfterServerOnlyRuntimeFixPr541Merge": "80223ac41e6200c25b65777a4a98b5f2e90f56a1"
 }

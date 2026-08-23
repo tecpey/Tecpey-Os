@@ -129,6 +129,11 @@ for (const blockerId of ["NOG-01", "NOG-02"]) {
     entry?.executionState,
     "blocked_pending_protected_environment_rules_and_workflow_dispatch",
   );
+  requireEqual(
+    `${blockerId}.currentObservationState`,
+    entry?.currentObservationState,
+    "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
+  );
   requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blockerId);
 }
 
