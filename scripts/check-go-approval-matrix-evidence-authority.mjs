@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const REQUEST_PATH = "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json";
 const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_PREREQUISITE_BLOCKERS = [
   "NOG-01",
   "NOG-02",

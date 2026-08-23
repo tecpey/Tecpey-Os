@@ -163,7 +163,7 @@ if (!protectedStagingOpen && !protectedStagingAccepted) {
   );
 }
 const nog05 = register.blockers?.find((entry) => entry.id === "NOG-05");
-requireEqual("NOG-05.status", nog05?.status, "open");
+requireEqual("NOG-05.status", nog05?.status, "accepted");
 
 requireEqual("evidence.observedVia.workflow", evidence.observedVia?.workflow, "Container Supply Chain");
 requireEqual("evidence.observedVia.workflowPath", evidence.observedVia?.workflowPath, ".github/workflows/container-supply-chain.yml");
@@ -236,7 +236,7 @@ if (
 for (const invariant of [
   files.evidence,
   "NOG-06 is accepted for exact-candidate ephemeral rollback and synthetic PostgreSQL/Redis volume-restore mechanics only",
-  "protected staging domain recovery reconciliation remains under NOG-05",
+  "protected staging domain recovery reconciliation is accepted separately under NOG-05",
 ]) {
   requireText(files.packet, packet, invariant, `packet is missing NOG-06 invariant: ${invariant}`);
 }
@@ -252,6 +252,7 @@ requireAnyText(
   [
     "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
     "NO-GO remains until recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
+    "NO-GO remains until incident, accepted-risk owner sign-off and approval evidence is accepted",
   ],
   "checklist is missing a coherent pre/post protected-staging NOG-06 boundary",
 );

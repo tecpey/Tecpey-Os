@@ -15,8 +15,8 @@ const paths = {
 const shaPattern = /^[0-9a-f]{40}$/;
 const failures = [];
 const RECOLLECTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06"];
-const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05"];
+const OPEN_BLOCKERS = ["NOG-07", "NOG-08", "NOG-09"];
 const DISABLED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",

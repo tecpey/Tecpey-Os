@@ -19,6 +19,10 @@ const files = {
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
+  recoveryReconciliationEvidenceAuthority:
+    "scripts/check-protected-recovery-reconciliation-execution-status.mjs",
+  recoveryReconciliationExecutionStatus:
+    "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
   acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
@@ -315,6 +319,7 @@ for (const invariant of [
   '"test:go-approval-matrix-evidence"',
   '"launch:rollback-evidence:check"',
   '"launch:workflow-evidence:check"',
+  '"launch:recovery-reconciliation-evidence:check"',
   '"test:launch-packet"',
   '"test:disabled-capability-attestation"',
   '"launch:decision:check"',
@@ -330,6 +335,7 @@ for (const invariant of [
   "scripts/go-approval-matrix-evidence.test.mjs",
   "scripts/check-exact-head-workflow-evidence-authority.mjs",
   "scripts/check-rollback-volume-restore-evidence-authority.mjs",
+  "scripts/check-protected-recovery-reconciliation-execution-status.mjs",
   "scripts/disabled-capability-attestation-policy.test.mjs",
   "scripts/controlled-launch-release-packet.test.mjs",
   "scripts/controlled-launch-evidence-manifest.mjs",
@@ -338,6 +344,7 @@ for (const invariant of [
   "npm run launch:decision:check",
   "npm run launch:rollback-evidence:check",
   "npm run launch:workflow-evidence:check",
+  "npm run launch:recovery-reconciliation-evidence:check",
   "npm run launch:disabled-capabilities:check",
   "npm run launch:gated-capability-evidence:check",
   "npm run launch:accepted-risk-evidence:check",
@@ -664,6 +671,34 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  "Protected recovery reconciliation execution status",
+  "NO_GO_NOG_05_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "accepted_exact_candidate_protected_recovery_reconciliation",
+  "NOG-05 is accepted",
+  "launch:recovery-reconciliation-evidence:check",
+]) {
+  requireText(
+    "recoveryReconciliationEvidenceAuthority",
+    invariant,
+    `protected recovery reconciliation evidence authority is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
+  "protected-recovery-reconciliation-execution-status-observation",
+  "32659459702",
+  "sha256:e55f5eb887bde6d15d41f955d7a39345fa5f0472c4ef688c3d54b98203fd1e69",
+  "github:xrayman6zfm-ux",
+  "NOG-07, NOG-08 and NOG-09 are accepted",
+]) {
+  requireText(
+    "recoveryReconciliationExecutionStatus",
+    invariant,
+    `protected recovery reconciliation execution status is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
   "controlled launch evidence manifest validates the complete final packet input set",
   "controlled launch evidence manifest rejects unknown fields",
   "controlled launch evidence manifest rejects non-https evidence URLs",
@@ -704,6 +739,8 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  "Protected recovery reconciliation evidence authority guard",
+  "npm run launch:recovery-reconciliation-evidence:check",
   "Accepted-risk signoff evidence authority guard",
   "npm run launch:accepted-risk-evidence:check",
   "Controlled launch decision authority guard",
