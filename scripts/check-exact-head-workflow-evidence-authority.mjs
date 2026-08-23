@@ -49,6 +49,13 @@ function requireText(path, source, token, reason) {
   }
 }
 
+function requireAnyText(path, source, tokens, reason) {
+  const normalized = source.replace(/\s+/g, " ");
+  if (!tokens.some((token) => normalized.includes(token.replace(/\s+/g, " ")))) {
+    failures.push(`${path}: ${reason}`);
+  }
+}
+
 const [evidence, register, candidate, packet, checklist, packageJson] = await Promise.all([
   json(files.evidence),
   json(files.register),
@@ -121,19 +128,46 @@ requireArrayIncludes(
 );
 requireArrayIncludes("evidence.acceptedForBlockers", evidence.acceptedForBlockers, "NOG-04");
 
+const acceptedProtectedStagingExecutionStates = {
+  "NOG-01": "accepted_exact_candidate_protected_staging_activation",
+  "NOG-02": "accepted_exact_candidate_redacted_environment_evidence",
+};
+const protectedStagingEntries = ["NOG-01", "NOG-02"].map((blockerId) =>
+  register.blockers?.find((candidateBlocker) => candidateBlocker.id === blockerId),
+);
+const protectedStagingState =
+  protectedStagingEntries.every((entry) => entry?.status === "open")
+    ? "open"
+    : protectedStagingEntries.every((entry) => entry?.status === "accepted")
+      ? "accepted"
+      : "incoherent";
+if (protectedStagingState === "incoherent") {
+  failures.push("NOG-01/NOG-02: statuses must transition atomically from open to accepted");
+}
 for (const blockerId of ["NOG-01", "NOG-02"]) {
   const entry = register.blockers?.find((candidateBlocker) => candidateBlocker.id === blockerId);
-  requireEqual(`${blockerId}.status`, entry?.status, "open");
-  requireEqual(
-    `${blockerId}.executionState`,
-    entry?.executionState,
-    "blocked_pending_protected_environment_rules_and_workflow_dispatch",
-  );
-  requireEqual(
-    `${blockerId}.currentObservationState`,
-    entry?.currentObservationState,
-    "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
-  );
+  if (protectedStagingState === "open") {
+    requireEqual(`${blockerId}.executionState`, entry?.executionState, "blocked_pending_protected_environment_rules_and_workflow_dispatch");
+    requireEqual(
+      `${blockerId}.currentObservationState`,
+      entry?.currentObservationState,
+      "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
+    );
+  } else if (protectedStagingState === "accepted") {
+    requireEqual(
+      `${blockerId}.executionState`,
+      entry?.executionState,
+      acceptedProtectedStagingExecutionStates[blockerId],
+    );
+    requireEqual(
+      `${blockerId}.currentObservationState`,
+      entry?.currentObservationState,
+      "accepted_exact_candidate_evidence_verified",
+    );
+    requireEqual(`${blockerId}.selectedSha`, entry?.selectedSha, selectedSha);
+  }
+  // NOG-04 evidence does not itself close NOG-01/NOG-02; their separate
+  // protected-staging evidence is recorded by the execution-status authority.
   requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blockerId);
 }
 
@@ -144,12 +178,21 @@ for (const invariant of [
 ]) {
   requireText(files.packet, packet, invariant, `packet is missing NOG-04 invariant: ${invariant}`);
 }
-for (const invariant of [
+requireText(
+  files.checklist,
+  checklist,
   "Exact-head CI, Full Suite, API Security, Sensitive Mutation, Repository Audit, Public Golden Path, Container Supply Chain and Secret Scanning URLs are accepted for NOG-04",
-  "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
-]) {
-  requireText(files.checklist, checklist, invariant, `checklist is missing NOG-04 boundary: ${invariant}`);
-}
+  "checklist is missing the NOG-04 accepted-workflow boundary",
+);
+requireAnyText(
+  files.checklist,
+  checklist,
+  [
+    "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
+    "NO-GO remains until recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
+  ],
+  "checklist is missing a coherent pre- or post-protected-staging NOG-04 boundary",
+);
 requireText(
   files.packageJson,
   JSON.stringify(packageJson),
