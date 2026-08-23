@@ -15,6 +15,9 @@ on:
       - scripts/test-container-volume-recovery.sh
       - scripts/verify-operational-recovery-evidence.mjs
       - scripts/verify-protected-recovery-reconciliation-evidence.mjs
+      - scripts/collect-protected-recovery-reconciliation-evidence.mjs
+      - scripts/protected-recovery-reconciliation-collector-policy.mjs
+      - scripts/protected-recovery-reconciliation-collector-policy.test.mjs
       - scripts/check-operational-recovery-authority.mjs
       - scripts/operational-recovery-authority-policy.mjs
       - scripts/operational-recovery-authority-policy.test.mjs
@@ -24,6 +27,7 @@ on:
       - docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md
       - docs/operations/PRODUCTION_DEPLOYMENT_CONTRACT.md
       - .github/workflows/operational-recovery.yml
+      - .github/workflows/protected-staging-recovery-reconciliation-evidence.yml
       - .github/workflows/container-supply-chain.yml
   schedule:
     - cron: '17 3 * * 1'

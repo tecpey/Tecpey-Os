@@ -1,0 +1,200 @@
+name: Protected Staging Recovery Reconciliation Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character main-branch commit currently active on staging
+        required: true
+        type: string
+      reviewer_external_identity:
+        description: Independent reviewer GitHub login (must differ from the workflow actor)
+        required: true
+        type: string
+      independent_review_confirmed:
+        description: Confirm the reviewer independently approved this protected restore drill
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-staging-recovery-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  collect-and-verify:
+    name: Restore isolated snapshots and reconcile all launch domains
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact recovery authority
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: authority
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify authority, candidate and independent participants
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REVIEWER: ${{ inputs.reviewer_external_identity }}
+          REVIEW_CONFIRMED: ${{ inputs.independent_review_confirmed && '1' || '0' }}
+          ACTOR: ${{ github.actor }}
+          AUTHORITY_SHA: ${{ github.sha }}
+          AUTHORITY_REF: ${{ github.ref }}
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+          HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
+        run: |
+          set -Eeuo pipefail
+          test "$AUTHORITY_REF" = refs/heads/main
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$REVIEWER" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]
+          test "$REVIEW_CONFIRMED" = 1
+          test "${REVIEWER,,}" != "${ACTOR,,}"
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test -n "$HEALTH_URL"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+          (cd authority && test "$(git rev-parse HEAD)" = "$AUTHORITY_SHA")
+          git -C authority merge-base --is-ancestor "$RELEASE_SHA" "$AUTHORITY_SHA"
+          APP_DIR="$(systemctl show tecpey-staging.service --property=WorkingDirectory --value)"
+          test "$APP_DIR" = "/srv/tecpey/releases/$RELEASE_SHA"
+          test "$(git -C "$APP_DIR" rev-parse --is-inside-work-tree)" = true
+          test "$(git -C "$APP_DIR" rev-parse HEAD)" = "$RELEASE_SHA"
+          test -z "$(git -C "$APP_DIR" status --porcelain --untracked-files=no)"
+          test -d "$APP_DIR/node_modules/pg"
+          test "$(systemctl is-active tecpey-staging.service)" = active
+          HEALTH="$(curl --fail --silent --show-error --max-time 10 "$HEALTH_URL")"
+          HEALTH_PAYLOAD="$HEALTH" RELEASE_SHA="$RELEASE_SHA" node <<'NODE'
+          const health = JSON.parse(process.env.HEALTH_PAYLOAD);
+          if (
+            health?.ok !== true
+            || health?.build?.commit !== process.env.RELEASE_SHA
+            || health?.migrations?.status !== "current"
+          ) {
+            throw new Error("protected_staging_runtime_identity_invalid");
+          }
+          NODE
+          printf 'TECPEY_RECOVERY_CANDIDATE_DIR=%s\n' "$APP_DIR" >> "$GITHUB_ENV"
+
+      - name: Configure governed protected CA trust
+        shell: bash
+        env:
+          ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const { X509Certificate } = require("node:crypto");
+          const { appendFileSync, lstatSync, readFileSync } = require("node:fs");
+          const path = require("node:path");
+          const environmentFile = process.env.ENV_FILE?.trim() ?? "";
+          if (!path.isAbsolute(environmentFile) || environmentFile.length > 500) {
+            throw new Error("protected_recovery_environment_file_invalid");
+          }
+          const environmentStat = lstatSync(environmentFile);
+          if (
+            environmentStat.isSymbolicLink()
+            || !environmentStat.isFile()
+            || environmentStat.size < 1
+            || environmentStat.size > 64 * 1024
+            || (environmentStat.mode & 0o022) !== 0
+          ) {
+            throw new Error("protected_recovery_environment_file_unsafe");
+          }
+          const values = new Map();
+          for (const rawLine of readFileSync(environmentFile, "utf8").split(/\r?\n/)) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith("#")) continue;
+            const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
+            if (!match || match[2] === "" || values.has(match[1])) {
+              throw new Error("protected_recovery_environment_file_format_invalid");
+            }
+            values.set(match[1], match[2]);
+          }
+          for (const required of ["DATABASE_URL", "REDIS_URL"]) {
+            if (!values.has(required)) throw new Error(`protected_recovery_${required.toLowerCase()}_missing`);
+          }
+          const configuredCaPath = values.get("NODE_EXTRA_CA_CERTS");
+          if (!configuredCaPath) process.exit(0);
+          if (!path.isAbsolute(configuredCaPath) || configuredCaPath.length > 500) {
+            throw new Error("protected_recovery_ca_path_invalid");
+          }
+          const caStat = lstatSync(configuredCaPath);
+          if (
+            caStat.isSymbolicLink()
+            || !caStat.isFile()
+            || caStat.size < 1
+            || caStat.size > 256 * 1024
+            || (caStat.mode & 0o022) !== 0
+          ) {
+            throw new Error("protected_recovery_ca_file_unsafe");
+          }
+          const certificates = readFileSync(configuredCaPath, "utf8").match(
+            /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g,
+          ) ?? [];
+          if (certificates.length < 1 || certificates.length > 16) {
+            throw new Error("protected_recovery_ca_bundle_invalid");
+          }
+          for (const certificate of certificates) new X509Certificate(certificate);
+          appendFileSync(process.env.GITHUB_ENV, `NODE_EXTRA_CA_CERTS=${configuredCaPath}\n`);
+          NODE
+
+      - name: Collect protected restore and reconciliation evidence
+        shell: bash
+        env:
+          TECPEY_RECOVERY_AUTHORITY_DIR: ${{ github.workspace }}/authority
+          TECPEY_RECOVERY_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_RECOVERY_HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
+          TECPEY_RECOVERY_SOURCE_SHA: ${{ inputs.release_sha }}
+          TECPEY_RECOVERY_OPERATOR: github:${{ github.actor }}
+          TECPEY_RECOVERY_REVIEWER: github:${{ inputs.reviewer_external_identity }}
+          TECPEY_RECOVERY_INDEPENDENT_REVIEW_CONFIRMED: ${{ inputs.independent_review_confirmed && '1' || '0' }}
+          TECPEY_RECOVERY_MAX_RTO_SECONDS: '900'
+          TECPEY_RECOVERY_EVIDENCE_DIR: ${{ github.workspace }}/authority/artifacts/protected-staging-recovery
+        run: node authority/scripts/collect-protected-recovery-reconciliation-evidence.mjs
+
+      - name: Verify evidence offline and bind artifact digest
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          EVIDENCE_DIR="authority/artifacts/protected-staging-recovery"
+          EVIDENCE_FILE="$EVIDENCE_DIR/protected-staging-recovery-reconciliation-$RELEASE_SHA.json"
+          node authority/scripts/verify-protected-recovery-reconciliation-evidence.mjs \
+            "$EVIDENCE_FILE" --expected-sha "$RELEASE_SHA"
+          (cd "$EVIDENCE_DIR" && sha256sum --check SHA256SUMS)
+
+      - name: Publish bounded recovery summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REVIEWER: ${{ inputs.reviewer_external_identity }}
+        run: |
+          {
+            echo "## Protected staging recovery reconciliation"
+            echo ""
+            echo "- Candidate: \`$RELEASE_SHA\`"
+            echo "- Restore target: isolated PostgreSQL database and isolated Redis socket"
+            echo "- Domains reconciled: 6/6"
+            echo "- Privacy: counts and hashes only"
+            echo "- Independent reviewer: \`github:$REVIEWER\`"
+            echo "- Artifact: \`protected-staging-recovery-reconciliation-$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted protected recovery evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: protected-staging-recovery-reconciliation-${{ inputs.release_sha }}
+          path: authority/artifacts/protected-staging-recovery/**
+          if-no-files-found: error
+          retention-days: 30

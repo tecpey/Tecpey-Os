@@ -66,6 +66,25 @@ for Academy, Trading Arena, Mentor AI, Exchange Ledger, notifications/jobs, and
 tenant/principal isolation before release-owner review can treat recovery as
 accepted evidence.
 
+### NOG-05 protected staging execution
+
+Dispatch `Protected Staging Recovery Reconciliation Evidence` from `main` with:
+
+- `release_sha`: the exact SHA currently reported by staging `/api/health`;
+- `reviewer_external_identity`: the independent reviewer's GitHub login, which
+  must differ from the dispatching actor;
+- `independent_review_confirmed`: `true`, only after that reviewer has approved
+  the protected restore drill.
+
+The workflow verifies the active systemd `WorkingDirectory`, health SHA,
+migration status, candidate ancestry, runner identity, immutable runtime image
+digest, protected environment-file permissions, and CA bundle before collection.
+It creates isolated PostgreSQL and Redis restore targets, reconciles all six
+launch domains, removes both temporary targets, runs the offline verifier, and
+uploads `protected-staging-recovery-reconciliation-<sha>` with a `SHA256SUMS`
+binding. Do not copy database dumps, Redis RDB files, command logs, or raw rows
+into the artifact. A failed or missing artifact leaves NOG-05 open.
+
 ## Ambiguity policy
 
 If the system cannot prove whether a state mutation or provider effect occurred,
