@@ -157,7 +157,7 @@ async function fixture() {
         environment: "production",
         checks: { database: "ok", redis: "ok" },
         build: { commit: SHA },
-        migrations: { status: "tracked", applied: 50 },
+        migrations: { status: "current", applied: 50 },
       }),
     }),
     readDatabaseEvidence: async () => ({
@@ -197,6 +197,7 @@ describe("Community challenge host evidence collector", () => {
   it("accepts 0755 public paths while enforcing private sensitive paths", async () => {
     const test = await fixture();
     const evidence = await collectCommunityChallengeHostEvidence(test.options, test.deps);
+    assert.equal(evidence.health.migrationsStatus, "tracked");
     assert.equal(evidence.runtime.environmentFile.mode, "0640");
     assert.equal(evidence.runtime.stateDirectory.mode, "0700");
     assert.equal(evidence.systemd.finalizerTimer.matchesExpected, true);
@@ -207,6 +208,22 @@ describe("Community challenge host evidence collector", () => {
       now: new Date("2026-07-21T10:10:00.000Z"),
     });
     assert.equal(result.ok, true);
+  });
+
+  it("rejects health responses without current migration readiness", async () => {
+    const test = await fixture();
+    const originalFetchHealth = test.deps.fetchHealth;
+    test.deps.fetchHealth = async (url, timeoutMs) => {
+      const response = await originalFetchHealth(url, timeoutMs);
+      return {
+        ...response,
+        body: response.body.replace('"status":"current"', '"status":"tracked"'),
+      };
+    };
+    await assert.rejects(
+      () => collectCommunityChallengeHostEvidence(test.options, test.deps),
+      /host_evidence_health_contract_invalid/,
+    );
   });
 
   it("collects active monotonic timers when realtime next elapse is unavailable", async () => {

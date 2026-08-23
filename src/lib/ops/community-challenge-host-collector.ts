@@ -244,7 +244,7 @@ function parseHealth(status: number, rawBody: string): CommunityChallengeHostEvi
     root.environment !== "production" ||
     !checks || checks.database !== "ok" || checks.redis !== "ok" ||
     !build || typeof build.commit !== "string" || !GIT_SHA_RE.test(build.commit) ||
-    !migrations || migrations.status !== "tracked" ||
+    !migrations || migrations.status !== "current" ||
     !Number.isSafeInteger(migrations.applied) || Number(migrations.applied) < 1
   ) {
     throw new Error("host_evidence_health_contract_invalid");
@@ -258,6 +258,8 @@ function parseHealth(status: number, rawBody: string): CommunityChallengeHostEvi
     commit: build.commit,
     database: "ok",
     redis: "ok",
+    // Evidence schema v1 records accepted migration readiness as "tracked";
+    // the live health contract reports the converged schema state as "current".
     migrationsStatus: "tracked",
     migrationsApplied: Number(migrations.applied),
   };
