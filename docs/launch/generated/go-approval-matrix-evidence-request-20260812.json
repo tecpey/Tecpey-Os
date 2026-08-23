@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "go-approval-matrix-evidence-request",
-  "generatedAt": "2026-08-23T07:13:39Z",
+  "generatedAt": "2026-08-23T09:01:03Z",
   "decision": "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
   "executionState": "blocked_pending_final_go_approval_matrix",
-  "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+  "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
   "candidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json",
   "requestPath": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
   "blocker": "NOG-09",
@@ -27,14 +27,14 @@
   ],
   "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
   "verifier": "scripts/verify-go-approval-matrix-evidence.mjs",
-  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- <artifact.json> --expected-sha 38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+  "verificationCommand": "npm run ops:go-approval-matrix:evidence:verify -- <artifact.json> --expected-sha 80223ac41e6200c25b65777a4a98b5f2e90f56a1",
   "authorityGuard": "scripts/check-go-approval-matrix-evidence-authority.mjs",
   "requiredArtifact": {
     "schemaVersion": 1,
     "authority": "tecpey-go-approval-matrix-v1",
     "evidenceClass": "controlled-soft-launch-go-approval-matrix",
     "environment": "release-control",
-    "sourceSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+    "sourceSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
     "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
     "allowedSurfaces": [
       "public-fa-en",
@@ -93,7 +93,7 @@
     },
     {
       "name": "ops:go-approval-matrix:evidence:verify",
-      "command": "node scripts/verify-go-approval-matrix-evidence.mjs <artifact.json> --expected-sha 38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+      "command": "node scripts/verify-go-approval-matrix-evidence.mjs <artifact.json> --expected-sha 80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "disposition": "required_for_final_artifact"
     },
     {

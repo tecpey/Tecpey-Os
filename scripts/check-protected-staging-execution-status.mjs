@@ -94,16 +94,30 @@ requireEqual("status.githubEnvironment.exists", status.githubEnvironment?.exists
 requireEqual(
   "status.githubEnvironment.protectionDisposition",
   status.githubEnvironment?.protectionDisposition,
-  "failed_no_protection_rules_observed",
+  "passed_required_reviewer_and_branch_policy_no_admin_bypass",
 );
-if ((status.githubEnvironment?.protectionRulesCount ?? 0) > 0) {
-  failures.push("status.githubEnvironment.protectionRulesCount: update this observation before acceptance");
+requireEqual(
+  "status.githubEnvironment.protectionRulesCount",
+  status.githubEnvironment?.protectionRulesCount,
+  2,
+);
+requireEqual(
+  "status.githubEnvironment.canAdminsBypass",
+  status.githubEnvironment?.canAdminsBypass,
+  false,
+);
+for (const ruleType of ["required_reviewers", "branch_policy"]) {
+  requireArrayIncludes(
+    "status.githubEnvironment.observedRuleTypes",
+    status.githubEnvironment?.observedRuleTypes,
+    ruleType,
+  );
 }
 
 requireEqual(
   "status.workflows.protectedStagingEnvEvidence.disposition",
   status.workflows?.protectedStagingEnvEvidence?.disposition,
-  "blocked_no_runs_observed",
+  "blocked_no_accepted_current_candidate_run",
 );
 requireEqual(
   "status.workflows.stagingCommunityChallengeSchedulerEvidence.disposition",
@@ -136,19 +150,20 @@ for (const blocker of register.blockers.filter((entry) => ["NOG-01", "NOG-02"].i
   requireEqual(
     `${blocker.id}.executionState`,
     blocker.executionState,
-    "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+    "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
   );
 }
 requireEqual(
   "register.executionRequests[0].status",
   register.executionRequests?.[0]?.status,
-  "blocked_pending_protected_environment_rules_and_workflow_dispatch",
+  "blocked_pending_exact_candidate_deployment_and_successful_workflow_dispatch",
 );
 
 for (const invariant of [
   "protected-staging-execution-status-20260812.json",
   "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
-  "protection_rules: []",
+  "required_reviewers",
+  "branch_policy",
   "NOG-01 and NOG-02 remain open",
 ]) {
   requireText("packet", invariant, `packet is missing execution-status invariant: ${invariant}`);
@@ -156,7 +171,7 @@ for (const invariant of [
 }
 for (const invariant of [
   "GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md",
-  "protection_rules: []",
+  "administrator bypass disabled",
 ]) {
   requireText("packet", invariant, `packet is missing environment-protection invariant: ${invariant}`);
   requireText("runbook", invariant, `runbook is missing environment-protection invariant: ${invariant}`);

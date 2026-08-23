@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "rollback-volume-restore-evidence",
-  "generatedAt": "2026-08-23T07:13:39Z",
+  "generatedAt": "2026-08-23T09:01:03Z",
   "decision": "NO_GO_NOG_06_ACCEPTED_EPHEMERAL_ROLLBACK_VOLUME_RESTORE_ONLY",
-  "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-  "previousReleaseSha": "fc67fbab308540962dc3cdcae833a2560bfb4f4b",
+  "selectedSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+  "previousReleaseSha": "82a414a95c2e1f8c98e66bde02720e65c0da7c3d",
   "sourceBranch": "main",
-  "sourcePullRequest": 539,
+  "sourcePullRequest": 541,
   "acceptedForBlockers": [
     "NOG-06"
   ],
@@ -14,18 +14,18 @@
     "provider": "github-actions-api",
     "workflow": "Container Supply Chain",
     "workflowPath": ".github/workflows/container-supply-chain.yml",
-    "runNumber": 572,
-    "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32624736115",
+    "runNumber": 576,
+    "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32629263718",
     "event": "push",
     "status": "completed",
     "conclusion": "success",
-    "createdAt": "2026-08-23T07:07:33Z",
-    "updatedAt": "2026-08-23T07:13:38Z",
+    "createdAt": "2026-08-23T08:48:45Z",
+    "updatedAt": "2026-08-23T08:55:30Z",
     "runAttempt": 1
   },
   "rollbackJob": {
     "name": "Ephemeral staging rollback and volume restore",
-    "jobId": 97158183852,
+    "jobId": 97169375052,
     "status": "completed",
     "conclusion": "success",
     "requiredSteps": [
@@ -39,41 +39,41 @@
     ]
   },
   "artifact": {
-    "id": 9489392205,
-    "name": "container-recovery-38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-    "apiUrl": "https://api.github.com/repos/tecpey/Tecpey-Os/actions/artifacts/9489392205",
-    "digest": "sha256:c9d9e3eb69f5059e25b05fbe0723513c081367ca9ec6284c18deeb580448ed55",
-    "sizeInBytes": 112252,
-    "createdAt": "2026-08-23T07:10:34Z",
-    "expiresAt": "2026-09-22T07:10:34Z"
+    "id": 9490601791,
+    "name": "container-recovery-80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+    "apiUrl": "https://api.github.com/repos/tecpey/Tecpey-Os/actions/artifacts/9490601791",
+    "digest": "sha256:1d21d8e3a1783df3639be83146574d56bcdab8d4d9da265ea9d2ffbb2d852715",
+    "sizeInBytes": 112284,
+    "createdAt": "2026-08-23T08:52:06Z",
+    "expiresAt": "2026-09-22T08:52:04Z"
   },
   "downloadVerification": {
-    "verifiedAt": "2026-08-23T07:13:39Z",
-    "zipSha256": "c9d9e3eb69f5059e25b05fbe0723513c081367ca9ec6284c18deeb580448ed55",
-    "resultVerifier": "node scripts/verify-operational-recovery-evidence.mjs /tmp/container-recovery-result-38c2.json --expected-sha 38c2cd36d0236045bf3c9fbcf093ec431dc47768",
+    "verifiedAt": "2026-08-23T09:01:03Z",
+    "zipSha256": "1d21d8e3a1783df3639be83146574d56bcdab8d4d9da265ea9d2ffbb2d852715",
+    "resultVerifier": "node scripts/verify-operational-recovery-evidence.mjs /tmp/container-recovery-result-80223ac4.json --expected-sha 80223ac41e6200c25b65777a4a98b5f2e90f56a1",
     "resultVerifierDisposition": "success"
   },
   "rollbackResult": {
     "environment": "ephemeral-staging",
     "candidate": "served",
     "rollback": "previous-release-served",
-    "candidateImageId": "sha256:18ffc58538b04b4db010ae29cf4b1c53fec9d722e0cba965d23b62623248bc62",
-    "previousImageId": "sha256:2a59ff01c2d928caabad08c22e072dd8cf8a3eb14a0f1c66b44c415b28f90010"
+    "candidateImageId": "sha256:8a90eeac77467e9aee52f69edee023e11251bad249358baac6d595170f769858",
+    "previousImageId": "sha256:07975b32f86e34cf2d8fb04d542caecf4e74b0ddc0669b24cbcb47993b5672f5"
   },
   "volumeRestoreResult": {
     "authority": "tecpey-operational-recovery-drill-v1",
     "environment": "ephemeral-ci",
-    "sourceSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
-    "imageId": "sha256:18ffc58538b04b4db010ae29cf4b1c53fec9d722e0cba965d23b62623248bc62",
+    "sourceSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+    "imageId": "sha256:8a90eeac77467e9aee52f69edee023e11251bad249358baac6d595170f769858",
     "maximumRecoverySeconds": 300,
-    "backupDurationMs": 1564,
-    "recoveryDurationMs": 4770,
-    "totalDurationMs": 14986,
+    "backupDurationMs": 2393,
+    "recoveryDurationMs": 5107,
+    "totalDurationMs": 16614,
     "rpoBoundary": "all-probe-writes-committed-before-backup-are-present-and-later-writes-are-absent",
     "migrationPlanHash": "f01698c5978d60f3f40200003286d0545980edc84fe840aa0e2b4a8ab6195696",
     "restoredMigrationPlanHash": "f01698c5978d60f3f40200003286d0545980edc84fe840aa0e2b4a8ab6195696",
-    "postgresBackupSha256": "69d8ff12fcea39af1fa51f8d209dfbdac6b116cf79a64a038e7f486e7cded686",
-    "redisBackupSha256": "c13743ba47630f35c0c30aad35722a718a0c842e18fcbc4f0016b59fc8e03db4"
+    "postgresBackupSha256": "455fa0da153e404d7c2c7fe15e92b67b602bde0a7931d1df18b7c9d2e97d017b",
+    "redisBackupSha256": "54311fca84cb818f28384a73202a5b004c2ce920d3b3bb6f80bb5f12e12101bb"
   },
   "notAcceptedForBlockers": [
     "NOG-01",
