@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `ed11e5e596e1b08b16feb493bb41a1cacb324f6e`
-**Candidate source:** `main` after PR #530 promoted the c0e9 evidence line
-**Candidate selected at:** `2026-08-22T19:26:23Z`
+**Current candidate SHA:** `38c2cd36d0236045bf3c9fbcf093ec431dc47768`
+**Candidate source:** repaired `main` after PR #539 restored the post-#537 tree and preserved the intended monotonic timer evidence fix
+**Candidate selected at:** `2026-08-23T07:13:39Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -20,13 +20,10 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #530 advanced `main` after the e355 accepted-risk freshness target by granting
-the launch decision authority read-only Actions metadata access. Candidate
-Evidence Recollection Authority #81 then collected genuine exact-main workflow,
-runtime image and rollback/volume-restore evidence for:
+PR #539 repaired the unintended PR #538 rollback by restoring the healthy post-#537 tree while preserving the intended monotonic systemd timer evidence fix. Candidate Evidence Recollection Authority #93 then collected genuine exact-main workflow, runtime image and rollback/volume-restore evidence for:
 
 ```text
-ed11e5e596e1b08b16feb493bb41a1cacb324f6e
+38c2cd36d0236045bf3c9fbcf093ec431dc47768
 ```
 
 Using the prior PR #441, PR #439, PR #434, PR #435 or PR #433 candidate for new
@@ -56,6 +53,7 @@ execution.
 | `915c0dce2d59424ffcc19a79f080b9b7ca00f393` | Current controlled-launch candidate after PR #441 Academy lesson-progress tenant-binding and PR #528 evidence recollection base | Superseded by PR #531 for current-main exact-candidate evidence collection. |
 | `e35586cc325f42adbdf2366d120ae89056e19d30` | Current controlled-launch candidate after PR #531 accepted-risk freshness repair and exact-candidate evidence refresh | Superseded by PR #534 for all new current-main exact-candidate evidence collection. |
 | `c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3` | Current controlled-launch candidate after PR #534 decision-authority permission and exact-candidate evidence promotion | Superseded by PR #530 for exact-main evidence promotion to `ed11e5e`. |
+| `ed11e5e596e1b08b16feb493bb41a1cacb324f6e` | Current controlled-launch candidate after PR #530 exact-main evidence promotion | Superseded by PR #539 repaired-main exact-candidate evidence promotion. |
 
 ## Candidate Identity Rules
 
