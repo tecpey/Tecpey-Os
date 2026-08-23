@@ -58,6 +58,35 @@ for (const evidence of [
   requireText(spec, evidence, `evidence:${evidence}`);
 }
 
+// QA-051 asks for five checks and for evidence that survives the run. The spec
+// used to emit Playwright attachments only, which live inside a report rather
+// than as an artifact anyone can verify afterwards. These entries keep the
+// recording attached to the checks: losing either half turns the control back
+// into a claim.
+for (const evidence of [
+  "await assertReducedMotion(page, viewport, surface.path)",
+  "await captureFocusOrder(page, viewport, surface.path)",
+  "prefers-reduced-motion",
+  "color-contrast",
+  "focusVisible",
+  "followsDomOrder",
+  "recordCheck(\"axe\"",
+  "recordCheck(\"keyboard\"",
+  "recordCheck(\"focus\"",
+  "recordCheck(\"contrast\"",
+  "recordCheck(\"reducedMotion\"",
+  "AXE_RULE_TAGS",
+]) {
+  requireText(spec, evidence, `qa051:${evidence}`);
+}
+
+// Deliberately a pattern and not a substring. "writeEvidenceShard(viewport)" is
+// also a substring of the function's own definition line, so requiring the text
+// would stay satisfied after the only call site was deleted — the guard would
+// report coverage it no longer had. An indented call statement ending in a
+// semicolon is something the declaration cannot be.
+requirePattern(spec, /^[ \t]+writeEvidenceShard\(viewport\);$/m, "qa051:shard-write-call");
+
 requirePattern(runner, /const maxTestsPerProject = [5-9]\d*;/, "runner-project-timeout-budget");
 
 console.log("Academy/Arena/Mentor accessibility evidence check passed.");

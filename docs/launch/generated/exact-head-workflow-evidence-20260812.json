@@ -1,115 +1,164 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "evidenceClass": "exact-head-workflow-evidence",
-  "generatedAt": "2026-08-14T16:00:49Z",
+  "generatedAt": "2026-08-22T19:26:23Z",
   "decision": "NO_GO_NOG_04_ACCEPTED_EXACT_HEAD_WORKFLOW_URLS_ONLY",
-  "selectedSha": "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913",
+  "selectedSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
   "sourceBranch": "main",
-  "sourcePullRequest": 437,
+  "sourcePullRequest": 530,
   "acceptedForBlockers": [
     "NOG-04"
   ],
   "observedVia": {
     "provider": "github-actions-api",
-    "query": "https://api.github.com/repos/tecpey/Tecpey-Os/actions/runs?head_sha=9bd4ca5ec22e99e2d7deb192826ef8c018ee4913&per_page=100",
-    "totalRuns": 8
+    "query": "https://api.github.com/repos/tecpey/Tecpey-Os/actions/runs?head_sha=ed11e5e596e1b08b16feb493bb41a1cacb324f6e&per_page=100",
+    "totalRuns": 10,
+    "discoveryArtifact": "exact-main-run-discovery-32593321271",
+    "discoveryArtifactDigest": "sha256:76e19e62c38cc4731255023cc6f4b7b505cc6ec6313087261eafffa6bb079cf7"
   },
   "workflowEvidence": {
-    "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181461",
-    "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181497",
-    "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181547",
-    "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181509",
-    "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181483",
-    "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181468",
-    "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181531",
-    "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181476",
-    "operationalRecoveryRunUrl": null
+    "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321029",
+    "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321195",
+    "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321073",
+    "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321107",
+    "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321102",
+    "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321066",
+    "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321084",
+    "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321147",
+    "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593329972"
   },
   "workflowRuns": [
     {
       "name": "CI",
       "workflowPath": ".github/workflows/ci.yml",
-      "runNumber": 2459,
+      "runNumber": 2838,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181461",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321029",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:26:20Z"
     },
     {
       "name": "Full Suite Diagnostics",
       "workflowPath": ".github/workflows/full-suite-diagnostics.yml",
-      "runNumber": 1472,
+      "runNumber": 1851,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181497",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321195",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:21:06Z"
     },
     {
       "name": "API Security Manifest",
       "workflowPath": ".github/workflows/api-security-manifest.yml",
-      "runNumber": 1588,
+      "runNumber": 1967,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181547",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321073",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:19:02Z"
     },
     {
       "name": "Sensitive Mutation Audit",
       "workflowPath": ".github/workflows/sensitive-mutation-audit.yml",
-      "runNumber": 1454,
+      "runNumber": 1833,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181509",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321107",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:19:41Z"
     },
     {
       "name": "Repository Audit Manifest",
       "workflowPath": ".github/workflows/repository-audit-manifest.yml",
-      "runNumber": 538,
+      "runNumber": 917,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181483",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321102",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:18:40Z"
     },
     {
       "name": "Public Browser Golden Path",
       "workflowPath": ".github/workflows/public-browser-golden-path.yml",
-      "runNumber": 669,
+      "runNumber": 1048,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181468",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321066",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:22:12Z"
     },
     {
       "name": "Container Supply Chain",
       "workflowPath": ".github/workflows/container-supply-chain.yml",
-      "runNumber": 379,
+      "runNumber": 564,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181531",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321084",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:24:40Z"
     },
     {
       "name": "Full History Secret Scanning",
       "workflowPath": ".github/workflows/secret-scanning.yml",
-      "runNumber": 560,
+      "runNumber": 947,
+      "runAttempt": 1,
       "event": "push",
       "status": "completed",
       "conclusion": "success",
-      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/31816181476",
-      "createdAt": "2026-08-14T15:47:02Z"
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593321147",
+      "createdAt": "2026-08-22T19:18:26Z",
+      "updatedAt": "2026-08-22T19:18:45Z"
+    },
+    {
+      "name": "Scheduled Operational Recovery",
+      "workflowPath": ".github/workflows/operational-recovery.yml",
+      "runNumber": 308,
+      "runAttempt": 1,
+      "event": "workflow_dispatch",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+      "headBranch": "main",
+      "runUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32593329972",
+      "createdAt": "2026-08-22T19:18:38Z",
+      "updatedAt": "2026-08-22T19:21:03Z"
     }
   ],
   "notAcceptedForBlockers": [
     "NOG-01",
     "NOG-02",
+    "NOG-03",
     "NOG-05",
     "NOG-06",
     "NOG-07",
@@ -122,8 +171,7 @@
   "remainingFinalManifestGaps": [
     "protected staging evidence URL and digest",
     "redacted protected staging env:check evidence",
-    "operational recovery/reconciliation evidence and digest",
-    "rollback or approved forward-fix evidence and digest",
+    "protected staging recovery reconciliation evidence and digest",
     "incident readiness evidence and digest",
     "accepted-risk sign-off URL",
     "Go approval matrix URL"

@@ -3,8 +3,8 @@
 **Status:** operator setup prerequisite for NOG-01 and NOG-02, not accepted launch evidence  
 **Repository:** `tecpey/Tecpey-Os`  
 **Environment name:** `staging`  
-**Current observation:** `protection_rules: []` after current candidate promotion
-**Selected protected staging evidence target SHA:** `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`
+**Last recorded observation:** `protection_rules: []` (must be re-verified immediately before dispatch)
+**Selected protected staging evidence target SHA:** `ed11e5e596e1b08b16feb493bb41a1cacb324f6e`
 
 This runbook closes the ambiguity before the protected staging workflows are
 dispatched. It does not close NOG-01 or NOG-02 by itself. It defines the minimum
@@ -13,8 +13,9 @@ workflows can produce accepted artifacts.
 
 ## Why This Exists
 
-The latest GitHub API observation confirms that the `staging` Environment
-exists, but it has no protection rules:
+The last recorded GitHub API observation found that the `staging` Environment
+existed, but had no protection rules. Re-read this state immediately before
+dispatch; do not treat the historical observation as proof of current protection:
 
 ```text
 GET /repos/tecpey/Tecpey-Os/environments/staging
@@ -82,7 +83,7 @@ manual workflows from GitHub Actions against the selected candidate SHA.
 ```text
 Workflow: Staging Community Challenge Scheduler Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: ed11e5e596e1b08b16feb493bb41a1cacb324f6e
 run_alert_probe: true
 ```
 
@@ -99,7 +100,7 @@ tecpey-staging-evidence-verification.json
 ```text
 Workflow: Protected Staging Env Evidence
 Environment: staging
-release_sha: 9bd4ca5ec22e99e2d7deb192826ef8c018ee4913
+release_sha: ed11e5e596e1b08b16feb493bb41a1cacb324f6e
 environment_source: protected_host_env_file
 ```
 
@@ -120,7 +121,7 @@ NOG-01 and NOG-02 remain open until all of the following are true:
 
 - `staging` no longer reports `protection_rules: []`;
 - the accepted runs use the selected SHA
-  `9bd4ca5ec22e99e2d7deb192826ef8c018ee4913`;
+  `ed11e5e596e1b08b16feb493bb41a1cacb324f6e`;
 - both workflows run on the `tecpey-staging` self-hosted runner;
 - both workflows complete successfully;
 - artifacts and detached digests verify offline;
