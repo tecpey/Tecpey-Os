@@ -73,6 +73,105 @@ jobs:
           test "$(id -un)" = "$EXPECTED_USER"
           test "$(id -gn)" = "$EXPECTED_GROUP"
 
+
+      - name: Configure governed alert CA trust
+        shell: bash
+        env:
+          TECPEY_EVIDENCE_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const { X509Certificate } = require("node:crypto");
+          const { appendFileSync, lstatSync, readFileSync } = require("node:fs");
+          const path = require("node:path");
+
+          const MAX_ENV_FILE_BYTES = 64 * 1024;
+          const MAX_CA_FILE_BYTES = 256 * 1024;
+          const environmentFile =
+            process.env.TECPEY_EVIDENCE_ENV_FILE?.trim() ?? "";
+          if (
+            !path.isAbsolute(environmentFile) ||
+            environmentFile.length > 500 ||
+            environmentFile.includes("\0")
+          ) {
+            throw new Error("staging_alert_ca_environment_file_invalid");
+          }
+          const environmentStat = lstatSync(environmentFile);
+          if (
+            environmentStat.isSymbolicLink() ||
+            !environmentStat.isFile() ||
+            environmentStat.size < 1 ||
+            environmentStat.size > MAX_ENV_FILE_BYTES
+          ) {
+            throw new Error("staging_alert_ca_environment_file_unsafe");
+          }
+
+          const values = new Map();
+          for (const rawLine of readFileSync(environmentFile, "utf8").split(/\r?\n/)) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith("#")) continue;
+            const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
+            if (!match || match[2] === "" || values.has(match[1])) {
+              throw new Error("staging_alert_ca_environment_file_format_invalid");
+            }
+            values.set(match[1], match[2]);
+          }
+
+          const configuredCaPath = values.get("NODE_EXTRA_CA_CERTS");
+          if (!configuredCaPath) {
+            console.log("governed_alert_ca=system");
+            process.exit(0);
+          }
+          if (
+            !path.isAbsolute(configuredCaPath) ||
+            configuredCaPath.length > 500 ||
+            configuredCaPath.includes("\0")
+          ) {
+            throw new Error("staging_alert_ca_path_invalid");
+          }
+          const caPath = path.normalize(configuredCaPath);
+          if (caPath === path.parse(caPath).root) {
+            throw new Error("staging_alert_ca_path_unsafe");
+          }
+          const caStat = lstatSync(caPath);
+          if (
+            caStat.isSymbolicLink() ||
+            !caStat.isFile() ||
+            caStat.size < 1 ||
+            caStat.size > MAX_CA_FILE_BYTES ||
+            (caStat.mode & 0o022) !== 0
+          ) {
+            throw new Error("staging_alert_ca_file_unsafe");
+          }
+
+          const certificateBundle = readFileSync(caPath, "utf8");
+          const certificates =
+            certificateBundle.match(
+              /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g,
+            ) ?? [];
+          if (certificates.length < 1 || certificates.length > 16) {
+            throw new Error("staging_alert_ca_bundle_invalid");
+          }
+          for (const certificate of certificates) {
+            new X509Certificate(certificate);
+          }
+
+          const githubEnvironmentFile = process.env.GITHUB_ENV?.trim() ?? "";
+          if (
+            !path.isAbsolute(githubEnvironmentFile) ||
+            githubEnvironmentFile.length > 500 ||
+            githubEnvironmentFile.includes("\0")
+          ) {
+            throw new Error("staging_alert_ca_github_environment_invalid");
+          }
+          appendFileSync(
+            githubEnvironmentFile,
+            "NODE_EXTRA_CA_CERTS=" + caPath + "\n",
+            { encoding: "utf8" },
+          );
+          console.log("governed_alert_ca=configured");
+          NODE
+
       - name: Collect host activation evidence
         shell: bash
         env:
