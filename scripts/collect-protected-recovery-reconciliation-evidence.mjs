@@ -1,13 +1,15 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { execFile as execFileCallback } from "node:child_process";
 import { constants as fsConstants, createReadStream } from "node:fs";
 import {
   access,
+  appendFile,
   chmod,
   copyFile,
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -116,12 +118,6 @@ function postgresEnvironment(databaseUrl, extraCaPath) {
   if (sslMode) env.PGSSLMODE = sslMode;
   if (extraCaPath) env.PGSSLROOTCERT = extraCaPath;
   return env;
-}
-
-function restoredDatabaseUrl(databaseUrl, databaseName) {
-  const parsed = new URL(databaseUrl);
-  parsed.pathname = `/${databaseName}`;
-  return parsed.toString();
 }
 
 function redisCommand(redisUrl, extraCaPath, tail) {
@@ -375,6 +371,123 @@ async function stopIsolatedRedis(socket) {
   });
 }
 
+async function resolveIsolatedPostgresBinaries() {
+  const candidateDirectories = [];
+  try {
+    const configured = (await run("pg_config", ["--bindir"], {
+      label: "postgres_isolated_bindir_discovery",
+      timeout: 10_000,
+    })).stdout.trim();
+    if (configured) candidateDirectories.push(configured);
+  } catch {
+    // Debian/Ubuntu client-only PATHs do not always expose pg_config.
+  }
+  try {
+    const versions = await readdir("/usr/lib/postgresql", { withFileTypes: true });
+    for (const version of versions) {
+      if (version.isDirectory() && /^\d+(?:\.\d+)?$/u.test(version.name)) {
+        candidateDirectories.push(path.join("/usr/lib/postgresql", version.name, "bin"));
+      }
+    }
+  } catch {
+    // The explicit fail-closed error below covers hosts without server binaries.
+  }
+
+  for (const requestedDirectory of [...new Set(candidateDirectories)]) {
+    try {
+      if (!path.isAbsolute(requestedDirectory)) continue;
+      const directory = await realpath(requestedDirectory);
+      if (!directory.startsWith("/usr/lib/postgresql/")) continue;
+      const binaries = Object.fromEntries(
+        ["initdb", "pg_ctl", "createdb", "pg_restore"].map((name) => [
+          name === "pg_ctl" ? "pgCtl" : name === "pg_restore" ? "pgRestore" : name,
+          path.join(directory, name),
+        ]),
+      );
+      for (const [name, binary] of Object.entries(binaries)) {
+        await access(binary, fsConstants.X_OK);
+        await run(binary, ["--version"], {
+          label: `postgres_isolated_${name}_preflight`,
+          timeout: 10_000,
+        });
+      }
+      return binaries;
+    } catch {
+      // Try the next installed PostgreSQL major version.
+    }
+  }
+  throw new Error("postgres_isolated_runtime_unavailable");
+}
+
+async function startIsolatedPostgres(tempRoot, binaries) {
+  const postgresRoot = path.join(tempRoot, "postgres");
+  const dataDirectory = path.join(postgresRoot, "data");
+  const socketDirectory = path.join(postgresRoot, "socket");
+  const logFile = path.join(postgresRoot, "postgres.log");
+  const user = "tecpey_recovery_admin";
+  const port = randomInt(20_000, 60_000);
+  await mkdir(postgresRoot, { mode: 0o700 });
+  await mkdir(socketDirectory, { mode: 0o700 });
+  await run(
+    binaries.initdb,
+    [
+      `--pgdata=${dataDirectory}`,
+      `--username=${user}`,
+      "--encoding=UTF8",
+      "--locale=C",
+      "--auth-local=trust",
+      "--auth-host=reject",
+      "--no-instructions",
+    ],
+    { label: "postgres_isolated_initdb", timeout: 120_000 },
+  );
+  await appendFile(
+    path.join(dataDirectory, "postgresql.conf"),
+    [
+      "",
+      "# TecPey NOG-05 isolated restore target",
+      "listen_addresses = ''",
+      `unix_socket_directories = '${socketDirectory}'`,
+      `port = ${port}`,
+      "fsync = off",
+      "synchronous_commit = off",
+      "full_page_writes = off",
+      "",
+    ].join("\n"),
+  );
+  await run(
+    binaries.pgCtl,
+    ["-D", dataDirectory, "-l", logFile, "-w", "-t", "60", "start"],
+    { label: "postgres_isolated_start", timeout: 90_000 },
+  );
+  const isolatedEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("PG")),
+  );
+  return {
+    dataDirectory,
+    env: {
+      ...isolatedEnvironment,
+      PGHOST: socketDirectory,
+      PGPORT: String(port),
+      PGUSER: user,
+      PGDATABASE: "postgres",
+      PGSSLMODE: "disable",
+      PGCONNECT_TIMEOUT: "10",
+    },
+    port,
+    socketDirectory,
+    user,
+  };
+}
+
+async function stopIsolatedPostgres(isolatedPostgres, binaries) {
+  await run(
+    binaries.pgCtl,
+    ["-D", isolatedPostgres.dataDirectory, "-w", "-t", "30", "-m", "fast", "stop"],
+    { label: "postgres_isolated_shutdown", timeout: 60_000 },
+  );
+}
+
 async function governedEvidenceDirectory(authorityDir, requestedDirectory) {
   const authorityRoot = await realpath(authorityDir);
   const artifactsRequested = path.join(authorityRoot, "artifacts");
@@ -480,11 +593,10 @@ async function main() {
   await Promise.all([
     requireExecutable("pg_dump"),
     requireExecutable("pg_restore"),
-    requireExecutable("createdb"),
-    requireExecutable("dropdb"),
     requireExecutable("redis-cli"),
     requireExecutable("redis-server"),
   ]);
+  const isolatedPostgresBinaries = await resolveIsolatedPostgresBinaries();
 
   const requireFromCandidate = createRequire(path.join(candidateDir, "package.json"));
   const { Client } = requireFromCandidate("pg");
@@ -501,7 +613,7 @@ async function main() {
   let sourceClient;
   let restoredClient;
   let sourceTransactionOpen = false;
-  let restoredDatabaseCreated = false;
+  let isolatedPostgres;
   let isolatedRedisSocket;
   let cleanupComplete = false;
 
@@ -546,23 +658,27 @@ async function main() {
 
     const restoreStartedAt = new Date().toISOString();
     const restoreStartedMs = Date.now();
-    await run("createdb", [restoredDatabase], {
-      env: postgresEnv,
+    isolatedPostgres = await startIsolatedPostgres(tempRoot, isolatedPostgresBinaries);
+    await run(isolatedPostgresBinaries.createdb, [restoredDatabase], {
+      env: isolatedPostgres.env,
       label: "postgres_isolated_database_create",
       timeout: 60_000,
     });
-    restoredDatabaseCreated = true;
     await run(
-      "pg_restore",
+      isolatedPostgresBinaries.pgRestore,
       ["--exit-on-error", "--no-owner", "--no-privileges", "--dbname", restoredDatabase, postgresDump],
-      { env: postgresEnv, label: "postgres_isolated_restore", timeout: 600_000 },
+      { env: isolatedPostgres.env, label: "postgres_isolated_restore", timeout: 600_000 },
     );
     const isolatedRedis = await startIsolatedRedis(tempRoot, redisRdb, redisDatabase);
     isolatedRedisSocket = isolatedRedis.socket;
     if (isolatedRedis.keyCount !== redisCountAfter) throw new Error("redis_source_restore_mismatch");
 
     restoredClient = new Client({
-      connectionString: restoredDatabaseUrl(databaseUrl, restoredDatabase),
+      host: isolatedPostgres.socketDirectory,
+      port: isolatedPostgres.port,
+      user: isolatedPostgres.user,
+      database: restoredDatabase,
+      ssl: false,
       statement_timeout: 120_000,
       query_timeout: 120_000,
     });
@@ -583,12 +699,8 @@ async function main() {
 
     await stopIsolatedRedis(isolatedRedisSocket);
     isolatedRedisSocket = undefined;
-    await run("dropdb", ["--if-exists", restoredDatabase], {
-      env: postgresEnv,
-      label: "postgres_isolated_database_drop",
-      timeout: 60_000,
-    });
-    restoredDatabaseCreated = false;
+    await stopIsolatedPostgres(isolatedPostgres, isolatedPostgresBinaries);
+    isolatedPostgres = undefined;
     await rm(tempRoot, { recursive: true, force: true });
     cleanupComplete = true;
 
@@ -664,12 +776,8 @@ async function main() {
       }
       if (restoredClient) await restoredClient.end().catch(() => {});
       if (isolatedRedisSocket) await stopIsolatedRedis(isolatedRedisSocket).catch(() => {});
-      if (restoredDatabaseCreated) {
-        await run("dropdb", ["--if-exists", restoredDatabase], {
-          env: postgresEnv,
-          label: "postgres_isolated_database_cleanup",
-          timeout: 60_000,
-        }).catch(() => {});
+      if (isolatedPostgres) {
+        await stopIsolatedPostgres(isolatedPostgres, isolatedPostgresBinaries).catch(() => {});
       }
       await rm(tempRoot, { recursive: true, force: true }).catch(() => {});
     }

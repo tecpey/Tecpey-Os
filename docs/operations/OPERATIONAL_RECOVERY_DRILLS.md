@@ -79,8 +79,11 @@ Dispatch `Protected Staging Recovery Reconciliation Evidence` from `main` with:
 The workflow verifies the active systemd `WorkingDirectory`, health SHA,
 migration status, candidate ancestry, runner identity, immutable runtime image
 digest, protected environment-file permissions, and CA bundle before collection.
-It creates isolated PostgreSQL and Redis restore targets, reconciles all six
-launch domains, removes both temporary targets, runs the offline verifier, and
+It starts an unprivileged, Unix-socket-only PostgreSQL cluster and an isolated
+Redis process under the runner's mode-0700 temporary directory. The active
+application database role therefore needs no `CREATEDB` privilege, and neither
+restore can address the active service. It reconciles all six launch domains,
+stops and removes both temporary targets, runs the offline verifier, and
 uploads `protected-staging-recovery-reconciliation-<sha>` with a `SHA256SUMS`
 binding. Do not copy database dumps, Redis RDB files, command logs, or raw rows
 into the artifact. A failed or missing artifact leaves NOG-05 open.
