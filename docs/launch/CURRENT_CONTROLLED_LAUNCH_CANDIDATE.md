@@ -2,9 +2,9 @@
 
 **Status:** active candidate identity ledger, not Go approval  
 **Decision:** NO-GO until accepted exact-candidate evidence is attached  
-**Current candidate SHA:** `159c315cb26677edfa5b05c1708c93bed316ebe9`
-**Candidate source:** `main` after PR #543 fixed safe npm symlink validation in protected staging host evidence while preserving fail-closed rejection of broken, missing and non-executable targets
-**Candidate selected at:** `2026-08-23T12:17:12Z`
+**Current candidate SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
+**Candidate source:** `main` after PR #545 aligned protected staging host evidence with the live health migration readiness value `current` while preserving evidence schema v1 normalization as `tracked`
+**Candidate selected at:** `2026-08-23T13:35:01Z`
 **Machine-readable ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`
 **Runtime image digest evidence:** `docs/launch/generated/runtime-image-digest-evidence-20260812.json`
 **Exact-head workflow evidence:** `docs/launch/generated/exact-head-workflow-evidence-20260812.json`
@@ -20,14 +20,14 @@ this ledger explicitly lists them as active inputs.
 
 ## Why This Candidate Exists
 
-PR #543 repaired protected staging host evidence so a configured npm symlink
-is accepted only when its canonical target is a regular executable file, while
-broken, missing and non-executable targets remain fail-closed. Candidate
-Evidence Recollection Authority #103 then collected genuine exact-main workflow,
-runtime image and rollback/volume-restore evidence for:
+PR #545 aligned protected staging host evidence with the live health contract:
+`migrations.status=current` is now required at collection time, while evidence
+schema v1 remains normalized to `migrationsStatus=tracked`. Candidate Evidence
+Recollection Authority #106 then collected genuine exact-main workflow, runtime
+image and rollback/volume-restore evidence for:
 
 ```text
-159c315cb26677edfa5b05c1708c93bed316ebe9
+79c48a16cb685a88315a44e103b3758cf7845d65
 ```
 
 Using the prior PR #441, PR #439, PR #434, PR #435 or PR #433 candidate for new
@@ -60,6 +60,7 @@ execution.
 | `ed11e5e596e1b08b16feb493bb41a1cacb324f6e` | Current controlled-launch candidate after PR #530 exact-main evidence promotion | Superseded by PR #539 repaired-main exact-candidate evidence promotion. |
 | `38c2cd36d0236045bf3c9fbcf093ec431dc47768` | Current controlled-launch candidate after PR #539 repaired-main exact-candidate evidence promotion | Superseded by PR #541 server-only runtime fix and exact-candidate evidence promotion. |
 | `80223ac41e6200c25b65777a4a98b5f2e90f56a1` | Current controlled-launch candidate after PR #541 server-only runtime fix | Superseded by PR #543 safe npm symlink host-evidence fix and exact-candidate evidence promotion. |
+| `159c315cb26677edfa5b05c1708c93bed316ebe9` | Current controlled-launch candidate after PR #543 safe npm symlink host-evidence fix | Superseded by PR #545 live health migration contract alignment and exact-candidate evidence promotion. |
 
 ## Candidate Identity Rules
 

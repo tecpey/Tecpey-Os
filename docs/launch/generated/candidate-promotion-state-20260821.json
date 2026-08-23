@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-23T12:17:12Z",
+  "generatedAt": "2026-08-23T13:35:01Z",
   "issue": 515,
   "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+  "currentAcceptedCandidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
   "proposedCandidate": {
-    "sha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+    "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "sourceBranch": "main",
-    "sourcePullRequest": 543,
-    "reason": "PR #543 fixed staging host evidence validation so a configured npm symlink is accepted only when its canonical target is a regular executable file, and advanced main to 159c315cb26677edfa5b05c1708c93bed316ebe9; Candidate Evidence Recollection Authority #103 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
+    "sourcePullRequest": 545,
+    "reason": "PR #545 aligned protected staging host evidence with the live health migration readiness value current while preserving evidence schema v1 normalization as tracked, and advanced main to 79c48a16cb685a88315a44e103b3758cf7845d65; Candidate Evidence Recollection Authority #106 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
   },
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,

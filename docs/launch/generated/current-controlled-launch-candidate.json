@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-23T12:17:12Z",
+  "generatedAt": "2026-08-23T13:35:01Z",
   "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
   "currentCandidate": {
-    "sha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+    "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "sourceBranch": "main",
-    "sourcePullRequest": 543,
-    "selectedAt": "2026-08-23T12:17:12Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the PR #543 safe npm symlink host-evidence fix after Candidate Evidence Recollection Authority #103 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
+    "sourcePullRequest": 545,
+    "selectedAt": "2026-08-23T13:35:01Z",
+    "reason": "Rebaselines the controlled-launch evidence target to the PR #545 protected staging health migration contract fix after Candidate Evidence Recollection Authority #106 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. Every new protected staging, recovery reconciliation, incident, accepted-risk and Go approval artifact must target this exact main SHA."
   },
   "supersedes": [
     {
@@ -125,6 +125,11 @@
       "sha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
       "previousRole": "current controlled-launch candidate after PR #541 server-only runtime fix",
       "currentStatus": "superseded_by_pr_543_safe_npm_symlink_host_evidence_fix_and_exact_candidate_promotion"
+    },
+    {
+      "sha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+      "previousRole": "current controlled-launch candidate after PR #543 safe npm symlink host-evidence fix",
+      "currentStatus": "superseded_by_pr_545_health_migration_contract_fix_and_exact_candidate_promotion"
     }
   ],
   "activeInputs": {
@@ -162,57 +167,57 @@
       "id": "NOG-03",
       "status": "accepted",
       "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-      "imageDigest": "sha256:c3701822d072ed72bfd4a03e47974d6623cb4157f2c8ec46d2d06d784182580b",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585",
-      "containerReleaseArtifactDigest": "sha256:12210c49a6a4f64dbf411679c7ee16b78bcb773a193b1388433e6f19f8df7354"
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "imageDigest": "sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165",
+      "containerReleaseArtifactDigest": "sha256:3c2e1b271db1807b1a5ce8c9a8738b98f3fc5d418de925b6e7d9e59946bb77f5"
     },
     {
       "id": "NOG-04",
       "status": "accepted",
       "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
       "workflowEvidence": {
-        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445559",
-        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445562",
-        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445589",
-        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445571",
-        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445560",
-        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445584",
-        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585",
-        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445593",
-        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638452349"
+        "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393215",
+        "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393181",
+        "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393195",
+        "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393170",
+        "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393172",
+        "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393275",
+        "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165",
+        "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393159",
+        "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642401435"
       }
     },
     {
       "id": "NOG-06",
       "status": "accepted",
       "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-      "previousReleaseSha": "87db5f7df7df2f8885fc2d9a60d1a97a5d93f683",
-      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32638445585",
-      "rollbackJobId": 97191627420,
-      "containerRecoveryArtifact": "container-recovery-159c315cb26677edfa5b05c1708c93bed316ebe9",
-      "containerRecoveryArtifactDigest": "sha256:20dae3cd3d8d4ecdf05b3186cea328c94cf174b37fddff2438c09118e711a740",
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "previousReleaseSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
+      "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165",
+      "rollbackJobId": 97201386369,
+      "containerRecoveryArtifact": "container-recovery-79c48a16cb685a88315a44e103b3758cf7845d65",
+      "containerRecoveryArtifactDigest": "sha256:90dda7310c917da6e2d09864e16445124391a9111925211f55034dc276ba4204",
       "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation and redacted env evidence remain under NOG-01/NOG-02; protected staging domain recovery reconciliation remains under NOG-05."
     },
     {
       "id": "NOG-10",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9"
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65"
     },
     {
       "id": "NOG-11",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9"
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65"
     },
     {
       "id": "NOG-12",
       "status": "accepted",
       "evidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
-      "selectedSha": "159c315cb26677edfa5b05c1708c93bed316ebe9"
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65"
     }
   ],
   "privacyBoundary": [
@@ -221,8 +226,9 @@
   ],
   "currentMainShaAfterAcceptedRiskFreshnessReviewMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
   "currentMainShaAfterDecisionAuthorityPermissionsMerge": "c0e9ac33ba394a00241a2bcce655ad87fbdf5fd3",
-  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+  "currentMainShaAfterControlledLaunchCandidatePromotionMerge": "79c48a16cb685a88315a44e103b3758cf7845d65",
   "currentMainShaAfterGovernanceRestorePr539Merge": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
   "currentMainShaAfterServerOnlyRuntimeFixPr541Merge": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
-  "currentMainShaAfterSafeNpmSymlinkHostEvidencePr543Merge": "159c315cb26677edfa5b05c1708c93bed316ebe9"
+  "currentMainShaAfterSafeNpmSymlinkHostEvidencePr543Merge": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+  "currentMainShaAfterHealthMigrationContractPr545Merge": "79c48a16cb685a88315a44e103b3758cf7845d65"
 }

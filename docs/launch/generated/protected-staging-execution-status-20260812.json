@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "protected-staging-execution-status-observation",
-  "observedAt": "2026-08-23T12:17:12.000Z",
+  "observedAt": "2026-08-23T13:35:01.000Z",
   "decision": "NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED",
   "relatedBlockers": [
     "NOG-01",
     "NOG-02"
   ],
   "releaseLineage": {
-    "currentMainSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
-    "protectedStagingEvidenceTargetSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+    "currentMainSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "protectedStagingEvidenceTargetSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "currentCandidateLedger": "docs/launch/generated/current-controlled-launch-candidate.json"
   },
   "postMergeObservation": {
-    "mergedPullRequest": 543,
-    "mergedPullRequestTitle": "fix(ops): accept safe npm symlink evidence",
-    "mergeCommitSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+    "mergedPullRequest": 545,
+    "mergedPullRequestTitle": "fix(ops): align staging health migration contract",
+    "mergeCommitSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "targetShaUnchanged": false,
-    "targetShaDisposition": "candidate rebaselined to the PR #543 safe npm symlink host-evidence fix; staging protection is present, while acceptance remains blocked until the exact candidate release is deployed and both governed workflows succeed"
+    "targetShaDisposition": "candidate rebaselined to the PR #545 protected staging health migration contract fix; staging protection is present, while acceptance remains blocked until the exact candidate release is deployed and both governed workflows succeed"
   },
   "observationSource": {
     "githubApi": [
@@ -28,7 +28,7 @@
     "localTooling": [
       "GitHub connector and authenticated GitHub UI available for governed observation and dispatch",
       "staging protection rules observed without recording reviewer identities",
-      "the successful NOG-01 run and failed NOG-02 run are bound only to superseded candidate 80223ac41e6200c25b65777a4a98b5f2e90f56a1; neither is accepted for 159c315cb26677edfa5b05c1708c93bed316ebe9",
+      "Protected Staging Env Evidence run 32641299129 succeeded and Staging Community Challenge Scheduler Evidence run 32641669277 failed closed with host_evidence_health_contract_invalid only for superseded candidate 159c315cb26677edfa5b05c1708c93bed316ebe9; neither run nor artifact is accepted for 79c48a16cb685a88315a44e103b3758cf7845d65",
       "raw runner names, host identifiers, secrets and raw environment values are intentionally not recorded"
     ]
   },
@@ -48,11 +48,11 @@
       "name": "Protected Staging Env Evidence",
       "path": ".github/workflows/protected-staging-env-evidence.yml",
       "state": "active",
-      "totalRunsObserved": 2,
-      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32636694094",
-      "latestRunHeadSha": "87db5f7df7df2f8885fc2d9a60d1a97a5d93f683",
+      "totalRunsObserved": 3,
+      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641299129",
+      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
       "latestRunConclusion": "success",
-      "latestRejectedCandidateSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
+      "latestRejectedCandidateSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
       "rejectionReason": "successful_evidence_bound_to_superseded_candidate_not_reusable",
       "acceptedRunUrl": null,
       "acceptedArtifactName": null,
@@ -62,12 +62,12 @@
       "name": "Staging Community Challenge Scheduler Evidence",
       "path": ".github/workflows/staging-community-challenge-scheduler-evidence.yml",
       "state": "active",
-      "totalRunsObserved": 3,
-      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32636743667",
-      "latestRunHeadSha": "87db5f7df7df2f8885fc2d9a60d1a97a5d93f683",
+      "totalRunsObserved": 4,
+      "latestRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32641669277",
+      "latestRunHeadSha": "a5b55caf281fe05cd891cf408c5b0ad192d0085a",
       "latestRunConclusion": "failure",
-      "latestRejectedCandidateSha": "80223ac41e6200c25b65777a4a98b5f2e90f56a1",
-      "rejectionReason": "host_evidence_npm_binary_invalid_before_artifact_publication",
+      "latestRejectedCandidateSha": "159c315cb26677edfa5b05c1708c93bed316ebe9",
+      "rejectionReason": "host_evidence_health_contract_invalid_before_artifact_publication",
       "acceptedRunUrl": null,
       "acceptedArtifactName": null,
       "disposition": "blocked_no_accepted_current_candidate_run"
@@ -81,10 +81,10 @@
     "rawLogsRecorded": false
   },
   "requiredBeforeAcceptance": [
-    "Deploy an immutable release directory for exact candidate 159c315cb26677edfa5b05c1708c93bed316ebe9 on staging and align the governed current-release pointer to it.",
-    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 159c315cb26677edfa5b05c1708c93bed316ebe9 with run_alert_probe true.",
-    "Trigger Protected Staging Env Evidence manually for release_sha 159c315cb26677edfa5b05c1708c93bed316ebe9 with one accepted environment_source.",
+    "Deploy an immutable release directory for exact candidate 79c48a16cb685a88315a44e103b3758cf7845d65 on staging and align the governed current-release pointer to it.",
+    "Trigger Staging Community Challenge Scheduler Evidence manually for release_sha 79c48a16cb685a88315a44e103b3758cf7845d65 with run_alert_probe true.",
+    "Trigger Protected Staging Env Evidence manually for release_sha 79c48a16cb685a88315a44e103b3758cf7845d65 with one accepted environment_source.",
     "Verify uploaded artifacts and detached SHA-256 digests before moving NOG-01 or NOG-02 from open."
   ],
-  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: staging protection is present, the latest NOG-01 success and NOG-02 failure are bound only to superseded candidate 80223ac41e6200c25b65777a4a98b5f2e90f56a1, and no accepted deployment or governed workflow evidence exists yet for 159c315cb26677edfa5b05c1708c93bed316ebe9."
+  "decisionAfterObservation": "NOG-01 and NOG-02 remain open: staging protection is present, the most recent protected env success and scheduler failure are bound only to superseded candidate 159c315cb26677edfa5b05c1708c93bed316ebe9, and no accepted deployment or governed workflow evidence exists yet for 79c48a16cb685a88315a44e103b3758cf7845d65."
 }
