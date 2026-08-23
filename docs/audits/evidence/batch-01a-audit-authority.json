@@ -41,8 +41,8 @@
     },
     {
       "path": "package.json",
-      "gitObjectId": "1133870321e44b9f7d97f7669aa2cdffcf418d56",
-      "sha256": "d1deca70c4ed2fa4f2440e61fee7b7ca37340837506b58349e287758570c2713",
+      "gitObjectId": "77bf81709ab8594ddd075232b42b6ac2ebaa5663",
+      "sha256": "ebc9de020a8632854d04a7bfca4120288fabcf54f2387b6b8477fbb0b4893e23",
       "lines": 246,
       "reviewedRanges": [
         {
@@ -110,7 +110,8 @@
         "2026-08-23: re-reviewed after routing the four explicitly server-only operational CLI entrypoints through the isolated scripts/runtime-stubs module path and the react-server condition, and wiring the focused runtime regression test into test:ops-staging-evidence. Next.js, mixed client/server tests and general test commands keep their existing module resolution and conditions. The change adds no dependency, engine, override, external network access, product activation surface or secret-printing path; the existing operational commands retain their prior mutation boundaries, and the file remains 243 lines.",
         "2026-08-23: re-reviewed after adding ops:recovery:protected-evidence:collect and the collector policy test to test:ops-recovery-authority. The collector runs only under the protected staging workflow, imports pg from the exact active release, writes accepted output only after isolated PostgreSQL/Redis cleanup, adds no dependency/engine/override/activation surface, and preserves release:check composition. The file now has 244 lines.",
         "2026-08-23: re-reviewed after adding launch:recovery-reconciliation-evidence:check and composing it into launch:decision:check. The command is a local read-only authority guard over the exact-candidate protected recovery status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, and preserves fail-closed NO-GO on NOG-07/NOG-08/NOG-09. The file now has 245 lines.",
-        "2026-08-23: re-reviewed after adding ops:incident-readiness:evidence:collect and extending test:incident-readiness-evidence. The collector is reachable only through the protected staging workflow, uses the existing isolated server-only CLI runtime, persists two synthetic critical operational alerts through the governed spool/webhook path, emits only counts, timings, role identities and hashes, and fails closed on queue drift, acknowledgement latency, reviewer dependence or runbook gaps. The command adds no dependency, engine or override and does not enable any product, exchange, custody or real-money capability. The file now has 246 lines."
+        "2026-08-23: re-reviewed after adding ops:incident-readiness:evidence:collect and extending test:incident-readiness-evidence. The collector is reachable only through the protected staging workflow, uses the existing isolated server-only CLI runtime, persists two synthetic critical operational alerts through the governed spool/webhook path, emits only counts, timings, role identities and hashes, and fails closed on queue drift, acknowledgement latency, reviewer dependence or runbook gaps. The command adds no dependency, engine or override and does not enable any product, exchange, custody or real-money capability. The file now has 246 lines.",
+        "2026-08-23: re-reviewed after replacing the incident-readiness request-only launch guard with the accepted exact-candidate execution-status guard. The command remains a local read-only validator over canonical status, request, register, candidate ledger, packet and checklist; it adds no dependency, engine, override, network access, runtime mutation path, activation surface or secret-printing path, preserves the immutable runtime candidate, and keeps controlled launch fail-closed on NOG-08/NOG-09. The file remains 246 lines."
       ],
       "findings": [
         {

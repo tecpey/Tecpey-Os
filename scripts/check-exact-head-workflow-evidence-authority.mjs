@@ -191,6 +191,7 @@ requireAnyText(
     "NO-GO remains until protected staging, recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
     "NO-GO remains until recovery reconciliation, incident, accepted-risk owner sign-off and approval evidence is accepted",
     "NO-GO remains until incident, accepted-risk owner sign-off and approval evidence is accepted",
+    "NO-GO remains until accepted-risk owner sign-off and approval evidence is accepted",
   ],
   "checklist is missing a coherent pre- or post-protected-staging NOG-04 boundary",
 );

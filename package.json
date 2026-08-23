@@ -137,7 +137,7 @@
     "launch:rollback-evidence:check": "node scripts/check-rollback-volume-restore-evidence-authority.mjs",
     "launch:workflow-evidence:check": "node scripts/check-exact-head-workflow-evidence-authority.mjs",
     "launch:recovery-reconciliation-evidence:check": "node scripts/check-protected-recovery-reconciliation-execution-status.mjs",
-    "launch:incident-readiness-evidence:check": "node scripts/check-incident-readiness-evidence-authority.mjs",
+    "launch:incident-readiness-evidence:check": "node scripts/check-protected-incident-readiness-execution-status.mjs",
     "launch:go-approval-matrix-evidence:check": "node scripts/check-go-approval-matrix-evidence-authority.mjs",
     "ops:go-approval-matrix:evidence:verify": "node scripts/verify-go-approval-matrix-evidence.mjs",
     "test:launch-packet": "node --test scripts/controlled-launch-release-packet.test.mjs",

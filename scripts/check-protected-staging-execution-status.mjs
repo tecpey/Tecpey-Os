@@ -25,7 +25,7 @@ const register = JSON.parse(source.register);
 const failures = [];
 const sha256Pattern = /^sha256:[0-9a-f]{64}$/;
 const exactShaPattern = /^[0-9a-f]{40}$/;
-const remainingBlockers = ["NOG-07", "NOG-08", "NOG-09"];
+const remainingBlockers = ["NOG-08", "NOG-09"];
 
 function requireEqual(label, actual, expected) {
   if (actual !== expected) {

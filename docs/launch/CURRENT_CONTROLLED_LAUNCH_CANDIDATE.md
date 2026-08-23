@@ -13,6 +13,7 @@
 **Protected recovery reconciliation evidence:** `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
+**Protected incident readiness evidence:** `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`
 **Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 **Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
 
@@ -44,6 +45,12 @@ The reviewer-protected recovery workflow succeeded for this same immutable
 runtime candidate in run `32659459702`; the downloaded ZIP digest, detached
 evidence digest and repository offline verifier all passed, so NOG-05 is
 accepted without changing the runtime candidate.
+
+PR #553 then added the protected incident-readiness drill authority. The
+reviewer-protected workflow succeeded for the same immutable runtime candidate
+in run `32663989309`; both P0 probes, queue-state checks, acknowledgement drill,
+artifact and detached digests, independent review and the repository offline
+verifier passed, so NOG-07 is accepted without changing the runtime candidate.
 
 Using the prior PR #441, PR #439, PR #434, PR #435 or PR #433 candidate for new
 staging/support evidence would make the final evidence packet stale before
@@ -101,7 +108,7 @@ execution.
 | Immutable runtime identity | Runtime image digest accepted for this SHA; deployment artifact digest and final manifest wiring still required. |
 | Protected staging | Accepted for NOG-01/NOG-02 in `docs/launch/generated/protected-staging-execution-status-20260812.json`: scheduler evidence run `32648754664` and redacted env evidence run `32644937055`, both bound to this exact runtime SHA with verified artifact and detached digests. |
 | Recovery and rollback | Accepted for NOG-05 in `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`, while rollback/volume-restore mechanics are accepted for NOG-06; governed run `32659459702`, artifact and detached digests, independent review and the offline verifier all passed for this exact SHA. |
-| Incident readiness | Alert delivery, ownership, acknowledgement and failure-mode evidence for this SHA; NOG-07 remains open until `docs/launch/generated/incident-readiness-evidence-request-20260812.json` is satisfied and the final protected-staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. |
+| Incident readiness | Accepted for NOG-07 in `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`: governed run `32663989309`, two P0 probes under five minutes, zero pending/quarantine, P0 acknowledgements, seven runbook digests, independent review, artifact and detached digests, and the offline verifier all passed for this exact SHA. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
 | Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached and the final artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`; the Go approval matrix for this SHA and launch scope also remains required, and NOG-09 remains open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
 
@@ -117,6 +124,6 @@ The accepted-risk owner sign-off evidence for NOG-08 is still missing. This
 candidate only records the prepared risk-register/freshness guard and final
 owner sign-off verifier; it does not approve a Go decision or close NOG-08.
 
-**Current decision: NO-GO until this exact candidate has complete accepted
-incident, accepted-risk owner sign-off and approval evidence that passes
+**Current decision: NO-GO until this exact candidate has complete accepted-risk
+owner sign-off and approval evidence that passes
 `scripts/verify-go-approval-matrix-evidence.mjs`.**

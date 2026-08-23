@@ -28,7 +28,10 @@ const files = {
   acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
   acceptedRiskVerifier: "scripts/verify-accepted-risk-signoff-evidence.mjs",
   acceptedRiskVerifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
-  incidentReadinessEvidenceAuthority: "scripts/check-incident-readiness-evidence-authority.mjs",
+  incidentReadinessEvidenceAuthority:
+    "scripts/check-protected-incident-readiness-execution-status.mjs",
+  incidentReadinessExecutionStatus:
+    "docs/launch/generated/protected-incident-readiness-execution-status-20260823.json",
   incidentReadinessVerifier: "scripts/verify-incident-readiness-evidence.mjs",
   incidentReadinessVerifierTest: "scripts/incident-readiness-evidence.test.mjs",
   incidentReadinessRequest: "docs/launch/generated/incident-readiness-evidence-request-20260812.json",
@@ -278,10 +281,11 @@ for (const invariant of [
 }
 
 for (const invariant of [
-  "Incident readiness evidence authority",
+  "Protected incident readiness execution status",
+  "NO_GO_NOG_07_ACCEPTED_REMAINING_BLOCKERS_OPEN",
+  "accepted_exact_candidate_protected_incident_readiness",
+  "NOG-07 is accepted",
   "launch:incident-readiness-evidence:check",
-  "ops:incident-readiness:evidence:verify",
-  "test:incident-readiness-evidence",
 ]) {
   requireText(
     "incidentReadinessEvidenceAuthority",
@@ -328,7 +332,7 @@ for (const invariant of [
   "scripts/check-disabled-capability-attestation.mjs",
   "scripts/check-gated-capability-evidence-authority.mjs",
   "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
-  "scripts/check-incident-readiness-evidence-authority.mjs",
+  "scripts/check-protected-incident-readiness-execution-status.mjs",
   "scripts/collect-protected-incident-readiness-evidence.ts",
   "scripts/protected-incident-readiness-collector-policy.test.mjs",
   "scripts/verify-incident-readiness-evidence.mjs",
@@ -702,6 +706,20 @@ for (const invariant of [
 }
 
 for (const invariant of [
+  "protected-incident-readiness-execution-status-observation",
+  "32663989309",
+  "sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5",
+  "github:xrayman6zfm-ux",
+  "NOG-08 and NOG-09 are accepted",
+]) {
+  requireText(
+    "incidentReadinessExecutionStatus",
+    invariant,
+    `protected incident readiness execution status is missing invariant: ${invariant}`,
+  );
+}
+
+for (const invariant of [
   "controlled launch evidence manifest validates the complete final packet input set",
   "controlled launch evidence manifest rejects unknown fields",
   "controlled launch evidence manifest rejects non-https evidence URLs",
@@ -744,6 +762,8 @@ for (const invariant of [
 for (const invariant of [
   "Protected recovery reconciliation evidence authority guard",
   "npm run launch:recovery-reconciliation-evidence:check",
+  "Protected incident readiness evidence authority guard",
+  "npm run launch:incident-readiness-evidence:check",
   "Accepted-risk signoff evidence authority guard",
   "npm run launch:accepted-risk-evidence:check",
   "Controlled launch decision authority guard",
