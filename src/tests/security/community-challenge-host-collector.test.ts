@@ -139,6 +139,7 @@ async function fixture() {
           `SubState=${timer ? "waiting" : "dead"}`,
           `UnitFileState=${timer ? "enabled" : "static"}`,
           `NextElapseUSecRealtime=${timer ? "Tue 2026-07-21 11:05:00 UTC" : ""}`,
+          `NextElapseUSecMonotonic=${timer ? "4min 12s" : ""}`,
           `LastTriggerUSec=${timer ? "Tue 2026-07-21 10:05:00 UTC" : ""}`,
           "",
         ].join("\n");
@@ -198,6 +199,37 @@ describe("Community challenge host evidence collector", () => {
     assert.equal(evidence.runtime.stateDirectory.mode, "0700");
     assert.equal(evidence.systemd.finalizerTimer.matchesExpected, true);
     assert.equal(evidence.hostFingerprint.includes("staging-host-01"), false);
+    const result = verifyCommunityChallengeHostEvidence(evidence, {
+      expectedEnvironment: "staging",
+      expectedReleaseSha: SHA,
+      now: new Date("2026-07-21T10:10:00.000Z"),
+    });
+    assert.equal(result.ok, true);
+  });
+
+  it("collects active monotonic timers when realtime next elapse is unavailable", async () => {
+    const test = await fixture();
+    const original = test.deps.runCommand;
+    test.deps.runCommand = async (command, args, timeout) => {
+      if (command === "systemctl" && args[0] === "show") {
+        const unit = args[1];
+        const timer = unit.endsWith(".timer");
+        return [
+          "LoadState=loaded",
+          `ActiveState=${timer ? "active" : "inactive"}`,
+          `SubState=${timer ? "waiting" : "dead"}`,
+          `UnitFileState=${timer ? "enabled" : "static"}`,
+          "NextElapseUSecRealtime=",
+          `NextElapseUSecMonotonic=${timer ? "4min 12s" : ""}`,
+          `LastTriggerUSec=${timer ? "Tue 2026-07-21 10:05:00 UTC" : ""}`,
+          "",
+        ].join("\n");
+      }
+      return original(command, args, timeout);
+    };
+    const evidence = await collectCommunityChallengeHostEvidence(test.options, test.deps);
+    assert.equal(evidence.systemd.alertDeliveryTimer.nextElapseAt, null);
+    assert.equal(evidence.systemd.alertDeliveryTimer.nextElapseMonotonic, "4min 12s");
     const result = verifyCommunityChallengeHostEvidence(evidence, {
       expectedEnvironment: "staging",
       expectedReleaseSha: SHA,

@@ -28,6 +28,7 @@ export type HostEvidenceSystemdUnit = {
   subState: string;
   unitFileState: string;
   nextElapseAt: string | null;
+  nextElapseMonotonic: string | null;
   lastTriggerAt: string | null;
   expectedSha256: string;
   installedSha256: string;
@@ -246,6 +247,7 @@ function validateUnit(raw: unknown, expectedKind: "service" | "timer", code: str
     "subState",
     "unitFileState",
     "nextElapseAt",
+    "nextElapseMonotonic",
     "lastTriggerAt",
     "expectedSha256",
     "installedSha256",
@@ -270,6 +272,9 @@ function validateUnit(raw: unknown, expectedKind: "service" | "timer", code: str
     subState,
     unitFileState,
     nextElapseAt: nullableIso(value.nextElapseAt, code),
+    nextElapseMonotonic: value.nextElapseMonotonic === null
+      ? null
+      : text(value.nextElapseMonotonic, 1, 80, code, /^[A-Za-z0-9 .:+_-]+$/),
     lastTriggerAt: nullableIso(value.lastTriggerAt, code),
     expectedSha256,
     installedSha256,
@@ -614,7 +619,7 @@ function requireHealthyUnit(unit: HostEvidenceSystemdUnit, code: string): void {
   if (!unit.matchesExpected || unit.expectedSha256 !== unit.installedSha256) throw new Error(code);
   if (unit.kind === "timer") {
     if (!unit.enabled || !unit.active || unit.activeState !== "active") throw new Error(code);
-    if (!unit.nextElapseAt) throw new Error(code);
+    if (!unit.nextElapseAt && !unit.nextElapseMonotonic) throw new Error(code);
   }
 }
 

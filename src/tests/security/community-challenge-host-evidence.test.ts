@@ -25,6 +25,7 @@ function unit(
     subState: kind === "timer" ? "waiting" : "dead",
     unitFileState: kind === "timer" ? "enabled" : "static",
     nextElapseAt: kind === "timer" ? "2026-07-21T11:05:00.000Z" : null,
+    nextElapseMonotonic: null,
     lastTriggerAt: kind === "timer" ? "2026-07-21T10:05:00.000Z" : null,
     expectedSha256: HASH,
     installedSha256: HASH,
@@ -180,6 +181,24 @@ describe("Community challenge staging host evidence", () => {
     disabled.systemd.alertDeliveryTimer.enabled = false;
     assert.throws(
       () => verify(finalizeCommunityChallengeHostEvidence(disabled)),
+      /host_evidence_alert_timer_invalid/,
+    );
+  });
+
+  it("accepts active monotonic timers when realtime elapse is unavailable", () => {
+    const payload = validPayload();
+    payload.systemd.alertDeliveryTimer.nextElapseAt = null;
+    payload.systemd.alertDeliveryTimer.nextElapseMonotonic = "4min 12s";
+    const result = verify(finalizeCommunityChallengeHostEvidence(payload));
+    assert.equal(result.ok, true);
+  });
+
+  it("rejects timers with no realtime or monotonic next elapse", () => {
+    const payload = validPayload();
+    payload.systemd.alertDeliveryTimer.nextElapseAt = null;
+    payload.systemd.alertDeliveryTimer.nextElapseMonotonic = null;
+    assert.throws(
+      () => verify(finalizeCommunityChallengeHostEvidence(payload)),
       /host_evidence_alert_timer_invalid/,
     );
   });

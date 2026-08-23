@@ -130,6 +130,20 @@ function systemdTime(value: string | undefined): string | null {
   return new Date(parsed).toISOString();
 }
 
+function systemdMonotonicTime(value: string | undefined): string | null {
+  if (!value || value === "n/a" || value === "0") return null;
+  const normalized = value.trim();
+  if (
+    normalized.length < 1 ||
+    normalized.length > 80 ||
+    /[\u0000-\u001f\u007f]/.test(normalized) ||
+    !/^[A-Za-z0-9 .:+_-]+$/.test(normalized)
+  ) {
+    throw new Error("host_evidence_systemd_timer_time_invalid");
+  }
+  return normalized;
+}
+
 function renderService(
   template: string,
   options: CommunityChallengeHostCollectorOptions,
@@ -177,6 +191,7 @@ async function collectUnit(
       "--property=SubState",
       "--property=UnitFileState",
       "--property=NextElapseUSecRealtime",
+      "--property=NextElapseUSecMonotonic",
       "--property=LastTriggerUSec",
     ], 10_000),
     "host_evidence_systemctl_output_too_large",
@@ -193,6 +208,9 @@ async function collectUnit(
     subState: show.SubState || "unknown",
     unitFileState: show.UnitFileState || "unknown",
     nextElapseAt: kind === "timer" ? systemdTime(show.NextElapseUSecRealtime) : null,
+    nextElapseMonotonic: kind === "timer"
+      ? systemdMonotonicTime(show.NextElapseUSecMonotonic)
+      : null,
     lastTriggerAt: kind === "timer" ? systemdTime(show.LastTriggerUSec) : null,
     expectedSha256,
     installedSha256,
