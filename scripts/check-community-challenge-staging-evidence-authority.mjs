@@ -7,6 +7,8 @@ const files = {
   database: "src/lib/ops/community-challenge-host-evidence-db.ts",
   collectCli: "scripts/collect-community-challenge-scheduler-host-evidence.ts",
   verifyCli: "scripts/verify-community-challenge-scheduler-host-evidence.ts",
+  runtimeStub: "scripts/runtime-stubs/server-only/index.js",
+  runtimePolicy: "scripts/server-only-cli-runtime-policy.test.mjs",
   schema: "docs/operations/evidence/community-challenge-host-evidence-v1.schema.json",
   runbook: "docs/operations/COMMUNITY_CHALLENGE_STAGING_ACTIVATION.md",
   contract: "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
@@ -279,12 +281,34 @@ for (const forbidden of [
 }
 
 for (const command of [
-  '"ops:staging:evidence:collect"',
+  '"community:challenge:finalize": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/finalize-community-journal-challenges.ts"',
+  '"community:challenge:finalize:scheduled": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/run-community-challenge-finalization-scheduled.ts"',
+  '"ops:alerts:deliver": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts"',
+  '"ops:staging:evidence:collect": "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts"',
   '"ops:staging:evidence:verify"',
   '"ops:staging:evidence:check"',
   '"test:ops-staging-evidence"',
+  "scripts/server-only-cli-runtime-policy.test.mjs",
 ]) {
   requireText("package", command, `package command is missing ${command}`);
+}
+
+for (const invariant of [
+  '"use strict"',
+  "Next.js keeps enforcing the real `server-only` marker",
+  "module.exports = {};",
+]) {
+  requireText("runtimeStub", invariant, `server-only CLI runtime stub is missing ${invariant}`);
+}
+
+for (const invariant of [
+  'path.join(root, "scripts", "runtime-stubs")',
+  "env.NODE_PATH = runtimeNodePath",
+  '"--conditions=react-server"',
+  'assert.doesNotMatch(output, /MODULE_NOT_FOUND|Cannot find module/)',
+  '"error":"tecpey_evidence_environment_required"',
+]) {
+  requireText("runtimePolicy", invariant, `server-only CLI regression guard is missing ${invariant}`);
 }
 for (const testFile of [
   "community-challenge-host-evidence.test.ts",
