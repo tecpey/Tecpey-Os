@@ -70,9 +70,18 @@ DATABASE_URL=postgresql://...
 TECPEY_OPS_ALERT_WEBHOOK_URL=https://...
 TECPEY_OPS_ALERT_BEARER_TOKEN=...
 TECPEY_HOST_EVIDENCE_KEY=<at-least-32-random-characters>
+NODE_EXTRA_CA_CERTS=/etc/tecpey/relay-private-ca.pem # only for an approved private-CA relay
 ```
 
 `TECPEY_OPS_ALERT_BEARER_TOKEN` may be omitted only when the approved provider uses another governed authentication method. The evidence collector never prints these values.
+
+When `NODE_EXTRA_CA_CERTS` is present, the protected workflow parses only its
+path from the private host environment file, verifies that the CA bundle is a
+bounded regular non-symlink certificate file that is not group- or
+world-writable, and exports the validated path to the next collector process.
+The path and certificate contents are excluded from the evidence artifact.
+Disabling TLS verification with `NODE_TLS_REJECT_UNAUTHORIZED=0`, an insecure
+client flag or `rejectUnauthorized: false` is prohibited.
 
 The governed build must receive the exact release SHA through:
 
