@@ -30,7 +30,8 @@ const REQUIRED_SOURCE_FILES = [
 ];
 
 const REQUIRED_ACCEPTED_BLOCKERS = ["NOG-10", "NOG-11", "NOG-12"];
-const REQUIRED_REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-09"];
+const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-09"];
 const EVIDENCE_PATH = files.evidence;
 
 async function collectPublicSourceFiles(root) {
@@ -139,10 +140,26 @@ for (const blocker of REQUIRED_ACCEPTED_BLOCKERS) {
   );
 }
 
-for (const blocker of REQUIRED_REMAINING_BLOCKERS) {
+for (const blocker of [...PROTECTED_STAGING_BLOCKERS, ...REQUIRED_OPEN_BLOCKERS]) {
+  requireArrayIncludes(failures, "evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blocker);
+}
+
+const protectedStagingStatuses = PROTECTED_STAGING_BLOCKERS.map(
+  (blocker) => register.blockers?.find((entry) => entry.id === blocker)?.status,
+);
+const protectedStagingOpen = protectedStagingStatuses.every((status) => status === "open");
+const protectedStagingAccepted = protectedStagingStatuses.every((status) => status === "accepted");
+if (!protectedStagingOpen && !protectedStagingAccepted) {
+  failures.push(
+    `NOG-01/NOG-02 statuses must transition atomically as both open or both accepted, got ${JSON.stringify(
+      protectedStagingStatuses,
+    )}`,
+  );
+}
+
+for (const blocker of REQUIRED_OPEN_BLOCKERS) {
   const registerBlocker = register.blockers?.find((entry) => entry.id === blocker);
   requireEqual(failures, `${blocker}.status`, registerBlocker?.status, "open");
-  requireArrayIncludes(failures, "evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blocker);
 }
 
 for (const [name, command] of [

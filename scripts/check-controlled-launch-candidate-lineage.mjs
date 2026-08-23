@@ -15,7 +15,8 @@ const paths = {
 const shaPattern = /^[0-9a-f]{40}$/;
 const failures = [];
 const RECOLLECTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06"];
-const OPEN_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
+const OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const DISABLED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -189,7 +190,7 @@ requireEqual(
 requireEqual(
   `${paths.protectedStagingRequest}: decision`,
   protectedStagingRequest.decision,
-  "NO_GO_UNTIL_PROTECTED_STAGING_AND_ENV_EVIDENCE_IS_EXECUTED_AND_ACCEPTED",
+  "NO_GO_NOG_01_NOG_02_ACCEPTED_EXACT_CANDIDATE_ONLY",
 );
 requireEqual(
   `${paths.protectedStagingRegister}: decision`,
@@ -205,6 +206,43 @@ for (const blocker of ["NOG-01", "NOG-02"]) {
     blocker,
   );
 }
+
+requireEqual(
+  `${paths.protectedStagingRequest}: nog01.status`,
+  protectedStagingRequest.nog01?.status,
+  "accepted_exact_candidate_evidence",
+);
+requireEqual(
+  `${paths.protectedStagingRequest}: nog02.status`,
+  protectedStagingRequest.nog02?.status,
+  "accepted_exact_candidate_evidence",
+);
+for (const blocker of ACCEPTED_PROTECTED_STAGING_BLOCKERS) {
+  requireEqual(
+    `${paths.protectedStagingRegister}: ${blocker}.status`,
+    protectedStagingRegister.blockers?.find((entry) => entry.id === blocker)?.status,
+    "accepted",
+  );
+  requireEqual(
+    `${paths.protectedStagingRegister}: ${blocker}.acceptedEvidence`,
+    protectedStagingRegister.acceptedEvidence?.some(
+      (entry) => entry?.id === blocker && entry?.status === "accepted" && entry?.selectedSha === currentSha,
+    ),
+    true,
+  );
+  requireEqual(
+    `${paths.jsonLedger}: ${blocker}.acceptedEvidence`,
+    jsonLedger.acceptedEvidence?.some(
+      (entry) => entry?.id === blocker && entry?.status === "accepted" && entry?.selectedSha === currentSha,
+    ),
+    true,
+  );
+}
+requireArrayExact(
+  `${paths.protectedStagingRegister}: remainingOpenBlockers`,
+  protectedStagingRegister.remainingOpenBlockers,
+  OPEN_BLOCKERS,
+);
 
 for (const label of ["self-hosted", "linux", "x64", "tecpey-staging"]) {
   requireArrayIncludes(
@@ -264,13 +302,11 @@ requireEqual(
   "main",
 );
 
-for (const blocker of OPEN_BLOCKERS) {
-  requireArrayIncludes(
-    `${paths.promotionState}: stillOpenBlockers`,
-    promotionState.stillOpenBlockers,
-    blocker,
-  );
-}
+requireArrayExact(
+  `${paths.promotionState}: stillOpenBlockers`,
+  promotionState.stillOpenBlockers,
+  OPEN_BLOCKERS,
+);
 for (const boundary of DISABLED_BOUNDARIES) {
   requireArrayIncludes(
     `${paths.promotionState}: launchDisabledBoundaries`,

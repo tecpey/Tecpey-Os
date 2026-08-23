@@ -1,7 +1,7 @@
 # Protected Staging Activation and Env Evidence Runbook - 2026-08-10
 
-**Status:** execution request for NOG-01 and NOG-02, not accepted evidence  
-**Decision after this runbook:** NO-GO until the protected staging run is executed and accepted  
+**Status:** executed and accepted exact-candidate evidence record for NOG-01 and NOG-02  
+**Decision after this runbook:** NO-GO remains until NOG-05, NOG-07, NOG-08 and NOG-09 are accepted  
 **Protected staging evidence target SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Runtime candidate baseline SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
@@ -10,10 +10,10 @@
 **Execution status observation:** `docs/launch/generated/protected-staging-execution-status-20260812.json`
 **Environment protection setup runbook:** `docs/operations/GITHUB_STAGING_ENVIRONMENT_PROTECTION_RUNBOOK_20260812.md`
 
-This runbook is the operator-facing execution request for the first protected
-staging closure slice. It does not close either blocker by itself. It defines the
-minimum safe way to collect accepted protected staging activation evidence and
-redacted production-like environment evidence without exposing secrets.
+This runbook retains the operator-facing execution contract for the first
+protected staging closure slice and records its accepted result. It defines the
+minimum safe way to collect protected staging activation evidence and redacted
+production-like environment evidence without exposing secrets.
 
 ## Release Lineage Rule
 
@@ -48,25 +48,32 @@ TecPey staging. It must not run on a generic shared runner.
 Current machine-readable status:
 `docs/launch/generated/protected-staging-execution-status-20260812.json`.
 
-Decision: `NO_GO_PROTECTED_STAGING_EXECUTION_BLOCKED`.
+Decision: `NO_GO_NOG_01_NOG_02_ACCEPTED_REMAINING_BLOCKERS_OPEN`.
 
 The latest GitHub API observation found the `staging` Environment protected by
 `required_reviewers` and `branch_policy`, with administrator bypass disabled.
-Reviewer identities are intentionally not recorded. Protection is therefore no
-longer the dispatch blocker.
+Reviewer identities are intentionally not recorded. The exact immutable release
+`79c48a16cb685a88315a44e103b3758cf7845d65` was deployed and its service and
+health commit matched that SHA.
 
-Protected Staging Env Evidence run `32641299129` succeeded only for superseded
-candidate `159c315cb26677edfa5b05c1708c93bed316ebe9`; it is not reusable for a later candidate. Staging Community Challenge Scheduler Evidence run
-`32641669277` failed closed for that same SHA before artifact publication with
-`host_evidence_health_contract_invalid`. PR #545 aligned the collector with the
-live `migrations.status=current` readiness contract while preserving evidence
-schema v1 normalization. Deploy exact candidate
-`79c48a16cb685a88315a44e103b3758cf7845d65`, align the governed current-release
-pointer, and only then dispatch both workflows. A successful protection check
-or an artifact from another SHA does not close NOG-01 or NOG-02.
+NOG-01 and NOG-02 are accepted for that exact runtime candidate:
 
-NOG-01 and NOG-02 remain open until both exact-candidate runs and their detached
-artifact digests pass verification.
+- Staging Community Challenge Scheduler Evidence run `32648754664` succeeded,
+  delivered the requested alert probe, and produced artifact
+  `tecpey-staging-scheduler-evidence-79c48a16cb685a88315a44e103b3758cf7845d65`
+  with ZIP digest
+  `sha256:ea3cfb4bbd188988063d31e393556aebb4ea9359e9c96d2b9a68de44b14dde4d`.
+- Protected Staging Env Evidence run `32644937055` succeeded using
+  `protected_host_env_file` and produced artifact
+  `tecpey-staging-env-evidence-79c48a16cb685a88315a44e103b3758cf7845d65`
+  with ZIP digest
+  `sha256:bd8cd520526d7520883218697dad9af9eec1dcbe8eca7db163493d5dd254f5d5`.
+
+Both downloaded ZIP digests matched GitHub metadata, both detached digest files
+verified the canonical evidence JSON, and both offline verifier summaries
+passed. PR #547 enabled governed private-CA trust without changing the runtime
+candidate. Only NOG-01/NOG-02 moved to accepted; the overall launch remains
+NO-GO.
 
 ## Required Environment Inputs
 
@@ -281,7 +288,7 @@ Reject the slice and keep `NOG-01` and `NOG-02` open if any of these occur:
 
 ## Resulting Decision
 
-When this runbook is executed and accepted, only `NOG-01` and `NOG-02` may move
-from open to accepted. The release remains NO-GO until recovery, rollback,
-incident readiness, accepted-risk sign-off, approval matrix and gated capability
-evidence are accepted or explicitly kept launch-disabled.
+This execution moved only `NOG-01` and `NOG-02` from open to accepted. The
+release remains NO-GO until recovery reconciliation (NOG-05), incident
+readiness (NOG-07), accepted-risk owner sign-off (NOG-08) and the final approval
+matrix (NOG-09) are accepted.

@@ -3,7 +3,8 @@ import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-
 
 const EVIDENCE_PATH = "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json";
 const REQUIRED_RISKS = ["R-01", "R-02", "R-04", "R-05", "R-06", "R-07", "R-08", "R-09", "R-10"];
-const REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_RISK_CONDITIONS = [
   "exact candidate SHA accepted",
   "controlled public FA/EN, Academy, Mentor and virtual Arena only",
@@ -69,6 +70,12 @@ function requireArrayIncludesText(label, values, expected) {
 function requireText(label, text, token) {
   if (!normalized(text).includes(normalized(token))) {
     failures.push(`${label} is missing ${token}`);
+  }
+}
+
+function requireAnyText(label, text, tokens) {
+  if (!tokens.some((token) => normalized(text).includes(normalized(token)))) {
+    failures.push(`${label} is missing one of: ${tokens.join(" | ")}`);
   }
 }
 
@@ -187,10 +194,26 @@ requireArrayNotIncludes(
   "NOG-08",
 );
 
-for (const blocker of REMAINING_BLOCKERS) {
+for (const blocker of [...PROTECTED_STAGING_BLOCKERS, ...REQUIRED_OPEN_BLOCKERS]) {
+  requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blocker);
+}
+
+const protectedStagingStatuses = PROTECTED_STAGING_BLOCKERS.map(
+  (blocker) => register.blockers?.find((entry) => entry.id === blocker)?.status,
+);
+const protectedStagingOpen = protectedStagingStatuses.every((status) => status === "open");
+const protectedStagingAccepted = protectedStagingStatuses.every((status) => status === "accepted");
+if (!protectedStagingOpen && !protectedStagingAccepted) {
+  failures.push(
+    `NOG-01/NOG-02 statuses must transition atomically as both open or both accepted, got ${JSON.stringify(
+      protectedStagingStatuses,
+    )}`,
+  );
+}
+
+for (const blocker of REQUIRED_OPEN_BLOCKERS) {
   const registerBlocker = register.blockers?.find((entry) => entry.id === blocker);
   requireEqual(`${blocker}.status`, registerBlocker?.status, "open");
-  requireArrayIncludes("evidence.notAcceptedForBlockers", evidence.notAcceptedForBlockers, blocker);
 }
 
 for (const invariant of [
@@ -244,10 +267,13 @@ for (const invariant of [
   EVIDENCE_PATH,
   "Accepted-risk owner sign-off evidence",
   "Owner sign-off evidence for NOG-08 is still missing",
-  "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
 ]) {
   requireText("packet", source.packet, invariant);
 }
+requireAnyText("packet", source.packet, [
+  "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
+  "Go remains blocked by recovery reconciliation, incident readiness, accepted-risk owner sign-off and approval evidence.",
+]);
 
 for (const invariant of [
   "Accepted-risk owner sign-off evidence",
@@ -256,12 +282,11 @@ for (const invariant of [
   requireText("candidate ledger", source.candidateHuman, invariant);
 }
 
-for (const invariant of [
-  "Accepted-risk owner sign-off evidence is missing",
+requireText("checklist", source.checklist, "Accepted-risk owner sign-off evidence is missing");
+requireAnyText("checklist", source.checklist, [
   "Go remains blocked by protected staging, recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.",
-]) {
-  requireText("checklist", source.checklist, invariant);
-}
+  "Go remains blocked by recovery reconciliation, incident readiness, accepted-risk owner sign-off and approvals.",
+]);
 
 for (const forbidden of [
   "GO_APPROVED",

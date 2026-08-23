@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 const REQUEST_PATH = "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json";
-const REMAINING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-05", "NOG-07", "NOG-08", "NOG-09"];
 const REQUIRED_PREREQUISITE_BLOCKERS = [
   "NOG-01",
   "NOG-02",
@@ -107,10 +108,26 @@ for (const blocker of REQUIRED_PREREQUISITE_BLOCKERS) {
   );
 }
 
-for (const blocker of REMAINING_BLOCKERS) {
+for (const blocker of [...PROTECTED_STAGING_BLOCKERS, ...REQUIRED_OPEN_BLOCKERS]) {
+  requireArrayIncludes("request.notAcceptedForBlockers", request.notAcceptedForBlockers, blocker);
+}
+
+const protectedStagingStatuses = PROTECTED_STAGING_BLOCKERS.map(
+  (blocker) => register.blockers?.find((entry) => entry.id === blocker)?.status,
+);
+const protectedStagingOpen = protectedStagingStatuses.every((status) => status === "open");
+const protectedStagingAccepted = protectedStagingStatuses.every((status) => status === "accepted");
+if (!protectedStagingOpen && !protectedStagingAccepted) {
+  failures.push(
+    `NOG-01/NOG-02 statuses must transition atomically as both open or both accepted, got ${JSON.stringify(
+      protectedStagingStatuses,
+    )}`,
+  );
+}
+
+for (const blocker of REQUIRED_OPEN_BLOCKERS) {
   const registerBlocker = register.blockers?.find((entry) => entry.id === blocker);
   requireEqual(`${blocker}.status`, registerBlocker?.status, "open");
-  requireArrayIncludes("request.notAcceptedForBlockers", request.notAcceptedForBlockers, blocker);
 }
 
 requireArrayNotIncludes(
