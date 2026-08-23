@@ -23,6 +23,9 @@
     "NOG-02"
   ],
   "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+  "executionWorkflow": ".github/workflows/protected-staging-incident-readiness-evidence.yml",
+  "collector": "scripts/collect-protected-incident-readiness-evidence.ts",
+  "collectorCommand": "npm run ops:incident-readiness:evidence:collect",
   "verifier": "scripts/verify-incident-readiness-evidence.mjs",
   "verificationCommand": "npm run ops:incident-readiness:evidence:verify -- <artifact.json> --expected-sha 79c48a16cb685a88315a44e103b3758cf7845d65",
   "authorityGuard": "scripts/check-incident-readiness-evidence-authority.mjs",
@@ -73,6 +76,11 @@
     "finalDisposition": "accepted"
   },
   "guardCommands": [
+    {
+      "name": "ops:incident-readiness:evidence:collect",
+      "command": "npm run ops:incident-readiness:evidence:collect",
+      "disposition": "protected_staging_runtime_only"
+    },
     {
       "name": "launch:incident-readiness-evidence:check",
       "command": "node scripts/check-incident-readiness-evidence-authority.mjs",

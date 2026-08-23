@@ -1,0 +1,258 @@
+name: Protected Staging Incident Readiness Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character main-branch commit currently active on staging
+        required: true
+        type: string
+      incident_commander_external_identity:
+        description: GitHub login of the incident commander who acknowledged the P0 drill
+        required: true
+        type: string
+      sre_owner_external_identity:
+        description: GitHub login of the SRE owner who acknowledged the P0 drill
+        required: true
+        type: string
+      acknowledgement_declared_at:
+        description: P0 drill declaration time as exact UTC ISO-8601 (for example 2026-08-23T19:00:00.000Z)
+        required: true
+        type: string
+      incident_commander_acknowledged_at:
+        description: Incident commander acknowledgement time as exact UTC ISO-8601
+        required: true
+        type: string
+      sre_acknowledged_at:
+        description: SRE owner acknowledgement time as exact UTC ISO-8601
+        required: true
+        type: string
+      acknowledgements_confirmed:
+        description: Confirm both acknowledgements are genuine and recorded inside the applicable P0 target
+        required: true
+        default: false
+        type: boolean
+      reviewer_external_identity:
+        description: Independent reviewer GitHub login (different from actor, incident commander and SRE owner)
+        required: true
+        type: string
+      independent_review_confirmed:
+        description: Confirm the reviewer independently approved this protected incident drill
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-staging-incident-readiness
+  cancel-in-progress: false
+
+jobs:
+  collect-and-verify:
+    name: Run critical probes and verify incident readiness
+    environment: staging
+    runs-on: [self-hosted, linux, x64, tecpey-staging]
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout exact incident authority
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: authority
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify authority, runtime and acknowledged participants
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          INCIDENT_COMMANDER: ${{ inputs.incident_commander_external_identity }}
+          SRE_OWNER: ${{ inputs.sre_owner_external_identity }}
+          REVIEWER: ${{ inputs.reviewer_external_identity }}
+          ACKNOWLEDGEMENTS_CONFIRMED: ${{ inputs.acknowledgements_confirmed && '1' || '0' }}
+          REVIEW_CONFIRMED: ${{ inputs.independent_review_confirmed && '1' || '0' }}
+          ACK_DECLARED_AT: ${{ inputs.acknowledgement_declared_at }}
+          COMMANDER_ACK_AT: ${{ inputs.incident_commander_acknowledged_at }}
+          SRE_ACK_AT: ${{ inputs.sre_acknowledged_at }}
+          ACTOR: ${{ github.actor }}
+          AUTHORITY_SHA: ${{ github.sha }}
+          AUTHORITY_REF: ${{ github.ref }}
+          EXPECTED_USER: ${{ vars.TECPEY_STAGING_RUN_USER }}
+          EXPECTED_GROUP: ${{ vars.TECPEY_STAGING_RUN_GROUP }}
+          HEALTH_URL: ${{ vars.TECPEY_STAGING_HEALTH_URL }}
+        run: |
+          set -Eeuo pipefail
+          test "$AUTHORITY_REF" = refs/heads/main
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          for LOGIN in "$ACTOR" "$INCIDENT_COMMANDER" "$SRE_OWNER" "$REVIEWER"; do
+            [[ "$LOGIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?$ ]]
+          done
+          test "$ACKNOWLEDGEMENTS_CONFIRMED" = 1
+          test "$REVIEW_CONFIRMED" = 1
+          test "${REVIEWER,,}" != "${ACTOR,,}"
+          test "${REVIEWER,,}" != "${INCIDENT_COMMANDER,,}"
+          test "${REVIEWER,,}" != "${SRE_OWNER,,}"
+          test -n "$EXPECTED_USER"
+          test -n "$EXPECTED_GROUP"
+          test -n "$HEALTH_URL"
+          test "$(id -un)" = "$EXPECTED_USER"
+          test "$(id -gn)" = "$EXPECTED_GROUP"
+          (cd authority && test "$(git rev-parse HEAD)" = "$AUTHORITY_SHA")
+          git -C authority merge-base --is-ancestor "$RELEASE_SHA" "$AUTHORITY_SHA"
+          APP_DIR="$(systemctl show tecpey-staging.service --property=WorkingDirectory --value)"
+          test "$APP_DIR" = "/srv/tecpey/releases/$RELEASE_SHA"
+          test "$(git -C "$APP_DIR" rev-parse --is-inside-work-tree)" = true
+          test "$(git -C "$APP_DIR" rev-parse HEAD)" = "$RELEASE_SHA"
+          test -z "$(git -C "$APP_DIR" status --porcelain --untracked-files=no)"
+          test "$(systemctl is-active tecpey-staging.service)" = active
+          HEALTH="$(curl --fail --silent --show-error --max-time 10 "$HEALTH_URL")"
+          HEALTH_PAYLOAD="$HEALTH" RELEASE_SHA="$RELEASE_SHA" node <<'NODE'
+          const health = JSON.parse(process.env.HEALTH_PAYLOAD);
+          if (
+            health?.ok !== true
+            || health?.build?.commit !== process.env.RELEASE_SHA
+            || health?.migrations?.status !== "current"
+          ) {
+            throw new Error("protected_staging_runtime_identity_invalid");
+          }
+          for (const name of ["ACK_DECLARED_AT", "COMMANDER_ACK_AT", "SRE_ACK_AT"]) {
+            const value = process.env[name];
+            if (!value || new Date(value).toISOString() !== value) {
+              throw new Error(`${name.toLowerCase()}_invalid`);
+            }
+          }
+          NODE
+
+      - name: Setup governed Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: authority/package-lock.json
+
+      - name: Install exact authority dependencies
+        working-directory: authority
+        run: npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund
+
+      - name: Configure governed alert CA trust
+        shell: bash
+        env:
+          ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const { X509Certificate } = require("node:crypto");
+          const { appendFileSync, lstatSync, readFileSync } = require("node:fs");
+          const path = require("node:path");
+          const environmentFile = process.env.ENV_FILE?.trim() ?? "";
+          if (!path.isAbsolute(environmentFile) || environmentFile.length > 500) {
+            throw new Error("protected_incident_environment_file_invalid");
+          }
+          const environmentStat = lstatSync(environmentFile);
+          if (
+            environmentStat.isSymbolicLink()
+            || !environmentStat.isFile()
+            || environmentStat.size < 1
+            || environmentStat.size > 64 * 1024
+            || (environmentStat.mode & 0o022) !== 0
+          ) {
+            throw new Error("protected_incident_environment_file_unsafe");
+          }
+          const values = new Map();
+          for (const rawLine of readFileSync(environmentFile, "utf8").split(/\r?\n/)) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith("#")) continue;
+            const match = /^([A-Z][A-Z0-9_]*)=([^\s]*)$/.exec(line);
+            if (!match || match[2] === "" || values.has(match[1])) {
+              throw new Error("protected_incident_environment_file_format_invalid");
+            }
+            values.set(match[1], match[2]);
+          }
+          for (const required of ["DATABASE_URL", "TECPEY_OPS_ALERT_WEBHOOK_URL"]) {
+            if (!values.has(required)) throw new Error(`protected_incident_${required.toLowerCase()}_missing`);
+          }
+          const configuredCaPath = values.get("NODE_EXTRA_CA_CERTS");
+          if (!configuredCaPath) process.exit(0);
+          if (!path.isAbsolute(configuredCaPath) || configuredCaPath.length > 500) {
+            throw new Error("protected_incident_ca_path_invalid");
+          }
+          const caStat = lstatSync(configuredCaPath);
+          if (
+            caStat.isSymbolicLink()
+            || !caStat.isFile()
+            || caStat.size < 1
+            || caStat.size > 256 * 1024
+            || (caStat.mode & 0o022) !== 0
+          ) {
+            throw new Error("protected_incident_ca_file_unsafe");
+          }
+          const certificates = readFileSync(configuredCaPath, "utf8").match(
+            /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g,
+          ) ?? [];
+          if (certificates.length < 1 || certificates.length > 16) {
+            throw new Error("protected_incident_ca_bundle_invalid");
+          }
+          for (const certificate of certificates) new X509Certificate(certificate);
+          appendFileSync(process.env.GITHUB_ENV, `NODE_EXTRA_CA_CERTS=${configuredCaPath}\n`);
+          NODE
+
+      - name: Run protected P0 alert and acknowledgement drill
+        working-directory: authority
+        env:
+          TECPEY_INCIDENT_AUTHORITY_DIR: ${{ github.workspace }}/authority
+          TECPEY_INCIDENT_ENV_FILE: ${{ vars.TECPEY_STAGING_ENV_FILE }}
+          TECPEY_INCIDENT_STATE_DIR: ${{ vars.TECPEY_STAGING_OPS_STATE_DIR }}
+          TECPEY_INCIDENT_SOURCE_SHA: ${{ inputs.release_sha }}
+          TECPEY_INCIDENT_OPERATOR: github:${{ github.actor }}
+          TECPEY_INCIDENT_COMMANDER: github:${{ inputs.incident_commander_external_identity }}
+          TECPEY_INCIDENT_SRE_OWNER: github:${{ inputs.sre_owner_external_identity }}
+          TECPEY_INCIDENT_REVIEWER: github:${{ inputs.reviewer_external_identity }}
+          TECPEY_INCIDENT_DECLARED_AT: ${{ inputs.acknowledgement_declared_at }}
+          TECPEY_INCIDENT_COMMANDER_ACKNOWLEDGED_AT: ${{ inputs.incident_commander_acknowledged_at }}
+          TECPEY_INCIDENT_SRE_ACKNOWLEDGED_AT: ${{ inputs.sre_acknowledged_at }}
+          TECPEY_INCIDENT_ACKNOWLEDGEMENTS_CONFIRMED: ${{ inputs.acknowledgements_confirmed && '1' || '0' }}
+          TECPEY_INCIDENT_INDEPENDENT_REVIEW_CONFIRMED: ${{ inputs.independent_review_confirmed && '1' || '0' }}
+          TECPEY_INCIDENT_EVIDENCE_DIR: ${{ github.workspace }}/authority/artifacts/protected-staging-incident
+        run: npm run ops:incident-readiness:evidence:collect
+
+      - name: Verify evidence offline and bind artifact digest
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -Eeuo pipefail
+          EVIDENCE_DIR="authority/artifacts/protected-staging-incident"
+          EVIDENCE_FILE="$EVIDENCE_DIR/protected-staging-incident-readiness-$RELEASE_SHA.json"
+          node authority/scripts/verify-incident-readiness-evidence.mjs \
+            "$EVIDENCE_FILE" --expected-sha "$RELEASE_SHA"
+          (cd "$EVIDENCE_DIR" && sha256sum --check SHA256SUMS)
+
+      - name: Publish bounded incident summary
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REVIEWER: ${{ inputs.reviewer_external_identity }}
+        run: |
+          {
+            echo "## Protected staging incident readiness"
+            echo ""
+            echo "- Candidate: \`$RELEASE_SHA\`"
+            echo "- Critical synthetic alert probes: \`2/2 delivered\`"
+            echo "- Pending/quarantine after probes: \`0/0\`"
+            echo "- P0 acknowledgement target: \`passed\`"
+            echo "- Runbook failure modes: \`7/7\`"
+            echo "- Privacy: counts, timings, identities and hashes only"
+            echo "- Independent reviewer: \`github:$REVIEWER\`"
+            echo "- Artifact: \`protected-staging-incident-readiness-$RELEASE_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload accepted incident readiness evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: protected-staging-incident-readiness-${{ inputs.release_sha }}
+          path: authority/artifacts/protected-staging-incident/**
+          if-no-files-found: error
+          retention-days: 30

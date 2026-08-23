@@ -18,6 +18,8 @@ const serverOnlyCommands = {
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/deliver-operational-alerts.ts",
   "ops:staging:evidence:collect":
     "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-community-challenge-scheduler-host-evidence.ts",
+  "ops:incident-readiness:evidence:collect":
+    "NODE_PATH=scripts/runtime-stubs node --conditions=react-server --import tsx scripts/collect-protected-incident-readiness-evidence.ts",
 };
 
 test("server-only CLI entrypoints pin the isolated Node server runtime", async () => {
@@ -55,4 +57,33 @@ test("staging collector resolves every server-only import before validating inpu
   assert.equal(result.status, 1);
   assert.doesNotMatch(output, /MODULE_NOT_FOUND|Cannot find module/);
   assert.match(output, /"error":"tecpey_evidence_environment_required"/);
+});
+
+test("incident collector resolves every server-only import before validating input", () => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("TECPEY_")),
+  );
+  delete env.NODE_OPTIONS;
+  env.NODE_PATH = runtimeNodePath;
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--conditions=react-server",
+      "--import",
+      "tsx",
+      "scripts/collect-protected-incident-readiness-evidence.ts",
+    ],
+    {
+      cwd: root,
+      env,
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+
+  assert.equal(result.status, 1);
+  assert.doesNotMatch(output, /MODULE_NOT_FOUND|Cannot find module/);
+  assert.match(output, /"error":"tecpey_incident_acknowledgements_confirmed_required"/);
 });
