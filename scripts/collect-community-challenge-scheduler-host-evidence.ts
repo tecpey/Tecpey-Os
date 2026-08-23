@@ -9,6 +9,7 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
 } from "node:fs/promises";
@@ -283,6 +284,7 @@ async function main(): Promise<void> {
 
   const dependencies: CommunityChallengeHostCollectorDependencies = {
     lstat,
+    realpath,
     readFile: (filePath) => readFile(filePath, "utf8"),
     readdir: async (directory) =>
       readdir(directory, { withFileTypes: true }) as Promise<Dirent[]>,
