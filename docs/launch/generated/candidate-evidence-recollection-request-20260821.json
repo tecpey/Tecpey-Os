@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-evidence-recollection-request",
-  "generatedAt": "2026-08-22T19:26:23Z",
+  "generatedAt": "2026-08-23T07:13:39Z",
   "issue": 515,
   "decision": "NO_GO_NOG_03_04_06_RECOLLECTED_AND_ACCEPTED",
-  "selectedSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+  "selectedSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
   "sourceBranch": "main",
-  "sourcePullRequest": 530,
+  "sourcePullRequest": 539,
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
   "requiredEvidence": {

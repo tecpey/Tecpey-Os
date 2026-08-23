@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-promotion-state",
-  "generatedAt": "2026-08-22T19:26:23Z",
+  "generatedAt": "2026-08-23T07:13:39Z",
   "issue": 515,
   "status": "promoted_exact_candidate_evidence",
-  "currentAcceptedCandidateSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+  "currentAcceptedCandidateSha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
   "proposedCandidate": {
-    "sha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
+    "sha": "38c2cd36d0236045bf3c9fbcf093ec431dc47768",
     "sourceBranch": "main",
-    "sourcePullRequest": 530,
-    "reason": "PR #530 advanced main to ed11e5e596e1b08b16feb493bb41a1cacb324f6e and Candidate Evidence Recollection Authority #83 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
+    "sourcePullRequest": 539,
+    "reason": "PR #539 repaired the PR #538 rollback and advanced main to 38c2cd36d0236045bf3c9fbcf093ec431dc47768; Candidate Evidence Recollection Authority #93 accepted genuine exact-main NOG-03/NOG-04/NOG-06 evidence for that SHA. Promotion remains fail-closed for Go because NOG-01, NOG-02, NOG-05, NOG-07, NOG-08 and NOG-09 remain open."
   },
   "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
