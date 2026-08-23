@@ -212,7 +212,7 @@
         "requiredEnvironment": "browser-runtime",
         "evidenceClass": "ui-ux-screenshot-matrix-v1",
         "evidenceSchemaVersion": 1,
-        "machineVerifier": "future browser verifier: qa:screenshot-matrix:verify",
+        "machineVerifier": "npm run qa:screenshot-matrix:verify",
         "requiredArtifacts": [
           "ui-ux-screenshot-matrix.json",
           "ui-ux-screenshot-matrix.json.sha256",
@@ -237,7 +237,7 @@
         "requiredEnvironment": "browser-runtime",
         "evidenceClass": "accessibility-runtime-evidence-v1",
         "evidenceSchemaVersion": 1,
-        "machineVerifier": "future browser verifier: qa:a11y-runtime:verify",
+        "machineVerifier": "npm run qa:a11y-runtime:verify",
         "requiredArtifacts": [
           "accessibility-runtime-evidence.json",
           "accessibility-runtime-evidence.json.sha256",

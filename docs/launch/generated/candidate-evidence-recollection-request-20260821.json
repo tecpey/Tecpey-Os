@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "controlled-launch-candidate-evidence-recollection-request",
-  "generatedAt": "2026-08-21T14:58:00Z",
+  "generatedAt": "2026-08-22T19:26:23Z",
   "issue": 515,
-  "decision": "NO_GO_PENDING_NOG_03_04_06_RECOLLECTION",
-  "selectedSha": "5e270ba7bfc2fe345d383fb2b28cd9c329dd29c8",
+  "decision": "NO_GO_NOG_03_04_06_RECOLLECTED_AND_ACCEPTED",
+  "selectedSha": "ed11e5e596e1b08b16feb493bb41a1cacb324f6e",
   "sourceBranch": "main",
-  "sourcePullRequest": 519,
-  "protectedExecutionAllowed": false,
+  "sourcePullRequest": 530,
+  "protectedExecutionAllowed": true,
   "requiredAcceptanceSchemaVersion": 2,
   "requiredEvidence": {
     "NOG-04": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "requiredWorkflows": [
         "CI",
@@ -31,11 +31,11 @@
         "each workflow uses a distinct governed GitHub Actions run URL",
         "each workflow record includes headSha equal to selectedSha and its governed workflow path",
         "Scheduled Operational Recovery must use governed workflow_dispatch on main and resolve headSha equal to selectedSha",
-        "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568 or 60691da0e1c45d7e6c5ea9aed4558e391f38db71 are not accepted as exact-candidate evidence for selectedSha"
+        "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568, 60691da0e1c45d7e6c5ea9aed4558e391f38db71 or 32799a79ea9bdee4c7f99f1cba385149723f14d6 are not accepted as exact-candidate evidence for selectedSha"
       ]
     },
     "NOG-03": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "workflow": "Container Supply Chain",
       "acceptance": [
@@ -48,7 +48,7 @@
       ]
     },
     "NOG-06": {
-      "status": "pending_recollection",
+      "status": "accepted_exact_selected_sha_evidence",
       "requireExactSelectedSha": true,
       "workflow": "Container Supply Chain",
       "job": "Ephemeral staging rollback and volume restore",
@@ -89,5 +89,19 @@
   "privacyBoundary": [
     "record run URLs, artifact identifiers, digests, release identifiers and dispositions only",
     "do not record raw secrets, database URLs, host IPs, customer data, raw logs, private keys, provider payloads or prompt transcripts"
+  ],
+  "acceptedEvidence": [
+    {
+      "id": "NOG-03",
+      "evidence": "docs/launch/generated/runtime-image-digest-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-04",
+      "evidence": "docs/launch/generated/exact-head-workflow-evidence-20260812.json"
+    },
+    {
+      "id": "NOG-06",
+      "evidence": "docs/launch/generated/rollback-volume-restore-evidence-20260812.json"
+    }
   ]
 }

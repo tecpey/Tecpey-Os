@@ -77,3 +77,42 @@ test("enterprise global product readiness rejects incomplete runtime accessibili
     /QA-051 must require axe, keyboard, focus, contrast and reduced-motion/,
   );
 });
+
+test("a control cannot name a machine verifier that does not exist", async () => {
+  // How QA-051 sat blocked: the ledger named "qa:a11y-runtime:verify" while no
+  // such command existed. Naming a verifier and having one are different facts.
+  const registry = await readEnterpriseGlobalProductReadinessRegistry();
+
+  const missingScript = structuredClone(registry);
+  missingScript.waveAExternalEvidenceTracker.controls.find(
+    (control) => control.id === "QA-051",
+  ).machineVerifier = "npm run qa:a11y-runtime:verify-that-was-never-written";
+  assert.throws(
+    () => validateEnterpriseGlobalProductReadiness(missingScript),
+    /does not exist in package\.json/,
+  );
+
+  const missingFile = structuredClone(registry);
+  missingFile.waveAExternalEvidenceTracker.controls.find(
+    (control) => control.id === "QA-051",
+  ).machineVerifier = "scripts/verify-something-nobody-wrote.mjs";
+  assert.throws(
+    () => validateEnterpriseGlobalProductReadiness(missingFile),
+    /does not exist in the repository/,
+  );
+});
+
+test("QA-051 now names a verifier the repository actually provides", async () => {
+  const registry = await readEnterpriseGlobalProductReadinessRegistry();
+  const a11y = registry.waveAExternalEvidenceTracker.controls.find(
+    (control) => control.id === "QA-051",
+  );
+
+  assert.equal(a11y.machineVerifier, "npm run qa:a11y-runtime:verify");
+  // The verifier existing is not the evidence existing. QA-051 stays blocked
+  // until a browser run on the staging host produces a bundle it accepts.
+  assert.equal(
+    registry.controls.find((control) => control.id === "QA-051").status,
+    "BLOCKED_EXTERNAL",
+  );
+});

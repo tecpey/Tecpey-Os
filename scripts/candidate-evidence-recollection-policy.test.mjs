@@ -81,7 +81,7 @@ function fixture() {
             "each workflow uses a distinct governed GitHub Actions run URL",
             "each workflow record includes headSha equal to selectedSha and its governed workflow path",
             "Scheduled Operational Recovery must use governed workflow_dispatch on main and resolve headSha equal to selectedSha",
-            "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568 or 60691da0e1c45d7e6c5ea9aed4558e391f38db71 are not accepted as exact-candidate evidence for selectedSha",
+            "PR-head run URLs from 6c2bcbbc7c7e32fa00cbff2c3583507f4eda5b5c, 6145c03bdee9da4d06b781175a60b63d38cba568, 60691da0e1c45d7e6c5ea9aed4558e391f38db71 or 32799a79ea9bdee4c7f99f1cba385149723f14d6 are not accepted as exact-candidate evidence for selectedSha",
           ],
         },
         "NOG-03": {
