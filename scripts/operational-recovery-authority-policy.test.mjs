@@ -166,11 +166,31 @@ test("rejects a mutable action or dependent-review bypass in protected staging r
 test("rejects weakening isolated restore, source/restore comparison or privacy controls", () => {
   const protectedCollector = valid.protectedCollector
     .replace("SELECT pg_export_snapshot() AS snapshot", "SELECT now() AS snapshot")
+    .replaceAll("startIsolatedPostgres", "reuseActivePostgres")
+    .replaceAll("env: isolatedPostgres.env", "env: postgresEnv")
+    .replace("--auth-host=reject", "--auth-host=trust")
+    .replace("!name.startsWith(\"PG\")", "false")
     .replaceAll("assertSummariesMatch", "acceptUncomparedRestore")
     .replace("no-raw-rows", "raw-rows-allowed");
   const failures = evaluateOperationalRecoveryAuthority({ ...valid, protectedCollector });
   assert.equal(
     failures.includes("protected staging recovery collector is missing SELECT pg_export_snapshot() AS snapshot"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing startIsolatedPostgres"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing env: isolatedPostgres.env"),
+    true,
+  );
+  assert.equal(
+    failures.includes("protected staging recovery collector is missing --auth-host=reject"),
+    true,
+  );
+  assert.equal(
+    failures.includes('protected staging recovery collector is missing !name.startsWith("PG")'),
     true,
   );
   assert.equal(
