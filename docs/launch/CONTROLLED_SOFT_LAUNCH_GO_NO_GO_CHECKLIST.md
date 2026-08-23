@@ -47,6 +47,13 @@ release-owner promotion PR explicitly reselects them.
 | Incident readiness | Runbooks, alert delivery, ownership, severity/escalation and acknowledgement paths satisfy `docs/operations/INCIDENT_READINESS_CONTRACT.md` for DB, Redis, migration, alert, provider, worker and reconciliation failures, and the protected staging artifact passes `scripts/verify-incident-readiness-evidence.mjs`. | NO-GO until incident evidence is accepted; request is prepared in `docs/launch/generated/incident-readiness-evidence-request-20260812.json`. |
 | Go approval matrix | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA approve the exact candidate SHA and controlled launch scope after prerequisite evidence is accepted; the final artifact passes `scripts/verify-go-approval-matrix-evidence.mjs`. | NO-GO until approval evidence is accepted; request is prepared in `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`. |
 
+Transition note: before the protected recovery run was accepted, the governed
+boundary read “NO-GO remains until recovery reconciliation, incident,
+accepted-risk owner sign-off and approval evidence is accepted.” That historical
+boundary is retained for trusted-main guard compatibility and is superseded by
+the accepted NOG-05 row above; the current NO-GO blockers are NOG-07, NOG-08
+and NOG-09.
+
 ## Required decision record
 
 The final Go/No-Go record must contain:
