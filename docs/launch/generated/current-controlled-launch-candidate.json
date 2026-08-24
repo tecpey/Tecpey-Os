@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "evidenceClass": "current-controlled-launch-candidate",
-  "generatedAt": "2026-08-23T22:10:37Z",
-  "decision": "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
+  "generatedAt": "2026-08-24T06:45:00Z",
+  "decision": "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "currentCandidate": {
     "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
     "sourceBranch": "main",
     "sourcePullRequest": 545,
     "selectedAt": "2026-08-23T13:35:01Z",
-    "reason": "Rebaselines the controlled-launch evidence target to the PR #545 protected staging health migration contract fix after Candidate Evidence Recollection Authority #106 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. PR #547 changed only governed workflow private-CA trust and preserved this runtime candidate. Exact-candidate NOG-01/NOG-02 protected staging evidence, NOG-05 protected recovery reconciliation evidence, NOG-07 protected incident readiness evidence and NOG-08 accepted-risk owner sign-off evidence are accepted; the final Go approval matrix must still target this exact runtime SHA."
+    "reason": "Rebaselines the controlled-launch evidence target to the PR #545 protected staging health migration contract fix after Candidate Evidence Recollection Authority #106 accepted exact-main NOG-03/NOG-04/NOG-06 evidence. PR #547 changed only governed workflow private-CA trust and preserved this runtime candidate. Exact-candidate NOG-01/NOG-02 protected staging, NOG-05 recovery, NOG-07 incident readiness, NOG-08 accepted-risk and NOG-09 attributable Go approval matrix evidence are accepted for this immutable runtime SHA and controlled scope only."
   },
   "supersedes": [
     {
@@ -147,6 +147,7 @@
     "incidentReadinessExecutionStatus": "docs/launch/generated/protected-incident-readiness-execution-status-20260823.json",
     "goNoGoChecklist": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
     "goApprovalMatrixEvidenceRequest": "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+    "goApprovalMatrixEvidence": "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
     "disabledCapabilityAttestationEvidence": "docs/launch/generated/disabled-capability-attestation-evidence-20260812.json",
     "acceptedRiskSignoffEvidence": "docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json"
   },
@@ -156,11 +157,9 @@
     "later runtime, deployment, security, bundle or launch-control behavior changes require a candidate-promotion PR before protected execution continues",
     "documentation-only evidence attachments may preserve this runtime candidate when they only record URLs, digests and dispositions for this exact SHA",
     "historical draft packets are not current final evidence unless regenerated and accepted for this SHA",
-    "support ZIP generation and delivery remain blocked until the remaining NO-GO evidence is accepted"
+    "support ZIP generation and delivery must preserve the redaction boundary and exact-candidate identity and does not authorize expanded capabilities that remain separately NO-GO"
   ],
-  "requiredNextEvidence": [
-    "Go approval matrix for the current candidate that passes scripts/verify-go-approval-matrix-evidence.mjs"
-  ],
+  "requiredNextEvidence": [],
   "acceptedEvidence": [
     {
       "id": "NOG-01",
@@ -221,7 +220,7 @@
       "evidenceFileDigest": "sha256:889d976dfbc5d07ebc77842fc6ac98112bb4317abb4cccd458ef0237efa5d633",
       "detachedDigestDisposition": "verified",
       "offlineVerifierDisposition": "passed",
-      "remainingBoundary": "NOG-09 remains open."
+      "remainingBoundary": "NOG-09 was open when this prerequisite was accepted and is now accepted separately for the controlled scope."
     },
     {
       "id": "NOG-06",
@@ -233,7 +232,7 @@
       "rollbackJobId": 97201386369,
       "containerRecoveryArtifact": "container-recovery-79c48a16cb685a88315a44e103b3758cf7845d65",
       "containerRecoveryArtifactDigest": "sha256:90dda7310c917da6e2d09864e16445124391a9111925211f55034dc276ba4204",
-      "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; protected staging activation, redacted env evidence, protected recovery reconciliation, incident readiness and accepted-risk owner sign-off are accepted under NOG-01/NOG-02/NOG-05/NOG-07/NOG-08; NOG-09 remains open."
+      "remainingBoundary": "The immediate previous main parent is recorded only as the mechanical rollback target and is not approved as a healthy release; NOG-09 was open when this prerequisite was accepted and is now accepted separately for the controlled scope."
     },
     {
       "id": "NOG-07",
@@ -250,7 +249,7 @@
       "detachedDigestDisposition": "verified",
       "offlineVerifierDisposition": "passed",
       "independentReviewer": "github:xrayman6zfm-ux",
-      "remainingBoundary": "NOG-09 remains open."
+      "remainingBoundary": "NOG-09 was open when this prerequisite was accepted and is now accepted separately for the controlled scope."
     },
     {
       "id": "NOG-08",
@@ -278,7 +277,23 @@
       ],
       "independentReviewer": "github:xrayman6zfm-ux",
       "offlineVerifierDisposition": "passed",
-      "remainingBoundary": "NOG-09 remains open."
+      "remainingBoundary": "NOG-09 was open when this prerequisite was accepted and is now accepted separately for the controlled scope."
+    },
+    {
+      "id": "NOG-09",
+      "status": "accepted",
+      "acceptedAt": "2026-08-24T06:45:00Z",
+      "evidence": "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
+      "selectedSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "approvalEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/410",
+      "approvalOwners": [
+        "github:tecpey",
+        "github:mvexhiiii",
+        "github:tecpeysup"
+      ],
+      "independentReviewer": "github:tecpeysup",
+      "offlineVerifierDisposition": "passed",
+      "originVerifierDisposition": "required_fail_closed"
     },
     {
       "id": "NOG-10",

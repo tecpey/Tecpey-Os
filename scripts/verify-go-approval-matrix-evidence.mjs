@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 const COMMIT_SHA = /^[a-f0-9]{40}$/;
 const SHA256 = /^(sha256:)?[a-f0-9]{64}$/;
 const RELEASE_SCOPE_ID = "controlled-public-fa-en-academy-mentor-arena";
+const COMMENT_URL =
+  /^https:\/\/github\.com\/tecpey\/Tecpey-Os\/issues\/410#issuecomment-([1-9][0-9]*)$/;
 
 const REQUIRED_ALLOWED_SURFACES = [
   "public-fa-en",
@@ -125,18 +127,6 @@ function assertHttpsUrl(value, path) {
   return parsed;
 }
 
-function assertGithubRepoUrl(value, path) {
-  const parsed = assertHttpsUrl(value, path);
-  if (
-    parsed.hostname !== "github.com"
-    || parsed.search
-    || parsed.hash
-    || !/^\/tecpey\/Tecpey-Os\/(?:pull|issues|actions\/runs|commit|blob)\/.+/.test(parsed.pathname)
-  ) {
-    throw new Error(`${path}_github_repo_url_invalid`);
-  }
-}
-
 function assertParticipant(value, path) {
   exactKeys(value, ["role", "externalIdentity"], path);
   assertNonEmptyString(value.role, `${path}_role`);
@@ -212,6 +202,8 @@ function verifyApprovalEntry(value, key, expectedRole, expectedSha) {
       "candidateSha",
       "launchScopeId",
       "decision",
+      "approvalEvidenceType",
+      "approvalEvidenceCommentId",
       "approvalEvidenceUrl",
       "evidenceDigest",
       "attestation",
@@ -227,7 +219,15 @@ function verifyApprovalEntry(value, key, expectedRole, expectedSha) {
     throw new Error(`approvalMatrix_${key}_scope_invalid`);
   }
   if (value.decision !== "approved") throw new Error(`approvalMatrix_${key}_decision_invalid`);
-  assertGithubRepoUrl(value.approvalEvidenceUrl, `approvalMatrix_${key}_approvalEvidenceUrl`);
+  if (value.approvalEvidenceType !== "github-issue-comment") {
+    throw new Error(`approvalMatrix_${key}_approvalEvidenceType_invalid`);
+  }
+  const commentMatch = typeof value.approvalEvidenceUrl === "string"
+    ? COMMENT_URL.exec(value.approvalEvidenceUrl)
+    : null;
+  if (!commentMatch || String(value.approvalEvidenceCommentId) !== commentMatch[1]) {
+    throw new Error(`approvalMatrix_${key}_approvalEvidenceUrl_invalid`);
+  }
   assertDigest(value.evidenceDigest, `approvalMatrix_${key}_evidence`);
   if (value.attestation !== "approved-for-controlled-soft-launch-only") {
     throw new Error(`approvalMatrix_${key}_attestation_invalid`);
@@ -269,7 +269,7 @@ export function verifyGoApprovalMatrixEvidence(value, expectedSha) {
   );
 
   if (
-    value.schemaVersion !== 1
+    value.schemaVersion !== 2
     || value.authority !== "tecpey-go-approval-matrix-v1"
     || value.evidenceClass !== "controlled-soft-launch-go-approval-matrix"
     || value.decision !== "APPROVED_FOR_CONTROLLED_SOFT_LAUNCH"

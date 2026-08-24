@@ -1,5 +1,16 @@
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
+import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-evidence-manifest.mjs";
+import {
+  DISABLED_CAPABILITY_ATTESTATION,
+  FINAL_AUTHORITY,
+  FINAL_DECISION,
+  FINAL_MANIFEST_PATH,
+  PRIVACY_BOUNDARY,
+  verifyControlledLaunchFinalAuthority,
+} from "./controlled-launch-final-authority.mjs";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
@@ -17,6 +28,17 @@ const files = {
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
+  finalAuthority: "scripts/controlled-launch-final-authority.mjs",
+  finalEvidenceManifest:
+    "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json",
+  finalReleasePacket:
+    "docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json",
+  packageLock: "package-lock.json",
+  runtimeImageEvidence: "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+  exactHeadWorkflowEvidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  protectedStagingExecutionStatus:
+    "docs/launch/generated/protected-staging-execution-status-20260812.json",
+  rollbackExecutionStatus: "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   recoveryReconciliationEvidenceAuthority:
@@ -41,6 +63,8 @@ const files = {
   goApprovalMatrixVerifier: "scripts/verify-go-approval-matrix-evidence.mjs",
   goApprovalMatrixVerifierTest: "scripts/go-approval-matrix-evidence.test.mjs",
   goApprovalMatrixRequest: "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+  goApprovalMatrixEvidence: "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
+  goApprovalMatrixOrigin: "scripts/go-approval-matrix-evidence-origin.mjs",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -108,6 +132,215 @@ const normalized = Object.fromEntries(
 );
 const failures = [];
 
+function parseJson(target) {
+  try {
+    return JSON.parse(source[target]);
+  } catch (error) {
+    failures.push(`${files[target]}: invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]),
+    );
+  }
+  return value;
+}
+
+function requireEqualValue(label, actual, expected) {
+  if (JSON.stringify(canonicalValue(actual)) !== JSON.stringify(canonicalValue(expected))) {
+    failures.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function sourceDigest(target) {
+  return `sha256:${createHash("sha256").update(source[target], "utf8").digest("hex")}`;
+}
+
+function gitSourceDigest(revision, file) {
+  const result = spawnSync("git", ["show", `${revision}:${file}`]);
+  if (result.status !== 0) return null;
+  return `sha256:${createHash("sha256").update(result.stdout).digest("hex")}`;
+}
+
+const selectedSha = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const finalManifest = parseJson("finalEvidenceManifest");
+const finalPacket = parseJson("finalReleasePacket");
+const runtimeImageEvidence = parseJson("runtimeImageEvidence");
+const exactHeadWorkflowEvidence = parseJson("exactHeadWorkflowEvidence");
+
+if (finalManifest) {
+  try {
+    validateControlledLaunchEvidenceManifest(finalManifest, { expectedHeadSha: selectedSha });
+  } catch (error) {
+    failures.push(`${files.finalEvidenceManifest}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    await verifyControlledLaunchFinalAuthority(finalManifest);
+  } catch (error) {
+    failures.push(`${files.finalEvidenceManifest}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  requireEqualValue(
+    "final manifest image digest",
+    finalManifest.artifactIdentity?.imageDigest,
+    runtimeImageEvidence?.containerImage?.imageDigest,
+  );
+  requireEqualValue(
+    "final manifest deployment artifact digest",
+    finalManifest.artifactIdentity?.deploymentArtifactDigest,
+    runtimeImageEvidence?.artifactEvidence?.containerRelease?.artifactDigest,
+  );
+  requireEqualValue(
+    "final manifest workflow evidence",
+    finalManifest.workflowEvidence,
+    exactHeadWorkflowEvidence?.workflowEvidence,
+  );
+  requireEqualValue(
+    "final manifest protected staging digest",
+    finalManifest.requiredExternalEvidence?.protectedStaging?.artifactDigest,
+    sourceDigest("protectedStagingExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest recovery digest",
+    finalManifest.requiredExternalEvidence?.recoveryReconciliation?.artifactDigest,
+    sourceDigest("recoveryReconciliationExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest rollback digest",
+    finalManifest.requiredExternalEvidence?.rollbackOrForwardFix?.artifactDigest,
+    sourceDigest("rollbackExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest incident digest",
+    finalManifest.requiredExternalEvidence?.incidentReadiness?.artifactDigest,
+    sourceDigest("incidentReadinessExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest accepted-risk digest",
+    finalManifest.requiredExternalEvidence?.acceptedRisks?.artifactDigest,
+    sourceDigest("acceptedRiskEvidence"),
+  );
+  requireEqualValue(
+    "final manifest Go approval digest",
+    finalManifest.requiredExternalEvidence?.approvals?.artifactDigest,
+    sourceDigest("goApprovalMatrixEvidence"),
+  );
+  requireEqualValue(
+    "final manifest disabled-capability digest",
+    finalManifest.requiredExternalEvidence?.disabledCapabilities?.artifactDigest,
+    sourceDigest("gatedCapabilityEvidence"),
+  );
+}
+
+if (finalPacket && finalManifest) {
+  requireEqualValue("final packet schemaVersion", finalPacket.schemaVersion, 1);
+  requireEqualValue("final packet mode", finalPacket.packetMode, "final_evidence_required");
+  requireEqualValue("final packet generatedAt", finalPacket.generatedAt, finalManifest.generatedAt);
+  requireEqualValue("final packet decision", finalPacket.decision, FINAL_DECISION);
+  requireEqualValue("final packet release authority", finalPacket.releaseControl?.authority, FINAL_AUTHORITY);
+  requireEqualValue("final packet authority status", finalPacket.releaseControl?.authorityStatus, "verified");
+  requireEqualValue(
+    "final packet generator identity",
+    finalPacket.releaseControl?.generator,
+    finalManifest.authorityVerification?.generator,
+  );
+  requireEqualValue(
+    "final packet verifier identity",
+    finalPacket.releaseControl?.verifier,
+    finalManifest.authorityVerification?.verifier,
+  );
+  requireEqualValue("final packet manifest path", finalPacket.releaseControl?.manifest?.path, FINAL_MANIFEST_PATH);
+  requireEqualValue(
+    "final packet manifest digest",
+    finalPacket.releaseControl?.manifest?.sourceDigest,
+    sourceDigest("finalEvidenceManifest"),
+  );
+  if (!/^[a-f0-9]{40}$/.test(finalPacket.releaseControl?.sourceRevision ?? "")) {
+    failures.push("final packet release-control source revision must be a 40-character git SHA");
+  } else if (
+    spawnSync("git", ["merge-base", "--is-ancestor", finalPacket.releaseControl.sourceRevision, "HEAD"]).status !== 0
+  ) {
+    failures.push("final packet release-control source revision must be an ancestor of the packet commit");
+  } else {
+    for (const [label, identity] of [
+      ["generator", finalPacket.releaseControl?.generator],
+      ["verifier", finalPacket.releaseControl?.verifier],
+      ["manifest", finalPacket.releaseControl?.manifest],
+    ]) {
+      requireEqualValue(
+        `final packet ${label} digest at release-control source revision`,
+        gitSourceDigest(finalPacket.releaseControl.sourceRevision, identity?.path),
+        identity?.sourceDigest,
+      );
+    }
+  }
+  requireEqualValue("final packet candidate", finalPacket.releaseCandidate?.sha, selectedSha);
+  requireEqualValue("final packet clean candidate", finalPacket.releaseCandidate?.cleanWorktree, true);
+  requireEqualValue("final packet main containment", finalPacket.releaseCandidate?.originMainContainsSha, true);
+  requireEqualValue("final packet local dirty files", finalPacket.releaseCandidate?.localDirtyFiles, []);
+  requireEqualValue(
+    "final packet image digest",
+    finalPacket.artifactIdentity?.imageDigest,
+    finalManifest.artifactIdentity?.imageDigest,
+  );
+  requireEqualValue(
+    "final packet deployment artifact digest",
+    finalPacket.artifactIdentity?.deploymentArtifactDigest,
+    finalManifest.artifactIdentity?.deploymentArtifactDigest,
+  );
+  requireEqualValue(
+    "final packet package-lock digest",
+    finalPacket.artifactIdentity?.packageLockSha256,
+    gitSourceDigest(selectedSha, files.packageLock)?.slice("sha256:".length),
+  );
+  requireEqualValue(
+    "final packet migration plan digest",
+    finalPacket.artifactIdentity?.migrationPlanSha256,
+    "69f784cef674c98a2df4548d335480877db80995c567ec9a9ec69ead2b46f727",
+  );
+  requireEqualValue("final packet workflow evidence", finalPacket.workflowEvidence, finalManifest.workflowEvidence);
+  for (const key of [
+    "protectedStaging",
+    "recoveryReconciliation",
+    "rollbackOrForwardFix",
+    "incidentReadiness",
+    "acceptedRisks",
+    "approvals",
+    "disabledCapabilities",
+  ]) {
+    requireEqualValue(
+      `final packet ${key} authority status`,
+      finalPacket.requiredExternalEvidence?.[key]?.status,
+      "authority_verified",
+    );
+    requireEqualValue(
+      `final packet ${key} evidence URL`,
+      finalPacket.requiredExternalEvidence?.[key]?.evidenceUrl,
+      finalManifest.requiredExternalEvidence?.[key]?.evidenceUrl,
+    );
+    if (finalManifest.requiredExternalEvidence?.[key]?.artifactDigest) {
+      requireEqualValue(
+        `final packet ${key} artifact digest`,
+        finalPacket.requiredExternalEvidence?.[key]?.artifactDigest,
+        finalManifest.requiredExternalEvidence?.[key]?.artifactDigest,
+      );
+    }
+  }
+  requireEqualValue(
+    "final packet disabled capability attestations",
+    finalPacket.disabledCapabilityAttestation,
+    DISABLED_CAPABILITY_ATTESTATION,
+  );
+  requireEqualValue("final packet privacy boundary", finalPacket.privacyBoundary, PRIVACY_BOUNDARY);
+  if (!Number.isFinite(Date.parse(finalPacket.generatedAt))) {
+    failures.push(`${files.finalReleasePacket}: generatedAt must be an ISO-8601 timestamp`);
+  }
+}
+
 function requireText(target, token, reason) {
   if (!normalized[target].includes(token.replace(/\s+/g, " "))) {
     failures.push(`${files[target]}: ${reason}`);
@@ -121,7 +354,7 @@ function rejectText(target, token, reason) {
 }
 
 for (const invariant of [
-  "Status:** NO-GO",
+  "Status:** GO — controlled soft launch only",
   "This checklist is the release-decision surface",
   "does not authorize real-money Exchange, custody, deposits, withdrawals",
   "public Persian and English experience",
@@ -142,13 +375,13 @@ for (const invariant of [
   "INCIDENT_READINESS_CONTRACT.md",
   "Required decision record",
   "controlled-soft-launch-final-evidence-manifest",
+  "controlled-soft-launch-final-evidence-manifest-20260824.json",
+  "controlled-soft-launch-final-release-packet-20260824.json",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "must contain only HTTPS URLs",
   "npm run launch:packet -- --manifest",
-  "--full-suite-run-url",
-  "--api-security-run-url",
-  "--sensitive-mutation-run-url",
-  "--operational-recovery-run-url",
-  "--container-supply-chain-run-url",
+  "releaseControl.sourceRevision",
+  "direct evidence flags are draft-only",
   "Non-negotiable No-Go rules",
   "Completion percentage rule",
   "This checklist does not increase the completion percentage by itself",
@@ -157,7 +390,7 @@ for (const invariant of [
 }
 
 for (const forbidden of [
-  "Status:** GO",
+  "Status:** NO-GO until every blocking row",
   "authorizes production deployment",
   "authorizes real-money",
   "ready for real-money",
@@ -474,8 +707,8 @@ for (const invariant of [
 
 for (const invariant of [
   "go-approval-matrix-evidence-request",
-  "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
-  "blocked_pending_final_go_approval_matrix",
+  "GO_NOG_09_EXACT_CANDIDATE_MATRIX_ACCEPTED",
+  "accepted_exact_candidate_go_approval_matrix",
   "NOG-09",
   "tecpey-go-approval-matrix-v1",
   "controlled-soft-launch-go-approval-matrix",
@@ -487,7 +720,10 @@ for (const invariant of [
   "Compliance",
   "SRE",
   "QA",
-  "NOG-09 is not accepted by this request",
+  "NOG-09 is accepted only for the exact selected SHA",
+  "requiredArtifactOriginVerification",
+  "issues/comments/{approvalEvidenceCommentId}",
+  "failureMode\": \"fail-closed",
 ]) {
   requireText("goApprovalMatrixRequest", invariant, `Go approval matrix request is missing invariant: ${invariant}`);
 }
@@ -516,7 +752,9 @@ for (const invariant of [
 
 for (const invariant of [
   "Go approval matrix evidence authority",
-  "blocked_pending_final_go_approval_matrix",
+  "accepted_exact_candidate_go_approval_matrix",
+  "goApprovalMatrixEvidenceOriginFindings",
+  "GITHUB_TOKEN",
   "NOG-09",
   "launch:go-approval-matrix-evidence:check",
   "ops:go-approval-matrix:evidence:verify",
@@ -527,6 +765,32 @@ for (const invariant of [
     invariant,
     `Go approval matrix evidence authority is missing invariant: ${invariant}`,
   );
+}
+
+for (const invariant of [
+  '"schemaVersion": 2',
+  "APPROVED_FOR_CONTROLLED_SOFT_LAUNCH",
+  "79c48a16cb685a88315a44e103b3758cf7845d65",
+  "github:tecpey",
+  "github:mvexhiiii",
+  "github:tecpeysup",
+  "issuecomment-5391626720",
+  "issuecomment-5391640345",
+  "issuecomment-5391646913",
+  "approved_for_controlled_soft_launch",
+]) {
+  requireText("goApprovalMatrixEvidence", invariant, `Go approval matrix evidence is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "goApprovalMatrixEvidenceOriginFindings",
+  "issues/comments",
+  "origin.bodyDigest",
+  "origin.author",
+  "origin.updated_at",
+  "Go approval matrix origin verification requires GITHUB_TOKEN",
+]) {
+  requireText("goApprovalMatrixOrigin", invariant, `Go approval matrix origin verifier is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -565,7 +829,7 @@ for (const invariant of [
   "unknown launch packet option",
   "--manifest",
   "controlled-launch-evidence-manifest.mjs",
-  "manifest release candidate SHA must match the checked-out release candidate HEAD",
+  "final GO packet generation requires --manifest with governed authority verification",
   "final release packet requires the release candidate SHA to be contained in origin/main",
   "is required for a final release packet",
   "requires a clean worktree for final packets",
@@ -593,18 +857,39 @@ for (const invariant of [
   "accepted-risk-signoff-url",
   "go-approvals-url",
   "go-approvals-artifact-digest",
-  "attached_for_release_owner_acceptance",
+  "authority_verified",
+  "final GO packet accepts only --manifest and optional --out; evidence overrides are draft-only",
+  "releaseControl",
+  "sourceRevision",
+  "sha256GitFileAtCommit",
+  "verifyControlledLaunchFinalAuthority",
   "protectedStaging",
   "recoveryReconciliation",
   "rollbackOrForwardFix",
   "incidentReadiness",
   "acceptedRisks",
   "approvals",
+  "disabledCapabilities",
   "goApprovalsArtifactDigest",
-  "real-money Exchange remains NO-GO",
-  "packet must not contain raw secrets",
 ]) {
   requireText("releasePacket", invariant, `release packet generator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "tecpey-controlled-soft-launch-final-authority-v1",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
+  "NO_GO_PENDING_GOVERNED_AUTHORITY_VERIFICATION",
+  "verifyControlledLaunchFinalAuthority",
+  "manifest generator source digest",
+  "manifest verifier source digest",
+  "workflow evidence decision",
+  "workflow evidence ${key} conclusion",
+  "accepted-risk final disposition",
+  "Go approval final disposition",
+  "disabled-capability accepted blockers",
+  "must be an immutable tecpey/Tecpey-Os blob URL",
+]) {
+  requireText("finalAuthority", invariant, `controlled launch final authority is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -693,6 +978,10 @@ for (const invariant of [
   "manifest.releaseCandidate.sha must be a 40-character git SHA",
   "must contain only URLs, digests and release identifiers",
   "must match the checked-out release candidate HEAD",
+  "manifest.schemaVersion must be 2",
+  "manifest.generatedAt must be an ISO-8601 timestamp",
+  "authorityVerification",
+  "disabledCapabilities",
   "must be an absolute https URL",
   "must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os",
   "must be a sha256 digest",
@@ -772,20 +1061,28 @@ for (const invariant of [
   "controlled launch evidence manifest rejects workflow URLs outside governed GitHub Actions",
   "controlled launch evidence manifest rejects raw secrets and connection strings",
   "controlled launch evidence manifest rejects a release candidate SHA mismatch",
-  "release packet generator accepts a complete governed manifest",
+  "controlled launch evidence manifest rejects missing authority verification",
+  "controlled launch evidence manifest rejects missing accepted-risk artifact digest",
+  "controlled launch evidence manifest rejects non-canonical timestamps",
 ]) {
   requireText("evidenceManifestTest", invariant, `controlled launch evidence manifest tests are missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
   "final launch packet fails closed without required release evidence",
-  "final launch packet rejects dirty worktrees even when allow-dirty is supplied",
+  "final launch packet rejects dirty worktrees in governed final mode",
   "final launch packet fails closed without external operational evidence",
   "final launch packet rejects unmerged release candidates",
   "launch packet rejects unknown options",
   "launch packet rejects workflow URLs outside governed GitHub Actions",
   "draft launch packet can scaffold incomplete evidence explicitly",
   "final launch packet emits only after all release evidence is complete",
+  "direct evidence flags cannot emit a final GO packet",
+  "final launch packet rejects evidence overrides even with the governed manifest",
+  "final packet records the independent release-control revision",
+  "final packet reproduces byte-for-byte from its recorded source revision",
+  "final packet authority rejects invented workflow conclusions",
+  "decision authority rejects same-length disabled capability substitutions",
   "rollbackOrForwardFix.evidenceUrl",
   "incidentReadiness.artifactDigest",
   "acceptedRisks.evidenceUrl",
@@ -826,5 +1123,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Controlled launch decision authority passed: the Go/No-Go checklist remains NO-GO by default, linked from public docs, wired into release gates and aligned with staging, recovery, custody, exchange and compliance boundaries.",
+  "Controlled launch decision authority passed: the controlled soft launch is Go for the exact candidate and narrow scope; financial and enterprise activation remains disabled and separately NO-GO.",
 );

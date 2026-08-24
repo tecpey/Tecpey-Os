@@ -187,22 +187,18 @@ for (const [label, accepted] of [["register", registerAccepted], ["candidate", c
   requireArrayExact(`${label}.NOG-08.approvalOwners`, accepted?.approvalOwners, REQUIRED_APPROVAL_OWNERS);
 }
 
-requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, ["NOG-09"]);
-requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, ["NOG-09"]);
-requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, ["NOG-09"]);
+requireArrayExact("register.remainingOpenBlockers", register.remainingOpenBlockers, []);
+requireArrayExact("promotion.stillOpenBlockers", promotion.stillOpenBlockers, []);
+requireArrayExact("register.recommendedNextSlice.ids", register.recommendedNextSlice?.ids, []);
 requireEqual("register.acceptedRiskSignoffEvidence", register.acceptedRiskSignoffEvidence, EVIDENCE_PATH);
 requireEqual("candidate.activeInputs.acceptedRiskSignoffEvidence", candidate.activeInputs?.acceptedRiskSignoffEvidence, EVIDENCE_PATH);
-requireArrayExact(
-  "candidate.requiredNextEvidence",
-  candidate.requiredNextEvidence,
-  ["Go approval matrix for the current candidate that passes scripts/verify-go-approval-matrix-evidence.mjs"],
-);
+requireArrayExact("candidate.requiredNextEvidence", candidate.requiredNextEvidence, []);
 
 const nog09 = register.blockers?.find((entry) => entry.id === "NOG-09");
-requireEqual("NOG-09.status", nog09?.status, "open");
-requireEqual("NOG-09.executionState", nog09?.executionState, "blocked_pending_final_go_approval_matrix");
-if (register.acceptedEvidence?.some((entry) => entry.id === "NOG-09")) failures.push("register.acceptedEvidence must not accept NOG-09");
-if (candidate.acceptedEvidence?.some((entry) => entry.id === "NOG-09")) failures.push("candidate.acceptedEvidence must not accept NOG-09");
+requireEqual("NOG-09.status", nog09?.status, "accepted");
+requireEqual("NOG-09.executionState", nog09?.executionState, "accepted_exact_candidate_go_approval_matrix");
+requireEqual("register.NOG-09 accepted", register.acceptedEvidence?.some((entry) => entry.id === "NOG-09"), true);
+requireEqual("candidate.NOG-09 accepted", candidate.acceptedEvidence?.some((entry) => entry.id === "NOG-09"), true);
 requireEqual("goRequest.selectedSha", goRequest.selectedSha, SELECTED_SHA);
 
 for (const [label, text] of [
@@ -276,5 +272,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Accepted-risk signoff evidence authority passed for ${SELECTED_SHA}: NOG-08 is accepted from three attributable owners; controlled launch remains NO-GO on NOG-09.`,
+  `Accepted-risk signoff evidence authority passed for ${SELECTED_SHA}: NOG-08 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
 );

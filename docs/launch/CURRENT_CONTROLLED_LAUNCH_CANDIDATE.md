@@ -1,7 +1,7 @@
 # Current Controlled Launch Candidate
 
-**Status:** active candidate identity ledger, not Go approval  
-**Decision:** NO-GO until accepted exact-candidate evidence is attached  
+**Status:** active candidate identity ledger with accepted controlled-scope Go evidence
+**Decision:** GO — controlled soft launch only; financial and enterprise surfaces remain disabled
 **Current candidate SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Candidate source:** `main` after PR #545 aligned protected staging host evidence with the live health migration readiness value `current` while preserving evidence schema v1 normalization as `tracked`
 **Candidate selected at:** `2026-08-23T13:35:01Z`
@@ -17,6 +17,7 @@
 **Accepted-risk owner sign-off request:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 **Accepted-risk owner sign-off execution status:** `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`
 **Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
+**Go approval matrix execution status:** `docs/launch/generated/go-approval-matrix-execution-status-20260824.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
 collection. Older 2026-08-10 packets remain historical draft scaffolds unless
@@ -98,8 +99,8 @@ execution.
 - Historical evidence packets may stay in the repository, but they must not be
   presented as current final evidence unless regenerated and accepted for this
   SHA.
-- No support ZIP should be generated or sent to infrastructure/support until the
-  remaining NO-GO evidence is accepted.
+- Any support ZIP must preserve the same redaction boundary and exact-candidate
+  identity; it does not authorize an expanded capability scope.
 
 ## Required Next Evidence
 
@@ -111,20 +112,21 @@ execution.
 | Recovery and rollback | Accepted for NOG-05 in `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`, while rollback/volume-restore mechanics are accepted for NOG-06; governed run `32659459702`, artifact and detached digests, independent review and the offline verifier all passed for this exact SHA. |
 | Incident readiness | Accepted for NOG-07 in `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`: governed run `32663989309`, two P0 probes under five minutes, zero pending/quarantine, P0 acknowledgements, seven runbook digests, independent review, artifact and detached digests, and the offline verifier all passed for this exact SHA. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
-| Accepted risks and approvals | NOG-08 accepted-risk owner sign-off evidence is accepted in `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`: three attributable owners cover all nine controlled-launch risks, the register digest and review dates are current, each risk is bound to an immutable issue-comment ID, and CI recomputes the live GitHub author/body digest before acceptance. The Go approval matrix remains required; NOG-09 stays open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
+| Accepted risks and approvals | NOG-08 accepted-risk owner sign-off evidence is accepted in `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`. NOG-09 is accepted in `docs/launch/generated/go-approval-matrix-execution-status-20260824.json`: CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and independent QA approvals bind the exact candidate and controlled scope to immutable Issue #410 comments whose authors, timestamps and body digests are verified live and fail-closed. |
 
 ## Decision
 
-This ledger narrows the launch-control line to one candidate. It does not move
-TecPey to Go.
+This ledger narrows the launch-control line to one candidate and records Go for
+the controlled soft launch scope only.
 
 The disabled-capability attestation for NOG-10/NOG-11/NOG-12 is accepted only
 because those capabilities remain launch-disabled or product-disabled.
 
-The accepted-risk owner sign-off evidence for NOG-08 is accepted for this exact
-candidate and controlled scope. It does not approve a Go decision or close
-NOG-09.
+The accepted-risk owner sign-off evidence for NOG-08 and the final attributable
+approval matrix for NOG-09 are accepted for this exact candidate and controlled
+scope.
 
-**Current decision: NO-GO until this exact candidate has a complete Go approval
-matrix that passes
-`scripts/verify-go-approval-matrix-evidence.mjs`.**
+**Current decision: GO for controlled public FA/EN, Academy, Mentor and virtual
+Arena only. Real-money Exchange, custody, deposits, withdrawals, public rewards,
+enterprise and white-label remain disabled, separately NO-GO and not
+authorized.**

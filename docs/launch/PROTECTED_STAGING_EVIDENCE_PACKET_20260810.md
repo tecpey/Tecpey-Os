@@ -1,7 +1,7 @@
 # Protected Staging Evidence Packet - 2026-08-10
 
-**Packet status:** DRAFT operational evidence scaffold, not final Go approval  
-**Decision:** NO-GO until the final Go approval matrix is accepted
+**Packet status:** controlled soft launch evidence accepted
+**Decision:** GO — controlled soft launch only; financial and enterprise surfaces remain disabled
 **Staging evidence target SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Runtime candidate baseline:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
@@ -21,10 +21,11 @@
 **NOG-08 accepted-risk owner sign-off request:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
 **NOG-08 accepted-risk owner sign-off execution status:** `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`
 **Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
+**Go approval matrix execution status:** `docs/launch/generated/go-approval-matrix-execution-status-20260824.json`
 
-This packet is the next release-control surface after the controlled soft launch
-RC evidence packet. It converts the remaining NO-GO decision into an execution
-register that can be closed one blocker at a time.
+This packet is the release-control surface after the controlled soft launch RC
+evidence packet. Its execution register is now closed for the controlled scope;
+the financial and enterprise boundaries remain explicitly disabled and NO-GO.
 
 The staging evidence target is the current candidate selected in
 `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md` after PR #545 aligned
@@ -40,7 +41,7 @@ evidence must match that same SHA.
 
 | Scope | Decision | Reason |
 |---|---|---|
-| Controlled public FA/EN, Academy, Mentor and virtual Arena | NO-GO | NOG-01/NOG-02 protected staging and redacted env evidence, NOG-05 protected recovery reconciliation, NOG-07 protected incident readiness and NOG-08 accepted-risk owner sign-off are accepted for the exact runtime candidate. NOG-09 remains open until the final Go approval matrix is verified. |
+| Controlled public FA/EN, Academy, Mentor and virtual Arena | GO | NOG-01 through NOG-09 and NOG-10 through NOG-12 have accepted evidence for the exact runtime candidate; the attributable NOG-09 matrix is live-origin verified. |
 | Real-money Exchange | NO-GO | Financial reconciliation, provider evidence, compliance and ambiguous-result recovery are not accepted. |
 | Custody, deposits and withdrawals | NO-GO | HSM/MPC, chain-provider, settlement and on-chain reconciliation evidence are not accepted. |
 | Enterprise, white-label and public rewards | NO-GO | Outside the controlled launch scope and must remain route/env/UI/copy gated. |
@@ -49,27 +50,27 @@ evidence must match that same SHA.
 
 | ID | Blocker | Closure action | Authority | Launch impact |
 |---|---|---|---|---|
-| NOG-01 | Protected staging activation evidence is accepted | Accepted exact-candidate scheduler, health, systemd, alert probe, artifact and detached digest evidence from run `32648754664`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-09 |
-| NOG-02 | Production-like environment configuration evidence is accepted | Accepted redacted protected-host `env:check` evidence, artifact and detached digest from run `32644937055`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted; Go still blocked by NOG-09 |
+| NOG-01 | Protected staging activation evidence is accepted | Accepted exact-candidate scheduler, health, systemd, alert probe, artifact and detached digest evidence from run `32648754664`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted prerequisite for controlled-scope Go |
+| NOG-02 | Production-like environment configuration evidence is accepted | Accepted redacted protected-host `env:check` evidence, artifact and detached digest from run `32644937055`. | docs/launch/generated/protected-staging-execution-status-20260812.json | Accepted prerequisite for controlled-scope Go |
 | NOG-03 | Immutable runtime image digest is recorded | Accepted for exact candidate `79c48a16cb685a88315a44e103b3758cf7845d65`: `sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69`. | docs/launch/generated/runtime-image-digest-evidence-20260812.json | Exact release identity recorded; Go still blocked by remaining evidence |
 | NOG-04 | Exact-head workflow URLs are attached for the current candidate | Accepted exact-head CI, Full Suite Diagnostics, API Security Manifest, Sensitive Mutation Audit, Repository Audit Manifest, Public Browser Golden Path, Container Supply Chain and Full History Secret Scanning run URLs for the staging target SHA. | docs/launch/generated/exact-head-workflow-evidence-20260812.json | Exact-head workflow evidence recorded; Go still blocked by remaining evidence |
-| NOG-05 | Backup, restore and recovery reconciliation evidence is accepted | Accepted exact-candidate protected staging restore and count/hash reconciliation for Academy, Arena, Mentor AI, Exchange ledger, notifications/jobs and tenant/principal isolation from run `32659459702`; artifact ZIP digest, detached digest and offline verifier passed. | docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json | Accepted; Go still blocked by NOG-09 |
+| NOG-05 | Backup, restore and recovery reconciliation evidence is accepted | Accepted exact-candidate protected staging restore and count/hash reconciliation for Academy, Arena, Mentor AI, Exchange ledger, notifications/jobs and tenant/principal isolation from run `32659459702`; artifact ZIP digest, detached digest and offline verifier passed. | docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json | Accepted prerequisite for controlled-scope Go |
 | NOG-06 | Rollback and volume-restore evidence is attached for the current candidate | Accepted exact-candidate Container Supply Chain rollback job evidence for candidate-to-previous image serving plus synthetic PostgreSQL/Redis volume restore mechanics. | docs/launch/generated/rollback-volume-restore-evidence-20260812.json | Rollback mechanics recorded; Go still blocked by remaining evidence |
-| NOG-07 | Incident readiness evidence is accepted | Accepted two exact-candidate protected staging P0 alert probes, zero pending/quarantine, incident commander and SRE acknowledgements, seven failure-mode runbook digests, independent review, artifact and detached digests from run `32663989309`. | docs/launch/generated/protected-incident-readiness-execution-status-20260823.json | Accepted; Go still blocked by NOG-09 |
-| NOG-08 | Accepted-risk owner sign-off evidence is accepted | Accepted exact-candidate owner sign-offs for all nine controlled-launch risks from `github:tecpey`, `github:mvexhiiii` and `github:xrayman6zfm-ux`; immutable comment IDs, live GitHub authorship, exact body digests, risk-register digest and current review dates are verified fail-closed. | docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json | Accepted; Go still blocked by NOG-09 |
-| NOG-09 | Go approval matrix is missing | Attach approvals from CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and QA for the exact candidate and launch scope, with prerequisite evidence URLs/digests and a matrix artifact that passes `scripts/verify-go-approval-matrix-evidence.mjs`. | docs/launch/generated/go-approval-matrix-evidence-request-20260812.json | Blocks Go record |
+| NOG-07 | Incident readiness evidence is accepted | Accepted two exact-candidate protected staging P0 alert probes, zero pending/quarantine, incident commander and SRE acknowledgements, seven failure-mode runbook digests, independent review, artifact and detached digests from run `32663989309`. | docs/launch/generated/protected-incident-readiness-execution-status-20260823.json | Accepted prerequisite for controlled-scope Go |
+| NOG-08 | Accepted-risk owner sign-off evidence is accepted | Accepted exact-candidate owner sign-offs for all nine controlled-launch risks from `github:tecpey`, `github:mvexhiiii` and `github:xrayman6zfm-ux`; immutable comment IDs, live GitHub authorship, exact body digests, risk-register digest and current review dates are verified fail-closed. | docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json | Accepted prerequisite for controlled-scope Go |
+| NOG-09 | Go approval matrix is accepted | CEO, CTO/Chief Architect, Security, Product, Compliance, SRE and independent QA approved the exact candidate and controlled scope; immutable Issue #410 comment origins and prerequisite file digests verify fail-closed. | docs/launch/generated/go-approval-matrix-execution-status-20260824.json | Controlled soft launch Go; expanded surfaces remain disabled |
 | NOG-10 | Real-money Exchange remains launch-disabled | Accepted for controlled launch only while real-money Exchange stays launch-disabled; financial reconciliation, provider and ambiguous-result recovery evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Real-money Exchange activation remains NO-GO; controlled public launch is not blocked while disabled |
 | NOG-11 | Custody, deposits and withdrawals remain product-disabled | Accepted for controlled launch only while custody, deposits and withdrawals stay product-disabled; HSM/MPC, chain-provider, on-chain reconciliation and settlement evidence remain required before activation. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Custody, deposits and withdrawals remain NO-GO; controlled public launch is not blocked while disabled |
 | NOG-12 | Enterprise, white-label and public rewards remain outside launch scope | Accepted for controlled launch only while enterprise, white-label and public rewards stay disabled, absent or explicitly gated by route/env/UI/copy guards. | docs/launch/generated/disabled-capability-attestation-evidence-20260812.json | Expanded launch scope remains NO-GO; controlled public launch is not blocked while disabled |
 
-## Open Blocker Tracking
+## Blocker Tracking
 
-These GitHub issues are the live execution handoff for the blockers that remain
-open. They do not replace the machine verifiers or evidence artifacts.
+The tracking issue is retained as the attributable approval origin. It does not
+replace the machine verifier or canonical evidence artifact.
 
 | ID | Tracking issue | Scope |
 |---|---|---|
-| NOG-09 | https://github.com/tecpey/Tecpey-Os/issues/410 | Final Go approval matrix |
+| NOG-09 | https://github.com/tecpey/Tecpey-Os/issues/410 | Accepted final Go approval matrix origin |
 
 ## Accepted First Execution Slice
 
@@ -122,8 +123,9 @@ NOG-01 and NOG-02 are accepted for that exact runtime candidate:
 Both downloaded ZIP digests matched GitHub metadata, both detached SHA-256
 files verified their canonical evidence JSON bytes, and both offline verifier
 summaries passed. PR #547 supplied governed private-CA trust for the scheduler
-workflow without changing the runtime candidate. Controlled launch remains
-NO-GO because NOG-09 remains open.
+workflow without changing the runtime candidate. Historical boundary at this
+collection step: NOG-09 remains open. The final matrix below supersedes that
+intermediate boundary.
 
 ## Runtime Image Evidence - 2026-08-23
 
@@ -234,7 +236,8 @@ workflow ran.
 
 The canonical acceptance observation is
 `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`.
-NOG-09 remains open.
+Historical boundary at this collection step: NOG-09 remains open. The final
+matrix below supersedes that intermediate boundary.
 
 ## Disabled Capability Attestation Evidence - 2026-08-12
 
@@ -291,26 +294,25 @@ R-09 and R-10; R-03 remains superseded. It binds each sign-off to the exact
 candidate, controlled scope, register digest, review date, evidence digest and
 mandatory launch-disabled financial/enterprise conditions.
 
-This evidence does not approve a Go decision and does not substitute the final
-Go approval matrix. NOG-01/NOG-02/NOG-05/NOG-07/NOG-08 are accepted; Go remains
-blocked by NOG-09.
+This accepted-risk evidence is a prerequisite and does not substitute the final
+Go approval matrix. The final NOG-09 matrix is now separately accepted.
 
-## Go Approval Matrix Evidence Request - 2026-08-12
+## Go Approval Matrix Evidence Acceptance - 2026-08-24
 
-Go approval matrix evidence for NOG-09 is still missing. This request prepares
-the final approval artifact contract for the selected candidate SHA, but it does
-not close NOG-09.
-NOG-09 remains open until the final matrix passes
-`scripts/verify-go-approval-matrix-evidence.mjs`.
+Go approval matrix evidence for NOG-09 is accepted for the exact candidate and
+controlled scope. The canonical artifact passes the structural verifier and CI
+re-resolves the three immutable GitHub comments to bind author, issue, timestamp
+and SHA-256 body digest fail-closed.
 
 | Field | Evidence |
 |---|---|
 | Candidate SHA | `79c48a16cb685a88315a44e103b3758cf7845d65` |
 | Evidence request | `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` |
+| Accepted artifact | `docs/launch/generated/go-approval-matrix-execution-status-20260824.json` |
 | Authority guard | `scripts/check-go-approval-matrix-evidence-authority.mjs` |
 | Verifier | `scripts/verify-go-approval-matrix-evidence.mjs` |
 | Required roles | CEO, CTO or Chief Architect, Security, Product, Compliance, SRE and QA |
-| Accepted scope | None; NOG-09 remains open pending verified approval matrix evidence |
+| Accepted scope | Controlled public FA/EN, Academy, Mentor and virtual Arena only |
 
 The final approval matrix must include accepted prerequisite evidence URL and
 SHA-256 digest coverage for NOG-01/NOG-02/NOG-03/NOG-04/NOG-05/NOG-06/NOG-07/
@@ -328,8 +330,9 @@ transcripts.
 
 ## Decision Rule
 
-This packet may be merged as a planning/evidence-control artifact, but it does
-not change launch readiness. The final decision remains:
+This packet records the final controlled-scope decision:
 
-**NO-GO until every blocker in the register has accepted evidence or the related
-capability remains explicitly launch-disabled.**
+**GO for controlled public FA/EN, Academy, Mentor and virtual Arena because every
+governed blocker has accepted evidence. Real-money Exchange, custody, deposits,
+withdrawals, public financial rewards, enterprise and white-label capabilities
+remain disabled and separately NO-GO.**
