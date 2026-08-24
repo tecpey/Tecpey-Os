@@ -11,7 +11,7 @@
     },
     "verifier": {
       "path": "scripts/controlled-launch-final-authority.mjs",
-      "sourceDigest": "sha256:55dc8365270fe994891b02389f4ad216f2475bd9434abede02d17ae4f4daf1ef"
+      "sourceDigest": "sha256:0903e0c9eeb0add9eedbb59289be1edc755c2a780f51f54de300e8c3c3cdfc2d"
     }
   },
   "releaseCandidate": {

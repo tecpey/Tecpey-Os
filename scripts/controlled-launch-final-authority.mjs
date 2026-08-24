@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-evidence-manifest.mjs";
+import { goApprovalMatrixEvidenceOriginFindings } from "./go-approval-matrix-evidence-origin.mjs";
+import { verifyGoApprovalMatrixEvidence } from "./verify-go-approval-matrix-evidence.mjs";
 
 export const FINAL_AUTHORITY = "tecpey-controlled-soft-launch-final-authority-v1";
 export const FINAL_DECISION = "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY";
@@ -150,7 +152,14 @@ function requireCanonicalEvidence({
   }
 }
 
-export async function verifyControlledLaunchFinalAuthority(manifestInput, { root = "." } = {}) {
+export async function verifyControlledLaunchFinalAuthority(
+  manifestInput,
+  {
+    root = ".",
+    githubToken = process.env.GITHUB_TOKEN,
+    fetchImpl = globalThis.fetch,
+  } = {},
+) {
   const manifest = validateControlledLaunchEvidenceManifest(manifestInput);
   const candidateSha = manifest.releaseCandidate.sha;
   const authority = manifest.authorityVerification;
@@ -253,6 +262,20 @@ export async function verifyControlledLaunchFinalAuthority(manifestInput, { root
     candidateValues: [canonical.approvals.sourceSha, canonical.approvals.releaseScope?.candidateSha],
     label: "Go approval evidence",
   });
+  try {
+    verifyGoApprovalMatrixEvidence(canonical.approvals, candidateSha);
+  } catch (error) {
+    fail(`Go approval artifact verification failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const approvalOriginFindings = await goApprovalMatrixEvidenceOriginFindings({
+    evidence: canonical.approvals,
+    selectedSha: candidateSha,
+    token: githubToken,
+    fetchImpl,
+  });
+  if (approvalOriginFindings.length > 0) {
+    fail(`Go approval origin verification failed: ${approvalOriginFindings.join("; ")}`);
+  }
   equal(
     canonical.approvals.finalDisposition,
     "approved_for_controlled_soft_launch",

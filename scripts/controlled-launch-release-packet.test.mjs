@@ -4,11 +4,13 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { pathToFileURL } from "node:url";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 import {
   DISABLED_CAPABILITY_ATTESTATION,
   FINAL_MANIFEST_PATH,
   PRIVACY_BOUNDARY,
+  verifyControlledLaunchFinalAuthority,
 } from "./controlled-launch-final-authority.mjs";
 
 const script = "scripts/generate-controlled-launch-release-packet.mjs";
@@ -23,6 +25,130 @@ const acceptedRiskUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/523456
 const approvalsUrl = "https://github.com/tecpey/Tecpey-Os/actions/runs/623456789";
 const acceptedRiskRegister = "docs/LAUNCH_ACCEPTED_RISKS.md";
 const fullSuiteDiagnosticsWorkflow = ".github/workflows/full-suite-diagnostics.yml";
+const selectedSha = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const releaseScopeId = "controlled-public-fa-en-academy-mentor-arena";
+const approvalConditions = [
+  "exact candidate SHA approved",
+  "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+  "real-money Exchange remains disabled",
+  "custody deposits withdrawals remain disabled",
+  "enterprise white-label public rewards remain disabled",
+];
+const approvalComments = {
+  tecpey: {
+    id: "5391626720",
+    roles: ["CEO", "Product", "Compliance"],
+    approvedAt: "2026-08-24T06:38:10Z",
+    body: [
+      "NOG-09 role approval — CEO / Product / Compliance",
+      "",
+      `* candidateSha: ${selectedSha}`,
+      `* launchScopeId: ${releaseScopeId}`,
+      "* approverExternalIdentity: github:tecpey",
+      "* approvalRoles: CEO, Product, Compliance",
+      "* releaseOwnerExternalIdentity: github:tecpey",
+      "* decision: approved",
+      "* attestation: approved-for-controlled-soft-launch-only",
+      "",
+      "I approve the exact candidate under these conditions:",
+      "",
+      ...approvalConditions.map((condition) => `* ${condition}`),
+      "",
+      "I accept accountability for the CEO, Product and Compliance dispositions within this strictly limited controlled-launch boundary.",
+    ].join("\n"),
+  },
+  mvexhiiii: {
+    id: "5391640345",
+    roles: ["CTO or Chief Architect", "Security", "SRE"],
+    approvedAt: "2026-08-24T06:39:56Z",
+    body: [
+      "NOG-09 role approval — CTO / Security / SRE",
+      "",
+      `* candidateSha: ${selectedSha}`,
+      `* launchScopeId: ${releaseScopeId}`,
+      "* approverExternalIdentity: github:mvexhiiii",
+      "* approvalRoles: CTO or Chief Architect, Security, SRE",
+      "* decision: approved",
+      "* attestation: approved-for-controlled-soft-launch-only",
+      "",
+      "I approve the exact candidate under these conditions:",
+      "",
+      ...approvalConditions.map((condition) => `* ${condition}`),
+      "",
+      "I accept accountability for the architecture, security and site-reliability dispositions within this strictly limited controlled-launch boundary.",
+    ].join("\n"),
+  },
+  tecpeysup: {
+    id: "5391646913",
+    roles: ["QA"],
+    approvedAt: "2026-08-24T06:40:50Z",
+    body: [
+      "NOG-09 independent approval — QA",
+      "",
+      `* candidateSha: ${selectedSha}`,
+      `* launchScopeId: ${releaseScopeId}`,
+      "* approverExternalIdentity: github:tecpeysup",
+      "* approvalRole: QA",
+      "* reviewerRole: Independent Approval Reviewer",
+      "* decision: approved",
+      "* attestation: approved-for-controlled-soft-launch-only",
+      "",
+      "I reviewed the canonical NOG-09 request, the current candidate identity, the accepted prerequisite evidence references and the controlled-launch boundary. I am a separate person from the release owner and protected-staging operator.",
+      "",
+      "I approve the exact candidate under these conditions:",
+      "",
+      ...approvalConditions.map((condition) => `* ${condition}`),
+    ].join("\n"),
+  },
+};
+
+function approvalCommentBody(login) {
+  return approvalComments[login].body;
+}
+
+function approvalGithubPayload(login, overrides = {}) {
+  const comment = approvalComments[login];
+  return {
+    id: Number(comment.id),
+    html_url: `https://github.com/tecpey/Tecpey-Os/issues/410#issuecomment-${comment.id}`,
+    issue_url: "https://api.github.com/repos/tecpey/Tecpey-Os/issues/410",
+    user: { login },
+    created_at: comment.approvedAt,
+    updated_at: comment.approvedAt,
+    body: approvalCommentBody(login),
+    ...overrides,
+  };
+}
+
+function approvalFetch(overrides = {}) {
+  return async (url) => {
+    const id = String(url).split("/").pop();
+    const entry = Object.entries(approvalComments).find(([, comment]) => comment.id === id);
+    if (!entry) return { ok: false, status: 404, async json() { return {}; } };
+    const [login] = entry;
+    const payload = approvalGithubPayload(login, overrides[id]);
+    return { ok: true, status: 200, async json() { return payload; } };
+  };
+}
+
+function approvalOriginEnv(parent) {
+  const preload = path.join(parent, "mock-go-approval-origin.mjs");
+  const payloads = Object.fromEntries(
+    Object.keys(approvalComments).map((login) => [approvalComments[login].id, approvalGithubPayload(login)]),
+  );
+  writeFileSync(
+    preload,
+    `const payloads = ${JSON.stringify(payloads)};\n`
+      + "globalThis.fetch = async (url) => {\n"
+      + "  const payload = payloads[String(url).split('/').pop()];\n"
+      + "  return { ok: Boolean(payload), status: payload ? 200 : 404, async json() { return payload ?? {}; } };\n"
+      + "};\n",
+  );
+  return {
+    GITHUB_TOKEN: "test-token",
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(preload).href}`.trim(),
+  };
+}
 
 function runPacket(args = [], env = {}) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -32,10 +158,11 @@ function runPacket(args = [], env = {}) {
   });
 }
 
-function runPacketIn(cwd, args = []) {
+function runPacketIn(cwd, args = [], env = {}) {
   return spawnSync(process.execPath, [script, ...args], {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, ...env },
     maxBuffer: 1024 * 1024,
   });
 }
@@ -135,7 +262,7 @@ function createCleanRepositoryClone() {
   });
   assert.equal(clone.status, 0, clone.stderr || clone.stdout);
   gitIn(root, ["update-ref", "refs/remotes/origin/main", gitIn(process.cwd(), ["rev-parse", "origin/main"])]);
-  return { parent, root };
+  return { parent, root, approvalEnv: approvalOriginEnv(parent) };
 }
 
 function commitAll(root, message) {
@@ -274,10 +401,54 @@ test("final launch packet rejects unmerged release candidates", () => {
   }
 });
 
+test("final launch packet fails closed without live Go approval origin verification", () => {
+  const fixture = createCleanRepositoryClone();
+  try {
+    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], {
+      GITHUB_TOKEN: "",
+      NODE_OPTIONS: "",
+    });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Go approval origin verification failed: Go approval matrix origin verification requires GITHUB_TOKEN/);
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("final authority accepts attributable live Go approval origins", async () => {
+  const authority = await verifyControlledLaunchFinalAuthority(
+    readJson(process.cwd(), FINAL_MANIFEST_PATH),
+    { root: process.cwd(), githubToken: "test-token", fetchImpl: approvalFetch() },
+  );
+
+  assert.equal(authority.authority.status, "verified");
+});
+
+test("final authority rejects edited live Go approval comments", async () => {
+  const editedId = approvalComments.tecpey.id;
+  await assert.rejects(
+    () => verifyControlledLaunchFinalAuthority(
+      readJson(process.cwd(), FINAL_MANIFEST_PATH),
+      {
+        root: process.cwd(),
+        githubToken: "test-token",
+        fetchImpl: approvalFetch({
+          [editedId]: {
+            body: `${approvalCommentBody("tecpey")}\nedited after approval`,
+            updated_at: "2026-08-24T10:00:00Z",
+          },
+        }),
+      },
+    ),
+    /Go approval origin verification failed:.*origin.updated_at.*origin.bodyDigest/,
+  );
+});
+
 test("final launch packet emits only after all release evidence is complete", () => {
   const fixture = createCleanRepositoryClone();
   try {
-    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH]);
+    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], fixture.approvalEnv);
 
     assert.equal(result.status, 0, result.stderr);
     const packet = JSON.parse(result.stdout);
@@ -304,7 +475,7 @@ test("final launch packet emits only after all release evidence is complete", ()
 test("final packet records the independent release-control revision", () => {
   const fixture = createCleanRepositoryClone();
   try {
-    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH]);
+    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], fixture.approvalEnv);
     assert.equal(result.status, 0, result.stderr);
     const packet = JSON.parse(result.stdout);
 
@@ -324,7 +495,7 @@ test("final packet reproduces byte-for-byte from its recorded source revision", 
     const expectedPacketSource = readFileSync(path.join(fixture.root, packetPath), "utf8");
     const sourceRevision = JSON.parse(expectedPacketSource).releaseControl.sourceRevision;
     gitIn(fixture.root, ["checkout", "--detach", sourceRevision]);
-    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH]);
+    const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], fixture.approvalEnv);
 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout, expectedPacketSource);
