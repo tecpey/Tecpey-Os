@@ -455,6 +455,8 @@ jobs:
         run: npm run launch:incident-readiness-evidence:check
 
       - name: Go approval matrix evidence authority guard
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run launch:go-approval-matrix-evidence:check
 
       - name: News materialization staging evidence guard
