@@ -41,6 +41,8 @@ const files = {
   goApprovalMatrixVerifier: "scripts/verify-go-approval-matrix-evidence.mjs",
   goApprovalMatrixVerifierTest: "scripts/go-approval-matrix-evidence.test.mjs",
   goApprovalMatrixRequest: "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json",
+  goApprovalMatrixEvidence: "docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
+  goApprovalMatrixOrigin: "scripts/go-approval-matrix-evidence-origin.mjs",
   disabledCapabilityPolicy: "scripts/disabled-capability-attestation-policy.mjs",
   disabledCapabilityCheck: "scripts/check-disabled-capability-attestation.mjs",
   disabledCapabilityTest: "scripts/disabled-capability-attestation-policy.test.mjs",
@@ -121,7 +123,7 @@ function rejectText(target, token, reason) {
 }
 
 for (const invariant of [
-  "Status:** NO-GO",
+  "Status:** GO — controlled soft launch only",
   "This checklist is the release-decision surface",
   "does not authorize real-money Exchange, custody, deposits, withdrawals",
   "public Persian and English experience",
@@ -157,7 +159,7 @@ for (const invariant of [
 }
 
 for (const forbidden of [
-  "Status:** GO",
+  "Status:** NO-GO until every blocking row",
   "authorizes production deployment",
   "authorizes real-money",
   "ready for real-money",
@@ -474,8 +476,8 @@ for (const invariant of [
 
 for (const invariant of [
   "go-approval-matrix-evidence-request",
-  "NO_GO_NOG_09_GO_APPROVAL_MATRIX_REQUIRED",
-  "blocked_pending_final_go_approval_matrix",
+  "GO_NOG_09_EXACT_CANDIDATE_MATRIX_ACCEPTED",
+  "accepted_exact_candidate_go_approval_matrix",
   "NOG-09",
   "tecpey-go-approval-matrix-v1",
   "controlled-soft-launch-go-approval-matrix",
@@ -487,7 +489,10 @@ for (const invariant of [
   "Compliance",
   "SRE",
   "QA",
-  "NOG-09 is not accepted by this request",
+  "NOG-09 is accepted only for the exact selected SHA",
+  "requiredArtifactOriginVerification",
+  "issues/comments/{approvalEvidenceCommentId}",
+  "failureMode\": \"fail-closed",
 ]) {
   requireText("goApprovalMatrixRequest", invariant, `Go approval matrix request is missing invariant: ${invariant}`);
 }
@@ -516,7 +521,9 @@ for (const invariant of [
 
 for (const invariant of [
   "Go approval matrix evidence authority",
-  "blocked_pending_final_go_approval_matrix",
+  "accepted_exact_candidate_go_approval_matrix",
+  "goApprovalMatrixEvidenceOriginFindings",
+  "GITHUB_TOKEN",
   "NOG-09",
   "launch:go-approval-matrix-evidence:check",
   "ops:go-approval-matrix:evidence:verify",
@@ -527,6 +534,32 @@ for (const invariant of [
     invariant,
     `Go approval matrix evidence authority is missing invariant: ${invariant}`,
   );
+}
+
+for (const invariant of [
+  '"schemaVersion": 2',
+  "APPROVED_FOR_CONTROLLED_SOFT_LAUNCH",
+  "79c48a16cb685a88315a44e103b3758cf7845d65",
+  "github:tecpey",
+  "github:mvexhiiii",
+  "github:tecpeysup",
+  "issuecomment-5391626720",
+  "issuecomment-5391640345",
+  "issuecomment-5391646913",
+  "approved_for_controlled_soft_launch",
+]) {
+  requireText("goApprovalMatrixEvidence", invariant, `Go approval matrix evidence is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "goApprovalMatrixEvidenceOriginFindings",
+  "issues/comments",
+  "origin.bodyDigest",
+  "origin.author",
+  "origin.updated_at",
+  "Go approval matrix origin verification requires GITHUB_TOKEN",
+]) {
+  requireText("goApprovalMatrixOrigin", invariant, `Go approval matrix origin verifier is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -826,5 +859,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  "Controlled launch decision authority passed: the Go/No-Go checklist remains NO-GO by default, linked from public docs, wired into release gates and aligned with staging, recovery, custody, exchange and compliance boundaries.",
+  "Controlled launch decision authority passed: the controlled soft launch is Go for the exact candidate and narrow scope; financial and enterprise activation remains disabled and separately NO-GO.",
 );

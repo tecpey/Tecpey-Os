@@ -15,8 +15,8 @@ const paths = {
 const shaPattern = /^[0-9a-f]{40}$/;
 const failures = [];
 const RECOLLECTED_BLOCKERS = ["NOG-03", "NOG-04", "NOG-06"];
-const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08"];
-const OPEN_BLOCKERS = ["NOG-09"];
+const ACCEPTED_PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02", "NOG-05", "NOG-07", "NOG-08", "NOG-09"];
+const OPEN_BLOCKERS = [];
 const DISABLED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -185,7 +185,7 @@ requireEqual(`${paths.jsonLedger}: currentCandidate.sourceBranch`, jsonLedger.cu
 requireEqual(
   `${paths.jsonLedger}: decision`,
   jsonLedger.decision,
-  "NO_GO_UNTIL_ACCEPTED_EXACT_CANDIDATE_EVIDENCE",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
 );
 requireEqual(
   `${paths.protectedStagingRequest}: decision`,
@@ -195,7 +195,7 @@ requireEqual(
 requireEqual(
   `${paths.protectedStagingRegister}: decision`,
   protectedStagingRegister.decision,
-  "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
 );
 
 for (const blocker of ["NOG-01", "NOG-02"]) {
@@ -408,7 +408,7 @@ if (failures.length > 0) {
   process.exitCode = 1;
 } else if (promotionState.status === "promoted_exact_candidate_evidence") {
   console.log(
-    `Controlled launch candidate lineage passed for promoted candidate ${jsonLedger.currentCandidate.sha}; protected evidence collection may proceed while remaining launch blockers stay NO-GO.`,
+    `Controlled launch candidate lineage passed for promoted candidate ${jsonLedger.currentCandidate.sha}; no controlled-scope blocker remains and expanded capabilities stay disabled.`,
   );
 } else {
   console.log(

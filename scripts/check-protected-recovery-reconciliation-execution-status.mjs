@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = ["NOG-09"];
+const REMAINING_OPEN_BLOCKERS = [];
 const REQUIRED_DOMAINS = {
   academy: { tablesCovered: 5, records: 0 },
   tradingArena: { tablesCovered: 6, records: 0 },
@@ -310,5 +310,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected recovery reconciliation execution status passed for ${candidate.currentCandidate.sha}; NOG-05 is accepted and controlled launch remains NO-GO on NOG-09.`,
+  `Protected recovery reconciliation execution status passed for ${candidate.currentCandidate.sha}; NOG-05 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
 );

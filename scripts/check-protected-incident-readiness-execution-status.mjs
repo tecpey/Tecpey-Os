@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-incident-readiness-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = ["NOG-09"];
+const REMAINING_OPEN_BLOCKERS = [];
 const REQUIRED_RUNBOOKS = [
   "database",
   "redis",
@@ -312,5 +312,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected incident readiness execution status passed for ${candidate.currentCandidate.sha}; NOG-07 is accepted and controlled launch remains NO-GO on NOG-09.`,
+  `Protected incident readiness execution status passed for ${candidate.currentCandidate.sha}; NOG-07 is accepted and NOG-09 now carries the separate controlled-scope Go matrix.`,
 );

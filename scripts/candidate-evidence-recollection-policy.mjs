@@ -18,7 +18,7 @@ export const REQUIRED_WORKFLOWS = [
 ];
 
 const REQUIRED_RECOLLECTED = ["NOG-03", "NOG-04", "NOG-06"];
-const REQUIRED_OPEN = ["NOG-09"];
+const REQUIRED_OPEN = [];
 const REQUIRED_BOUNDARIES = [
   "real-money Exchange",
   "custody/deposits/withdrawals",
@@ -79,7 +79,7 @@ const REQUIRED_COMPLETED_CHECKS = [
   "runtime image digest evidence accepted for the selected SHA",
   "rollback and volume-restore evidence accepted for the selected SHA",
   "candidate and protected-staging lineage aligned to the selected SHA",
-  "remaining operational blockers remain open",
+  "all controlled-scope blockers are accepted for the exact candidate",
   "real-money and expanded-scope launch boundaries remain disabled",
 ];
 const REQUIRED_REQUEST_PRIVACY = [
