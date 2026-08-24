@@ -69,18 +69,25 @@ digest and immutable URL matches the manifest, and every disabled-capability
 attestation remains enforced.
 
 1. exact release candidate SHA and image digest;
-2. a governed controlled-launch evidence manifest with `schemaVersion: 1`,
+2. a governed controlled-launch evidence manifest with `schemaVersion: 2`,
    `evidenceClass: controlled-soft-launch-final-evidence-manifest`, the exact
-   release candidate SHA, image digest, deployment artifact digest, workflow
+   release candidate SHA, release-control generator and verifier paths plus
+   their SHA-256 source digests, image digest, deployment artifact digest, workflow
    evidence URLs, protected staging evidence, recovery reconciliation evidence,
    rollback or forward-fix evidence, incident readiness evidence, accepted-risk
-   sign-off URL, Go approval URL and Go approval artifact digest; the manifest
+   sign-off URL and digest, disabled-capability evidence URL and digest, and Go
+   approval URL and digest; the manifest
    must contain only HTTPS URLs, SHA-256 digests and release identifiers, never
    secrets, raw logs, host IPs, connection strings or user data;
-3. `npm run launch:packet -- --manifest <controlled-launch-evidence-manifest.json>` JSON output for the exact candidate, or equivalently `npm run launch:packet -- --image-digest <sha256:...> --deployment-artifact-digest <sha256:...> --ci-run-url <url> --full-suite-run-url <url> --api-security-run-url <url> --sensitive-mutation-run-url <url> --repository-audit-run-url <url> --public-golden-path-run-url <url> --operational-recovery-run-url <url> --container-supply-chain-run-url <url> --secret-scanning-run-url <url> --protected-staging-evidence-url <url> --protected-staging-artifact-digest <sha256:...> --recovery-reconciliation-evidence-url <url> --recovery-reconciliation-artifact-digest <sha256:...> --rollback-evidence-url <url> --rollback-artifact-digest <sha256:...> --incident-readiness-evidence-url <url> --incident-readiness-artifact-digest <sha256:...> --accepted-risk-signoff-url <url> --go-approvals-url <url> --go-approvals-artifact-digest <sha256:...>` JSON output for the exact candidate, with package-lock,
+3. `npm run launch:packet -- --manifest docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json` JSON output for the exact candidate, with package-lock,
    migration-plan, image, deployment, protected-staging, recovery,
    rollback/forward-fix and incident-readiness artifact digests recorded. The
-   command fails closed in final mode; `--draft` is only for local incomplete
+   final packet must also record `releaseControl.sourceRevision`, the canonical
+   manifest digest, and the exact generator and verifier source digests so the
+   packet can be reproduced from that release-control revision while the runtime
+   candidate remains unchanged. Final mode accepts only the canonical governed
+   manifest (plus optional `--out`) and independently verifies its evidence;
+   direct evidence flags are draft-only. `--draft` is only for local incomplete
    scaffolding and is not acceptable final decision evidence;
 4. linked exact-head CI and workflow results;
 5. protected staging evidence artifact and verifier summary;

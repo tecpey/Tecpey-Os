@@ -6,8 +6,22 @@ const REQUIRED_MANIFEST_CLASS = "controlled-soft-launch-final-evidence-manifest"
 const manifestShape = Object.freeze({
   schemaVersion: "number",
   evidenceClass: "string",
+  generatedAt: "string",
+  authorityVerification: {
+    authority: "string",
+    status: "string",
+    generator: {
+      path: "string",
+      sourceDigest: "digest",
+    },
+    verifier: {
+      path: "string",
+      sourceDigest: "digest",
+    },
+  },
   releaseCandidate: {
     sha: "string",
+    sourceBranch: "string",
   },
   artifactIdentity: {
     imageDigest: "digest",
@@ -43,8 +57,13 @@ const manifestShape = Object.freeze({
     },
     acceptedRisks: {
       evidenceUrl: "url",
+      artifactDigest: "digest",
     },
     approvals: {
+      evidenceUrl: "url",
+      artifactDigest: "digest",
+    },
+    disabledCapabilities: {
       evidenceUrl: "url",
       artifactDigest: "digest",
     },
@@ -206,9 +225,17 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
   const failures = [];
   validateKnownShape(manifest, manifestShape, "manifest", failures);
 
-  if (manifest?.schemaVersion !== 1) failures.push("manifest.schemaVersion must be 1");
+  if (manifest?.schemaVersion !== 2) failures.push("manifest.schemaVersion must be 2");
   if (manifest?.evidenceClass !== REQUIRED_MANIFEST_CLASS) {
     failures.push(`manifest.evidenceClass must be ${REQUIRED_MANIFEST_CLASS}`);
+  }
+  const generatedAt = manifest?.generatedAt;
+  if (
+    typeof generatedAt !== "string" ||
+    !Number.isFinite(Date.parse(generatedAt)) ||
+    new Date(generatedAt).toISOString() !== generatedAt
+  ) {
+    failures.push("manifest.generatedAt must be an ISO-8601 timestamp");
   }
 
   const duplicateWorkflowRun = findDuplicateWorkflowRunUrls(manifest?.workflowEvidence);
@@ -226,6 +253,9 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
   if (expectedHeadSha && candidateSha !== expectedHeadSha) {
     failures.push("manifest.releaseCandidate.sha must match the checked-out release candidate HEAD");
   }
+  if (typeof manifest?.releaseCandidate?.sourceBranch !== "string" || !manifest.releaseCandidate.sourceBranch) {
+    failures.push("manifest.releaseCandidate.sourceBranch must be a non-empty branch name");
+  }
 
   const serialized = JSON.stringify(manifest);
   if (forbiddenSensitiveEvidence.some((pattern) => pattern.test(serialized))) {
@@ -236,6 +266,23 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
 
   return {
     ...manifest,
+    authorityVerification: {
+      ...manifest.authorityVerification,
+      generator: {
+        ...manifest.authorityVerification.generator,
+        sourceDigest: normalizeDigest(
+          manifest.authorityVerification.generator.sourceDigest,
+          "manifest.authorityVerification.generator.sourceDigest",
+        ),
+      },
+      verifier: {
+        ...manifest.authorityVerification.verifier,
+        sourceDigest: normalizeDigest(
+          manifest.authorityVerification.verifier.sourceDigest,
+          "manifest.authorityVerification.verifier.sourceDigest",
+        ),
+      },
+    },
     artifactIdentity: {
       imageDigest: normalizeDigest(manifest.artifactIdentity.imageDigest, "manifest.artifactIdentity.imageDigest"),
       deploymentArtifactDigest: normalizeDigest(
@@ -295,6 +342,10 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
           manifest.requiredExternalEvidence.acceptedRisks.evidenceUrl,
           "manifest.requiredExternalEvidence.acceptedRisks.evidenceUrl",
         ),
+        artifactDigest: normalizeDigest(
+          manifest.requiredExternalEvidence.acceptedRisks.artifactDigest,
+          "manifest.requiredExternalEvidence.acceptedRisks.artifactDigest",
+        ),
       },
       approvals: {
         evidenceUrl: validateUrl(
@@ -304,6 +355,16 @@ export function validateControlledLaunchEvidenceManifest(manifest, { expectedHea
         artifactDigest: normalizeDigest(
           manifest.requiredExternalEvidence.approvals.artifactDigest,
           "manifest.requiredExternalEvidence.approvals.artifactDigest",
+        ),
+      },
+      disabledCapabilities: {
+        evidenceUrl: validateUrl(
+          manifest.requiredExternalEvidence.disabledCapabilities.evidenceUrl,
+          "manifest.requiredExternalEvidence.disabledCapabilities.evidenceUrl",
+        ),
+        artifactDigest: normalizeDigest(
+          manifest.requiredExternalEvidence.disabledCapabilities.artifactDigest,
+          "manifest.requiredExternalEvidence.disabledCapabilities.artifactDigest",
         ),
       },
     },

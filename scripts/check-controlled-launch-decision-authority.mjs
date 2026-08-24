@@ -1,7 +1,17 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
 import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-evidence-manifest.mjs";
+import {
+  DISABLED_CAPABILITY_ATTESTATION,
+  FINAL_AUTHORITY,
+  FINAL_AUTHORITY_PATHS,
+  FINAL_DECISION,
+  FINAL_MANIFEST_PATH,
+  PRIVACY_BOUNDARY,
+  verifyControlledLaunchFinalAuthority,
+} from "./controlled-launch-final-authority.mjs";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
@@ -19,6 +29,7 @@ const files = {
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
+  finalAuthority: "scripts/controlled-launch-final-authority.mjs",
   finalEvidenceManifest:
     "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json",
   finalReleasePacket:
@@ -151,6 +162,12 @@ function sourceDigest(target) {
   return `sha256:${createHash("sha256").update(source[target], "utf8").digest("hex")}`;
 }
 
+function gitSourceDigest(revision, file) {
+  const result = spawnSync("git", ["show", `${revision}:${file}`]);
+  if (result.status !== 0) return null;
+  return `sha256:${createHash("sha256").update(result.stdout).digest("hex")}`;
+}
+
 const selectedSha = "79c48a16cb685a88315a44e103b3758cf7845d65";
 const finalManifest = parseJson("finalEvidenceManifest");
 const finalPacket = parseJson("finalReleasePacket");
@@ -160,6 +177,11 @@ const exactHeadWorkflowEvidence = parseJson("exactHeadWorkflowEvidence");
 if (finalManifest) {
   try {
     validateControlledLaunchEvidenceManifest(finalManifest, { expectedHeadSha: selectedSha });
+  } catch (error) {
+    failures.push(`${files.finalEvidenceManifest}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    await verifyControlledLaunchFinalAuthority(finalManifest);
   } catch (error) {
     failures.push(`${files.finalEvidenceManifest}: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -199,16 +221,64 @@ if (finalManifest) {
     sourceDigest("incidentReadinessExecutionStatus"),
   );
   requireEqualValue(
+    "final manifest accepted-risk digest",
+    finalManifest.requiredExternalEvidence?.acceptedRisks?.artifactDigest,
+    sourceDigest("acceptedRiskEvidence"),
+  );
+  requireEqualValue(
     "final manifest Go approval digest",
     finalManifest.requiredExternalEvidence?.approvals?.artifactDigest,
     sourceDigest("goApprovalMatrixEvidence"),
+  );
+  requireEqualValue(
+    "final manifest disabled-capability digest",
+    finalManifest.requiredExternalEvidence?.disabledCapabilities?.artifactDigest,
+    sourceDigest("gatedCapabilityEvidence"),
   );
 }
 
 if (finalPacket && finalManifest) {
   requireEqualValue("final packet schemaVersion", finalPacket.schemaVersion, 1);
   requireEqualValue("final packet mode", finalPacket.packetMode, "final_evidence_required");
-  requireEqualValue("final packet decision", finalPacket.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
+  requireEqualValue("final packet generatedAt", finalPacket.generatedAt, finalManifest.generatedAt);
+  requireEqualValue("final packet decision", finalPacket.decision, FINAL_DECISION);
+  requireEqualValue("final packet release authority", finalPacket.releaseControl?.authority, FINAL_AUTHORITY);
+  requireEqualValue("final packet authority status", finalPacket.releaseControl?.authorityStatus, "verified");
+  requireEqualValue(
+    "final packet generator identity",
+    finalPacket.releaseControl?.generator,
+    finalManifest.authorityVerification?.generator,
+  );
+  requireEqualValue(
+    "final packet verifier identity",
+    finalPacket.releaseControl?.verifier,
+    finalManifest.authorityVerification?.verifier,
+  );
+  requireEqualValue("final packet manifest path", finalPacket.releaseControl?.manifest?.path, FINAL_MANIFEST_PATH);
+  requireEqualValue(
+    "final packet manifest digest",
+    finalPacket.releaseControl?.manifest?.sourceDigest,
+    sourceDigest("finalEvidenceManifest"),
+  );
+  if (!/^[a-f0-9]{40}$/.test(finalPacket.releaseControl?.sourceRevision ?? "")) {
+    failures.push("final packet release-control source revision must be a 40-character git SHA");
+  } else if (
+    spawnSync("git", ["merge-base", "--is-ancestor", finalPacket.releaseControl.sourceRevision, "HEAD"]).status !== 0
+  ) {
+    failures.push("final packet release-control source revision must be an ancestor of the packet commit");
+  } else {
+    for (const [label, identity] of [
+      ["generator", finalPacket.releaseControl?.generator],
+      ["verifier", finalPacket.releaseControl?.verifier],
+      ["manifest", finalPacket.releaseControl?.manifest],
+    ]) {
+      requireEqualValue(
+        `final packet ${label} digest at release-control source revision`,
+        gitSourceDigest(finalPacket.releaseControl.sourceRevision, identity?.path),
+        identity?.sourceDigest,
+      );
+    }
+  }
   requireEqualValue("final packet candidate", finalPacket.releaseCandidate?.sha, selectedSha);
   requireEqualValue("final packet clean candidate", finalPacket.releaseCandidate?.cleanWorktree, true);
   requireEqualValue("final packet main containment", finalPacket.releaseCandidate?.originMainContainsSha, true);
@@ -226,7 +296,7 @@ if (finalPacket && finalManifest) {
   requireEqualValue(
     "final packet package-lock digest",
     finalPacket.artifactIdentity?.packageLockSha256,
-    sourceDigest("packageLock").slice("sha256:".length),
+    gitSourceDigest(selectedSha, files.packageLock)?.slice("sha256:".length),
   );
   requireEqualValue(
     "final packet migration plan digest",
@@ -241,7 +311,13 @@ if (finalPacket && finalManifest) {
     "incidentReadiness",
     "acceptedRisks",
     "approvals",
+    "disabledCapabilities",
   ]) {
+    requireEqualValue(
+      `final packet ${key} authority status`,
+      finalPacket.requiredExternalEvidence?.[key]?.status,
+      "authority_verified",
+    );
     requireEqualValue(
       `final packet ${key} evidence URL`,
       finalPacket.requiredExternalEvidence?.[key]?.evidenceUrl,
@@ -255,8 +331,12 @@ if (finalPacket && finalManifest) {
       );
     }
   }
-  requireEqualValue("final packet disabled capability count", finalPacket.disabledCapabilityAttestation?.length, 4);
-  requireEqualValue("final packet privacy boundary count", finalPacket.privacyBoundary?.length, 2);
+  requireEqualValue(
+    "final packet disabled capability attestations",
+    finalPacket.disabledCapabilityAttestation,
+    DISABLED_CAPABILITY_ATTESTATION,
+  );
+  requireEqualValue("final packet privacy boundary", finalPacket.privacyBoundary, PRIVACY_BOUNDARY);
   if (!Number.isFinite(Date.parse(finalPacket.generatedAt))) {
     failures.push(`${files.finalReleasePacket}: generatedAt must be an ISO-8601 timestamp`);
   }
@@ -301,11 +381,8 @@ for (const invariant of [
   "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "must contain only HTTPS URLs",
   "npm run launch:packet -- --manifest",
-  "--full-suite-run-url",
-  "--api-security-run-url",
-  "--sensitive-mutation-run-url",
-  "--operational-recovery-run-url",
-  "--container-supply-chain-run-url",
+  "releaseControl.sourceRevision",
+  "direct evidence flags are draft-only",
   "Non-negotiable No-Go rules",
   "Completion percentage rule",
   "This checklist does not increase the completion percentage by itself",
@@ -747,14 +824,13 @@ for (const invariant of [
 
 for (const invariant of [
   "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
-  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "packetMode",
   "final_evidence_required",
   "draft_incomplete_evidence_allowed",
   "unknown launch packet option",
   "--manifest",
   "controlled-launch-evidence-manifest.mjs",
-  "manifest release candidate SHA must match the checked-out release candidate HEAD",
+  "final GO packet generation requires --manifest with governed authority verification",
   "final release packet requires the release candidate SHA to be contained in origin/main",
   "is required for a final release packet",
   "requires a clean worktree for final packets",
@@ -782,18 +858,39 @@ for (const invariant of [
   "accepted-risk-signoff-url",
   "go-approvals-url",
   "go-approvals-artifact-digest",
-  "attached_for_release_owner_acceptance",
+  "authority_verified",
+  "final GO packet accepts only --manifest and optional --out; evidence overrides are draft-only",
+  "releaseControl",
+  "sourceRevision",
+  "sha256GitFileAtCommit",
+  "verifyControlledLaunchFinalAuthority",
   "protectedStaging",
   "recoveryReconciliation",
   "rollbackOrForwardFix",
   "incidentReadiness",
   "acceptedRisks",
   "approvals",
+  "disabledCapabilities",
   "goApprovalsArtifactDigest",
-  "real-money Exchange remains NO-GO",
-  "packet must not contain raw secrets",
 ]) {
   requireText("releasePacket", invariant, `release packet generator is missing invariant: ${invariant}`);
+}
+
+for (const invariant of [
+  "tecpey-controlled-soft-launch-final-authority-v1",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
+  "NO_GO_PENDING_GOVERNED_AUTHORITY_VERIFICATION",
+  "verifyControlledLaunchFinalAuthority",
+  "manifest generator source digest",
+  "manifest verifier source digest",
+  "workflow evidence decision",
+  "workflow evidence ${key} conclusion",
+  "accepted-risk final disposition",
+  "Go approval final disposition",
+  "disabled-capability accepted blockers",
+  "must be an immutable tecpey/Tecpey-Os blob URL",
+]) {
+  requireText("finalAuthority", invariant, `controlled launch final authority is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -882,6 +979,10 @@ for (const invariant of [
   "manifest.releaseCandidate.sha must be a 40-character git SHA",
   "must contain only URLs, digests and release identifiers",
   "must match the checked-out release candidate HEAD",
+  "manifest.schemaVersion must be 2",
+  "manifest.generatedAt must be an ISO-8601 timestamp",
+  "authorityVerification",
+  "disabledCapabilities",
   "must be an absolute https URL",
   "must be an absolute https GitHub Actions run URL for tecpey/Tecpey-Os",
   "must be a sha256 digest",
@@ -961,20 +1062,28 @@ for (const invariant of [
   "controlled launch evidence manifest rejects workflow URLs outside governed GitHub Actions",
   "controlled launch evidence manifest rejects raw secrets and connection strings",
   "controlled launch evidence manifest rejects a release candidate SHA mismatch",
-  "release packet generator accepts a complete governed manifest",
+  "controlled launch evidence manifest rejects missing authority verification",
+  "controlled launch evidence manifest rejects missing accepted-risk artifact digest",
+  "controlled launch evidence manifest rejects non-canonical timestamps",
 ]) {
   requireText("evidenceManifestTest", invariant, `controlled launch evidence manifest tests are missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
   "final launch packet fails closed without required release evidence",
-  "final launch packet rejects dirty worktrees even when allow-dirty is supplied",
+  "final launch packet rejects dirty worktrees in governed final mode",
   "final launch packet fails closed without external operational evidence",
   "final launch packet rejects unmerged release candidates",
   "launch packet rejects unknown options",
   "launch packet rejects workflow URLs outside governed GitHub Actions",
   "draft launch packet can scaffold incomplete evidence explicitly",
   "final launch packet emits only after all release evidence is complete",
+  "direct evidence flags cannot emit a final GO packet",
+  "final launch packet rejects evidence overrides even with the governed manifest",
+  "final packet records the independent release-control revision",
+  "final packet reproduces byte-for-byte from its recorded source revision",
+  "final packet authority rejects invented workflow conclusions",
+  "decision authority rejects same-length disabled capability substitutions",
   "rollbackOrForwardFix.evidenceUrl",
   "incidentReadiness.artifactDigest",
   "acceptedRisks.evidenceUrl",

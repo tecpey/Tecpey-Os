@@ -1,10 +1,34 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 import {
   manifestValue,
   readControlledLaunchEvidenceManifest,
 } from "./controlled-launch-evidence-manifest.mjs";
+import {
+  DISABLED_CAPABILITY_ATTESTATION,
+  FINAL_AUTHORITY,
+  FINAL_AUTHORITY_PATHS,
+  FINAL_DECISION,
+  FINAL_MANIFEST_PATH,
+  PRIVACY_BOUNDARY,
+  verifyControlledLaunchFinalAuthority,
+} from "./controlled-launch-final-authority.mjs";
+
+const PACKET_DISABLED_CAPABILITY_ATTESTATION = Object.freeze([
+  "real-money Exchange remains NO-GO unless separately certified",
+  "custody, deposits and withdrawals remain NO-GO unless separately certified",
+  "public financial rewards remain NO-GO unless separately certified",
+  "enterprise and white-label activation remain NO-GO unless separately certified",
+]);
+
+if (
+  JSON.stringify(PACKET_DISABLED_CAPABILITY_ATTESTATION)
+  !== JSON.stringify(DISABLED_CAPABILITY_ATTESTATION)
+) {
+  throw new Error("release packet disabled-capability boundary drifted from final authority");
+}
 
 const flagArgs = new Set(["--allow-dirty", "--draft"]);
 const valueArgs = new Set([
@@ -83,12 +107,27 @@ async function sha256File(file) {
   return createHash("sha256").update(await readFile(file)).digest("hex");
 }
 
-async function sha256GitFiles(files) {
+function gitBuffer(args) {
+  const result = spawnSync("git", args, { maxBuffer: 16 * 1024 * 1024 });
+  if (result.status !== 0) {
+    const error = result.stderr?.toString("utf8").trim()
+      || result.stdout?.toString("utf8").trim()
+      || `git ${args.join(" ")} failed`;
+    throw new Error(error);
+  }
+  return result.stdout;
+}
+
+function sha256GitFileAtCommit(commitSha, file) {
+  return createHash("sha256").update(gitBuffer(["show", `${commitSha}:${file}`])).digest("hex");
+}
+
+function sha256GitFilesAtCommit(commitSha, files) {
   const hash = createHash("sha256");
   for (const file of files.sort()) {
     hash.update(file);
     hash.update("\0");
-    hash.update(await readFile(file));
+    hash.update(gitBuffer(["show", `${commitSha}:${file}`]));
     hash.update("\0");
   }
   return hash.digest("hex");
@@ -154,6 +193,19 @@ function requireFinalEvidence(value, label, { draftMode }) {
 const status = git(["status", "--porcelain"]);
 const allowDirty = Boolean(args.get("allow-dirty"));
 const draftMode = Boolean(args.get("draft")) || process.env.TECPEY_LAUNCH_PACKET_DRAFT === "1";
+if (!draftMode && !manifest) {
+  throw new Error(
+    "final GO packet generation requires --manifest with governed authority verification; direct evidence flags are draft-only",
+  );
+}
+if (!draftMode) {
+  const unsupportedFinalArgs = [...args.keys()].filter((arg) => !["manifest", "out"].includes(arg));
+  if (unsupportedFinalArgs.length > 0) {
+    throw new Error(
+      `final GO packet accepts only --manifest and optional --out; evidence overrides are draft-only: ${unsupportedFinalArgs.join(", ")}`,
+    );
+  }
+}
 if (status && (!allowDirty || !draftMode)) {
   throw new Error(
     "release packet generation requires a clean worktree for final packets. Re-run with --draft --allow-dirty only for local incomplete packet scaffolding.",
@@ -161,20 +213,27 @@ if (status && (!allowDirty || !draftMode)) {
 }
 
 const headSha = validateSha(git(["rev-parse", "HEAD"]), "HEAD");
-if (manifest?.releaseCandidate?.sha && manifest.releaseCandidate.sha !== headSha) {
-  throw new Error("manifest release candidate SHA must match the checked-out release candidate HEAD");
+const candidateSha = validateSha(manifest?.releaseCandidate?.sha || headSha, "release candidate");
+if (!draftMode) {
+  const manifestPath = path.relative(process.cwd(), path.resolve(args.get("manifest"))).replaceAll("\\", "/");
+  if (manifestPath !== FINAL_MANIFEST_PATH) {
+    throw new Error(`final GO packet requires canonical governed manifest ${FINAL_MANIFEST_PATH}`);
+  }
 }
 const branch = optionalGit(["branch", "--show-current"]) || "detached";
 const originMain = optionalGit(["rev-parse", "origin/main"]);
-const isOriginMainAncestor = originMain
-  ? spawnSync("git", ["merge-base", "--is-ancestor", headSha, "origin/main"]).status === 0
+const isCandidateOriginMainAncestor = originMain
+  ? spawnSync("git", ["merge-base", "--is-ancestor", candidateSha, "origin/main"]).status === 0
   : false;
-if (!draftMode && !isOriginMainAncestor) {
+if (!draftMode && !isCandidateOriginMainAncestor) {
   throw new Error(
     "final release packet requires the release candidate SHA to be contained in origin/main. Re-run with --draft only for local or unmerged release-candidate scaffolding.",
   );
 }
-const trackedFiles = git(["ls-files"]).split("\n").filter(Boolean);
+const authorityResult = draftMode
+  ? null
+  : await verifyControlledLaunchFinalAuthority(manifest, { root: process.cwd() });
+const trackedFiles = git(["ls-tree", "-r", "--name-only", candidateSha]).split("\n").filter(Boolean);
 const migrationFiles = trackedFiles.filter((file) =>
   /^(migrations\/|src\/lib\/db-migration|src\/lib\/db-migrate|scripts\/run-database-migrations\.ts)/.test(file),
 );
@@ -256,6 +315,10 @@ const acceptedRiskSignoffUrl = optionalUrl(
   evidenceArg("accepted-risk-signoff-url", "TECPEY_ACCEPTED_RISK_SIGNOFF_URL"),
   "accepted risk signoff URL",
 );
+const acceptedRiskSignoffArtifactDigest = optionalDigest(
+  manifest?.requiredExternalEvidence?.acceptedRisks?.artifactDigest,
+  "accepted risk signoff artifact digest",
+);
 const goApprovalsUrl = optionalUrl(
   evidenceArg("go-approvals-url", "TECPEY_GO_APPROVALS_URL"),
   "Go approvals URL",
@@ -264,10 +327,18 @@ const goApprovalsArtifactDigest = optionalDigest(
   evidenceArg("go-approvals-artifact-digest", "TECPEY_GO_APPROVALS_ARTIFACT_DIGEST"),
   "Go approvals artifact digest",
 );
+const disabledCapabilitiesEvidenceUrl = optionalUrl(
+  manifest?.requiredExternalEvidence?.disabledCapabilities?.evidenceUrl,
+  "disabled capability evidence URL",
+);
+const disabledCapabilitiesArtifactDigest = optionalDigest(
+  manifest?.requiredExternalEvidence?.disabledCapabilities?.artifactDigest,
+  "disabled capability artifact digest",
+);
 
 function externalEvidence({ url, digest, urlLabel, digestLabel, contract, registry, draftMode }) {
   return {
-    status: draftMode ? "missing_until_verified_artifact_attached" : "attached_for_release_owner_acceptance",
+    status: draftMode ? "missing_until_verified_artifact_attached" : "authority_verified",
     ...(contract ? { contract } : {}),
     ...(registry ? { registry } : {}),
     evidenceUrl: requireFinalEvidence(url, urlLabel, { draftMode }),
@@ -278,20 +349,37 @@ function externalEvidence({ url, digest, urlLabel, digestLabel, contract, regist
 const packet = {
   schemaVersion: 1,
   packetMode: draftMode ? "draft_incomplete_evidence_allowed" : "final_evidence_required",
-  generatedAt: new Date().toISOString(),
-  decision: draftMode
-    ? "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE"
-    : "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
-  releaseCandidate: {
-    sha: headSha,
-    branch,
+  generatedAt: manifest?.generatedAt || new Date().toISOString(),
+  decision: draftMode ? "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE" : FINAL_DECISION,
+  releaseControl: {
+    authority: FINAL_AUTHORITY,
+    authorityStatus: authorityResult?.authority.status || "not_verified_draft",
+    sourceRevision: headSha,
     cleanWorktree: status.length === 0,
-    originMainContainsSha: isOriginMainAncestor,
+    localDirtyFiles: status ? status.split("\n") : [],
+    generator: {
+      path: FINAL_AUTHORITY_PATHS.generator,
+      sourceDigest: `sha256:${await sha256File(FINAL_AUTHORITY_PATHS.generator)}`,
+    },
+    verifier: {
+      path: FINAL_AUTHORITY_PATHS.verifier,
+      sourceDigest: `sha256:${await sha256File(FINAL_AUTHORITY_PATHS.verifier)}`,
+    },
+    manifest: {
+      path: args.get("manifest") || null,
+      sourceDigest: args.get("manifest") ? `sha256:${await sha256File(args.get("manifest"))}` : null,
+    },
+  },
+  releaseCandidate: {
+    sha: candidateSha,
+    branch: manifest?.releaseCandidate?.sourceBranch || branch,
+    cleanWorktree: status.length === 0,
+    originMainContainsSha: isCandidateOriginMainAncestor,
     localDirtyFiles: status ? status.split("\n") : [],
   },
   artifactIdentity: {
-    packageLockSha256: await sha256File("package-lock.json"),
-    migrationPlanSha256: await sha256GitFiles(migrationFiles),
+    packageLockSha256: sha256GitFileAtCommit(candidateSha, "package-lock.json"),
+    migrationPlanSha256: sha256GitFilesAtCommit(candidateSha, migrationFiles),
     imageDigest: requireFinalEvidence(imageDigest, "image digest", { draftMode }),
     deploymentArtifactDigest: requireFinalEvidence(deploymentArtifactDigest, "deployment artifact digest", { draftMode }),
   },
@@ -345,7 +433,9 @@ const packet = {
     }),
     acceptedRisks: externalEvidence({
       url: acceptedRiskSignoffUrl,
+      digest: acceptedRiskSignoffArtifactDigest,
       urlLabel: "accepted risk signoff URL",
+      digestLabel: "accepted risk signoff artifact digest",
       registry: "docs/LAUNCH_ACCEPTED_RISKS.md",
       draftMode,
     }),
@@ -357,17 +447,17 @@ const packet = {
       contract: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
       draftMode,
     }),
+    disabledCapabilities: externalEvidence({
+      url: disabledCapabilitiesEvidenceUrl,
+      digest: disabledCapabilitiesArtifactDigest,
+      urlLabel: "disabled capability evidence URL",
+      digestLabel: "disabled capability artifact digest",
+      contract: "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      draftMode,
+    }),
   },
-  disabledCapabilityAttestation: [
-    "real-money Exchange remains NO-GO unless separately certified",
-    "custody, deposits and withdrawals remain NO-GO unless separately certified",
-    "public financial rewards remain NO-GO unless separately certified",
-    "enterprise and white-label activation remain NO-GO unless separately certified",
-  ],
-  privacyBoundary: [
-    "packet contains hashes, URLs and release identifiers only",
-    "packet must not contain raw secrets, database URLs, host IPs, customer data or logs",
-  ],
+  disabledCapabilityAttestation: [...PACKET_DISABLED_CAPABILITY_ATTESTATION],
+  privacyBoundary: [...PRIVACY_BOUNDARY],
 };
 
 const output = `${JSON.stringify(packet, null, 2)}\n`;
