@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "evidenceClass": "accepted-risk-signoff-evidence-request",
   "generatedAt": "2026-08-23T13:35:01Z",
   "decision": "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
@@ -64,27 +64,34 @@
     "R-10"
   ],
   "requiredArtifact": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "authority": "tecpey-accepted-risk-owner-signoff-v1",
     "evidenceClass": "controlled-soft-launch-accepted-risk-owner-signoff",
+    "decision": "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE",
     "environment": "release-control",
     "sourceSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
-    "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
-    "allowedSurfaces": [
-      "public-fa-en",
-      "academy",
-      "mentor",
-      "virtual-trading-arena"
-    ],
-    "disabledSurfaces": [
-      "real-money-exchange",
-      "custody-deposits-withdrawals",
-      "public-financial-rewards",
-      "enterprise-white-label"
-    ],
+    "releaseScope": {
+      "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+      "allowedSurfaces": [
+        "public-fa-en",
+        "academy",
+        "mentor",
+        "virtual-trading-arena"
+      ],
+      "disabledSurfaces": [
+        "real-money-exchange",
+        "custody-deposits-withdrawals",
+        "public-financial-rewards",
+        "enterprise-white-label"
+      ],
+      "status": "controlled-soft-launch-only"
+    },
     "riskRegister": {
       "path": "docs/LAUNCH_ACCEPTED_RISKS.md",
-      "requiredDigest": "sha256",
+      "digest": "sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
+      "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+      "referenceDate": "2026-08-23",
       "minimumReviewDate": "2026-08-16",
       "coveredRisks": [
         "R-01",
@@ -103,22 +110,260 @@
       "freshnessPolicy": "fail-closed-if-any-review-date-is-stale-before-go"
     },
     "riskOwnerSignoffs": {
-      "requiredForEveryCoveredRisk": true,
-      "minimumDistinctApprovalOwners": 3,
-      "allowedEvidenceUrlPattern": "https://github.com/tecpey/Tecpey-Os/(pull|issues|actions/runs|commit|blob)/...",
-      "requiredDigest": "sha256",
-      "requiredDecision": "accepted",
-      "requiredAttestation": "accepted-risk-register-approved-for-controlled-soft-launch-only"
+      "R-01": {
+        "risk": "R-01",
+        "accountableOwners": [
+          "CPO",
+          "Academy Director"
+        ],
+        "approvalOwnerExternalIdentity": "github:tecpey",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388723104",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388723104,
+        "evidenceDigest": "sha256:06e2e2a2ece28f7d794295dfcd0036c426a5bf7b80ea97cb74486c78b7b8f015",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-02": {
+        "risk": "R-02",
+        "accountableOwners": [
+          "CTO",
+          "Chief Architect"
+        ],
+        "approvalOwnerExternalIdentity": "github:mvexhiiii",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388733838",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388733838,
+        "evidenceDigest": "sha256:d742c7fa80ffb40a42f9c12524cbbb2005051e11fcae6ebcf70dbe7fd6ee9913",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-04": {
+        "risk": "R-04",
+        "accountableOwners": [
+          "SRE Lead",
+          "DevSecOps Lead"
+        ],
+        "approvalOwnerExternalIdentity": "github:mvexhiiii",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388733838",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388733838,
+        "evidenceDigest": "sha256:d742c7fa80ffb40a42f9c12524cbbb2005051e11fcae6ebcf70dbe7fd6ee9913",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-05": {
+        "risk": "R-05",
+        "accountableOwners": [
+          "SRE Lead",
+          "Wallet Engineer"
+        ],
+        "approvalOwnerExternalIdentity": "github:mvexhiiii",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388733838",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388733838,
+        "evidenceDigest": "sha256:d742c7fa80ffb40a42f9c12524cbbb2005051e11fcae6ebcf70dbe7fd6ee9913",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-06": {
+        "risk": "R-06",
+        "accountableOwners": [
+          "Academy Director",
+          "Chief Security Officer"
+        ],
+        "approvalOwnerExternalIdentity": "github:mvexhiiii",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388733838",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388733838,
+        "evidenceDigest": "sha256:d742c7fa80ffb40a42f9c12524cbbb2005051e11fcae6ebcf70dbe7fd6ee9913",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-07": {
+        "risk": "R-07",
+        "accountableOwners": [
+          "Chief Financial Systems Architect",
+          "CTO"
+        ],
+        "approvalOwnerExternalIdentity": "github:xrayman6zfm-ux",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388727231",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388727231,
+        "evidenceDigest": "sha256:49cbec23a19663d96c5b24d8099e8a01e32c7a31c65b219014c00da64b023f21",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-08": {
+        "risk": "R-08",
+        "accountableOwners": [
+          "CPO",
+          "Growth Lead"
+        ],
+        "approvalOwnerExternalIdentity": "github:tecpey",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-09-05",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388723104",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388723104,
+        "evidenceDigest": "sha256:06e2e2a2ece28f7d794295dfcd0036c426a5bf7b80ea97cb74486c78b7b8f015",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-09": {
+        "risk": "R-09",
+        "accountableOwners": [
+          "CTO",
+          "SRE Lead"
+        ],
+        "approvalOwnerExternalIdentity": "github:mvexhiiii",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388733838",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388733838,
+        "evidenceDigest": "sha256:d742c7fa80ffb40a42f9c12524cbbb2005051e11fcae6ebcf70dbe7fd6ee9913",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      },
+      "R-10": {
+        "risk": "R-10",
+        "accountableOwners": [
+          "Wallet Engineer",
+          "Chief Financial Systems Architect"
+        ],
+        "approvalOwnerExternalIdentity": "github:xrayman6zfm-ux",
+        "approvedAt": "2026-08-23T22:10:37Z",
+        "candidateSha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+        "launchScopeId": "controlled-public-fa-en-academy-mentor-arena",
+        "decision": "accepted",
+        "reviewDate": "2026-08-29",
+        "acceptanceEvidenceUrl": "https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-5388727231",
+        "acceptanceEvidenceType": "github-issue-comment",
+        "acceptanceEvidenceCommentId": 5388727231,
+        "evidenceDigest": "sha256:49cbec23a19663d96c5b24d8099e8a01e32c7a31c65b219014c00da64b023f21",
+        "attestation": "accepted-risk-register-approved-for-controlled-soft-launch-only",
+        "conditions": [
+          "exact candidate SHA accepted",
+          "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+          "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+          "real-money Exchange remains disabled",
+          "custody deposits withdrawals remain disabled",
+          "enterprise white-label public rewards remain disabled"
+        ]
+      }
     },
-    "approvalConditions": [
-      "exact candidate SHA accepted",
-      "controlled public FA/EN, Academy, Mentor and virtual Arena only",
-      "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
-      "real-money Exchange remains disabled",
-      "custody deposits withdrawals remain disabled",
-      "enterprise white-label public rewards remain disabled"
+    "releaseOwner": {
+      "role": "Release Owner",
+      "externalIdentity": "github:tecpey"
+    },
+    "operator": {
+      "role": "Accepted-Risk Evidence Preparer",
+      "externalIdentity": "codex-agent:nog08-evidence-preparer"
+    },
+    "reviewer": {
+      "role": "Independent Accepted-Risk Reviewer",
+      "externalIdentity": "github:xrayman6zfm-ux"
+    },
+    "privacyBoundary": [
+      "redacted-evidence-only",
+      "no-secrets-or-connection-urls",
+      "no-host-ips",
+      "no-raw-logs",
+      "no-customer-data"
     ],
-    "reviewerIndependence": "reviewer must differ from releaseOwner and operator; risk approval owners must differ from operator",
     "finalDisposition": "accepted"
   },
   "guardCommands": [
@@ -141,7 +386,7 @@
   "acceptanceBoundary": [
     "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing.",
     "The accepted-risk register structure is current for the selected candidate SHA, but owner approval evidence must be attached and pass scripts/verify-accepted-risk-signoff-evidence.mjs before NOG-08 can move to accepted.",
-    "The final artifact must include every controlled-launch risk owner sign-off, a risk-register digest, exact review-date freshness and governed GitHub evidence URLs for the selected SHA.",
+    "The final artifact must include every controlled-launch risk owner sign-off, a risk-register digest, exact review-date freshness, immutable issue #409 comment permalinks and IDs, and SHA-256 digests recomputed from the live remote comment bodies for the selected SHA.",
     "This evidence does not approve a Go decision and does not substitute protected staging activation, production-like env evidence, recovery reconciliation, incident readiness or the Go approval matrix.",
     "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO or launch-disabled under their separate gates."
   ],
@@ -174,12 +419,26 @@
     "required": true,
     "requiredBeforeStatus": "accepted",
     "allowedEvidence": [
-      "externally attributable repository-owner approval URL",
-      "signed Go/No-Go approval matrix URL",
-      "GitHub PR review approval by the accountable owner",
-      "owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs"
+      "immutable GitHub issue #409 comment permalink plus its positive numeric comment ID",
+      "GitHub-authored approval body matching the accountable owner, exact candidate, launch scope, risk-register digest, covered risks, review dates, roles, decision, attestation and conditions",
+      "SHA-256 digest of the exact remote GitHub comment body",
+      "schema-v2 owner sign-off artifact that passes scripts/verify-accepted-risk-signoff-evidence.mjs and live origin verification"
     ],
     "currentEvidenceUrl": null,
     "currentState": "missing"
+  },
+  "requiredArtifactOriginVerification": {
+    "provider": "github-rest-api",
+    "endpointTemplate": "https://api.github.com/repos/tecpey/Tecpey-Os/issues/comments/{acceptanceEvidenceCommentId}",
+    "requiredCredentialEnvironment": "GITHUB_TOKEN",
+    "requiredBindings": [
+      "remote-comment-id-matches-acceptanceEvidenceCommentId",
+      "remote-html-url-matches-acceptanceEvidenceUrl",
+      "remote-issue-is-409",
+      "remote-author-matches-approvalOwnerExternalIdentity",
+      "sha256-exact-remote-body-matches-evidenceDigest",
+      "body-attests-exact-candidate-scope-register-risks-review-dates-roles-decision-attestation-and-conditions"
+    ],
+    "failureMode": "fail-closed"
   }
 }

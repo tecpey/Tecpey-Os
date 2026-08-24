@@ -117,15 +117,15 @@ function assertHttpsUrl(value, path) {
   return parsed;
 }
 
-function assertGithubRepoUrl(value, path) {
+function assertGithubIssueCommentUrl(value, commentId, path) {
   const parsed = assertHttpsUrl(value, path);
   if (
     parsed.hostname !== "github.com"
     || parsed.search
-    || parsed.hash
-    || !/^\/tecpey\/Tecpey-Os\/(?:pull|issues|actions\/runs|commit|blob)\/.+/.test(parsed.pathname)
+    || parsed.pathname !== "/tecpey/Tecpey-Os/issues/409"
+    || parsed.hash !== `#issuecomment-${commentId}`
   ) {
-    throw new Error(`${path}_github_repo_url_invalid`);
+    throw new Error(`${path}_github_issue_comment_url_invalid`);
   }
 }
 
@@ -236,6 +236,8 @@ function verifyRiskOwnerSignoff(value, risk, expectedSha) {
       "decision",
       "reviewDate",
       "acceptanceEvidenceUrl",
+      "acceptanceEvidenceType",
+      "acceptanceEvidenceCommentId",
       "evidenceDigest",
       "attestation",
       "conditions",
@@ -260,7 +262,17 @@ function verifyRiskOwnerSignoff(value, risk, expectedSha) {
   if (reviewDay < parseUtcDay(MINIMUM_REVIEW_DATE, "minimumReviewDate")) {
     throw new Error(`riskOwnerSignoffs_${risk}_review_date_stale`);
   }
-  assertGithubRepoUrl(value.acceptanceEvidenceUrl, `riskOwnerSignoffs_${risk}_acceptanceEvidenceUrl`);
+  if (value.acceptanceEvidenceType !== "github-issue-comment") {
+    throw new Error(`riskOwnerSignoffs_${risk}_acceptance_evidence_type_invalid`);
+  }
+  if (!Number.isSafeInteger(value.acceptanceEvidenceCommentId) || value.acceptanceEvidenceCommentId <= 0) {
+    throw new Error(`riskOwnerSignoffs_${risk}_acceptance_evidence_comment_id_invalid`);
+  }
+  assertGithubIssueCommentUrl(
+    value.acceptanceEvidenceUrl,
+    value.acceptanceEvidenceCommentId,
+    `riskOwnerSignoffs_${risk}_acceptanceEvidenceUrl`,
+  );
   assertDigest(value.evidenceDigest, `riskOwnerSignoffs_${risk}_evidence`);
   if (value.attestation !== "accepted-risk-register-approved-for-controlled-soft-launch-only") {
     throw new Error(`riskOwnerSignoffs_${risk}_attestation_invalid`);
@@ -302,7 +314,7 @@ export function verifyAcceptedRiskSignoffEvidence(value, expectedSha) {
   );
 
   if (
-    value.schemaVersion !== 1
+    value.schemaVersion !== 2
     || value.authority !== "tecpey-accepted-risk-owner-signoff-v1"
     || value.evidenceClass !== "controlled-soft-launch-accepted-risk-owner-signoff"
     || value.decision !== "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE"

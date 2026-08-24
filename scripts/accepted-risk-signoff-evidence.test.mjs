@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
+import { acceptedRiskSignoffEvidenceOriginFindings } from "./accepted-risk-signoff-evidence-origin.mjs";
 import { verifyAcceptedRiskSignoffEvidence } from "./verify-accepted-risk-signoff-evidence.mjs";
 
 const SHA = "a".repeat(40);
 const HASH = "b".repeat(64);
 const RELEASE_SCOPE_ID = "controlled-public-fa-en-academy-mentor-arena";
-const EVIDENCE_URL = "https://github.com/tecpey/Tecpey-Os/pull/401";
 const OPERATOR = "release-operator:accepted-risk-evidence";
 const REVIEWER = "qa-reviewer:accepted-risk-signoff";
 
@@ -35,7 +36,19 @@ function approvalOwner(risk) {
   return "github:architecture-risk-owner";
 }
 
+function approvalCommentId(risk) {
+  const owner = approvalOwner(risk);
+  return {
+    "github:product-risk-owner": 51000000001,
+    "github:sre-risk-owner": 51000000002,
+    "github:financial-risk-owner": 51000000003,
+    "github:security-risk-owner": 51000000004,
+    "github:architecture-risk-owner": 51000000005,
+  }[owner];
+}
+
 function signoff(risk) {
+  const commentId = approvalCommentId(risk);
   return {
     risk,
     accountableOwners: riskOwners[risk],
@@ -45,7 +58,9 @@ function signoff(risk) {
     launchScopeId: RELEASE_SCOPE_ID,
     decision: "accepted",
     reviewDate: risk === "R-08" ? "2026-08-23" : "2026-08-16",
-    acceptanceEvidenceUrl: EVIDENCE_URL,
+    acceptanceEvidenceUrl: `https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-${commentId}`,
+    acceptanceEvidenceType: "github-issue-comment",
+    acceptanceEvidenceCommentId: commentId,
     evidenceDigest: `sha256:${HASH}`,
     attestation: "accepted-risk-register-approved-for-controlled-soft-launch-only",
     conditions: [
@@ -60,7 +75,7 @@ function signoff(risk) {
 }
 
 const valid = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   authority: "tecpey-accepted-risk-owner-signoff-v1",
   evidenceClass: "controlled-soft-launch-accepted-risk-owner-signoff",
   decision: "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE",
@@ -136,7 +151,7 @@ test("rejects rejected owner signoff and evidence outside the governed repositor
   externalUrl.riskOwnerSignoffs["R-10"].acceptanceEvidenceUrl = "https://example.invalid/signoff";
   assert.throws(
     () => verifyAcceptedRiskSignoffEvidence(externalUrl, SHA),
-    /riskOwnerSignoffs_R-10_acceptanceEvidenceUrl_github_repo_url_invalid/,
+    /riskOwnerSignoffs_R-10_acceptanceEvidenceUrl_github_issue_comment_url_invalid/,
   );
 });
 
@@ -151,4 +166,98 @@ test("rejects operator self-approval and raw operational material", () => {
   const leakedSecret = structuredClone(valid);
   leakedSecret.riskOwnerSignoffs["R-02"].conditions.push("DATABASE_URL=postgres://ci:ci@localhost/db");
   assert.throws(() => verifyAcceptedRiskSignoffEvidence(leakedSecret, SHA), /contains_forbidden_material/);
+});
+
+function originFixture() {
+  const evidence = structuredClone(valid);
+  const comments = new Map();
+  const groups = new Map();
+  for (const [risk, signoffEntry] of Object.entries(evidence.riskOwnerSignoffs)) {
+    const group = groups.get(signoffEntry.acceptanceEvidenceCommentId) ?? [];
+    group.push({ risk, signoff: signoffEntry });
+    groups.set(signoffEntry.acceptanceEvidenceCommentId, group);
+  }
+  for (const [commentId, group] of groups) {
+    const login = group[0].signoff.approvalOwnerExternalIdentity.slice("github:".length);
+    const roles = [...new Set(group.flatMap(({ signoff: entry }) => entry.accountableOwners))];
+    const body = [
+      "NOG-08 OWNER SIGN-OFF",
+      "",
+      `GitHub identity: @${login}`,
+      `Covered risks: ${group.map(({ risk }) => risk).join(", ")}`,
+      `Accountable roles accepted: ${roles.join(" + ")}`,
+      `Candidate SHA: ${SHA}`,
+      `Launch scope: ${RELEASE_SCOPE_ID}`,
+      `Risk-register digest: ${evidence.riskRegister.digest}`,
+      `Review dates: ${group.map(({ risk, signoff: entry }) => `${risk} — ${entry.reviewDate}`).join("; ")}`,
+      "Decision: accepted",
+      "Attestation: accepted-risk-register-approved-for-controlled-soft-launch-only",
+      "",
+      "Conditions accepted:",
+      ...group[0].signoff.conditions.map((condition) => `* ${condition}`),
+    ].join("\n");
+    const digest = `sha256:${createHash("sha256").update(body, "utf8").digest("hex")}`;
+    for (const { signoff: entry } of group) entry.evidenceDigest = digest;
+    comments.set(String(commentId), {
+      id: commentId,
+      html_url: group[0].signoff.acceptanceEvidenceUrl,
+      issue_url: "https://api.github.com/repos/tecpey/Tecpey-Os/issues/409",
+      user: { login },
+      body,
+    });
+  }
+  return { evidence, comments };
+}
+
+function originFetch(comments, mutate = (comment) => comment) {
+  return async (url, options) => {
+    assert.equal(options?.headers?.Authorization, "Bearer test-token");
+    assert.equal(options?.headers?.["X-GitHub-Api-Version"], "2022-11-28");
+    const commentId = String(url).split("/").at(-1);
+    const comment = comments.get(commentId);
+    assert.ok(comment, `unexpected comment id ${commentId}`);
+    return { ok: true, status: 200, async json() { return mutate(structuredClone(comment), commentId); } };
+  };
+}
+
+test("attests immutable accepted-risk issue comments by author and body digest", async () => {
+  const { evidence, comments } = originFixture();
+  assert.deepEqual(
+    await acceptedRiskSignoffEvidenceOriginFindings({
+      evidence,
+      selectedSha: SHA,
+      token: "test-token",
+      fetchImpl: originFetch(comments),
+    }),
+    [],
+  );
+});
+
+test("rejects accepted-risk origin verification without GitHub token", async () => {
+  const { evidence, comments } = originFixture();
+  assert.match(
+    (await acceptedRiskSignoffEvidenceOriginFindings({
+      evidence,
+      selectedSha: SHA,
+      token: "",
+      fetchImpl: originFetch(comments),
+    })).join("\n"),
+    /requires GITHUB_TOKEN/,
+  );
+});
+
+test("rejects edited or wrongly attributed accepted-risk approval comments", async () => {
+  const { evidence, comments } = originFixture();
+  const findings = await acceptedRiskSignoffEvidenceOriginFindings({
+    evidence,
+    selectedSha: SHA,
+    token: "test-token",
+    fetchImpl: originFetch(comments, (comment, commentId) => {
+      if (commentId === "51000000001") comment.body += "\nedited after approval";
+      if (commentId === "51000000002") comment.user.login = "unexpected-author";
+      return comment;
+    }),
+  });
+  assert.match(findings.join("\n"), /origin\.bodyDigest/);
+  assert.match(findings.join("\n"), /origin\.author/);
 });

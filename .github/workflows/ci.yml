@@ -3,6 +3,7 @@ name: CI
 permissions:
   actions: read
   contents: read
+  issues: read
 
 on:
   push:
@@ -446,6 +447,8 @@ jobs:
         run: npm run launch:recovery-reconciliation-evidence:check
 
       - name: Accepted-risk signoff evidence authority guard
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: npm run launch:accepted-risk-evidence:check
 
       - name: Protected incident readiness evidence authority guard
@@ -500,6 +503,7 @@ jobs:
 
       - name: Controlled launch decision authority guard
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           TECPEY_EXACT_HEAD_ORIGIN_VERIFICATION: static-only
         run: npm run launch:decision:check
 

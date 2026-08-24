@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const REQUEST_PATH = "docs/launch/generated/go-approval-matrix-evidence-request-20260812.json";
 const PROTECTED_STAGING_BLOCKERS = ["NOG-01", "NOG-02"];
-const REQUIRED_OPEN_BLOCKERS = ["NOG-08", "NOG-09"];
+const REQUIRED_OPEN_BLOCKERS = ["NOG-09"];
 const REQUIRED_PREREQUISITE_BLOCKERS = [
   "NOG-01",
   "NOG-02",
@@ -129,6 +129,29 @@ for (const blocker of REQUIRED_OPEN_BLOCKERS) {
   const registerBlocker = register.blockers?.find((entry) => entry.id === blocker);
   requireEqual(`${blocker}.status`, registerBlocker?.status, "open");
 }
+
+const nog08 = register.blockers?.find((entry) => entry.id === "NOG-08");
+requireEqual("NOG-08.status", nog08?.status, "accepted");
+requireEqual(
+  "NOG-08.executionState",
+  nog08?.executionState,
+  "accepted_exact_candidate_accepted_risk_owner_signoff",
+);
+requireEqual(
+  "NOG-08.evidence",
+  nog08?.evidence,
+  "docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json",
+);
+requireArrayIncludes(
+  "register.acceptedEvidence",
+  register.acceptedEvidence?.map((entry) => entry.id),
+  "NOG-08",
+);
+requireArrayIncludes(
+  "candidate.acceptedEvidence",
+  candidate.acceptedEvidence?.map((entry) => entry.id),
+  "NOG-08",
+);
 
 requireArrayNotIncludes(
   "register.acceptedEvidence",

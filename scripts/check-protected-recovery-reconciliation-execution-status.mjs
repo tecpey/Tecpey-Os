@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = ["NOG-08", "NOG-09"];
+const REMAINING_OPEN_BLOCKERS = ["NOG-09"];
 const REQUIRED_DOMAINS = {
   academy: { tablesCovered: 5, records: 0 },
   tradingArena: { tablesCovered: 6, records: 0 },
@@ -265,7 +265,7 @@ for (const invariant of [
   "32659459702",
   "sha256:e55f5eb887bde6d15d41f955d7a39345fa5f0472c4ef688c3d54b98203fd1e69",
   STATUS_PATH,
-  "NOG-08 and NOG-09 remain open",
+  "NOG-09 remains open",
 ]) {
   requireText("packet", source.packet, invariant);
 }
@@ -310,5 +310,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected recovery reconciliation execution status passed for ${candidate.currentCandidate.sha}; NOG-05 is accepted and controlled launch remains NO-GO on NOG-08/NOG-09.`,
+  `Protected recovery reconciliation execution status passed for ${candidate.currentCandidate.sha}; NOG-05 is accepted and controlled launch remains NO-GO on NOG-09.`,
 );

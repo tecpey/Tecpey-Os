@@ -14,7 +14,8 @@
 **Disabled-capability attestation evidence:** `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`
 **Incident readiness evidence request:** `docs/launch/generated/incident-readiness-evidence-request-20260812.json`
 **Protected incident readiness evidence:** `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`
-**Accepted-risk owner sign-off evidence:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
+**Accepted-risk owner sign-off request:** `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json`
+**Accepted-risk owner sign-off execution status:** `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`
 **Go approval matrix evidence request:** `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json`
 
 This file is the source of truth for the next controlled soft-launch evidence
@@ -110,7 +111,7 @@ execution.
 | Recovery and rollback | Accepted for NOG-05 in `docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json`, while rollback/volume-restore mechanics are accepted for NOG-06; governed run `32659459702`, artifact and detached digests, independent review and the offline verifier all passed for this exact SHA. |
 | Incident readiness | Accepted for NOG-07 in `docs/launch/generated/protected-incident-readiness-execution-status-20260823.json`: governed run `32663989309`, two P0 probes under five minutes, zero pending/quarantine, P0 acknowledgements, seven runbook digests, independent review, artifact and detached digests, and the offline verifier all passed for this exact SHA. |
 | Disabled capability scope | Accepted launch-disabled scope for NOG-10/NOG-11/NOG-12 in `docs/launch/generated/disabled-capability-attestation-evidence-20260812.json`; this is not activation evidence for Exchange, custody, enterprise, white-label or public rewards. |
-| Accepted risks and approvals | Accepted-risk owner sign-off evidence for NOG-08 is still missing. The prepared guard in `docs/launch/generated/accepted-risk-signoff-evidence-20260812.json` keeps NOG-08 open until externally attributable owner approval is attached and the final artifact passes `scripts/verify-accepted-risk-signoff-evidence.mjs`; the Go approval matrix for this SHA and launch scope also remains required, and NOG-09 remains open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
+| Accepted risks and approvals | NOG-08 accepted-risk owner sign-off evidence is accepted in `docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json`: three attributable owners cover all nine controlled-launch risks, the register digest and review dates are current, each risk is bound to an immutable issue-comment ID, and CI recomputes the live GitHub author/body digest before acceptance. The Go approval matrix remains required; NOG-09 stays open until `docs/launch/generated/go-approval-matrix-evidence-request-20260812.json` is satisfied and the final matrix passes `scripts/verify-go-approval-matrix-evidence.mjs`. |
 
 ## Decision
 
@@ -120,10 +121,10 @@ TecPey to Go.
 The disabled-capability attestation for NOG-10/NOG-11/NOG-12 is accepted only
 because those capabilities remain launch-disabled or product-disabled.
 
-The accepted-risk owner sign-off evidence for NOG-08 is still missing. This
-candidate only records the prepared risk-register/freshness guard and final
-owner sign-off verifier; it does not approve a Go decision or close NOG-08.
+The accepted-risk owner sign-off evidence for NOG-08 is accepted for this exact
+candidate and controlled scope. It does not approve a Go decision or close
+NOG-09.
 
-**Current decision: NO-GO until this exact candidate has complete accepted-risk
-owner sign-off and approval evidence that passes
+**Current decision: NO-GO until this exact candidate has a complete Go approval
+matrix that passes
 `scripts/verify-go-approval-matrix-evidence.mjs`.**
