@@ -25,7 +25,9 @@ const files = {
     "docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json",
   acceptedRiskAuthority: "scripts/accepted-risk-register-authority-policy.mjs",
   acceptedRiskEvidenceAuthority: "scripts/check-accepted-risk-signoff-evidence-authority.mjs",
-  acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  acceptedRiskRequest: "docs/launch/generated/accepted-risk-signoff-evidence-20260812.json",
+  acceptedRiskEvidence: "docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json",
+  acceptedRiskOrigin: "scripts/accepted-risk-signoff-evidence-origin.mjs",
   acceptedRiskVerifier: "scripts/verify-accepted-risk-signoff-evidence.mjs",
   acceptedRiskVerifierTest: "scripts/accepted-risk-signoff-evidence.test.mjs",
   incidentReadinessEvidenceAuthority:
@@ -367,32 +369,62 @@ for (const invariant of [
 }
 
 for (const invariant of [
-  "accepted-risk-signoff-evidence",
+  '"schemaVersion": 2',
+  '"decision": "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE"',
+  '"releaseScope"',
+  '"riskRegister"',
+  '"riskOwnerSignoffs"',
+  '"releaseOwner"',
+  '"operator"',
+  '"reviewer"',
+  '"privacyBoundary"',
+  '"acceptanceEvidenceType": "github-issue-comment"',
+  '"acceptanceEvidenceCommentId"',
+  "issuecomment-5388723104",
+  "issuecomment-5388727231",
+  "issuecomment-5388733838",
+  '"requiredArtifactOriginVerification"',
+  "issues/comments/{acceptanceEvidenceCommentId}",
+  '"failureMode": "fail-closed"',
+]) {
+  requireText("acceptedRiskRequest", invariant, `accepted-risk request is missing schema-v2 invariant: ${invariant}`);
+}
+
+for (const invariant of [
   "tecpey-accepted-risk-owner-signoff-v1",
   "controlled-soft-launch-accepted-risk-owner-signoff",
-  "NO_GO_NOG_08_OWNER_APPROVAL_REQUIRED",
-  "prepared_owner_approval_required",
-  "NOG-08",
-  "NOG-08 is not accepted by this artifact because externally attributable owner sign-off evidence is still missing",
-  "scripts/verify-accepted-risk-signoff-evidence.mjs",
+  '"schemaVersion": 2',
+  "ACCEPTED_RISKS_SIGNED_OFF_FOR_CONTROLLED_SCOPE",
+  "79c48a16cb685a88315a44e103b3758cf7845d65",
+  "sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
   "riskOwnerSignoffs",
-  "accepted-risk owner sign-off",
-  "Real-money Exchange, custody, deposits, withdrawals, public rewards, enterprise and white-label activation remain NO-GO",
+  "github:tecpey",
+  "github:mvexhiiii",
+  "github:xrayman6zfm-ux",
+  "issuecomment-5388723104",
+  "issuecomment-5388727231",
+  "issuecomment-5388733838",
+  '"finalDisposition": "accepted"',
+  "accepted-risk-register-approved-for-controlled-soft-launch-only",
+  "no-secrets-or-connection-urls",
+  "no-host-ips",
 ]) {
   requireText("acceptedRiskEvidence", invariant, `accepted-risk evidence is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
   "Accepted-risk signoff evidence authority",
-  "prepared_owner_approval_required",
-  "requiredOwnerApprovalEvidence",
-  "requiredArtifact",
+  "acceptedRiskSignoffEvidenceOriginFindings",
+  "REQUIRED_APPROVAL_COMMENTS",
+  "GITHUB_TOKEN",
+  "verifyAcceptedRiskSignoffEvidence",
+  "accepted_exact_candidate_accepted_risk_owner_signoff",
   "scripts/verify-accepted-risk-signoff-evidence.mjs",
   "scripts/accepted-risk-signoff-evidence.test.mjs",
-  "currentEvidenceUrl",
   "evidence must not contain secrets, connection strings or host identifiers",
   "evaluateAcceptedRiskRegisterAuthority",
-  "NOG-08",
+  "NOG-08 is accepted",
+  "NOG-09",
   "launch:accepted-risk-evidence:check",
   "test:accepted-risk-signoff-evidence",
 ]) {
@@ -401,6 +433,17 @@ for (const invariant of [
     invariant,
     `accepted-risk evidence authority is missing invariant: ${invariant}`,
   );
+}
+
+for (const invariant of [
+  "acceptedRiskSignoffEvidenceOriginFindings",
+  "issues/comments",
+  "origin.bodyDigest",
+  "origin.author",
+  "approval body is missing",
+  "accepted-risk approval origin verification requires GITHUB_TOKEN",
+]) {
+  requireText("acceptedRiskOrigin", invariant, `accepted-risk origin verifier is missing invariant: ${invariant}`);
 }
 
 for (const invariant of [
@@ -418,6 +461,9 @@ for (const invariant of [
 
 for (const invariant of [
   "accepts complete accepted-risk owner signoff evidence",
+  "attests immutable accepted-risk issue comments by author and body digest",
+  "rejects accepted-risk origin verification without GitHub token",
+  "rejects edited or wrongly attributed accepted-risk approval comments",
   "rejects stale candidate SHA",
   "rejects stale review date",
   "rejects rejected owner signoff",

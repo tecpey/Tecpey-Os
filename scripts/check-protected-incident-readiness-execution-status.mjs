@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const STATUS_PATH =
   "docs/launch/generated/protected-incident-readiness-execution-status-20260823.json";
-const REMAINING_OPEN_BLOCKERS = ["NOG-08", "NOG-09"];
+const REMAINING_OPEN_BLOCKERS = ["NOG-09"];
 const REQUIRED_RUNBOOKS = [
   "database",
   "redis",
@@ -275,7 +275,7 @@ for (const invariant of [
   "32663989309",
   "sha256:e9bf68a588571fcf8cf91b22ff8fbf1fe92734cced0321e286ad27921591a8a5",
   STATUS_PATH,
-  "NOG-08 and NOG-09 remain open",
+  "NOG-09 remains open",
 ]) {
   requireText("packet", source.packet, invariant);
 }
@@ -312,5 +312,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Protected incident readiness execution status passed for ${candidate.currentCandidate.sha}; NOG-07 is accepted and controlled launch remains NO-GO on NOG-08/NOG-09.`,
+  `Protected incident readiness execution status passed for ${candidate.currentCandidate.sha}; NOG-07 is accepted and controlled launch remains NO-GO on NOG-09.`,
 );

@@ -9,7 +9,7 @@ import {
 
 const oldSha = "9bd4ca5ec22e99e2d7deb192826ef8c018ee4913";
 const newSha = "cbbdebe0b09801c314ed0b048c6ed19873d23300";
-const open = ["NOG-08", "NOG-09"];
+const open = ["NOG-09"];
 const recollected = ["NOG-03", "NOG-04", "NOG-06"];
 const boundaries = [
   "real-money Exchange",
