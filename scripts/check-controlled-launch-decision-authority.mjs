@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
+import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-evidence-manifest.mjs";
 import { evaluateDisabledCapabilityAttestation } from "./disabled-capability-attestation-policy.mjs";
 
 const files = {
@@ -17,6 +19,16 @@ const files = {
   releasePacketTest: "scripts/controlled-launch-release-packet.test.mjs",
   evidenceManifest: "scripts/controlled-launch-evidence-manifest.mjs",
   evidenceManifestTest: "scripts/controlled-launch-evidence-manifest.test.mjs",
+  finalEvidenceManifest:
+    "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json",
+  finalReleasePacket:
+    "docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json",
+  packageLock: "package-lock.json",
+  runtimeImageEvidence: "docs/launch/generated/runtime-image-digest-evidence-20260812.json",
+  exactHeadWorkflowEvidence: "docs/launch/generated/exact-head-workflow-evidence-20260812.json",
+  protectedStagingExecutionStatus:
+    "docs/launch/generated/protected-staging-execution-status-20260812.json",
+  rollbackExecutionStatus: "docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
   workflowEvidenceAuthority: "scripts/check-exact-head-workflow-evidence-authority.mjs",
   rollbackEvidenceAuthority: "scripts/check-rollback-volume-restore-evidence-authority.mjs",
   recoveryReconciliationEvidenceAuthority:
@@ -110,6 +122,146 @@ const normalized = Object.fromEntries(
 );
 const failures = [];
 
+function parseJson(target) {
+  try {
+    return JSON.parse(source[target]);
+  } catch (error) {
+    failures.push(`${files[target]}: invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]),
+    );
+  }
+  return value;
+}
+
+function requireEqualValue(label, actual, expected) {
+  if (JSON.stringify(canonicalValue(actual)) !== JSON.stringify(canonicalValue(expected))) {
+    failures.push(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function sourceDigest(target) {
+  return `sha256:${createHash("sha256").update(source[target], "utf8").digest("hex")}`;
+}
+
+const selectedSha = "79c48a16cb685a88315a44e103b3758cf7845d65";
+const finalManifest = parseJson("finalEvidenceManifest");
+const finalPacket = parseJson("finalReleasePacket");
+const runtimeImageEvidence = parseJson("runtimeImageEvidence");
+const exactHeadWorkflowEvidence = parseJson("exactHeadWorkflowEvidence");
+
+if (finalManifest) {
+  try {
+    validateControlledLaunchEvidenceManifest(finalManifest, { expectedHeadSha: selectedSha });
+  } catch (error) {
+    failures.push(`${files.finalEvidenceManifest}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  requireEqualValue(
+    "final manifest image digest",
+    finalManifest.artifactIdentity?.imageDigest,
+    runtimeImageEvidence?.containerImage?.imageDigest,
+  );
+  requireEqualValue(
+    "final manifest deployment artifact digest",
+    finalManifest.artifactIdentity?.deploymentArtifactDigest,
+    runtimeImageEvidence?.artifactEvidence?.containerRelease?.artifactDigest,
+  );
+  requireEqualValue(
+    "final manifest workflow evidence",
+    finalManifest.workflowEvidence,
+    exactHeadWorkflowEvidence?.workflowEvidence,
+  );
+  requireEqualValue(
+    "final manifest protected staging digest",
+    finalManifest.requiredExternalEvidence?.protectedStaging?.artifactDigest,
+    sourceDigest("protectedStagingExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest recovery digest",
+    finalManifest.requiredExternalEvidence?.recoveryReconciliation?.artifactDigest,
+    sourceDigest("recoveryReconciliationExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest rollback digest",
+    finalManifest.requiredExternalEvidence?.rollbackOrForwardFix?.artifactDigest,
+    sourceDigest("rollbackExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest incident digest",
+    finalManifest.requiredExternalEvidence?.incidentReadiness?.artifactDigest,
+    sourceDigest("incidentReadinessExecutionStatus"),
+  );
+  requireEqualValue(
+    "final manifest Go approval digest",
+    finalManifest.requiredExternalEvidence?.approvals?.artifactDigest,
+    sourceDigest("goApprovalMatrixEvidence"),
+  );
+}
+
+if (finalPacket && finalManifest) {
+  requireEqualValue("final packet schemaVersion", finalPacket.schemaVersion, 1);
+  requireEqualValue("final packet mode", finalPacket.packetMode, "final_evidence_required");
+  requireEqualValue("final packet decision", finalPacket.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
+  requireEqualValue("final packet candidate", finalPacket.releaseCandidate?.sha, selectedSha);
+  requireEqualValue("final packet clean candidate", finalPacket.releaseCandidate?.cleanWorktree, true);
+  requireEqualValue("final packet main containment", finalPacket.releaseCandidate?.originMainContainsSha, true);
+  requireEqualValue("final packet local dirty files", finalPacket.releaseCandidate?.localDirtyFiles, []);
+  requireEqualValue(
+    "final packet image digest",
+    finalPacket.artifactIdentity?.imageDigest,
+    finalManifest.artifactIdentity?.imageDigest,
+  );
+  requireEqualValue(
+    "final packet deployment artifact digest",
+    finalPacket.artifactIdentity?.deploymentArtifactDigest,
+    finalManifest.artifactIdentity?.deploymentArtifactDigest,
+  );
+  requireEqualValue(
+    "final packet package-lock digest",
+    finalPacket.artifactIdentity?.packageLockSha256,
+    sourceDigest("packageLock").slice("sha256:".length),
+  );
+  requireEqualValue(
+    "final packet migration plan digest",
+    finalPacket.artifactIdentity?.migrationPlanSha256,
+    "69f784cef674c98a2df4548d335480877db80995c567ec9a9ec69ead2b46f727",
+  );
+  requireEqualValue("final packet workflow evidence", finalPacket.workflowEvidence, finalManifest.workflowEvidence);
+  for (const key of [
+    "protectedStaging",
+    "recoveryReconciliation",
+    "rollbackOrForwardFix",
+    "incidentReadiness",
+    "acceptedRisks",
+    "approvals",
+  ]) {
+    requireEqualValue(
+      `final packet ${key} evidence URL`,
+      finalPacket.requiredExternalEvidence?.[key]?.evidenceUrl,
+      finalManifest.requiredExternalEvidence?.[key]?.evidenceUrl,
+    );
+    if (finalManifest.requiredExternalEvidence?.[key]?.artifactDigest) {
+      requireEqualValue(
+        `final packet ${key} artifact digest`,
+        finalPacket.requiredExternalEvidence?.[key]?.artifactDigest,
+        finalManifest.requiredExternalEvidence?.[key]?.artifactDigest,
+      );
+    }
+  }
+  requireEqualValue("final packet disabled capability count", finalPacket.disabledCapabilityAttestation?.length, 4);
+  requireEqualValue("final packet privacy boundary count", finalPacket.privacyBoundary?.length, 2);
+  if (!Number.isFinite(Date.parse(finalPacket.generatedAt))) {
+    failures.push(`${files.finalReleasePacket}: generatedAt must be an ISO-8601 timestamp`);
+  }
+}
+
 function requireText(target, token, reason) {
   if (!normalized[target].includes(token.replace(/\s+/g, " "))) {
     failures.push(`${files[target]}: ${reason}`);
@@ -144,6 +296,9 @@ for (const invariant of [
   "INCIDENT_READINESS_CONTRACT.md",
   "Required decision record",
   "controlled-soft-launch-final-evidence-manifest",
+  "controlled-soft-launch-final-evidence-manifest-20260824.json",
+  "controlled-soft-launch-final-release-packet-20260824.json",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "must contain only HTTPS URLs",
   "npm run launch:packet -- --manifest",
   "--full-suite-run-url",
@@ -592,6 +747,7 @@ for (const invariant of [
 
 for (const invariant of [
   "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   "packetMode",
   "final_evidence_required",
   "draft_incomplete_evidence_allowed",

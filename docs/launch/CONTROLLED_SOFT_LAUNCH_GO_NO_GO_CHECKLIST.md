@@ -4,6 +4,8 @@
 **Current candidate SHA:** `79c48a16cb685a88315a44e103b3758cf7845d65`
 **Current candidate source of truth:** `docs/launch/CURRENT_CONTROLLED_LAUNCH_CANDIDATE.md`  
 **Current candidate machine ledger:** `docs/launch/generated/current-controlled-launch-candidate.json`  
+**Final governed evidence manifest:** `docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json`
+**Final governed release packet:** `docs/launch/generated/controlled-soft-launch-final-release-packet-20260824.json`
 **Historical draft RC packet:** `03e77790630dac737a2d4cc4636b97e80de48ab3`, `docs/launch/CONTROLLED_SOFT_LAUNCH_RC_EVIDENCE_PACKET_20260810.md`  
 **Active protected staging NO-GO register:** `docs/launch/PROTECTED_STAGING_EVIDENCE_PACKET_20260810.md`  
 **Related:** #26, #50, #110, #229, PRs #353, #354, #355, #356, #357, #367, #373, #375, #376, #377, #378, #433, #435, #434, #436, #438, #439, #440, #441, #437, `docs/launch/CONTROLLED_LAUNCH_EVIDENCE_DIGEST_20260808.md`
@@ -59,6 +61,12 @@ activation remains separately NO-GO and disabled.
 ## Required decision record
 
 The final Go/No-Go record must contain:
+
+The governed manifest and generated final packet named above are the accepted
+record for candidate `79c48a16cb685a88315a44e103b3758cf7845d65`. The packet is valid only while
+its decision is `GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY`, every referenced
+digest and immutable URL matches the manifest, and every disabled-capability
+attestation remains enforced.
 
 1. exact release candidate SHA and image digest;
 2. a governed controlled-launch evidence manifest with `schemaVersion: 1`,

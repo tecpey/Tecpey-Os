@@ -279,7 +279,9 @@ const packet = {
   schemaVersion: 1,
   packetMode: draftMode ? "draft_incomplete_evidence_allowed" : "final_evidence_required",
   generatedAt: new Date().toISOString(),
-  decision: "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE",
+  decision: draftMode
+    ? "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE"
+    : "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
   releaseCandidate: {
     sha: headSha,
     branch,

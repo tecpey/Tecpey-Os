@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "packetMode": "final_evidence_required",
+  "generatedAt": "2026-08-24T09:02:22.198Z",
+  "decision": "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY",
+  "releaseCandidate": {
+    "sha": "79c48a16cb685a88315a44e103b3758cf7845d65",
+    "branch": "detached",
+    "cleanWorktree": true,
+    "originMainContainsSha": true,
+    "localDirtyFiles": []
+  },
+  "artifactIdentity": {
+    "packageLockSha256": "c3fc6345c8916840a2b3dede5c3ca5b7c047e369b92ecf59b10f1b4dfb20fe0b",
+    "migrationPlanSha256": "69f784cef674c98a2df4548d335480877db80995c567ec9a9ec69ead2b46f727",
+    "imageDigest": "sha256:38ab89604258c6b2f73b04e980ecd2b2a20e5486b04c64abc99ecd5edeecfd69",
+    "deploymentArtifactDigest": "sha256:3c2e1b271db1807b1a5ce8c9a8738b98f3fc5d418de925b6e7d9e59946bb77f5"
+  },
+  "workflowEvidence": {
+    "ciRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393215",
+    "fullSuiteRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393181",
+    "apiSecurityRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393195",
+    "sensitiveMutationRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393170",
+    "repositoryAuditRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393172",
+    "publicGoldenPathRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393275",
+    "operationalRecoveryRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642401435",
+    "containerSupplyChainRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393165",
+    "secretScanningRunUrl": "https://github.com/tecpey/Tecpey-Os/actions/runs/32642393159"
+  },
+  "requiredExternalEvidence": {
+    "protectedStaging": {
+      "status": "attached_for_release_owner_acceptance",
+      "contract": "docs/operations/STAGING_READINESS_EVIDENCE_CONTRACT.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/ffa005707250f95dd975b4a973626580fc6871ab/docs/launch/generated/protected-staging-execution-status-20260812.json",
+      "artifactDigest": "sha256:a49914c5b1bebe15c9212103dff2bbf70c58a055491e46678d8f082b9eea210e"
+    },
+    "recoveryReconciliation": {
+      "status": "attached_for_release_owner_acceptance",
+      "contract": "docs/operations/RECOVERY_RECONCILIATION_CONTRACT.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/ffa005707250f95dd975b4a973626580fc6871ab/docs/launch/generated/protected-recovery-reconciliation-execution-status-20260823.json",
+      "artifactDigest": "sha256:a74997c0d9bb9b959a6ab657e68c860a01fa10316df9ee92b491d030a5bff477"
+    },
+    "rollbackOrForwardFix": {
+      "status": "attached_for_release_owner_acceptance",
+      "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/ffa005707250f95dd975b4a973626580fc6871ab/docs/launch/generated/rollback-volume-restore-evidence-20260812.json",
+      "artifactDigest": "sha256:8796db542fb0ce4fd66596f9a22ceac6579e85000ad0198537d5079e86766882"
+    },
+    "incidentReadiness": {
+      "status": "attached_for_release_owner_acceptance",
+      "contract": "docs/operations/INCIDENT_READINESS_CONTRACT.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/ffa005707250f95dd975b4a973626580fc6871ab/docs/launch/generated/protected-incident-readiness-execution-status-20260823.json",
+      "artifactDigest": "sha256:d4e1377424432ee10f23aac3cfcb5d5f79f10add95cd72f5981a20092f9ab27d"
+    },
+    "acceptedRisks": {
+      "status": "attached_for_release_owner_acceptance",
+      "registry": "docs/LAUNCH_ACCEPTED_RISKS.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/ffa005707250f95dd975b4a973626580fc6871ab/docs/launch/generated/accepted-risk-signoff-execution-status-20260823.json"
+    },
+    "approvals": {
+      "status": "attached_for_release_owner_acceptance",
+      "contract": "docs/launch/CONTROLLED_SOFT_LAUNCH_GO_NO_GO_CHECKLIST.md",
+      "evidenceUrl": "https://github.com/tecpey/Tecpey-Os/blob/5ce7eedd62d95857fdb176c16ca4a49364c0f263/docs/launch/generated/go-approval-matrix-execution-status-20260824.json",
+      "artifactDigest": "sha256:30fd6d00e8ea21f2f8a2c7551d900b2db6e5216d70cae022bbb1a2a6ebe5a89c"
+    }
+  },
+  "disabledCapabilityAttestation": [
+    "real-money Exchange remains NO-GO unless separately certified",
+    "custody, deposits and withdrawals remain NO-GO unless separately certified",
+    "public financial rewards remain NO-GO unless separately certified",
+    "enterprise and white-label activation remain NO-GO unless separately certified"
+  ],
+  "privacyBoundary": [
+    "packet contains hashes, URLs and release identifiers only",
+    "packet must not contain raw secrets, database URLs, host IPs, customer data or logs"
+  ]
+}

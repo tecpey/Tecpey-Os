@@ -199,6 +199,7 @@ test("draft launch packet can scaffold incomplete evidence explicitly", () => {
   assert.equal(result.status, 0, result.stderr);
   const packet = JSON.parse(result.stdout);
   assert.equal(packet.packetMode, "draft_incomplete_evidence_allowed");
+  assert.equal(packet.decision, "NO_GO_UNTIL_ACCEPTED_OPERATIONAL_EVIDENCE");
   assert.equal(packet.artifactIdentity.imageDigest, null);
   assert.equal(packet.workflowEvidence.ciRunUrl, null);
   assert.equal(packet.workflowEvidence.fullSuiteRunUrl, null);
@@ -279,6 +280,7 @@ test("final launch packet emits only after all release evidence is complete", ()
     assert.equal(result.status, 0, result.stderr);
     const packet = JSON.parse(result.stdout);
     assert.equal(packet.packetMode, "final_evidence_required");
+    assert.equal(packet.decision, "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY");
     assert.equal(packet.artifactIdentity.imageDigest, digest);
     assert.equal(packet.artifactIdentity.deploymentArtifactDigest, deploymentDigest);
     assert.equal(packet.workflowEvidence.ciRunUrl, runUrl);
