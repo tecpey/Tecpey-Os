@@ -1,6 +1,7 @@
 'use server'
 
 import { ApiError } from "./api-error";
+import { classifyFetchError } from "./fetch-error-classification";
 import { getSessionToken } from "./session";
 import { getLocale } from "next-intl/server";
 import { logger } from "./logger";
@@ -21,22 +22,6 @@ function isRetryable(error: ApiError): boolean {
     error.type === "TIMEOUT" ||
     error.type === "SERVER_ERROR"
   );
-}
-
-function classifyFetchError(error: unknown): ApiError {
-  if (error instanceof ApiError) return error;
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return new ApiError("TIMEOUT", undefined, "Request timed out");
-  }
-  if (
-    error instanceof TypeError &&
-    (error.message.includes("Failed to fetch") ||
-      error.message.includes("NetworkError") ||
-      error.message.includes("Load failed"))
-  ) {
-    return new ApiError("NO_CONNECTION", undefined, "No internet connection");
-  }
-  return new ApiError("UNKNOWN", undefined, String(error));
 }
 
 async function fetchWithTimeout(
