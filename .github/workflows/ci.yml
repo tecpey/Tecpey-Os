@@ -104,6 +104,10 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Final launch authority verifies immutable evidence and the runtime
+          # candidate at their recorded revisions, so the quality job needs
+          # those commits instead of the checkout action's shallow default.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Verify exact checkout
