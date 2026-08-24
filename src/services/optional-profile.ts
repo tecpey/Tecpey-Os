@@ -26,7 +26,7 @@ export async function resolveOptionalProfile<T>(
   try {
     response = await request();
   } catch (error) {
-    if (!(error instanceof ApiError)) throw error;
+    if (!(error instanceof ApiError) || error.type === "UNKNOWN") throw error;
     return {
       data: null,
       failure: {

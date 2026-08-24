@@ -49,9 +49,20 @@ describe("optional root-layout profile lookup", () => {
     });
   });
 
-  it("does not hide unknown or framework-controlled exceptions", async () => {
+  it("does not hide UNKNOWN API or framework-controlled exceptions", async () => {
+    const unknownApiError = new ApiError(
+      "UNKNOWN",
+      undefined,
+      "unexpected fetch failure",
+    );
     const unexpected = new Error("unexpected programming failure");
 
+    await assert.rejects(
+      resolveOptionalProfile<Profile>(async () => {
+        throw unknownApiError;
+      }),
+      (error: unknown) => error === unknownApiError,
+    );
     await assert.rejects(
       resolveOptionalProfile<Profile>(async () => {
         throw unexpected;
