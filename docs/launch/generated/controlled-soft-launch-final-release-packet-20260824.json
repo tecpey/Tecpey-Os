@@ -6,7 +6,7 @@
   "releaseControl": {
     "authority": "tecpey-controlled-soft-launch-final-authority-v1",
     "authorityStatus": "verified",
-    "sourceRevision": "32bd02cdf2186c4dde761f069c87354fae5fee45",
+    "sourceRevision": "dfd5243b29bec64b6c7f138e305e35bb145dd466",
     "cleanWorktree": true,
     "localDirtyFiles": [],
     "generator": {
