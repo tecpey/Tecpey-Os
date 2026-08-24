@@ -6,7 +6,6 @@ import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-ev
 import {
   DISABLED_CAPABILITY_ATTESTATION,
   FINAL_AUTHORITY,
-  FINAL_AUTHORITY_PATHS,
   FINAL_DECISION,
   FINAL_MANIFEST_PATH,
   PRIVACY_BOUNDARY,
