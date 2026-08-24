@@ -267,8 +267,8 @@
     },
     {
       "path": "scripts/repository-audit-policy.mjs",
-      "gitObjectId": "e2209f06f790ede27b935640a0c2faf0966850ed",
-      "sha256": "a8cc75514a79e599c8be03b27acb291ae3781d321828229a5356b9ea2583a265",
+      "gitObjectId": "4d5444d1aba350f03d0a3b1a735ea37c19053613",
+      "sha256": "9f98a28a3e8bd1f7dee4b18a24ac3ae6411edbdde9deeaac6ff4b38a34f187aa",
       "lines": 283,
       "reviewedRanges": [
         {
@@ -288,7 +288,8 @@
         "2026-08-15: re-reviewed after Policy v15 explicitly classified src/lib/public-credential-verification-id.ts as Academy Batch 4. The helper contains only bounded identifier validation, domain-separated public fingerprint derivation and canonical verification-path construction; it introduces no persistence, network, mutation or private evidence surface. Source-path fail-closed behavior and rule ordering remain unchanged.",
         "2026-08-15: re-reviewed after Policy v16 explicitly classified src/lib/c-level-control-authority.ts as authentication-admin-security Batch 3. The helper governs C-level orchestration authority and must stay with admin/security audit evidence; source-path fail-closed behavior and existing rule ordering are preserved, and no runtime activation surface is added.",
         "2026-08-20: re-reviewed after Policy v17 explicitly classified src/lib/organic-growth-automation.ts as product-ui Batch 10 beside the governed coin, news and tool growth automation modules. The helper is a pure SEO/AEO/GEO evidence-profile contract, adds no network access, persistence, financial activation surface or exchange execution path, preserves source-path fail-closed behavior, and is covered by repository-audit classification tests.",
-        "2026-08-21: re-reviewed after Policy v18 explicitly classified src/lib/env-placeholders.ts as operations-runtime Batch 11, beside alerts.ts and error-tracking.ts. The module holds the repository's single list of environment placeholder tokens, which scripts/validate-env.mjs enforces at the deployment preflight and which alerts.ts and email.ts now read instead of keeping private copies; operations-runtime is the truthful domain because the other half of the contract is the preflight itself. The change is limited to one classification entry and the policy version constant. Source-path fail-closed behavior and existing rule ordering are unchanged, no runtime activation surface is added, and the classification is asserted in scripts/repository-audit-manifest.test.mjs."
+        "2026-08-21: re-reviewed after Policy v18 explicitly classified src/lib/env-placeholders.ts as operations-runtime Batch 11, beside alerts.ts and error-tracking.ts. The module holds the repository's single list of environment placeholder tokens, which scripts/validate-env.mjs enforces at the deployment preflight and which alerts.ts and email.ts now read instead of keeping private copies; operations-runtime is the truthful domain because the other half of the contract is the preflight itself. The change is limited to one classification entry and the policy version constant. Source-path fail-closed behavior and existing rule ordering are unchanged, no runtime activation surface is added, and the classification is asserted in scripts/repository-audit-manifest.test.mjs.",
+        "2026-08-24: re-reviewed after Policy v19 explicitly classified src/lib/fetch-error-classification.ts as authentication-admin-security Batch 3 beside api-error.ts and api-validation.ts. The pure classifier translates bounded browser and Node/undici transport failures into existing ApiError categories, adds no network call, credential access, persistence, mutation or activation surface, preserves source-path fail-closed behavior and rule ordering, and has a focused classification assertion in scripts/repository-audit-manifest.test.mjs."
       ],
       "findings": []
     },
