@@ -6,7 +6,7 @@
   "releaseControl": {
     "authority": "tecpey-controlled-soft-launch-final-authority-v1",
     "authorityStatus": "verified",
-    "sourceRevision": "0ae5122d374ac52ed73a4621d0297d929dc68702",
+    "sourceRevision": "d06798cbb6934ddc638177ea7e3e6a305f721254",
     "cleanWorktree": true,
     "localDirtyFiles": [],
     "generator": {
@@ -15,11 +15,11 @@
     },
     "verifier": {
       "path": "scripts/controlled-launch-final-authority.mjs",
-      "sourceDigest": "sha256:55dc8365270fe994891b02389f4ad216f2475bd9434abede02d17ae4f4daf1ef"
+      "sourceDigest": "sha256:0903e0c9eeb0add9eedbb59289be1edc755c2a780f51f54de300e8c3c3cdfc2d"
     },
     "manifest": {
       "path": "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json",
-      "sourceDigest": "sha256:b4b8cfaf60a14644b6cbccee2ad8846a709eabda3ac198c60830397d8f26da9b"
+      "sourceDigest": "sha256:76ef14278b6d2a8704e6aa3ec9844b91345848325a7d5870a60916625f9e265a"
     }
   },
   "releaseCandidate": {
