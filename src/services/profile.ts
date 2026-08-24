@@ -2,11 +2,14 @@
 
 import { headers } from "next/headers";
 import { apiFetch } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import {
   isProfileFreeRoute,
   REQUEST_ROUTE_CONTEXT_HEADER,
 } from "@/lib/request-route-context";
 import { getSession } from "@/lib/session";
+import type { User } from "@/components/navbar/Navbar";
+import { resolveOptionalProfile } from "@/services/optional-profile";
 
 export const getProfileInfo = async () => {
   const requestHeaders = await headers();
@@ -18,15 +21,16 @@ export const getProfileInfo = async () => {
 
   if (!session) return null;
 
-  const res = await apiFetch("/dashboard/profile", {
-    method: "GET",
-  });
+  const result = await resolveOptionalProfile<User>(() =>
+    apiFetch("/dashboard/profile", { method: "GET" }),
+  );
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch profile");
+  if (result.failure) {
+    logger.warn("[profile] optional navbar profile unavailable", {
+      route: requestPath ?? "unknown",
+      ...result.failure,
+    });
   }
 
-  const data = await res.json();
-
-  return data?.data;
+  return result.data;
 };

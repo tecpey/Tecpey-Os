@@ -523,6 +523,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 3,
     classificationRule: "authentication-admin-security",
   });
+  assert.deepEqual(classifyDomain("src/lib/fetch-error-classification.ts"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
   assert.deepEqual(classifyDomain("src/lib/degraded-read.ts"), {
     domain: "operations-runtime",
     riskTier: "P1",
