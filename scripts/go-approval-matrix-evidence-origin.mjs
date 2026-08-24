@@ -29,6 +29,28 @@ function exactSorted(values) {
   return JSON.stringify([...values].sort());
 }
 
+function approvalRolesFromBody(body) {
+  const roleValues = String(body ?? "")
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const normalized = line
+        .trim()
+        .replace(/^[-*+]\s+/, "")
+        .replaceAll("**", "")
+        .replaceAll("__", "")
+        .replaceAll("`", "");
+      const match = /^approvalRoles?:\s*(.+)$/.exec(normalized);
+      return match ? [match[1]] : [];
+    });
+
+  // Multiple declarations are ambiguous and must fail closed.
+  if (roleValues.length !== 1) return [];
+  return roleValues[0]
+    .split(",")
+    .map((role) => role.trim())
+    .filter(Boolean);
+}
+
 export function governedGoApprovalCommentId(url) {
   const match = typeof url === "string" ? COMMENT_URL.exec(url) : null;
   return match?.[1] ?? null;
@@ -155,8 +177,7 @@ export async function goApprovalMatrixEvidenceOriginFindings({
       requireBodyText(findings, `${group.commentId}.origin`, body, condition);
     }
 
-    const roleLine = /^\s*-\s*approvalRoles?:\s*(.+)$/m.exec(String(body ?? ""));
-    const remoteRoles = roleLine?.[1].split(",").map((role) => role.trim()) ?? [];
+    const remoteRoles = approvalRolesFromBody(body);
     if (exactSorted(remoteRoles) !== exactSorted(group.roles)) {
       findings.push(
         `${group.commentId}.origin.roles: expected exactly ${group.roles.sort().join(", ")}, got ${remoteRoles.sort().join(", ")}`,

@@ -152,6 +152,39 @@ test("attests immutable Go approval issue comments by author and body digest", a
   );
 });
 
+test("accepts GitHub list-marker and emphasis formatting for the exact role declaration", async () => {
+  const evidence = structuredClone(valid);
+  const body = commentBody("tecpey").replace(
+    "- approvalRoles: CEO, Product, Compliance",
+    "* **approvalRoles:** CEO, Product, Compliance",
+  );
+  const digest = `sha256:${createHash("sha256").update(body, "utf8").digest("hex")}`;
+  for (const approval of Object.values(evidence.approvalMatrix)) {
+    if (approval.approverExternalIdentity === "github:tecpey") approval.evidenceDigest = digest;
+  }
+
+  assert.deepEqual(
+    await goApprovalMatrixEvidenceOriginFindings({
+      evidence, selectedSha: SHA, token: "test-token", fetchImpl: githubFetch({ "101": { body } }),
+    }),
+    [],
+  );
+});
+
+test("rejects ambiguous duplicate role declarations", async () => {
+  const evidence = structuredClone(valid);
+  const body = `${commentBody("tecpey")}\n- approvalRoles: CEO, Product, Compliance`;
+  const digest = `sha256:${createHash("sha256").update(body, "utf8").digest("hex")}`;
+  for (const approval of Object.values(evidence.approvalMatrix)) {
+    if (approval.approverExternalIdentity === "github:tecpey") approval.evidenceDigest = digest;
+  }
+
+  const findings = await goApprovalMatrixEvidenceOriginFindings({
+    evidence, selectedSha: SHA, token: "test-token", fetchImpl: githubFetch({ "101": { body } }),
+  });
+  assert.ok(findings.some((finding) => finding.includes("5391626720.origin.roles") || finding.includes("101.origin.roles")));
+});
+
 test("rejects Go approval origin verification without GitHub token", async () => {
   assert.match(
     (await goApprovalMatrixEvidenceOriginFindings({ evidence: valid, selectedSha: SHA, token: "" }))[0],
