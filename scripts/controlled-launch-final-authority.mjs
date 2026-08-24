@@ -3,8 +3,11 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { evaluateAcceptedRiskRegisterAuthority } from "./accepted-risk-register-authority-policy.mjs";
+import { acceptedRiskSignoffEvidenceOriginFindings } from "./accepted-risk-signoff-evidence-origin.mjs";
 import { validateControlledLaunchEvidenceManifest } from "./controlled-launch-evidence-manifest.mjs";
 import { goApprovalMatrixEvidenceOriginFindings } from "./go-approval-matrix-evidence-origin.mjs";
+import { verifyAcceptedRiskSignoffEvidence } from "./verify-accepted-risk-signoff-evidence.mjs";
 import { verifyGoApprovalMatrixEvidence } from "./verify-go-approval-matrix-evidence.mjs";
 
 export const FINAL_AUTHORITY = "tecpey-controlled-soft-launch-final-authority-v1";
@@ -12,6 +15,7 @@ export const FINAL_DECISION = "GO_APPROVED_FOR_CONTROLLED_SOFT_LAUNCH_ONLY";
 export const UNVERIFIED_DECISION = "NO_GO_PENDING_GOVERNED_AUTHORITY_VERIFICATION";
 export const FINAL_MANIFEST_PATH =
   "docs/launch/generated/controlled-soft-launch-final-evidence-manifest-20260824.json";
+const ACCEPTED_RISK_REGISTER_PATH = "docs/LAUNCH_ACCEPTED_RISKS.md";
 
 export const DISABLED_CAPABILITY_ATTESTATION = Object.freeze([
   "real-money Exchange remains NO-GO unless separately certified",
@@ -158,6 +162,7 @@ export async function verifyControlledLaunchFinalAuthority(
     root = ".",
     githubToken = process.env.GITHUB_TOKEN,
     fetchImpl = globalThis.fetch,
+    referenceDate = new Date(),
   } = {},
 ) {
   const manifest = validateControlledLaunchEvidenceManifest(manifestInput);
@@ -254,6 +259,33 @@ export async function verifyControlledLaunchFinalAuthority(
     candidateValues: [canonical.acceptedRisks.sourceSha, canonical.acceptedRisks.releaseScope?.candidateSha],
     label: "accepted-risk evidence",
   });
+  try {
+    verifyAcceptedRiskSignoffEvidence(canonical.acceptedRisks, candidateSha);
+  } catch (error) {
+    fail(`accepted-risk artifact verification failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const acceptedRiskRegisterSource = await readSource(root, ACCEPTED_RISK_REGISTER_PATH);
+  equal(
+    canonical.acceptedRisks.riskRegister?.digest,
+    sha256(acceptedRiskRegisterSource),
+    "accepted-risk register source digest",
+  );
+  const acceptedRiskRegisterFindings = evaluateAcceptedRiskRegisterAuthority(
+    acceptedRiskRegisterSource.toString("utf8"),
+    { referenceDate },
+  );
+  if (acceptedRiskRegisterFindings.length > 0) {
+    fail(`accepted-risk register authority failed: ${acceptedRiskRegisterFindings.join("; ")}`);
+  }
+  const acceptedRiskOriginFindings = await acceptedRiskSignoffEvidenceOriginFindings({
+    evidence: canonical.acceptedRisks,
+    selectedSha: candidateSha,
+    token: githubToken,
+    fetchImpl,
+  });
+  if (acceptedRiskOriginFindings.length > 0) {
+    fail(`accepted-risk origin verification failed: ${acceptedRiskOriginFindings.join("; ")}`);
+  }
   equal(canonical.acceptedRisks.finalDisposition, "accepted", "accepted-risk final disposition");
   requireCanonicalEvidence({
     value: canonical.approvals,

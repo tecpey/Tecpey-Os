@@ -101,6 +101,79 @@ const approvalComments = {
     ].join("\n"),
   },
 };
+const acceptedRiskConditions = [
+  "exact candidate SHA accepted",
+  "controlled public FA/EN, Academy, Mentor and virtual Arena only",
+  "risk thresholds and rollback triggers from docs/LAUNCH_ACCEPTED_RISKS.md accepted",
+  "real-money Exchange remains disabled",
+  "custody deposits withdrawals remain disabled",
+  "enterprise white-label public rewards remain disabled",
+];
+const acceptedRiskComments = {
+  "5388723104": {
+    login: "tecpey",
+    body: [
+      "NOG-08 OWNER SIGN-OFF",
+      "",
+      "GitHub identity: @tecpey",
+      "Owner lane: Product/Growth",
+      "Covered risks: R-01, R-08",
+      "Accountable roles accepted: R-01 — CPO + Academy Director; R-08 — CPO + Growth Lead",
+      `Candidate SHA: ${selectedSha}`,
+      `Launch scope: ${releaseScopeId}`,
+      "Risk-register digest: sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
+      "Review dates: R-01 — 2026-08-29; R-08 — 2026-09-05",
+      "Decision: accepted",
+      "Attestation: accepted-risk-register-approved-for-controlled-soft-launch-only",
+      "",
+      "Conditions accepted:",
+      "",
+      ...acceptedRiskConditions.map((condition) => `* ${condition}`),
+    ].join("\n"),
+  },
+  "5388727231": {
+    login: "xrayman6zfm-ux",
+    body: [
+      "NOG-08 OWNER SIGN-OFF",
+      "",
+      "GitHub identity: @xrayman6zfm-ux",
+      "Owner lane: Financial/Custody",
+      "Covered risks: R-07, R-10",
+      "Accountable roles accepted: R-07 — Chief Financial Systems Architect + CTO; R-10 — Wallet Engineer + Chief Financial Systems Architect",
+      `Candidate SHA: ${selectedSha}`,
+      `Launch scope: ${releaseScopeId}`,
+      "Risk-register digest: sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
+      "Review date: 2026-08-29",
+      "Decision: accepted",
+      "Attestation: accepted-risk-register-approved-for-controlled-soft-launch-only",
+      "",
+      "Conditions accepted:",
+      "",
+      ...acceptedRiskConditions.map((condition) => `* ${condition}`),
+    ].join("\n"),
+  },
+  "5388733838": {
+    login: "mvexhiiii",
+    body: [
+      "NOG-08 OWNER SIGN-OFF",
+      "",
+      "GitHub identity: @mvexhiiii",
+      "Owner lane: Platform/Operations/Security",
+      "Covered risks: R-02, R-04, R-05, R-06, R-09",
+      "Accountable roles accepted: R-02 — CTO + Chief Architect; R-04 — SRE Lead + DevSecOps Lead; R-05 — SRE Lead + Wallet Engineer; R-06 — Academy Director + Chief Security Officer; R-09 — CTO + SRE Lead",
+      `Candidate SHA: ${selectedSha}`,
+      `Launch scope: ${releaseScopeId}`,
+      "Risk-register digest: sha256:d5ef423425b50d8c241b9bb83182c2938ffc4cc5f0e15a0b07b2118cbf977c97",
+      "Review date: 2026-08-29",
+      "Decision: accepted",
+      "Attestation: accepted-risk-register-approved-for-controlled-soft-launch-only",
+      "",
+      "Conditions accepted:",
+      "",
+      ...acceptedRiskConditions.map((condition) => `* ${condition}`),
+    ].join("\n"),
+  },
+};
 
 function approvalCommentBody(login) {
   return approvalComments[login].body;
@@ -120,13 +193,28 @@ function approvalGithubPayload(login, overrides = {}) {
   };
 }
 
+function acceptedRiskGithubPayload(id, overrides = {}) {
+  const comment = acceptedRiskComments[id];
+  return {
+    id: Number(id),
+    html_url: `https://github.com/tecpey/Tecpey-Os/issues/409#issuecomment-${id}`,
+    issue_url: "https://api.github.com/repos/tecpey/Tecpey-Os/issues/409",
+    user: { login: comment.login },
+    body: comment.body,
+    ...overrides,
+  };
+}
+
 function approvalFetch(overrides = {}) {
   return async (url) => {
     const id = String(url).split("/").pop();
     const entry = Object.entries(approvalComments).find(([, comment]) => comment.id === id);
-    if (!entry) return { ok: false, status: 404, async json() { return {}; } };
-    const [login] = entry;
-    const payload = approvalGithubPayload(login, overrides[id]);
+    const payload = entry
+      ? approvalGithubPayload(entry[0], overrides[id])
+      : acceptedRiskComments[id]
+        ? acceptedRiskGithubPayload(id, overrides[id])
+        : null;
+    if (!payload) return { ok: false, status: 404, async json() { return {}; } };
     return { ok: true, status: 200, async json() { return payload; } };
   };
 }
@@ -136,6 +224,7 @@ function approvalOriginEnv(parent) {
   const payloads = Object.fromEntries(
     Object.keys(approvalComments).map((login) => [approvalComments[login].id, approvalGithubPayload(login)]),
   );
+  for (const id of Object.keys(acceptedRiskComments)) payloads[id] = acceptedRiskGithubPayload(id);
   writeFileSync(
     preload,
     `const payloads = ${JSON.stringify(payloads)};\n`
@@ -401,7 +490,7 @@ test("final launch packet rejects unmerged release candidates", () => {
   }
 });
 
-test("final launch packet fails closed without live Go approval origin verification", () => {
+test("final launch packet fails closed without live accepted-risk origin verification", () => {
   const fixture = createCleanRepositoryClone();
   try {
     const result = runPacketIn(fixture.root, ["--manifest", FINAL_MANIFEST_PATH], {
@@ -410,19 +499,56 @@ test("final launch packet fails closed without live Go approval origin verificat
     });
 
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Go approval origin verification failed: Go approval matrix origin verification requires GITHUB_TOKEN/);
+    assert.match(
+      result.stderr,
+      /accepted-risk origin verification failed: accepted-risk approval origin verification requires GITHUB_TOKEN/,
+    );
   } finally {
     rmSync(fixture.parent, { recursive: true, force: true });
   }
 });
 
-test("final authority accepts attributable live Go approval origins", async () => {
+test("final authority accepts attributable live accepted-risk and Go approval origins", async () => {
   const authority = await verifyControlledLaunchFinalAuthority(
     readJson(process.cwd(), FINAL_MANIFEST_PATH),
     { root: process.cwd(), githubToken: "test-token", fetchImpl: approvalFetch() },
   );
 
   assert.equal(authority.authority.status, "verified");
+});
+
+test("final authority rejects edited live accepted-risk comments", async () => {
+  const editedId = "5388723104";
+  await assert.rejects(
+    () => verifyControlledLaunchFinalAuthority(
+      readJson(process.cwd(), FINAL_MANIFEST_PATH),
+      {
+        root: process.cwd(),
+        githubToken: "test-token",
+        fetchImpl: approvalFetch({
+          [editedId]: {
+            body: `${acceptedRiskComments[editedId].body}\nedited after acceptance`,
+          },
+        }),
+      },
+    ),
+    /accepted-risk origin verification failed:.*origin.bodyDigest/,
+  );
+});
+
+test("final authority rejects expired accepted-risk review dates", async () => {
+  await assert.rejects(
+    () => verifyControlledLaunchFinalAuthority(
+      readJson(process.cwd(), FINAL_MANIFEST_PATH),
+      {
+        root: process.cwd(),
+        githubToken: "test-token",
+        fetchImpl: approvalFetch(),
+        referenceDate: "2026-09-06T00:00:00.000Z",
+      },
+    ),
+    /accepted-risk register authority failed:.*review date .* is stale before 2026-09-06/,
+  );
 });
 
 test("final authority rejects edited live Go approval comments", async () => {
