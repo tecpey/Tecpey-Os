@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ApiError } from "../../lib/api-error";
 import { classifyFetchError } from "../../lib/fetch-error-classification";
 import { resolveOptionalProfile } from "../../services/optional-profile";
 
