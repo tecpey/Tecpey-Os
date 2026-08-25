@@ -73,7 +73,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:auth|session|csrf|webauthn|passkey|two-factor|2fa|admin|rbac|abac|tenant|principal|security|risk|audit)(?:[./_-]|$)/i,
       /^src\/lib\/compliance\//,
       /^src\/lib\/c-level-control-authority\.ts$/,
-      /^src\/lib\/(?:api-error|api-validation|fetch-error-classification|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
+      /^src\/lib\/(?:api-error|api-validation|communication-provider-store|fetch-error-classification|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
       /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
