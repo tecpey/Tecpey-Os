@@ -41,7 +41,7 @@ function buildCsp(nonce: string): string {
 }
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   const requestId = generateRequestId();
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest) {
         ? "/en/academy/login"
         : "/academy/login";
       const url = new URL(loginPath, request.url);
-      url.searchParams.set("redirect", pathname);
+      url.searchParams.set("redirect", `${pathname}${search}`);
       return NextResponse.redirect(url);
     }
   }

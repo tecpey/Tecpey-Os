@@ -135,6 +135,23 @@ describe("Academy profile client authority state", () => {
     );
   });
 
+  it("keeps protected Academy query state in the login redirect producer", async () => {
+    const proxySource = await readFile(
+      new URL("../../proxy.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(proxySource, /const \{ pathname, search \} = request\.nextUrl;/);
+    assert.match(
+      proxySource,
+      /url\.searchParams\.set\("redirect", `\$\{pathname\}\$\{search\}`\);/,
+    );
+    assert.doesNotMatch(
+      proxySource,
+      /url\.searchParams\.set\("redirect", pathname\);/,
+    );
+  });
+
   it("wires the fail-closed state into login, onboarding and dashboard surfaces", async () => {
     const [auth, onboarding, dashboard] = await Promise.all([
       readFile(
