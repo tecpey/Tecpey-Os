@@ -7,6 +7,8 @@ import { Award, BrainCircuit, CheckCircle2, Flame, GraduationCap, Home, Loader2,
 import { academyPathTerms } from "@/data/academyPath";
 import { academyPathTermsEn } from "@/data/academyPathEn";
 import { LivingMobileNavigation } from "@/components/tecpey/LivingMobileNavigation";
+import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
+import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 
 type Locale = "fa" | "en";
 type Profile = {
@@ -131,7 +133,10 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
   const t = isFa ? fa : en;
   const terms = isFa ? academyPathTerms : academyPathTermsEn;
   const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<
+    "authenticated" | "unauthenticated" | "unavailable"
+  >("unauthenticated");
+  const [retryVersion, setRetryVersion] = useState(0);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [progressRows, setProgressRows] = useState<TermProgress[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -143,19 +148,46 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     async function load() {
       setLoading(true);
       try {
-        const achievementRequest = fetch(`/api/achievements?locale=${locale}`, { cache: "no-store", credentials: "include" })
-          .then((response) => response.json())
-          .catch(() => null);
-        const [profileRes, progressRes] = await Promise.all([
-          fetch("/api/academy-student-profile", { cache: "no-store", credentials: "include" }),
-          fetch(`/api/academy-term-progress?locale=${locale}`, { cache: "no-store", credentials: "include" }),
+        const [profileResult, progressData, achievementData] = await Promise.all([
+          fetch("/api/academy-student-profile", {
+            cache: "no-store",
+            credentials: "include",
+          })
+            .then(async (response) => ({
+              response,
+              data: await response.json().catch(() => null),
+            }))
+            .catch(() => ({ response: null, data: null })),
+          fetch(`/api/academy-term-progress?locale=${locale}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
+            .then(async (response) =>
+              response.ok ? response.json().catch(() => null) : null,
+            )
+            .catch(() => null),
+          fetch(`/api/achievements?locale=${locale}`, {
+            cache: "no-store",
+            credentials: "include",
+          })
+            .then(async (response) =>
+              response.ok ? response.json().catch(() => null) : null,
+            )
+            .catch(() => null),
         ]);
-        const profileData = await profileRes.json().catch(() => null);
-        const progressData = await progressRes.json().catch(() => null);
-        const achievementData = await achievementRequest;
         if (!active) return;
-        setAuthenticated(Boolean(profileData?.authenticated));
-        setProfile(profileData?.profile || null);
+
+        const profileState = resolveAcademyProfileReadState<Profile>(
+          profileResult.response,
+          profileResult.data,
+        );
+        if (profileState.status === "unavailable") {
+          setProfileStatus("unavailable");
+          return;
+        }
+
+        setProfileStatus(profileState.status);
+        setProfile(profileState.profile);
         setProgressRows(Array.isArray(progressData?.terms) ? progressData.terms : []);
         const achievementAuthorityAvailable = achievementData?.authenticated === true && achievementData?.degraded !== true;
         setAchievements(achievementAuthorityAvailable && Array.isArray(achievementData?.achievements) ? achievementData.achievements.filter((item: Achievement) => item.earned) : []);
@@ -165,6 +197,8 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
             (!item.expires_at || Date.parse(item.expires_at) > Date.now()))
           : []);
         setAchievementsDegraded(!achievementAuthorityAvailable);
+      } catch {
+        if (active) setProfileStatus("unavailable");
       } finally {
         if (active) setLoading(false);
       }
@@ -180,7 +214,7 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
       window.removeEventListener("tecpey-academy-profile-ready", reload);
       window.removeEventListener("focus", reload);
     };
-  }, [locale]);
+  }, [locale, retryVersion]);
 
   const passedTerms = useMemo(() => new Set(progressRows.filter((p) => p.status === "passed").map((p) => Number(p.term_number))), [progressRows]);
   const completedTerms = Math.max(numberOr(profile?.completed_terms), passedTerms.size);
@@ -248,7 +282,16 @@ export function AcademyStudentDashboardV2({ locale = "fa" }: { locale?: Locale }
     return <main className="min-h-screen bg-slate-950 px-4 py-16 text-white"><div className="mx-auto max-w-3xl rounded-[32px] border border-cyan-300/20 bg-white/[0.06] p-8 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-cyan-300" /><p className="mt-4 font-black">{t.checking}</p></div></main>;
   }
 
-  if (!authenticated) {
+  if (profileStatus === "unavailable") {
+    return (
+      <AcademyProfileUnavailableState
+        locale={locale}
+        onRetry={() => setRetryVersion((version) => version + 1)}
+      />
+    );
+  }
+
+  if (profileStatus === "unauthenticated") {
     return <Gate title={t.needLogin} description={isFa ? "داشبورد، ترم‌ها، منتور و Trading Arena فقط به حساب اختصاصی آکادمی وصل هستند." : "Dashboard, terms, mentor and Trading Arena belong to your dedicated academy account."} primary={{ href: isFa ? "/academy/login" : "/en/academy/login", label: t.login }} secondary={{ href: isFa ? "/academy/signup" : "/en/academy/signup", label: t.signup }} />;
   }
 

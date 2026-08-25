@@ -11,6 +11,8 @@ import {
   Sparkles,
   UserRoundCheck,
 } from "lucide-react";
+import { AcademyProfileUnavailableState } from "@/components/academy/AcademyProfileUnavailableState";
+import { resolveAcademyProfileReadState } from "@/lib/academy-profile-read-state";
 
 type Locale = "fa" | "en";
 type ProfileResponse = {
@@ -52,14 +54,16 @@ export function AcademyOnboardingClient({
 }) {
   const isFa = locale === "fa";
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [profileStatus, setProfileStatus] = useState<
+    "loading" | "ready" | "unauthenticated" | "unavailable"
+  >("loading");
+  const [retryVersion, setRetryVersion] = useState(0);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [avatar, setAvatar] = useState(avatarOptions[0]);
   const [goal, setGoal] = useState(isFa ? goalsFa[0] : goalsEn[0]);
   const [error, setError] = useState("");
-  const [requiresLogin, setRequiresLogin] = useState(false);
 
   const usernameHint = useMemo(
     () => normalizeUsername(username || displayName),
@@ -68,24 +72,42 @@ export function AcademyOnboardingClient({
 
   useEffect(() => {
     let active = true;
-    fetch("/api/academy-student-profile", { cache: "no-store", credentials: "include" })
-      .then((response) => response.json())
-      .then((data: ProfileResponse) => {
-        if (!active) return;
-        if (data?.profile?.display_name) {
-          router.replace(
-            locale === "en" ? "/en/academy/profile" : "/academy/profile",
-          );
-          return;
-        }
-        setRequiresLogin(data?.authenticated === false);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+
+    async function loadProfile() {
+      const response = await fetch("/api/academy-student-profile", {
+        cache: "no-store",
+        credentials: "include",
+      }).catch(() => null);
+      const data = response
+        ? ((await response.json().catch(() => null)) as ProfileResponse | null)
+        : null;
+      if (!active) return;
+
+      const state = resolveAcademyProfileReadState<
+        NonNullable<ProfileResponse["profile"]>
+      >(response, data);
+      if (state.status === "unavailable") {
+        setProfileStatus("unavailable");
+        return;
+      }
+      if (state.status === "unauthenticated") {
+        setProfileStatus("unauthenticated");
+        return;
+      }
+      if (state.profile?.display_name) {
+        router.replace(
+          locale === "en" ? "/en/academy/profile" : "/academy/profile",
+        );
+        return;
+      }
+      setProfileStatus("ready");
+    }
+
+    void loadProfile();
     return () => {
       active = false;
     };
-  }, [locale, router]);
+  }, [locale, retryVersion, router]);
 
   async function submit() {
     setError("");
@@ -123,13 +145,20 @@ export function AcademyOnboardingClient({
         }),
       });
       if (response.status === 401) {
-        setRequiresLogin(true);
+        setProfileStatus("unauthenticated");
         throw new Error("login_required");
+      }
+      if (response.status === 503) {
+        setProfileStatus("unavailable");
+        throw new Error("profile_service_unavailable");
       }
       if (!response.ok) throw new Error("save_failed");
       window.dispatchEvent(new Event("tecpey-academy-profile-ready"));
       router.push(locale === "en" ? "/en/academy/profile" : "/academy/profile");
     } catch (err) {
+      if ((err as Error)?.message === "profile_service_unavailable") {
+        return;
+      }
       if ((err as Error)?.message === "login_required") {
         setError(
           isFa
@@ -148,7 +177,7 @@ export function AcademyOnboardingClient({
     }
   }
 
-  if (loading) {
+  if (profileStatus === "loading") {
     return (
       <main className="min-h-screen bg-slate-950 px-4 py-16 text-white">
         <div className="mx-auto max-w-3xl rounded-[32px] border border-cyan-300/20 bg-white/[0.055] p-8 text-center">
@@ -163,7 +192,19 @@ export function AcademyOnboardingClient({
     );
   }
 
-  if (requiresLogin) {
+  if (profileStatus === "unavailable") {
+    return (
+      <AcademyProfileUnavailableState
+        locale={locale}
+        onRetry={() => {
+          setProfileStatus("loading");
+          setRetryVersion((version) => version + 1);
+        }}
+      />
+    );
+  }
+
+  if (profileStatus === "unauthenticated") {
     return (
       <main
         className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,.18),transparent_34%),#020617] px-4 py-16 text-white"
