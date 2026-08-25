@@ -977,6 +977,9 @@ test("production template fails unchanged and passes after complete governed rep
 
   const values = {
     TECPEY_SESSION_SECRET: "a".repeat(32),
+    TECPEY_ADMIN_SESSION_SECRET: "h".repeat(32),
+    TECPEY_2FA_SECRET: "i".repeat(32),
+    TECPEY_ADMIN_TOKEN: "j".repeat(32),
     TECPEY_REFRESH_SECRET: "b".repeat(32),
     TECPEY_ACADEMY_AUTH_SECRET: "c".repeat(32),
     CERTIFICATE_SIGNING_SECRET: "d".repeat(32),
