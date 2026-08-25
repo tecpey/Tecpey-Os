@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   resolveAcademyPostAuthPath,
   resolveAcademyProfileReadState,
+  resolveSafeAcademyReturnPath,
 } from "../../lib/academy-profile-read-state";
 
 type TestProfile = { display_name?: string | null };
@@ -69,6 +70,88 @@ describe("Academy profile client authority state", () => {
     assert.equal(resolveAcademyPostAuthPath("en", unavailable), "/en/academy/profile");
   });
 
+  it("returns a completed profile only to a safe Academy destination", () => {
+    const completeProfile = resolveAcademyProfileReadState<TestProfile>(okResponse, {
+      authenticated: true,
+      profile: { display_name: "Learner" },
+    });
+    const noProfile = resolveAcademyProfileReadState<TestProfile>(okResponse, {
+      authenticated: true,
+      profile: null,
+    });
+    const unavailable = resolveAcademyProfileReadState<TestProfile>(
+      failedResponse,
+      null,
+    );
+
+    assert.equal(
+      resolveAcademyPostAuthPath(
+        "fa",
+        completeProfile,
+        "/academy/certificates?tab=issued#credentials",
+      ),
+      "/academy/certificates?tab=issued#credentials",
+    );
+    assert.equal(
+      resolveAcademyPostAuthPath(
+        "en",
+        completeProfile,
+        "/en/academy/trading-arena",
+      ),
+      "/en/academy/trading-arena",
+    );
+    assert.equal(
+      resolveAcademyPostAuthPath("fa", noProfile, "/academy/certificates"),
+      "/academy/onboarding",
+    );
+    assert.equal(
+      resolveAcademyPostAuthPath("fa", unavailable, "/academy/certificates"),
+      "/academy/profile",
+    );
+  });
+
+  it("rejects external, cross-locale and auth-loop return values", () => {
+    assert.equal(
+      resolveSafeAcademyReturnPath("fa", "https://evil.example/academy/profile"),
+      null,
+    );
+    assert.equal(resolveSafeAcademyReturnPath("fa", "//evil.example/path"), null);
+    assert.equal(resolveSafeAcademyReturnPath("fa", "javascript:alert(1)"), null);
+    assert.equal(
+      resolveSafeAcademyReturnPath("fa", "/en/academy/profile"),
+      null,
+    );
+    assert.equal(
+      resolveSafeAcademyReturnPath("fa", "/academy/login"),
+      null,
+    );
+    assert.equal(
+      resolveSafeAcademyReturnPath("en", "/en/academy/signup"),
+      null,
+    );
+    assert.equal(
+      resolveSafeAcademyReturnPath("fa", "/academy/profile"),
+      "/academy/profile",
+    );
+  });
+
+  it("keeps protected Academy query state in the login redirect producer", async () => {
+    const proxySource = await readFile(
+      new URL("../../proxy.ts", import.meta.url),
+      "utf8",
+    );
+
+    assert.match(proxySource, /const \{ pathname, search \} = request\.nextUrl;/);
+    assert.match(
+      proxySource,
+      /url\.searchParams\.set\("redirect", `\$\{pathname\}\$\{search\}`\);/,
+    );
+    assert.doesNotMatch(
+      proxySource,
+      /url\.searchParams\.set\("redirect", pathname\);/,
+    );
+  });
+
   it("wires the fail-closed state into login, onboarding and dashboard surfaces", async () => {
     const [auth, onboarding, dashboard] = await Promise.all([
       readFile(
@@ -85,7 +168,14 @@ describe("Academy profile client authority state", () => {
       ),
     ]);
 
-    assert.match(auth, /resolveAcademyPostAuthPath\(locale, profileState\)/);
+    assert.match(
+      auth,
+      /resolveAcademyPostAuthPath\(locale, profileState, requestedPath\)/,
+    );
+    assert.match(
+      auth,
+      /ایمیل یا شماره موبایل معتبر وارد کن\./,
+    );
     assert.match(onboarding, /state\.status === "unavailable"/);
     assert.match(onboarding, /<AcademyProfileUnavailableState/);
     assert.match(dashboard, /profileState\.status === "unavailable"/);
