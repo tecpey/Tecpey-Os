@@ -352,6 +352,14 @@ async function expectMajorSectionsVisible(page, contract) {
     const heading = section.locator("h1, h2").first();
     const headingText = (await heading.innerText()).trim();
     const label = headingText || `section ${index + 1}`;
+    const visibilityContract = await section.getAttribute("data-major-section-visibility");
+    if (visibilityContract === "desktop-only" && contract.formFactor === "mobile") {
+      await expect(
+        section,
+        `${contract.path}: ${label} desktop enhancement must yield mobile space`,
+      ).toBeHidden();
+      continue;
+    }
     await section.scrollIntoViewIfNeeded();
     await expect(section, `${contract.path}: ${label} section is hidden`).toBeVisible();
     await expect(heading, `${contract.path}: ${label} heading is hidden`).toBeVisible();

@@ -141,7 +141,12 @@ export function LandingGrowthRadar({
   const isFa = locale === "fa";
   const radar = providedRadar ?? getLandingGrowthRadar(locale);
   return (
-    <section id="growth-radar" data-home-section="growth-radar" className="hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 md:block lg:px-8">
+    <section
+      id="growth-radar"
+      data-home-section="growth-radar"
+      data-major-section-visibility="desktop-only"
+      className="hidden bg-[color:var(--tp-bg)] px-4 pb-16 sm:px-6 md:block lg:px-8"
+    >
       <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/15 bg-white/[0.08] p-5 shadow-[0_24px_80px_rgba(0,0,0,.14)] backdrop-blur-xl dark:bg-white/[0.045] sm:p-6 lg:p-8">
         <div className="grid gap-6 lg:grid-cols-[.72fr_1.28fr] lg:items-start">
           <div>

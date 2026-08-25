@@ -101,6 +101,7 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
 
 test("the detailed growth radar yields mobile space to discovery", async () => {
   const radar = await source(radarPath);
+  assert.match(radar, /data-major-section-visibility="desktop-only"/);
   assert.match(radar, /className="hidden[^\"]*md:block/);
 });
 
