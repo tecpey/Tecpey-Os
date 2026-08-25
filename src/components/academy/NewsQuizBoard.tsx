@@ -16,7 +16,6 @@ import {
   XCircle,
 } from "lucide-react";
 import { toSafeNewsQuizBank, type SafeNewsQuizQuestion } from "@/lib/academy-news-quiz-view";
-import { buildMentorCoaching } from "@/lib/academy-ai-mentor-core";
 
 type Locale = "fa" | "en";
 
@@ -29,11 +28,15 @@ const COPY: Record<Locale, {
   loading: string;
   empty: string;
   retry: string;
-  scoreLabel: (correct: number, total: number) => string;
+  progressLabel: (correct: number, total: number) => string;
   difficulty: Record<SafeQuestion["difficulty"], string>;
   correct: string;
   incorrect: string;
   why: string;
+  yourChoice: string;
+  objective: string;
+  sourceLabel: string;
+  practiceOnly: string;
   answered: string;
   riskNote: string;
   mentorCoachHeading: string;
@@ -43,20 +46,25 @@ const COPY: Record<Locale, {
   mentorHref: string;
   newsHref: string;
   newsCta: string;
+  signInCallout: string;
 }> = {
   fa: {
     eyebrow: "کوییز هوشمند خبری",
     title: "خبرِ امروزِ بازار را به یک تمرینِ ریسک‌محور تبدیل کن",
     intro:
-      "هر سؤال از خبرهای واقعیِ امروز ساخته شده و پاسخِ درست همیشه مسئولانه‌ترین گام است، نه دنبال‌کردنِ هیجان. وعده‌ی سود و پیش‌بینیِ قیمت به‌صورت خودکار حذف می‌شود.",
+      "هر تمرین از یک خبر دارای منبع و زمان انتشار ساخته می‌شود و یکی از مهارت‌های راستی‌آزمایی، سنجش شواهد، ارتباط با برنامه یا کالیبراسیون اثر را می‌سنجد.",
     loading: "در حال ساختِ کوییز از خبرهای امروز…",
     empty: "فعلاً کوییزی از خبرها ساخته نشد. کمی بعد دوباره امتحان کن.",
     retry: "تلاش دوباره",
-    scoreLabel: (correct, total) => `امتیاز شما: ${correct} از ${total}`,
+    progressLabel: (correct, total) => `تمرین پاسخ‌داده‌شده: ${total} · پاسخ دقیق: ${correct}`,
     difficulty: { easy: "آسان", medium: "متوسط", hard: "دشوار" },
     correct: "درست",
     incorrect: "نادرست",
     why: "چرا؟",
+    yourChoice: "ارزیابی انتخاب شما:",
+    objective: "هدف یادگیری",
+    sourceLabel: "منبع خبر",
+    practiceOnly: "این فعالیت تمرینی است و فعلاً امتیاز پروفایل یا سطح مهارت را تغییر نمی‌دهد.",
     answered: "پاسخ ثبت شد",
     riskNote: "خبر، زمینه است نه دستورِ معامله؛ قبل از هر اقدام، ریسک و امنیت را بسنج.",
     mentorCoachHeading: "مربی هوشمند می‌گوید",
@@ -66,20 +74,25 @@ const COPY: Record<Locale, {
     mentorHref: "/academy/ai-guide#mentor-chat",
     newsHref: "/crypto-news",
     newsCta: "مشاهده مرکز خبر",
+    signInCallout: "برای ذخیره پیشرفت و ادامه در دستگاه‌های دیگر، وارد حساب آکادمی شوید.",
   },
   en: {
     eyebrow: "Smart news quiz",
     title: "Turn today’s market news into a risk-first exercise",
     intro:
-      "Every question is built from today’s real headlines, and the correct answer is always the most responsible next step — never chasing hype. Profit promises and price predictions are filtered out automatically.",
+      "Every exercise is built from a timestamped, traceable report and assesses one specific skill: verification, evidence, personal relevance or impact calibration.",
     loading: "Building a quiz from today’s news…",
     empty: "No quiz could be built from the news yet. Try again in a moment.",
     retry: "Try again",
-    scoreLabel: (correct, total) => `Your score: ${correct} of ${total}`,
+    progressLabel: (correct, total) => `Practice answered: ${total} · precise responses: ${correct}`,
     difficulty: { easy: "Easy", medium: "Medium", hard: "Hard" },
     correct: "Correct",
     incorrect: "Not quite",
     why: "Why?",
+    yourChoice: "Your choice:",
+    objective: "Learning objective",
+    sourceLabel: "News source",
+    practiceOnly: "This is a practice activity and does not currently change your profile score or skill level.",
     answered: "Answer recorded",
     riskNote: "News is context, not a trade instruction — weigh risk and security before acting.",
     mentorCoachHeading: "Your AI Mentor says",
@@ -92,8 +105,16 @@ const COPY: Record<Locale, {
     mentorHref: "/en/academy/ai-guide",
     newsHref: "/en/crypto-news",
     newsCta: "Open the News Center",
+    signInCallout: "Sign in to your Academy account to save progress and continue on another device.",
   },
 };
+
+function formatSourceTime(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === "fa" ? "fa-IR" : "en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 function QuestionCard({
   question,
@@ -111,8 +132,6 @@ function QuestionCard({
   const [picked, setPicked] = useState<string | null>(null);
   const answered = picked !== null;
   const isCorrect = answered && picked === question.correctAnswer;
-  // Deterministic mentor coaching for this question, from the shared mentor core.
-  const coaching = useMemo(() => buildMentorCoaching(question.question, locale), [question.question, locale]);
 
   const choose = useCallback(
     (option: string) => {
@@ -133,6 +152,27 @@ function QuestionCard({
         <span className="rounded-full border border-slate-300/30 bg-slate-500/10 px-3 py-1 text-[11px] font-black text-slate-600 dark:text-slate-300">
           {copy.difficulty[question.difficulty]}
         </span>
+      </div>
+
+      <div className="mt-4 grid gap-2 rounded-2xl border border-cyan-300/15 bg-cyan-500/[0.045] p-3 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+        <p>
+          <span className="font-black text-cyan-700 dark:text-cyan-200">{copy.objective}: </span>
+          {question.learningObjective}
+        </p>
+        <p>
+          <span className="font-black text-cyan-700 dark:text-cyan-200">{copy.sourceLabel}: </span>
+          <a
+            href={question.source.url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-cyan-400/40 underline-offset-4 hover:text-cyan-700 dark:hover:text-cyan-200"
+          >
+            {question.source.name}
+          </a>
+          <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+            {formatSourceTime(question.source.publishedAt, locale)}
+          </span>
+        </p>
       </div>
 
       <h3 className="mt-4 text-lg font-black leading-8 text-slate-950 dark:text-white">{question.question}</h3>
@@ -183,29 +223,30 @@ function QuestionCard({
             {isCorrect ? copy.correct : copy.incorrect}
           </div>
           {question.explanation && (
-            <p className="rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-3 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200">
-              <span className="font-black text-cyan-700 dark:text-cyan-200">{copy.why} </span>
-              {question.explanation}
-            </p>
+            <div className="space-y-2">
+              <p className="rounded-2xl border border-slate-300/20 bg-slate-500/5 p-3 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200">
+                <span className="font-black text-slate-900 dark:text-white">{copy.yourChoice} </span>
+                {picked ? question.optionRationales[picked] : null}
+              </p>
+              <p className="rounded-2xl border border-cyan-300/15 bg-cyan-500/5 p-3 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200">
+                <span className="font-black text-cyan-700 dark:text-cyan-200">{copy.why} </span>
+                {question.explanation}
+              </p>
+            </div>
           )}
 
-          {/* The same deterministic, guard-railed mentor brain that powers the
-              AI Mentor page now coaches right here — keyed to the question's
-              detected mode, curated copy only (no headline text echoed), so it
-              can never surface a prediction or profit promise. */}
           <div className="rounded-2xl border border-violet-300/20 bg-violet-500/[0.06] p-4 dark:bg-violet-500/10">
             <div className="flex items-center gap-2 text-xs font-black text-violet-700 dark:text-violet-200">
               <Brain className="h-4 w-4" />
               {copy.mentorCoachHeading}
             </div>
-            <p className="mt-2 text-sm font-black leading-7 text-slate-900 dark:text-white">{coaching.title}</p>
-            <p className="mt-1 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">{coaching.summary}</p>
+            <p className="mt-2 text-sm font-black leading-7 text-slate-900 dark:text-white">{question.mentorTakeaway}</p>
             <div className="mt-3 flex items-center gap-2 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
               <ListChecks className="h-3.5 w-3.5" />
               {copy.mentorChecklistHeading}
             </div>
             <ul className="mt-2 grid gap-1.5">
-              {coaching.checklist.map((item) => (
+              {question.checklist.map((item) => (
                 <li key={item} className="flex items-start gap-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-200">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300" />
                   {item}
@@ -213,7 +254,7 @@ function QuestionCard({
               ))}
             </ul>
             <Link
-              href={coaching.lesson.href}
+              href={question.lessonHref}
               className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 px-4 py-2.5 text-xs font-black text-cyan-700 transition hover:bg-cyan-500/20 dark:text-cyan-100"
             >
               <BookOpenCheck className="h-4 w-4" />
@@ -237,6 +278,13 @@ export function NewsQuizBoard({ locale }: { locale: Locale }) {
   const [status, setStatus] = useState<"loading" | "ready" | "empty">("loading");
   const [results, setResults] = useState<Record<string, boolean>>({});
   const [reloadKey, setReloadKey] = useState(0);
+  const [showSignInCallout, setShowSignInCallout] = useState(false);
+
+  useEffect(() => {
+    const show = () => setShowSignInCallout(true);
+    window.addEventListener("tecpey-offline-scope-required", show);
+    return () => window.removeEventListener("tecpey-offline-scope-required", show);
+  }, []);
 
   useEffect(() => {
     // No synchronous setState here: the effect only writes terminal state from
@@ -289,10 +337,25 @@ export function NewsQuizBoard({ locale }: { locale: Locale }) {
           </span>
           {answered > 0 && (
             <span className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-black text-cyan-700 dark:text-cyan-100">
-              {copy.scoreLabel(correct, answered)}
+              {copy.progressLabel(correct, answered)}
             </span>
           )}
         </div>
+        <p className="mt-3 text-xs font-bold leading-6 text-slate-500 dark:text-slate-400">{copy.practiceOnly}</p>
+
+        {showSignInCallout && (
+          <div className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-cyan-300/20 bg-cyan-500/[0.06] p-4 text-sm font-bold leading-7 text-slate-700 dark:text-slate-200">
+            <span>{copy.signInCallout}</span>
+            <button
+              type="button"
+              onClick={() => setShowSignInCallout(false)}
+              aria-label={isFa ? "بستن" : "Dismiss"}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-slate-300/20 text-slate-500 transition hover:bg-slate-500/10"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {status === "loading" && (
           <div className="mt-8 flex items-center gap-3 rounded-[28px] border border-cyan-300/15 bg-cyan-500/5 p-6 text-sm font-black text-cyan-700 dark:text-cyan-100">

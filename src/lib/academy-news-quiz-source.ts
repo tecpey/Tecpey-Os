@@ -12,11 +12,11 @@
 // and the downstream generator still fails closed (every emitted question clears
 // the integrity authority) and strips profit-promise / price-prediction copy.
 
-import type { QuizQuestion } from "@/data/academy/term1Curriculum";
 import {
   generateNewsQuizBank,
   type NewsQuizInput,
   type NewsQuizOptions,
+  type NewsQuizQuestion,
 } from "./academy-news-quiz-generator";
 
 /** One item as delivered by the crypto-news feed. Untrusted: all fields loose. */
@@ -26,6 +26,10 @@ export type CryptoNewsFeedItem = {
   category?: unknown;
   tone?: unknown;
   impact?: unknown;
+  source?: unknown;
+  url?: unknown;
+  sourceUrl?: unknown;
+  publishedAt?: unknown;
 };
 
 function asTrimmedString(value: unknown): string | undefined {
@@ -47,6 +51,9 @@ export function toNewsQuizInput(item: CryptoNewsFeedItem): NewsQuizInput {
     category: asTrimmedString(safe.category),
     tone: asTrimmedString(safe.tone),
     impact: asFiniteNumber(safe.impact),
+    source: asTrimmedString(safe.source),
+    sourceUrl: asTrimmedString(safe.sourceUrl) ?? asTrimmedString(safe.url),
+    publishedAt: asTrimmedString(safe.publishedAt),
   };
 }
 
@@ -58,7 +65,7 @@ export function toNewsQuizInput(item: CryptoNewsFeedItem): NewsQuizInput {
 export function buildNewsQuizBankFromFeed(
   items: readonly CryptoNewsFeedItem[] | null | undefined,
   options: NewsQuizOptions,
-): QuizQuestion[] {
+): NewsQuizQuestion[] {
   if (!Array.isArray(items)) return [];
   return generateNewsQuizBank(items.map(toNewsQuizInput), options);
 }

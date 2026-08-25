@@ -257,7 +257,7 @@ export function OfflineSyncManager() {
     if (queueWriteFailed) {
       return "حافظه آفلاین پر یا غیرقابل‌دسترسی است؛ این رویداد ثبت نشد";
     }
-    if (scopeRequired) return "برای ثبت آفلاین، ابتدا وارد حساب آکادمی شوید";
+    if (scopeRequired) return "برای ذخیره پیشرفت و ادامه در دستگاه‌های دیگر، وارد حساب آکادمی شوید.";
     if (!online) return "حالت آفلاین فعال است؛ داده‌ها بعداً همگام می‌شوند";
     if (syncing) return "در حال همگام‌سازی تمرین‌های ذخیره‌شده…";
     if (pending > 0) return `${pending} رویداد آماده همگام‌سازی`;
@@ -284,7 +284,7 @@ export function OfflineSyncManager() {
       setSyncing(true);
       try {
         const scope = await refreshPrincipalScope();
-        setScopeRequired(!scope);
+        setScopeRequired(!scope && readQueue().length > 0);
         await syncQueue();
       } finally {
         setSyncing(false);

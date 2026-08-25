@@ -23,7 +23,8 @@ type NewsItem = {
   relatedLesson?: string;
 };
 
-const nowIso = () => new Date().toISOString();
+const MAX_LIVE_NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_FUTURE_CLOCK_SKEW_MS = 10 * 60 * 1000;
 
 const fallbackEn: NewsItem[] = [
   {
@@ -32,11 +33,10 @@ const fallbackEn: NewsItem[] = [
     summary: "TecPey brief: ETF flows can affect liquidity and sentiment, but you should review risk, time horizon and position size before acting.",
     source: "TecPey Market Desk",
     url: "/en/academy/term-5",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "ETF & Institutions",
     tone: "neutral",
     impact: 8,
-    isBreaking: true,
     trendScore: 92,
     editorPick: true,
     relatedLesson: "Term 5 · Market intelligence",
@@ -47,7 +47,7 @@ const fallbackEn: NewsItem[] = [
     summary: "TecPey brief: Phishing, fake apps and unsafe seed phrase storage are still among the most common beginner risks.",
     source: "TecPey Academy",
     url: "/en/academy/term-2",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "Security",
     tone: "neutral",
     impact: 9,
@@ -61,7 +61,7 @@ const fallbackEn: NewsItem[] = [
     summary: "TecPey brief: Risk sizing, stop planning and emotional control matter more than chasing every short-term move.",
     source: "TecPey Risk Lab",
     url: "/en/academy/practice-lab",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "Risk Management",
     tone: "neutral",
     impact: 8,
@@ -77,11 +77,10 @@ const fallbackFa: NewsItem[] = [
     summary: "خلاصه تک‌پی: ورود یا خروج سرمایه نهادی می‌تواند روی نقدشوندگی و احساسات بازار اثر بگذارد؛ تصمیم شما باید کنار مدیریت ریسک و افق زمانی بررسی شود.",
     source: "اتاق خبر تک‌پی",
     url: "/academy/term-5",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "ETF و نهادها",
     tone: "neutral",
     impact: 8,
-    isBreaking: true,
     trendScore: 92,
     editorPick: true,
     relatedLesson: "ترم ۵ · هوش بازار",
@@ -92,7 +91,7 @@ const fallbackFa: NewsItem[] = [
     summary: "خلاصه تک‌پی: فیشینگ، اپلیکیشن جعلی و نگهداری ناامن عبارت بازیابی هنوز از مهم‌ترین ریسک‌های کاربران تازه‌وارد هستند.",
     source: "آکادمی تک‌پی",
     url: "/academy/term-2",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "امنیت",
     tone: "neutral",
     impact: 9,
@@ -106,7 +105,7 @@ const fallbackFa: NewsItem[] = [
     summary: "خلاصه تک‌پی: مدیریت حجم معامله، حد ضرر و کنترل هیجان برای حفظ سرمایه مهم‌تر از دنبال کردن هر حرکت کوتاه‌مدت بازار است.",
     source: "لابراتوار ریسک تک‌پی",
     url: "/academy/practice-lab",
-    publishedAt: nowIso(),
+    publishedAt: "",
     category: "مدیریت ریسک",
     tone: "neutral",
     impact: 8,
@@ -169,6 +168,13 @@ function isBreaking(text: string, publishedAt: string) {
   return hours <= 12 || /(breaking|urgent|فوری|تازه|تایید شد|هک)/i.test(text);
 }
 
+function isCurrentSourceTimestamp(value: string, now = Date.now()) {
+  const publishedAt = Date.parse(value);
+  if (!Number.isFinite(publishedAt)) return false;
+  const ageMs = now - publishedAt;
+  return ageMs >= -MAX_FUTURE_CLOCK_SKEW_MS && ageMs <= MAX_LIVE_NEWS_AGE_MS;
+}
+
 function categoryOf(text: string, locale: string) {
   const lower = text.toLowerCase();
   if (/bitcoin|btc|بیت.?کوین/i.test(lower)) return locale === "fa" ? "بیت‌کوین" : "Bitcoin";
@@ -209,10 +215,11 @@ async function readSource(source: { name: string; url: string }, locale: string)
       const rawSummary = pick(block, "description") || pick(block, "summary") || pick(block, "content");
       const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*>/i);
       const link = pick(block, "link") || clean(linkMatch?.[1] ?? "");
-      const publishedRaw = pick(block, "pubDate") || pick(block, "published") || pick(block, "updated") || new Date().toISOString();
+      const publishedRaw = pick(block, "pubDate") || pick(block, "published") || pick(block, "updated");
       const parsedDate = new Date(publishedRaw);
-      const publishedAt = Number.isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString();
+      const publishedAt = Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString();
       if (!title) return null;
+      if (!isCurrentSourceTimestamp(publishedAt)) return null;
       if (locale === "fa" && !hasPersian(title)) return null;
       const combined = `${title} ${rawSummary}`;
       const impact = inferImpact(combined);
@@ -311,9 +318,9 @@ export async function GET(request: NextRequest) {
     const locale = request.nextUrl.searchParams.get("locale") === "fa" ? "fa" : "en";
     const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? 8);
     const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 24) : 8;
-    // Opt-in: turn the same items into validated, risk-first quiz questions.
-    // The bank is built through the fail-closed integrity gate, so it never
-    // surfaces an unanswerable question or profit-promise copy.
+    // Opt-in: turn traceable live items into validated learning exercises.
+    // Editorial fallback cards remain available to the news surface, but they
+    // never masquerade as current sourced reports inside the quiz.
     const includeQuiz = request.nextUrl.searchParams.get("quiz") === "1";
     const includeAutomation = request.nextUrl.searchParams.get("automation") === "1";
     const quizFor = (items: NewsItem[]) =>
@@ -336,8 +343,8 @@ export async function GET(request: NextRequest) {
         mode: unique.length ? "live" : "fallback" as const,
         marketIntelligence: marketIntelligence(locale, responseItems),
         items: responseItems,
-        ...quizFor(responseItems),
-        ...automationPayloadFor(responseItems, updatedAt),
+        ...quizFor(unique),
+        ...automationPayloadFor(unique, updatedAt),
       });
     } catch {
       const updatedAt = new Date().toISOString();
@@ -347,8 +354,8 @@ export async function GET(request: NextRequest) {
         mode: "fallback" as const,
         marketIntelligence: marketIntelligence(locale, fallback),
         items: fallback,
-        ...quizFor(fallback),
-        ...automationPayloadFor(fallback, updatedAt),
+        ...quizFor([]),
+        ...automationPayloadFor([], updatedAt),
       });
     }
   });

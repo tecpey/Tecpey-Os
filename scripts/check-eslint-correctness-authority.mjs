@@ -26,7 +26,7 @@ const REVIEWED_BASELINE_KEYS = new Set([
   "react-hooks/set-state-in-effect:src/components/academy/AcademyEngagementHub.tsx:43:19",
   "react-hooks/set-state-in-effect:src/components/academy/AcademyMentorCoachCenter.tsx:68:5",
   "react-hooks/set-state-in-effect:src/components/academy/AiMentorExperience.tsx:77:5",
-  "react-hooks/set-state-in-effect:src/components/academy/GlobalAiMentorWidget.tsx:377:5",
+  "react-hooks/set-state-in-effect:src/components/academy/GlobalAiMentorWidget.tsx:378:5",
   "react-hooks/set-state-in-effect:src/components/academy/TradingArenaProClient.tsx:142:5",
   "react-hooks/set-state-in-effect:src/components/academy/community/ChallengeCenter.tsx:321:10",
   "react-hooks/set-state-in-effect:src/components/academy/community/CommunityHub.tsx:199:5",

@@ -345,7 +345,12 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
             </p>
           </div>
           <div className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-300 lg:text-left">
-            <span>{isFa ? "به‌روزرسانی" : "Updated"}: {formatTime(state.updatedAt, locale)}</span>
+            <span>
+              {state.mode === "live"
+                ? (isFa ? "به‌روزرسانی" : "Updated")
+                : (isFa ? "آخرین تلاش برای دریافت" : "Last feed check")}
+              : {formatTime(state.updatedAt, locale)}
+            </span>
             <span className="inline-flex rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-700 dark:text-cyan-100">{loading ? (isFa ? "در حال دریافت خبرها" : "Fetching news") : state.mode === "live" ? (isFa ? "خبر زنده" : "Live feeds") : (isFa ? "حالت پشتیبان" : "Fallback mode")}</span>
           </div>
         </div>
@@ -388,7 +393,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
               <div className="mt-auto pt-5">
                 <div className="mb-3 flex items-center justify-between text-xs font-black text-slate-500 dark:text-slate-400">
                   <span>{item.source}</span>
-                  <span>{formatTime(item.publishedAt, locale)}</span>
+                  <span>{state.mode === "live" ? formatTime(item.publishedAt, locale) : (isFa ? "راهنمای آموزشی" : "Learning brief")}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
