@@ -117,6 +117,30 @@ export function AcademyAuthClient({
   const errorId = "academy-auth-error";
   const passwordHintId = "academy-password-hint";
 
+  async function completeAuthenticatedNavigation() {
+    // Give the browser a brief moment to persist the newly issued same-origin
+    // session before the profile authority is queried.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const profileResponse = await fetch("/api/academy-student-profile", {
+      cache: "no-store",
+      credentials: "include",
+    }).catch(() => null);
+    const profileData = profileResponse
+      ? await profileResponse.json().catch(() => null)
+      : null;
+    const profileState = resolveAcademyProfileReadState<{
+      display_name?: string | null;
+    }>(profileResponse, profileData);
+    const requestedPath = new URLSearchParams(window.location.search).get(
+      "redirect",
+    );
+    window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
+    router.replace(
+      resolveAcademyPostAuthPath(locale, profileState, requestedPath),
+    );
+    router.refresh();
+  }
+
   async function requestPhoneOtp() {
     setError("");
     setSaving(true);
@@ -205,9 +229,7 @@ export function AcademyAuthClient({
         });
         const data = (await response.json().catch(() => null)) as { error?: string; authenticated?: boolean } | null;
         if (!response.ok || !data?.authenticated) throw new Error(data?.error || "invalid_totp_code");
-        window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
-        router.replace(locale === "en" ? "/en/academy/profile" : "/academy/profile");
-        router.refresh();
+        await completeAuthenticatedNavigation();
       } catch (err) {
         const code = (err as Error)?.message;
         setError(code === "preauth_token_invalid"
@@ -227,7 +249,15 @@ export function AcademyAuthClient({
     );
     const loginWithPhone = !isSignup && /^(?:\+?98|0)?9\d{9}$/.test(cleanEmail.replace(/[\s()-]/g, ""));
     if (!loginWithPhone && !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
-      setError(isFa ? "ایمیل معتبر وارد کن." : "Enter a valid email.");
+      setError(
+        isSignup
+          ? isFa
+            ? "ایمیل معتبر وارد کن."
+            : "Enter a valid email."
+          : isFa
+            ? "ایمیل یا شماره موبایل معتبر وارد کن."
+            : "Enter a valid email or mobile number.",
+      );
       return;
     }
     if (isSignup && !phoneVerified) {
@@ -285,21 +315,7 @@ export function AcademyAuthClient({
         setTwoFactorCode("");
         return;
       }
-      // Verify the same-origin session after the cookie is persisted.
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      const profileResponse = await fetch("/api/academy-student-profile", {
-        cache: "no-store",
-        credentials: "include",
-      }).catch(() => null);
-      const profileData = profileResponse
-        ? await profileResponse.json().catch(() => null)
-        : null;
-      const profileState = resolveAcademyProfileReadState<{
-        display_name?: string | null;
-      }>(profileResponse, profileData);
-      window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
-      router.replace(resolveAcademyPostAuthPath(locale, profileState));
-      router.refresh();
+      await completeAuthenticatedNavigation();
     } catch (err) {
       const code = (err as Error)?.message || "auth_failed";
       const faMessages: Record<string, string> = {
