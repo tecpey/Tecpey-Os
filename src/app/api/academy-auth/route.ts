@@ -22,7 +22,7 @@ import {
   verifyUnifiedSession,
   UNIFIED_SESSION_COOKIE,
 } from "@/lib/unified-session";
-import { apiOk, apiError, apiRateLimited } from "@/lib/api-validation";
+import { apiOk, apiError, apiRateLimited, Validate } from "@/lib/api-validation";
 import { withObservability } from "@/lib/observe";
 import {
   prepareRefreshToken,
@@ -53,6 +53,10 @@ import {
   resolveSensitiveAuditCorrelation,
 } from "@/lib/security/sensitive-mutation-audit";
 import { readBoundedJsonRequest } from "@/lib/security/bounded-request-body";
+import {
+  normalizeIranianMobile,
+  phoneFingerprint,
+} from "@/lib/security/phone-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -205,21 +209,41 @@ export async function POST(req: NextRequest) {
       req = boundedBodyRequest.request;
       const body = await req.json();
       const mode: "login" | "signup" = body.mode === "login" ? "login" : "signup";
-      const email = normalizeAcademyEmail(body.email);
+      const rawIdentity = String(body.identity || body.email || "").trim();
+      const phoneE164 = normalizeIranianMobile(body.phone || rawIdentity);
+      const email = normalizeAcademyEmail(body.email || (phoneE164 ? "" : rawIdentity));
       const password = String(body.password || "");
       const requestedDisplayName = cleanDisplayName(
-        body.displayName || email.split("@")[0] || "دانشجوی تک‌پی",
+        body.displayName || email.split("@")[0] || (phoneE164 ? "TecPey user" : "دانشجوی تک‌پی"),
       );
       const username = normalizeAcademyUsername(
-        body.username || requestedDisplayName || email.split("@")[0],
+        body.username || email.split("@")[0] || (phoneE164 ? `mobile${phoneE164.slice(-6)}` : requestedDisplayName),
       );
 
-      if (!/^\S+@\S+\.\S+$/.test(email)) return apiError("invalid_email", 400);
+      if (mode === "signup" && !/^\S+@\S+\.\S+$/.test(email)) {
+        return apiError("invalid_email", 400);
+      }
+      if (mode === "login" && !phoneE164 && !/^\S+@\S+\.\S+$/.test(email)) {
+        return apiError("invalid_login_identity", 400);
+      }
       if (password.length < 10) return apiError("weak_password", 400);
       if (requestedDisplayName.length < 2) return apiError("invalid_display_name", 400);
       if (username.length < 3) return apiError("invalid_username", 400);
 
-      const accountId = academyAccountIdFromEmail(email);
+      const phoneChallengeId = Validate.uuid(body.phoneChallengeId);
+      if (mode === "signup" && !phoneE164) return apiError("phone_required", 400);
+      if (mode === "signup" && !phoneChallengeId) {
+        return apiError("phone_verification_required", 403);
+      }
+
+      let accountId: string;
+      try {
+        accountId = mode === "login" && phoneE164
+          ? `academy-login:${phoneFingerprint(phoneE164)}`
+          : academyAccountIdFromEmail(email);
+      } catch {
+        return apiError("phone_otp_service_not_configured", 503);
+      }
       const correlationId = resolveSensitiveAuditCorrelation(
         req.headers.get("x-tecpey-request-id"),
       );
@@ -236,6 +260,14 @@ export async function POST(req: NextRequest) {
           username,
           displayName: requestedDisplayName,
           password,
+          loginIdentity: phoneE164 ?? email,
+          phoneVerification: mode === "signup" && phoneE164 && phoneChallengeId
+            ? {
+                phoneE164,
+                challengeId: phoneChallengeId,
+                required: true,
+              }
+            : undefined,
           audit: {
             tenantId: PLATFORM.DEFAULT_TENANT_ID,
             actorType: "user",
@@ -255,6 +287,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (result.status === "unavailable") {
+        if (mode === "signup" && phoneE164) {
+          return apiError("academy_auth_authority_unavailable", 503);
+        }
         if (!canUseLocalAuthStorage()) {
           return apiError("academy_auth_storage_unavailable", 503);
         }
@@ -269,6 +304,10 @@ export async function POST(req: NextRequest) {
         });
       }
       if (result.status === "username_taken") return apiError("username_taken", 409);
+      if (result.status === "phone_taken") return apiError("phone_taken", 409);
+      if (result.status === "phone_verification_required") {
+        return apiError("phone_verification_required", 403);
+      }
       if (result.status === "invalid_credentials") {
         return apiError("invalid_credentials", 401);
       }

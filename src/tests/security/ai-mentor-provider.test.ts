@@ -78,6 +78,7 @@ describe("AI Mentor provider execution boundary", () => {
     assert.doesNotMatch(outbound, new RegExp(secret));
     assert.match(outbound, /\[email-redacted\]/);
     assert.match(outbound, /clientHistoryIgnored/);
+    assert.equal((JSON.parse(outbound) as { store?: unknown }).store, false);
   });
 
   it("uses at most one fallback model within the same total budget", async () => {

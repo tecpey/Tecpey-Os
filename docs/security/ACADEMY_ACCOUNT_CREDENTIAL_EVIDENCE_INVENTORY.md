@@ -23,17 +23,19 @@ Owner: **security-platform / academy-identity**
 Add one server-only Academy credential account authority that:
 
 1. accepts normalized server-derived account ID/email/username/display name and mode;
-2. serializes email/username ownership in PostgreSQL;
+2. serializes email/username/verified-phone ownership in PostgreSQL;
 3. verifies existing passwords without mutation;
 4. rejects login for absent accounts;
 5. hashes and inserts new signup credentials;
 6. appends typed `credential.account.create` evidence in the same transaction;
 7. rolls back insertion if evidence fails;
-8. returns deterministic `authenticated`, `created`, `invalid_credentials`, `username_taken` or `unavailable` results.
+8. locks and consumes a short-lived verified phone challenge in the same account-creation transaction;
+9. resolves login by normalized email or a previously verified phone, never by an unverified request value;
+10. returns deterministic `authenticated`, `created`, `invalid_credentials`, `username_taken`, `phone_taken`, `phone_verification_required` or `unavailable` results.
 
 ## 4. Privacy contract
 
-Mandatory evidence may contain policy version and domain-separated account/username fingerprints. It must exclude email, password, password hash, display name, raw username, IP, user-agent, token, cookie and request body.
+Mandatory evidence may contain policy version and domain-separated account/username/phone fingerprints. It must exclude email, phone, password, password hash, display name, raw username, IP, user-agent, token, cookie and request body. OTP challenge storage encrypts the mobile number and keeps append-only state events free of raw PII.
 
 ## 5. Route disposition
 
@@ -50,5 +52,7 @@ Local JSON storage stays explicitly disabled in production. It may reuse the can
 - existing login creates no credential mutation and preserves profile fields;
 - invalid password creates no mutation/evidence;
 - concurrent username ownership yields one winner;
+- a verified phone proof is single-use and account creation rolls back if it cannot be consumed;
+- provider outages and invalid codes cannot issue a session or create an account;
 - evidence contains no raw credential/profile material;
 - source guard rejects route-owned production SQL, legacy audit and request-controlled authority.

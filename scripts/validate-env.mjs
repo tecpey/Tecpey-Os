@@ -71,6 +71,9 @@ const required = [
   'TECPEY_OFFLINE_SYNC_SECRET',
   'TECPEY_CRM_PII_KEY_B64',
   'TECPEY_CRM_CONTACT_HASH_SECRET',
+  'TECPEY_PHONE_IDENTITY_HASH_SECRET',
+  'TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64',
+  'LIMOO_SMS_API_KEY',
   'TECPEY_TRUSTED_PROXY_HEADER',
   'TECPEY_TRUSTED_PROXY_HOPS',
   'DATABASE_URL',
@@ -108,6 +111,7 @@ const optional = [
   'TECPEY_APNS_PRIVATE_KEY',
   'ACADEMY_LEADS_WEBHOOK_URL',
   'TECPEY_CRM_WEBHOOK_SECRET',
+  'TECPEY_PHONE_IDENTITY_HASH_SECRET',
 ];
 
 // Mirrored by ENV_PLACEHOLDER_TOKENS in src/lib/env-placeholders.ts, which runtime
@@ -158,6 +162,17 @@ if (crmPiiKey) {
     }
   } catch {
     errors.push('TECPEY_CRM_PII_KEY_B64 must be valid base64');
+  }
+}
+
+const phoneOtpEncryptionKey = process.env.TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64?.trim();
+if (phoneOtpEncryptionKey) {
+  try {
+    if (Buffer.from(phoneOtpEncryptionKey, 'base64').length !== 32) {
+      errors.push('TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64 must decode to exactly 32 bytes');
+    }
+  } catch {
+    errors.push('TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64 must be valid base64');
   }
 }
 
