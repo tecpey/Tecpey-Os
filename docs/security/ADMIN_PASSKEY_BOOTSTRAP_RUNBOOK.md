@@ -1,5 +1,9 @@
 # TecPey Admin Passkey Bootstrap Runbook
 
+> **Market status:** this flow is disabled by default for Iran and retained only
+> for future approved markets. Use `ADMIN_PASSWORD_TOTP_RUNBOOK.md` for current
+> bootstrap and daily administrator authentication.
+
 Status: **Operational security procedure**
 
 ## Purpose

@@ -48,7 +48,7 @@ export type AdminSessionRecord = {
   stepUpAt: Date;
 };
 
-export async function createAdminPasskeySession(
+export async function createAdminControlSession(
   client: PoolClient,
   input: {
     adminId: string;
@@ -57,7 +57,7 @@ export async function createAdminPasskeySession(
     authenticationMethods: string[];
     ip: string | null;
     userAgent: string | null;
-    auditAction: "admin.bootstrap.completed" | "admin.login.passkey";
+    auditAction: "admin.bootstrap.completed" | "admin.login.passkey" | "admin.login.password_totp";
   },
 ): Promise<AdminSessionRecord> {
   const now = new Date();
@@ -126,6 +126,9 @@ export async function createAdminPasskeySession(
     stepUpAt: now,
   };
 }
+
+/** Compatibility alias for the optional WebAuthn flow. */
+export const createAdminPasskeySession = createAdminControlSession;
 
 export function setAdminControlSessionCookie(
   response: NextResponse,

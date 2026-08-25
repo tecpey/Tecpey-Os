@@ -100,7 +100,7 @@ export function CommunicationProviderControlPanel() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok || !Array.isArray(data.providers)) {
         setError(response.status === 401
-          ? "Session مدیریتی منقضی شده است؛ دوباره با Passkey وارد شوید."
+          ? "Session مدیریتی منقضی شده است؛ دوباره با رمز و Authenticator وارد شوید."
           : "دریافت تنظیمات ارتباطات ممکن نشد.");
         return;
       }
@@ -159,7 +159,7 @@ export function CommunicationProviderControlPanel() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.ok) {
         setError(data?.error === "step_up_required"
-          ? "برای تغییر Secret باید دوباره با Passkey وارد شوید."
+          ? "برای تغییر Secret باید دوباره با رمز و Authenticator وارد شوید."
           : data?.error === "communication_provider_secret_required"
             ? "برای فعال‌سازی، API Key معتبر را وارد کنید."
             : "ذخیره تنظیمات انجام نشد؛ ورودی‌ها و دسترسی مدیر را بررسی کنید.");
@@ -192,7 +192,7 @@ export function CommunicationProviderControlPanel() {
         setError(data?.error === "invalid_iranian_mobile"
           ? "برای تست SMS یک شماره موبایل معتبر ایران وارد کنید."
           : data?.error === "step_up_required"
-            ? "برای تست Provider دوباره با Passkey وارد شوید."
+            ? "برای تست Provider دوباره با رمز و Authenticator وارد شوید."
             : "تست Provider ناموفق بود؛ کلید، دامنه و تنظیمات Provider را بررسی کنید.");
         return;
       }

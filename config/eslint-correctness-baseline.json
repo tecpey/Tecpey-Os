@@ -28,7 +28,7 @@
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LessonPlayerV2.tsx", "line": 288, "column": 5, "domain": "academy", "reason": "lesson identity state reset" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/LessonPlayerV2Client.tsx", "line": 22, "column": 5, "domain": "academy", "reason": "strict progress hydration transition" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/academy/v2/MentorV2.tsx", "line": 276, "column": 5, "domain": "mentor", "reason": "server mentor snapshot load" },
-    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/admin/AdminPasskeyAccessGate.tsx", "line": 223, "column": 10, "domain": "admin-security", "reason": "server passkey status refresh" },
+    { "rule": "react-hooks/set-state-in-effect", "path": "src/components/admin/AdminPasskeyAccessGate.tsx", "line": 63, "column": 26, "domain": "admin-security", "reason": "server MFA status refresh" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/admin/CommandCenterDashboard.tsx", "line": 127, "column": 10, "domain": "admin", "reason": "server command-center snapshot load" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/crypto/SwapPanel.tsx", "line": 120, "column": 7, "domain": "market-ui", "reason": "derived quote projection retained pending component state redesign" },
     { "rule": "react-hooks/set-state-in-effect", "path": "src/components/home/TecpeyHomeAI.tsx", "line": 292, "column": 5, "domain": "public-ui", "reason": "news request loading transition" },
