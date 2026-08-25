@@ -57,7 +57,11 @@ export async function createAdminControlSession(
     authenticationMethods: string[];
     ip: string | null;
     userAgent: string | null;
-    auditAction: "admin.bootstrap.completed" | "admin.login.passkey" | "admin.login.password_totp";
+    auditAction:
+      | "admin.bootstrap.completed"
+      | "admin.login.passkey"
+      | "admin.login.password_totp"
+      | "admin.totp.rotation.completed";
   },
 ): Promise<AdminSessionRecord> {
   const now = new Date();

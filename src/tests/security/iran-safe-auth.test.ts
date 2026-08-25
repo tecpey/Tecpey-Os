@@ -4,7 +4,14 @@ import test from "node:test";
 import { ADMIN_AUTH_ENV_SECRET_NAMES } from "../../../scripts/admin-auth-env-test-fixture";
 import { adminAuthenticationModes, customerPasskeysEnabled } from "@/lib/admin-auth-policy";
 import { ADMIN_PASSWORD_MAX_LENGTH, ADMIN_PASSWORD_MIN_LENGTH, hashAdminPassword, validateAdminPassword, verifyAdminPassword } from "@/lib/security/admin-password-totp";
-import { findBackupCode, generateBackupCodes, hashBackupCode } from "@/lib/security/totp";
+import {
+  findBackupCode,
+  generateBackupCodes,
+  generateTotpSecret,
+  hashBackupCode,
+  openAdminTotpRotationChallenge,
+  sealAdminTotpRotationChallenge,
+} from "@/lib/security/totp";
 
 test("Iran-safe authentication policy disables passkeys by default", () => {
   const previousAdmin = process.env.TECPEY_ADMIN_PASSKEY_ENABLED;
@@ -43,6 +50,51 @@ test("password hashes and recovery codes never persist plaintext", () => {
   assert.equal(new Set(codes).size, 10);
   assert.equal(findBackupCode(codes[3], hashes), 3);
   assert.equal(hashes.includes(codes[3]), false);
+});
+
+test("administrator TOTP rotation challenge is encrypted, bound, tamper-evident, and expiring", () => {
+  const now = 1_800_000_000_000;
+  const secret = generateTotpSecret();
+  const input = {
+    adminId: "4db92f70-a54a-4da2-8d30-8c74519f0a20",
+    sessionId: "877a55e1-df44-4f6b-9e65-63845853888c",
+    secret,
+    credentialVersion: "a".repeat(64),
+  };
+  const sealed = sealAdminTotpRotationChallenge(input, now);
+  assert.equal(sealed.document.includes(secret), false);
+  assert.equal(sealed.document.includes(input.adminId), false);
+  assert.equal(sealed.expiresAt, new Date(now + 10 * 60_000).toISOString());
+  assert.deepEqual(openAdminTotpRotationChallenge(sealed.document, now + 30_000), {
+    ...input,
+    issuedAt: now,
+    expiresAt: now + 10 * 60_000,
+  });
+
+  const parts = sealed.document.split(".");
+  const tag = parts[2] ?? "";
+  assert.ok(tag.length > 1);
+  parts[2] = `${tag[0] === "A" ? "B" : "A"}${tag.slice(1)}`;
+  const tampered = parts.join(".");
+  assert.equal(openAdminTotpRotationChallenge(tampered, now + 30_000), null);
+  assert.equal(openAdminTotpRotationChallenge(sealed.document, now + 10 * 60_000), null);
+});
+
+test("administrator TOTP rotation is self-service without reopening bootstrap authority", () => {
+  const route = readFileSync("src/app/api/command-center/auth/totp/rotate/route.ts", "utf8");
+  const panel = readFileSync("src/components/admin/AdminTotpRotationPanel.tsx", "utf8");
+
+  assert.match(route, /loadAdminPrincipal\(req\)/);
+  assert.match(route, /verifyCsrfOrigin\(req\)/);
+  assert.match(route, /readBoundedJsonRequest\(req/);
+  assert.match(route, /FOR UPDATE OF u, c/);
+  assert.match(route, /revoked_reason = 'totp_rotation'/);
+  assert.match(route, /createAdminControlSession\(client/);
+  assert.match(route, /openAdminTotpRotationChallenge\(document\)/);
+  assert.doesNotMatch(route, /verifyAdminBootstrapToken|TECPEY_ADMIN_TOKEN/);
+  assert.match(panel, /ورودی فعلی Authenticator را حذف نکن/);
+  assert.match(panel, /کدهای بازیابی جدید/);
+  assert.doesNotMatch(panel, /localStorage|sessionStorage/);
 });
 
 test("administrator authentication secrets stay in the production contract", () => {

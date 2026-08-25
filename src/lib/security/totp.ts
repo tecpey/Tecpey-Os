@@ -182,6 +182,158 @@ export function buildOtpAuthUri(opts: {
   );
 }
 
+const ADMIN_TOTP_ROTATION_AAD = Buffer.from(
+  "tecpey:admin-totp-rotation:v1",
+  "utf8",
+);
+const ADMIN_TOTP_ROTATION_TTL_MS = 10 * 60 * 1000;
+
+type AdminTotpRotationChallengePayload = {
+  v: 1;
+  a: string;
+  s: string;
+  k: string;
+  c: string;
+  i: number;
+  e: number;
+};
+
+export type AdminTotpRotationChallenge = {
+  adminId: string;
+  sessionId: string;
+  secret: string;
+  credentialVersion: string;
+  issuedAt: number;
+  expiresAt: number;
+};
+
+function adminTotpRotationKey(): Buffer {
+  return createHmac("sha256", get2faKey())
+    .update(ADMIN_TOTP_ROTATION_AAD)
+    .digest();
+}
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function decodeBase64Url(value: string, expectedLength?: number): Buffer | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  try {
+    const decoded = Buffer.from(value, "base64url");
+    if (expectedLength !== undefined && decoded.length !== expectedLength) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+export function sealAdminTotpRotationChallenge(
+  input: {
+    adminId: string;
+    sessionId: string;
+    secret: string;
+    credentialVersion: string;
+  },
+  now = Date.now(),
+): { document: string; expiresAt: string } {
+  if (
+    !isUuid(input.adminId)
+    || !isUuid(input.sessionId)
+    || !/^[A-Z2-7]{32}$/.test(input.secret)
+    || !/^[0-9a-f]{64}$/.test(input.credentialVersion)
+    || !Number.isSafeInteger(now)
+    || now < 0
+  ) {
+    throw new Error("admin_totp_rotation_challenge_invalid");
+  }
+
+  const expiresAt = now + ADMIN_TOTP_ROTATION_TTL_MS;
+  const payload: AdminTotpRotationChallengePayload = {
+    v: 1,
+    a: input.adminId,
+    s: input.sessionId,
+    k: input.secret,
+    c: input.credentialVersion,
+    i: now,
+    e: expiresAt,
+  };
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", adminTotpRotationKey(), iv);
+  cipher.setAAD(ADMIN_TOTP_ROTATION_AAD);
+  const encrypted = Buffer.concat([
+    cipher.update(JSON.stringify(payload), "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return {
+    document: [
+      "v1",
+      iv.toString("base64url"),
+      tag.toString("base64url"),
+      encrypted.toString("base64url"),
+    ].join("."),
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
+}
+
+export function openAdminTotpRotationChallenge(
+  document: string,
+  now = Date.now(),
+): AdminTotpRotationChallenge | null {
+  if (document.length < 64 || document.length > 4_096 || !Number.isSafeInteger(now)) {
+    return null;
+  }
+  const parts = document.split(".");
+  if (parts.length !== 4 || parts[0] !== "v1") return null;
+  const iv = decodeBase64Url(parts[1] ?? "", 12);
+  const tag = decodeBase64Url(parts[2] ?? "", 16);
+  const encrypted = decodeBase64Url(parts[3] ?? "");
+  if (!iv || !tag || !encrypted || encrypted.length < 1 || encrypted.length > 2_048) {
+    return null;
+  }
+
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", adminTotpRotationKey(), iv);
+    decipher.setAAD(ADMIN_TOTP_ROTATION_AAD);
+    decipher.setAuthTag(tag);
+    const plaintext = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]).toString("utf8");
+    const payload = JSON.parse(plaintext) as Partial<AdminTotpRotationChallengePayload>;
+    if (
+      payload.v !== 1
+      || !isUuid(payload.a)
+      || !isUuid(payload.s)
+      || typeof payload.k !== "string"
+      || !/^[A-Z2-7]{32}$/.test(payload.k)
+      || typeof payload.c !== "string"
+      || !/^[0-9a-f]{64}$/.test(payload.c)
+      || typeof payload.i !== "number"
+      || !Number.isSafeInteger(payload.i)
+      || typeof payload.e !== "number"
+      || !Number.isSafeInteger(payload.e)
+      || payload.i > now + 30_000
+      || payload.e - payload.i !== ADMIN_TOTP_ROTATION_TTL_MS
+      || payload.e <= now
+    ) {
+      return null;
+    }
+    return {
+      adminId: payload.a,
+      sessionId: payload.s,
+      secret: payload.k,
+      credentialVersion: payload.c,
+      issuedAt: payload.i,
+      expiresAt: payload.e,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const PREAUTH_PREFIX = "tecpey:preauth:";
 const PREAUTH_TTL_S = 300;
 

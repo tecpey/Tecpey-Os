@@ -39,6 +39,7 @@ const directRoutes = Object.freeze([
   ["src/app/api/command-center/auth/totp/bootstrap/setup/route.ts", "req"],
   ["src/app/api/command-center/auth/totp/bootstrap/verify/route.ts", "req"],
   ["src/app/api/command-center/auth/totp/login/route.ts", "req"],
+  ["src/app/api/command-center/auth/totp/rotate/route.ts", "req"],
   ["src/app/api/command-center/auth-providers/review-requests/route.ts", "req"],
   ["src/app/api/command-center/auth-providers/route.ts", "req"],
   ["src/app/api/command-center/communications/route.ts", "request"],

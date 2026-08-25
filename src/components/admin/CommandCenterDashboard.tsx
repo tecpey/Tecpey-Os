@@ -1,5 +1,5 @@
 "use client";
-
+import { AdminTotpRotationPanel } from "./AdminTotpRotationPanel";
 import Link from "next/link";
 import {
   BarChart3,
@@ -233,6 +233,8 @@ export function CommandCenterDashboard({
             {error}
           </div>
         )}
+
+        <AdminTotpRotationPanel onSessionExpired={onSessionExpired} />
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           {controlLinks.map((item) => {
