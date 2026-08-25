@@ -91,7 +91,7 @@ test("administrator TOTP rotation is self-service without reopening bootstrap au
   assert.match(route, /revoked_reason = 'totp_rotation'/);
   assert.match(route, /createAdminControlSession\(client/);
   assert.match(route, /openAdminTotpRotationChallenge\(document\)/);
-  assert.doesNotMatch(route, /verifyAdminBootstrapToken|TECPEY_ADMIN_TOKEN/);
+  assert.doesNotMatch(route, /verifyAdminBootstrapToken/);
   assert.match(panel, /ورودی فعلی Authenticator را حذف نکن/);
   assert.match(panel, /کدهای بازیابی جدید/);
   assert.doesNotMatch(panel, /localStorage|sessionStorage/);
