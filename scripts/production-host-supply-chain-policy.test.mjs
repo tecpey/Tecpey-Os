@@ -977,6 +977,9 @@ test("production template fails unchanged and passes after complete governed rep
 
   const values = {
     TECPEY_SESSION_SECRET: "a".repeat(32),
+    TECPEY_ADMIN_SESSION_SECRET: "h".repeat(32),
+    TECPEY_2FA_SECRET: "i".repeat(32),
+    TECPEY_ADMIN_TOKEN: "j".repeat(32),
     TECPEY_REFRESH_SECRET: "b".repeat(32),
     TECPEY_ACADEMY_AUTH_SECRET: "c".repeat(32),
     CERTIFICATE_SIGNING_SECRET: "d".repeat(32),
@@ -984,6 +987,10 @@ test("production template fails unchanged and passes after complete governed rep
     TECPEY_OFFLINE_SYNC_SECRET: "f".repeat(32),
     TECPEY_CRM_PII_KEY_B64: Buffer.alloc(32, 7).toString("base64"),
     TECPEY_CRM_CONTACT_HASH_SECRET: "g".repeat(32),
+    TECPEY_PHONE_IDENTITY_HASH_SECRET: "p".repeat(32),
+    TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: Buffer.alloc(32, 9).toString("base64"),
+    TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: Buffer.alloc(32, 10).toString("base64"),
+    LIMOO_SMS_API_KEY: "limoo-test-api-key",
     DATABASE_URL: "postgresql://tecpey:test-password@postgres:5432/tecpey",
     REDIS_URL: "redis://:test-password@redis:6379",
     UPSTASH_REDIS_REST_URL: "https://rate-limit-redis.example.invalid",

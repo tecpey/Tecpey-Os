@@ -151,6 +151,7 @@ async function fetchWithDeadline(
         model,
         instructions: input.instructions,
         input: input.input,
+        store: false,
         temperature: 0.2,
         max_output_tokens: boundedInteger(input.maxOutputTokens, 800, 128, 1200),
       }),

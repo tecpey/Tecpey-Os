@@ -276,44 +276,44 @@ export const academyPathTermsEn = [
     ],
     "questions": [
       {
-        "q": "What is the safest learning attitude?",
+        "q": "What is the defining trade-off of a market order?",
         "options": [
-          "Work with checklists and controlled risk",
-          "Expect guaranteed profit",
-          "Copy social media",
-          "Ignore security"
+          "Fast execution with possible slippage",
+          "A guaranteed fill at your chosen price",
+          "It is always fee-free",
+          "It can only be used for withdrawals"
         ],
-        "answer": "Work with checklists and controlled risk"
+        "answer": "Fast execution with possible slippage"
       },
       {
-        "q": "What should every action include?",
+        "q": "What is the bid-ask spread?",
         "options": [
-          "A risk and exit plan",
-          "Only hype",
-          "No review",
-          "Maximum position size"
+          "A two-factor authentication code",
+          "The gap between the best buy and sell prices",
+          "A type of cold wallet",
+          "The number of locked tokens"
         ],
-        "answer": "A risk and exit plan"
+        "answer": "The gap between the best buy and sell prices"
       },
       {
-        "q": "What is not the purpose of TecPey Academy?",
+        "q": "What must be checked before a crypto withdrawal?",
         "options": [
-          "Financial advice or guaranteed outcome",
-          "Education",
-          "Risk awareness",
-          "Security habits"
+          "The coin logo colour",
+          "The current headline price only",
+          "The source and destination networks match",
+          "The name of a social-media channel"
         ],
-        "answer": "Financial advice or guaranteed outcome"
+        "answer": "The source and destination networks match"
       },
       {
-        "q": "What should a learner do when unsure?",
+        "q": "Which set best represents the real cost of a trade?",
         "options": [
-          "Pause, review and ask for clarification",
-          "Go all-in",
-          "Remove stop loss",
-          "Follow the crowd"
+          "Only the advertised trading fee",
+          "Only the asset's headline price",
+          "Only the position size",
+          "Fees, spread, slippage and withdrawal or network costs"
         ],
-        "answer": "Pause, review and ask for clarification"
+        "answer": "Fees, spread, slippage and withdrawal or network costs"
       }
     ],
     "readiness": [
@@ -384,44 +384,44 @@ export const academyPathTermsEn = [
     ],
     "questions": [
       {
-        "q": "What is the safest learning attitude?",
+        "q": "What does fully diluted valuation (FDV) estimate?",
         "options": [
-          "Work with checklists and controlled risk",
-          "Expect guaranteed profit",
-          "Copy social media",
-          "Ignore security"
+          "A project's value if all tokens were circulating",
+          "A guaranteed future price",
+          "A wallet recovery password",
+          "A blockchain's transfer count"
         ],
-        "answer": "Work with checklists and controlled risk"
+        "answer": "A project's value if all tokens were circulating"
       },
       {
-        "q": "What should every action include?",
+        "q": "Which combination is a meaningful project red flag?",
         "options": [
-          "A risk and exit plan",
-          "Only hype",
-          "No review",
-          "Maximum position size"
+          "Transparent documentation and verifiable contributors",
+          "Guaranteed-profit claims and weak liquidity",
+          "Clear risk disclosures",
+          "Auditable token distribution"
         ],
-        "answer": "A risk and exit plan"
+        "answer": "Guaranteed-profit claims and weak liquidity"
       },
       {
-        "q": "What is not the purpose of TecPey Academy?",
+        "q": "What does tokenomics examine?",
         "options": [
-          "Financial advice or guaranteed outcome",
-          "Education",
-          "Risk awareness",
-          "Security habits"
+          "Only today's token price",
+          "Only follower counts",
+          "Supply, distribution, utility and participant incentives",
+          "Only the visual identity"
         ],
-        "answer": "Financial advice or guaranteed outcome"
+        "answer": "Supply, distribution, utility and participant incentives"
       },
       {
-        "q": "What should a learner do when unsure?",
+        "q": "What belongs in a professional project review?",
         "options": [
-          "Pause, review and ask for clarification",
-          "Go all-in",
-          "Remove stop loss",
-          "Follow the crowd"
+          "Only favourable headlines",
+          "Only an influencer's view",
+          "Only recent price performance",
+          "Supporting and opposing evidence, a downside scenario and an exit plan"
         ],
-        "answer": "Pause, review and ask for clarification"
+        "answer": "Supporting and opposing evidence, a downside scenario and an exit plan"
       }
     ],
     "readiness": [
@@ -492,44 +492,44 @@ export const academyPathTermsEn = [
     ],
     "questions": [
       {
-        "q": "What is the safest learning attitude?",
+        "q": "What does technical analysis guarantee?",
         "options": [
-          "Work with checklists and controlled risk",
-          "Expect guaranteed profit",
-          "Copy social media",
-          "Ignore security"
+          "Nothing; it supports probabilistic decisions",
+          "Guaranteed profit",
+          "Exact prediction of the future",
+          "Removal of risk-management needs"
         ],
-        "answer": "Work with checklists and controlled risk"
+        "answer": "Nothing; it supports probabilistic decisions"
       },
       {
-        "q": "What should every action include?",
+        "q": "What does a high RSI reading mean on its own?",
         "options": [
-          "A risk and exit plan",
-          "Only hype",
-          "No review",
-          "Maximum position size"
+          "It is an automatic buy signal",
+          "It must be evaluated with trend, volume and price levels",
+          "It is an automatic sell signal",
+          "The market has no risk"
         ],
-        "answer": "A risk and exit plan"
+        "answer": "It must be evaluated with trend, volume and price levels"
       },
       {
-        "q": "What is not the purpose of TecPey Academy?",
+        "q": "What is a false breakout?",
         "options": [
-          "Financial advice or guaranteed outcome",
-          "Education",
-          "Risk awareness",
-          "Security habits"
+          "Enabling two-factor authentication",
+          "An increase in total token supply",
+          "Price crossing a level and quickly returning to the prior range",
+          "A type of cold wallet"
         ],
-        "answer": "Financial advice or guaranteed outcome"
+        "answer": "Price crossing a level and quickly returning to the prior range"
       },
       {
-        "q": "What should a learner do when unsure?",
+        "q": "What is missing from an analysis with no invalidation point?",
         "options": [
-          "Pause, review and ask for clarification",
-          "Go all-in",
-          "Remove stop loss",
-          "Follow the crowd"
+          "A guaranteed return",
+          "A reason to ignore risk",
+          "A need for position sizing",
+          "A testable condition that distinguishes a plan from hope"
         ],
-        "answer": "Pause, review and ask for clarification"
+        "answer": "A testable condition that distinguishes a plan from hope"
       }
     ],
     "readiness": [
@@ -600,44 +600,44 @@ export const academyPathTermsEn = [
     ],
     "questions": [
       {
-        "q": "What is the safest learning attitude?",
+        "q": "What is the primary goal of risk management?",
         "options": [
-          "Work with checklists and controlled risk",
-          "Expect guaranteed profit",
-          "Copy social media",
-          "Ignore security"
+          "Survival and control of potential loss",
+          "Guaranteed profit",
+          "Eliminating all volatility",
+          "Entering trades faster"
         ],
-        "answer": "Work with checklists and controlled risk"
+        "answer": "Survival and control of potential loss"
       },
       {
-        "q": "What should every action include?",
+        "q": "What should determine position size?",
         "options": [
-          "A risk and exit plan",
-          "Only hype",
-          "No review",
-          "Maximum position size"
+          "Market excitement",
+          "The amount at risk and distance to invalidation",
+          "The number of social-media messages",
+          "The colour of the previous candle"
         ],
-        "answer": "A risk and exit plan"
+        "answer": "The amount at risk and distance to invalidation"
       },
       {
-        "q": "What is not the purpose of TecPey Academy?",
+        "q": "When can dollar-cost averaging become especially dangerous?",
         "options": [
-          "Financial advice or guaranteed outcome",
-          "Education",
-          "Risk awareness",
-          "Security habits"
+          "When using a defined amount and time horizon",
+          "When following a documented portfolio plan",
+          "When repeatedly buying a weak project without a fundamental thesis",
+          "When risks and assumptions are reviewed"
         ],
-        "answer": "Financial advice or guaranteed outcome"
+        "answer": "When repeatedly buying a weak project without a fundamental thesis"
       },
       {
-        "q": "What should a learner do when unsure?",
+        "q": "What is the more disciplined response after several consecutive losses?",
         "options": [
-          "Pause, review and ask for clarification",
-          "Go all-in",
-          "Remove stop loss",
-          "Follow the crowd"
+          "Double position size to recover quickly",
+          "Remove the invalidation point",
+          "Buy whichever asset is trending",
+          "Pause, review the process and reduce risk"
         ],
-        "answer": "Pause, review and ask for clarification"
+        "answer": "Pause, review the process and reduce risk"
       }
     ],
     "readiness": [
@@ -708,44 +708,44 @@ export const academyPathTermsEn = [
     ],
     "questions": [
       {
-        "q": "What is the safest learning attitude?",
+        "q": "What is FOMO in a market context?",
         "options": [
-          "Work with checklists and controlled risk",
-          "Expect guaranteed profit",
-          "Copy social media",
-          "Ignore security"
+          "Fear of missing out that can trigger a rushed entry",
+          "A type of cold wallet",
+          "A network fee",
+          "Fully diluted valuation"
         ],
-        "answer": "Work with checklists and controlled risk"
+        "answer": "Fear of missing out that can trigger a rushed entry"
       },
       {
-        "q": "What should every action include?",
+        "q": "What usually triggers revenge trading?",
         "options": [
-          "A risk and exit plan",
-          "Only hype",
-          "No review",
-          "Maximum position size"
+          "Enabling two-factor authentication",
+          "A loss followed by an urge to recover immediately",
+          "Sending a small test transfer",
+          "Writing a trading journal"
         ],
-        "answer": "A risk and exit plan"
+        "answer": "A loss followed by an urge to recover immediately"
       },
       {
-        "q": "What is not the purpose of TecPey Academy?",
+        "q": "What is a trading journal primarily useful for?",
         "options": [
-          "Financial advice or guaranteed outcome",
-          "Education",
-          "Risk awareness",
-          "Security habits"
+          "Guaranteeing profit",
+          "Removing the need for analysis",
+          "Identifying behavioural patterns and repeated mistakes",
+          "Hiding losing decisions"
         ],
-        "answer": "Financial advice or guaranteed outcome"
+        "answer": "Identifying behavioural patterns and repeated mistakes"
       },
       {
-        "q": "What should a learner do when unsure?",
+        "q": "What best demonstrates genuine market readiness?",
         "options": [
-          "Pause, review and ask for clarification",
-          "Go all-in",
-          "Remove stop loss",
-          "Follow the crowd"
+          "Entering every opportunity quickly",
+          "Trusting signals without verification",
+          "Removing the decision checklist",
+          "Knowing when to wait and control risk"
         ],
-        "answer": "Pause, review and ask for clarification"
+        "answer": "Knowing when to wait and control risk"
       }
     ],
     "readiness": [

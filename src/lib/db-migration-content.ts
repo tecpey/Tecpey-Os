@@ -86,6 +86,9 @@ import { ACADEMY_DAILY_REPAIR_CHALLENGES_SQL } from "./db-migrate-academy-daily-
 import { CERTIFICATE_SHARE_EVENTS_TENANT_SQL } from "./db-migrate-certificate-share-events-tenant";
 import { ACTIVE_PRINCIPAL_BINDING_ENFORCEMENT_SQL } from "./db-migrate-active-principal-binding-enforcement";
 import { NOTIFICATION_SUPPRESS_DECISION_SQL } from "./db-migrate-notification-suppress-decision";
+import { PHONE_IDENTITY_OTP_SQL } from "./db-migrate-phone-identity-otp";
+import { COMMUNICATION_PROVIDER_CONFIG_SQL } from "./db-migrate-communication-provider-config";
+import { ADMIN_PASSWORD_TOTP_SQL } from "./db-migrate-admin-password-totp";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -366,5 +369,17 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   notificationSuppressDecision: one(
     "0086_notification_suppress_decision.sql",
     NOTIFICATION_SUPPRESS_DECISION_SQL,
+  ),
+  phoneIdentityOtp: one(
+    "0087_phone_identity_otp.sql",
+    PHONE_IDENTITY_OTP_SQL,
+  ),
+  communicationProviderConfig: one(
+    "0088_communication_provider_config.sql",
+    COMMUNICATION_PROVIDER_CONFIG_SQL,
+  ),
+  adminPasswordTotp: one(
+    "0089_admin_password_totp.sql",
+    ADMIN_PASSWORD_TOTP_SQL,
   ),
 });

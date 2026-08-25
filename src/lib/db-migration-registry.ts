@@ -76,6 +76,9 @@ import { runAcademyDailyRepairChallengeMigrations } from "./db-migrate-academy-d
 import { runCertificateShareEventsTenantMigrations } from "./db-migrate-certificate-share-events-tenant";
 import { runActivePrincipalBindingEnforcementMigrations } from "./db-migrate-active-principal-binding-enforcement";
 import { runNotificationSuppressDecisionMigrations } from "./db-migrate-notification-suppress-decision";
+import { runPhoneIdentityOtpMigrations } from "./db-migrate-phone-identity-otp";
+import { runCommunicationProviderConfigMigrations } from "./db-migrate-communication-provider-config";
+import { runAdminPasswordTotpMigrations } from "./db-migrate-admin-password-totp";
 
 export type MigrationRegistryEntry = Readonly<{
   sequence: number;
@@ -189,6 +192,9 @@ export const DATABASE_MIGRATION_REGISTRY = [
   entry(69, "migration-step-069", CANONICAL_MIGRATION_CONTENT.certificateShareEventsTenant, "academy-platform", "academy", runCertificateShareEventsTenantMigrations),
   entry(70, "migration-step-070", CANONICAL_MIGRATION_CONTENT.activePrincipalBindingEnforcement, "platform-security", "tenant-isolation", runActivePrincipalBindingEnforcementMigrations),
   entry(71, "migration-step-071", CANONICAL_MIGRATION_CONTENT.notificationSuppressDecision, "engagement-platform", "notifications", runNotificationSuppressDecisionMigrations),
+  entry(72, "migration-step-072", CANONICAL_MIGRATION_CONTENT.phoneIdentityOtp, "security-platform", "authentication", runPhoneIdentityOtpMigrations),
+  entry(73, "migration-step-073", CANONICAL_MIGRATION_CONTENT.communicationProviderConfig, "platform-security", "communications", runCommunicationProviderConfigMigrations),
+  entry(74, "migration-step-074", CANONICAL_MIGRATION_CONTENT.adminPasswordTotp, "platform-security", "admin-authentication", runAdminPasswordTotpMigrations),
 ] as const satisfies readonly MigrationRegistryEntry[];
 
 export function validateMigrationRegistry(

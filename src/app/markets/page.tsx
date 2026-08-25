@@ -174,7 +174,23 @@ export default function MarketsPage() {
                 isIRTenabled={isIRTenabled}
                 USDT_IRT={USDT_IRT}
                 itemsPerPage={LIMIT}
+                isLoading={isFetching && !data}
               />
+
+              {processedCurrencies.some((coin) => coin.marketDataSource === "CoinGecko") ? (
+                <p className="mt-3 text-center text-[11px] font-bold text-muted" role="status">
+                  {t("publicSourcePrefix")}{" "}
+                  <a
+                    href="https://www.coingecko.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-black text-primary underline underline-offset-4"
+                  >
+                    CoinGecko
+                  </a>
+                  {" · "}{t("publicSourceFreshness")}
+                </p>
+              ) : null}
 
               {isFetching && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl backdrop-blur-[1px]"></div>

@@ -73,7 +73,7 @@ const DOMAIN_RULES = [
       /(?:^|\/)(?:auth|session|csrf|webauthn|passkey|two-factor|2fa|admin|rbac|abac|tenant|principal|security|risk|audit)(?:[./_-]|$)/i,
       /^src\/lib\/compliance\//,
       /^src\/lib\/c-level-control-authority\.ts$/,
-      /^src\/lib\/(?:api-error|api-validation|fetch-error-classification|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
+      /^src\/lib\/(?:api-error|api-validation|communication-provider-store|fetch-error-classification|json-ld|permission|rate-limit|request-route-context|route-guards|unified-session)\.ts$/,
       /^src\/lib\/production-connection-env\.ts$/,
       /^src\/proxy\.ts$/,
       /^config\/api-security-(?:exceptions|operation-overrides)\.json$/,
@@ -139,7 +139,7 @@ const DOMAIN_RULES = [
     riskTier: "P2",
     reviewBatch: 10,
     patterns: [
-      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|organic-growth-automation|tool-growth-automation|trading-tools-growth)\.ts$/,
+      /^src\/lib\/(?:coin-growth-automation|coin-visual-assets|content-growth|landing-growth|landing-growth-authority|news-automation|news-detail-pages|news-impact-history|news-impact-history-authority|news-intelligence-graph|news-materialization|news-provider-readiness|organic-growth-automation|public-market-data|tool-growth-automation|trading-tools-growth)\.ts$/,
     ],
   },
   {
@@ -262,7 +262,7 @@ export function initialReviewStatus({ contentKind, provenance }) {
 }
 
 export const repositoryAuditPolicy = Object.freeze({
-  version: 20,
+  version: 21,
   generatedPaths: [...GENERATED_PATHS].sort(),
   platformCorePaths: [...PLATFORM_CORE_PATHS].sort(),
   reviewEvidencePaths: [...REVIEW_EVIDENCE_PATHS],

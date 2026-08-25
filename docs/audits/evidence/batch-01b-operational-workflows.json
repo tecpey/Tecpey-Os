@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "evidenceId": "batch-01b-operational-workflows",
   "reviewBatch": 1,
-  "reviewedAt": "2026-08-23",
+  "reviewedAt": "2026-08-25",
   "reviewMethod": "Complete line-by-line semantic review of five Batch 1 operational workflow and production supply-chain authority files, including trigger coverage, exact-head checkout, permission scope, action pinning, release dependencies, vulnerability enforcement, recovery evidence, immutable identity propagation, failure behavior and permanent negative-test coverage.",
   "residualRisks": [
     {
@@ -33,7 +33,12 @@
       "gitObjectId": "863c6910b2ad52b3a5c8f79f8d6fb83a8ec38256",
       "sha256": "3012a51793ec7463c2e39c58a2e816d96b01a1669deea5e3dc290b0acd3df8a7",
       "lines": 282,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 282 }],
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 282
+        }
+      ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Triggers, read-only default permissions, exact-head checkout, governed policy tests, Compose input validation, immutable build identity, rootless runtime inspection, SBOM generation, vulnerability gating, recovery jobs, publication permissions, digest signing and evidence retention were reviewed as one release sequence.",
@@ -51,7 +56,9 @@
           "fixOwner": "repository-supply-chain",
           "verificationRequirement": "The permanent supply-chain policy and its comment-spoof negative fixture must reject any publish job that does not depend exactly on both verify and recovery.",
           "disposition": "remediated",
-          "remediation": ["https://github.com/tecpey/Tecpey-Os/issues/156"]
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
         },
         {
           "id": "B01B-P1-002",
@@ -63,7 +70,9 @@
           "fixOwner": "repository-supply-chain",
           "verificationRequirement": "The permanent supply-chain policy must parse the effective named Trivy step, reject missing, duplicated, commented or true ignore-unfixed values, require the exact minimal runtime image, and pass an exact-head image scan with zero HIGH or CRITICAL findings.",
           "disposition": "remediated",
-          "remediation": ["https://github.com/tecpey/Tecpey-Os/issues/156"]
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
         }
       ]
     },
@@ -72,7 +81,12 @@
       "gitObjectId": "f4ff11e0631fa41a8bb0c9943d9d9a7f50740ea5",
       "sha256": "34137d5d118db9deaa9caf3c26179370b65578b08e4dcdd3616512b1e540bb1d",
       "lines": 99,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 99 }],
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 99
+        }
+      ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Pull-request, weekly and manual triggers; read-only permissions; non-cancelling concurrency; exact-head checkout; pinned actions; governed recovery authority; exact migration-image identity; bounded RPO/RTO inputs; PostgreSQL and Redis restore; and always-uploaded evidence were reviewed.",
@@ -86,16 +100,22 @@
     },
     {
       "path": ".github/workflows/public-browser-golden-path.yml",
-      "gitObjectId": "1b709fbab2d6a9054059e1a4112a37ba375b1699",
-      "sha256": "3d764a01ddd0ece6bdcd599711ab99d02fd04ea64b0d9c3e0320b4fe3b174cfd",
-      "lines": 167,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 167 }],
+      "gitObjectId": "41f8a80ddc1ceca5ad4bc241c84c1ac94db94442",
+      "sha256": "ee0d7100a252b20116570d962d37ab72064ef9a5378d7f2c6673a759eede5284",
+      "lines": 174,
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 174
+        }
+      ],
       "findingDisposition": "confirmed-findings-recorded",
       "reviewNotes": [
         "Unconditional pull-request and main-push triggers, concurrency, read-only permissions, pinned service images and actions, exact-head verification, bounded test credentials, production environment validation, canonical migrations, exact build, governed browsers, unchanged-checkout verification and failure evidence were reviewed.",
         "The incomplete path allowlist was removed so changes in shared runtime and security authorities cannot silently bypass the public Browser Golden Path.",
         "2026-08-15: re-reviewed after adding the qa:academy-arena-mentor-a11y:check step before the production environment contract. The guard is a local read-only evidence harness check for the Academy/Arena/Mentor accessibility surfaces; workflow permissions, exact-head verification, browser execution, failure evidence upload and production activation boundaries are unchanged.",
-        "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged."
+        "2026-08-21: re-reviewed after adding explicit low-entropy synthetic EMAIL_PROVIDER=resend and RESEND_API_KEY fixtures to the production environment contract. The values are non-secret test fixtures used only to exercise the fail-closed email readiness validator; unconditional triggers, read-only permissions, exact-head checkout, pinned actions, browser execution and bounded evidence upload remain unchanged.",
+        "2026-08-25: re-reviewed after adding synthetic GitHub Actions-only values for the administrator session, TOTP, bootstrap, phone identity, phone OTP encryption, communication-provider encryption and Limoo SMS environment contract. Job-scoped expressions and deterministic non-secret base64 fixtures satisfy production validation without granting provider or deployment authority; exact-head binding, build, database, browser scenarios and artifact handling are unchanged."
       ],
       "findings": [
         {
@@ -108,7 +128,9 @@
           "fixOwner": "tests-quality-evidence",
           "verificationRequirement": "Workflow policy and exact-head GitHub Actions evidence must demonstrate that the Browser Golden Path is not conditionally excluded by a path allowlist.",
           "disposition": "remediated",
-          "remediation": ["https://github.com/tecpey/Tecpey-Os/issues/156"]
+          "remediation": [
+            "https://github.com/tecpey/Tecpey-Os/issues/156"
+          ]
         }
       ]
     },
@@ -117,7 +139,12 @@
       "gitObjectId": "2f59b2ee6c97e0bad0061ab0a25581a1ef59d517",
       "sha256": "4492537ff9de6c2fc8862f1f5005a47f49554085039837271b659f358ec2b358",
       "lines": 62,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 62 }],
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 62
+        }
+      ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Main, pull-request, daily and manual triggers; read-only permissions; exact-head full-history checkout; disabled credential persistence; pinned actions; permanent secret authority and tests; exact evidence SHA propagation; and always-uploaded redacted evidence were reviewed.",
@@ -130,7 +157,12 @@
       "gitObjectId": "333970ad0af488bd0d523d8c2be46ee1cc9e33cd",
       "sha256": "69b6ca12a26147cfc3f6478c435f4529dd270508476cbc82d9fe6cd30e5e8dfe",
       "lines": 591,
-      "reviewedRanges": [{ "startLine": 1, "endLine": 591 }],
+      "reviewedRanges": [
+        {
+          "startLine": 1,
+          "endLine": 591
+        }
+      ],
       "findingDisposition": "no-confirmed-findings",
       "reviewNotes": [
         "Retired-script fail-closed behavior, mutable installer rejection, production documentation constraints, environment-template completeness, exact Node/npm/systemd contracts, clean candidate binding, immutable build identity, Compose/public inputs, container trigger coverage, readiness probes and production-verification delegation were reviewed line by line.",

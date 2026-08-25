@@ -4,7 +4,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaApple, FaGithub, FaGoogle } from "react-icons/fa6";
+import { FaApple, FaGoogle } from "react-icons/fa6";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,7 +13,9 @@ import {
   EyeOff,
   Loader2,
   LockKeyhole,
+  MessageSquareText,
   ShieldCheck,
+  CheckCircle2,
   UserRoundCheck,
 } from "lucide-react";
 import { TecpeyMark } from "@/components/brand/TecpeyMark";
@@ -50,33 +52,24 @@ function FieldLabel({
 function SocialAuthButton({
   label,
   status,
-  badge,
   icon,
 }: {
   label: string;
   status: string;
-  badge: string;
   icon: ReactNode;
 }) {
   return (
     <button
       type="button"
       disabled
-      className="group relative inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white px-3 py-2.5 text-sm font-black text-[color:var(--tp-text)] opacity-65 shadow-sm transition-[transform,border-color,background-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 disabled:cursor-not-allowed dark:bg-white/[0.08]"
+      className="group relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[color:var(--tp-border)] bg-white text-xl text-[color:var(--tp-text)] opacity-65 shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 disabled:cursor-not-allowed dark:bg-white/[0.08]"
       aria-label={`${label} - ${status}`}
       title={status}
     >
-      <span className="text-base text-[color:var(--tp-text)]" aria-hidden="true">
+      <span aria-hidden="true">
         {icon}
       </span>
-      <span>{label}</span>
-      <span
-        className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-1.5 py-0.5 text-[9px] font-black text-cyan-700 dark:text-cyan-200"
-        aria-hidden="true"
-      >
-        {badge}
-      </span>
-      <span className="sr-only">{status}</span>
+      <span className="sr-only">{label}: {status}</span>
     </button>
   );
 }
@@ -94,10 +87,17 @@ export function AcademyAuthClient({
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [phoneChallengeId, setPhoneChallengeId] = useState("");
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [maskedPhone, setMaskedPhone] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const usernameHint = useMemo(
     () =>
       normalizeUsername(username || displayName || email.split("@")[0] || ""),
@@ -110,13 +110,110 @@ export function AcademyAuthClient({
   const socialStatus = isFa
     ? "به‌زودی پس از اتصال امن provider فعال می‌شود"
     : "Coming soon after secure provider connection";
-  const socialBadge = isFa ? "به‌زودی" : "Soon";
   const errorId = "academy-auth-error";
   const passwordHintId = "academy-password-hint";
+
+  async function requestPhoneOtp() {
+    setError("");
+    setSaving(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/request", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, purpose: "signup" }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        challengeId?: string;
+        maskedPhone?: string;
+      } | null;
+      if (!response.ok || !data?.challengeId) throw new Error(data?.error || "otp_delivery_unavailable");
+      setPhoneChallengeId(data.challengeId);
+      setMaskedPhone(data.maskedPhone || phone);
+      setPhoneOtpCode("");
+      setPhoneVerified(false);
+    } catch (err) {
+      const code = (err as Error)?.message;
+      const messages: Record<string, string> = isFa
+        ? {
+            invalid_iranian_mobile: "شماره موبایل ایران را به‌صورت 09xxxxxxxxx وارد کن.",
+            limoo_sms_not_configured: "اتصال لیمو اس‌ام‌اس هنوز در محیط سرور تنظیم نشده است.",
+            phone_otp_service_not_configured: "کلیدهای امنیتی OTP در سرور تنظیم نشده‌اند.",
+            rate_limited: "درخواست‌های زیادی ثبت شده؛ چند دقیقه بعد دوباره تلاش کن.",
+          }
+        : {
+            invalid_iranian_mobile: "Enter a valid Iranian mobile number (09xxxxxxxxx).",
+            limoo_sms_not_configured: "Limoo SMS is not configured on the server yet.",
+            phone_otp_service_not_configured: "OTP security keys are not configured on the server.",
+            rate_limited: "Too many requests. Try again in a few minutes.",
+          };
+      setError(messages[code] || (isFa ? "ارسال کد تأیید در دسترس نیست." : "Verification code delivery is unavailable."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function verifyPhoneOtp() {
+    setError("");
+    if (!phoneChallengeId || !/^\d{4,8}$/.test(phoneOtpCode)) {
+      setError(isFa ? "کد پیامکی معتبر را وارد کن." : "Enter the valid SMS code.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch("/api/auth/phone-otp/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId: phoneChallengeId, code: phoneOtpCode }),
+      });
+      const data = (await response.json().catch(() => null)) as { error?: string; verified?: boolean } | null;
+      if (!response.ok || !data?.verified) throw new Error(data?.error || "invalid_otp_code");
+      setPhoneVerified(true);
+    } catch (err) {
+      const code = (err as Error)?.message;
+      setError(code === "otp_challenge_expired"
+        ? (isFa ? "زمان کد تمام شده؛ کد تازه بگیر." : "The code expired. Request a new one.")
+        : code === "otp_verification_unavailable"
+          ? (isFa ? "ارتباط با سرویس پیامک موقتاً برقرار نیست." : "The SMS provider is temporarily unavailable.")
+          : (isFa ? "کد پیامکی صحیح نیست." : "The SMS code is not valid."));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (twoFactorToken) {
+      if (!/^\d{6}$/.test(twoFactorCode)) {
+        setError(isFa ? "کد ۶ رقمی برنامه احراز هویت را وارد کن." : "Enter the 6-digit authenticator code.");
+        return;
+      }
+      setSaving(true);
+      try {
+        const response = await fetch("/api/auth/2fa/verify", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: twoFactorCode, preAuthToken: twoFactorToken }),
+        });
+        const data = (await response.json().catch(() => null)) as { error?: string; authenticated?: boolean } | null;
+        if (!response.ok || !data?.authenticated) throw new Error(data?.error || "invalid_totp_code");
+        window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
+        router.replace(locale === "en" ? "/en/academy/profile" : "/academy/profile");
+        router.refresh();
+      } catch (err) {
+        const code = (err as Error)?.message;
+        setError(code === "preauth_token_invalid"
+          ? (isFa ? "زمان ورود تمام شد؛ دوباره وارد شو." : "The login challenge expired; sign in again.")
+          : (isFa ? "کد احراز هویت معتبر نیست یا قبلاً استفاده شده است." : "The authenticator code is invalid or already used."));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const cleanEmail = email.trim().toLowerCase();
     const cleanDisplay = (displayName || cleanEmail.split("@")[0])
       .trim()
@@ -124,8 +221,13 @@ export function AcademyAuthClient({
     const cleanUser = normalizeUsername(
       username || cleanDisplay || cleanEmail.split("@")[0],
     );
-    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+    const loginWithPhone = !isSignup && /^(?:\+?98|0)?9\d{9}$/.test(cleanEmail.replace(/[\s()-]/g, ""));
+    if (!loginWithPhone && !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       setError(isFa ? "ایمیل معتبر وارد کن." : "Enter a valid email.");
+      return;
+    }
+    if (isSignup && !phoneVerified) {
+      setError(isFa ? "ابتدا شماره موبایل را با کد پیامکی تأیید کن." : "Verify your mobile number with the SMS code first.");
       return;
     }
     if (password.length < 10) {
@@ -153,7 +255,10 @@ export function AcademyAuthClient({
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: cleanEmail,
+            identity: cleanEmail,
+            email: isSignup ? cleanEmail : undefined,
+            phone: isSignup ? phone : undefined,
+            phoneChallengeId: isSignup ? phoneChallengeId : undefined,
             password,
             displayName: cleanDisplay,
             username: cleanUser,
@@ -165,6 +270,16 @@ export function AcademyAuthClient({
           error?: string;
         } | null;
         throw new Error(data?.error || "auth_failed");
+      }
+      const authData = (await response.json().catch(() => null)) as {
+        requires2fa?: boolean;
+        preAuthToken?: string;
+      } | null;
+      if (authData?.requires2fa) {
+        if (!authData.preAuthToken) throw new Error("preauth_authority_unavailable");
+        setTwoFactorToken(authData.preAuthToken);
+        setTwoFactorCode("");
+        return;
       }
       // Verify the same-origin session after the cookie is persisted.
       await new Promise((resolve) => setTimeout(resolve, 80));
@@ -192,6 +307,10 @@ export function AcademyAuthClient({
         username_taken: "این نام کاربری قبلاً ثبت شده است.",
         invalid_credentials: "ایمیل یا رمز عبور درست نیست.",
         invalid_email: "ایمیل معتبر وارد کن.",
+        invalid_login_identity: "ایمیل یا شماره موبایل معتبر وارد کن.",
+        phone_required: "شماره موبایل برای ساخت حساب لازم است.",
+        phone_taken: "این شماره موبایل قبلاً به حساب دیگری متصل شده است.",
+        phone_verification_required: "شماره موبایل باید دوباره تأیید شود.",
         weak_password: "رمز عبور باید حداقل ۱۰ کاراکتر باشد.",
         invalid_username: "نام کاربری باید حداقل ۳ کاراکتر انگلیسی باشد.",
         academy_auth_storage_unavailable:
@@ -205,6 +324,10 @@ export function AcademyAuthClient({
         username_taken: "This username is already taken.",
         invalid_credentials: "Email or password is incorrect.",
         invalid_email: "Enter a valid email.",
+        invalid_login_identity: "Enter a valid email or mobile number.",
+        phone_required: "A mobile number is required to create an account.",
+        phone_taken: "This mobile number is already linked to another account.",
+        phone_verification_required: "The mobile number must be verified again.",
         weak_password: "Password must be at least 10 characters.",
         invalid_username: "Username must be at least 3 English characters.",
         academy_auth_storage_unavailable:
@@ -425,24 +548,16 @@ export function AcademyAuthClient({
           </div>
 
           <div className="mb-5">
-            <div className="grid gap-2">
+            <div className="flex items-center justify-center gap-3">
               <SocialAuthButton
                 label="Google"
                 status={socialStatus}
-                badge={socialBadge}
                 icon={<FaGoogle />}
               />
               <SocialAuthButton
                 label="Apple"
                 status={socialStatus}
-                badge={socialBadge}
                 icon={<FaApple />}
-              />
-              <SocialAuthButton
-                label="GitHub"
-                status={socialStatus}
-                badge={socialBadge}
-                icon={<FaGithub />}
               />
             </div>
             <div className="mt-4 flex items-center gap-3">
@@ -460,6 +575,29 @@ export function AcademyAuthClient({
           </div>
 
           <div className="space-y-3.5">
+            {twoFactorToken ? (
+              <div>
+                <FieldLabel htmlFor="academy-two-factor-code">
+                  {isFa ? "کد احراز هویت دومرحله‌ای" : "Two-factor authentication code"}
+                </FieldLabel>
+                <input
+                  id="academy-two-factor-code"
+                  value={twoFactorCode}
+                  onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  dir="ltr"
+                  autoFocus
+                  className="mt-2 min-h-12 w-full rounded-2xl border border-cyan-300 bg-slate-50 px-4 py-3 text-center text-xl font-black tracking-[0.45em] text-[color:var(--tp-text)] outline-none focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08]"
+                  aria-describedby="academy-two-factor-hint"
+                />
+                <p id="academy-two-factor-hint" className="mt-2 text-xs font-bold leading-6 text-[color:var(--tp-muted)]">
+                  {isFa ? "کد فعلی برنامه Authenticator را وارد کن. تا تأیید کد هیچ نشستی صادر نمی‌شود." : "Enter the current code from your authenticator app. No session is issued before verification."}
+                </p>
+              </div>
+            ) : (
+              <>
             {isSignup ? (
               <>
                 <div>
@@ -500,22 +638,91 @@ export function AcademyAuthClient({
 
             <div>
               <FieldLabel htmlFor="academy-email">
-                {isFa ? "ایمیل" : "Email"}
+                {isSignup
+                  ? (isFa ? "ایمیل" : "Email")
+                  : (isFa ? "ایمیل یا شماره موبایل" : "Email or mobile number")}
               </FieldLabel>
               <input
                 id="academy-email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
+                placeholder={isSignup ? "you@example.com" : (isFa ? "you@example.com یا 0912…" : "you@example.com or 0912…")}
+                type={isSignup ? "email" : "text"}
+                inputMode={isSignup ? "email" : "text"}
+                autoComplete={isSignup ? "email" : "username"}
                 dir="ltr"
                 aria-invalid={error ? "true" : "false"}
                 aria-describedby={error ? errorId : undefined}
                 className="mt-2 min-h-11 w-full rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none transition-[border-color,box-shadow,background-color] duration-150 ease-out placeholder:text-slate-500 focus:border-cyan-400 focus:bg-white focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08] dark:placeholder:text-slate-400 dark:focus:bg-white/[0.10]"
               />
             </div>
+
+            {isSignup ? (
+              <div className="rounded-2xl border border-[color:var(--tp-border)] bg-cyan-500/[0.05] p-3.5">
+                <FieldLabel htmlFor="academy-phone">
+                  {isFa ? "شماره موبایل ایران" : "Iranian mobile number"}
+                </FieldLabel>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    id="academy-phone"
+                    value={phone}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      setPhoneChallengeId("");
+                      setPhoneOtpCode("");
+                      setPhoneVerified(false);
+                    }}
+                    placeholder="09123456789"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    dir="ltr"
+                    disabled={phoneVerified}
+                    className="min-h-11 min-w-0 flex-1 rounded-2xl border border-[color:var(--tp-border)] bg-slate-50 px-4 py-3 text-left text-sm font-bold text-[color:var(--tp-text)] outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-300/25 disabled:opacity-70 dark:bg-white/[0.08]"
+                  />
+                  <button
+                    type="button"
+                    onClick={requestPhoneOtp}
+                    disabled={saving || phoneVerified}
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-cyan-300/60 bg-cyan-50 px-3 text-xs font-black text-cyan-800 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cyan-400/10 dark:text-cyan-100"
+                  >
+                    {phoneVerified ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <MessageSquareText className="h-4 w-4" aria-hidden="true" />}
+                    {phoneVerified
+                      ? (isFa ? "تأیید شد" : "Verified")
+                      : phoneChallengeId
+                        ? (isFa ? "ارسال دوباره" : "Resend")
+                        : (isFa ? "دریافت کد" : "Send code")}
+                  </button>
+                </div>
+
+                {phoneChallengeId && !phoneVerified ? (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={phoneOtpCode}
+                      onChange={(event) => setPhoneOtpCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                      placeholder={isFa ? "کد پیامکی" : "SMS code"}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      dir="ltr"
+                      className="min-h-11 min-w-0 flex-1 rounded-2xl border border-cyan-300 bg-white px-4 py-3 text-center text-base font-black tracking-[0.25em] text-[color:var(--tp-text)] outline-none focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08]"
+                      aria-label={isFa ? "کد پیامکی" : "SMS verification code"}
+                    />
+                    <button
+                      type="button"
+                      onClick={verifyPhoneOtp}
+                      disabled={saving}
+                      className="min-h-11 rounded-2xl bg-cyan-600 px-4 text-xs font-black text-white transition hover:bg-cyan-700 disabled:opacity-60"
+                    >
+                      {isFa ? "تأیید شماره" : "Verify number"}
+                    </button>
+                  </div>
+                ) : null}
+                <p className="mt-2 text-[11px] font-bold leading-5 text-[color:var(--tp-muted)]">
+                  {phoneVerified
+                    ? (isFa ? `${maskedPhone || phone} با موفقیت به این ثبت‌نام متصل شد.` : `${maskedPhone || phone} is securely linked to this signup.`)
+                    : (isFa ? "حساب فقط پس از تأیید کد یک‌بارمصرف ساخته می‌شود." : "The account is created only after one-time-code verification.")}
+                </p>
+              </div>
+            ) : null}
 
             <div>
               <FieldLabel htmlFor="academy-password">
@@ -564,6 +771,8 @@ export function AcademyAuthClient({
                   : "Use at least 10 characters for stronger account protection."}
               </p>
             </div>
+              </>
+            )}
           </div>
 
           {error ? (
@@ -588,7 +797,9 @@ export function AcademyAuthClient({
             ) : (
               <LockKeyhole className="h-4 w-4" aria-hidden="true" />
             )}
-            {isSignup
+            {twoFactorToken
+              ? isFa ? "تأیید کد و ورود" : "Verify code and sign in"
+              : isSignup
               ? isFa
                 ? "ساخت حساب آکادمی"
                 : "Create academy account"

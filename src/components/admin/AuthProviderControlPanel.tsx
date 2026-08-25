@@ -216,7 +216,7 @@ export function AuthProviderControlPanel() {
       if (response.status === 401) {
         setSnapshot(null);
         setReviewRequestsByProvider({});
-        setError("ابتدا از مسیر Command Center با Passkey وارد شو.");
+        setError("ابتدا از مسیر Command Center با احراز هویت چندعاملی وارد شو.");
         return;
       }
       if (response.status === 403) {
@@ -308,7 +308,7 @@ export function AuthProviderControlPanel() {
         return;
       }
       if (data?.error === "step_up_required") {
-        setNotice("فعال‌سازی Provider نیازمند ورود دوباره با Passkey و Step-up تازه است.");
+        setNotice("فعال‌سازی Provider نیازمند ورود دوباره با رمز و Authenticator و Step-up تازه است.");
         return;
       }
       if (data?.error === "auth_provider_control_locked") {
@@ -397,7 +397,7 @@ export function AuthProviderControlPanel() {
         return;
       }
       if (data?.error === "step_up_required") {
-        setNotice("ثبت evidence نیازمند ورود دوباره با Passkey و Step-up تازه است.");
+        setNotice("ثبت evidence نیازمند ورود دوباره با رمز و Authenticator و Step-up تازه است.");
         return;
       }
       if (data?.error === "auth_provider_evidence_secret_like_input") {
@@ -456,7 +456,7 @@ export function AuthProviderControlPanel() {
         return;
       }
       if (data?.error === "step_up_required") {
-        setNotice("تصمیم روی Approval queue نیازمند ورود دوباره با Passkey و Step-up تازه است.");
+        setNotice("تصمیم روی Approval queue نیازمند ورود دوباره با رمز و Authenticator و Step-up تازه است.");
         return;
       }
       if (data?.error === "auth_provider_review_decision_reason_required") {

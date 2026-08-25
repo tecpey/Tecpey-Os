@@ -293,13 +293,23 @@ export async function POST(req: NextRequest) {
         const ip = getClientIp(req);
         const userAgent = (req.headers.get("user-agent") || "").slice(0, 500);
         const email = body.email || session.email;
-        const result = await withDb(async (client) =>
-          upsertStudentCartax(
+        const result = await withDb(async (client) => {
+          const verifiedPhone = session.academyAccountId
+            ? await client.query<{ phone_e164: string | null }>(
+                `SELECT phone_e164
+                   FROM academy_auth_accounts
+                  WHERE id = $1
+                    AND phone_verified_at IS NOT NULL
+                  LIMIT 1`,
+                [session.academyAccountId],
+              )
+            : null;
+          return upsertStudentCartax(
             client,
             {
               locale: body.locale,
               email,
-              phone: body.phone,
+              phone: verifiedPhone?.rows[0]?.phone_e164 ?? undefined,
               googleId: body.googleId,
               appleId: body.appleId,
               displayName: body.displayName || session.displayName,
@@ -311,8 +321,8 @@ export async function POST(req: NextRequest) {
               userAgent,
             },
             session.studentId ?? undefined,
-          ),
-        );
+          );
+        });
 
         if (result.enabled && result.value) {
           const response = apiOk({

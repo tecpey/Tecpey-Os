@@ -23,8 +23,7 @@ function usd(value: unknown) {
   return `$${new Intl.NumberFormat("en-US", { maximumFractionDigits: n < 10 ? 4 : 2 }).format(n)}`;
 }
 
-function resolveUsdPrice(coin: MarketCurrency, symbol: string) {
-  if (symbol === "USDT") return 1;
+function resolveUsdPrice(coin: MarketCurrency) {
   return (
     coin?.priceData?.price ??
     coin?.priceData?.last ??
@@ -518,7 +517,7 @@ export default function EnglishLandingClient({
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT", "USDTUSDT", "TONUSDT"]);
   const fallback: MarketCurrency[] = [
     { symbol: "BTC", name: "Bitcoin", priceData: { last: 0 } },
-    { symbol: "USDT", name: "Tether", priceData: { last: 1 } },
+    { symbol: "USDT", name: "Tether", priceData: { last: null } },
     { symbol: "ETH", name: "Ethereum", priceData: { last: 0 } },
     { symbol: "TON", name: "Toncoin", priceData: { last: 0 } },
   ];
@@ -567,7 +566,7 @@ export default function EnglishLandingClient({
               {rows.map((coin, index) => {
                 const symbol = String(coin?.symbol ?? coin?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
                 const name = coin?.name ?? symbol;
-                const price = resolveUsdPrice(coin, symbol);
+                const price = resolveUsdPrice(coin);
                 return (
                   <div key={`${symbol}-${index}`} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200 dark:border-white/10 p-3">
                     <span className="truncate text-sm font-bold">{name || symbol} / USD</span>

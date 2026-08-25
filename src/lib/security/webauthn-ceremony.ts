@@ -1,3 +1,5 @@
+import { customerPasskeysEnabled } from "@/lib/admin-auth-policy";
+
 const CEREMONY_CHALLENGE_PREFIX = "tecpey:webauthn:ceremony:";
 const CEREMONY_CHALLENGE_TTL_SECONDS = 300;
 
@@ -81,6 +83,7 @@ export async function storeWebAuthnCeremonyChallenge(input: {
   ceremony: WebAuthnCeremony;
   userId: string | null;
 }): Promise<void> {
+  if (!customerPasskeysEnabled()) throw new Error("passkey_disabled_for_market");
   if (!/^[A-Za-z0-9_-]{32,512}$/.test(input.challenge)) {
     throw new Error("invalid_webauthn_challenge");
   }
@@ -113,6 +116,7 @@ export async function consumeWebAuthnCeremonyChallenge(
   challenge: string,
   expectedCeremony: WebAuthnCeremony,
 ): Promise<WebAuthnChallengeEnvelope | null> {
+  if (!customerPasskeysEnabled()) return null;
   if (!/^[A-Za-z0-9_-]{32,512}$/.test(challenge)) return null;
 
   const redis = redisClient();

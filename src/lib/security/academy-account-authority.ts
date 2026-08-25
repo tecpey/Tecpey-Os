@@ -10,6 +10,10 @@ import {
   writeSensitiveMutationAuditTx,
   type SensitiveMutationAuditEvent,
 } from "@/lib/security/sensitive-mutation-audit";
+import {
+  consumeVerifiedPhoneChallengeTx,
+  lockVerifiedPhoneChallengeTx,
+} from "@/lib/security/phone-otp-authority";
 
 export type AcademyAccountAuditContext = Pick<
   SensitiveMutationAuditEvent,
@@ -21,6 +25,7 @@ export type AcademyCredentialAccount = {
   email: string;
   username: string;
   displayName: string;
+  phoneE164?: string;
 };
 
 export type AcademyAccountAuthorityResult =
@@ -29,7 +34,7 @@ export type AcademyAccountAuthorityResult =
       account: AcademyCredentialAccount;
     }
   | {
-      status: "invalid_credentials" | "username_taken" | "unavailable";
+      status: "invalid_credentials" | "username_taken" | "phone_taken" | "phone_verification_required" | "unavailable";
     };
 
 type AcademyAccountRow = {
@@ -38,6 +43,7 @@ type AcademyAccountRow = {
   username: string;
   display_name: string;
   password_hash: string;
+  phone_e164: string | null;
 };
 
 export function hashAcademyPassword(password: string): string {
@@ -104,6 +110,7 @@ function accountFromRow(row: AcademyAccountRow): AcademyCredentialAccount {
     email: row.email,
     username: row.username,
     displayName: row.display_name,
+    phoneE164: row.phone_e164 ?? undefined,
   };
 }
 
@@ -114,19 +121,27 @@ export async function authenticateOrRegisterAcademyAccount(input: {
   username: string;
   displayName: string;
   password: string;
+  loginIdentity?: string;
+  phoneVerification?: {
+    phoneE164: string;
+    challengeId: string;
+    required: boolean;
+  };
   audit: AcademyAccountAuditContext;
 }): Promise<AcademyAccountAuthorityResult> {
-  assertAuthority(input);
+  if (input.mode === "signup") assertAuthority(input);
 
   const transaction = await withTx(async (client) => {
     if (input.mode === "login") {
       await lockIdentity(client, `academy-account-email:${input.email}`);
       const selected = await client.query<AcademyAccountRow>(
-        `SELECT id, email, username, display_name, password_hash
+        `SELECT id, email, username, display_name, password_hash, phone_e164
            FROM academy_auth_accounts
-          WHERE email = $1
+          WHERE email = $1 OR phone_e164 = $2
+          ORDER BY CASE WHEN email = $1 THEN 0 ELSE 1 END
+          LIMIT 1
           FOR UPDATE`,
-        [input.email],
+        [input.email, input.loginIdentity ?? input.phoneVerification?.phoneE164 ?? ""],
       );
       const existing = selected.rows[0];
       if (!existing || !verifyAcademyPassword(input.password, existing.password_hash)) {
@@ -140,17 +155,24 @@ export async function authenticateOrRegisterAcademyAccount(input: {
 
     await lockSignupIdentities(client, input);
     const selected = await client.query<AcademyAccountRow>(
-      `SELECT id, email, username, display_name, password_hash
+      `SELECT id, email, username, display_name, password_hash, phone_e164
          FROM academy_auth_accounts
-        WHERE email = $1 OR username = $2
+        WHERE email = $1 OR username = $2 OR phone_e164 = $3
         ORDER BY CASE WHEN email = $1 THEN 0 ELSE 1 END
         FOR UPDATE`,
-      [input.email, input.username],
+      [input.email, input.username, input.phoneVerification?.phoneE164 ?? ""],
     );
     const usernameOwner = selected.rows.find(
       (row) => row.username === input.username && row.email !== input.email,
     );
     if (usernameOwner) return { status: "username_taken" } as const;
+
+    const phoneOwner = input.phoneVerification?.phoneE164
+      ? selected.rows.find(
+          (row) => row.phone_e164 === input.phoneVerification?.phoneE164 && row.email !== input.email,
+        )
+      : null;
+    if (phoneOwner) return { status: "phone_taken" } as const;
 
     const existing = selected.rows.find((row) => row.email === input.email) ?? null;
     if (existing) {
@@ -163,13 +185,38 @@ export async function authenticateOrRegisterAcademyAccount(input: {
       } as const;
     }
 
+    if (input.phoneVerification?.required) {
+      const verified = await lockVerifiedPhoneChallengeTx(client, {
+        challengeId: input.phoneVerification.challengeId,
+        phoneE164: input.phoneVerification.phoneE164,
+        purpose: "signup",
+      });
+      if (!verified) return { status: "phone_verification_required" } as const;
+    }
+
     const passwordHash = hashAcademyPassword(input.password);
     await client.query(
       `INSERT INTO academy_auth_accounts
-         (id, email, username, display_name, password_hash)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [input.accountId, input.email, input.username, input.displayName, passwordHash],
+         (id, email, username, display_name, password_hash, phone_e164, phone_verified_at)
+       VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6::text IS NULL THEN NULL ELSE NOW() END)`,
+      [
+        input.accountId,
+        input.email,
+        input.username,
+        input.displayName,
+        passwordHash,
+        input.phoneVerification?.phoneE164 ?? null,
+      ],
     );
+    if (input.phoneVerification?.required) {
+      const consumed = await consumeVerifiedPhoneChallengeTx(client, {
+        challengeId: input.phoneVerification.challengeId,
+        phoneE164: input.phoneVerification.phoneE164,
+        purpose: "signup",
+        accountId: input.accountId,
+      });
+      if (!consumed) throw new Error("phone_otp_consumption_invariant_failed");
+    }
     await writeSensitiveMutationAuditTx(client, {
       ...input.audit,
       action: "credential.account.create",
@@ -190,6 +237,7 @@ export async function authenticateOrRegisterAcademyAccount(input: {
         email: input.email,
         username: input.username,
         displayName: input.displayName,
+        phoneE164: input.phoneVerification?.phoneE164,
       },
     } as const;
   });

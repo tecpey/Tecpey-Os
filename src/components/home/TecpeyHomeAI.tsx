@@ -102,26 +102,6 @@ function formatTime(value: string, locale: Locale) {
   }).format(date);
 }
 
-function fallbackItems(locale: Locale): NewsItem[] {
-  // Fallback items are static placeholders with no real publish time. Their
-  // publishedAt is rendered via formatTime (minute precision) at line 385, and
-  // this list seeds the SSR initial state, so a live timestamp here would
-  // hydration-mismatch (React #418) exactly like the updatedAt field. An empty
-  // value renders the deterministic "Recently updated" placeholder on both the
-  // server and the first client render.
-  const now = "";
-  if (locale === "fa") {
-    return [
-      { id: "fa-local-1", title: "بازار رمزارز امروز را با تمرکز روی ریسک دنبال کنید", summary: "اخبار بازار باید کنار آموزش، مدیریت سرمایه و پرهیز از تصمیم‌های هیجانی بررسی شود.", source: "اتاق خبر تک‌پی", url: "/crypto-news", publishedAt: now, category: "بازار", tone: "neutral", impact: 8 },
-      { id: "fa-local-2", title: "آموزش امنیت همچنان مهم‌ترین قدم قبل از معامله است", summary: "قبل از هر خرید و فروش، امنیت حساب، 2FA و شناخت فیشینگ را جدی بگیرید.", source: "آکادمی تک‌پی", url: "/academy/term-2", publishedAt: now, category: "امنیت", tone: "neutral", impact: 9 },
-    ];
-  }
-  return [
-    { id: "en-local-1", title: "Follow crypto news with a risk-first mindset", summary: "Market news should be reviewed with education, risk management and emotional control.", source: "TecPey News Desk", url: "/en/crypto-news", publishedAt: now, category: "Market", tone: "neutral", impact: 8 },
-    { id: "en-local-2", title: "Security education is still the first step before trading", summary: "Before trading, users should understand 2FA, phishing and safe account habits.", source: "TecPey Academy", url: "/en/academy/term-2", publishedAt: now, category: "Security", tone: "neutral", impact: 9 },
-  ];
-}
-
 export function HomeAiMentorSpotlight({ locale }: { locale: Locale }) {
   const [question, answer] = useRotatingPair(locale);
   const isFa = locale === "fa";
@@ -265,8 +245,8 @@ function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; inte
   const { currencies } = useBaseCurrenciesPrice(["BTCUSDT", "ETHUSDT"]);
   const btc = currencies.find((coin) => String(coin.symbol ?? coin.priceData?.symbol ?? "").includes("BTC"));
   const eth = currencies.find((coin) => String(coin.symbol ?? coin.priceData?.symbol ?? "").includes("ETH"));
-  const btcChange = Number(btc?.priceData?.changePercent ?? btc?.changePercent ?? 0);
-  const ethChange = Number(eth?.priceData?.changePercent ?? eth?.changePercent ?? 0);
+  const btcChange = btc?.priceData?.changePercent ?? btc?.changePercent ?? null;
+  const ethChange = eth?.priceData?.changePercent ?? eth?.changePercent ?? null;
   const defaultBrief = isFa
     ? { headline: "بازار را با نظم، نه هیجان، دنبال کنید.", risk: "نوسان کوتاه‌مدت می‌تواند تصمیم‌های عجولانه ایجاد کند.", action: "اگر تازه‌کار هستید، قبل از هر تصمیم سری به ترم مدیریت ریسک بزنید.", tone: "neutral" as Tone }
     : { headline: "Follow the market with discipline, not emotion.", risk: "Short-term volatility can trigger rushed decisions.", action: "If you are new, review risk management before acting.", tone: "neutral" as Tone };
@@ -281,11 +261,12 @@ function LiveMarketIntelligence({ locale, intelligence }: { locale: Locale; inte
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         {[["BTC", btcChange], ["ETH", ethChange]].map(([symbol, change]) => {
-          const numeric = Number(change);
+          const numeric = change === null || change === undefined ? null : Number(change);
+          const hasChange = numeric !== null && Number.isFinite(numeric);
           return (
             <div key={String(symbol)} className="rounded-[28px] border border-cyan-300/15 bg-white/75 p-5 shadow-xl shadow-cyan-500/5 dark:bg-slate-950/45">
               <div className="flex items-center justify-between"><span className="text-sm font-black text-slate-500 dark:text-slate-300">{String(symbol)} / USDT</span><TrendingUp className="h-5 w-5 text-cyan-500" /></div>
-              <p className={`mt-4 text-3xl font-black ${numeric >= 0 ? "text-emerald-700 dark:text-emerald-500" : "text-rose-700 dark:text-rose-500"}`}>{Number.isFinite(numeric) ? `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}%` : "—"}</p>
+              <p className={`mt-4 text-3xl font-black ${!hasChange ? "text-slate-500" : numeric >= 0 ? "text-emerald-700 dark:text-emerald-500" : "text-rose-700 dark:text-rose-500"}`}>{hasChange ? `${numeric >= 0 ? "+" : ""}${numeric.toFixed(2)}%` : isFa ? "ناموجود" : "Unavailable"}</p>
               <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">{isFa ? "تغییرات ۲۴ ساعت اخیر" : "24h change"}</p>
             </div>
           );
@@ -303,7 +284,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
   // straddle a minute tick — an intermittent React #418 hydration mismatch. Keep
   // the initial timestamp deterministic (empty -> "Recently updated" placeholder
   // on both renders); the effect below fills the real time client-side.
-  const [state, setState] = useState<NewsResponse>({ mode: "fallback", updatedAt: "", items: fallbackItems(locale) });
+  const [state, setState] = useState<NewsResponse>({ mode: "fallback", updatedAt: "", items: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -315,7 +296,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
         if (active && Array.isArray(data.items)) setState(data);
       })
       .catch(() => {
-        if (active) setState({ mode: "fallback", updatedAt: new Date().toISOString(), items: fallbackItems(locale) });
+        if (active) setState({ mode: "fallback", updatedAt: new Date().toISOString(), items: [] });
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -351,7 +332,7 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
                 : (isFa ? "آخرین تلاش برای دریافت" : "Last feed check")}
               : {formatTime(state.updatedAt, locale)}
             </span>
-            <span className="inline-flex rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-700 dark:text-cyan-100">{loading ? (isFa ? "در حال دریافت خبرها" : "Fetching news") : state.mode === "live" ? (isFa ? "خبر زنده" : "Live feeds") : (isFa ? "حالت پشتیبان" : "Fallback mode")}</span>
+            <span className="inline-flex rounded-full border border-cyan-300/25 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-700 dark:text-cyan-100">{loading ? (isFa ? "در حال دریافت خبرها" : "Fetching news") : state.mode === "live" ? (isFa ? "خبر زنده" : "Live feeds") : (isFa ? "خبر تازه در دسترس نیست" : "Fresh feed unavailable")}</span>
           </div>
         </div>
 
@@ -406,6 +387,17 @@ export function CryptoNewsCenter({ locale, compact = false }: { locale: Locale; 
             </a>
           ))}
         </div>
+
+        {!loading && topItems.length === 0 ? (
+          <div className="mt-6 rounded-3xl border border-amber-300/25 bg-amber-400/10 p-5 text-center" role="status">
+            <p className="text-sm font-black text-slate-900 dark:text-white">
+              {isFa ? "در حال حاضر خبر تازه و تاریخ‌دار از منابع تأییدشده دریافت نشد." : "No fresh, dated headline is currently available from the verified feeds."}
+            </p>
+            <p className="mt-2 text-xs font-bold leading-6 text-slate-600 dark:text-slate-300">
+              {isFa ? "برای حفظ اعتماد، خبر قدیمی یا متن آموزشی را به‌جای خبر زنده نمایش نمی‌دهیم." : "To preserve trust, we do not present old headlines or educational copy as live news."}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-7 flex flex-col items-center justify-between gap-4 rounded-[28px] border border-cyan-300/20 bg-cyan-500/10 p-5 md:flex-row">
           <div className="flex items-center gap-3">

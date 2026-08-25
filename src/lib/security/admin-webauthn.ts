@@ -4,6 +4,7 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "crypto";
+import { adminAuthenticationModes } from "@/lib/admin-auth-policy";
 
 const ADMIN_CHALLENGE_PREFIX = "tecpey:admin-webauthn:challenge:";
 const ADMIN_CHALLENGE_TTL_SECONDS = 300;
@@ -147,6 +148,7 @@ export async function storeAdminWebAuthnChallenge(input: {
   ceremony: AdminWebAuthnCeremony;
   adminId: string | null;
 }): Promise<void> {
+  if (!adminAuthenticationModes().passkey) throw new Error("admin_passkey_disabled");
   if (!/^[A-Za-z0-9_-]{32,512}$/.test(input.challenge)) {
     throw new Error("invalid_admin_webauthn_challenge");
   }
@@ -179,6 +181,7 @@ export async function consumeAdminWebAuthnChallenge(
   challenge: string,
   expectedCeremony: AdminWebAuthnCeremony,
 ): Promise<AdminWebAuthnChallenge | null> {
+  if (!adminAuthenticationModes().passkey) return null;
   if (!/^[A-Za-z0-9_-]{32,512}$/.test(challenge)) return null;
   const redis = redisClient();
   if (!redis) return null;

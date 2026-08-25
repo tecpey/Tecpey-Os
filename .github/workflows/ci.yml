@@ -81,6 +81,9 @@ jobs:
       NEXT_PUBLIC_API_BACKEND_URL: https://api.ci.tecpey.test
       NEXT_PUBLIC_API_SOCKET_URL: wss://stream.ci.tecpey.test/spot
       TECPEY_SESSION_SECRET: ci-placeholder-session-secret-32-chars-min
+      TECPEY_ADMIN_SESSION_SECRET: ${{ format('ci-admin-session-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_2FA_SECRET: ${{ format('ci-totp-encryption-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_ADMIN_TOKEN: ${{ format('ci-admin-bootstrap-fixture-{0}-long-enough', github.run_id) }}
       TECPEY_REFRESH_SECRET: ci-placeholder-refresh-secret-32-chars-min
       TECPEY_ACADEMY_AUTH_SECRET: ci-placeholder-academy-auth-secret-32chars
       CERTIFICATE_SIGNING_SECRET: ci-placeholder-cert-signing-secret-32-min
@@ -88,6 +91,10 @@ jobs:
       TECPEY_OFFLINE_SYNC_SECRET: ci-placeholder-offline-scope-secret-32-min
       TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       TECPEY_CRM_CONTACT_HASH_SECRET: ci-placeholder-crm-contact-hash-secret-32-min
+      TECPEY_PHONE_IDENTITY_HASH_SECRET: ${{ format('ci-phone-identity-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: ${{ 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=' }}
+      TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: ${{ 'CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=' }}
+      LIMOO_SMS_API_KEY: ${{ format('ci-limoo-sms-fixture-{0}', github.run_id) }}
       TECPEY_CRM_WEBHOOK_SECRET: ci-placeholder-crm-webhook-secret-32-min
       ACADEMY_LEADS_WEBHOOK_URL: https://crm-ci-placeholder.tecpey.ir/academy-leads
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for

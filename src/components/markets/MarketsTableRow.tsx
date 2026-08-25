@@ -23,8 +23,14 @@ export default function MarketsTableRow({
 }: Props) {
   const router = useRouter();
 
-  const change = Number(coin.priceData?.changePercent || 0);
-  const isUp = change >= 0;
+  const rawChange = coin.priceData?.changePercent;
+  const change = rawChange === null || rawChange === undefined ? null : Number(rawChange);
+  const hasChange = change !== null && Number.isFinite(change);
+  const isUp = hasChange && change >= 0;
+  const rawPrice = coin.priceData?.last;
+  const hasPrice = rawPrice !== null && rawPrice !== undefined && Number.isFinite(Number(rawPrice));
+  const rawVolume = coin.priceData?.volume;
+  const hasVolume = rawVolume !== null && rawVolume !== undefined && Number.isFinite(Number(rawVolume));
 
   const irtPrice =
     USDT_IRT && coin.priceData?.last
@@ -69,7 +75,7 @@ export default function MarketsTableRow({
 
       {/* price usdt */}
       <p className="text-[10px] sm:text-[12px] font-semibold text-fg/80 whitespace-nowrap">
-        {handleDecimal(coin.priceData?.last ?? 0)}
+        {hasPrice ? handleDecimal(rawPrice) : "—"}
       </p>
 
       {/* price irt */}
@@ -81,24 +87,21 @@ export default function MarketsTableRow({
 
       {/* volume */}
       <p className="text-[10px] sm:text-[11px] font-medium text-muted whitespace-nowrap">
-        {coin.priceData?.volume
-          ? Number(coin.priceData.volume).toFixed(2)
-          : "0.00"}{" "}
+        {hasVolume ? Number(rawVolume).toFixed(2) : "—"}{" "}
       </p>
 
       {/* change */}
       <p
         className={`text-[10px] sm:text-[11px] font-bold whitespace-nowrap ${
-          isUp ? "text-green-600" : "text-red-600"
+          !hasChange ? "text-muted" : isUp ? "text-green-600" : "text-red-600"
         }`}
       >
-        {isUp ? "+" : ""}
-        {change.toFixed(2)}%
+        {hasChange ? `${isUp ? "+" : ""}${change.toFixed(2)}%` : "—"}
       </p>
 
       {/* chart */}
       <div className="h-[28px] w-[54px] sm:h-[32px] sm:w-[76px] lg:w-[92px]">
-        <Chart symbol={coin.priceData?.symbol ?? coin.symbol ?? ""} change={change} height={28} />
+        {hasChange ? <Chart symbol={coin.priceData?.symbol ?? coin.symbol ?? ""} change={change} height={28} /> : <span className="text-muted">—</span>}
       </div>
 
       {/* action */}

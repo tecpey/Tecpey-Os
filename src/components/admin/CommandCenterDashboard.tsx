@@ -1,5 +1,5 @@
 "use client";
-
+import { AdminTotpRotationPanel } from "./AdminTotpRotationPanel";
 import Link from "next/link";
 import {
   BarChart3,
@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   LogOut,
   Megaphone,
+  MessagesSquare,
   RefreshCw,
   ShieldCheck,
   UserRound,
@@ -66,6 +67,13 @@ const controlLinks = [
     detail: "Google، Apple، Telegram و Email OTP با Secret، callback، domain و audit gates.",
     icon: Fingerprint,
     status: "OAuth gates",
+  },
+  {
+    href: "/command-center/communications",
+    label: "SMS، ایمیل و الگوهای ارتباطی",
+    detail: "مدیریت امن Limoo، Resend و SendGrid با چرخش Secret، Template و تست اتصال.",
+    icon: MessagesSquare,
+    status: "Secret safe",
   },
 ] as const;
 
@@ -144,7 +152,7 @@ export function CommandCenterDashboard({
         return;
       }
       if (data?.error === "step_up_required") {
-        setCampaignState("برای این عملیات حساس، یک‌بار خارج شو و دوباره با Passkey وارد شو.");
+        setCampaignState("برای این عملیات حساس، یک‌بار خارج شو و دوباره با رمز و Authenticator وارد شو.");
         return;
       }
       setCampaignState(
@@ -170,7 +178,7 @@ export function CommandCenterDashboard({
                   <Database className="h-4 w-4" aria-hidden="true" /> TecPey Enterprise Command Center
                 </p>
                 <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-3 py-1.5 text-xs font-black text-emerald-200">
-                  <Fingerprint className="h-4 w-4" aria-hidden="true" /> Passkey verified
+                  <Fingerprint className="h-4 w-4" aria-hidden="true" /> MFA verified
                 </span>
               </div>
               <h1 className="mt-5 text-3xl font-black md:text-5xl">کنترل‌پلین عملیاتی تک‌پی</h1>
@@ -225,6 +233,8 @@ export function CommandCenterDashboard({
             {error}
           </div>
         )}
+
+        <AdminTotpRotationPanel onSessionExpired={onSessionExpired} />
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           {controlLinks.map((item) => {

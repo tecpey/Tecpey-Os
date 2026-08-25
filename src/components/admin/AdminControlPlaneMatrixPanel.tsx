@@ -154,7 +154,7 @@ export function AdminControlPlaneMatrixPanel() {
       const data = (await response.json().catch(() => ({}))) as MatrixResponse;
       if (response.status === 401) {
         setSnapshot(null);
-        setError("ابتدا از مسیر Command Center با Passkey وارد شو.");
+        setError("ابتدا از مسیر Command Center با رمز و Authenticator وارد شو.");
         return;
       }
       if (response.status === 403) {

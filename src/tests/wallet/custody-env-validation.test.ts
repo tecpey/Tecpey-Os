@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { describe, it } from "node:test";
+import { ADMIN_AUTH_ENV_SECRET_NAMES, adminAuthEnvFixture } from "../../../scripts/admin-auth-env-test-fixture";
 
 type EnvOverrides = Record<string, string | undefined>;
 
@@ -14,6 +15,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     NEXT_PUBLIC_API_BACKEND_URL: "https://backend.tecpey.test",
     NEXT_PUBLIC_API_SOCKET_URL: "wss://tecpey.test/ws",
     TECPEY_SESSION_SECRET: secret("session"),
+    ...adminAuthEnvFixture(secret),
     TECPEY_REFRESH_SECRET: secret("refresh"),
     TECPEY_ACADEMY_AUTH_SECRET: secret("academy"),
     CERTIFICATE_SIGNING_SECRET: secret("certificate"),
@@ -21,6 +23,10 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     TECPEY_OFFLINE_SYNC_SECRET: secret("offline"),
     TECPEY_CRM_PII_KEY_B64: Buffer.alloc(32, 7).toString("base64"),
     TECPEY_CRM_CONTACT_HASH_SECRET: secret("crm-contact"),
+    TECPEY_PHONE_IDENTITY_HASH_SECRET: secret("phone-identity"),
+    TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: Buffer.alloc(32, 9).toString("base64"),
+    TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: Buffer.alloc(32, 10).toString("base64"),
+    LIMOO_SMS_API_KEY: "limoo-test-api-key",
     TECPEY_TRUSTED_PROXY_HEADER: "x-real-ip",
     TECPEY_TRUSTED_PROXY_HOPS: "1",
     DATABASE_URL: "postgresql://tecpey:test@127.0.0.1:5432/tecpey",
@@ -43,6 +49,31 @@ describe("production custody environment validation", () => {
     const result = validate();
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /environment validation passed/);
+  });
+
+  it("requires strong, isolated administrator authentication secrets", () => {
+    const requiredAdminSecrets = ADMIN_AUTH_ENV_SECRET_NAMES;
+
+    for (const name of requiredAdminSecrets) {
+      const result = validate({ [name]: "" });
+      assert.notEqual(result.status, 0, `${name} must fail production env validation`);
+      assert.match(result.stderr, new RegExp(`${name} is missing`));
+    }
+
+    const shortSecret = validate({ TECPEY_ADMIN_SESSION_SECRET: "too-short" });
+    assert.notEqual(shortSecret.status, 0);
+    assert.match(shortSecret.stderr, /TECPEY_ADMIN_SESSION_SECRET must be at least 32 characters/);
+
+    const reusedSecret = `reused-${"x".repeat(48)}`;
+    const reused = validate({
+      TECPEY_SESSION_SECRET: reusedSecret,
+      TECPEY_ADMIN_SESSION_SECRET: reusedSecret,
+    });
+    assert.notEqual(reused.status, 0);
+    assert.match(
+      reused.stderr,
+      /TECPEY_SESSION_SECRET and TECPEY_ADMIN_SESSION_SECRET must be distinct/,
+    );
   });
 
   it("rejects real withdrawal activation", () => {

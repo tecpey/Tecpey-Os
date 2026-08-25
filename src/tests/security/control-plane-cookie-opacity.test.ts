@@ -80,7 +80,7 @@ test("the cookie value comes from the signing path, not merely near it", () => {
   // credential in the browser cookie.
   //
   // So follow the value instead: cookie ← session.token ← the record returned by
-  // createAdminPasskeySession ← createAdminControlSessionToken ← SignJWT.
+  // createAdminControlSession ← createAdminControlSessionToken ← SignJWT.
 
   // 1. The cookie is written from the record's token field.
   assert.match(
@@ -90,8 +90,8 @@ test("the cookie value comes from the signing path, not merely near it", () => {
   );
 
   // 2. That token is bound to the signing call, and to nothing else.
-  const creation = functionBody(PASSKEY_SERVICE, "createAdminPasskeySession");
-  assert.ok(creation, "createAdminPasskeySession must still exist");
+  const creation = functionBody(PASSKEY_SERVICE, "createAdminControlSession");
+  assert.ok(creation, "createAdminControlSession must still exist");
   assert.match(
     creation,
     /const token = await createAdminControlSessionToken\(/,

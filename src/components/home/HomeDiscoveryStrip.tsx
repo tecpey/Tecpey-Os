@@ -168,7 +168,7 @@ export function HomeDiscoveryStrip({
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-5 gap-1.5 sm:mt-5 sm:gap-3" aria-live="polite">
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-5 sm:grid-cols-5 sm:gap-3" aria-live="polite">
           {activeMode === "coins"
             ? coins.map((coin, index) => {
                 const rank = index + 1;
@@ -179,7 +179,7 @@ export function HomeDiscoveryStrip({
                     key={coin.symbol}
                     href={href}
                     aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${name} (${coin.symbol})`}
-                    className="tecpey-pressable group flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-500/[0.045] px-1 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px] sm:px-2"
+                    className="tecpey-pressable group flex min-h-24 min-w-0 flex-col items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-500/[0.045] px-2 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px]"
                   >
                     <CoinVisual
                       symbol={coin.symbol}
@@ -189,10 +189,10 @@ export function HomeDiscoveryStrip({
                       locale={locale}
                       variant="avatar"
                     />
-                    <span className="mt-1.5 truncate text-[10px] font-black text-[color:var(--tp-text)] sm:text-xs">
+                    <span className="mt-1.5 truncate text-xs font-black text-[color:var(--tp-text)]">
                       {coin.symbol}
                     </span>
-                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[9px] font-black sm:text-[10px] ${rankTone[index]}`}>
+                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-black sm:text-[11px] ${rankTone[index]}`}>
                       <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
                       <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
                     </span>
@@ -208,7 +208,7 @@ export function HomeDiscoveryStrip({
                     key={tool.slug}
                     href={href}
                     aria-label={`${strings.rank} ${rankLabel(rank, locale)}: ${tool.name}; ${strings.score} ${score}`}
-                    className="tecpey-pressable group flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border border-blue-300/15 bg-blue-500/[0.045] px-1 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px] sm:px-2"
+                    className="tecpey-pressable group flex min-h-24 min-w-0 flex-col items-center justify-center rounded-2xl border border-blue-300/15 bg-blue-500/[0.045] px-2 py-2 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:min-h-[112px]"
                   >
                     <span
                       aria-hidden="true"
@@ -232,10 +232,10 @@ export function HomeDiscoveryStrip({
                         />
                       </svg>
                     </span>
-                    <span dir="ltr" className="mt-1.5 w-full truncate text-[9px] font-black text-[color:var(--tp-text)] sm:text-[11px]">
+                    <span dir="ltr" className="mt-1.5 w-full truncate text-xs font-black text-[color:var(--tp-text)]">
                       {tool.name}
                     </span>
-                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[9px] font-black sm:text-[10px] ${rankTone[index]}`}>
+                    <span className={`mt-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border px-1 text-[10px] font-black sm:text-[11px] ${rankTone[index]}`}>
                       <span aria-hidden="true">#{rankLabel(rank, locale)}</span>
                       <span className="sr-only">{strings.rank} {rankLabel(rank, locale)}</span>
                     </span>

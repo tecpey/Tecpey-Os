@@ -4,6 +4,7 @@ import { loadAdminPrincipal } from "@/lib/admin-control-plane";
 import { getAdminBootstrapState } from "@/lib/admin-passkey-service";
 import { withObservability } from "@/lib/observe";
 import { rateLimit } from "@/lib/rate-limit";
+import { adminAuthenticationModes } from "@/lib/admin-auth-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     return apiOk({
       authenticated: Boolean(principal),
       bootstrapRequired: bootstrapState === "open",
+      authenticationModes: adminAuthenticationModes(),
       admin: principal
         ? {
             id: principal.adminId,

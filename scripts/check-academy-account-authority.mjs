@@ -98,8 +98,18 @@ requireText(
 );
 requireText(
   "authority",
-  "WHERE email = $1\n          FOR UPDATE",
-  "login must resolve the stored account by email only",
+  "WHERE email = $1 OR phone_e164 = $2",
+  "login must resolve the stored account by normalized email or verified phone only",
+);
+requireText(
+  "authority",
+  "lockVerifiedPhoneChallengeTx",
+  "signup must lock a verified phone challenge before account creation",
+);
+requireText(
+  "authority",
+  "consumeVerifiedPhoneChallengeTx",
+  "signup must consume the phone proof in the account transaction",
 );
 requireText(
   "authority",

@@ -486,6 +486,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     reviewBatch: 3,
     classificationRule: "authentication-admin-security",
   });
+  assert.deepEqual(classifyDomain("src/lib/communication-provider-store.ts"), {
+    domain: "authentication-admin-security",
+    riskTier: "P1",
+    reviewBatch: 3,
+    classificationRule: "authentication-admin-security",
+  });
   assert.equal(classifyDomain("src/data/academyPath.ts").reviewBatch, 4);
   assert.equal(classifyDomain("src/lib/trading-dna.ts").reviewBatch, 5);
   assert.equal(classifyDomain("src/lib/coaching-engine.ts").reviewBatch, 8);
@@ -503,6 +509,12 @@ test("policy assigns explicit provenance, domains, batches and pending status", 
     classificationRule: "product-ui",
   });
   assert.deepEqual(classifyDomain("src/lib/organic-growth-automation.ts"), {
+    domain: "product-ui",
+    riskTier: "P2",
+    reviewBatch: 10,
+    classificationRule: "product-ui",
+  });
+  assert.deepEqual(classifyDomain("src/lib/public-market-data.ts"), {
     domain: "product-ui",
     riskTier: "P2",
     reviewBatch: 10,

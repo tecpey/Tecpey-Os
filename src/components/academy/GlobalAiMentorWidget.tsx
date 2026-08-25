@@ -6,7 +6,6 @@ import {
   Bot,
   Brain,
   Loader2,
-  MessageCircleQuestion,
   Send,
   X,
   ChevronDown,
@@ -15,6 +14,7 @@ import {
   BookOpenCheck,
 } from "lucide-react";
 import { useMentorInsights } from "@/hooks/useMentorInsights";
+import { TecpeyMentorMark } from "@/components/brand/TecpeyMentorMark";
 
 type ChatMessage = { role: "user" | "assistant"; content: string; at: number };
 type Locale = "fa" | "en";
@@ -287,11 +287,25 @@ export function GlobalAiMentorWidget() {
   const [academyChecked, setAcademyChecked] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const localMessageIdRef = useRef(0);
   // Prevent repeated server-to-state syncs after the user has manually changed level/risk.
   const serverSyncedRef = useRef(false);
+
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      requestAnimationFrame(() => triggerRef.current?.focus());
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
 
   useEffect(() => {
@@ -557,12 +571,13 @@ export function GlobalAiMentorWidget() {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] left-3 z-[90] inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-slate-950/95 p-0 text-[10.5px] font-black text-cyan-50 shadow-[0_18px_60px_rgba(34,211,238,.30)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-cyan-950/95 sm:bottom-5 sm:left-5 sm:h-auto sm:w-auto sm:max-w-[calc(100vw-2rem)] sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-xs"
         aria-label={isEn ? "Ask TecPey Learning Coach" : "از مربی هوشمند تک‌پی بپرس"}
       >
-        <MessageCircleQuestion className="h-5 w-5 shrink-0 text-cyan-300" />
+        <TecpeyMentorMark className="h-7 w-7 shrink-0" />
         <span className="sr-only sm:not-sr-only sm:truncate">{isEn ? "Learning Coach" : "مربی هوشمند تک‌پی"}</span>
       </button>
 
@@ -570,6 +585,9 @@ export function GlobalAiMentorWidget() {
         <div
           className="fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+8.75rem)] z-[95] mx-auto max-w-[440px] sm:bottom-5 sm:left-5 sm:right-auto sm:mx-0 sm:w-[420px]"
           dir={isEn ? "ltr" : "rtl"}
+          role="dialog"
+          aria-modal="true"
+          aria-label={isEn ? "TecPey Learning Coach" : "مربی هوشمند تک‌پی"}
         >
           <div className="flex max-h-[min(72dvh,560px)] flex-col overflow-hidden rounded-[24px] border border-cyan-300/25 bg-slate-950/98 text-white shadow-[0_28px_100px_rgba(0,0,0,.60)] backdrop-blur-2xl sm:max-h-[min(82vh,680px)] sm:rounded-[28px]">
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-cyan-400/10 p-3 sm:p-4">
@@ -585,6 +603,7 @@ export function GlobalAiMentorWidget() {
                 </div>
               </div>
               <button
+                ref={closeRef}
                 type="button"
                 onClick={() => setOpen(false)}
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:bg-white/10"

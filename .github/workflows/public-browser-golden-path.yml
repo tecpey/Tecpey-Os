@@ -52,6 +52,9 @@ jobs:
       NEXT_PUBLIC_API_BACKEND_URL: https://api.e2e.tecpey.test
       NEXT_PUBLIC_API_SOCKET_URL: wss://stream.e2e.tecpey.test/ws
       TECPEY_SESSION_SECRET: e2e-session-secret-distinct-32-characters
+      TECPEY_ADMIN_SESSION_SECRET: ${{ format('e2e-admin-session-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_2FA_SECRET: ${{ format('e2e-totp-encryption-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_ADMIN_TOKEN: ${{ format('e2e-admin-bootstrap-fixture-{0}-long-enough', github.run_id) }}
       TECPEY_REFRESH_SECRET: e2e-refresh-secret-distinct-32-characters
       TECPEY_ACADEMY_AUTH_SECRET: e2e-academy-auth-secret-distinct-32-chars
       CERTIFICATE_SIGNING_SECRET: e2e-certificate-signing-secret-32-chars
@@ -59,6 +62,10 @@ jobs:
       TECPEY_OFFLINE_SYNC_SECRET: e2e-offline-sync-secret-distinct-32-chars
       TECPEY_CRM_PII_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       TECPEY_CRM_CONTACT_HASH_SECRET: e2e-crm-contact-hash-secret-distinct-32
+      TECPEY_PHONE_IDENTITY_HASH_SECRET: ${{ format('e2e-phone-identity-fixture-{0}-long-enough', github.run_id) }}
+      TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: ${{ 'CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=' }}
+      TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: ${{ 'CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo=' }}
+      LIMOO_SMS_API_KEY: ${{ format('e2e-limoo-sms-fixture-{0}', github.run_id) }}
       TECPEY_TRUSTED_PROXY_HEADER: x-forwarded-for
       TECPEY_TRUSTED_PROXY_HOPS: "1"
       DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:5432/e2e

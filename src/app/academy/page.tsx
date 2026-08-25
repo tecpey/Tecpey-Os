@@ -159,8 +159,8 @@ export default function AcademyPage() {
         <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/20 bg-cyan-500/10 p-6 shadow-[0_24px_80px_rgba(34,211,238,.12)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
             <div>
-              <h2 className="text-2xl font-black text-white">مربی شخصی‌سازی‌شده آکادمی</h2>
-              <p className="mt-3 text-sm font-bold leading-8 text-slate-300">مربی شخصی آکادمی، پیشرفت ترم‌ها، سؤال‌های اخیر و نقاط نیازمند مرور را به قدم بعدی روشن تبدیل می‌کند تا مسیر یادگیری برای شما دقیق‌تر شود.</p>
+              <h2 className="text-2xl font-black text-slate-950 dark:text-white">مربی شخصی‌سازی‌شده آکادمی</h2>
+              <p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">مربی شخصی آکادمی، پیشرفت ترم‌ها، سؤال‌های اخیر و نقاط نیازمند مرور را به قدم بعدی روشن تبدیل می‌کند تا مسیر یادگیری برای شما دقیق‌تر شود.</p>
             </div>
             <Link href="/academy/mentor-coach" className="rounded-2xl bg-cyan-800 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-700">ورود به مربی شخصی</Link>
           </div>
@@ -169,11 +169,11 @@ export default function AcademyPage() {
 
       <section className="px-4 pb-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl rounded-[30px] border border-amber-300/25 bg-amber-300/10 p-6 text-center">
-          <h2 className="text-2xl font-black text-white">آموزش قبل از معامله، اصل اول تک‌پی است</h2>
-          <p className="mt-4 text-sm font-bold leading-8 text-slate-300">
+          <h2 className="text-2xl font-black text-slate-950 dark:text-white">آموزش قبل از معامله، اصل اول تک‌پی است</h2>
+          <p className="mt-4 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">
             در این مسیر، ابتدا مفهوم بازار را می‌فهمید، بعد امنیت را یاد می‌گیرید و سپس معامله، تحلیل، مدیریت سرمایه و روانشناسی بازار را تمرین می‌کنید. آکادمی شما را به خرید عجولانه هل نمی‌دهد؛ برای تصمیم آگاهانه آماده می‌کند.
           </p>
-          <p className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4 text-sm font-black leading-7 text-rose-100">
+          <p className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-400/10 p-4 text-sm font-black leading-7 text-rose-800 dark:text-rose-100">
             آکادمی تک‌پی توصیه مالی یا وعده سود نیست؛ یک مسیر آموزشی برای کاهش خطا، افزایش آگاهی و ورود مسئولانه به بازار رمزارز است.
           </p>
         </div>
@@ -183,7 +183,7 @@ export default function AcademyPage() {
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-black text-white">مسیر ۷ ترمی آکادمی تک‌پی</h2>
+            <h2 className="text-3xl font-black text-slate-950 dark:text-white">مسیر ۷ ترمی آکادمی تک‌پی</h2>
             <p className="mt-4 text-sm font-bold leading-8 text-slate-600 dark:text-slate-300">
               در این مسیر از صفر شروع می‌کنید و هر ترم یک مهارت واقعی می‌سازد: شناخت بازار، امنیت، معامله، بررسی پروژه‌ها، نمودارخوانی، مدیریت ریسک و کنترل هیجان. پایان هر ترم یک آزمون کوتاه دارد تا یادگیری فقط خواندن متن نباشد.
             </p>
@@ -278,9 +278,9 @@ export default function AcademyPage() {
             { title: "آمادگی واقعی قبل از ورود", text: "هدف نهایی این است که کاربر بداند چه می‌خرد، چه ریسکی می‌کند و چگونه از دارایی خود محافظت می‌کند.", href: "/academy/term-7", termNumber: 7 },
           ].map((item) => (
             <TermGateLink key={item.title} href={item.href} termNumber={item.termNumber} className="group block rounded-[28px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:border-cyan-300/60 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:border-cyan-300/15 dark:bg-white/[0.055]">
-              <h2 className="text-lg font-black text-white">{item.title}</h2>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">{item.title}</h2>
               <p className="mt-3 text-sm font-bold leading-8 text-slate-600 dark:text-slate-300">{item.text}</p>
-              <span className="mt-4 inline-flex text-xs font-black text-cyan-300 opacity-0 transition group-hover:opacity-100">مشاهده جزئیات</span>
+              <span className="mt-4 inline-flex text-xs font-black text-cyan-700 opacity-0 transition group-hover:opacity-100 dark:text-cyan-300">مشاهده جزئیات</span>
             </TermGateLink>
           ))}
         </div>

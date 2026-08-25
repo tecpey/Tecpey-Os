@@ -46,10 +46,10 @@ const exchangeSignupHref = "https://my.tecpey.ir/signup";
 const academyHref = "/academy";
 
 const marketRows = [
-  { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین", change: "+۲.۴٪" },
-  { symbol: "ETH", name: "Ethereum", fa: "اتریوم", change: "+۱.۱٪" },
-  { symbol: "USDT", name: "Tether", fa: "تتر", change: "۰.۰٪" },
-  { symbol: "TON", name: "Toncoin", fa: "تون‌کوین", change: "+۳.۲٪" },
+  { symbol: "BTC", name: "Bitcoin", fa: "بیت‌کوین" },
+  { symbol: "ETH", name: "Ethereum", fa: "اتریوم" },
+  { symbol: "USDT", name: "Tether", fa: "تتر" },
+  { symbol: "TON", name: "Toncoin", fa: "تون‌کوین" },
 ];
 
 const proofEvents = [
@@ -80,8 +80,7 @@ function normalizeSymbol(row: MarketCurrency) {
   return String(row?.symbol ?? row?.priceData?.symbol?.replace("USDT", "") ?? "").replace("USDT", "");
 }
 
-function resolveUsdLast(row: MarketCurrency, symbol: string) {
-  if (symbol === "USDT") return 1;
+function resolveUsdLast(row: MarketCurrency) {
   return Number(
     row?.priceData?.last ??
     row?.priceData?.price ??
@@ -99,7 +98,7 @@ function getMarketFallback(): MarketCurrency[] {
     symbol: row.symbol,
     name: row.name,
     faName: row.fa,
-    priceData: { last: 0, changePercent: Number(row.change.replace(/[+٪]/g, "")) || 0 },
+    priceData: { last: null, changePercent: null },
   }));
 }
 
@@ -151,8 +150,9 @@ function DeviceFrame() {
               const symbol = normalizeSymbol(row);
               const faName = row?.faName ?? row?.fa ?? ({ BTC: "بیت‌کوین", ETH: "اتریوم", USDT: "تتر", TON: "تون‌کوین" } as Record<string, string>)[symbol] ?? symbol;
               const name = row?.name ?? symbol;
-              const price = resolveUsdLast(row, symbol);
-              const change = Number(row?.priceData?.changePercent ?? row?.changePercent ?? 0);
+              const price = resolveUsdLast(row);
+              const rawChange = row?.priceData?.changePercent ?? row?.changePercent;
+              const change = rawChange === null || rawChange === undefined ? null : Number(rawChange);
               return (
                 <div key={`${symbol}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-[color:var(--tp-border)] px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1.1fr_1fr_auto]">
                   <CoinVisual symbol={symbol} name={name} faName={faName} variant="avatar" />
@@ -161,7 +161,7 @@ function DeviceFrame() {
                     <p className="truncate text-[11px] text-slate-600 dark:text-[color:var(--tp-muted)]">{name} / USD</p>
                   </div>
                   <p className="hidden text-xs font-bold text-[color:var(--tp-text)] sm:block"><bdi>USD {formatFaNumber(price)}</bdi></p>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-500" : "bg-rose-500/10 text-rose-700 dark:text-rose-500"}`}>{Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "—"}</span>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-black sm:px-3 sm:text-xs ${change !== null && change >= 0 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-500" : change !== null ? "bg-rose-500/10 text-rose-700 dark:text-rose-500" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{change !== null && Number.isFinite(change) ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}٪` : "در حال دریافت"}</span>
                 </div>
               );
             })}

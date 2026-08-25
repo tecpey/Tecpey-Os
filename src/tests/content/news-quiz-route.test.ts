@@ -91,9 +91,7 @@ describe("crypto-news route quiz mode", () => {
     assert.equal(body.mode, "fallback");
     assert.deepEqual(body.newsQuiz, []);
     const items = body.items as Array<{ publishedAt: string; isBreaking?: boolean }>;
-    assert.ok(Array.isArray(items) && items.length > 0, "fallback learning cards remain available");
-    assert.ok(items.every((item) => item.publishedAt === ""), "fallback cards must not invent a current publish time");
-    assert.ok(items.every((item) => item.isBreaking !== true), "fallback cards must never claim to be breaking news");
+    assert.deepEqual(items, [], "offline mode must not present educational copy as live news");
     const automation = body.automation as { publishable: number; needsReview: number; rejected: number };
     assert.deepEqual(
       [automation.publishable, automation.needsReview, automation.rejected],
