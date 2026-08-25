@@ -1,2 +1,2 @@
 export const PINNED_DATABASE_MIGRATION_PLAN_HASH =
-  "fbcea8835da2a1cc976e867085bf2c1a9402fcefab7f55a8abfc1cc528e97bf4";
+  "53c2697ba78075675e7bdf6fd29db3da2dddac724d8cfa34b20d4333ec8b50c3";

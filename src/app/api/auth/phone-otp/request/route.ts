@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
     });
     if (!ipLimit.ok) return apiRateLimited(ipLimit.retryAfterSeconds);
 
-    const bounded = await readBoundedJsonRequest<{ phone?: unknown; purpose?: unknown }>(request, {
+    const bounded = await readBoundedJsonRequest(request, {
       maxBytes: 2_048,
     });
     if (!bounded.ok) return apiError(bounded.error, bounded.status);
-    const phoneE164 = normalizeIranianMobile(bounded.value.phone);
+    const value = bounded.value as { phone?: unknown; purpose?: unknown };
+    const phoneE164 = normalizeIranianMobile(value.phone);
     if (!phoneE164) return apiError("invalid_iranian_mobile", 400);
-    const purpose = String(bounded.value.purpose ?? "signup") as PhoneOtpPurpose;
+    const purpose = String(value.purpose ?? "signup") as PhoneOtpPurpose;
     if (!PURPOSES.has(purpose)) return apiError("invalid_otp_purpose", 400);
 
     let fingerprint: string;

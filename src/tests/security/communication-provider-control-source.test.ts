@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = resolve(process.cwd());
+const route = readFileSync(resolve(root, "src/app/api/command-center/communications/route.ts"), "utf8");
+const store = readFileSync(resolve(root, "src/lib/communication-provider-store.ts"), "utf8");
+const migration = readFileSync(resolve(root, "src/lib/db-migrate-communication-provider-config.ts"), "utf8");
+const client = readFileSync(resolve(root, "src/components/admin/CommunicationProviderControlPanel.tsx"), "utf8");
+const email = readFileSync(resolve(root, "src/lib/email.ts"), "utf8");
+const sms = readFileSync(resolve(root, "src/lib/security/limoo-sms.ts"), "utf8");
+const health = readFileSync(resolve(root, "src/app/api/health/route.ts"), "utf8");
+
+describe("communication provider admin boundary", () => {
+  it("requires admin authorization, recent step-up, CSRF and bounded bodies", () => {
+    assert.match(route, /verifyCsrfOrigin\(request\)/);
+    assert.match(route, /authorizeAdminRequest\(request, "admin\.roles\.manage", \{\s*stepUpWithinSeconds: 300/);
+    assert.match(route, /readBoundedJsonRequest/);
+    assert.match(route, /command-center-communications-write/);
+    assert.match(route, /command-center-communications-test/);
+  });
+
+  it("returns masked snapshots while decryption stays in the server runtime path", () => {
+    assert.match(store, /secretConfigured: Boolean\(row\.encrypted_api_key\)/);
+    assert.match(store, /keyFingerprint: row\.api_key_fingerprint/);
+    assert.match(store, /decryptCommunicationProviderSecret/);
+    assert.doesNotMatch(route, /encrypted_api_key/);
+    assert.doesNotMatch(client, /encrypted_api_key/);
+    assert.match(client, /type="password"/);
+    assert.match(client, /autoComplete="new-password"/);
+  });
+
+  it("keeps secret-free append-only configuration evidence", () => {
+    assert.match(migration, /communication provider config events are append-only/);
+    assert.match(migration, /BEFORE UPDATE ON communication_provider_config_events/);
+    assert.match(migration, /BEFORE DELETE ON communication_provider_config_events/);
+    assert.match(migration, /NOT \(settings \?\| ARRAY\['apiKey', 'api_key', 'secret', 'token', 'password', 'credential'\]\)/);
+  });
+
+  it("applies the admin-managed SMS footer and email template at delivery time", () => {
+    assert.match(sms, /managed\.config\.settings\.otpFooter/);
+    assert.match(email, /managed\?\.settings\.defaultTemplateId/);
+    assert.match(email, /dynamic_template_data: message\.templateVariables/);
+    assert.match(email, /template: \{ id: templateId, variables: message\.templateVariables/);
+  });
+
+  it("serializes rotations and makes an admin disable override environment fallback", () => {
+    assert.match(store, /pg_advisory_xact_lock\(hashtextextended\(\$1, 0\)\)/);
+    assert.match(email, /managedFallback\.status === "disabled"/);
+    assert.match(health, /isEmailRuntimeConfigured\(\)/);
+  });
+});

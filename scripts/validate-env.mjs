@@ -73,6 +73,7 @@ const required = [
   'TECPEY_CRM_CONTACT_HASH_SECRET',
   'TECPEY_PHONE_IDENTITY_HASH_SECRET',
   'TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64',
+  'TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64',
   'LIMOO_SMS_API_KEY',
   'TECPEY_TRUSTED_PROXY_HEADER',
   'TECPEY_TRUSTED_PROXY_HOPS',
@@ -173,6 +174,17 @@ if (phoneOtpEncryptionKey) {
     }
   } catch {
     errors.push('TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64 must be valid base64');
+  }
+}
+
+const providerSecretEncryptionKey = process.env.TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64?.trim();
+if (providerSecretEncryptionKey) {
+  try {
+    if (Buffer.from(providerSecretEncryptionKey, 'base64').length !== 32) {
+      errors.push('TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64 must decode to exactly 32 bytes');
+    }
+  } catch {
+    errors.push('TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64 must be valid base64');
   }
 }
 

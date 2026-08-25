@@ -1,0 +1,756 @@
+{
+  "schemaVersion": 1,
+  "baselineBlobSha": "88ef6f5e31c0c93b3240406959bdae57ef5472e5",
+  "entries": [
+    {
+      "route": "/api/academy-auth",
+      "method": "DELETE",
+      "previousSourceHash": "0c59c87e68c61669ba1ac34b",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Reviewed the Academy logout operation after the shared authentication source gained verified phone identity support. The DELETE handler behavior and its strict session, CSRF, audit, redaction, and no-store controls remain unchanged.",
+      "replacement": {
+        "route": "/api/academy-auth",
+        "method": "DELETE",
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "sourceHash": "1c3e41261104d76c9d5fd900",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "rateLimitNamespace": null,
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "academy-auth",
+        "testReferences": [
+          "src/tests/security/academy-auth-client-2fa-source.test.ts",
+          "src/tests/security/auth-logout-route-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-auth/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy-auth",
+      "method": "POST",
+      "previousSourceHash": "0c59c87e68c61669ba1ac34b",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Reviewed the Academy authentication authority after adding verified Iranian mobile identity, consumed OTP challenges, duplicate-phone rejection, and fail-closed signup behavior. Existing bounded-body, CSRF, strict-session, rate-limit, audit, redaction, and no-store controls remain intact.",
+      "replacement": {
+        "route": "/api/academy-auth",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-auth/route.ts",
+        "sourceHash": "1c3e41261104d76c9d5fd900",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-auth",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": true,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-auth",
+        "testReferences": [
+          "src/tests/security/academy-auth-client-2fa-source.test.ts",
+          "src/tests/security/auth-logout-route-postgres.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-auth/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "pre-authentication",
+          "reason": "Login and signup create the first authenticated session; no prior session exists to revoke-check.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/academy-student-profile",
+      "method": "POST",
+      "previousSourceHash": "7093e058c394be53d0e57421",
+      "issue": "#560",
+      "owner": "academy-platform",
+      "reason": "Reviewed the profile write boundary after removing user-supplied phone authority. Profile persistence now accepts only a phone verified on the authenticated Academy account, while bounded-body, tenant, session, audit, and no-store controls remain intact.",
+      "replacement": {
+        "route": "/api/academy-student-profile",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy-student-profile/route.ts",
+        "sourceHash": "0f57bc56bdf24616ba9ccce4",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "privacy"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-student-profile-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:text",
+          "idempotency": false,
+          "transaction": true,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy-student-profile",
+        "testReferences": [
+          "src/tests/security/tenant-scoped-route-guards.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-student-profile/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy/auth/login",
+      "method": "POST",
+      "previousSourceHash": "9a88eba6dfd5e324f79ad975",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Reviewed the compatibility Academy authentication operation after the phone identity test suite expanded exact route evidence. Runtime source and all security controls are unchanged; only linked test references changed.",
+      "replacement": {
+        "route": "/api/academy/auth/login",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy/auth/login/route.ts",
+        "sourceHash": "9a88eba6dfd5e324f79ad975",
+        "delegatedTo": "src/app/api/academy-auth/route.ts",
+        "delegatedSourceHash": "1c3e41261104d76c9d5fd900",
+        "mutationMode": "active",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-auth",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json -> delegated:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": true,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest -> delegated:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy",
+        "testReferences": [
+          "src/tests/academy/assessment-authority.test.ts",
+          "src/tests/academy/authority-migration.test.ts",
+          "src/tests/academy/flashcard-memory.test.ts",
+          "src/tests/academy/lesson-progress-model.test.ts",
+          "src/tests/academy/path-progress.test.ts",
+          "src/tests/academy/progress-state.test.ts",
+          "src/tests/academy/reflection-memory.test.ts",
+          "src/tests/content/academy-path-en-quality.test.ts",
+          "src/tests/security/academy-auth-client-2fa-source.test.ts",
+          "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
+          "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-progress-authority-postgres.test.ts",
+          "src/tests/security/academy-progress-client-authority.test.ts",
+          "src/tests/security/academy-progress-idempotency-postgres.test.ts",
+          "src/tests/security/academy-progress-projection-authority.test.ts",
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/auth-academy-account-authority-postgres.test.ts",
+          "src/tests/security/auth-academy-account-source-guard.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-auth/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-pre-authentication",
+          "reason": "Compatibility login delegates to the canonical first-session authentication authority.",
+          "issue": "#108"
+        }
+      }
+    },
+    {
+      "route": "/api/academy/auth/logout",
+      "method": "POST",
+      "previousSourceHash": "97b5fd6667043484d29f2a40",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Reviewed the compatibility Academy authentication operation after the phone identity test suite expanded exact route evidence. Runtime source and all security controls are unchanged; only linked test references changed.",
+      "replacement": {
+        "route": "/api/academy/auth/logout",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy/auth/logout/route.ts",
+        "sourceHash": "97b5fd6667043484d29f2a40",
+        "delegatedTo": "src/app/api/academy-auth/route.ts#DELETE",
+        "delegatedSourceHash": "1c3e41261104d76c9d5fd900",
+        "mutationMode": "active",
+        "classification": "authenticated",
+        "principalSource": "getCanonicalSession",
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "rateLimitNamespace": null,
+          "expectsBody": false,
+          "bodySizeLimit": false,
+          "contentTypeCheck": false,
+          "inputParser": null,
+          "idempotency": true,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": null
+        },
+        "domainOwner": "academy",
+        "testReferences": [
+          "src/tests/academy/assessment-authority.test.ts",
+          "src/tests/academy/authority-migration.test.ts",
+          "src/tests/academy/flashcard-memory.test.ts",
+          "src/tests/academy/lesson-progress-model.test.ts",
+          "src/tests/academy/path-progress.test.ts",
+          "src/tests/academy/progress-state.test.ts",
+          "src/tests/academy/reflection-memory.test.ts",
+          "src/tests/content/academy-path-en-quality.test.ts",
+          "src/tests/security/academy-auth-client-2fa-source.test.ts",
+          "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
+          "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-progress-authority-postgres.test.ts",
+          "src/tests/security/academy-progress-client-authority.test.ts",
+          "src/tests/security/academy-progress-idempotency-postgres.test.ts",
+          "src/tests/security/academy-progress-projection-authority.test.ts",
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/auth-academy-account-authority-postgres.test.ts",
+          "src/tests/security/auth-academy-account-source-guard.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": false,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-auth/route.ts",
+          "method": "DELETE",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/academy/auth/register",
+      "method": "POST",
+      "previousSourceHash": "5c6898a96d121b34d39d30f2",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Reviewed the compatibility Academy authentication operation after the phone identity test suite expanded exact route evidence. Runtime source and all security controls are unchanged; only linked test references changed.",
+      "replacement": {
+        "route": "/api/academy/auth/register",
+        "method": "POST",
+        "sourcePath": "src/app/api/academy/auth/register/route.ts",
+        "sourceHash": "5c6898a96d121b34d39d30f2",
+        "delegatedTo": "src/app/api/academy-auth/route.ts",
+        "delegatedSourceHash": "1c3e41261104d76c9d5fd900",
+        "mutationMode": "active",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "academy-auth",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:json -> delegated:json",
+          "idempotency": true,
+          "transaction": true,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": true,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest -> delegated:readBoundedJsonRequest"
+        },
+        "domainOwner": "academy",
+        "testReferences": [
+          "src/tests/academy/assessment-authority.test.ts",
+          "src/tests/academy/authority-migration.test.ts",
+          "src/tests/academy/flashcard-memory.test.ts",
+          "src/tests/academy/lesson-progress-model.test.ts",
+          "src/tests/academy/path-progress.test.ts",
+          "src/tests/academy/progress-state.test.ts",
+          "src/tests/academy/reflection-memory.test.ts",
+          "src/tests/content/academy-path-en-quality.test.ts",
+          "src/tests/security/academy-auth-client-2fa-source.test.ts",
+          "src/tests/security/academy-certificate-tenant-backfill-postgres.test.ts",
+          "src/tests/security/academy-credential-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-mastery-seasons-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/academy-progress-authority-postgres.test.ts",
+          "src/tests/security/academy-progress-client-authority.test.ts",
+          "src/tests/security/academy-progress-idempotency-postgres.test.ts",
+          "src/tests/security/academy-progress-projection-authority.test.ts",
+          "src/tests/security/academy-term-progress-cross-tenant-isolation-postgres.test.ts",
+          "src/tests/security/auth-academy-account-authority-postgres.test.ts",
+          "src/tests/security/auth-academy-account-source-guard.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/academy-auth/route.ts",
+          "method": "POST",
+          "resolved": true
+        },
+        "operationOverride": {
+          "authorityType": "compatibility-pre-authentication",
+          "reason": "Compatibility registration delegates to the canonical first-session authentication authority.",
+          "issue": "#108"
+        }
+      }
+    }
+  ],
+  "addedOperations": [
+    {
+      "route": "/api/auth/phone-otp/request",
+      "method": "POST",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Adds a public, CSRF-checked and dual-rate-limited OTP request authority with bounded JSON parsing, privacy-safe phone fingerprints, auditable delivery outcomes, and fail-closed provider/storage behavior.",
+      "replacement": {
+        "route": "/api/auth/phone-otp/request",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/phone-otp/request/route.ts",
+        "sourceHash": "6be2a94ed1a3cc39158ba863",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "phone-otp-request-ip",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [
+          "src/tests/security/phone-otp-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/phone-otp/request/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/auth/phone-otp/verify",
+      "method": "POST",
+      "issue": "#560",
+      "owner": "security-platform",
+      "reason": "Adds a public, CSRF-checked and challenge-rate-limited OTP verification authority with bounded JSON parsing, atomic claim/completion semantics, provider failure classification, audit evidence, and fail-closed storage behavior.",
+      "replacement": {
+        "route": "/api/auth/phone-otp/verify",
+        "method": "POST",
+        "sourcePath": "src/app/api/auth/phone-otp/verify/route.ts",
+        "sourceHash": "5c3c46cd2de11c31ffc0a771",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "public",
+        "principalSource": null,
+        "tenantSource": null,
+        "risk": [
+          "credential"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "rateLimitNamespace": "phone-otp-verify",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": false,
+          "tenantFromVerifiedContext": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "auth",
+        "testReferences": [
+          "src/tests/security/phone-otp-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": false,
+          "strictRevocation": false,
+          "rateLimit": true,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": false,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/auth/phone-otp/verify/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/command-center/communications",
+      "method": "POST",
+      "issue": "#560",
+      "owner": "platform-security",
+      "reason": "Adds the step-up-protected admin provider connection test. Tests are rate limited, tenant/workspace scoped, restricted to the current admin email or an explicitly entered Iranian mobile, recorded in the append-only audit trail, and fail closed.",
+      "replacement": {
+        "route": "/api/command-center/communications",
+        "method": "POST",
+        "sourcePath": "src/app/api/command-center/communications/route.ts",
+        "sourceHash": "2f4ee1b0f6efe7448c9f99aa",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-communications-test",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/communication-provider-control-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/communications/route.ts",
+          "method": "POST",
+          "resolved": true
+        }
+      }
+    },
+    {
+      "route": "/api/command-center/communications",
+      "method": "PUT",
+      "issue": "#560",
+      "owner": "platform-security",
+      "reason": "Adds the step-up-protected admin mutation for enabling providers, rotating encrypted API keys, and updating non-secret SMS/email settings with bounded JSON, CSRF, rate limiting, tenant/workspace scoping, append-only events, and audit evidence.",
+      "replacement": {
+        "route": "/api/command-center/communications",
+        "method": "PUT",
+        "sourcePath": "src/app/api/command-center/communications/route.ts",
+        "sourceHash": "2f4ee1b0f6efe7448c9f99aa",
+        "delegatedTo": null,
+        "delegatedSourceHash": null,
+        "mutationMode": "active",
+        "classification": "admin",
+        "principalSource": "authorizeAdminRequest",
+        "tenantSource": null,
+        "risk": [
+          "admin"
+        ],
+        "controls": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": true,
+          "rateLimitNamespace": "command-center-communications-write",
+          "expectsBody": true,
+          "bodySizeLimit": true,
+          "contentTypeCheck": false,
+          "inputParser": "local:bounded-json-helper",
+          "idempotency": false,
+          "transaction": false,
+          "verifiedPrincipal": true,
+          "tenantFromVerifiedContext": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "failClosed": true,
+          "serviceIdentity": false,
+          "setsCookie": false,
+          "explicitPublicCachePolicy": false,
+          "headerBodySizeHint": false,
+          "bodySizeLimitAuthority": "local:readBoundedJsonRequest"
+        },
+        "domainOwner": "command-center",
+        "testReferences": [
+          "src/tests/security/communication-provider-control-source.test.ts"
+        ],
+        "requirements": {
+          "csrf": true,
+          "strictRevocation": true,
+          "rateLimit": false,
+          "bodySizeLimit": true,
+          "idempotency": false,
+          "verifiedPrincipal": true,
+          "noStore": true,
+          "audit": true,
+          "redaction": true,
+          "serviceIdentity": false
+        },
+        "findings": [],
+        "evidenceSource": {
+          "sourcePath": "src/app/api/command-center/communications/route.ts",
+          "method": "PUT",
+          "resolved": true
+        }
+      }
+    }
+  ],
+  "readOnlyRoutes": []
+}

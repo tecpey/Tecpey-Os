@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   LogOut,
   Megaphone,
+  MessagesSquare,
   RefreshCw,
   ShieldCheck,
   UserRound,
@@ -66,6 +67,13 @@ const controlLinks = [
     detail: "Google، Apple، Telegram و Email OTP با Secret، callback، domain و audit gates.",
     icon: Fingerprint,
     status: "OAuth gates",
+  },
+  {
+    href: "/command-center/communications",
+    label: "SMS، ایمیل و الگوهای ارتباطی",
+    detail: "مدیریت امن Limoo، Resend و SendGrid با چرخش Secret، Template و تست اتصال.",
+    icon: MessagesSquare,
+    status: "Secret safe",
   },
 ] as const;
 

@@ -16,12 +16,13 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   return withObservability(request, { route: "/api/auth/phone-otp/verify" }, async () => {
     if (!await verifyCsrfOrigin(request)) return apiError("forbidden", 403);
-    const bounded = await readBoundedJsonRequest<{ challengeId?: unknown; code?: unknown }>(request, {
+    const bounded = await readBoundedJsonRequest(request, {
       maxBytes: 2_048,
     });
     if (!bounded.ok) return apiError(bounded.error, bounded.status);
-    const challengeId = Validate.uuid(bounded.value.challengeId);
-    const code = String(bounded.value.code ?? "").trim();
+    const value = bounded.value as { challengeId?: unknown; code?: unknown };
+    const challengeId = Validate.uuid(value.challengeId);
+    const code = String(value.code ?? "").trim();
     if (!challengeId) return apiError("invalid_otp_challenge", 400);
     if (!/^\d{4,8}$/.test(code)) return apiError("invalid_otp_code", 400);
 

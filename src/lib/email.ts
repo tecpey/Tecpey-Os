@@ -1,5 +1,9 @@
 import { containsEnvPlaceholder } from "./env-placeholders";
 import { logger } from "./logger";
+import {
+  resolveRuntimeCommunicationProvider,
+  type RuntimeCommunicationProvider,
+} from "./communication-provider-store";
 
 export type EmailMessage = {
   to: string | string[];
@@ -8,6 +12,8 @@ export type EmailMessage = {
   text?: string;
   from?: string;
   replyTo?: string;
+  templateId?: string;
+  templateVariables?: Record<string, string | number>;
 };
 
 export type EmailResult = {
@@ -76,9 +82,9 @@ function isUsableKey(raw: string | undefined): boolean {
 /**
  * Single authority for email-delivery readiness.
  *
- * The same decision is consumed by the send path, /api/health (through
- * isEmailConfigured) and the production preflight. This prevents a deployment
- * gate from vouching for a delivery path that the runtime later refuses.
+ * The same environment fallback decision is consumed by the send path,
+ * isEmailConfigured and the production preflight. Runtime health additionally
+ * evaluates the tenant-managed provider state stored in PostgreSQL.
  *
  * Arbitrary provider input is never returned. A credential accidentally pasted
  * into EMAIL_PROVIDER must not become a value in logs, health diagnostics or
@@ -173,20 +179,47 @@ export function emailDeliveryReadiness(
   };
 }
 
-async function sendViaResend(message: EmailMessage): Promise<EmailResult> {
-  const key = process.env.RESEND_API_KEY;
+function managedFrom(message: EmailMessage, managed?: RuntimeCommunicationProvider): string {
+  if (message.from) return message.from;
+  const email = managed?.settings.fromEmail?.trim();
+  if (!email) return DEFAULT_FROM;
+  const name = managed?.settings.fromName?.trim();
+  return name ? `${name} <${email}>` : email;
+}
+
+function managedTemplateId(
+  message: EmailMessage,
+  managed?: RuntimeCommunicationProvider,
+): string | undefined {
+  return message.templateId?.trim() || managed?.settings.defaultTemplateId?.trim() || undefined;
+}
+
+function sendGridSender(value: string): { email: string; name?: string } {
+  const named = value.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  if (!named) return { email: value.trim() };
+  const name = named[1]?.trim();
+  return { email: named[2].trim(), ...(name ? { name } : {}) };
+}
+
+async function sendViaResend(
+  message: EmailMessage,
+  managed?: RuntimeCommunicationProvider,
+): Promise<EmailResult> {
+  const key = managed?.apiKey ?? process.env.RESEND_API_KEY;
   if (!isUsableKey(key)) return { ok: false, provider: "resend", error: "RESEND_API_KEY not set" };
+  const templateId = managedTemplateId(message, managed);
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: message.from ?? DEFAULT_FROM,
+        from: managedFrom(message, managed),
         to: normalizeRecipients(message.to),
         subject: message.subject,
-        html: message.html,
-        text: message.text,
-        reply_to: message.replyTo,
+        ...(templateId
+          ? { template: { id: templateId, variables: message.templateVariables ?? {} } }
+          : { html: message.html, text: message.text }),
+        reply_to: message.replyTo ?? managed?.settings.replyTo,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -202,22 +235,36 @@ async function sendViaResend(message: EmailMessage): Promise<EmailResult> {
   }
 }
 
-async function sendViaSendGrid(message: EmailMessage): Promise<EmailResult> {
-  const key = process.env.SENDGRID_API_KEY;
+async function sendViaSendGrid(
+  message: EmailMessage,
+  managed?: RuntimeCommunicationProvider,
+): Promise<EmailResult> {
+  const key = managed?.apiKey ?? process.env.SENDGRID_API_KEY;
   if (!isUsableKey(key)) return { ok: false, provider: "sendgrid", error: "SENDGRID_API_KEY not set" };
+  const templateId = managedTemplateId(message, managed);
   try {
-    const personalizations = normalizeRecipients(message.to).map((email) => ({ to: [{ email }] }));
+    const personalizations = normalizeRecipients(message.to).map((email) => ({
+      to: [{ email }],
+      ...(templateId ? { dynamic_template_data: message.templateVariables ?? {} } : {}),
+    }));
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         personalizations,
-        from: { email: (message.from ?? DEFAULT_FROM).replace(/^.*<(.+)>.*$/, "$1") },
+        from: sendGridSender(managedFrom(message, managed)),
         subject: message.subject,
-        content: [
-          ...(message.html ? [{ type: "text/html", value: message.html }] : []),
-          ...(message.text ? [{ type: "text/plain", value: message.text }] : []),
-        ],
+        ...(templateId
+          ? { template_id: templateId }
+          : {
+              content: [
+                ...(message.html ? [{ type: "text/html", value: message.html }] : []),
+                ...(message.text ? [{ type: "text/plain", value: message.text }] : []),
+              ],
+            }),
+        reply_to: message.replyTo || managed?.settings.replyTo
+          ? { email: message.replyTo ?? managed?.settings.replyTo }
+          : undefined,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -249,7 +296,22 @@ function sendViaDev(message: EmailMessage): EmailResult {
 export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
   const readiness = emailDeliveryReadiness();
 
+  const [managedResend, managedSendGrid] = await Promise.all([
+    resolveRuntimeCommunicationProvider("resend"),
+    resolveRuntimeCommunicationProvider("sendgrid"),
+  ]);
+  if (managedResend.status === "configured") {
+    return sendViaResend(message, managedResend.config);
+  }
+  if (managedSendGrid.status === "configured") {
+    return sendViaSendGrid(message, managedSendGrid.config);
+  }
+
   if (readiness.status === "configured") {
+    const managedFallback = readiness.provider === "resend" ? managedResend : managedSendGrid;
+    if (managedFallback.status === "disabled") {
+      return { ok: false, provider: "none", error: "delivery_disabled" };
+    }
     return readiness.provider === "resend" ? sendViaResend(message) : sendViaSendGrid(message);
   }
 
@@ -275,7 +337,34 @@ export async function sendEmail(message: EmailMessage): Promise<EmailResult> {
   };
 }
 
+/** Admin connection test for one explicit managed provider; never falls back. */
+export async function sendEmailWithManagedProvider(
+  provider: "resend" | "sendgrid",
+  message: EmailMessage,
+  scope?: { tenantId?: string; workspaceId?: string },
+): Promise<EmailResult> {
+  const managed = await resolveRuntimeCommunicationProvider(provider, scope);
+  if (managed.status !== "configured") {
+    return { ok: false, provider, error: `managed_provider_${managed.status}` };
+  }
+  return provider === "resend"
+    ? sendViaResend(message, managed.config)
+    : sendViaSendGrid(message, managed.config);
+}
+
 /** Whether a live delivery provider with a usable credential is configured. */
 export function isEmailConfigured(): boolean {
   return emailDeliveryReadiness().status === "configured";
+}
+
+/** Live runtime readiness, including explicit admin enable/disable authority. */
+export async function isEmailRuntimeConfigured(): Promise<boolean> {
+  const [managedResend, managedSendGrid] = await Promise.all([
+    resolveRuntimeCommunicationProvider("resend"),
+    resolveRuntimeCommunicationProvider("sendgrid"),
+  ]);
+  if (managedResend.status === "configured" || managedSendGrid.status === "configured") return true;
+  const readiness = emailDeliveryReadiness();
+  if (readiness.status !== "configured") return false;
+  return (readiness.provider === "resend" ? managedResend : managedSendGrid).status !== "disabled";
 }

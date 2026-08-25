@@ -1,5 +1,5 @@
 import { apiOk } from "@/lib/api-validation";
-import { isEmailConfigured } from "@/lib/email";
+import { isEmailRuntimeConfigured } from "@/lib/email";
 import { checkDbHealth } from "@/lib/db";
 import { getAllFlags } from "@/lib/feature-flags";
 import { errorTrackingStatus } from "@/lib/error-tracking";
@@ -58,10 +58,14 @@ export async function GET(request: Request) {
   const start = Date.now();
   const isProduction = process.env.NODE_ENV === "production";
 
-  const [db, redis] = await Promise.all([checkDbHealth(), checkRedis()]);
+  const [db, redis, emailConfigured] = await Promise.all([
+    checkDbHealth(),
+    checkRedis(),
+    isEmailRuntimeConfigured(),
+  ]);
   const runtime = getRuntimeReadiness();
 
-  const email = isEmailConfigured() ? "configured" : "unconfigured";
+  const email = emailConfigured ? "configured" : "unconfigured";
 
   // Emit alerts for critical failures (rate-limited to once per 60 s by the emitter).
   if (db.status === "unavailable") emitAlert("DB_DOWN", "Database health check failed");

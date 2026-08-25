@@ -87,6 +87,7 @@ import { CERTIFICATE_SHARE_EVENTS_TENANT_SQL } from "./db-migrate-certificate-sh
 import { ACTIVE_PRINCIPAL_BINDING_ENFORCEMENT_SQL } from "./db-migrate-active-principal-binding-enforcement";
 import { NOTIFICATION_SUPPRESS_DECISION_SQL } from "./db-migrate-notification-suppress-decision";
 import { PHONE_IDENTITY_OTP_SQL } from "./db-migrate-phone-identity-otp";
+import { COMMUNICATION_PROVIDER_CONFIG_SQL } from "./db-migrate-communication-provider-config";
 
 export type CanonicalMigrationContent = Readonly<{
   identity: string;
@@ -371,5 +372,9 @@ export const CANONICAL_MIGRATION_CONTENT = Object.freeze({
   phoneIdentityOtp: one(
     "0087_phone_identity_otp.sql",
     PHONE_IDENTITY_OTP_SQL,
+  ),
+  communicationProviderConfig: one(
+    "0088_communication_provider_config.sql",
+    COMMUNICATION_PROVIDER_CONFIG_SQL,
   ),
 });

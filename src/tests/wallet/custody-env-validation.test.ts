@@ -23,6 +23,7 @@ function baseProductionEnv(): NodeJS.ProcessEnv {
     TECPEY_CRM_CONTACT_HASH_SECRET: secret("crm-contact"),
     TECPEY_PHONE_IDENTITY_HASH_SECRET: secret("phone-identity"),
     TECPEY_PHONE_OTP_ENCRYPTION_KEY_B64: Buffer.alloc(32, 9).toString("base64"),
+    TECPEY_PROVIDER_SECRET_ENCRYPTION_KEY_B64: Buffer.alloc(32, 10).toString("base64"),
     LIMOO_SMS_API_KEY: "limoo-test-api-key",
     TECPEY_TRUSTED_PROXY_HEADER: "x-real-ip",
     TECPEY_TRUSTED_PROXY_HOPS: "1",

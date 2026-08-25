@@ -40,7 +40,8 @@ export const getCurrencies = async (
       limit: String(limit),
       search,
     });
-    const fallback = await fetcher<CurrencyListResponse>(`/api/market-data?${params}`, {
+    params.set("source", "public");
+    const fallback = await fetcher<CurrencyListResponse>(`/api/markets?${params}`, {
       method: "GET",
     });
     return {
