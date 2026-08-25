@@ -21,10 +21,13 @@ import {
 import { assertDatabaseReadyForRuntime } from "./src/lib/db";
 import { requiredWorkerReadiness, setRuntimeReadiness } from "./src/lib/runtime-readiness";
 import { drainRuntime } from "./src/lib/runtime-shutdown";
+import { installBakedNextRuntimeConfig } from "./src/lib/production-next-runtime-config";
 
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const hostname = process.env.TECPEY_BIND_HOST?.trim() || "0.0.0.0";
 const dev = process.env.NODE_ENV !== "production";
+
+if (!dev) installBakedNextRuntimeConfig();
 
 const httpServer = createServer();
 // Next.js 16 custom-server/proxy bootstrap needs the same explicit network
