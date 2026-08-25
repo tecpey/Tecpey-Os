@@ -26,94 +26,6 @@ type NewsItem = {
 const MAX_LIVE_NEWS_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_FUTURE_CLOCK_SKEW_MS = 10 * 60 * 1000;
 
-const fallbackEn: NewsItem[] = [
-  {
-    id: "fallback-en-btc-etf",
-    title: "Bitcoin ETF flows remain a key signal for institutional demand",
-    summary: "TecPey brief: ETF flows can affect liquidity and sentiment, but you should review risk, time horizon and position size before acting.",
-    source: "TecPey Market Desk",
-    url: "/en/academy/term-5",
-    publishedAt: "",
-    category: "ETF & Institutions",
-    tone: "neutral",
-    impact: 8,
-    trendScore: 92,
-    editorPick: true,
-    relatedLesson: "Term 5 · Market intelligence",
-  },
-  {
-    id: "fallback-en-security",
-    title: "Crypto security remains the first rule before any trade",
-    summary: "TecPey brief: Phishing, fake apps and unsafe seed phrase storage are still among the most common beginner risks.",
-    source: "TecPey Academy",
-    url: "/en/academy/term-2",
-    publishedAt: "",
-    category: "Security",
-    tone: "neutral",
-    impact: 9,
-    trendScore: 88,
-    editorPick: true,
-    relatedLesson: "Term 2 · Wallet and account security",
-  },
-  {
-    id: "fallback-en-risk",
-    title: "Volatile markets reward discipline more than prediction",
-    summary: "TecPey brief: Risk sizing, stop planning and emotional control matter more than chasing every short-term move.",
-    source: "TecPey Risk Lab",
-    url: "/en/academy/practice-lab",
-    publishedAt: "",
-    category: "Risk Management",
-    tone: "neutral",
-    impact: 8,
-    trendScore: 83,
-    relatedLesson: "Practice Lab · Risk planning",
-  },
-];
-
-const fallbackFa: NewsItem[] = [
-  {
-    id: "fallback-fa-etf",
-    title: "جریان سرمایه ETFهای بیت‌کوین همچنان یکی از سیگنال‌های مهم بازار است",
-    summary: "خلاصه تک‌پی: ورود یا خروج سرمایه نهادی می‌تواند روی نقدشوندگی و احساسات بازار اثر بگذارد؛ تصمیم شما باید کنار مدیریت ریسک و افق زمانی بررسی شود.",
-    source: "اتاق خبر تک‌پی",
-    url: "/academy/term-5",
-    publishedAt: "",
-    category: "ETF و نهادها",
-    tone: "neutral",
-    impact: 8,
-    trendScore: 92,
-    editorPick: true,
-    relatedLesson: "ترم ۵ · هوش بازار",
-  },
-  {
-    id: "fallback-fa-security",
-    title: "امنیت حساب قبل از هر معامله، قانون اول بازار رمزارز است",
-    summary: "خلاصه تک‌پی: فیشینگ، اپلیکیشن جعلی و نگهداری ناامن عبارت بازیابی هنوز از مهم‌ترین ریسک‌های کاربران تازه‌وارد هستند.",
-    source: "آکادمی تک‌پی",
-    url: "/academy/term-2",
-    publishedAt: "",
-    category: "امنیت",
-    tone: "neutral",
-    impact: 9,
-    trendScore: 88,
-    editorPick: true,
-    relatedLesson: "ترم ۲ · امنیت کیف پول و حساب",
-  },
-  {
-    id: "fallback-fa-risk",
-    title: "در بازار پرنوسان، نظم مهم‌تر از پیش‌بینی است",
-    summary: "خلاصه تک‌پی: مدیریت حجم معامله، حد ضرر و کنترل هیجان برای حفظ سرمایه مهم‌تر از دنبال کردن هر حرکت کوتاه‌مدت بازار است.",
-    source: "لابراتوار ریسک تک‌پی",
-    url: "/academy/practice-lab",
-    publishedAt: "",
-    category: "مدیریت ریسک",
-    tone: "neutral",
-    impact: 8,
-    trendScore: 83,
-    relatedLesson: "تمرین عملی · برنامه‌ریزی ریسک",
-  },
-];
-
 const sourcesEn = [
   { name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
   { name: "Cointelegraph", url: "https://cointelegraph.com/rss" },
@@ -150,16 +62,16 @@ function hasPersian(text: string) {
 
 function inferTone(text: string): NewsTone {
   const lower = text.toLowerCase();
-  if (/(surge|rally|gain|approval|inflow|bull|record|rise|up|صعود|رشد|افزایش|تایید|ورود سرمایه)/i.test(lower)) return "bullish";
-  if (/(fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|down|ریزش|هک|کلاهبرداری|سقوط|ممنوعیت|خروج سرمایه)/i.test(lower)) return "bearish";
+  if (/(?:\b(?:surge|rally|gain|approval|inflow|bull|record|rise|up)\b|صعود|رشد|افزایش|تایید|ورود سرمایه)/i.test(lower)) return "bullish";
+  if (/(?:\b(?:fall|drop|hack|lawsuit|outflow|bear|crash|fraud|ban|down)\b|ریزش|هک|کلاهبرداری|سقوط|ممنوعیت|خروج سرمایه)/i.test(lower)) return "bearish";
   return "neutral";
 }
 
 function inferImpact(text: string) {
   const lower = text.toLowerCase();
   let score = 5;
-  if (/(bitcoin|btc|بیت.?کوین|ethereum|eth|اتریوم|etf|sec|fed|blackrock|binance|coinbase)/i.test(lower)) score += 2;
-  if (/(hack|lawsuit|approval|crash|collapse|record|billion|هک|تایید|سقوط|میلیارد|شکایت)/i.test(lower)) score += 2;
+  if (/(?:\b(?:bitcoin|btc|ethereum|eth|etf|sec|fed|blackrock|binance|coinbase)\b|بیت.?کوین|اتریوم)/i.test(lower)) score += 2;
+  if (/(?:\b(?:hack|lawsuit|approval|crash|collapse|record|billion)\b|هک|تایید|سقوط|میلیارد|شکایت)/i.test(lower)) score += 2;
   return Math.max(4, Math.min(10, score));
 }
 
@@ -177,11 +89,11 @@ function isCurrentSourceTimestamp(value: string, now = Date.now()) {
 
 function categoryOf(text: string, locale: string) {
   const lower = text.toLowerCase();
-  if (/bitcoin|btc|بیت.?کوین/i.test(lower)) return locale === "fa" ? "بیت‌کوین" : "Bitcoin";
-  if (/ethereum|eth|اتریوم/i.test(lower)) return locale === "fa" ? "اتریوم" : "Ethereum";
-  if (/etf|blackrock|fidelity|institution|نهادی/i.test(lower)) return locale === "fa" ? "ETF و نهادها" : "ETF & Institutions";
-  if (/sec|regulation|law|court|ban|قانون|دادگاه|مقررات/i.test(lower)) return locale === "fa" ? "قوانین" : "Regulation";
-  if (/hack|scam|phishing|security|هک|فیشینگ|امنیت/i.test(lower)) return locale === "fa" ? "امنیت" : "Security";
+  if (/(?:\b(?:bitcoin|btc)\b|بیت.?کوین)/i.test(lower)) return locale === "fa" ? "بیت‌کوین" : "Bitcoin";
+  if (/(?:\b(?:ethereum|eth)\b|اتریوم)/i.test(lower)) return locale === "fa" ? "اتریوم" : "Ethereum";
+  if (/(?:\b(?:etf|blackrock|fidelity|institution)\b|نهادی)/i.test(lower)) return locale === "fa" ? "ETF و نهادها" : "ETF & Institutions";
+  if (/(?:\b(?:sec|regulation|law|court|ban)\b|قانون|دادگاه|مقررات)/i.test(lower)) return locale === "fa" ? "قوانین" : "Regulation";
+  if (/(?:\b(?:hack|scam|phishing|security)\b|هک|فیشینگ|امنیت)/i.test(lower)) return locale === "fa" ? "امنیت" : "Security";
   return locale === "fa" ? "بازار" : "Market";
 }
 
@@ -204,9 +116,17 @@ function enSummaryFor(title: string, sourceSummary: string) {
 }
 
 async function readSource(source: { name: string; url: string }, locale: string): Promise<NewsItem[]> {
-  const response = await fetch(source.url, { next: { revalidate: 900 }, headers: { "user-agent": "TecPeyNewsBot/1.0" } });
+  if (!/^https:\/\//i.test(source.url)) throw new Error("feed URL must be HTTPS");
+  const response = await fetch(source.url, {
+    next: { revalidate: 900 },
+    headers: { "user-agent": "TecPeyNewsBot/1.0", accept: "application/rss+xml, application/atom+xml, application/xml, text/xml" },
+    signal: AbortSignal.timeout(7_000),
+  });
   if (!response.ok) throw new Error(`feed failed ${source.name}`);
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  if (contentLength > 2_000_000) throw new Error("feed too large");
   const xml = await response.text();
+  if (xml.length > 2_000_000) throw new Error("feed too large");
   const itemBlocks = Array.from(xml.matchAll(/<item[\s\S]*?<\/item>/gi)).map((m) => m[0]).slice(0, 10);
   const entries = itemBlocks.length ? itemBlocks : Array.from(xml.matchAll(/<entry[\s\S]*?<\/entry>/gi)).map((m) => m[0]).slice(0, 10);
   return entries
@@ -214,7 +134,8 @@ async function readSource(source: { name: string; url: string }, locale: string)
       const title = pick(block, "title");
       const rawSummary = pick(block, "description") || pick(block, "summary") || pick(block, "content");
       const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*>/i);
-      const link = pick(block, "link") || clean(linkMatch?.[1] ?? "");
+      const candidateLink = pick(block, "link") || clean(linkMatch?.[1] ?? "");
+      const link = /^https:\/\//i.test(candidateLink) ? candidateLink : "";
       const publishedRaw = pick(block, "pubDate") || pick(block, "published") || pick(block, "updated");
       const parsedDate = new Date(publishedRaw);
       const publishedAt = Number.isNaN(parsedDate.getTime()) ? "" : parsedDate.toISOString();
@@ -327,7 +248,6 @@ export async function GET(request: NextRequest) {
       includeQuiz ? { newsQuiz: buildNewsQuizBankFromFeed(items, { locale }) } : {};
     const automationPayloadFor = (items: NewsItem[], fetchedAt: string) =>
       includeAutomation ? { automation: automationFor(items, locale, fetchedAt) } : {};
-    const fallback = locale === "fa" ? fallbackFa : fallbackEn;
     const sourceList = locale === "fa" ? sourcesFa : sourcesEn;
     try {
       const updatedAt = new Date().toISOString();
@@ -336,7 +256,7 @@ export async function GET(request: NextRequest) {
       const unique = Array.from(new Map(items.map((item) => [item.title.toLowerCase(), item])).values())
         .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
         .slice(0, limit);
-      const responseItems = unique.length ? unique : fallback;
+      const responseItems = unique;
       return apiOk({
         locale,
         updatedAt,
@@ -352,8 +272,8 @@ export async function GET(request: NextRequest) {
         locale,
         updatedAt,
         mode: "fallback" as const,
-        marketIntelligence: marketIntelligence(locale, fallback),
-        items: fallback,
+        marketIntelligence: marketIntelligence(locale, []),
+        items: [],
         ...quizFor([]),
         ...automationPayloadFor([], updatedAt),
       });

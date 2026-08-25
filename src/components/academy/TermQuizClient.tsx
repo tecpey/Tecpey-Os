@@ -120,9 +120,10 @@ export function TermQuizClient({
   const percent = officialResult?.percent
     ?? Math.round((answeredCount / Math.max(1, shuffledQuestions.length)) * 100);
   const passed = Boolean(officialResult?.passed);
+  const quizLocked = !leadSaved || !canAccess;
 
   useEffect(() => {
-    if (!completed) return;
+    if (!completed || quizLocked) return;
     assessmentCommandId.current ??=
       `term-assessment-${termNumber}-${crypto.randomUUID()}`;
     const idempotencyKey = assessmentCommandId.current;
@@ -182,7 +183,7 @@ export function TermQuizClient({
             : "Results are saved only after official verification.",
         ),
       );
-  }, [completed, termNumber, locale, answers, answerAttempts]);
+  }, [completed, quizLocked, termNumber, locale, answers, answerAttempts]);
 
   const saveLead = async () => {
     setLeadError("");
@@ -313,6 +314,7 @@ export function TermQuizClient({
 
       <div
         className={`${!leadSaved || !canAccess ? "pointer-events-none opacity-45" : ""}`}
+        aria-disabled={quizLocked}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -370,7 +372,7 @@ export function TermQuizClient({
                         key={option}
                         type="button"
                         aria-pressed={isSelected}
-                        disabled={Boolean(officialResult)}
+                        disabled={quizLocked || Boolean(officialResult)}
                         className={`rounded-2xl border px-4 py-3 text-start text-sm font-black transition disabled:cursor-not-allowed ${stateClass}`}
                         onClick={() => {
                           setAnswerAttempts((previous) => ({
@@ -418,6 +420,7 @@ export function TermQuizClient({
           <button
             type="button"
             onClick={resetQuiz}
+            disabled={quizLocked}
             className="rounded-2xl border border-cyan-300/30 bg-white px-5 py-3 text-sm font-black text-cyan-700 transition hover:bg-cyan-50 dark:bg-white/10 dark:text-cyan-100"
           >
             {isFa ? "شروع تلاش جدید" : "Start a new attempt"}

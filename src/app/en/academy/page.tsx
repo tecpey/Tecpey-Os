@@ -96,8 +96,8 @@ export default function AcademyPage() {
         <div className="mx-auto max-w-7xl rounded-[34px] border border-cyan-300/20 bg-cyan-500/10 p-6 shadow-[0_24px_80px_rgba(34,211,238,.12)]">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
             <div>
-              <h2 className="text-2xl font-black text-white">Personalized Academy Coach</h2>
-              <p className="mt-3 text-sm font-bold leading-8 text-slate-300">Your coach connects term progress, recent questions and learning gaps into a clear next step, so the mentor does more than answer isolated questions.</p>
+              <h2 className="text-2xl font-black text-slate-950 dark:text-white">Personalized Academy Coach</h2>
+              <p className="mt-3 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">Your coach connects term progress, recent questions and learning gaps into a clear next step, so the mentor does more than answer isolated questions.</p>
             </div>
             <Link href="/en/academy/mentor-coach" className="rounded-2xl bg-cyan-800 px-5 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-700">Open personal coach</Link>
           </div>
@@ -107,22 +107,22 @@ export default function AcademyPage() {
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-black text-slate-950">TecPey Academy 7-term path</h2>
+            <h2 className="text-3xl font-black text-slate-950 dark:text-white">TecPey Academy 7-term path</h2>
             <p className="mt-4 text-sm font-bold leading-8 text-slate-700 dark:text-slate-300">
               TecPey Academy starts from basic concepts, then moves through security, exchange use, analysis, risk management and professional readiness. Each term ends with a short exam.
             </p>
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-7">
             {academyTerms.map((item, index) => (
-              <article key={item.term} className="rounded-[28px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl">
+              <article key={item.term} className="rounded-[28px] border border-cyan-200 bg-white/92 p-5 shadow-[0_18px_55px_rgba(15,23,42,.10)] backdrop-blur-xl dark:border-cyan-300/15 dark:bg-white/[0.055]">
                 <div className="flex items-center justify-between gap-3">
                   <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-800">{item.term}</span>
                   <ClipboardCheck className="h-6 w-6 text-cyan-600" />
                 </div>
-                <h3 className="mt-4 text-lg font-black leading-8 text-slate-950">{item.title}</h3>
+                <h3 className="mt-4 text-lg font-black leading-8 text-slate-950 dark:text-white">{item.title}</h3>
                 <ul className="mt-3 space-y-2">
                   {item.lessons.map((lesson) => (
-                    <li key={lesson} className="flex gap-2 text-sm font-bold leading-7 text-slate-600">
+                    <li key={lesson} className="flex gap-2 text-sm font-bold leading-7 text-slate-600 dark:text-slate-300">
                       <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-cyan-600" />
                       <span>{lesson}</span>
                     </li>

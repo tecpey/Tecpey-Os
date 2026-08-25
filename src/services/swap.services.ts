@@ -21,21 +21,37 @@ export const getCurrencies = async (
     );
 
 
-    return {
+    const primary = {
       data: res?.data ?? [],
       meta: {
         current_page: res?.meta?.current_page ?? page,
         last_page: res?.meta?.last_page ?? 1,
       },
     };
+    if (primary.data.length > 0) return primary;
   } catch {
+    // The governed public source below is the availability fallback. It never
+    // fabricates a price and rejects stale upstream timestamps server-side.
+  }
+
+  try {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      search,
+    });
+    const fallback = await fetcher<CurrencyListResponse>(`/api/market-data?${params}`, {
+      method: "GET",
+    });
     return {
-      data: [],
+      data: fallback?.data ?? [],
       meta: {
-        current_page: 1,
-        last_page: 1,
+        current_page: fallback?.meta?.current_page ?? page,
+        last_page: fallback?.meta?.last_page ?? page,
       },
     };
+  } catch {
+    return { data: [], meta: { current_page: 1, last_page: 1 } };
   }
 };
 

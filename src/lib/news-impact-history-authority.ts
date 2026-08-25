@@ -45,6 +45,20 @@ export type NewsImpactHistoryAuthoritySnapshot = Readonly<{
   latestPersistedRecordedAt: string | null;
 }>;
 
+export const LIVE_NEWS_IMPACT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
+
+export function filterCurrentNewsImpactItems(
+  items: NewsImpactHistoryItem[],
+  now = Date.now(),
+): NewsImpactHistoryItem[] {
+  return items.filter((item) => {
+    const publishedAt = Date.parse(item.publishedAt);
+    return Number.isFinite(publishedAt)
+      && publishedAt <= now
+      && now - publishedAt <= LIVE_NEWS_IMPACT_MAX_AGE_MS;
+  });
+}
+
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -128,8 +142,10 @@ export async function getNewsImpactHistoryItemsFromAuthority(
 export async function getNewsImpactHistoryAuthoritySnapshot(
   locale?: ContentLocale,
 ): Promise<NewsImpactHistoryAuthoritySnapshot> {
-  const seeded = getNewsImpactHistoryItems(locale);
-  const persisted = await getPostgresNewsImpactHistoryItems(locale);
+  // This authority powers "live" cards and rankings. Historical editorial
+  // records remain stored, but cannot silently influence current rankings.
+  const seeded = filterCurrentNewsImpactItems(getNewsImpactHistoryItems(locale));
+  const persisted = filterCurrentNewsImpactItems(await getPostgresNewsImpactHistoryItems(locale));
   if (persisted.length === 0) {
     return {
       items: seeded,

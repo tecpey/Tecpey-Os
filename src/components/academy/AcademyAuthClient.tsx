@@ -4,7 +4,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FaApple, FaGithub, FaGoogle } from "react-icons/fa6";
+import { FaApple, FaGoogle } from "react-icons/fa6";
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,33 +50,24 @@ function FieldLabel({
 function SocialAuthButton({
   label,
   status,
-  badge,
   icon,
 }: {
   label: string;
   status: string;
-  badge: string;
   icon: ReactNode;
 }) {
   return (
     <button
       type="button"
       disabled
-      className="group relative inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--tp-border)] bg-white px-3 py-2.5 text-sm font-black text-[color:var(--tp-text)] opacity-65 shadow-sm transition-[transform,border-color,background-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 disabled:cursor-not-allowed dark:bg-white/[0.08]"
+      className="group relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[color:var(--tp-border)] bg-white text-xl text-[color:var(--tp-text)] opacity-65 shadow-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40 disabled:cursor-not-allowed dark:bg-white/[0.08]"
       aria-label={`${label} - ${status}`}
       title={status}
     >
-      <span className="text-base text-[color:var(--tp-text)]" aria-hidden="true">
+      <span aria-hidden="true">
         {icon}
       </span>
-      <span>{label}</span>
-      <span
-        className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-1.5 py-0.5 text-[9px] font-black text-cyan-700 dark:text-cyan-200"
-        aria-hidden="true"
-      >
-        {badge}
-      </span>
-      <span className="sr-only">{status}</span>
+      <span className="sr-only">{label}: {status}</span>
     </button>
   );
 }
@@ -98,6 +89,8 @@ export function AcademyAuthClient({
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const usernameHint = useMemo(
     () =>
       normalizeUsername(username || displayName || email.split("@")[0] || ""),
@@ -110,13 +103,40 @@ export function AcademyAuthClient({
   const socialStatus = isFa
     ? "به‌زودی پس از اتصال امن provider فعال می‌شود"
     : "Coming soon after secure provider connection";
-  const socialBadge = isFa ? "به‌زودی" : "Soon";
   const errorId = "academy-auth-error";
   const passwordHintId = "academy-password-hint";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (twoFactorToken) {
+      if (!/^\d{6}$/.test(twoFactorCode)) {
+        setError(isFa ? "کد ۶ رقمی برنامه احراز هویت را وارد کن." : "Enter the 6-digit authenticator code.");
+        return;
+      }
+      setSaving(true);
+      try {
+        const response = await fetch("/api/auth/2fa/verify", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: twoFactorCode, preAuthToken: twoFactorToken }),
+        });
+        const data = (await response.json().catch(() => null)) as { error?: string; authenticated?: boolean } | null;
+        if (!response.ok || !data?.authenticated) throw new Error(data?.error || "invalid_totp_code");
+        window.dispatchEvent(new Event("tecpey-academy-auth-ready"));
+        router.replace(locale === "en" ? "/en/academy/profile" : "/academy/profile");
+        router.refresh();
+      } catch (err) {
+        const code = (err as Error)?.message;
+        setError(code === "preauth_token_invalid"
+          ? (isFa ? "زمان ورود تمام شد؛ دوباره وارد شو." : "The login challenge expired; sign in again.")
+          : (isFa ? "کد احراز هویت معتبر نیست یا قبلاً استفاده شده است." : "The authenticator code is invalid or already used."));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const cleanEmail = email.trim().toLowerCase();
     const cleanDisplay = (displayName || cleanEmail.split("@")[0])
       .trim()
@@ -165,6 +185,16 @@ export function AcademyAuthClient({
           error?: string;
         } | null;
         throw new Error(data?.error || "auth_failed");
+      }
+      const authData = (await response.json().catch(() => null)) as {
+        requires2fa?: boolean;
+        preAuthToken?: string;
+      } | null;
+      if (authData?.requires2fa) {
+        if (!authData.preAuthToken) throw new Error("preauth_authority_unavailable");
+        setTwoFactorToken(authData.preAuthToken);
+        setTwoFactorCode("");
+        return;
       }
       // Verify the same-origin session after the cookie is persisted.
       await new Promise((resolve) => setTimeout(resolve, 80));
@@ -425,24 +455,16 @@ export function AcademyAuthClient({
           </div>
 
           <div className="mb-5">
-            <div className="grid gap-2">
+            <div className="flex items-center justify-center gap-3">
               <SocialAuthButton
                 label="Google"
                 status={socialStatus}
-                badge={socialBadge}
                 icon={<FaGoogle />}
               />
               <SocialAuthButton
                 label="Apple"
                 status={socialStatus}
-                badge={socialBadge}
                 icon={<FaApple />}
-              />
-              <SocialAuthButton
-                label="GitHub"
-                status={socialStatus}
-                badge={socialBadge}
-                icon={<FaGithub />}
               />
             </div>
             <div className="mt-4 flex items-center gap-3">
@@ -460,6 +482,29 @@ export function AcademyAuthClient({
           </div>
 
           <div className="space-y-3.5">
+            {twoFactorToken ? (
+              <div>
+                <FieldLabel htmlFor="academy-two-factor-code">
+                  {isFa ? "کد احراز هویت دومرحله‌ای" : "Two-factor authentication code"}
+                </FieldLabel>
+                <input
+                  id="academy-two-factor-code"
+                  value={twoFactorCode}
+                  onChange={(event) => setTwoFactorCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  dir="ltr"
+                  autoFocus
+                  className="mt-2 min-h-12 w-full rounded-2xl border border-cyan-300 bg-slate-50 px-4 py-3 text-center text-xl font-black tracking-[0.45em] text-[color:var(--tp-text)] outline-none focus:ring-4 focus:ring-cyan-300/25 dark:bg-white/[0.08]"
+                  aria-describedby="academy-two-factor-hint"
+                />
+                <p id="academy-two-factor-hint" className="mt-2 text-xs font-bold leading-6 text-[color:var(--tp-muted)]">
+                  {isFa ? "کد فعلی برنامه Authenticator را وارد کن. تا تأیید کد هیچ نشستی صادر نمی‌شود." : "Enter the current code from your authenticator app. No session is issued before verification."}
+                </p>
+              </div>
+            ) : (
+              <>
             {isSignup ? (
               <>
                 <div>
@@ -564,6 +609,8 @@ export function AcademyAuthClient({
                   : "Use at least 10 characters for stronger account protection."}
               </p>
             </div>
+              </>
+            )}
           </div>
 
           {error ? (
@@ -588,7 +635,9 @@ export function AcademyAuthClient({
             ) : (
               <LockKeyhole className="h-4 w-4" aria-hidden="true" />
             )}
-            {isSignup
+            {twoFactorToken
+              ? isFa ? "تأیید کد و ورود" : "Verify code and sign in"
+              : isSignup
               ? isFa
                 ? "ساخت حساب آکادمی"
                 : "Create academy account"

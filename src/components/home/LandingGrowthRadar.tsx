@@ -108,13 +108,21 @@ function FeaturedToolCard({
       className="group min-h-[176px] rounded-[26px] border border-slate-200 bg-white/85 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45 hover:shadow-[0_24px_70px_rgba(34,211,238,.16)] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 dark:border-white/10 dark:bg-white/[0.055]"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-cyan-300/20 bg-slate-900 text-sm font-black text-white">
+            <span aria-hidden="true">{tool.logo || tool.name.slice(0, 1)}</span>
+            <svg viewBox="0 0 40 40" className="absolute inset-1 h-9 w-9 rounded-xl bg-white p-1" aria-hidden="true">
+              <image href={tool.logoUrl} width="40" height="40" preserveAspectRatio="xMidYMid meet" />
+            </svg>
+          </span>
+          <div className="min-w-0">
           <p className="text-xs font-black text-cyan-700 dark:text-cyan-200">
             {isFa ? `ابزار منتخب ${index + 1}` : `Tool ${index + 1}`}
           </p>
           <h3 className="mt-2 line-clamp-1 text-lg font-black text-[color:var(--tp-text)]">
             {tool.name}
           </h3>
+          </div>
         </div>
         <span className="shrink-0 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-700 dark:text-emerald-200">
           {percent(tool.growthRank.rankScore, locale)}

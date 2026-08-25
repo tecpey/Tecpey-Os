@@ -11,6 +11,7 @@ type Props = {
   isIRTenabled: boolean;
   USDT_IRT?: number | string | null;
   itemsPerPage: number;
+  isLoading?: boolean;
 };
 
 export default function MarketsTable({
@@ -18,6 +19,7 @@ export default function MarketsTable({
   rows,
   isIRTenabled,
   USDT_IRT,
+  isLoading = false,
 }: Props) {
   const gridClass = useMemo(() => {
     return isIRTenabled
@@ -30,8 +32,21 @@ export default function MarketsTable({
 
   
 
-    if (!rows || rows.length ===0) {
+  if (isLoading) {
     return <PriceTableSkeleton rows={8} hasIRT={isIRTenabled} />;
+  }
+
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="rounded-[22px] border border-amber-300/25 bg-amber-400/10 px-5 py-10 text-center" role="status">
+        <p className="text-sm font-black text-[color:var(--tp-text)]">
+          {t("unavailableTitle")}
+        </p>
+        <p className="mx-auto mt-2 max-w-xl text-xs font-bold leading-6 text-[color:var(--tp-muted)]">
+          {t("unavailableDescription")}
+        </p>
+      </div>
+    );
   }
 
 

@@ -75,6 +75,10 @@
     "priceIrt": "Price (IRT)"
   },
   "Markets": {
+    "unavailableTitle": "Verified market data is temporarily unavailable",
+    "unavailableDescription": "We do not show stale or fabricated prices while a fresh verified source is unavailable. Please try again shortly.",
+    "publicSourcePrefix": "Public data source:",
+    "publicSourceFreshness": "prices with upstream timestamps under 5 minutes",
     "title": "Price List",
     "searchPlaceholder": "Search by coin name or symbol...",
     "all": "All",

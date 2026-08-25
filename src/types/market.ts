@@ -46,6 +46,9 @@ export type MarketCurrency = {
   priceIRT?: MarketScalar;
   change?: string | number;
   rank?: MarketScalar;
+  marketDataSource?: string;
+  marketDataSourceUrl?: string;
+  marketDataUpdatedAt?: string;
   [key: string]: unknown;
 };
 

@@ -42,10 +42,12 @@ test("FA and EN homes share the governed core section order", async () => {
   assert.doesNotMatch(fa, /TopDiscoveryGateway/);
 });
 
-test("mobile discovery keeps five items visible without horizontal scrolling", async () => {
+test("mobile discovery prioritizes readable controls without horizontal scrolling", async () => {
   const strip = await source(stripPath);
 
-  assert.match(strip, /grid grid-cols-5/);
+  assert.match(strip, /grid grid-cols-3/);
+  assert.match(strip, /sm:grid-cols-5/);
+  assert.match(strip, /text-xs/);
   assert.doesNotMatch(strip, /overflow-x-auto/);
   assert.match(strip, /min-h-11/);
   assert.match(strip, /aria-pressed=\{selected\}/);
