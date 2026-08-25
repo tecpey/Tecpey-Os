@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Coins, Sparkles, Wrench } from "lucide-react";
+import { ArrowLeft, ArrowRight, Coins, Newspaper, Sparkles, Wrench } from "lucide-react";
 import { CoinVisual } from "@/components/tecpey/CoinVisual";
 import type { ContentLocale } from "@/lib/content-growth";
 import type { LandingGrowthRadarModel } from "@/lib/landing-growth";
@@ -19,6 +19,7 @@ const copy = {
     groupLabel: "انتخاب نوع مسیرهای کشف",
     coins: "کوین‌ها",
     tools: "ابزارها",
+    news: "خبرها",
     rank: "رتبه",
     score: "امتیاز",
     updated: "به‌روزرسانی شواهد",
@@ -27,6 +28,7 @@ const copy = {
     available: "مسیر موجود",
     viewCoins: "همه کوین‌ها",
     viewTools: "همه ابزارها",
+    viewNews: "خبرهای روز",
     educational: "رتبه‌بندی آموزشی؛ نه توصیه مالی.",
   },
   en: {
@@ -38,6 +40,7 @@ const copy = {
     groupLabel: "Choose a discovery route type",
     coins: "Coins",
     tools: "Tools",
+    news: "News",
     rank: "Rank",
     score: "Score",
     updated: "Evidence updated",
@@ -46,6 +49,7 @@ const copy = {
     available: "routes available",
     viewCoins: "All coins",
     viewTools: "All tools",
+    viewNews: "Live news",
     educational: "Educational ranking; not financial advice.",
   },
 } as const;
@@ -98,6 +102,7 @@ export function HomeDiscoveryStrip({
     ? isFa ? "/coins" : "/en/coins"
     : isFa ? "/trading-tools" : "/en/trading-tools";
   const listLabel = activeMode === "coins" ? strings.viewCoins : strings.viewTools;
+  const newsHref = isFa ? "/crypto-news" : "/en/crypto-news";
   const Arrow = isFa ? ArrowLeft : ArrowRight;
 
   return (
@@ -127,7 +132,7 @@ export function HomeDiscoveryStrip({
           <div
             role="group"
             aria-label={strings.groupLabel}
-            className="grid grid-cols-2 rounded-2xl border border-cyan-300/15 bg-slate-950/[0.035] p-1 dark:bg-white/[0.035] sm:w-[260px]"
+            className="grid grid-cols-3 rounded-2xl border border-cyan-300/15 bg-slate-950/[0.035] p-1 dark:bg-white/[0.035] sm:w-[360px]"
           >
             {(["coins", "tools"] as const).map((value) => {
               const selected = activeMode === value;
@@ -152,6 +157,14 @@ export function HomeDiscoveryStrip({
                 </button>
               );
             })}
+            <Link
+              href={newsHref}
+              aria-label={strings.viewNews}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-black text-[color:var(--tp-muted)] transition hover:bg-cyan-500/10 hover:text-[color:var(--tp-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            >
+              <Newspaper className="h-4 w-4" aria-hidden="true" />
+              {strings.news}
+            </Link>
           </div>
         </div>
 
@@ -199,9 +212,25 @@ export function HomeDiscoveryStrip({
                   >
                     <span
                       aria-hidden="true"
-                      className="grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-cyan-300/25 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.34),transparent_30%),linear-gradient(145deg,#0f172a,#0e7490)] text-sm font-black text-white shadow-[0_9px_20px_rgba(8,145,178,.16)]"
+                      className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-full border border-cyan-300/25 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.34),transparent_30%),linear-gradient(145deg,#0f172a,#0e7490)] text-sm font-black text-white shadow-[0_9px_20px_rgba(8,145,178,.16)]"
                     >
-                      {tool.logo || tool.name.slice(0, 1)}
+                      <span>{tool.logo || tool.name.slice(0, 1)}</span>
+                      <svg
+                        viewBox="0 0 32 32"
+                        className="pointer-events-none absolute inset-1 h-8 w-8 rounded-full bg-white p-0.5"
+                        focusable="false"
+                        aria-hidden="true"
+                      >
+                        <image
+                          href={tool.logoUrl}
+                          width="32"
+                          height="32"
+                          preserveAspectRatio="xMidYMid meet"
+                          onError={(event) => {
+                            event.currentTarget.ownerSVGElement?.style.setProperty("display", "none");
+                          }}
+                        />
+                      </svg>
                     </span>
                     <span dir="ltr" className="mt-1.5 w-full truncate text-[9px] font-black text-[color:var(--tp-text)] sm:text-[11px]">
                       {tool.name}

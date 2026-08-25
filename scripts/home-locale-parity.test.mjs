@@ -50,6 +50,8 @@ test("mobile discovery keeps five items visible without horizontal scrolling", a
   assert.match(strip, /min-h-11/);
   assert.match(strip, /aria-pressed=\{selected\}/);
   assert.match(strip, /sr-only/);
+  assert.match(strip, /href=\{tool\.logoUrl\}/);
+  assert.match(strip, /onError=\{\(event\)/);
 });
 
 test("partial authority data preserves the mobile discovery surface", async () => {
@@ -71,6 +73,8 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
     '"/en/coins"',
     '"/trading-tools"',
     '"/en/trading-tools"',
+    '"/crypto-news"',
+    '"/en/crypto-news"',
   ]) {
     assert.ok(strip.includes(route), `localized discovery route missing: ${route}`);
   }
@@ -84,6 +88,7 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
     "groupLabel",
     "coins",
     "tools",
+    "news",
     "rank",
     "score",
     "updated",
@@ -92,6 +97,7 @@ test("shared discovery owns localized routes and equivalent copy", async () => {
     "available",
     "viewCoins",
     "viewTools",
+    "viewNews",
     "educational",
   ]) {
     const occurrences = strip.match(new RegExp(`^    ${key}:`, "gm"))?.length ?? 0;
